@@ -1,0 +1,1230 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PATIENT DETAIL INFO</title>
+  <style>
+    :root {
+      --blue: #337eb7;
+      --blue-dark: #2c74ac;
+      --border: #d9d9d9;
+      --row: #eeeeee;
+      --text: #111;
+      --panel-bg: #fff;
+      --page-bg: #f3f3f3;
+      --button-grey: #6c757d;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 13px;
+      color: var(--text);
+      background: #fff;
+    }
+
+    a {
+      color: #1b65a7;
+      text-decoration: none;
+    }
+
+    a:hover { text-decoration: underline; }
+
+    .MainTable {
+      width: 100%;
+      border-collapse: collapse;
+      border: 0;
+    }
+
+    .MainTableTopRowLeftColumn {
+      height: 55px;
+      padding: 0 24px;
+      color: #fff;
+      background: var(--blue);
+      vertical-align: middle;
+      box-sizing: border-box;
+    }
+
+    .TopStatusBar {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .patient-header-name {
+      display: inline-block;
+      margin-right: 17px;
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .patient-header-details {
+      display: inline-block;
+      margin-right: 17px;
+      font-size: 13px;
+      font-weight: 400;
+    }
+
+    .patient-header-hin {
+      display: inline-block;
+      margin-right: 16px;
+      padding: 5px 12px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, .22);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .3px;
+    }
+
+    .patient-header-appt {
+      font-size: 12px;
+      font-style: italic;
+      color: #eef7ff;
+    }
+
+    .MainTableLeftColumn {
+      width: 255px;
+      min-width: 255px;
+      vertical-align: top;
+      background: #fff;
+    }
+
+    #appt_table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    #appt_table td {
+      height: 32px;
+      padding: 0 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, .2);
+      background: var(--blue);
+      vertical-align: middle;
+    }
+
+    #appt_table a {
+      display: block;
+      color: #fff;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    #appt_table td:hover { background: var(--blue-dark); }
+
+    .MainTableRightColumn {
+      vertical-align: top;
+      background: #fff;
+    }
+
+    .master-shell {
+      min-height: calc(100vh - 55px);
+      background: #fff;
+    }
+
+    .search-row {
+      height: 33px;
+      padding: 0 10px;
+      border-bottom: 1px solid var(--border);
+      background: #f7f7f7;
+      line-height: 33px;
+    }
+
+    .search-icon {
+      display: inline-block;
+      width: 13px;
+      height: 13px;
+      margin-right: 5px;
+      border: 1px solid #1b65a7;
+      border-radius: 50%;
+      vertical-align: -2px;
+      position: relative;
+    }
+
+    .search-icon:after {
+      content: "";
+      position: absolute;
+      right: -5px;
+      bottom: -4px;
+      width: 7px;
+      height: 1px;
+      background: #1b65a7;
+      transform: rotate(45deg);
+    }
+
+    .patient-number-row {
+      margin: 3px 6px 0;
+      height: 40px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: #fafafa;
+      line-height: 40px;
+    }
+
+    .patient-number {
+      float: left;
+      padding-left: 13px;
+      color: #1b65a7;
+      font-weight: 700;
+    }
+
+    .edit-button {
+      float: right;
+      margin: 6px 11px 0 0;
+      width: 69px;
+      padding: 5px 14px;
+      border-radius: 4px;
+      color: #fff;
+      background: var(--blue);
+      font-weight: 700;
+      line-height: 15px;
+      text-align: center;
+      box-sizing: border-box;
+    }
+
+    .edit-button:before {
+      content: "\270E";
+      margin-right: 6px;
+      font-size: 12px;
+    }
+
+    .show-fields {
+      height: 38px;
+      padding: 12px 17px 0 0;
+      text-align: right;
+      box-sizing: border-box;
+    }
+
+    #viewDemographics2 {
+      margin: 0 6px;
+      padding: 18px 18px 14px;
+      background: var(--page-bg);
+      overflow: hidden;
+    }
+
+    .leftSection,
+    .rightSection {
+      float: left;
+      width: calc(50% - 8px);
+    }
+
+    .leftSection { margin-right: 15px; }
+
+    .demographicSection {
+      margin: 0 0 7px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: var(--panel-bg);
+      overflow: hidden;
+    }
+
+    .demographicSection h3 {
+      margin: 0;
+      padding: 10px 14px;
+      color: #fff;
+      background: var(--blue);
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 13px;
+    }
+
+    .demographicSection h3 a,
+    .demographicSection h3 button {
+      margin-left: 8px;
+      padding: 2px 8px;
+      border: 1px solid rgba(255, 255, 255, .65);
+      border-radius: 3px;
+      color: #fff;
+      background: transparent;
+      font: inherit;
+      font-size: 11px;
+      line-height: 13px;
+      vertical-align: 1px;
+    }
+
+    .demographicSection ul {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .demographicSection li {
+      min-height: 29px;
+      padding: 8px 11px 6px;
+      border-bottom: 1px solid #e9e9e9;
+      box-sizing: border-box;
+      line-height: 15px;
+    }
+
+    .demographicSection li:last-child { border-bottom: 0; }
+
+    .label {
+      font-weight: 400;
+    }
+
+    .info {
+      font-weight: 400;
+    }
+
+    b,
+    strong {
+      font-weight: 700;
+    }
+
+    .popup {
+      color: #000;
+      text-decoration: none;
+    }
+
+    .consent-summary {
+      padding: 0;
+    }
+
+    .consent-row {
+      min-height: 37px;
+      padding: 7px 11px 6px;
+      border-bottom: 1px solid #e9e9e9;
+      box-sizing: border-box;
+      line-height: 16px;
+    }
+
+    .consent-row:last-child {
+      border-bottom: 0;
+    }
+
+    .consent-name {
+      display: inline-block;
+      min-width: 195px;
+      font-weight: 700;
+      vertical-align: top;
+    }
+
+    .consent-meta {
+      display: block;
+      margin-top: 1px;
+      color: #555;
+      font-size: 12px;
+    }
+
+    .status-pill {
+      display: inline-block;
+      min-width: 72px;
+      padding: 2px 7px;
+      border-radius: 3px;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      text-align: center;
+      box-sizing: border-box;
+    }
+
+    .status-consented { background: #2f7d32; }
+    .status-declined { background: #b23a2f; }
+    .status-needed { background: #6c757d; }
+
+    .history-chip {
+      display: inline-block;
+      margin-left: 8px;
+      color: #1b65a7;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .consent-history-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    .consent-history-table th,
+    .consent-history-table td {
+      padding: 5px 7px;
+      border-bottom: 1px solid #e5e5e5;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .consent-history-table th {
+      color: #fff;
+      background: var(--blue);
+      font-weight: 700;
+    }
+
+    .consent-history-table tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .history-type {
+      font-weight: 700;
+    }
+
+    .history-filter-label {
+      margin-left: 7px;
+      color: #555;
+      font-weight: 400;
+    }
+
+    .history-list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .history-list li {
+      min-height: 23px;
+      padding: 4px 11px;
+      line-height: 15px;
+    }
+
+    .history-date {
+      display: inline-block;
+      width: 82px;
+      color: #555;
+      font-size: 12px;
+    }
+
+    #rxInteractionWarningLevelDisplay li {
+      min-height: 18px;
+      padding-top: 2px;
+      padding-bottom: 2px;
+    }
+
+    .empty-panel {
+      min-height: 0;
+    }
+
+    .empty-panel.short {
+      min-height: 8px;
+    }
+
+    .empty-panel.tall {
+      min-height: 16px;
+    }
+
+    #paperChartIndicator {
+      height: 32px;
+    }
+
+    .bottom-actions {
+      clear: both;
+      margin: 8px 6px 0;
+      padding: 8px 0 10px;
+      border-top: 2px solid #e0e0e0;
+      overflow: hidden;
+    }
+
+    .button {
+      display: inline-block;
+      min-width: 118px;
+      margin-right: 6px;
+      padding: 8px 12px;
+      border-radius: 4px;
+      color: #fff;
+      background: var(--blue);
+      text-align: center;
+      font-weight: 700;
+      box-sizing: border-box;
+    }
+
+    .button.small {
+      min-width: 107px;
+      margin-right: 7px;
+    }
+
+    .button.grey {
+      min-width: 56px;
+      margin-right: 0;
+      background: var(--button-grey);
+    }
+
+    .right-buttons {
+      float: right;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .35);
+      z-index: 20;
+    }
+
+    .modal-backdrop[hidden],
+    .consent-modal[hidden] {
+      display: none;
+    }
+
+    .consent-modal {
+      position: fixed;
+      top: 72px;
+      left: 50%;
+      width: 840px;
+      max-width: calc(100vw - 48px);
+      margin-left: -420px;
+      border: 1px solid #1f5f91;
+      border-radius: 4px;
+      background: #fff;
+      box-shadow: 0 8px 22px rgba(0, 0, 0, .28);
+      z-index: 21;
+    }
+
+    .modal-header {
+      padding: 10px 14px;
+      color: #fff;
+      background: var(--blue);
+      font-weight: 700;
+      overflow: hidden;
+    }
+
+    .modal-close {
+      float: right;
+      color: #fff;
+      font-weight: 700;
+    }
+
+    .modal-body {
+      padding: 12px 14px 10px;
+      max-height: calc(100vh - 150px);
+      overflow: auto;
+    }
+
+    .modal-grid {
+      width: 100%;
+      border-collapse: collapse;
+      border: 1px solid var(--border);
+      font-size: 12px;
+    }
+
+    .modal-grid th,
+    .modal-grid td {
+      padding: 7px 8px;
+      border-bottom: 1px solid #e5e5e5;
+      vertical-align: top;
+      text-align: left;
+    }
+
+    .modal-grid th {
+      color: #fff;
+      background: var(--blue);
+      font-weight: 700;
+    }
+
+    .modal-grid select,
+    .modal-grid input,
+    .modal-grid textarea {
+      width: 100%;
+      border: 1px solid #bbb;
+      border-radius: 2px;
+      font: inherit;
+      box-sizing: border-box;
+    }
+
+    .modal-grid select,
+    .modal-grid input {
+      height: 25px;
+      padding: 2px 5px;
+    }
+
+    .modal-grid textarea {
+      height: 46px;
+      padding: 4px 5px;
+      resize: none;
+    }
+
+    .modal-note {
+      margin: 10px 0 0;
+      padding: 8px 10px;
+      border: 1px solid #d6e8f7;
+      background: #f4f9fd;
+      color: #333;
+      line-height: 16px;
+    }
+
+    .modal-create-form {
+      margin-top: 12px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .modal-create-form h4 {
+      margin: 0;
+      padding: 8px 10px;
+      color: #fff;
+      background: var(--blue);
+      font-size: 12px;
+    }
+
+    .create-form-body {
+      padding: 10px;
+      background: #fbfbfb;
+    }
+
+    .create-form-grid {
+      display: grid;
+      grid-template-columns: 1.2fr .85fr .65fr .8fr;
+      gap: 8px;
+      align-items: start;
+    }
+
+    .create-form-wide {
+      grid-column: span 2;
+    }
+
+    .create-field label {
+      display: block;
+      margin-bottom: 3px;
+      color: #333;
+      font-weight: 700;
+    }
+
+    .create-field input,
+    .create-field select,
+    .create-field textarea {
+      width: 100%;
+      border: 1px solid #bbb;
+      border-radius: 2px;
+      font: inherit;
+      box-sizing: border-box;
+    }
+
+    .create-field input,
+    .create-field select {
+      height: 25px;
+      padding: 2px 5px;
+    }
+
+    .create-field textarea {
+      height: 45px;
+      padding: 4px 5px;
+      resize: none;
+    }
+
+    .create-form-actions {
+      grid-column: 1 / -1;
+      text-align: right;
+    }
+
+    .create-form-actions .button {
+      margin-right: 0;
+    }
+
+    .modal-history {
+      margin-top: 12px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .modal-history h4 {
+      margin: 0;
+      padding: 8px 10px;
+      color: #fff;
+      background: var(--blue);
+      font-size: 12px;
+    }
+
+    .modal-history ul {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .modal-history li {
+      padding: 7px 10px;
+      border-bottom: 1px solid #e5e5e5;
+      line-height: 15px;
+    }
+
+    .modal-history li:last-child { border-bottom: 0; }
+
+    .modal-footer {
+      padding: 10px 14px;
+      border-top: 1px solid var(--border);
+      background: #f7f7f7;
+      text-align: right;
+    }
+
+    .modal-footer .button {
+      min-width: 75px;
+      padding: 7px 12px;
+    }
+
+    @media (max-width: 900px) {
+      .MainTableLeftColumn {
+        width: 185px;
+        min-width: 185px;
+      }
+
+      .patient-header-hin,
+      .patient-header-appt {
+        display: none;
+      }
+
+      .leftSection,
+      .rightSection {
+        float: none;
+        width: 100%;
+        margin-right: 0;
+      }
+
+      .create-form-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .create-form-wide {
+        grid-column: span 2;
+      }
+    }
+  </style>
+</head>
+<body id="demographiceditdemographic">
+  <table class="MainTable" id="scrollNumber1" name="encounterTable">
+    <tr class="MainTableTopRow">
+      <td class="MainTableTopRowLeftColumn" colspan="2">
+        <table class="TopStatusBar">
+          <tr>
+            <td>
+              <span class="patient-header-name">FAKE-Jacky, FAKE-Jones</span>
+              <span class="patient-header-details">Male &middot; 40 years &middot; DOB: 1985-06-15</span>
+              <span class="patient-header-hin">HIN: 9876543225 AB</span>
+              <span class="patient-header-appt">Next Appointment:</span>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+    <tr>
+      <td class="MainTableLeftColumn" valign="top">
+        <table border="0" cellspacing="0" id="appt_table">
+          <tr><td><a href="#">Appointment History</a></td></tr>
+          <tr><td><a href="#">Billing History</a></td></tr>
+          <tr><td><a href="#">Create Invoice</a></td></tr>
+          <tr><td><a href="#">Consultations</a></td></tr>
+          <tr><td><a href="#">Prescriptions</a></td></tr>
+          <tr><td><a href="#">E-Chart</a></td></tr>
+          <tr><td><a href="#">Preventions</a></td></tr>
+          <tr><td><a href="#">Tickler</a></td></tr>
+          <tr><td><a href="#">Documents</a></td></tr>
+          <tr><td><a href="#">Current eForms</a></td></tr>
+        </table>
+      </td>
+      <td class="MainTableRightColumn" valign="top">
+        <div class="master-shell">
+          <div class="search-row">
+            <span class="search-icon" aria-hidden="true"></span>
+            <a href="#"><b>Search Patient</b></a>
+          </div>
+
+          <div class="patient-number-row">
+            <span class="patient-number">#1</span>
+            <a class="edit-button" href="#">Edit</a>
+          </div>
+
+          <div class="show-fields"><a href="#">Show all fields</a></div>
+
+          <div id="viewDemographics2" class="hide-empties">
+            <div class="leftSection">
+              <div class="demographicSection" id="demographic">
+                <h3>Demographic</h3>
+                <ul>
+                  <li><span class="label">Title:</span> <span class="info">MR</span></li>
+                  <li><span class="label">Last Name:</span> <span class="info">FAKE-Jacky</span></li>
+                  <li><span class="label">First Name:</span> <span class="info">FAKE-Jones</span></li>
+                  <li><span class="label">Sex:</span> <span class="info">Male</span></li>
+                  <li><span class="label">Age:</span> <span class="info">40 years ( DOB: 1985-06-15)</span></li>
+                  <li><span class="label">Language:</span> <span class="info">English</span></li>
+                </ul>
+              </div>
+
+              <div class="demographicSection" id="otherContacts">
+                <h3>Other Contacts <a href="#">Add Relation</a></h3>
+                <div class="empty-panel"></div>
+              </div>
+
+              <div class="demographicSection" id="clinicStatus">
+                <h3>Clinic Status <a href="#">Enrollment History</a></h3>
+                <ul>
+                  <li><span class="label">Patient Status:</span> <span class="info">AC</span></li>
+                  <li><span class="label">Patient Status Date:</span> <span class="info">2023-07-25</span></li>
+                  <li><span class="label">Date Joined:</span> <span class="info">2023-07-25</span></li>
+                </ul>
+              </div>
+
+              <div class="demographicSection" id="consent">
+                <h3>Consent <a id="openManageConsent" href="#">Manage Consent</a><a id="openConsentHistory" href="#">Full History</a></h3>
+                <div class="consent-summary">
+                  <div class="consent-row">
+                    <span class="consent-name">Electronic Communication</span>
+                    <span class="status-pill status-consented">Consented</span>
+                    <a class="history-chip" href="#" data-consent-history="Electronic Communication">History</a>
+                    <span class="consent-meta">Effective 2026-05-29 · Recorded by carlosdoc, doctor</span>
+                  </div>
+                  <div class="consent-row">
+                    <span class="consent-name">Privacy Consent</span>
+                    <span class="status-pill status-consented">Consented</span>
+                    <a class="history-chip" href="#" data-consent-history="Privacy Consent">History</a>
+                    <span class="consent-meta">Version 2026.1 · Evidence: signed intake form</span>
+                  </div>
+                  <div class="consent-row">
+                    <span class="consent-name">Provider Consent Filter</span>
+                    <span class="status-pill status-declined">Opted Out</span>
+                    <a class="history-chip" href="#" data-consent-history="Provider Consent Filter">History</a>
+                    <span class="consent-meta">Effective 2026-05-31 · External provider sharing</span>
+                  </div>
+                  <div class="consent-row">
+                    <span class="consent-name">Research Contact</span>
+                    <span class="status-pill status-needed">Not Asked</span>
+                    <a class="history-chip" href="#" data-consent-history="Research Contact">History</a>
+                    <span class="consent-meta">Optional consent · No active record</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="demographicSection" id="alert">
+                <h3>Alerts</h3>
+                <div class="empty-panel short"></div>
+              </div>
+
+              <div class="demographicSection" id="rxInteractionWarningLevelDisplay">
+                <h3>Rx Interaction Warning Level</h3>
+                <ul>
+                  <li><span class="label">Rx Interaction Warning Level:</span> <span class="info">Not Specified</span></li>
+                </ul>
+              </div>
+
+              <div class="demographicSection" id="paperChartIndicator">
+                <h3>Paper Chart</h3>
+                <div class="empty-panel"></div>
+              </div>
+
+              <div class="demographicSection" id="special">
+                <h3>Custom</h3>
+                <ul>
+                  <li>Another Patient with Similar Name Exists: <strong>No</strong></li>
+                  <li>Page Staff to Review Chart Next Appt: <strong>No</strong></li>
+                  <li>Block Fee Status: <strong>Not Paid</strong></li>
+                  <li>Research Study Permission: <strong>No</strong></li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="rightSection">
+              <div class="demographicSection" id="contactInformation">
+                <h3>Contact Information</h3>
+                <ul>
+                  <li><span class="label">Phone(H)(<span class="popup">History</span>):</span> <span class="info">555-555-5555</span></li>
+                  <li><span class="label">Phone(W)(<span class="popup">History</span>):</span> <span class="info">555-555-5555</span></li>
+                  <li><span class="label">City:</span> <span class="info">Toronto</span></li>
+                  <li><span class="label">Province :</span> <span class="info">Ontario,Canada</span></li>
+                  <li><span class="label">Postal :</span> <span class="info">N3R 1Q0</span></li>
+                  <li><span class="label">Residential Province:</span> <span class="info">Ontario,Canada</span></li>
+                  <li><span class="label">Newsletter:</span> <span class="info">U</span></li>
+                </ul>
+              </div>
+
+              <div class="demographicSection" id="healthInsurance">
+                <h3>Health Insurance</h3>
+                <ul>
+                  <li><span class="label">Health Ins. #:</span> <span class="info">9876543225&nbsp;&nbsp; AB</span></li>
+                  <li><span class="label">Health Card Type:</span> <span class="info">ON</span></li>
+                </ul>
+              </div>
+
+              <div class="demographicSection" id="healthCareTeam">
+                <h3>???demographic.manageHealthCareTeam.heading???</h3>
+                <ul>
+                  <li><span class="label">HEART (internal) :</span> <span class="info">provider, one</span></li>
+                </ul>
+              </div>
+
+              <div class="demographicSection" id="patientClinicStatus">
+                <h3>Patient Clinic Status</h3>
+                <ul>
+                  <li><span class="label">MRP :</span> <span class="info">carlosdoc, doctor</span></li>
+                  <li><span class="label">Referral Doctor:</span><span class="info">C,John</span></li>
+                </ul>
+              </div>
+
+              <div class="demographicSection" id="notes">
+                <h3>Notes</h3>
+                <div class="empty-panel tall"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="bottom-actions">
+            <a class="button" href="#">Export this Demographic</a>
+            <a class="button small" href="#">Audit Information</a>
+            <span class="right-buttons">
+              <a class="button small" href="#">Print / Labels</a>
+              <a class="button grey" href="#">Back</a>
+            </span>
+          </div>
+        </div>
+      </td>
+    </tr>
+  </table>
+  <div class="modal-backdrop" id="historyModalBackdrop" hidden></div>
+  <div class="consent-modal" id="consentHistoryModal" role="dialog" aria-labelledby="consentHistoryTitle" aria-modal="true" hidden>
+    <div class="modal-header">
+      <span id="consentHistoryTitle">Consent History - FAKE-Jacky, FAKE-Jones</span>
+      <a class="modal-close" id="closeConsentHistory" href="#">x</a>
+    </div>
+    <div class="modal-body">
+      <div class="modal-note">
+        Showing: <span id="consentHistoryFilter">All consent types</span>
+      </div>
+      <table class="consent-history-table">
+        <tr>
+          <th style="width: 17%;">Date / Time</th>
+          <th style="width: 34%;">Consent / Change</th>
+          <th>Audit Details</th>
+        </tr>
+        <tr data-consent-type="Provider Consent Filter">
+          <td><span class="history-date">2026-05-31</span><br>09:42</td>
+          <td><span class="history-type">Provider Consent Filter</span><br>Not Asked to <strong>Opted Out</strong></td>
+          <td>Source: Verbal<br>Recorded by: carlosdoc, doctor<br>Does not want records shared outside clinic unless explicitly requested.</td>
+        </tr>
+        <tr data-consent-type="Electronic Communication">
+          <td><span class="history-date">2026-05-29</span><br>14:18</td>
+          <td><span class="history-type">Electronic Communication</span><br>Not Asked to <strong>Consented</strong></td>
+          <td>Source: Verbal<br>Recorded by: carlosdoc, doctor<br>Patient agreed to SMS appointment reminders.</td>
+        </tr>
+        <tr data-consent-type="Privacy Consent">
+          <td><span class="history-date">2026-05-24</span><br>10:05</td>
+          <td><span class="history-type">Privacy Consent</span><br>Not Asked to <strong>Consented</strong></td>
+          <td>Source: Signed form<br>Recorded by: frontdesk01<br>Signed intake package on file.</td>
+        </tr>
+        <tr data-consent-type="Electronic Communication">
+          <td><span class="history-date">2026-05-20</span><br>15:36</td>
+          <td><span class="history-type">Electronic Communication</span><br><strong>Declined</strong> to Not Asked</td>
+          <td>Source: Chart review<br>Recorded by: clinicadmin<br>Legacy consent migrated for review before reconfirming patient preference.</td>
+        </tr>
+        <tr data-consent-type="Research Contact">
+          <td><span class="history-date">2026-05-20</span><br>15:36</td>
+          <td><span class="history-type">Research Contact</span><br>Created as <strong>Not Asked</strong></td>
+          <td>Source: Clinic default<br>Recorded by: clinicadmin<br>Consent type available but no patient response recorded.</td>
+        </tr>
+      </table>
+    </div>
+    <div class="modal-footer">
+      <a class="button grey" id="closeConsentHistoryFooter" href="#">Close</a>
+    </div>
+  </div>
+  <div class="modal-backdrop" id="modalBackdrop" hidden></div>
+  <div class="consent-modal" id="manageConsentModal" role="dialog" aria-labelledby="manageConsentTitle" aria-modal="true" hidden>
+    <div class="modal-header">
+      <span id="manageConsentTitle">Manage Consent - FAKE-Jacky, FAKE-Jones</span>
+      <a class="modal-close" id="closeManageConsent" href="#">x</a>
+    </div>
+    <div class="modal-body">
+      <table class="modal-grid" id="consentFormsTable">
+        <tr>
+          <th style="width: 23%;">Consent Type</th>
+          <th style="width: 15%;">Current Status</th>
+          <th style="width: 16%;">Effective Date</th>
+          <th style="width: 18%;">Source / Evidence</th>
+          <th>Note</th>
+        </tr>
+        <tr>
+          <td><strong>Electronic Communication</strong><br><span class="consent-meta">SMS, email, portal messages</span></td>
+          <td>
+            <select>
+              <option selected>Consented</option>
+              <option>Declined</option>
+              <option>Not Asked</option>
+              <option>Withdrawn</option>
+            </select>
+          </td>
+          <td><input type="text" value="2026-05-29"></td>
+          <td>
+            <select>
+              <option selected>Verbal</option>
+              <option>Signed form</option>
+              <option>Portal</option>
+              <option>Phone</option>
+            </select>
+          </td>
+          <td><textarea>Patient agreed to SMS appointment reminders.</textarea></td>
+        </tr>
+        <tr>
+          <td><strong>Privacy Consent</strong><br><span class="consent-meta">Clinic privacy policy version 2026.1</span></td>
+          <td>
+            <select>
+              <option selected>Consented</option>
+              <option>Declined</option>
+              <option>Not Asked</option>
+              <option>Withdrawn</option>
+            </select>
+          </td>
+          <td><input type="text" value="2026-05-24"></td>
+          <td>
+            <select>
+              <option>Verbal</option>
+              <option selected>Signed form</option>
+              <option>Portal</option>
+              <option>Phone</option>
+            </select>
+          </td>
+          <td><textarea>Signed intake package on file.</textarea></td>
+        </tr>
+        <tr>
+          <td><strong>Provider Consent Filter</strong><br><span class="consent-meta">External provider sharing preference</span></td>
+          <td>
+            <select>
+              <option>Consented</option>
+              <option selected>Opted Out</option>
+              <option>Not Asked</option>
+              <option>Withdrawn</option>
+            </select>
+          </td>
+          <td><input type="text" value="2026-05-31"></td>
+          <td>
+            <select>
+              <option selected>Verbal</option>
+              <option>Signed form</option>
+              <option>Portal</option>
+              <option>Phone</option>
+            </select>
+          </td>
+          <td><textarea>Does not want records shared outside clinic unless explicitly requested.</textarea></td>
+        </tr>
+        <tr>
+          <td><strong>Research Contact</strong><br><span class="consent-meta">Optional outreach for studies</span></td>
+          <td>
+            <select>
+              <option>Consented</option>
+              <option>Declined</option>
+              <option selected>Not Asked</option>
+              <option>Withdrawn</option>
+            </select>
+          </td>
+          <td><input type="text" value=""></td>
+          <td>
+            <select>
+              <option selected></option>
+              <option>Verbal</option>
+              <option>Signed form</option>
+              <option>Portal</option>
+              <option>Phone</option>
+            </select>
+          </td>
+          <td><textarea></textarea></td>
+        </tr>
+      </table>
+
+      <div class="modal-note">
+        Saving creates a new consent history entry for every changed row. Prior entries remain read-only for audit review.
+      </div>
+
+      <div class="modal-create-form">
+        <h4>Create New Consent Form</h4>
+        <div class="create-form-body">
+          <div class="create-form-grid">
+            <div class="create-field">
+              <label for="newConsentName">Name</label>
+              <input id="newConsentName" type="text" value="Care Team Messaging">
+            </div>
+            <div class="create-field">
+              <label for="newConsentCategory">Category</label>
+              <select id="newConsentCategory">
+                <option selected>Communication</option>
+                <option>Privacy</option>
+                <option>Data Sharing</option>
+                <option>Research</option>
+                <option>Clinic Policy</option>
+              </select>
+            </div>
+            <div class="create-field">
+              <label for="newConsentVersion">Version</label>
+              <input id="newConsentVersion" type="text" value="2026.1">
+            </div>
+            <div class="create-field">
+              <label for="newConsentDefault">Default Status</label>
+              <select id="newConsentDefault">
+                <option selected>Not Asked</option>
+                <option>Consented</option>
+                <option>Declined</option>
+              </select>
+            </div>
+            <div class="create-field create-form-wide">
+              <label for="newConsentEvidence">Evidence Required</label>
+              <select id="newConsentEvidence">
+                <option selected>Verbal or signed form</option>
+                <option>Signed form only</option>
+                <option>Portal confirmation</option>
+                <option>Not required</option>
+              </select>
+            </div>
+            <div class="create-field create-form-wide">
+              <label for="newConsentDescription">Description</label>
+              <textarea id="newConsentDescription">Patient permission for non-urgent care team messages.</textarea>
+            </div>
+            <div class="create-form-actions">
+              <a class="button small" id="addConsentForm" href="#">Add Form</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-history">
+        <h4>Recent Consent History</h4>
+        <ul>
+          <li><span class="history-date">2026-05-31</span> Provider Consent Filter changed to <strong>Opted Out</strong> by carlosdoc, doctor</li>
+          <li><span class="history-date">2026-05-29</span> Electronic Communication changed to <strong>Consented</strong> by carlosdoc, doctor</li>
+          <li><span class="history-date">2026-05-24</span> Privacy Consent changed to <strong>Consented</strong> from signed intake form</li>
+        </ul>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <a class="button grey" id="cancelManageConsent" href="#">Cancel</a>
+      <a class="button" href="#">Save</a>
+    </div>
+  </div>
+  <script>
+    (function () {
+      var openLink = document.getElementById('openManageConsent');
+      var modal = document.getElementById('manageConsentModal');
+      var backdrop = document.getElementById('modalBackdrop');
+      var closeLink = document.getElementById('closeManageConsent');
+      var cancelLink = document.getElementById('cancelManageConsent');
+      var addConsentFormLink = document.getElementById('addConsentForm');
+      var consentFormsTable = document.getElementById('consentFormsTable');
+      var newConsentName = document.getElementById('newConsentName');
+      var newConsentCategory = document.getElementById('newConsentCategory');
+      var newConsentVersion = document.getElementById('newConsentVersion');
+      var newConsentDefault = document.getElementById('newConsentDefault');
+      var newConsentEvidence = document.getElementById('newConsentEvidence');
+      var newConsentDescription = document.getElementById('newConsentDescription');
+      var openConsentHistoryLink = document.getElementById('openConsentHistory');
+      var closeConsentHistoryLink = document.getElementById('closeConsentHistory');
+      var closeConsentHistoryFooterLink = document.getElementById('closeConsentHistoryFooter');
+      var consentHistoryModal = document.getElementById('consentHistoryModal');
+      var historyModalBackdrop = document.getElementById('historyModalBackdrop');
+      var consentHistoryFilter = document.getElementById('consentHistoryFilter');
+      var consentHistoryRows = consentHistoryModal.querySelectorAll('tr[data-consent-type]');
+      var consentHistoryLinks = document.querySelectorAll('[data-consent-history]');
+      var historyReturnFocus = openConsentHistoryLink;
+
+      function selectWithOptions(options, selectedValue) {
+        var select = document.createElement('select');
+        for (var i = 0; i < options.length; i++) {
+          var option = document.createElement('option');
+          option.text = options[i];
+          if (options[i] === selectedValue) {
+            option.selected = true;
+          }
+          select.appendChild(option);
+        }
+        return select;
+      }
+
+      function addConsentForm(event) {
+        event.preventDefault();
+
+        var name = newConsentName.value.replace(/^\s+|\s+$/g, '');
+        if (!name) {
+          newConsentName.focus();
+          return;
+        }
+
+        var row = consentFormsTable.insertRow(-1);
+        var nameCell = row.insertCell(0);
+        var statusCell = row.insertCell(1);
+        var dateCell = row.insertCell(2);
+        var evidenceCell = row.insertCell(3);
+        var noteCell = row.insertCell(4);
+        var strong = document.createElement('strong');
+        var meta = document.createElement('span');
+        var version = newConsentVersion.value.replace(/^\s+|\s+$/g, '');
+        var dateInput = document.createElement('input');
+        var note = document.createElement('textarea');
+
+        strong.appendChild(document.createTextNode(name));
+        meta.className = 'consent-meta';
+        meta.appendChild(document.createTextNode(newConsentCategory.value + (version ? ', version ' + version : '')));
+        nameCell.appendChild(strong);
+        nameCell.appendChild(document.createElement('br'));
+        nameCell.appendChild(meta);
+
+        statusCell.appendChild(selectWithOptions(['Consented', 'Declined', 'Not Asked', 'Withdrawn'], newConsentDefault.value));
+        dateInput.type = 'text';
+        dateCell.appendChild(dateInput);
+        evidenceCell.appendChild(selectWithOptions(['', 'Verbal', 'Signed form', 'Portal', 'Phone'], newConsentEvidence.value === 'Signed form only' ? 'Signed form' : ''));
+        note.value = newConsentDescription.value;
+        noteCell.appendChild(note);
+      }
+
+      function showModal(event) {
+        if (event) {
+          event.preventDefault();
+        }
+        modal.hidden = false;
+        backdrop.hidden = false;
+        closeLink.focus();
+      }
+
+      function hideModal(event) {
+        if (event) {
+          event.preventDefault();
+        }
+        modal.hidden = true;
+        backdrop.hidden = true;
+        openLink.focus();
+      }
+
+      function showConsentHistory(consentType, event) {
+        if (event) {
+          event.preventDefault();
+          historyReturnFocus = event.currentTarget;
+        }
+
+        for (var i = 0; i < consentHistoryRows.length; i++) {
+          var rowConsentType = consentHistoryRows[i].getAttribute('data-consent-type');
+          consentHistoryRows[i].hidden = consentType && rowConsentType !== consentType;
+        }
+
+        consentHistoryFilter.innerHTML = '';
+        consentHistoryFilter.appendChild(document.createTextNode(consentType || 'All consent types'));
+        consentHistoryModal.hidden = false;
+        historyModalBackdrop.hidden = false;
+        closeConsentHistoryLink.focus();
+      }
+
+      function hideConsentHistory(event) {
+        if (event) {
+          event.preventDefault();
+        }
+        consentHistoryModal.hidden = true;
+        historyModalBackdrop.hidden = true;
+        historyReturnFocus.focus();
+      }
+
+      openLink.addEventListener('click', showModal);
+      closeLink.addEventListener('click', hideModal);
+      cancelLink.addEventListener('click', hideModal);
+      backdrop.addEventListener('click', hideModal);
+      addConsentFormLink.addEventListener('click', addConsentForm);
+      openConsentHistoryLink.addEventListener('click', function (event) {
+        showConsentHistory('', event);
+      });
+      closeConsentHistoryLink.addEventListener('click', hideConsentHistory);
+      closeConsentHistoryFooterLink.addEventListener('click', hideConsentHistory);
+      historyModalBackdrop.addEventListener('click', hideConsentHistory);
+      for (var i = 0; i < consentHistoryLinks.length; i++) {
+        consentHistoryLinks[i].addEventListener('click', function (event) {
+          showConsentHistory(this.getAttribute('data-consent-history'), event);
+        });
+      }
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && !consentHistoryModal.hidden) {
+          hideConsentHistory(event);
+        } else if (event.key === 'Escape' && !modal.hidden) {
+          hideModal(event);
+        }
+      });
+    }());
+  </script>
+</body>
+</html>

@@ -1,0 +1,516 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PATIENT DETAIL INFO</title>
+  <style>
+    :root {
+      --blue: #337eb7;
+      --blue-dark: #2c74ac;
+      --border: #d9d9d9;
+      --row: #eeeeee;
+      --text: #111;
+      --panel-bg: #fff;
+      --page-bg: #f3f3f3;
+      --button-grey: #6c757d;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 13px;
+      color: var(--text);
+      background: #fff;
+    }
+
+    a {
+      color: #1b65a7;
+      text-decoration: none;
+    }
+
+    a:hover { text-decoration: underline; }
+
+    .MainTable {
+      width: 100%;
+      border-collapse: collapse;
+      border: 0;
+    }
+
+    .MainTableTopRowLeftColumn {
+      height: 55px;
+      padding: 0 24px;
+      color: #fff;
+      background: var(--blue);
+      vertical-align: middle;
+      box-sizing: border-box;
+    }
+
+    .TopStatusBar {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .patient-header-name {
+      display: inline-block;
+      margin-right: 17px;
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .patient-header-details {
+      display: inline-block;
+      margin-right: 17px;
+      font-size: 13px;
+      font-weight: 400;
+    }
+
+    .patient-header-hin {
+      display: inline-block;
+      margin-right: 16px;
+      padding: 5px 12px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, .22);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .3px;
+    }
+
+    .patient-header-appt {
+      font-size: 12px;
+      font-style: italic;
+      color: #eef7ff;
+    }
+
+    .MainTableLeftColumn {
+      width: 255px;
+      min-width: 255px;
+      vertical-align: top;
+      background: #fff;
+    }
+
+    #appt_table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    #appt_table td {
+      height: 32px;
+      padding: 0 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, .2);
+      background: var(--blue);
+      vertical-align: middle;
+    }
+
+    #appt_table a {
+      display: block;
+      color: #fff;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    #appt_table td:hover { background: var(--blue-dark); }
+
+    .MainTableRightColumn {
+      vertical-align: top;
+      background: #fff;
+    }
+
+    .master-shell {
+      min-height: calc(100vh - 55px);
+      background: #fff;
+    }
+
+    .search-row {
+      height: 33px;
+      padding: 0 10px;
+      border-bottom: 1px solid var(--border);
+      background: #f7f7f7;
+      line-height: 33px;
+    }
+
+    .search-icon {
+      display: inline-block;
+      width: 13px;
+      height: 13px;
+      margin-right: 5px;
+      border: 1px solid #1b65a7;
+      border-radius: 50%;
+      vertical-align: -2px;
+      position: relative;
+    }
+
+    .search-icon:after {
+      content: "";
+      position: absolute;
+      right: -5px;
+      bottom: -4px;
+      width: 7px;
+      height: 1px;
+      background: #1b65a7;
+      transform: rotate(45deg);
+    }
+
+    .patient-number-row {
+      margin: 3px 6px 0;
+      height: 40px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: #fafafa;
+      line-height: 40px;
+    }
+
+    .patient-number {
+      float: left;
+      padding-left: 13px;
+      color: #1b65a7;
+      font-weight: 700;
+    }
+
+    .edit-button {
+      float: right;
+      margin: 6px 11px 0 0;
+      width: 69px;
+      padding: 5px 14px;
+      border-radius: 4px;
+      color: #fff;
+      background: var(--blue);
+      font-weight: 700;
+      line-height: 15px;
+      text-align: center;
+      box-sizing: border-box;
+    }
+
+    .edit-button:before {
+      content: "\270E";
+      margin-right: 6px;
+      font-size: 12px;
+    }
+
+    .show-fields {
+      height: 38px;
+      padding: 12px 17px 0 0;
+      text-align: right;
+      box-sizing: border-box;
+    }
+
+    #viewDemographics2 {
+      margin: 0 6px;
+      padding: 18px 18px 14px;
+      background: var(--page-bg);
+      overflow: hidden;
+    }
+
+    .leftSection,
+    .rightSection {
+      float: left;
+      width: calc(50% - 8px);
+    }
+
+    .leftSection { margin-right: 15px; }
+
+    .demographicSection {
+      margin: 0 0 7px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: var(--panel-bg);
+      overflow: hidden;
+    }
+
+    .demographicSection h3 {
+      margin: 0;
+      padding: 10px 14px;
+      color: #fff;
+      background: var(--blue);
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 13px;
+    }
+
+    .demographicSection h3 a,
+    .demographicSection h3 button {
+      margin-left: 8px;
+      padding: 2px 8px;
+      border: 1px solid rgba(255, 255, 255, .65);
+      border-radius: 3px;
+      color: #fff;
+      background: transparent;
+      font: inherit;
+      font-size: 11px;
+      line-height: 13px;
+      vertical-align: 1px;
+    }
+
+    .demographicSection ul {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .demographicSection li {
+      min-height: 29px;
+      padding: 8px 11px 6px;
+      border-bottom: 1px solid #e9e9e9;
+      box-sizing: border-box;
+      line-height: 15px;
+    }
+
+    .demographicSection li:last-child { border-bottom: 0; }
+
+    .label {
+      font-weight: 400;
+    }
+
+    .info {
+      font-weight: 400;
+    }
+
+    b,
+    strong {
+      font-weight: 700;
+    }
+
+    .popup {
+      color: #000;
+      text-decoration: none;
+    }
+
+    #rxInteractionWarningLevelDisplay li {
+      min-height: 18px;
+      padding-top: 2px;
+      padding-bottom: 2px;
+    }
+
+    .empty-panel {
+      min-height: 0;
+    }
+
+    .empty-panel.short {
+      min-height: 8px;
+    }
+
+    .empty-panel.tall {
+      min-height: 16px;
+    }
+
+    #paperChartIndicator {
+      height: 32px;
+    }
+
+    .bottom-actions {
+      clear: both;
+      margin: 8px 6px 0;
+      padding: 8px 0 10px;
+      border-top: 2px solid #e0e0e0;
+      overflow: hidden;
+    }
+
+    .button {
+      display: inline-block;
+      min-width: 118px;
+      margin-right: 6px;
+      padding: 8px 12px;
+      border-radius: 4px;
+      color: #fff;
+      background: var(--blue);
+      text-align: center;
+      font-weight: 700;
+      box-sizing: border-box;
+    }
+
+    .button.small {
+      min-width: 107px;
+      margin-right: 7px;
+    }
+
+    .button.grey {
+      min-width: 56px;
+      margin-right: 0;
+      background: var(--button-grey);
+    }
+
+    .right-buttons {
+      float: right;
+    }
+
+    @media (max-width: 900px) {
+      .MainTableLeftColumn {
+        width: 185px;
+        min-width: 185px;
+      }
+
+      .patient-header-hin,
+      .patient-header-appt {
+        display: none;
+      }
+
+      .leftSection,
+      .rightSection {
+        float: none;
+        width: 100%;
+        margin-right: 0;
+      }
+    }
+  </style>
+</head>
+<body id="demographiceditdemographic">
+  <table class="MainTable" id="scrollNumber1" name="encounterTable">
+    <tr class="MainTableTopRow">
+      <td class="MainTableTopRowLeftColumn" colspan="2">
+        <table class="TopStatusBar">
+          <tr>
+            <td>
+              <span class="patient-header-name">FAKE-Jacky, FAKE-Jones</span>
+              <span class="patient-header-details">Male &middot; 40 years &middot; DOB: 1985-06-15</span>
+              <span class="patient-header-hin">HIN: 9876543225 AB</span>
+              <span class="patient-header-appt">Next Appointment:</span>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+    <tr>
+      <td class="MainTableLeftColumn" valign="top">
+        <table border="0" cellspacing="0" id="appt_table">
+          <tr><td><a href="#">Appointment History</a></td></tr>
+          <tr><td><a href="#">Billing History</a></td></tr>
+          <tr><td><a href="#">Create Invoice</a></td></tr>
+          <tr><td><a href="#">Consultations</a></td></tr>
+          <tr><td><a href="#">Prescriptions</a></td></tr>
+          <tr><td><a href="#">E-Chart</a></td></tr>
+          <tr><td><a href="#">Preventions</a></td></tr>
+          <tr><td><a href="#">Tickler</a></td></tr>
+          <tr><td><a href="#">Documents</a></td></tr>
+          <tr><td><a href="#">Current eForms</a></td></tr>
+        </table>
+      </td>
+      <td class="MainTableRightColumn" valign="top">
+        <div class="master-shell">
+          <div class="search-row">
+            <span class="search-icon" aria-hidden="true"></span>
+            <a href="#"><b>Search Patient</b></a>
+          </div>
+
+          <div class="patient-number-row">
+            <span class="patient-number">#1</span>
+            <a class="edit-button" href="#">Edit</a>
+          </div>
+
+          <div class="show-fields"><a href="#">Show all fields</a></div>
+
+          <div id="viewDemographics2" class="hide-empties">
+            <div class="leftSection">
+              <div class="demographicSection" id="demographic">
+                <h3>Demographic</h3>
+                <ul>
+                  <li><span class="label">Title:</span> <span class="info">MR</span></li>
+                  <li><span class="label">Last Name:</span> <span class="info">FAKE-Jacky</span></li>
+                  <li><span class="label">First Name:</span> <span class="info">FAKE-Jones</span></li>
+                  <li><span class="label">Sex:</span> <span class="info">Male</span></li>
+                  <li><span class="label">Age:</span> <span class="info">40 years ( DOB: 1985-06-15)</span></li>
+                  <li><span class="label">Language:</span> <span class="info">English</span></li>
+                </ul>
+              </div>
+
+              <div class="demographicSection" id="otherContacts">
+                <h3>Other Contacts <a href="#">Add Relation</a></h3>
+                <div class="empty-panel"></div>
+              </div>
+
+              <div class="demographicSection" id="clinicStatus">
+                <h3>Clinic Status <a href="#">Enrollment History</a></h3>
+                <ul>
+                  <li><span class="label">Patient Status:</span> <span class="info">AC</span></li>
+                  <li><span class="label">Patient Status Date:</span> <span class="info">2023-07-25</span></li>
+                  <li><span class="label">Date Joined:</span> <span class="info">2023-07-25</span></li>
+                </ul>
+              </div>
+
+              <div class="demographicSection" id="alert">
+                <h3>Alerts</h3>
+                <div class="empty-panel short"></div>
+              </div>
+
+              <div class="demographicSection" id="rxInteractionWarningLevelDisplay">
+                <h3>Rx Interaction Warning Level</h3>
+                <ul>
+                  <li><span class="label">Rx Interaction Warning Level:</span> <span class="info">Not Specified</span></li>
+                </ul>
+              </div>
+
+              <div class="demographicSection" id="paperChartIndicator">
+                <h3>Paper Chart</h3>
+                <div class="empty-panel"></div>
+              </div>
+
+              <div class="demographicSection" id="special">
+                <h3>Custom</h3>
+                <ul>
+                  <li>Another Patient with Similar Name Exists: <strong>No</strong></li>
+                  <li>Page Staff to Review Chart Next Appt: <strong>No</strong></li>
+                  <li>Block Fee Status: <strong>Not Paid</strong></li>
+                  <li>Research Study Permission: <strong>No</strong></li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="rightSection">
+              <div class="demographicSection" id="contactInformation">
+                <h3>Contact Information</h3>
+                <ul>
+                  <li><span class="label">Phone(H)(<span class="popup">History</span>):</span> <span class="info">555-555-5555</span></li>
+                  <li><span class="label">Phone(W)(<span class="popup">History</span>):</span> <span class="info">555-555-5555</span></li>
+                  <li><span class="label">City:</span> <span class="info">Toronto</span></li>
+                  <li><span class="label">Province :</span> <span class="info">Ontario,Canada</span></li>
+                  <li><span class="label">Postal :</span> <span class="info">N3R 1Q0</span></li>
+                  <li><span class="label">Residential Province:</span> <span class="info">Ontario,Canada</span></li>
+                  <li><span class="label">Newsletter:</span> <span class="info">U</span></li>
+                </ul>
+              </div>
+
+              <div class="demographicSection" id="healthInsurance">
+                <h3>Health Insurance</h3>
+                <ul>
+                  <li><span class="label">Health Ins. #:</span> <span class="info">9876543225&nbsp;&nbsp; AB</span></li>
+                  <li><span class="label">Health Card Type:</span> <span class="info">ON</span></li>
+                </ul>
+              </div>
+
+              <div class="demographicSection" id="healthCareTeam">
+                <h3>???demographic.manageHealthCareTeam.heading???</h3>
+                <ul>
+                  <li><span class="label">HEART (internal) :</span> <span class="info">provider, one</span></li>
+                </ul>
+              </div>
+
+              <div class="demographicSection" id="patientClinicStatus">
+                <h3>Patient Clinic Status</h3>
+                <ul>
+                  <li><span class="label">MRP :</span> <span class="info">carlosdoc, doctor</span></li>
+                  <li><span class="label">Referral Doctor:</span><span class="info">C,John</span></li>
+                </ul>
+              </div>
+
+              <div class="demographicSection" id="notes">
+                <h3>Notes</h3>
+                <div class="empty-panel tall"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="bottom-actions">
+            <a class="button" href="#">Export this Demographic</a>
+            <a class="button small" href="#">Audit Information</a>
+            <span class="right-buttons">
+              <a class="button small" href="#">Print / Labels</a>
+              <a class="button grey" href="#">Back</a>
+            </span>
+          </div>
+        </div>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
