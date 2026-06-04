@@ -267,7 +267,7 @@
                         <%
                             List<Map<String, Object>> resultList;
                             if (isSiteAccessPrivacy) {
-                                for (Provider p : providerSiteDao.findActiveProvidersWithSites(curProvider_no)) {
+                                for (Provider p : providerSiteDao.findActiveProvidersBySharedSites(curProvider_no)) {
                                     List<Security> s = securityDao.findByProviderNo(p.getProviderNo());
                                     if (s.isEmpty()) {
                         %>

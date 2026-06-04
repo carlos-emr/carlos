@@ -41,6 +41,8 @@ public interface ProviderSiteDao extends AbstractDao<ProviderSite> {
 
     List<Provider> findActiveProvidersWithSites(String provider_no);
 
+    List<Provider> findActiveProvidersBySharedSites(String providerNo);
+
     List<String> findByProviderNoBySiteName(String siteName);
 
     List<ProviderSite> findBySiteId(Integer siteId);

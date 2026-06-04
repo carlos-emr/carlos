@@ -56,8 +56,9 @@ class SecurityAddRecordAssetRegressionTest {
                 .contains("List<Security> s = securityDao.findByProviderNo(p.getProviderNo());")
                 .contains("if (s.isEmpty()) {")
                 .containsPattern("if \\(isSiteAccessPrivacy\\) \\{\\s+"
-                        + "for \\(Provider p : providerSiteDao\\.findActiveProvidersWithSites\\(curProvider_no\\)\\)")
+                        + "for \\(Provider p : providerSiteDao\\.findActiveProvidersBySharedSites\\(curProvider_no\\)\\)")
                 .doesNotContain("if (s.size() > 0) {")
+                .doesNotContain("providerSiteDao.findActiveProvidersWithSites(curProvider_no)")
                 .doesNotContain("if (isSiteAccessPrivacy) {\n"
                         + "                                for (Provider p : providerDao.getActiveProviders()) {");
     }
