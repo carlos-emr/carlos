@@ -39,10 +39,10 @@ import java.util.List;
 
 import io.github.carlos_emr.Misc;
 import org.apache.logging.log4j.Logger;
-import org.hibernate.Session;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.carlos.db.DBHandler;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 
 public class SqlUtils {
     private static Logger logger = MiscUtils.getLogger();
@@ -72,7 +72,9 @@ public class SqlUtils {
         try {
             records = new ArrayList<String[]>();
 
-            rs = DBHandler.GetPreSQL(qry, params != null ? params : new Object[0]);
+            rs = LegacyJdbcQuery.getPreparedResultSet(
+                    LegacyJdbcQuery.trustedReportSelectSql(qry),
+                    params != null ? params : new Object[0]);
             int cols = rs.getMetaData().getColumnCount();
             while (rs.next()) {
                 String[] record = new String[cols];
@@ -208,6 +210,8 @@ public class SqlUtils {
      * you retrieved the connection from something like hibernate/jpa you should not close the connection, let the entityManager / sessionManager do that, just close the statement
      * and resultset.
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static void closeResources(Connection c, Statement s, ResultSet rs) {
         closeResources(s, rs);
 
@@ -221,14 +225,6 @@ public class SqlUtils {
                     logger.warn("Error closing Connection.", e);
                 }
             }
-        }
-    }
-
-    public static void closeResources(Session session, Statement s, ResultSet rs) {
-        closeResources(s, rs);
-
-        if (session != null) {
-            session.close();
         }
     }
 

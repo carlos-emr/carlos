@@ -43,10 +43,12 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.match.IMatchManager;
 import io.github.carlos_emr.carlos.match.MatchManager;
 import io.github.carlos_emr.carlos.match.MatchManagerException;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.eform.data.EForm;
@@ -69,12 +71,14 @@ import java.util.regex.Pattern;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.owasp.encoder.Encode;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class AddEForm2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static final Logger logger = MiscUtils.getLogger();
+    private static final String INVALID_FILENAME_MESSAGE_KEY = "dms.error.invalidFilename";
 
     /**
      * Validates the eform_link parameter format to prevent session attribute injection (CWE-501).
@@ -104,11 +108,20 @@ public class AddEForm2Action extends ActionSupport {
         return eformLink;
     }
 
+    static String validateTemplateFileName(String rawFileName) {
+        if (rawFileName == null || rawFileName.isEmpty()) {
+            return rawFileName;
+        }
+        return PathValidationUtils.validateFileName(rawFileName);
+    }
+
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private EformDataManager eformDataManager = SpringUtils.getBean(EformDataManager.class);
     private DocumentAttachmentManager documentAttachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
     private EmailManager emailManager = SpringUtils.getBean(EmailManager.class);
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eform", "w", null)) {
@@ -185,6 +198,17 @@ public class AddEForm2Action extends ActionSupport {
         curForm.setContextPath(request.getContextPath());
 		curForm.setRealPath(request.getServletContext().getRealPath(File.separator));
 		curForm.setImagePath(request.getContextPath());
+        String validatedTemplateFileName;
+        try {
+            validatedTemplateFileName = validateTemplateFileName(curForm.getFormFileName());
+        } catch (FileValidationException e) {
+            request.setAttribute("errorMessage", getInvalidFilenameMessage());
+            logger.warn("Rejected invalid eForm template filename");
+            return ERROR;
+        }
+        if (validatedTemplateFileName != null && !validatedTemplateFileName.isEmpty()) {
+            curForm.setFormFileName(validatedTemplateFileName);
+        }
 
         //add eform_link value from session attribute
         ArrayList<String> openerNames = curForm.getOpenerNames();
@@ -353,14 +377,6 @@ public class AddEForm2Action extends ActionSupport {
                 path = path.substring(0, path.indexOf(uri));
                 path += request.getContextPath();
 
-                String rawFileName = curForm.getFormFileName();
-                if (rawFileName != null && !rawFileName.isEmpty()) {
-                    String sanitized = MiscUtils.sanitizeFileName(rawFileName);
-                    if (sanitized.isEmpty() || ".".equals(sanitized) || "..".equals(sanitized)) {
-                        throw new IllegalArgumentException("eForm filename sanitization resulted in unusable filename");
-                    }
-                    curForm.setFormFileName(sanitized);
-                }
                 EFormUtil.writeEformTemplate(LoggedInInfo.getLoggedInInfoFromSession(request), paramNames, paramValues, curForm, fdid, program_no, path);
             }
 
@@ -504,6 +520,15 @@ public class AddEForm2Action extends ActionSupport {
         String formattedDate = dateFormat.format(currentDate);
 
         return formattedDate + "_" + demographicLastName + ".pdf";
+    }
+
+    private String getInvalidFilenameMessage() {
+        try {
+            return ResourceBundle.getBundle("oscarResources", request.getLocale())
+                    .getString(INVALID_FILENAME_MESSAGE_KEY);
+        } catch (MissingResourceException e) {
+            return "Invalid filename";
+        }
     }
 
     /**

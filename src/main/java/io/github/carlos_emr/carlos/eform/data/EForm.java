@@ -53,18 +53,19 @@ import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.eform.EFormLoader;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
+import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBeanHandler;
 import io.github.carlos_emr.carlos.util.StringBuilderUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
-
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class EForm extends EFormBase {
-    private static EFormDataDao eFormDataDao = (EFormDataDao) SpringUtils.getBean(EFormDataDao.class);
+    // Resolve the DAO lazily (per call) rather than in a static-final initializer, so merely
+    // loading EForm (e.g. Mockito.mockStatic in a unit test) no longer fetches a Spring bean.
+    private static EFormDataDao eFormDataDao() { return SpringUtils.getBean(EFormDataDao.class); }
     private static Logger log = MiscUtils.getLogger();
 
     private String appointment_no = "-1";
@@ -99,9 +100,11 @@ public class EForm extends EFormBase {
         this.providerNo = providerNo;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public EForm(String fdid) {
         if (!StringUtils.isBlank(fdid) && !"null".equalsIgnoreCase(fdid)) {
-            EFormData eFormData = eFormDataDao.find(Integer.valueOf(fdid));
+            EFormData eFormData = eFormDataDao().find(Integer.valueOf(fdid));
             if (eFormData != null) {
                 this.fdid = fdid;
                 this.fid = eFormData.getFormId().toString();
@@ -370,8 +373,13 @@ public class EForm extends EFormBase {
 
     public void setContextPath(String contextPath) {
         if (StringUtils.isBlank(contextPath)) return;
-        Path oscarJs = Paths.get(contextPath, "library");
-        this.formHtml = this.formHtml.replace(jsMarker, oscarJs + "/");
+        // contextPath is a servlet URL prefix (e.g. "/carlos") that is injected into browser-facing
+        // HTML, NOT a filesystem path - build the library URL directly rather than running filesystem
+        // path validation on it (which would inject OS separators and reject some valid context paths).
+        String normalizedContextPath = contextPath.endsWith("/")
+                ? contextPath.substring(0, contextPath.length() - 1)
+                : contextPath;
+        this.formHtml = this.formHtml.replace(jsMarker, normalizedContextPath + "/library/");
     }
 
     public void setFdid(String fdid) {
@@ -431,6 +439,8 @@ public class EForm extends EFormBase {
 
     // ----------------------------------private
     // -----------------------------------------
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private DatabaseAP getAPExtra(String apName, String fieldHeader) {
         // --------------------------Process extra attributes for APs --------------------------------
         Pattern p = Pattern.compile("\\b[a-z]\\$[^ \\$#]+#[^\n]+");
@@ -580,6 +590,8 @@ public class EForm extends EFormBase {
 		return new StringBuilder(getFormHtml());
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private int nextIndex(StringBuilder text, String option1, String option2, int pointer) {
         // converts text content to lowercase
         text = new StringBuilder(text.toString().toLowerCase());
@@ -617,6 +629,8 @@ public class EForm extends EFormBase {
         return nextIndex(text, " ", ">", pointer);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String getFieldType(String fieldHeader) {
         if (fieldHeader.substring(1, 9).equalsIgnoreCase("textarea")) return "textarea";
         if (fieldHeader.substring(1, 7).equalsIgnoreCase("select")) return "select";
@@ -668,28 +682,20 @@ public class EForm extends EFormBase {
         String sql = ap.getApSQL();
         String output = ap.getApOutput();
         if (!StringUtils.isBlank(sql)) {
+            ParameterizedSql query;
             try {
-                sql = replaceAllFields(sql);
+                query = parameterizeAllFields(sql);
             } catch (IllegalArgumentException e) {
                 log.error("Invalid placeholder value in eForm AP query, skipping: {}", e.getMessage());
                 return html;
             }
             log.debug("SQL---- [eform AP query executed]");
             ArrayList<String> names = DatabaseAP.parserGetNames(output); // a list of ${apName} --> apName
-            sql = DatabaseAP.parserClean(sql); // replaces all other ${apName} expressions with 'apName'
             if (ap.isJsonOutput()) {
-                // FP for SQLi scanners (CodeQL java/Sqli, Snyk SqlInjection): placeholder values
-                // are sanitized by replaceAllFields above — numeric IDs gated via requireDigitsOnly
-                // (throws on non-numeric) and string fields escaped via escapeSqlValue. The SQL
-                // template itself is admin-authored (EFormLoader). All JSP entry points also
-                // validate appointment_no as \d+ as defense in depth.
-                // deepcode ignore SqlInjection: sanitized via replaceAllFields + JSP numeric validation
-                ArrayNode values = EFormUtil.getJsonValues(names, sql); // nosemgrep: java.lang.security.audit.sqli.tainted-sql-from-http-request.tainted-sql-from-http-request // lgtm[java/sql-injection]
+                ArrayNode values = EFormUtil.getJsonValues(names, query);
                 output = values.toString(); //in case of JsonOutput, return the whole JSONArray and let the javascript deal with it
             } else {
-                // FP — same rationale as isJsonOutput branch above (replaceAllFields sanitization).
-                // deepcode ignore SqlInjection: sanitized via replaceAllFields + JSP numeric validation
-                ArrayList<String> values = EFormUtil.getValues(names, sql); // nosemgrep: java.lang.security.audit.sqli.tainted-sql-from-http-request.tainted-sql-from-http-request // lgtm[java/sql-injection]
+                ArrayList<String> values = EFormUtil.getValues(names, query);
                 if (values.size() != names.size()) {
                     output = "";
                 } else {
@@ -718,36 +724,29 @@ public class EForm extends EFormBase {
         return (html);
     }
 
-    public String replaceAllFields(String sql) {
-        // Numeric ID fields: validate digits-only to prevent injection in unquoted SQL contexts
-        sql = DatabaseAP.parserReplace("demographic", requireDigitsOnly("demographic", demographicNo), sql);
-        sql = DatabaseAP.parserReplace("appt_no", requireDigitsOnly("appt_no", appointment_no), sql);
-        sql = DatabaseAP.parserReplace(EFORM_DEMOGRAPHIC, requireDigitsOnly(EFORM_DEMOGRAPHIC, getSqlParams(EFORM_DEMOGRAPHIC)), sql);
-        sql = DatabaseAP.parserReplace(REF_FID, requireDigitsOnly(REF_FID, getSqlParams(REF_FID)), sql);
-        sql = DatabaseAP.parserReplace(TABLE_ID, requireDigitsOnly(TABLE_ID, getSqlParams(TABLE_ID)), sql);
-
-        // String fields: escape backslashes and single quotes for use in quoted SQL literals
-        sql = DatabaseAP.parserReplace("provider", escapeSqlValue(providerNo), sql);
-        sql = DatabaseAP.parserReplace("providers", escapeSqlValue(providerNo), sql);
-        sql = DatabaseAP.parserReplace(VAR_NAME, escapeSqlValue(getSqlParams(VAR_NAME)), sql);
-        sql = DatabaseAP.parserReplace(VAR_VALUE, escapeSqlValue(getSqlParams(VAR_VALUE)), sql);
-        sql = DatabaseAP.parserReplace(REF_VAR_NAME, escapeSqlValue(getSqlParams(REF_VAR_NAME)), sql);
-        sql = DatabaseAP.parserReplace(REF_VAR_VALUE, escapeSqlValue(getSqlParams(REF_VAR_VALUE)), sql);
-        sql = DatabaseAP.parserReplace(TABLE_NAME, escapeSqlValue(getSqlParams(TABLE_NAME)), sql);
-        sql = DatabaseAP.parserReplace(OTHER_KEY, escapeSqlValue(getSqlParams(OTHER_KEY)), sql);
-        return sql;
-    }
-
     /**
-     * Escapes backslashes and single quotes in a value for safe substitution into a
-     * single-quoted SQL string literal in a DatabaseAP template.
-     * Backslashes are escaped first to prevent MySQL's backslash-escape bypass
-     * (e.g., a backslash followed by a quote would otherwise consume the doubled quote).
+     * Converts legacy DatabaseAP placeholders that can contain request or form
+     * state into JDBC bind parameters. This keeps the admin-authored SQL shape
+     * intact while preventing values from being concatenated into the query text.
      */
-    private static String escapeSqlValue(String value) {
-        if (value == null) return null;
-        // Escape backslashes before single quotes to prevent MySQL backslash-escape bypass
-        return value.replace("\\", "\\\\").replace("'", "''");
+    public ParameterizedSql parameterizeAllFields(String sql) {
+        Map<String, Object> replacements = new LinkedHashMap<>();
+        replacements.put("demographic", requireDigitsOnly("demographic", demographicNo));
+        replacements.put("appt_no", requireDigitsOnly("appt_no", appointment_no));
+        String eformDemographic = getSqlParams(EFORM_DEMOGRAPHIC);
+        validateDigitsOrWildcard(EFORM_DEMOGRAPHIC, eformDemographic);
+        replacements.put(EFORM_DEMOGRAPHIC, eformDemographic);
+        replacements.put(REF_FID, requireDigitsOnly(REF_FID, getSqlParams(REF_FID)));
+        replacements.put(TABLE_ID, requireDigitsOnly(TABLE_ID, getSqlParams(TABLE_ID)));
+        replacements.put("provider", stringParam(providerNo));
+        replacements.put("providers", stringParam(providerNo));
+        replacements.put(VAR_NAME, stringParam(getSqlParams(VAR_NAME)));
+        replacements.put(VAR_VALUE, stringParam(getSqlParams(VAR_VALUE)));
+        replacements.put(REF_VAR_NAME, stringParam(getSqlParams(REF_VAR_NAME)));
+        replacements.put(REF_VAR_VALUE, stringParam(getSqlParams(REF_VAR_VALUE)));
+        replacements.put(TABLE_NAME, stringParam(getSqlParams(TABLE_NAME)));
+        replacements.put(OTHER_KEY, stringParam(getSqlParams(OTHER_KEY)));
+        return DatabaseAP.parameterizeSql(sql, replacements);
     }
 
     /**
@@ -767,6 +766,16 @@ public class EForm extends EFormBase {
             throw new IllegalArgumentException("Non-numeric value for placeholder: " + placeholderName);
         }
         return value;
+    }
+
+    private static void validateDigitsOrWildcard(String placeholderName, String value) {
+        if (!"%".equals(value)) {
+            requireDigitsOnly(placeholderName, value);
+        }
+    }
+
+    private static String stringParam(String value) {
+        return value == null ? "" : value;
     }
 
     private String getSqlParams(String key) {
@@ -827,6 +836,8 @@ public class EForm extends EFormBase {
 		*/
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String getFieldName(StringBuilder html, int pointer) {
         //pointer can be any place in the tag - isolates tag and sends back field type
         int open = html.substring(0, pointer).lastIndexOf("<");
@@ -882,6 +893,8 @@ public class EForm extends EFormBase {
         return html.substring(fieldIndex, end);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private void saveFieldValue(StringBuilder html, int fieldIndex) {
         String header = getFieldHeader(html, fieldIndex);
         if (StringUtils.isBlank(header)) return;
@@ -928,6 +941,8 @@ public class EForm extends EFormBase {
         return refFid;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     public void setSignatureCode(String contextPath, String userAgent, String demographicNo, String providerId) {
         String signatureRequestId = DigitalSignatureUtils.generateSignatureRequestId(providerId);
         String imageUrl = contextPath + "/imageRenderingServlet?source=" + ImageRenderingServlet.Source.signature_preview.name() + "&" + DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY + "=" + signatureRequestId;
@@ -1126,6 +1141,8 @@ public class EForm extends EFormBase {
      * Empty image src values are the result of using Javascript in the eForm to dynamically
      * set paths for images.
      */
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     public void addImagePathPlaceholders(String[] imagePathPlaceholders)
         throws JsonProcessingException, JsonMappingException {
         if (imagePathPlaceholders != null && imagePathPlaceholders.length > 0) {

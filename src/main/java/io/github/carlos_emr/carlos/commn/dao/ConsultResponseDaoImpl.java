@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.commn.model.ConsultationResponse;
 import io.github.carlos_emr.carlos.consultations.ConsultationResponseSearchFilter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Repository
 public class ConsultResponseDaoImpl extends AbstractDaoImpl<ConsultationResponse> implements ConsultResponseDao {
@@ -82,7 +83,7 @@ public class ConsultResponseDaoImpl extends AbstractDaoImpl<ConsultationResponse
         StringBuilder sql = new StringBuilder(
                 "select " + (selectCountOnly ? "count(*)" : "cr, sp, d, p") +
                         " from ConsultationResponse cr, ProfessionalSpecialist sp, Demographic d left outer join d.provider p" +
-                        " where sp.id = cr.referringDocId and d.DemographicNo = cr.demographicNo ");
+                        " where sp.id = cr.referringDocId and d.demographicNo = cr.demographicNo ");
 
         if (filter.getAppointmentStartDate() != null) {
             sql.append("and cr.appointmentDate >= :appointmentStartDate ");
@@ -117,7 +118,7 @@ public class ConsultResponseDaoImpl extends AbstractDaoImpl<ConsultationResponse
             sql.append("and cr.demographicNo = :demographicNo ");
         }
         if (filter.getMrpNo() != null && filter.getMrpNo() > 0) {
-            sql.append("and d.ProviderNo = :mrpNo ");
+            sql.append("and d.providerNo = :mrpNo ");
         }
 
         // Apply safe ORDER BY clause construction
@@ -165,6 +166,8 @@ public class ConsultResponseDaoImpl extends AbstractDaoImpl<ConsultationResponse
         }
     }
     
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String getSafeOrderDirection(Object sortDir) {
         if (sortDir != null) {
             String dir = sortDir.toString().toLowerCase();
@@ -194,7 +197,7 @@ public class ConsultResponseDaoImpl extends AbstractDaoImpl<ConsultationResponse
             case AppointmentDate:
                 return "cr.appointmentDate " + orderDir + ", cr.appointmentTime " + orderDir;
             case Demographic:
-                return "d.LastName " + orderDir + ", d.FirstName " + orderDir;
+                return "d.lastName " + orderDir + ", d.firstName " + orderDir;
             case ReferringDoctor:
                 return "sp.lastName " + orderDir + ", sp.firstName " + orderDir;
             case Team:
@@ -202,7 +205,7 @@ public class ConsultResponseDaoImpl extends AbstractDaoImpl<ConsultationResponse
             case Status:
                 return "cr.status " + orderDir;
             case Provider:
-                return "p.LastName " + orderDir + ", p.FirstName " + orderDir;
+                return "p.lastName " + orderDir + ", p.firstName " + orderDir;
             case FollowUpDate:
                 return "cr.followUpDate " + orderDir;
             case ReferralDate:

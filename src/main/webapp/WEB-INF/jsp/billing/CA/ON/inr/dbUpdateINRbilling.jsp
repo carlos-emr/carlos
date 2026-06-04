@@ -40,6 +40,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script language="JavaScript">
         function start() { this.focus(); }
     </script>

@@ -40,12 +40,15 @@ import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class FrmFallsRecord extends FrmRecord {
     private String _dateFormat = "yyyy/MM/dd";
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public Properties getFormRecord(LoggedInInfo loggedInInfo, int demographicNo, int existingID)
             throws SQLException {
         Properties props = new Properties();
@@ -57,7 +60,7 @@ public class FrmFallsRecord extends FrmRecord {
         if (existingID <= 0) {
             sql =
                     "SELECT demographic_no, address, city, province, postal, phone FROM demographic WHERE demographic_no = ?";
-            rs = DBHandler.GetPreSQL(sql, demographicNo);
+            rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo);
             if (rs.next()) {
                 props.setProperty(
                         "demographic_no",
@@ -70,7 +73,7 @@ public class FrmFallsRecord extends FrmRecord {
             }
             rs.close();
             sql = "SELECT studyID FROM rehabStudy2004 WHERE demographic_no=?";
-            rs = DBHandler.GetPreSQL(sql, demographicNo);
+            rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo);
             if (rs.next()) {
                 props.setProperty("studyID", Misc.getString(rs, "studyID"));
             } else {
@@ -80,7 +83,7 @@ public class FrmFallsRecord extends FrmRecord {
         } else {
             sql =
                     "SELECT * FROM formFalls WHERE demographic_no = ? AND ID = ?";
-            rs = DBHandler.GetPreSQL(sql, demographicNo, existingID);
+            rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo, existingID);
 
             if (rs.next()) {
                 MiscUtils.getLogger().debug("getting metaData");

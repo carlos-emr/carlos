@@ -72,6 +72,7 @@
 
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title><fmt:message key="admin.securitysearchresults.title"/></title>
         <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
         <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css" rel="stylesheet">

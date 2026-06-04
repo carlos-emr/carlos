@@ -23,9 +23,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
@@ -59,6 +61,43 @@ class StrutsGlobalConfigUnitTest extends CarlosUnitTestBase {
     private static final String EXPECTED_ALLOWLIST_PACKAGE = "io.github.carlos_emr.carlos";
     private static final Path STRUTS_XML =
             Path.of("src", "main", "webapp", "WEB-INF", "classes", "struts.xml");
+    /**
+     * The default {@code globalAllowedMethods} entries declared by the {@code struts-default}
+     * package in {@code struts-default.xml} shipped by Apache Struts. Actions inheriting from
+     * {@code struts-default} (directly or transitively) may invoke these methods under Strict
+     * Method Invocation without a per-action {@code <allowed-methods>} entry.
+     *
+     * <p>Source: {@code org.apache.struts2/core/src/main/resources/struts-default.xml} —
+     * {@code <global-allowed-methods>execute,input,back,cancel,browse,save,delete,list,index</global-allowed-methods>}.
+     */
+    private static final Set<String> DEFAULT_STRUTS_GLOBAL_ALLOWED_METHODS =
+            Set.of("execute", "input", "back", "cancel", "browse", "save", "delete", "list", "index");
+
+    @Test
+    @DisplayName("Strict Method Invocation should be enabled globally")
+    void shouldEnableStrictMethodInvocation_forStrutsPackages()
+            throws IOException, ParserConfigurationException, SAXException {
+        Path strutsXmlPath = resolveProjectPath(STRUTS_XML);
+        Document parent = parseXml(strutsXmlPath);
+        Path strutsDir = strutsXmlPath.getParent();
+
+        NodeList includes = parent.getElementsByTagName("include");
+        List<String> violations = new ArrayList<>();
+        for (int i = 0; i < includes.getLength(); i++) {
+            if (includes.item(i) instanceof Element include) {
+                String fileName = include.getAttribute("file");
+                Path includedPath = strutsDir.resolve(fileName);
+                assertThat(includedPath)
+                        .as("Included Struts config %s referenced from %s should exist", fileName, STRUTS_XML)
+                        .exists();
+                collectStrictMethodInvocationViolations(fileName, parseXml(includedPath), violations);
+            }
+        }
+
+        assertThat(violations)
+                .as("Struts packages must explicitly enable strict-method-invocation")
+                .isEmpty();
+    }
 
     @Test
     @DisplayName("OGNL allowlist should be enabled for CARLOS packages")
@@ -120,6 +159,54 @@ class StrutsGlobalConfigUnitTest extends CarlosUnitTestBase {
                 .isEmpty();
     }
 
+    @Test
+    @DisplayName("Struts actions with non-default methods should declare allowed-methods")
+    void shouldAllowlistConfiguredNonDefaultMethods_forStrutsActions()
+            throws IOException, ParserConfigurationException, SAXException {
+        Path strutsXmlPath = resolveProjectPath(STRUTS_XML);
+        Document parent = parseXml(strutsXmlPath);
+        Path strutsDir = strutsXmlPath.getParent();
+
+        NodeList includes = parent.getElementsByTagName("include");
+        List<String> violations = new ArrayList<>();
+        // Also scan the root struts.xml so that a future non-default method added directly
+        // (rather than via an included module) cannot bypass the SMI allowlist contract.
+        collectNonDefaultMethodViolations(STRUTS_XML.getFileName().toString(), parent, violations);
+        collectAllowedMethodOrderViolations(STRUTS_XML.getFileName().toString(), parent, violations);
+        for (int i = 0; i < includes.getLength(); i++) {
+            if (includes.item(i) instanceof Element include) {
+                String fileName = include.getAttribute("file");
+                Path includedPath = strutsDir.resolve(fileName);
+                assertThat(includedPath)
+                        .as("Included Struts config %s referenced from %s should exist", fileName, STRUTS_XML)
+                        .exists();
+                collectNonDefaultMethodViolations(fileName, parseXml(includedPath), violations);
+                collectAllowedMethodOrderViolations(fileName, parseXml(includedPath), violations);
+            }
+        }
+
+        assertThat(violations)
+                .as("Non-default Struts action methods must be explicitly allowlisted for Strict Method Invocation")
+                .isEmpty();
+    }
+
+    private static void collectStrictMethodInvocationViolations(
+            String fileName, Document doc, List<String> violations) {
+        NodeList packages = doc.getElementsByTagName("package");
+        for (int i = 0; i < packages.getLength(); i++) {
+            if (packages.item(i) instanceof Element packageElement) {
+                String strictMethodInvocation = packageElement.getAttribute("strict-method-invocation");
+                if (strictMethodInvocation.isBlank()) {
+                    violations.add(packageViolation(
+                            fileName, packageElement, "is missing strict-method-invocation"));
+                } else if (!"true".equals(strictMethodInvocation.trim())) {
+                    violations.add(packageViolation(
+                            fileName, packageElement, "sets strict-method-invocation=" + strictMethodInvocation));
+                }
+            }
+        }
+    }
+
     private static Map<String, String> collectConstants(Document doc) {
         NodeList constants = doc.getElementsByTagName("constant");
         Map<String, String> out = new LinkedHashMap<>();
@@ -139,6 +226,95 @@ class StrutsGlobalConfigUnitTest extends CarlosUnitTestBase {
             case "false", "no", "off", "f", "n", "0" -> true;
             default -> false;
         };
+    }
+
+    private static void collectNonDefaultMethodViolations(
+            String fileName, Document doc, List<String> violations) {
+        NodeList actions = doc.getElementsByTagName("action");
+        for (int i = 0; i < actions.getLength(); i++) {
+            if (actions.item(i) instanceof Element action) {
+                String method = action.getAttribute("method").trim();
+                if (method.isEmpty() || DEFAULT_STRUTS_GLOBAL_ALLOWED_METHODS.contains(method)) {
+                    continue;
+                }
+                String actionName = action.getAttribute("name");
+                if (method.contains("{") || method.contains("}")) {
+                    violations.add(actionViolation(fileName, actionName, "uses dynamic method pattern " + method));
+                    continue;
+                }
+                Set<String> allowedMethods = collectAllowedMethods(action);
+                if (!allowedMethods.contains(method)) {
+                    violations.add(actionViolation(fileName, actionName,
+                            "invokes " + method + " without matching <allowed-methods>"));
+                }
+            }
+        }
+    }
+
+    private static Set<String> collectAllowedMethods(Element action) {
+        LinkedHashSet<String> allowedMethods = new LinkedHashSet<>();
+        // Only direct children: <allowed-methods> nested inside other descendants of <action>
+        // are not part of this action's SMI contract.
+        for (Element child : childElements(action)) {
+            if (!"allowed-methods".equals(child.getTagName())) {
+                continue;
+            }
+            String[] methods = child.getTextContent().split(",");
+            for (String method : methods) {
+                String trimmed = method.trim();
+                if (!trimmed.isEmpty()) {
+                    allowedMethods.add(trimmed);
+                }
+            }
+        }
+        return allowedMethods;
+    }
+
+    private static void collectAllowedMethodOrderViolations(
+            String fileName, Document doc, List<String> violations) {
+        NodeList actions = doc.getElementsByTagName("action");
+        for (int i = 0; i < actions.getLength(); i++) {
+            if (actions.item(i) instanceof Element action) {
+                List<Element> children = childElements(action);
+                int allowedMethodIndex = -1;
+                int allowedMethodCount = 0;
+                for (int j = 0; j < children.size(); j++) {
+                    Element child = children.get(j);
+                    if ("allowed-methods".equals(child.getTagName())) {
+                        allowedMethodIndex = j;
+                        allowedMethodCount++;
+                    }
+                }
+                if (allowedMethodCount > 1) {
+                    violations.add(actionViolation(
+                            fileName, action.getAttribute("name"), "declares <allowed-methods> more than once"));
+                }
+                if (allowedMethodCount == 1 && allowedMethodIndex != children.size() - 1) {
+                    violations.add(actionViolation(
+                            fileName, action.getAttribute("name"),
+                            "places <allowed-methods> before other child elements"));
+                }
+            }
+        }
+    }
+
+    private static List<Element> childElements(Element element) {
+        NodeList childNodes = element.getChildNodes();
+        List<Element> children = new ArrayList<>();
+        for (int i = 0; i < childNodes.getLength(); i++) {
+            if (childNodes.item(i) instanceof Element child) {
+                children.add(child);
+            }
+        }
+        return children;
+    }
+
+    private static String packageViolation(String fileName, Element packageElement, String detail) {
+        return "%s package %s %s".formatted(fileName, packageElement.getAttribute("name"), detail);
+    }
+
+    private static String actionViolation(String fileName, String actionName, String detail) {
+        return "%s action %s %s".formatted(fileName, actionName, detail);
     }
 
     private static Document parseXml(Path absolutePath)

@@ -33,21 +33,29 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%
     String newticklerwarningwindow = null;
 
-    // Load "Open Encounter in Tab" preference
+    // Load schedule navigation separately from the legacy encounter-tab flag.
+    // Junior-dev note: focused schedule navigation should not change how other
+    // screens open encounters, so the old flag remains true only in "tab" mode.
     String curProviderNo = (String) session.getAttribute("user");
     boolean openEncounterInTab = false;
+    String scheduleNavigationMode = UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP;
     if (curProviderNo != null) {
         UserPropertyDAO upDao = SpringUtils.getBean(UserPropertyDAO.class);
         UserProperty tabProp = upDao.getProp(curProviderNo, UserProperty.ENCOUNTER_OPEN_IN_TAB);
-        openEncounterInTab = tabProp != null && "yes".equalsIgnoreCase(tabProp.getValue());
+        UserProperty navProp = upDao.getProp(curProviderNo, UserProperty.SCHEDULE_NAVIGATION_MODE);
+        String savedMode = navProp != null ? navProp.getValue() : null;
+        scheduleNavigationMode = UserProperty.resolveScheduleNavigationMode(
+                savedMode,
+                tabProp != null && "yes".equalsIgnoreCase(tabProp.getValue()));
+        openEncounterInTab = UserProperty.SCHEDULE_NAVIGATION_MODE_TAB.equals(scheduleNavigationMode);
     }
+    pageContext.setAttribute("scheduleNavigationModeValue", scheduleNavigationMode);
 %>
 function storeApptNo(apptNo) {
 var url = "<%= request.getContextPath() %>/provider/ViewStoreApptInSession";
@@ -405,6 +413,34 @@ popupPage2(queryString, 'appointment', height, width);
 }
 
 var openEncounterInTab = <%=openEncounterInTab%>;
+// Use the JSP encoder wrapper here so null modes render safely and match the rest of this file.
+var scheduleNavigationMode = '${carlos:forJavaScript(scheduleNavigationModeValue)}';
+
+function appendQueryParam(url, key, value) {
+var parts = String(url).split('#');
+var base = parts[0];
+var fragment = parts.length > 1 ? '#' + parts.slice(1).join('#') : '';
+var joiner = base.indexOf('?') === -1 ? '?' : '&';
+return base + joiner + encodeURIComponent(key) + '=' + encodeURIComponent(value) + fragment;
+}
+
+function openScheduleSection(url, popupAction, clickEvent) {
+var usesScheduleShell = scheduleNavigationMode === 'focused' || scheduleNavigationMode === 'tab';
+var targetUrl = usesScheduleShell ? appendQueryParam(url, 'scheduleNav', '1') : url;
+if (scheduleNavigationMode === 'focused' && !(clickEvent && clickEvent.altKey)) {
+window.location.href = targetUrl;
+return false;
+}
+if (scheduleNavigationMode === 'focused' && clickEvent && clickEvent.altKey && typeof popupTab === 'function') {
+// Alt-click gives power users a tab without the schedule shell while keeping the default focused flow simple.
+popupTab(url);
+return false;
+}
+if (typeof popupAction === 'function') {
+popupAction(targetUrl);
+}
+return false;
+}
 
 function setfocus() {
 this.focus();

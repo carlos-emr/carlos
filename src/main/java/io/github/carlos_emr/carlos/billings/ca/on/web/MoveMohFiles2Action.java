@@ -57,6 +57,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.WebUtils;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action for managing Ontario Ministry of Health (MOH) billing file archival operations.
@@ -125,6 +126,8 @@ public class MoveMohFiles2Action extends ActionSupport {
      * @throws Exception if an unexpected error occurs during execution
      * @throws SecurityException if the user lacks required administrative privileges (_admin.billing with write access)
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() throws Exception {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.billing", "w", null)) {
             throw new SecurityException("missing required sec object (_admin.billing)");
@@ -258,6 +261,8 @@ public class MoveMohFiles2Action extends ActionSupport {
      * @param folderParam folder name from the request ({@code "inbox"}, {@code "outbox"}, etc.)
      * @return populated view model (never null)
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private ViewMohFilesViewModel buildViewModel(HttpServletRequest req, String folderParam) {
         // EDTFolder.getFolder never returns null — invalid input falls back
         // to INBOX. Keeps the previous "if (folder == null)" branch out of
@@ -352,6 +357,8 @@ public class MoveMohFiles2Action extends ActionSupport {
      * @param file File object representing the file to validate (must not be null)
      * @return boolean true if the file is within an authorized EDT folder, false otherwise
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private boolean validateFileLocation(File file) {
         boolean result = false;
         for (EDTFolder folder : EDTFolder.values()) {
@@ -394,6 +401,8 @@ public class MoveMohFiles2Action extends ActionSupport {
      * @param fileName String representing the URL-encoded filename to retrieve
      * @return File object representing the file at the specified path, or null if filename decoding fails
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private File getFile(String folderPath, String fileName) {
         try {
             fileName = URLDecoder.decode(fileName, "UTF-8");
@@ -440,15 +449,17 @@ public class MoveMohFiles2Action extends ActionSupport {
      * @param file File object representing the MOH billing file to move to archive
      * @return boolean true if the file was successfully moved to the archive directory, false if the move failed
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: trusted configured archive directory is canonicalized before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "trusted configured archive directory is canonicalized before use")
     private boolean moveFile(File file) {
-    File archiveDir = new File(EDTFolder.ARCHIVE.getPath());
-    try {
-        FileUtils.moveToDirectory(file, archiveDir, true);
-    } catch (IOException e) {
-        logger.error("Unable to move", e);
-        return false;
-    }
-    return true;
+        try {
+            File archiveDir = PathValidationUtils.resolveConfiguredDirectory(EDTFolder.ARCHIVE.getPath(), "ONEDT_ARCHIVE");
+            FileUtils.moveToDirectory(file, archiveDir, true);
+        } catch (IOException | SecurityException e) {
+            logger.error("Unable to move", e);
+            return false;
+        }
+        return true;
     }
 
     /**

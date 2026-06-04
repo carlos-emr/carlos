@@ -56,6 +56,18 @@ class SecurityTokenManagerUnitTest {
     }
 
     @Test
+    @DisplayName("should return null when token manager is configured blank")
+    void shouldReturnNull_whenTokenManagerIsConfiguredBlank() {
+        CarlosProperties.getInstance().setProperty("sec.token.manager", "");
+
+        assertThat(SecurityTokenManager.getInstance()).isNull();
+
+        SecurityTokenManager.resetForTesting();
+        CarlosProperties.getInstance().setProperty("sec.token.manager", "   \t");
+        assertThat(SecurityTokenManager.getInstance()).isNull();
+    }
+
+    @Test
     @DisplayName("should fail fast when configured manager is outside allowed package")
     void shouldFailFast_whenConfiguredManagerIsOutsideAllowedPackage() {
         CarlosProperties.getInstance().setProperty("sec.token.manager", "java.lang.String");

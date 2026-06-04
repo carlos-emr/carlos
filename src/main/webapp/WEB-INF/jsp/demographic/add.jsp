@@ -33,6 +33,7 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
 <c:set var="ctx" value="${ pageContext.request.contextPath }"/>
 <%-- Retrieve variables from request attributes (set by DemographicAdd2Action) --%>
 <%
@@ -80,6 +81,7 @@
 <!DOCTYPE html>
 <html lang="${pageContext.request.locale.language}">
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title><fmt:message key="demographic.demographicaddrecordhtm.title"/></title>
@@ -135,9 +137,16 @@
             }
 
             function aSubmit() {
+                parseHINforVC();
+                formatPhoneNum(document.adddemographic.phone);
+                formatPhoneNum(document.adddemographic.phone2);
+                formatPhoneNum(document.adddemographic.demo_cell);
                 syncInputDobParts();
                 if (document.getElementById("eform_iframe") != null) {
-                    document.getElementById("eform_iframe").contentWindow.document.forms[0].submit();
+                    var eformDocument = document.getElementById("eform_iframe").contentWindow.document;
+                    if (eformDocument.forms && eformDocument.forms.length > 0) {
+                        eformDocument.forms[0].submit();
+                    }
                 }
 
                 if (!checkFormTypeIn()) {
@@ -154,12 +163,12 @@
                 }
                 <% } %>
 
-                var rosterStatus = document.adddemographic.roster_status.value;
+                var rosterStatus = document.adddemographic.roster_status ? document.adddemographic.roster_status.value : '';
                 if (rosterStatus == 'RO') {
-                    var rosterEnrolledTo = document.adddemographic.roster_enrolled_to.value;
-                    var rosterDateYear = document.adddemographic.roster_date_year.value;
-                    var rosterDateMonth = document.adddemographic.roster_date_month.value;
-                    var rosterDateDate = document.adddemographic.roster_date_date.value;
+                    var rosterEnrolledTo = document.adddemographic.roster_enrolled_to ? document.adddemographic.roster_enrolled_to.value : '';
+                    var rosterDateYear = document.adddemographic.roster_date_year ? document.adddemographic.roster_date_year.value : '';
+                    var rosterDateMonth = document.adddemographic.roster_date_month ? document.adddemographic.roster_date_month.value : '';
+                    var rosterDateDate = document.adddemographic.roster_date_date ? document.adddemographic.roster_date_date.value : '';
 
                     if (rosterEnrolledTo == '') {
                         alert(i18n.msgEnrolledToRequired);
@@ -171,9 +180,12 @@
                         return false;
                     }
                 }
-
+              if (window.opener && !window.opener.closed) {
+                  window.opener.location.reload(true); // update the search now that it has a new demo that you might want to access
+              }
                 return true;
             }
+
 
             function upCaseCtrl(ctrl) {
                 ctrl.value = ctrl.value.toUpperCase();
@@ -234,19 +246,34 @@
                 }
             }
 
-            function formatPhoneNum() {
-                if (document.adddemographic.phone.value.length == 10) {
-                    document.adddemographic.phone.value = document.adddemographic.phone.value.substring(0, 3) + "-" + document.adddemographic.phone.value.substring(3, 6) + "-" + document.adddemographic.phone.value.substring(6);
-                }
-                if (document.adddemographic.phone.value.length == 11 && document.adddemographic.phone.value.charAt(3) == '-') {
-                    document.adddemographic.phone.value = document.adddemographic.phone.value.substring(0, 3) + "-" + document.adddemographic.phone.value.substring(4, 7) + "-" + document.adddemographic.phone.value.substring(7);
-                }
+            function checkHINforVC(hin){
+              // Check total length is exactly 12
+              // First 10 characters must be digits
+              // Last 2 characters must be letters
+              return /^\d{10}[A-Za-z]{2}$/.test(hin);
+            }
 
-                if (document.adddemographic.phone2.value.length == 10) {
-                    document.adddemographic.phone2.value = document.adddemographic.phone2.value.substring(0, 3) + "-" + document.adddemographic.phone2.value.substring(3, 6) + "-" + document.adddemographic.phone2.value.substring(6);
-                }
-                if (document.adddemographic.phone2.value.length == 11 && document.adddemographic.phone2.value.charAt(3) == '-') {
-                    document.adddemographic.phone2.value = document.adddemographic.phone2.value.substring(0, 3) + "-" + document.adddemographic.phone2.value.substring(4, 7) + "-" + document.adddemographic.phone2.value.substring(7);
+            function parseHINforVC(){
+              if (!document.adddemographic || !document.adddemographic.hin) return;
+              const hin = document.adddemographic.hin.value;
+					if (checkHINforVC(hin)) {
+						const firstTen = hin.substring(0, 10);
+						const lastTwo = hin.substring(10);
+						document.adddemographic.hin.value = firstTen;
+                    if (document.adddemographic.ver) {
+                        document.adddemographic.ver.value = lastTwo;
+                    }
+				// Validate Alberta HIN (9 digits) if province is AB
+            }
+
+            function formatPhoneNum(el) {
+                if (!el || !el.value) return;
+                if (el.value.substring(0, 1) == "+") return; // do not reformat E.164 and similar + formatted strings
+                const digits = el.value.replace(/\D/g, ''); // strip formatting if any
+                if (digits.length === 10) { // test for Canadian pattern XXX-XXX-XXXX
+                    el.value = digits.substring(0, 3) + "-" + digits.substring(3, 6) + "-" + digits.substring(6);
+                } else if (digits.length === 11 && digits.substring(0, 1) == "1") { // test for Canadian pattern 1-XXX-XXX-XXXX
+                    el.value = digits.substring(0, 1) + "-" + digits.substring(1, 4) + "-" + digits.substring(4, 7) + "-" + digits.substring(7);
                 }
             }
 
@@ -266,7 +293,7 @@
                 var typeInOK = false;
                 if (document.adddemographic.last_name.value != "" && document.adddemographic.first_name.value != "" && document.adddemographic.last_name.value != " " && document.adddemographic.first_name.value != " ") {
                     typeInOK = true;
-                } 
+                }
                 return typeInOK;
             }
 
@@ -337,35 +364,41 @@
             }
 
             function checkResidentStatus() {
-                // If OSCAR program exists (ID 10034), make sure it or another program is selected
-                var rs = document.adddemographic.rsid.value;
-                var oscarOption = document.querySelector('#rsid option[value="10034"]');
+                var rsid = document.adddemographic.rsid;
+                if (!rsid) {
+                    return true;
+                }
 
-                if (oscarOption && rs == "") {
-                    // If OSCAR program exists but nothing selected, select OSCAR
-                    document.adddemographic.rsid.value = "10034";
+                var oscarOption = document.querySelector('#rsid option[value="10034"]');
+                if (oscarOption && rsid.value == "") {
+                    rsid.value = "10034";
                 }
                 return true;
             }
 
             function checkAllDate() {
                 var typeInOK = false;
-                typeInOK = checkDateYMD(document.adddemographic.date_joined_year.value, document.adddemographic.date_joined_month.value, document.adddemographic.date_joined_date.value, "Date Joined");
+                function formValue(name) {
+                    var field = document.adddemographic[name];
+                    return field ? field.value : "";
+                }
+
+                typeInOK = checkDateYMD(formValue("date_joined_year"), formValue("date_joined_month"), formValue("date_joined_date"), "Date Joined");
                 if (!typeInOK) {
                     return false;
                 }
 
-                typeInOK = checkDateYMD(document.adddemographic.end_date_year.value, document.adddemographic.end_date_month.value, document.adddemographic.end_date_date.value, "End Date");
+                typeInOK = checkDateYMD(formValue("end_date_year"), formValue("end_date_month"), formValue("end_date_date"), "End Date");
                 if (!typeInOK) {
                     return false;
                 }
 
-                typeInOK = checkDateYMD(document.adddemographic.hc_renew_date_year.value, document.adddemographic.hc_renew_date_month.value, document.adddemographic.hc_renew_date_date.value, "PCN Date");
+                typeInOK = checkDateYMD(formValue("hc_renew_date_year"), formValue("hc_renew_date_month"), formValue("hc_renew_date_date"), "PCN Date");
                 if (!typeInOK) {
                     return false;
                 }
 
-                typeInOK = checkDateYMD(document.adddemographic.eff_date_year.value, document.adddemographic.eff_date_month.value, document.adddemographic.eff_date_date.value, "EFF Date");
+                typeInOK = checkDateYMD(formValue("eff_date_year"), formValue("eff_date_month"), formValue("eff_date_date"), "EFF Date");
                 if (!typeInOK) {
                     return false;
                 }
@@ -405,7 +438,12 @@
             }
 
             function checkFormTypeIn() {
-                if (document.getElementById("eform_iframe") != null) document.getElementById("eform_iframe").contentWindow.document.forms[0].submit();
+                if (document.getElementById("eform_iframe") != null) {
+                    var eformDocument = document.getElementById("eform_iframe").contentWindow.document;
+                    if (eformDocument.forms && eformDocument.forms.length > 0) {
+                        eformDocument.forms[0].submit();
+                    }
+                }
                 if (!checkName()) return false;
                 if (!checkDob()) return false;
                 if (!checkHin()) return false;
@@ -436,7 +474,8 @@
 
             function autoFillHin() {
                 var hcType = document.getElementById('hc_type').value;
-                var hin = document.getElementById('hin').value;
+                var hinField = document.getElementById('hin');
+                var hin = hinField ? hinField.value : '';
                 if (hcType == 'QC' && hin == '') {
                     var last = document.getElementById('last_name').value;
                     var first = document.getElementById('first_name').value;
@@ -453,9 +492,10 @@
                         mob = parseInt(mob) + 50;
                     }
 
-                    document.getElementById('hin').value = last + first + yob + mob + dob;
-                    hin.focus();
-                    hin.value = hin.value;
+                    if (hinField) {
+                        hinField.value = last + first + yob + mob + dob;
+                        hinField.focus();
+                    }
                 }
             }
 
@@ -469,7 +509,7 @@
                 }
                 jQuery.ajaxSetup({async: false});
                 let findDuplicate = jQuery.post("<%=request.getContextPath()%>/demographicSupport", { method: "checkForDuplicates", lastName: lastName, firstName: firstName });
-                findDuplicate.success(function (data) {
+                findDuplicate.done(function (data) {
                     if (data.hasDuplicates) {
                         console.log(data);
                         ignore = confirm(i18n.confirmDuplicatePatient);
@@ -522,11 +562,11 @@
 
             function parseDateField(fieldId) {
                 const input = document.getElementById(fieldId).value;
-            
+
                 let year = "";
                 let month = "";
                 let day = "";
-            
+
                 if (input) {
                     const [y, m, d] = input.split("-");
                     year = y || "";
@@ -657,6 +697,7 @@
                 <jsp:include page="/demographic/ViewZdemographicFullTitleSearch" />
 
                 <form method="post" id="adddemographic" name="adddemographic" action="${ctx}/demographic/DemographicAddRecord" novalidate class="needs-validation" onsubmit="return aSubmit()" autocomplete="off">
+                    <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
 
                     <jsp:include page="add-form-personal.jsp"/>
                     <jsp:include page="add-form-clinical.jsp"/>

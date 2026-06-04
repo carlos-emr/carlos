@@ -63,6 +63,7 @@ import io.github.carlos_emr.carlos.webserv.rest.to.TicklerResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.TicklerTextSuggestTo1;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Path("/tickler")
 @Component("ticklerWebService")
@@ -72,8 +73,6 @@ public class TicklerWebService extends AbstractServiceImpl {
     @Autowired
     private TicklerManager ticklerManager;
 
-    private TicklerConverter ticklerConverter = new TicklerConverter();
-
     @Autowired
     private SecurityInfoManager securityInfoManager;
 
@@ -81,6 +80,8 @@ public class TicklerWebService extends AbstractServiceImpl {
     private ProgramManager2 programManager;
 
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @POST
     @Path("/search")
     @Produces("application/json")
@@ -136,7 +137,8 @@ public class TicklerWebService extends AbstractServiceImpl {
             result.setTotal(ticklers.size());
         }
 
-        result.getContent().addAll(ticklerConverter.getAllAsTransferObjects(getLoggedInInfo(), ticklers));
+        TicklerConverter converter = new TicklerConverter();
+        result.getContent().addAll(converter.getAllAsTransferObjects(getLoggedInInfo(), ticklers));
 
 
         return result;
@@ -159,7 +161,8 @@ public class TicklerWebService extends AbstractServiceImpl {
 
         TicklerResponse result = new TicklerResponse();
         result.setTotal(ticklers.size());
-        result.getContent().addAll(ticklerConverter.getAllAsTransferObjects(getLoggedInInfo(), ticklers));
+        TicklerConverter converter = new TicklerConverter();
+        result.getContent().addAll(converter.getAllAsTransferObjects(getLoggedInInfo(), ticklers));
 
 
         return result;
@@ -244,22 +247,16 @@ public class TicklerWebService extends AbstractServiceImpl {
         result.setTotal(total);
 
 
-        List<Tickler> ticklers = ticklerManager.getTicklers(getLoggedInInfo(), cf, ((page - 1) * count), count);
+        List<Tickler> ticklers = ticklerManager.getTicklers(getLoggedInInfo(), cf, ((page - 1) * count), count,
+                includeComments, includeUpdates, false, false);
 
-        if (includeLinks) {
-            ticklerConverter.setIncludeLinks(true);
-        }
-        if (includeComments) {
-            ticklerConverter.setIncludeComments(true);
-        }
-        if (includeUpdates) {
-            ticklerConverter.setIncludeUpdates(true);
-        }
-        if (includeProgram) {
-            ticklerConverter.setIncludeProgram(true);
-        }
+        TicklerConverter converter = new TicklerConverter();
+        converter.setIncludeLinks(includeLinks);
+        converter.setIncludeComments(includeComments);
+        converter.setIncludeUpdates(includeUpdates);
+        converter.setIncludeProgram(includeProgram);
 
-        result.getContent().addAll(ticklerConverter.getAllAsTransferObjects(getLoggedInInfo(), ticklers));
+        result.getContent().addAll(converter.getAllAsTransferObjects(getLoggedInInfo(), ticklers));
 
         return result;
     }

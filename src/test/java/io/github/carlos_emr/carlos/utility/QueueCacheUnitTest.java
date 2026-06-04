@@ -1,30 +1,60 @@
 /**
- * Copyright (c) 2026. CARLOS EMR Project. All Rights Reserved.
- * This software is published under the GPL GNU General Public License.
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
  *
- * Maintained by the CARLOS EMR Project.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.utility;
 
-import org.junit.jupiter.api.*;
-
 import java.util.Arrays;
 
-import static org.assertj.core.api.Assertions.*;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Unit tests for {@link QueueCache} multi-pool LRU cache.
- *
- * @since 2026-03-31
+ * Unit tests for {@link QueueCache} cache and lifecycle behavior.
  */
-@DisplayName("QueueCache Unit Tests")
-@Tag("unit") @Tag("fast") @Tag("utility")
-class QueueCacheUnitTest {
+@Tag("unit")
+@Tag("fast")
+@Tag("utility")
+@DisplayName("QueueCache")
+class QueueCacheUnitTest extends CarlosUnitTestBase {
+
+    @BeforeEach
+    void setUp() {
+        QueueCache.resetSharedTimerForTesting();
+    }
+
+    @AfterEach
+    void tearDown() {
+        QueueCache.resetSharedTimerForTesting();
+    }
 
     @Test
     @DisplayName("should store and retrieve value")
-    void shouldStoreAndRetrieve() {
+    void shouldStoreAndRetrieve_value() {
         QueueCache<String, String> cache = new QueueCache<>(2, 100, null);
         cache.put("key1", "value1");
         assertThat(cache.get("key1")).isEqualTo("value1");
@@ -62,11 +92,10 @@ class QueueCacheUnitTest {
     @Test
     @DisplayName("should clone values when cloner provided")
     void shouldCloneValues_whenClonerProvided() {
-        QueueCacheValueCloner<String> cloner = original -> new String(original);
+        QueueCacheValueCloner<String> cloner = String::new;
         QueueCache<String, String> cache = new QueueCache<>(2, 100, cloner);
         cache.put("key", "value");
-        String retrieved = cache.get("key");
-        assertThat(retrieved).isEqualTo("value");
+        assertThat(cache.get("key")).isEqualTo("value");
     }
 
     @Test
@@ -76,5 +105,59 @@ class QueueCacheUnitTest {
         cache.put("key", "old");
         cache.put("key", "new");
         assertThat(cache.get("key")).isEqualTo("new");
+    }
+
+    @Test
+    @Tag("delete")
+    @DisplayName("should cancel shared timer when shutdown invoked")
+    void shouldCancelSharedTimer_whenShutdownInvoked() {
+        new QueueCache<String, String>(2, 10, 1_000L, null);
+
+        assertThat(QueueCache.isSharedTimerInitialized()).isTrue();
+
+        QueueCache.shutdownSharedTimer();
+
+        assertThat(QueueCache.isSharedTimerInitialized()).isFalse();
+    }
+
+    @Test
+    @Tag("create")
+    @DisplayName("should skip shared timer scheduling after shutdown")
+    void shouldSkipSharedTimerScheduling_afterShutdown() {
+        QueueCache.shutdownSharedTimer();
+
+        new QueueCache<String, String>(2, 10, 1_000L, null);
+
+        assertThat(QueueCache.isSharedTimerInitialized()).isFalse();
+    }
+
+    @Test
+    @Tag("delete")
+    @DisplayName("should be idempotent when shutdown invoked twice")
+    void shouldBeIdempotent_whenShutdownInvokedTwice() {
+        new QueueCache<String, String>(2, 10, 1_000L, null);
+
+        QueueCache.shutdownSharedTimer();
+        QueueCache.shutdownSharedTimer();
+
+        assertThat(QueueCache.isSharedTimerInitialized()).isFalse();
+    }
+
+    @Test
+    @Tag("update")
+    @DisplayName("should clamp shift period to one when max cache time is less than pools")
+    void shouldClampShiftPeriodToOne_whenMaxTimeToCacheIsLessThanPools() {
+        new QueueCache<String, String>(5, 10, 1L, null);
+
+        assertThat(QueueCache.isSharedTimerInitialized()).isTrue();
+    }
+
+    @Test
+    @Tag("create")
+    @DisplayName("should reject invalid pool count when constructing cache")
+    void shouldRejectInvalidPoolCount_whenConstructingCache() {
+        assertThatThrownBy(() -> new QueueCache<String, String>(0, 10, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("pools must be greater than 0");
     }
 }

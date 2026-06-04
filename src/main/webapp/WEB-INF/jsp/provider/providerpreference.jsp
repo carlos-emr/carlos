@@ -172,6 +172,12 @@
     String encWinHeight = props.getOrDefault("encounterWindowHeight", "");
     boolean encWinMax = "yes".equalsIgnoreCase(props.getOrDefault("encounterWindowMaximize", "no"));
     boolean encOpenInTab = "yes".equalsIgnoreCase(props.getOrDefault(UserProperty.ENCOUNTER_OPEN_IN_TAB, "no"));
+    String scheduleNavigationMode = UserProperty.resolveScheduleNavigationMode(
+            props.get(UserProperty.SCHEDULE_NAVIGATION_MODE), encOpenInTab);
+    if (!UserProperty.SCHEDULE_NAVIGATION_MODE_TAB.equals(scheduleNavigationMode)
+            && !UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED.equals(scheduleNavigationMode)) {
+        scheduleNavigationMode = UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP;
+    }
     String quickChartSize = props.getOrDefault("quickChartSize", "");
 
     // Contact info (used on prescriptions and consult letters)
@@ -217,6 +223,7 @@
 <!DOCTYPE html>
 <html lang="${carlos:forHtmlAttribute(pageContext.request.locale.language)}">
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <meta charset="utf-8">
     <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
     <c:set var="ctx" value="${pageContext.request.contextPath}"/>
@@ -997,10 +1004,21 @@
                 </div>
             </div>
             <div class="pref-row">
-                <div class="pref-label"><fmt:message key="provider.providerpreference.label.openInTabs"/></div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.scheduleNavigationMode"/></div>
                 <div class="pref-value">
-                    <input type="checkbox" class="form-check-input" role="switch"
-                           name="encounter_open_in_tab" value="yes" <%=encOpenInTab ? "checked" : ""%>>
+                    <%-- This is a single mode selector so the focused schedule shell
+                         cannot accidentally enable the broader encounter-in-tabs behavior. --%>
+                    <select name="<%= UserProperty.SCHEDULE_NAVIGATION_MODE %>" class="pref-input">
+                        <option value="<%= UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP %>" <%=UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP.equals(scheduleNavigationMode) ? "selected" : ""%>>
+                            <fmt:message key="provider.providerpreference.scheduleNavigationMode.popup"/>
+                        </option>
+                        <option value="<%= UserProperty.SCHEDULE_NAVIGATION_MODE_TAB %>" <%=UserProperty.SCHEDULE_NAVIGATION_MODE_TAB.equals(scheduleNavigationMode) ? "selected" : ""%>>
+                            <fmt:message key="provider.providerpreference.scheduleNavigationMode.tab"/>
+                        </option>
+                        <option value="<%= UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED %>" <%=UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED.equals(scheduleNavigationMode) ? "selected" : ""%>>
+                            <fmt:message key="provider.providerpreference.scheduleNavigationMode.focused"/>
+                        </option>
+                    </select>
                 </div>
             </div>
             <div class="pref-row">

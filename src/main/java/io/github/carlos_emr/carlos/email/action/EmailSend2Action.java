@@ -15,11 +15,13 @@ import io.github.carlos_emr.carlos.managers.EformDataManager;
 import io.github.carlos_emr.carlos.managers.EmailManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action controller for handling email sending functionality within the OpenO EMR system.
@@ -104,6 +106,8 @@ public class EmailSend2Action extends ActionSupport {
      *
      * @return String Struts2 SUCCESS result for rendering the email result page
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String sendEFormEmail() {
         boolean deleteEFormAfterEmail = request.getParameter("deleteEFormAfterEmail") != null && "true".equalsIgnoreCase(request.getParameter("deleteEFormAfterEmail"));
 
@@ -166,7 +170,8 @@ public class EmailSend2Action extends ActionSupport {
         String emailRedirect = emailData.getTransactionType().name();
         if (emailData.getTransactionType().equals(EmailLog.TransactionType.EFORM)) {
             try {
-                response.sendRedirect(request.getContextPath() + "/eform/efmshowform_data?fdid="  + request.getParameter("fdid") + "&parentAjaxId=eforms");
+                response.sendRedirect(request.getContextPath() + "/eform/efmshowform_data?fdid="
+                        + SafeEncode.forUriComponent(request.getParameter("fdid")) + "&parentAjaxId=eforms");
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }

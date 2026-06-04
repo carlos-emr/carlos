@@ -359,6 +359,7 @@ if (securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && is
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
     <title><%=SafeEncode.forHtml(handler.getPatientName()) + " Lab Results"%>
     </title>
@@ -1035,7 +1036,7 @@ input[id^='acklabel_']{
 
                                 <input type="button" class="btn btn-sm btn-outline-primary"
                                        value="<fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>"
-                                       onclick="<carlos:encode value='<%= ackLabFunc %>' context="javaScriptAttribute"/>">
+                                       onclick="<carlos:encode value='<%= ackLabFunc %>' context="htmlAttribute"/>">
                                 <% } %>
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value="<fmt:message key="oscarMDS.segmentDisplay.btnComment"/>"
                                        onclick="return getComment('addComment',<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>);">
@@ -1876,6 +1877,23 @@ input[id^='acklabel_']{
                     lineClass = "AbnormalRes";
                 }
 
+                boolean isEmbeddedDocumentResult = (handler.getMsgType().equals("ExcellerisON") || handler.getMsgType().equals("PATHL7")) && handler.getOBXValueType(j, k).equals("ED");
+                String embeddedDocumentLegacy = "";
+                if (isEmbeddedDocumentResult && handler.getMsgType().equals("PATHL7") && ((PATHL7Handler) handler).isLegacy(j, k)) {
+                    embeddedDocumentLegacy = "&legacy=true";
+                }
+                String embeddedDocumentHref = request.getContextPath() + "/lab/DownloadEmbeddedDocumentFromLab?labNo="
+                        + URLEncoder.encode(segmentID == null ? "" : segmentID, StandardCharsets.UTF_8)
+                        + "&segment=" + j
+                        + "&group=" + k
+                        + embeddedDocumentLegacy;
+                String labValuesHref = "javascript:popupStart('660','900','" + request.getContextPath()
+                        + "/lab/CA/ON/ViewLabValues?testName=" + URLEncoder.encode(obxName, StandardCharsets.UTF_8)
+                        + "&demo=" + (demographicID != null ? URLEncoder.encode(demographicID, StandardCharsets.UTF_8) : "")
+                        + "&labType=HL7&identifier=" + URLEncoder.encode(handler.getOBXIdentifier(j, k), StandardCharsets.UTF_8)
+                        + "')";
+                String observationHref = isEmbeddedDocumentResult ? embeddedDocumentHref : labValuesHref;
+
                 String loincCode = null;
                 try {
                     List<MeasurementMap> mmapList = measurementMapDao.getMapsByIdent(handler.getOBXIdentifier(j, k));
@@ -2110,7 +2128,7 @@ input[id^='acklabel_']{
                 <td></td>
                     <% } else { %>
                 <td style="vertical-align:top;  text-align:left;"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
-                        href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%= URLEncoder.encode(obxName, "UTF-8") %>&demo=<%= demographicID != null ? URLEncoder.encode(demographicID, "UTF-8") : "" %>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k), "UTF-8") %>')"><carlos:encode value='<%= obxName %>' context="html"/>
+                        href="<%= SafeEncode.forHtmlAttribute(observationHref) %>"><carlos:encode value='<%= obxName %>' context="html"/>
                 </a>
 
                     <% if (loincCode != null) { %>
@@ -2184,15 +2202,10 @@ input[id^='acklabel_']{
 
             <%
                 // for Excelleris Embedded Content - ie: PDF, RTF, etc...
-                if ((handler.getMsgType().equals("ExcellerisON") || handler.getMsgType().equals("PATHL7")) && handler.getOBXValueType(j, k).equals("ED")) {
-                    String legacy = "";
-                    if (handler.getMsgType().equals("PATHL7") && ((PATHL7Handler) handler).isLegacy(j, k)) {
-                        legacy = "&legacy=true";
-                    }
-
+                if (isEmbeddedDocumentResult) {
             %>
             <td style="text-align:<%=align%>"><a
-                    href="<%=request.getContextPath() %>/lab/DownloadEmbeddedDocumentFromLab?labNo=<carlos:encode value='<%= segmentID %>' context="uriComponent"/>&segment=<%=j%>&group=<%=k%><%=legacy%>">PDF
+                    href="<%= SafeEncode.forHtmlAttribute(embeddedDocumentHref) %>">PDF
                 Report</a></td>
             <%
             } else {
@@ -2373,7 +2386,7 @@ input[id^='acklabel_']{
                 <td style="text-align:left; width:50%">
                     <% if (!ackFlag) { %>
                     <input type="button" class="btn btn-sm btn-outline-primary" value="<fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>"
-                           onclick="<carlos:encode value='<%= ackLabFunc %>' context="javaScriptAttribute"/>">
+                           onclick="<carlos:encode value='<%= ackLabFunc %>' context="htmlAttribute"/>">
                     <% } %>
                     <input type="button" class="btn btn-sm btn-outline-secondary" value="<fmt:message key="oscarMDS.segmentDisplay.btnComment"/>"
                            onclick="return getComment('addComment',<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>);">

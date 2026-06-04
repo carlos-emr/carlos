@@ -55,7 +55,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.OtherIdManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
-import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -63,6 +63,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.demographic.data.DemographicMerged;
 import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public final class MessageUploader {
 
@@ -251,7 +252,7 @@ public final class MessageUploader {
 
         String demProviderNo = null;
 
-        try (Connection connection = DbConnectionFilter.getThreadLocalDbConnection()) {
+        try (Connection connection = LegacyJdbcQuery.getConnection()) {
             demProviderNo = patientRouteReport(loggedInInfo, type, insertID, lastName, firstName, sex, dob, hin, connection);
         }
 
@@ -272,7 +273,7 @@ public final class MessageUploader {
             search = "hso_no";
         }
 
-        try (Connection connection = DbConnectionFilter.getThreadLocalDbConnection()) {
+        try (Connection connection = LegacyJdbcQuery.getConnection()) {
             providerRouteReport(String.valueOf(insertID), docNums, connection, demProviderNo, type, search, limit, orderByLength);
         }
         retVal = h.audit();
@@ -349,6 +350,8 @@ public final class MessageUploader {
     /**
      * Attempt to match the doctors from the lab to a providers
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static void providerRouteReport(String labId, ArrayList<String> docNums, Connection conn, String altProviderNo, String labType, String search_on, Integer limit, boolean orderByLength) throws Exception {
         // Using HashSet to avoid duplicate providers numbers
         LinkedHashSet<String> providerNums = new LinkedHashSet<>();
@@ -440,6 +443,8 @@ public final class MessageUploader {
     /**
      * Attempt to match the patient from the lab to a demographic, return the patients providers which is to be used then no other providers can be found to match the patient to.
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static String patientRouteReport(LoggedInInfo loggedInInfo, String labType, int labId, String lastName, String firstName, String sex, String dob, String hin, Connection conn) throws SQLException {
         PatientLabRoutingResult result = null;
 

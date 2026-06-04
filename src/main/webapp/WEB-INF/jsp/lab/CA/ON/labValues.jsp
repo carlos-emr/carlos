@@ -78,6 +78,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key="oscarMDS.segmentDisplay.title"/></title>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">

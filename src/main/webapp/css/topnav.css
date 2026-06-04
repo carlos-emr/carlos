@@ -7,6 +7,161 @@ body {
 }
 
 /* top navigation bar */
+table#firstTable {
+    width: 100%;
+    background-color: white;
+    border-bottom: 1px solid #c0c0c0;
+    height: 25px;
+    margin-bottom: 0;
+}
+
+table#firstTable tr {
+    display: flex;
+    align-items: center;
+}
+
+table#firstTable td {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+}
+
+table#firstTable td#firstMenu {
+    flex: 1 1 auto;
+    margin-left: 10px;
+}
+
+table#firstTable td#userSettings {
+    flex: 0 0 auto;
+    margin-right: 15px;
+}
+
+table#firstTable td#firstMenu .icon-container {
+    display: inline-flex;
+    align-items: center;
+}
+
+table#firstTable td#firstMenu ul#navlist:not(.dashboardDropdown),
+table#firstTable td#userSettings ul#userSettingsMenu:not(.dashboardDropdown) {
+    margin: 0;
+    padding: 0;
+    white-space: nowrap;
+    list-style-type: none;
+}
+
+table#firstTable td#userSettings ul#userSettingsMenu li,
+table#firstTable td#firstMenu ul#navlist > li:not(.dashboardDropdown) {
+    line-height: 1;
+    display: inline-block;
+    padding: 0;
+}
+
+table#firstTable td#firstMenu ul#navlist > li:not(.dashboardDropdown) > a {
+    display: inline-block;
+    padding: 5px;
+}
+
+table#firstTable td#userSettings ul#userSettingsMenu {
+    display: flex;
+    gap: 5px;
+}
+
+table#firstTable a,
+table#firstTable a:visited,
+table#firstTable a:active {
+    color: #00283c;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+table#firstTable a:hover,
+table#firstTable a:focus,
+table#firstTable a:focus-visible,
+table#firstTable td#firstMenu #navlist li:hover,
+table#firstTable td#firstMenu #navlist li a:hover {
+    color: #fff;
+    background-color: #486ebd;
+}
+
+table#firstTable td#firstMenu ul#navlist li.nav-active,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:visited,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:active {
+    color: #00283c;
+    background-color: #d9d9d9;
+}
+
+table#firstTable td#firstMenu ul#navlist li.nav-active > a.tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a .tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a span {
+    color: #00283c !important;
+}
+
+table#firstTable td#firstMenu ul#navlist li.nav-active:hover,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:hover,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus-visible {
+    color: #fff;
+    background-color: #486ebd;
+}
+
+table#firstTable td#firstMenu ul#navlist li.nav-active:hover > a.tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active:hover > a .tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active:hover > a span,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:hover.tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:hover .tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:hover span,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus.tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus .tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus span,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus-visible.tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus-visible .tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus-visible span {
+    color: #fff !important;
+}
+
+table#firstTable #logoutButton span {
+    font-size: 18px;
+}
+
+table#firstTable .dashboardDropdown {
+    display: none;
+    position: absolute;
+    background-color: #f9f9f9;
+    box-shadow: 0 8px 16px 0 rgba(0, 0, 0, 0.2);
+    white-space: initial;
+    overflow-wrap: break-word;
+    z-index: 1000;
+}
+
+table#firstTable .dashboardDropdown a {
+    color: black;
+    text-decoration: none;
+    display: block;
+    text-align: left;
+    padding: 5px;
+    width: 300px;
+}
+
+table#firstTable .dashboardDropdown ul {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+
+table#firstTable .dashboardDropdown ul li {
+    width: 300px;
+    display: block;
+}
+
+table#firstTable .dropdown:hover .dashboardDropdown {
+    display: block;
+}
+
+/* These rules mirror the schedule header's menu shape without requiring
+   destination pages to import the full appointment stylesheet. */
 table.topnav {
     background-color: #EEEEFF;
     border: 0;
@@ -32,32 +187,16 @@ table.topnav td {
 }
 
 
-#navlist {
-    margin: 0;
-    padding: 0;
-    white-space: nowrap;
+/* Match the schedule bar alert affordance; these links need higher specificity
+   than the general topnav anchor color rules above. */
+table#firstTable #unclaimedLabLink.tabalert,
+table#firstTable #oscar_new_tickler {
+    color: red !important;
 }
 
-#navlist li {
-    padding-top: 0.5px;
-    padding-bottom: 0.5px;
-    padding-left: 2.5px;
-    padding-right: 2.5px;
-    display: inline;
-}
-
-#navlist li:hover {
-    color: #fff;
-    background-color: #486ebd;
-}
-
-#navlist li a:hover {
-    color: #fff;
-    background-color: #486ebd;
-}
-
-.tabalert {
-    color: red;
+table#firstTable #unclaimedLabLink.tabalert:hover,
+table#firstTable a:hover #oscar_new_tickler {
+    color: #fff !important;
 }
 
 /*end of top navigation bar */

@@ -34,9 +34,12 @@ import io.github.carlos_emr.CarlosProperties;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.WebappShutdownResources;
 
 import jakarta.servlet.ServletContextEvent;
 import jakarta.servlet.ServletContextListener;
+import jakarta.servlet.ServletContext;
 import java.io.File;
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
@@ -184,16 +187,37 @@ public class Startup implements ServletContextListener {
             logger.debug("Setting property " + propName + " with value " + propertyDir);
             p.setProperty(propName, propertyDir);
             // Create directory if it does not exist
-            if (!(new File(propertyDir)).exists()) {
+            File propertyDirectory = PathValidationUtils.resolveConfiguredDirectory(propertyDir, propName);
+            if (!propertyDirectory.exists()) {
                 logger.warn("Directory does not exist:  " + propertyDir + ". Creating.");
-                boolean success = (new File(propertyDir)).mkdirs();
+                boolean success = propertyDirectory.mkdirs();
                 if (!success) logger.error("An error occured when creating " + propertyDir);
             }
         }
     }
 
     public void contextDestroyed(ServletContextEvent arg0) {
-        // nothing to do right now
+        WebappShutdownResources.ShutdownReport report = WebappShutdownResources.releaseForContext(getWebappClassLoader(arg0));
+        if (report.successful()) {
+            logger.info("Webapp shutdown cleanup completed; deregistered JDBC drivers={}", report.deregisteredDriverCount());
+        } else {
+            logger.warn("Webapp shutdown cleanup completed with {} failed step(s); deregistered JDBC drivers={}",
+                    report.failureCount(), report.deregisteredDriverCount());
+        }
+    }
+
+    /**
+     * Resolves the stopping webapp class loader, falling back to the context class
+     * loader for direct unit calls or unusual container callbacks with no event.
+     */
+    private ClassLoader getWebappClassLoader(ServletContextEvent event) {
+        if (event != null) {
+            ServletContext servletContext = event.getServletContext();
+            if (servletContext != null) {
+                return servletContext.getClassLoader();
+            }
+        }
+        return Thread.currentThread().getContextClassLoader();
     }
 
 }

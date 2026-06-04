@@ -48,10 +48,13 @@ import org.apache.struts2.ServletActionContext;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.HtmlResponse;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.RequestNegotiation;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action that streams eform image and asset files (images, CSS, JavaScript, JSON)
@@ -101,23 +104,29 @@ public class DisplayImage2Action extends ActionSupport {
         File validatedFile = getValidatedImageFile(fileName);
         StreamData data = process(validatedFile, fileName);
         String contentType = data.contentType();
-        InputStream stream = data.stream();
-
-        try {
+        try (InputStream stream = data.stream()) {
+            if (RequestNegotiation.isHtmlContentType(contentType)) {
+                // HtmlResponse owns the content type and charset for writer-backed HTML so the
+                // logout listener remains injectable and charset handling stays centralized.
+                // LogoutBroadcastFilter can only append the cross-window logout listener to writer-backed HTML.
+                HtmlResponse.writeStoredHtml(response, contentType, stream);
+                return NONE;
+            }
             response.setContentType(contentType);
             OutputStream outputStream = response.getOutputStream();
             IOUtils.copy(stream, outputStream);
             return NONE;
-        } catch (IOException e) {
+        } catch (IOException | IllegalStateException e) {
             MiscUtils.getLogger().error("Error streaming eform image to response", e);
-            return NONE;
-        } finally {
-            if (stream != null) {
-                stream.close();
+            if (!response.isCommitted()) {
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             }
+            return NONE;
         }
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private File getValidatedImageFile(String fileName) throws Exception {
         if (fileName == null || fileName.isEmpty()) {
             throw new IllegalArgumentException("imagefile parameter is required");
@@ -140,6 +149,8 @@ public class DisplayImage2Action extends ActionSupport {
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private StreamData process(File file, String fileName) throws Exception {
         // Gets content type from image extension
         String contentType = new MimetypesFileTypeMap().getContentType(file);
@@ -253,6 +264,8 @@ public class DisplayImage2Action extends ActionSupport {
         return f.substring(dot + 1);
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static File getImageFile(String imageFileName) throws Exception {
         String home_dir = CarlosProperties.getInstance().getEformImageDirectory();
         File directory = new File(home_dir);
@@ -266,6 +279,8 @@ public class DisplayImage2Action extends ActionSupport {
      * Process only files under dir
      * This method used to list images for eform generator
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public String[] visitAllFiles(File dir) {
         String[] children = null;
         if (dir.isDirectory()) {

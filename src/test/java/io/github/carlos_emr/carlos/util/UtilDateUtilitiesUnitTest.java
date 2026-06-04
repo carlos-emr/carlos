@@ -1,172 +1,149 @@
 /**
- * Copyright (c) 2026. CARLOS EMR Project. All Rights Reserved.
- * This software is published under the GPL GNU General Public License.
+ * Copyright (c) 2026 CARLOS EMR Contributors. All Rights Reserved.
  *
- * Maintained by the CARLOS EMR Project.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.util;
 
-import org.junit.jupiter.api.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
+import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.GregorianCalendar;
+import java.util.Locale;
 
-import static org.assertj.core.api.Assertions.*;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 
 /**
- * Unit tests for {@link UtilDateUtilities} legacy date conversion utilities.
+ * Lock-in tests for the legacy {@link UtilDateUtilities} parse/format helpers, pinning
+ * the lenient {@code SimpleDateFormat} behaviour (un-padded fields parse, default locale
+ * used by {@link UtilDateUtilities#getDateFromString}) that the date-allocation refactor
+ * must preserve.
  *
- * <p>This class is @Deprecated but still actively used throughout the codebase.</p>
- *
- * @since 2026-03-31
+ * @since 2026-05-23
  */
-@DisplayName("UtilDateUtilities Unit Tests")
 @Tag("unit")
 @Tag("fast")
 @Tag("utility")
+@DisplayName("UtilDateUtilities")
 class UtilDateUtilitiesUnitTest {
 
-    @Nested
-    @DisplayName("StringToDate")
-    class StringToDateTests {
+    private static final Date FIXED = new Date(1704412800000L); // 2024-01-05T00:00:00Z
 
-        @Test
-        @DisplayName("should parse date with default pattern yyyy-MM-dd")
-        void shouldParseDateWithDefaultPattern() {
-            Date result = UtilDateUtilities.StringToDate("2026-03-31");
-            assertThat(result).isNotNull();
-            Calendar cal = Calendar.getInstance();
-            cal.setTime(result);
-            assertThat(cal.get(Calendar.YEAR)).isEqualTo(2026);
-        }
-
-        @Test
-        @DisplayName("should parse date with custom pattern")
-        void shouldParseDate_withCustomPattern() {
-            Date result = UtilDateUtilities.StringToDate("31/03/2026", "dd/MM/yyyy");
-            assertThat(result).isNotNull();
-        }
-
-        @Test
-        @DisplayName("should return null for invalid date string")
-        void shouldReturnNull_forInvalidDate() {
-            Date result = UtilDateUtilities.StringToDate("not-a-date");
-            assertThat(result).isNull();
-        }
-
-        @Test
-        @DisplayName("should return null for null input")
-        void shouldReturnNull_forNull() {
-            Date result = UtilDateUtilities.StringToDate(null);
-            assertThat(result).isNull();
-        }
+    @Test
+    @DisplayName("should parse a zero-padded ISO date")
+    void shouldParseDate_forIsoPattern() throws Exception {
+        Date expected = new SimpleDateFormat("yyyy-MM-dd", Locale.CANADA).parse("2024-03-05");
+        assertThat(UtilDateUtilities.StringToDate("2024-03-05", "yyyy-MM-dd", Locale.CANADA))
+                .isEqualTo(expected);
     }
 
-    @Nested
-    @DisplayName("DateToString")
-    class DateToStringTests {
-
-        @Test
-        @DisplayName("should format date with default pattern")
-        void shouldFormatDate_withDefaultPattern() {
-            Calendar cal = Calendar.getInstance();
-            cal.set(2026, Calendar.MARCH, 31);
-            String result = UtilDateUtilities.DateToString(cal.getTime());
-            assertThat(result).isEqualTo("2026-03-31");
-        }
-
-        @Test
-        @DisplayName("should return empty string for null date")
-        void shouldReturnEmpty_forNull() {
-            assertThat(UtilDateUtilities.DateToString(null)).isEmpty();
-        }
-
-        @Test
-        @DisplayName("should format with custom pattern")
-        void shouldFormat_withCustomPattern() {
-            Calendar cal = Calendar.getInstance();
-            cal.set(2026, Calendar.MARCH, 31);
-            String result = UtilDateUtilities.DateToString(cal.getTime(), "dd/MM/yyyy");
-            assertThat(result).isEqualTo("31/03/2026");
-        }
+    @Test
+    @DisplayName("should parse date with default pattern yyyy-MM-dd")
+    void shouldParseDate_withDefaultPattern() {
+        Date result = UtilDateUtilities.StringToDate("2026-03-31");
+        assertThat(result).isNotNull();
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(result);
+        assertThat(cal.get(Calendar.YEAR)).isEqualTo(2026);
     }
 
-    @Nested
-    @DisplayName("justYear/justMonth/justDay")
-    class DateComponents {
-
-        @Test
-        @DisplayName("should extract year")
-        void shouldExtractYear() {
-            Calendar cal = Calendar.getInstance();
-            cal.set(2026, Calendar.MARCH, 31);
-            assertThat(UtilDateUtilities.justYear(cal.getTime())).isEqualTo("2026");
-        }
-
-        @Test
-        @DisplayName("should extract month")
-        void shouldExtractMonth() {
-            Calendar cal = Calendar.getInstance();
-            cal.set(2026, Calendar.MARCH, 31);
-            assertThat(UtilDateUtilities.justMonth(cal.getTime())).isEqualTo("03");
-        }
-
-        @Test
-        @DisplayName("should extract day")
-        void shouldExtractDay() {
-            Calendar cal = Calendar.getInstance();
-            cal.set(2026, Calendar.MARCH, 31);
-            assertThat(UtilDateUtilities.justDay(cal.getTime())).isEqualTo("31");
-        }
+    @Test
+    @DisplayName("should parse leniently for un-padded fields")
+    void shouldParseLeniently_forUnpaddedFields() throws Exception {
+        Date expected = new SimpleDateFormat("yyyy-MM-dd", Locale.CANADA).parse("2024-3-5");
+        assertThat(UtilDateUtilities.StringToDate("2024-3-5", "yyyy-MM-dd", Locale.CANADA))
+                .isEqualTo(expected);
     }
 
-    @Nested
-    @DisplayName("calcDate")
-    class CalcDate {
-
-        @Test
-        @DisplayName("should create date from year, month, day strings")
-        void shouldCreateDate_fromStrings() {
-            Date result = UtilDateUtilities.calcDate("2026", "3", "31");
-            assertThat(result).isNotNull();
-            Calendar cal = Calendar.getInstance();
-            cal.setTime(result);
-            assertThat(cal.get(Calendar.YEAR)).isEqualTo(2026);
-            assertThat(cal.get(Calendar.MONTH)).isEqualTo(Calendar.MARCH);
-        }
-
-        @Test
-        @DisplayName("should return null for null components")
-        void shouldReturnNull_forNullComponents() {
-            assertThat(UtilDateUtilities.calcDate(null, "3", "31")).isNull();
-        }
+    @Test
+    @DisplayName("should return null for unparseable input")
+    void shouldReturnNull_forUnparseableInput() {
+        assertThat(UtilDateUtilities.StringToDate("garbage", "yyyy-MM-dd", Locale.CANADA)).isNull();
     }
 
-    @Nested
-    @DisplayName("getToday")
-    class GetToday {
-
-        @Test
-        @DisplayName("should return today in specified format")
-        void shouldReturnToday_inFormat() {
-            String result = UtilDateUtilities.getToday("yyyy-MM-dd");
-            assertThat(result).matches("\\d{4}-\\d{2}-\\d{2}");
-        }
+    @Test
+    @DisplayName("should return null for null input")
+    void shouldReturnNull_forNullInput() {
+        assertThat(UtilDateUtilities.StringToDate(null)).isNull();
     }
 
-    @Nested
-    @DisplayName("round-trip")
-    class RoundTrip {
+    @Test
+    @DisplayName("should format a date with the given pattern and locale")
+    void shouldFormatDate_forGivenPattern() {
+        assertThat(UtilDateUtilities.DateToString(FIXED, "dd-MMM-yyyy", Locale.ENGLISH))
+                .isEqualTo(new SimpleDateFormat("dd-MMM-yyyy", Locale.ENGLISH).format(FIXED));
+    }
 
-        @Test
-        @DisplayName("should survive StringToDate then DateToString round-trip")
-        void shouldSurviveRoundTrip() {
-            String original = "2026-03-31";
-            Date parsed = UtilDateUtilities.StringToDate(original);
-            String formatted = UtilDateUtilities.DateToString(parsed);
-            assertThat(formatted).isEqualTo(original);
-        }
+    @Test
+    @DisplayName("should return empty string for null date")
+    void shouldReturnEmpty_forNullDate() {
+        assertThat(UtilDateUtilities.DateToString(null)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should extract the year via justYear")
+    void shouldExtractYear_forJustYear() {
+        assertThat(UtilDateUtilities.justYear(FIXED)).isEqualTo(new SimpleDateFormat("yyyy").format(FIXED));
+    }
+
+    @Test
+    @DisplayName("should extract the month via justMonth")
+    void shouldExtractMonth_forJustMonth() {
+        assertThat(UtilDateUtilities.justMonth(FIXED)).isEqualTo(new SimpleDateFormat("MM").format(FIXED));
+    }
+
+    @Test
+    @DisplayName("should extract the day via justDay")
+    void shouldExtractDay_forJustDay() {
+        assertThat(UtilDateUtilities.justDay(FIXED)).isEqualTo(new SimpleDateFormat("dd").format(FIXED));
+    }
+
+    @Test
+    @DisplayName("should create date from year, month, day strings")
+    void shouldCreateDate_fromStrings() {
+        Date result = UtilDateUtilities.calcDate("2026", "3", "31");
+        assertThat(result).isNotNull();
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(result);
+        assertThat(cal.get(Calendar.YEAR)).isEqualTo(2026);
+        assertThat(cal.get(Calendar.MONTH)).isEqualTo(Calendar.MARCH);
+    }
+
+    @Test
+    @DisplayName("should return null for null date components")
+    void shouldReturnNull_forNullDateComponents() {
+        assertThat(UtilDateUtilities.calcDate(null, "3", "31")).isNull();
+    }
+
+    @Test
+    @DisplayName("should parse with the default locale via getDateFromString")
+    void shouldParseWithDefaultLocale_forGetDateFromString() throws Exception {
+        Date expected = new SimpleDateFormat("yyyy-MM-dd").parse("2024-03-05");
+        assertThat(UtilDateUtilities.getDateFromString("2024-03-05", "yyyy-MM-dd")).isEqualTo(expected);
+    }
+
+    @Test
+    @DisplayName("should format today's date for the given pattern")
+    void shouldFormatToday_forGetToday() {
+        assertThat(UtilDateUtilities.getToday("yyyy-MM-dd")).matches("\\d{4}-\\d{2}-\\d{2}");
     }
 }

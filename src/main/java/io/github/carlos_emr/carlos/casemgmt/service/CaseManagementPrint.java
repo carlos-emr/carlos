@@ -74,6 +74,7 @@ import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
 import io.github.carlos_emr.carlos.managers.PreventionManager;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.lab.ca.all.pageUtil.LabPDFCreator;
@@ -94,6 +95,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class CaseManagementPrint {
 
@@ -159,6 +161,9 @@ public class CaseManagementPrint {
      * @throws IOException if file I/O operations fail during PDF generation or cleanup
      * @throws DocumentException if PDF document creation or manipulation fails
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path validated for directory containment via PathValidationUtils before use")
     public void doPrint(LoggedInInfo loggedInInfo, Integer demographicNo, boolean printAllNotes, String[] noteIds, boolean printCPP, boolean printRx, boolean printLabs, boolean printPreventions, boolean printAllergies, boolean useDateRange, Calendar startDate, Calendar endDate, HttpServletRequest request, OutputStream os) throws IOException, DocumentException {
 
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -293,8 +298,9 @@ public class CaseManagementPrint {
         String headerDate = headerFormat.format(now);
 
         // Create new file to save form to
-        String path = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-        String fileName = path + "EncounterForm-" + headerDate + ".pdf";
+        File documentDir = PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
+        File encounterFile = PathValidationUtils.validateGeneratedChildPath("EncounterForm-" + headerDate + ".pdf", documentDir);
+        String fileName = encounterFile.getAbsolutePath();
         File file = null;
         FileOutputStream out = null;
         File file2 = null;
@@ -306,7 +312,7 @@ public class CaseManagementPrint {
 
         try {
 
-            file = new File(fileName);
+            file = PathValidationUtils.resolveTrustedPath(new File(fileName));
             out = new FileOutputStream(file);
 
             CaseManagementPrintPdf printer = new CaseManagementPrintPdf(request, out);
@@ -361,8 +367,9 @@ public class CaseManagementPrint {
                     // TODO:filter out the ones which aren't in our date range if there's a date range????
                     String segmentId = result.segmentID;
                     MessageHandler handler = Factory.getHandler(segmentId);
-                    String fileName2 = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "//" + handler.getPatientName().replaceAll("\\s", "_") + "_" + handler.getMsgDate() + "_LabReport.pdf";
-                    file2 = new File(fileName2);
+                    String labReportName = PathValidationUtils.validateGeneratedFileName(handler.getPatientName().replaceAll("\\s", "_") + "_" + handler.getMsgDate() + "_LabReport.pdf");
+                    String fileName2 = PathValidationUtils.validateGeneratedChildPath(labReportName, documentDir).getAbsolutePath();
+                    file2 = PathValidationUtils.resolveTrustedPath(new File(fileName2));
                     os2 = new FileOutputStream(file2);
 
                     {
@@ -374,8 +381,9 @@ public class CaseManagementPrint {
                         }
                         os2.close();
 
-                        String fileName3 = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "//" + handler.getPatientName().replaceAll("\\s", "_") + "_" + handler.getMsgDate() + "_LabReport.1.pdf";
-                        File file3 = new File(fileName3);
+                        String embeddedLabReportName = PathValidationUtils.validateGeneratedFileName(handler.getPatientName().replaceAll("\\s", "_") + "_" + handler.getMsgDate() + "_LabReport.1.pdf");
+                        String fileName3 = PathValidationUtils.validateGeneratedChildPath(embeddedLabReportName, documentDir).getAbsolutePath();
+                        File file3 = PathValidationUtils.resolveTrustedPath(new File(fileName3));
                         fos = new FileOutputStream(file3);
                         pdfCreator.addEmbeddedDocuments(file2, fos);
                         pdfDocs.add(fileName3);
@@ -384,10 +392,17 @@ public class CaseManagementPrint {
                 }
 
             }
-            ConcatPDF.concat(pdfDocs, os);
-        } catch (IOException e) {
-            logger.error("Error ", e);
-
+            int skippedSections = ConcatPDF.concat(pdfDocs, os);
+            if (skippedSections > 0) {
+                logger.warn("Chart print: {} document section(s) omitted from the printed output", skippedSections);
+            }
+        } catch (IOException | SecurityException e) {
+            // Every failure here occurs before any byte is written to the response stream (os is only
+            // written by ConcatPDF.concat above), so propagate instead of silently returning an empty,
+            // HTTP-200 PDF. The Struts direct-response caller resets the response and sends a real error;
+            // the REST StreamingOutput caller logs and closes. Mapped to IOException per the method contract.
+            logger.error("Chart print generation failed before any output was written", e);
+            throw new IOException("Failed to generate chart print PDF", e);
         } finally {
             if (out != null) {
                 out.close();
@@ -405,7 +420,17 @@ public class CaseManagementPrint {
                 file2.delete();
             }
             for (Object o : pdfDocs) {
-                new File((String) o).delete();
+                // Resolve+delete must never throw out of this finally: a malformed temp path would
+                // otherwise mask any in-flight exception AND skip deletion of the remaining temp PDFs,
+                // which contain PHI. Degrade to a warning and continue cleaning up the rest.
+                try {
+                    File tempPdf = PathValidationUtils.resolveTrustedPath(new File((String) o));
+                    if (!tempPdf.delete()) {
+                        logger.warn("Failed to delete temporary print PDF; leaving it for the OS temp sweep");
+                    }
+                } catch (RuntimeException ex) {
+                    logger.warn("Could not delete temporary print PDF; leaving it for the OS temp sweep", ex);
+                }
             }
         }
 

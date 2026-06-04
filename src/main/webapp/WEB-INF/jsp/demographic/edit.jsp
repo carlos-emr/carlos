@@ -69,6 +69,7 @@
 <%@ page import="io.github.carlos_emr.carlos.managers.ProgramManager2" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.waitinglist.WaitingList" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
@@ -249,6 +250,7 @@
 <!DOCTYPE html>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <title><fmt:message key="demographic.demographiceditdemographic.title"/></title>
 
@@ -821,7 +823,7 @@
                     jQuery("#paper_chart_archived_program").val('');
                 }
                 if (val == 'YES') {
-                    jQuery("#paper_chart_archived_program").val('<%=currentProgram%>');
+                    jQuery("#paper_chart_archived_program").val('<%=SafeEncode.forJavaScript(currentProgram)%>');
                 }
             }
 

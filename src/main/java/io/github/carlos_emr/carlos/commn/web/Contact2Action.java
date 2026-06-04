@@ -79,6 +79,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.LogSafe;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class Contact2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -193,6 +194,8 @@ public class Contact2Action extends ActionSupport {
         return "manage";
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String saveManage() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
@@ -335,6 +338,8 @@ public class Contact2Action extends ActionSupport {
         return forward;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String getReverseRole(String roleName, int targetDemographicNo) {
         Demographic demographic = demographicDao.getDemographicById(targetDemographicNo);
 
@@ -370,6 +375,8 @@ public class Contact2Action extends ActionSupport {
         return null;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @SuppressWarnings("unused")
     public String removeContact() {
 
@@ -379,9 +386,10 @@ public class Contact2Action extends ActionSupport {
         String[] contactIds = request.getParameterValues("contact.delete");
         String postMethod = request.getParameter("postMethod");
         String removeSingleId = request.getParameter("contactId");
+        String demographicNo = StringUtils.trimToNull(request.getParameter("demographic_no"));
         String actionForward = null;
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", null)) {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", demographicNo)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
@@ -455,6 +463,8 @@ public class Contact2Action extends ActionSupport {
         return "pForm";
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @SuppressWarnings("unused")
     public String editHealthCareTeam() {
 
@@ -579,6 +589,8 @@ public class Contact2Action extends ActionSupport {
         return "pForm";
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @SuppressWarnings("unused")
     public String saveContact() {
 
@@ -814,6 +826,8 @@ public class Contact2Action extends ActionSupport {
      * Set whether or not this external providers is allowed to be contacted
      * by the clinic.
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @SuppressWarnings("unused")
     public String setDNC() {
 

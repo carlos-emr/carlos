@@ -1,54 +1,137 @@
 /**
- * Copyright (c) 2026. CARLOS EMR Project. All Rights Reserved.
- * This software is published under the GPL GNU General Public License.
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
  *
- * Maintained by the CARLOS EMR Project.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.utility;
 
-import org.apache.pdfbox.Loader;
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.PDPage;
-import org.junit.jupiter.api.*;
-import org.junit.jupiter.api.io.TempDir;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermission;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 
-import static org.assertj.core.api.Assertions.*;
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.encryption.InvalidPasswordException;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Unit tests for {@link PDFEncryptionUtil} PDF encryption behavior.
+ * Unit tests for {@link PDFEncryptionUtil}, which encrypts e-mail attachment PDFs.
  *
- * @since 2026-03-31
+ * @since 2026-06-01
  */
-@DisplayName("PDFEncryptionUtil Unit Tests")
-@Tag("unit") @Tag("fast") @Tag("utility") @Tag("security")
+@Tag("unit")
+@Tag("fast")
+@Tag("utility")
+@Tag("security")
+@DisplayName("PDFEncryptionUtil")
 class PDFEncryptionUtilUnitTest {
 
     @TempDir
-    private Path tempDir;
+    Path tempDir;
+
+    /** Encrypted outputs land in the system temp dir (createSecureTempFile); track and clean them up. */
+    private final List<Path> encryptedOutputs = new ArrayList<>();
+
+    @AfterEach
+    void cleanUp() throws IOException {
+        for (Path p : encryptedOutputs) {
+            Files.deleteIfExists(p);
+        }
+    }
+
+    private Path writeSinglePagePdf() throws IOException {
+        Path pdf = tempDir.resolve("sample.pdf");
+        try (PDDocument doc = new PDDocument()) {
+            doc.addPage(new PDPage());
+            doc.save(pdf.toFile());
+        }
+        return pdf;
+    }
+
+    private Path encrypt(Path source, String password) throws IOException {
+        Path out = PDFEncryptionUtil.encryptPDF(source, password);
+        encryptedOutputs.add(out);
+        return out;
+    }
 
     @Test
-    @DisplayName("should encrypt PDF with password protection")
-    void shouldEncryptPdf_withPasswordProtection() throws IOException {
-        Path plainPdf = tempDir.resolve("plain.pdf");
-        try (PDDocument document = new PDDocument()) {
-            document.addPage(new PDPage());
-            document.save(plainPdf.toFile());
-        }
+    @DisplayName("should produce a password-protected PDF when given a valid document")
+    void shouldProducePasswordProtectedPdf_whenGivenValidDocument() throws IOException {
+        Path source = writeSinglePagePdf();
 
-        Path encryptedPdf = PDFEncryptionUtil.encryptPDF(plainPdf, "secret");
+        Path encrypted = encrypt(source, "s3cret");
 
-        try {
-            assertThat(encryptedPdf).exists();
-            assertThat(encryptedPdf).isNotEqualTo(plainPdf);
-            assertThatThrownBy(() -> Loader.loadPDF(encryptedPdf.toFile()))
-                    .isInstanceOf(IOException.class);
-        } finally {
-            Files.deleteIfExists(encryptedPdf);
+        assertThat(encrypted).exists();
+        assertThat(encrypted).isNotEqualTo(source);
+        assertThat(encrypted.toString()).endsWith(".pdf");
+        assertThatThrownBy(() -> Loader.loadPDF(encrypted.toFile()).close())
+                .isInstanceOf(InvalidPasswordException.class);
+        try (PDDocument opened = Loader.loadPDF(encrypted.toFile(), "s3cret")) {
+            assertThat(opened.isEncrypted()).isTrue();
+            assertThat(opened.getNumberOfPages()).isEqualTo(1);
         }
+    }
+
+    @Test
+    @DisplayName("should leave the source document untouched and write a separate output file")
+    void shouldWriteSeparateOutput_whenEncrypting() throws IOException {
+        Path source = writeSinglePagePdf();
+
+        Path encrypted = encrypt(source, "pw");
+
+        assertThat(encrypted).isNotEqualTo(source);
+        try (PDDocument original = Loader.loadPDF(source.toFile())) {
+            assertThat(original.isEncrypted()).isFalse();
+        }
+    }
+
+    @Test
+    @DisplayName("should restrict the encrypted file to owner-only permissions on POSIX filesystems")
+    void shouldRestrictToOwnerOnly_whenFilesystemIsPosix() throws IOException {
+        Path encrypted = encrypt(writeSinglePagePdf(), "pw");
+
+        if (Files.getFileStore(encrypted).supportsFileAttributeView("posix")) {
+            Set<PosixFilePermission> perms = Files.getPosixFilePermissions(encrypted);
+            assertThat(perms).containsExactlyInAnyOrder(
+                    PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE);
+        }
+    }
+
+    @Test
+    @DisplayName("should wrap failures as IOException when the source is not a valid PDF")
+    void shouldThrowIoException_whenSourceIsNotAValidPdf() throws IOException {
+        Path notAPdf = tempDir.resolve("garbage.pdf");
+        Files.write(notAPdf, "this is not a pdf".getBytes());
+
+        assertThatThrownBy(() -> PDFEncryptionUtil.encryptPDF(notAPdf, "pw"))
+                .isInstanceOf(IOException.class);
     }
 }

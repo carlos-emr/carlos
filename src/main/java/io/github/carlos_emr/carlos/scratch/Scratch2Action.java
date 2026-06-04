@@ -41,6 +41,7 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
 
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Map;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  *
@@ -69,6 +70,8 @@ public class Scratch2Action extends JSONAction {
     	}
     }
     
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() throws Exception {
 
         String method = request.getParameter("method");
@@ -83,10 +86,12 @@ public class Scratch2Action extends JSONAction {
             }
             return SUCCESS;
         }
+        if ("GET".equalsIgnoreCase(request.getMethod())) {
+            return "success";
+        }
 
         String providerNo =  (String) request.getSession().getAttribute("user");
         String pNo = request.getParameter("providerNo");
-
         if (providerNo == null || providerNo.trim().isEmpty()) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             return null;
@@ -166,9 +171,13 @@ public class Scratch2Action extends JSONAction {
 			jsonResponse(jsonObject);
 
         }else {
-			MiscUtils.getLogger().warn("Scratch pad trying to save data for user {} but session user is {}",
+			MiscUtils.getLogger().error("Scratch pad trying to save data for user {} but session user is {}",
 				Encode.forJava(pNo), Encode.forJava(providerNo));
 			response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            ObjectNode jsonObject = objectMapper.createObjectNode();
+            jsonObject.put("success", false);
+            jsonObject.put("message", "Provider mismatch");
+            jsonResponse(jsonObject);
         }
         
         return null;      

@@ -52,6 +52,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="admin.api.clients.title"/></title>
         <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
@@ -80,19 +81,17 @@
 
             function listClients() {
                 $("#clientTable tbody").find("tr").remove();
-                jQuery.getJSON("clientManage.json.jsp", {method: "list"},
+                jQuery.getJSON("<%= request.getContextPath() %>/admin/api/clientManage", {method: "list"},
                     function (data, textStatus) {
                         for (var x = 0; x < data.length; x++) {
                             var id = data[x].id;
                             var name = data[x].name;
                             var key = data[x].key;
-                            var secret = data[x].secret;
                             var uri = data[x].uri;
                             var lifetime = data[x].lifetime;
                             var $row = $('<tr>');
                             $row.append($('<td>').text(name));
                             $row.append($('<td>').text(key));
-                            $row.append($('<td>').text(secret));
                             $row.append($('<td>').text(uri));
                             $row.append($('<td>').text(lifetime));
                             var $delLink = $('<a>').attr('href', 'javascript:void(0);')
@@ -107,12 +106,11 @@
             function listTokens() {
                 $("#tokenTable tbody").find("tr").remove();
 
-                jQuery.getJSON("clientManage.json.jsp", {method: "listTokens"},
+                jQuery.getJSON("<%= request.getContextPath() %>/admin/api/clientManage", {method: "listTokens"},
                     function (data, textStatus) {
 
 
                         for (var x = 0; x < data.length; x++) {
-                            console.log(JSON.stringify(data[x]));
                             var clientId = data[x].clientId;
                             var dateCreated = data[x].dateCreated;
                             var id = data[x].id;
@@ -120,11 +118,9 @@
                             var lifetime = data[x].lifetime;
                             var persistent = data[x].persistent;
                             var providerNo = data[x].providerNo;
-                            var tokenId = data[x].tokenId;
-                            var tokenSecret = data[x].tokenSecret;
 
                             var $trow = $('<tr>');
-                            $trow.append($('<td>').text(tokenId));
+                            $trow.append($('<td>').text(id));
                             $trow.append($('<td>').text(lifetime));
                             $trow.append($('<td>').text(issued));
                             $trow.append($('<td>').text(providerNo));
@@ -136,7 +132,7 @@
 
 
             function deleteClient(id) {
-                jQuery.post("clientManage.json.jsp", {
+                jQuery.post("<%= request.getContextPath() %>/admin/api/clientManage", {
                         method: "delete",
                         id: id
                     },
@@ -163,7 +159,7 @@
                             var name = $("#clientName").val();
                             var uri = $("#clientURI").val();
                             var lifetime = $("#lifetime").val();
-                            jQuery.post("clientManage.json.jsp",
+                            jQuery.post("<%= request.getContextPath() %>/admin/api/clientManage",
                                 {
                                     method: "add",
                                     name: name,
@@ -202,7 +198,6 @@
         <tr>
             <th><fmt:message key="admin.api.clients.table.name"/></th>
             <th><fmt:message key="admin.api.clients.table.clientKey"/></th>
-            <th><fmt:message key="admin.api.clients.table.clientSecret"/></th>
             <th><fmt:message key="admin.api.clients.table.uri"/></td>
             <th><fmt:message key="admin.api.clients.table.tokenTtl"/></td>
             <th><fmt:message key="admin.api.clients.table.actions"/></th>

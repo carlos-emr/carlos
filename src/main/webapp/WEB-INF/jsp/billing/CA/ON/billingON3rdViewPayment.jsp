@@ -34,6 +34,7 @@
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>View payment details</title>
 </head>
 <body>

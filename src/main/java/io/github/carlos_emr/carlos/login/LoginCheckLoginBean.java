@@ -118,6 +118,13 @@ public final class LoginCheckLoginBean {
      */
     private static final String LOG_PRE = "Login!@#$: ";
 
+    /**
+     * Pre-computed BCrypt hash of a random decoy password, used only to equalize missing-user
+     * authentication timing with the normal password-validation path.
+     */
+    private static final String MISSING_USER_DUMMY_PASSWORD_HASH =
+            "{bcrypt}$2b$10$YzOXP.2axkRiYS07sVHWkuyvQjcuwR.bGeZd5WHQVJ23py57UES8C";
+
     /** Security manager for password encoding, validation, and hash migration */
     private final SecurityManager securityManager = SpringUtils.getBean(SecurityManager.class);
 
@@ -228,6 +235,8 @@ public final class LoginCheckLoginBean {
 
         // Fail authentication if user not found in security table
         if (security == null) {
+            // Result intentionally ignored; BCrypt cost matches real users to prevent username enumeration.
+            validateDummyPassword();
             return cleanNullObj(LOG_PRE + "No Such User: " + username);
         }
 
@@ -275,6 +284,8 @@ public final class LoginCheckLoginBean {
                 boolean isPasswordUpgraded = this.securityManager.upgradeSavePasswordHash(this.password, this.security);
                 if (!isPasswordUpgraded)
                     logger.error("Error while upgrading password hash");
+            } else {
+                validateDummyPassword();
             }
         }
         // Modern password (>= 20 chars): BCrypt validation
@@ -326,6 +337,21 @@ public final class LoginCheckLoginBean {
         userpassword = null;
         password = null;
         return null;
+    }
+
+    /**
+     * Builds a throwaway security record for the missing-user password validation path.
+     *
+     * @return Security object containing only the precomputed BCrypt dummy password hash
+     */
+    private static Security missingUserDummySecurity() {
+        Security dummySecurity = new Security();
+        dummySecurity.setPassword(MISSING_USER_DUMMY_PASSWORD_HASH);
+        return dummySecurity;
+    }
+
+    private void validateDummyPassword() {
+        securityManager.validatePassword(password == null ? "" : password, missingUserDummySecurity());
     }
 
     /**
@@ -451,7 +477,7 @@ public final class LoginCheckLoginBean {
      */
     public void setPassword(String password) {
         // Preserve legacy space-to-backspace behavior.
-        this.password = password.replace(' ', '\b');
+        this.password = password == null ? "" : password.replace(' ', '\b');
     }
 
     /**

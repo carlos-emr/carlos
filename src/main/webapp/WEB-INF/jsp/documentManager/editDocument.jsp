@@ -150,6 +150,7 @@
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>Edit Document</title>
     <!-- Prototype.js/Scriptaculous removed — using vanilla JS (Phase 1c migration) -->
 
@@ -385,7 +386,7 @@
         <tr>
             <td>Public?</td>
             <td><input type="checkbox" name="docPublic"
-                    <carlos:encode value='<%= formdata.getDocPublic() + " " %>' context="htmlAttribute"/> value="checked"></td>
+                    <%="checked".equals(formdata.getDocPublic()) ? "checked" : ""%> value="checked"></td>
         </tr>
         <%}%>
         <tr>

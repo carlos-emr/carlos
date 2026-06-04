@@ -38,6 +38,7 @@ import javax.xml.datatype.XMLGregorianCalendar;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class HCValidationResult {
 
@@ -262,6 +263,8 @@ public class HCValidationResult {
         return null;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private FeeServiceDetails getFeeServiceDetailsbyFeeServiceCode(String feeServiceCode) {
         FeeServiceDetails selectedFeeServiceDetails = new FeeServiceDetails();
         selectedFeeServiceDetails.setFeeServiceCode(feeServiceCode);

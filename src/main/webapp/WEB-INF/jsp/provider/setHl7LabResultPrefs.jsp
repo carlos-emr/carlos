@@ -16,6 +16,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key="provider.setHl7LabResultPrefs.title"/></title>
 
     <link href="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" media="screen">
@@ -24,7 +25,7 @@
     <script src="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 </head>
 <body>
-<jsp:include page="../images/spinner.jsp" flush="true"/>
+<jsp:include page="/WEB-INF/jsp/includes/spinner.jspf" flush="true"/>
 
 <div class="container py-5">
     <div class="card shadow-sm">

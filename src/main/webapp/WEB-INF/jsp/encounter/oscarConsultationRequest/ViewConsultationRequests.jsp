@@ -92,6 +92,7 @@
 
 <%
     String curProvider_no = (String) session.getAttribute("user");
+    boolean showScheduleNav = "1".equals(request.getParameter("scheduleNav"));
 
     boolean isSiteAccessPrivacy = false;
     boolean isTeamAccessPrivacy = false;
@@ -223,7 +224,11 @@
 
 
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
+        <% if (showScheduleNav) { %>
+        <link rel="stylesheet" href="<%=request.getContextPath()%>/css/topnav.css">
+        <% } %>
         <title>
             <fmt:message key="ectViewConsultationRequests.title"/>
         </title>
@@ -314,6 +319,9 @@
     </head>
 
     <body>
+    <% if (showScheduleNav) { %>
+        <jsp:include page="/WEB-INF/jsp/provider/mainMenu.jsp"/>
+    <% } %>
     <div class="container-fluid p-0">
 
         <!-- Page Header -->
@@ -416,6 +424,10 @@
                     <input type="hidden" name="desc" id="desc" value="<carlos:encode value='<%= desc != null ? desc : "" %>' context="htmlAttribute"/>"/>
                     <input type="hidden" name="offset" id="offset" value="<carlos:encode value='<%= String.valueOf(offset) %>' context="htmlAttribute"/>"/>
                     <input type="hidden" name="limit" id="limit" value="<carlos:encode value='<%= String.valueOf(limit) %>' context="htmlAttribute"/>"/>
+                    <% if (showScheduleNav) { %>
+                    <%-- Sorting and pagination submit this form; this hidden flag keeps the schedule top bar visible after each submit. --%>
+                    <input type="hidden" name="scheduleNav" value="1"/>
+                    <% } %>
                 </div>
             </form>
 

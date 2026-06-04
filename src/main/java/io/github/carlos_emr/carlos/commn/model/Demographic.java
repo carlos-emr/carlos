@@ -45,12 +45,14 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.springframework.context.i18n.LocaleContextHolder;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * This is the object class that relates to the demographic table. Any customizations belong here.
  */
 @Entity
 @Table(name = "demographic")
+@jakarta.persistence.Access(jakarta.persistence.AccessType.PROPERTY)
 public class Demographic extends AbstractModel<Integer> implements Serializable {
 
     private static final String DEFAULT_MONTH = "01";
@@ -320,6 +322,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
             errors.add(fieldName + " exceeds maximum length of " + maxLength + " " + unit + ".");
         }
     }
+    @jakarta.persistence.Transient
 
     public String getDisplayName() {
         if (displayName == null) {
@@ -331,6 +334,9 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the unique identifier of this class
      */
+    @jakarta.persistence.Id
+    @jakarta.persistence.GeneratedValue(strategy = jakarta.persistence.GenerationType.IDENTITY)
+    @jakarta.persistence.Column(name = "demographic_no")
     public Integer getDemographicNo() {
         return demographicNo;
     }
@@ -344,6 +350,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         this.demographicNo = demographicNo;
         this.hashCode = Integer.MIN_VALUE;
     }
+    @jakarta.persistence.Column(name = "title")
 
     public String getTitle() {
         return title;
@@ -352,6 +359,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public void setTitle(String title) {
         this.title = title;
     }
+    @jakarta.persistence.Column(name = "official_lang")
 
     public String getOfficialLanguage() {
         return officialLanguage;
@@ -360,6 +368,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public void setOfficialLanguage(String officialLanguage) {
         this.officialLanguage = officialLanguage;
     }
+    @jakarta.persistence.Column(name = "lastUpdateUser")
 
     public String getLastUpdateUser() {
         return lastUpdateUser;
@@ -368,6 +377,9 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public void setLastUpdateUser(String lastUpdateUser) {
         this.lastUpdateUser = lastUpdateUser;
     }
+    @jakarta.persistence.Temporal(jakarta.persistence.TemporalType.TIMESTAMP)
+
+    @jakarta.persistence.Column(name = "lastUpdateDate")
 
     public Date getLastUpdateDate() {
         return lastUpdateDate;
@@ -380,6 +392,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * @return the rosterDate
      */
+    @jakarta.persistence.Temporal(jakarta.persistence.TemporalType.DATE)
+    @jakarta.persistence.Column(name = "roster_date")
     public Date getRosterDate() {
         return rosterDate;
     }
@@ -390,6 +404,9 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public void setRosterDate(Date rosterDate) {
         this.rosterDate = rosterDate;
     }
+    @jakarta.persistence.Temporal(jakarta.persistence.TemporalType.DATE)
+
+    @jakarta.persistence.Column(name = "roster_termination_date")
 
     public Date getRosterTerminationDate() {
         return rosterTerminationDate;
@@ -398,6 +415,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public void setRosterTerminationDate(Date rosterTermDate) {
         this.rosterTerminationDate = rosterTermDate;
     }
+    @jakarta.persistence.Column(name = "roster_termination_reason", length = 2)
 
     public String getRosterTerminationReason() {
         return rosterTerminationReason;
@@ -411,6 +429,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: phone
      */
+    @jakarta.persistence.Column(name = "phone", length = 20)
     public String getPhone() {
         if (phone == null) {
             return "";
@@ -430,12 +449,16 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: patient_status
      */
+    @jakarta.persistence.Column(name = "patient_status", length = 20)
     public String getPatientStatus() {
         if (patientStatus == null) {
             return "";
         }
         return patientStatus;
     }
+    @jakarta.persistence.Temporal(jakarta.persistence.TemporalType.DATE)
+
+    @jakarta.persistence.Column(name = "patient_status_date")
 
     public Date getPatientStatusDate() {
         return patientStatusDate;
@@ -457,6 +480,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: roster_status
      */
+    @jakarta.persistence.Column(name = "roster_status", length = 20)
     public String getRosterStatus() {
         if (rosterStatus == null) {
             return "";
@@ -476,6 +500,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: provider_no
      */
+    @jakarta.persistence.Column(name = "provider_no", length = 250)
     public String getProviderNo() {
         return providerNo;
     }
@@ -495,6 +520,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: hin
      */
+    @jakarta.persistence.Column(name = "hin", length = 20)
     public String getHin() {
         return hin;
     }
@@ -511,6 +537,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: address
      */
+    @jakarta.persistence.Column(name = "address", length = 60)
     public String getAddress() {
         return address;
     }
@@ -527,6 +554,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: province
      */
+    @jakarta.persistence.Column(name = "province", length = 20)
     public String getProvince() {
         return province;
     }
@@ -547,6 +575,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: month_of_birth
      */
+    @jakarta.persistence.Column(name = "month_of_birth", length = 2)
     public String getMonthOfBirth() {
         return monthOfBirth;
     }
@@ -563,6 +592,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: ver
      */
+    @jakarta.persistence.Column(name = "ver", length = 3)
     public String getVer() {
         return ver;
     }
@@ -579,6 +609,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: date_of_birth
      */
+    @jakarta.persistence.Column(name = "date_of_birth", length = 2)
     public String getDateOfBirth() {
         return dateOfBirth;
     }
@@ -595,6 +626,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: sex
      */
+    @jakarta.persistence.Column(name = "sex", length = 1, nullable = false)
     public String getSex() {
         return sex;
     }
@@ -611,9 +643,12 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: date_joined
      */
+    @jakarta.persistence.Temporal(jakarta.persistence.TemporalType.DATE)
+    @jakarta.persistence.Column(name = "date_joined")
     public Date getDateJoined() {
         return dateJoined;
     }
+    @jakarta.persistence.Transient
 
     public String getFormattedDateJoined() {
         Date d = getDateJoined();
@@ -633,6 +668,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: family_doctor
      */
+    @jakarta.persistence.Column(name = "family_doctor", length = 80)
     public String getFamilyDoctor() {
         if (StringUtils.isBlank(familyDoctor)) {
             this.familyDoctor = "";
@@ -661,6 +697,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: family_physician
      */
+    @jakarta.persistence.Transient
     public String getFamilyPhysician() {
         return familyPhysician;
     }
@@ -668,6 +705,9 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the last name as parsed from column: family_doctor
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    @jakarta.persistence.Transient
     public String getFamilyDoctorLastName() {
         String doctorName = "";
         Matcher m = FD_LAST_NAME.matcher(getFamilyDoctor());
@@ -683,6 +723,9 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the first name as parsed from column: family_doctor
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    @jakarta.persistence.Transient
     public String getFamilyDoctorFirstName() {
         String doctorName = "";
         Matcher m = FD_FIRST_NAME.matcher(getFamilyDoctor());
@@ -694,6 +737,9 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         }
         return doctorName;
     }
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    @jakarta.persistence.Transient
 
     public String getFamilyDoctorName() {
         String doctorName = "";
@@ -712,6 +758,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the doctor number as parsed from column: family_doctor
      */
+    @jakarta.persistence.Transient
     public String getFamilyDoctorNumber() {
 
         Matcher m = FD_OHIP.matcher(getFamilyDoctor());
@@ -721,6 +768,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         }
         return "";
     }
+    @jakarta.persistence.Transient
 
     public String getFamilyPhysicianLastName() {
         Matcher m = FD_LAST_NAME.matcher(getFamilyPhysician());
@@ -729,6 +777,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         }
         return "";
     }
+    @jakarta.persistence.Transient
 
     public String getFamilyPhysicianFirstName() {
         Matcher m = FD_FIRST_NAME.matcher(getFamilyPhysician());
@@ -737,6 +786,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         }
         return "";
     }
+    @jakarta.persistence.Transient
 
     public String getFamilyPhysicianFullName() {
         Matcher m = FD_FULL_NAME.matcher(getFamilyPhysician());
@@ -745,6 +795,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         }
         return "";
     }
+    @jakarta.persistence.Transient
 
     public String getFamilyPhysicianNumber() {
         Matcher m = FD_OHIP.matcher(getFamilyPhysician());
@@ -758,6 +809,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: city
      */
+    @jakarta.persistence.Column(name = "city", length = 50)
     public String getCity() {
         return city;
     }
@@ -774,6 +826,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: first_name
      */
+    @jakarta.persistence.Column(name = "first_name", length = 30, nullable = false)
     public String getFirstName() {
         return firstName;
     }
@@ -783,6 +836,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
      *
      * @return Returns the last name, first name pair.
      */
+    @jakarta.persistence.Transient
     public String getFullName() {
         return getLastName() + ", " + getFirstName();
     }
@@ -801,6 +855,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
      *
      * @return Returns the preferred name.
      */
+    @jakarta.persistence.Column(name = "pref_name")
     public String getPrefName() {
         if (getAlias() != null && !getAlias().isEmpty()) {
             return getAlias();
@@ -825,6 +880,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: postal
      */
+    @jakarta.persistence.Column(name = "postal", length = 9)
     public String getPostal() {
         return postal;
     }
@@ -841,6 +897,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: hc_renew_date
      */
+    @jakarta.persistence.Temporal(jakarta.persistence.TemporalType.DATE)
+    @jakarta.persistence.Column(name = "hc_renew_date")
     public Date getHcRenewDate() {
         return hcRenewDate;
     }
@@ -857,6 +915,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: phone2
      */
+    @jakarta.persistence.Column(name = "phone2", length = 20)
     public String getPhone2() {
         if (phone2 == null) {
             return "";
@@ -876,6 +935,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: pcn_indicator
      */
+    @jakarta.persistence.Column(name = "pcn_indicator", length = 20)
     public String getPcnIndicator() {
         return pcnIndicator;
     }
@@ -892,9 +952,12 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: end_date
      */
+    @jakarta.persistence.Temporal(jakarta.persistence.TemporalType.DATE)
+    @jakarta.persistence.Column(name = "end_date")
     public Date getEndDate() {
         return endDate;
     }
+    @jakarta.persistence.Transient
 
     public String getFormattedEndDate() {
         Date d = getEndDate();
@@ -914,6 +977,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: last_name
      */
+    @jakarta.persistence.Column(name = "last_name", length = 30, nullable = false)
     public String getLastName() {
         return lastName;
     }
@@ -930,6 +994,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: hc_type
      */
+    @jakarta.persistence.Column(name = "hc_type", length = 20)
     public String getHcType() {
         return hcType;
     }
@@ -946,6 +1011,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: chart_no
      */
+    @jakarta.persistence.Column(name = "chart_no", length = 10)
     public String getChartNo() {
         if (chartNo == null) {
             return "";
@@ -965,6 +1031,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: email
      */
+    @jakarta.persistence.Column(name = "email", length = 100)
     public String getEmail() {
         return email;
     }
@@ -981,6 +1048,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: year_of_birth
      */
+    @jakarta.persistence.Column(name = "year_of_birth", length = 4)
     public String getYearOfBirth() {
         return yearOfBirth;
     }
@@ -997,15 +1065,19 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: eff_date
      */
+    @jakarta.persistence.Temporal(jakarta.persistence.TemporalType.DATE)
+    @jakarta.persistence.Column(name = "eff_date")
     public Date getEffDate() {
         return effDate;
     }
+    @jakarta.persistence.Transient
 
     public String getFormattedEffDate() {
         Date d = getEffDate();
         if (d != null) return (DateFormatUtils.ISO_DATE_FORMAT.format(d));
         else return ("");
     }
+    @jakarta.persistence.Column(name = "anonymous")
 
     public String getAnonymous() {
         return anonymous;
@@ -1031,6 +1103,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         }
 
     }
+    @jakarta.persistence.Transient
 
     public String getFormattedRenewDate() {
         Date d = getHcRenewDate();
@@ -1060,6 +1133,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public void setEffDate(Date effDate) {
         this.effDate = effDate;
     }
+    @jakarta.persistence.Column(name = "alias", length = 70)
 
     public String getAlias() {
         if (alias == null) {
@@ -1071,6 +1145,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public void setAlias(String alias) {
         this.alias = alias;
     }
+    @jakarta.persistence.Column(name = "children", length = 255)
 
     public String getChildren() {
         return children;
@@ -1079,6 +1154,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public void setChildren(String children) {
         this.children = children;
     }
+    @jakarta.persistence.Column(name = "citizenship", length = 40)
 
     public String getCitizenship() {
         return citizenship;
@@ -1087,6 +1163,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public void setCitizenship(String citizenship) {
         this.citizenship = citizenship;
     }
+    @jakarta.persistence.Column(name = "previousAddress", length = 255)
 
     public String getPreviousAddress() {
         return previousAddress;
@@ -1095,6 +1172,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public void setPreviousAddress(String previousAddress) {
         this.previousAddress = previousAddress;
     }
+    @jakarta.persistence.Column(name = "sin", length = 15)
 
     public String getSin() {
         return sin;
@@ -1103,6 +1181,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public void setSin(String sin) {
         this.sin = sin;
     }
+    @jakarta.persistence.Column(name = "sourceOfIncome", length = 255)
 
     public String getSourceOfIncome() {
         return sourceOfIncome;
@@ -1111,6 +1190,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public void setSourceOfIncome(String sourceOfIncome) {
         this.sourceOfIncome = sourceOfIncome;
     }
+    @jakarta.persistence.Transient
 
     public String getCellPhone() {
         if (this.cellPhone == null) {
@@ -1122,6 +1202,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public void setCellPhone(String cellPhone) {
         this.cellPhone = cellPhone;
     }
+    @jakarta.persistence.Transient
 
     public String getPhoneComment() {
         if (this.phoneComment == null) {
@@ -1133,6 +1214,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public void setPhoneComment(String phoneComment) {
         this.phoneComment = phoneComment;
     }
+    @jakarta.persistence.Column(name = "gender")
 
     public String getGender() {
         if (gender == null) {
@@ -1144,6 +1226,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public void setGender(String gender) {
         this.gender = gender;
     }
+    @jakarta.persistence.Column(name = "pronoun")
 
     public String getPronoun() {
         if (pronoun == null) {
@@ -1199,6 +1282,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
 
         return text;
     }
+    @jakarta.persistence.Transient
 
     public String getAge() {
         return (String.valueOf(Utility.calcAge(Utility.convertToReplaceStrIfEmptyStr(getYearOfBirth(), DEFAULT_YEAR), Utility.convertToReplaceStrIfEmptyStr(getMonthOfBirth(), DEFAULT_MONTH), Utility.convertToReplaceStrIfEmptyStr(getDateOfBirth(), DEFAULT_DATE))));
@@ -1207,6 +1291,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public String getAgeAsOf(Date asofDate) {
         return Utility.calcAgeAtDate(Utility.calcDate(Utility.convertToReplaceStrIfEmptyStr(getYearOfBirth(), DEFAULT_YEAR), Utility.convertToReplaceStrIfEmptyStr(getMonthOfBirth(), DEFAULT_MONTH), Utility.convertToReplaceStrIfEmptyStr(getDateOfBirth(), DEFAULT_DATE)), asofDate);
     }
+    @jakarta.persistence.Transient
 
     public String getSubjectPronoun() {
         if ("M".equals(sex)) {
@@ -1217,6 +1302,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
             return "they";
         }
     }
+    @jakarta.persistence.Transient
 
     public String getPossessivePronoun() {
         if ("M".equals(sex)) {
@@ -1227,6 +1313,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
             return "their";
         }
     }
+    @jakarta.persistence.Transient
 
     public int getAgeInYears() {
         return Utility.getNumYears(Utility.calcDate(Utility.convertToReplaceStrIfEmptyStr(getYearOfBirth(), DEFAULT_YEAR), Utility.convertToReplaceStrIfEmptyStr(getMonthOfBirth(), DEFAULT_MONTH), Utility.convertToReplaceStrIfEmptyStr(getDateOfBirth(), DEFAULT_DATE)), Calendar.getInstance().getTime());
@@ -1235,6 +1322,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public int getAgeInYearsAsOf(Date asofDate) {
         return Utility.getNumYears(Utility.calcDate(Utility.convertToReplaceStrIfEmptyStr(getYearOfBirth(), DEFAULT_YEAR), Utility.convertToReplaceStrIfEmptyStr(getMonthOfBirth(), DEFAULT_MONTH), Utility.convertToReplaceStrIfEmptyStr(getDateOfBirth(), DEFAULT_DATE)), asofDate);
     }
+    @jakarta.persistence.Transient
 
     public DemographicExt[] getExtras() {
         return extras;
@@ -1246,6 +1334,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
      * @param key
      * @return
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public DemographicExt getExtra(DemographicExt.DemographicProperty key) {
         List<DemographicExt> demographicExtList = new ArrayList<>();
         DemographicExt demographicExtResult = null;
@@ -1279,6 +1369,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         }
         return extraValue;
     }
+    @jakarta.persistence.Transient
 
     public String getFormattedDob() {
         Calendar cal = getBirthDay();
@@ -1298,6 +1389,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         }
 
     }
+    @jakarta.persistence.Transient
 
     public String getFormattedLinks() {
         StringBuilder response = new StringBuilder();
@@ -1313,6 +1405,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
 
         return response.toString();
     }
+    @jakarta.persistence.Transient
 
     public String getFormattedName() {
         StringBuilder stringBuilder = new StringBuilder(getLastName() + ", " + getFirstName());
@@ -1323,10 +1416,12 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         }
         return stringBuilder.toString();
     }
+    @jakarta.persistence.Transient
 
     public String getLinks() {
         return links;
     }
+    @jakarta.persistence.Transient
 
     public int getNumLinks() {
         if (getLinks() == null) {
@@ -1347,6 +1442,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public void setLinks(String links) {
         this.links = links;
     }
+    @org.hibernate.annotations.Formula("(select d.merged_to from demographic_merged d where d.deleted = 0 and d.demographic_no = demographic_no)")
 
     public Integer getHeadRecord() {
         return headRecord;
@@ -1355,11 +1451,19 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public void setHeadRecord(Integer headRecord) {
         this.headRecord = headRecord;
     }
+    @jakarta.persistence.Transient
 
     public Integer getCurrentRecord() {
         if (headRecord != null) return headRecord;
         return demographicNo;
     }
+    @jakarta.persistence.ElementCollection(fetch = jakarta.persistence.FetchType.EAGER)
+
+    @jakarta.persistence.CollectionTable(name = "demographic_merged", joinColumns = @jakarta.persistence.JoinColumn(name = "merged_to"))
+
+    @jakarta.persistence.Column(name = "demographic_no")
+
+    @org.hibernate.annotations.SQLRestriction("deleted = 0")
 
     public Set<Integer> getSubRecord() {
         return subRecord;
@@ -1368,6 +1472,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public void setSubRecord(Set<Integer> subRecord) {
         this.subRecord = subRecord;
     }
+    @org.hibernate.annotations.Formula("(select lst.description from lst_gender lst where lst.code=sex)")
 
     public String getSexDesc() {
         if (sexDesc == null) {
@@ -1379,6 +1484,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public void setSexDesc(String sexDesc) {
         this.sexDesc = sexDesc;
     }
+    @jakarta.persistence.Transient
 
     public boolean isActive() {
         return activeCount > 0;
@@ -1387,6 +1493,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public boolean hasHsAlert() {
         return hsAlertCount > 0;
     }
+    @org.hibernate.annotations.Formula("(select count(*) from admission a where a.client_id=demographic_no and a.admission_status='current'                and a.program_id in (select p.id from program p where p.type='Service' ))")
 
     public int getActiveCount() {
         return activeCount;
@@ -1395,6 +1502,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public void setActiveCount(int activeCount) {
         this.activeCount = activeCount;
     }
+    @org.hibernate.annotations.Formula("(select count(*) from health_safety h where h.demographic_no=demographic_no)")
 
     public int getHsAlertCount() {
         return hsAlertCount;
@@ -1413,6 +1521,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
             yearOfBirth = addZero(String.valueOf(cal.get(Calendar.YEAR)), 4);
         }
     }
+    @jakarta.persistence.Transient
 
     public GregorianCalendar getBirthDay() {
         GregorianCalendar cal = null;
@@ -1430,9 +1539,11 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     }
 
     // Returns birthday in the format yyyy-mm-dd
+    @jakarta.persistence.Transient
     public String getBirthDayAsString() {
         return getYearOfBirth() + "-" + getMonthOfBirth() + "-" + getDateOfBirth();
     }
+    @jakarta.persistence.Column(name = "spoken_lang")
 
     public String getSpokenLanguage() {
         return spokenLanguage;
@@ -1445,6 +1556,9 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * @return the providers
      */
+    @jakarta.persistence.ManyToOne(fetch = jakarta.persistence.FetchType.EAGER)
+    @jakarta.persistence.JoinColumn(name = "provider_no", insertable = false, updatable = false)
+    @org.hibernate.annotations.NotFound(action = org.hibernate.annotations.NotFoundAction.IGNORE)
     public Provider getProvider() {
         return provider;
     }
@@ -1455,6 +1569,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public void setProvider(Provider provider) {
         this.provider = provider;
     }
+    @jakarta.persistence.Column(name = "country_of_origin")
 
     public String getCountryOfOrigin() {
         return countryOfOrigin;
@@ -1463,6 +1578,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public void setCountryOfOrigin(String countryOfOrigin) {
         this.countryOfOrigin = countryOfOrigin;
     }
+    @jakarta.persistence.Column(name = "newsletter")
 
     public String getNewsletter() {
         return newsletter;
@@ -1471,6 +1587,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public void setNewsletter(String newsletter) {
         this.newsletter = newsletter;
     }
+    @jakarta.persistence.Column(name = "middleNames", length = 100)
 
     public String getMiddleNames() {
         return middleNames;
@@ -1480,6 +1597,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         this.middleNames = middleNames;
     }
 
+    @jakarta.persistence.Column(name = "roster_enrolled_to", length = 20)
+
 
     public String getRosterEnrolledTo() {
         return rosterEnrolledTo;
@@ -1488,6 +1607,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public void setRosterEnrolledTo(String rosterEnrolledTo) {
         this.rosterEnrolledTo = rosterEnrolledTo;
     }
+    @jakarta.persistence.Transient
 
     public String getLabel() {
         String label = getDisplayName() + "\n";
@@ -1517,6 +1637,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public void setDisplayName(String displayName) {
         this.displayName = displayName;
     }
+    @jakarta.persistence.Transient
 
     public String getPatientType() {
         return patientType;
@@ -1525,6 +1646,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public void setPatientType(String patientType) {
         this.patientType = patientType;
     }
+    @jakarta.persistence.Transient
 
     public Integer getGenderId() {
         return genderId;
@@ -1533,6 +1655,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public void setGenderId(Integer genderId) {
         this.genderId = genderId;
     }
+    @jakarta.persistence.Transient
 
     public Integer getPronounId() {
         return pronounId;
@@ -1807,9 +1930,11 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     }
 
     @Override
+    @jakarta.persistence.Transient
     public Integer getId() {
         return this.getDemographicNo();
     }
+    @jakarta.persistence.Transient
 
     public String getRosterStatusDisplay() {
         String rs = StringUtils.trimToNull(this.getRosterStatus());
@@ -1829,6 +1954,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
             return "";
         }
     }
+    @jakarta.persistence.Column(name = "residentialAddress", length = 60)
 
     public String getResidentialAddress() {
         return residentialAddress;
@@ -1837,6 +1963,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public void setResidentialAddress(String residentialAddress) {
         this.residentialAddress = residentialAddress;
     }
+    @jakarta.persistence.Column(name = "residentialCity", length = 50)
 
     public String getResidentialCity() {
         return residentialCity;
@@ -1845,6 +1972,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public void setResidentialCity(String residentialCity) {
         this.residentialCity = residentialCity;
     }
+    @jakarta.persistence.Column(name = "residentialProvince", length = 20)
 
     public String getResidentialProvince() {
         return residentialProvince;
@@ -1853,6 +1981,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public void setResidentialProvince(String residentialProvince) {
         this.residentialProvince = residentialProvince;
     }
+    @jakarta.persistence.Column(name = "residentialPostal", length = 9)
 
     public String getResidentialPostal() {
         return residentialPostal;
@@ -1861,6 +1990,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public void setResidentialPostal(String residentialPostal) {
         this.residentialPostal = residentialPostal;
     }
+    @jakarta.persistence.Column(name = "consentToUseEmailForCare")
 
     public Boolean getConsentToUseEmailForCare() {
         return consentToUseEmailForCare;
@@ -1869,6 +1999,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public void setConsentToUseEmailForCare(Boolean consentToUseEmailForCare) {
         this.consentToUseEmailForCare = consentToUseEmailForCare;
     }
+    @jakarta.persistence.Transient
 
     public String getStandardIdentificationHtml() {
         StringBuilder sb = new StringBuilder();
@@ -1899,6 +2030,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         }
         return sb.toString();
     }
+    @jakarta.persistence.Transient
 
     public Provider getMrp() {
         return mrp;
@@ -1907,6 +2039,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public void setMrp(Provider mrp) {
         this.mrp = mrp;
     }
+    @jakarta.persistence.Transient
 
     public String getNextAppointment() {
         return nextAppointment;

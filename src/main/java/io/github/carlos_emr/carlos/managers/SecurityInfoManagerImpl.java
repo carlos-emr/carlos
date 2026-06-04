@@ -48,6 +48,7 @@ import io.github.carlos_emr.carlos.model.security.Secobjprivilege;
 import io.github.carlos_emr.carlos.model.security.Secuserrole;
 
 import jakarta.servlet.http.HttpSession;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Service
 public class SecurityInfoManagerImpl implements SecurityInfoManager {
@@ -110,6 +111,8 @@ public class SecurityInfoManagerImpl implements SecurityInfoManager {
      * For checking non-patient-specific object privileges, call with
      * demographicNo==null.
      */
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     @Override
     public boolean hasPrivilege(LoggedInInfo loggedInInfo, String objectName, String privilege, String demographicNo) {
         try {

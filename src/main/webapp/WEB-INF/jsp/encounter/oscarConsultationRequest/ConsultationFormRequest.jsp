@@ -525,6 +525,7 @@
     </script>
 
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <title>
             <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.title"/>
@@ -2004,7 +2005,7 @@ if (userAgent != null) {
             jQuery.ajax({
                 type: "POST",
                 url: "${ pageContext.request.contextPath }/encounter/RequestConsultation",
-                data: form.serialize(),
+                data: jQuery(form).serialize(),
                 dataType: "json",
                 success: function (data) {
                     HideSpin();
@@ -2074,7 +2075,7 @@ if (userAgent != null) {
     <%=WebUtils.popErrorMessagesAsAlert(session)%>
 
     <body onload="window.focus();disableDateFields();disableEditing();showSignatureImage();">
-    <jsp:include page="/images/spinner.jsp" flush="true"/>
+    <jsp:include page="/WEB-INF/jsp/includes/spinner.jspf" flush="true"/>
     <%
     java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");
     if (actionErrors != null && !actionErrors.isEmpty()) {
@@ -2228,6 +2229,8 @@ if (userAgent != null) {
 
                                                                                         <c:set var="__enc_2"><carlos:encode value='<%= demo %>' context="uriComponent"/></c:set>
                                                <c:set var="__enc_3"><carlos:encode value='<%= requestId %>' context="uriComponent"/></c:set>
+                                               
+                                               
                                             <fmt:message var="manageAttachmentsTitle" key="encounter.oscarConsultationRequest.ConsultationFormRequest.titleManageAttachments"/>
     <%
                                                 if (thisForm.iseReferral()) {
@@ -2238,15 +2241,15 @@ if (userAgent != null) {
                                                data-poload="${ ctx }/previewDocs?method=fetchConsultDocuments&amp;demographicNo=<carlos:encode value='${__enc_2}' context="htmlAttribute"/>&amp;requestId=<carlos:encode value='${__enc_3}' context="htmlAttribute"/>">
                                                 <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnManageAttachments"/>
                                             </a>
-                                                                                      <c:set var="__enc_4"><carlos:encode value='<%= demo %>' context="uriComponent"/></c:set>
-                                               <c:set var="__enc_5"><carlos:encode value='<%= requestId %>' context="uriComponent"/></c:set>
+                                                                                      
+                                               
      <input type="hidden" id="isOceanEReferral"
                                                    value="<%=thisForm.iseReferral()%>"/>
                                             <%
                                             } else { %>
                                             <a href="javascript:void(0);" id="attachDocumentPanelBtn"
                                                title="${carlos:forHtmlAttribute(manageAttachmentsTitle)}"
-                                               data-poload="${ ctx }/previewDocs?method=fetchConsultDocuments&amp;demographicNo=<carlos:encode value='${__enc_4}' context="htmlAttribute"/>&amp;requestId=<carlos:encode value='${__enc_5}' context="htmlAttribute"/>">
+                                               data-poload="${ ctx }/previewDocs?method=fetchConsultDocuments&amp;demographicNo=<carlos:encode value='${__enc_2}' context="htmlAttribute"/>&amp;requestId=<carlos:encode value='${__enc_3}' context="htmlAttribute"/>">
                                                 <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnManageAttachments"/>
                                             </a>
 
@@ -2390,7 +2393,8 @@ if (userAgent != null) {
                                 <input name="updateAndPrint" type="button" class="btn btn-primary btn-sm"
                                        value="<fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnUpdateAndPrint"/>"
                                        onclick="return checkForm('Update Consultation Request And Print Preview','EctConsultationFormRequest2Form');"/>
-                                <input name="printPreview" type="button" class="btn btn-primary btn-sm" value="Print Preview"
+                                <input name="printPreview" type="button" class="btn btn-primary btn-sm" 
+                                       value="<fmt:message key="global.btnPrint"/>"
                                        onclick="return checkForm('And Print Preview','EctConsultationFormRequest2Form');"/>
 
                                 <oscar:oscarPropertiesCheck value="yes" property="consultation_fax_enabled">

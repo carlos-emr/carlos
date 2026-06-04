@@ -34,6 +34,9 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 /**
  * This is the object class that relates to the program_functional_user table. Any customizations belong here.
  */
+@jakarta.persistence.Entity
+@jakarta.persistence.Table(name = "program_functional_user")
+@jakarta.persistence.Access(jakarta.persistence.AccessType.PROPERTY)
 public class ProgramFunctionalUser implements Serializable {
 
     private int hashCode = Integer.MIN_VALUE; // primary key
@@ -67,6 +70,9 @@ public class ProgramFunctionalUser implements Serializable {
      * generator-class="native"
      * column="id"
      */
+    @jakarta.persistence.Id
+    @jakarta.persistence.GeneratedValue(strategy = jakarta.persistence.GenerationType.IDENTITY)
+    @jakarta.persistence.Column(name = "id")
     public Long getId() {
         return _id;
     }
@@ -84,6 +90,7 @@ public class ProgramFunctionalUser implements Serializable {
     /**
      * Return the value associated with the column: program_id
      */
+    @jakarta.persistence.Column(name = "program_id")
     public Long getProgramId() {
         return _programId;
     }
@@ -100,6 +107,7 @@ public class ProgramFunctionalUser implements Serializable {
     /**
      * Return the value associated with the column: user_type_id
      */
+    @jakarta.persistence.Column(name = "user_type_id")
     public long getUserTypeId() {
         return _userTypeId;
     }
@@ -116,6 +124,7 @@ public class ProgramFunctionalUser implements Serializable {
     /**
      * Return the value associated with the column: provider_no
      */
+    @jakarta.persistence.Column(name = "provider_no", length = 6)
     public String getProviderNo() {
         return _providerNo;
     }
@@ -132,6 +141,8 @@ public class ProgramFunctionalUser implements Serializable {
     /**
      * column=user_type_id
      */
+    @jakarta.persistence.ManyToOne(fetch = jakarta.persistence.FetchType.EAGER)
+    @jakarta.persistence.JoinColumn(name = "user_type_id", insertable = false, updatable = false)
     public FunctionalUserType getUserType() {
         return this._userType;
     }
@@ -148,6 +159,8 @@ public class ProgramFunctionalUser implements Serializable {
     /**
      * column=provider_no
      */
+    @jakarta.persistence.ManyToOne(fetch = jakarta.persistence.FetchType.EAGER)
+    @jakarta.persistence.JoinColumn(name = "provider_no", insertable = false, updatable = false)
     public Provider getProvider() {
         return this._provider;
     }

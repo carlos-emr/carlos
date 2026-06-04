@@ -115,9 +115,13 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 import io.github.carlos_emr.carlos.util.LabelValueBean;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class ProviderProperty2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
+
+    /** Shared, thread-safe ObjectMapper (safe after configuration). */
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -472,6 +476,8 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genRxPageSize";
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String saveDefaultDocQueue() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -645,6 +651,8 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genRxProfileView";
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String viewShowPatientDOB() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -1274,6 +1282,8 @@ public class ProviderProperty2Action extends ActionSupport {
         return "gen";
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String saveFavouriteEformGroup() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -1309,6 +1319,8 @@ public class ProviderProperty2Action extends ActionSupport {
         return "gen";
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String viewCppSingleLine() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -1383,6 +1395,8 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genCppSingleLine";
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String viewEDocBrowserInDocumentReport() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -1455,6 +1469,8 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genEDocBrowserInDocumentReport";
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String viewEDocBrowserInMasterFile() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -1528,6 +1544,8 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genEDocBrowserInMasterFile";
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String viewCommentLab() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -1602,6 +1620,8 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genAckCommentLab";
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @SuppressWarnings("unchecked")
     public String viewLabRecall() {
 
@@ -2594,7 +2614,7 @@ public class ProviderProperty2Action extends ActionSupport {
             try {
                 // Attempt to parse JSON. If successful, structure is valid.
                 // If parsing fails, the exception is caught below.
-                new ObjectMapper().readTree(prefs);
+                OBJECT_MAPPER.readTree(prefs);
             } catch (IOException e) {
                 // JSON parsing failed. Log warning (admin visibility) but
                 // do not persist. Show user-friendly error message on JSP.
@@ -2697,7 +2717,7 @@ public class ProviderProperty2Action extends ActionSupport {
         response.setCharacterEncoding("UTF-8");
 
        try {
-          ObjectMapper mapper = new ObjectMapper();
+          ObjectMapper mapper = OBJECT_MAPPER;
           mapper.writeValue(response.getWriter(), json);
         } catch (Exception e) {
             logger.error("An error occurred while writing JSON response to the output stream", e);

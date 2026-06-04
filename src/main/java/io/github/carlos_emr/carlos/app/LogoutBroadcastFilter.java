@@ -51,6 +51,7 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.RequestNegotiation;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Servlet filter that injects session heartbeat and logout broadcast JavaScript
@@ -114,6 +115,10 @@ public class LogoutBroadcastFilter implements Filter {
 
     /** Default inactivity limit in minutes when INACTIVITY_LIMIT_MINS is not configured. */
     private static final int DEFAULT_INACTIVITY_LIMIT_MINS = 60;
+
+    /** Request marker used to avoid duplicate server-side injection across REQUEST/FORWARD dispatches. */
+    private static final String SCRIPT_INJECTED_REQUEST_ATTRIBUTE =
+            LogoutBroadcastFilter.class.getName() + ".scriptInjected";
 
     private Set<String> exclusions = Collections.synchronizedSet(new HashSet<String>());
 
@@ -188,6 +193,12 @@ public class LogoutBroadcastFilter implements Filter {
         chain.doFilter(request, delegatingResponse);
         delegatingResponse.markChainComplete();
 
+        if (Boolean.TRUE.equals(httpRequest.getAttribute(SCRIPT_INJECTED_REQUEST_ATTRIBUTE))) {
+            delegatingResponse.discardDeferredContentLength();
+            delegatingResponse.completeWithoutInjection();
+            return;
+        }
+
         HttpSession session = httpRequest.getSession(false);
         if (session == null || session.getAttribute("user") == null) {
             delegatingResponse.completeWithoutInjection();
@@ -219,6 +230,7 @@ public class LogoutBroadcastFilter implements Filter {
         try {
             delegatingResponse.discardDeferredContentLength();
             appendScript(delegatingResponse, httpRequest.getContextPath(), httpRequest.getLocale());
+            httpRequest.setAttribute(SCRIPT_INJECTED_REQUEST_ATTRIBUTE, Boolean.TRUE);
         } catch (IOException e) {
             logger.error("Skipping logout broadcast script injection because the script could not be written: uri={}",
                     safeRequestUri, e);
@@ -289,6 +301,8 @@ public class LogoutBroadcastFilter implements Filter {
      * @param request current HTTP request
      * @return true for session-establishing POST routes
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private boolean isSessionEstablishingPath(HttpServletRequest request) {
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
             return false;
@@ -417,6 +431,8 @@ public class LogoutBroadcastFilter implements Filter {
      * @param script String the script content to append
      * @throws IOException if the writer flush fails
      */
+    // FindSecBugs XSS_SERVLET: intentionally injects logout-broadcast script; buildScript encodes dynamic values for JavaScript.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "intentionally injects logout-broadcast script; buildScript encodes dynamic values for JavaScript")
     private void writeScriptToWriter(DelegatingServletResponse delegatingResponse, String script)
             throws IOException {
         PrintWriter writer = delegatingResponse.getWriter();
@@ -491,10 +507,6 @@ public class LogoutBroadcastFilter implements Filter {
                 "var loginUrl=cp+'/index';" +
                 "var done=false;" +
                 "var logoutMsg='" + SafeEncode.forJavaScript(getLoggedOutMessage(locale)) + "';" +
-                // Grace period: ignore logout broadcasts for 5s after page load
-                // to prevent stale broadcasts from prior sessions causing immediate logout
-                "var ready=false;setTimeout(function(){ready=true},5000);" +
-
                 // BroadcastChannel listener (feature detection — may not exist in all browsers)
                 "var bc;" +
                 "try{bc=new BroadcastChannel('carlos_logout')}catch(e){}" +
@@ -537,8 +549,7 @@ public class LogoutBroadcastFilter implements Filter {
                 "dL()}" +
 
                 // handleLogout — received broadcast from another window
-                // Ignore during grace period to prevent stale broadcasts from causing logout loops
-                "function hL(){if(done||!ready)return;done=true;dL()}" +
+                "function hL(){if(done)return;done=true;dL()}" +
 
                 // doLogout — show logged-out overlay, close popup or redirect tab to login
                 "function dL(){" +
@@ -950,10 +961,14 @@ public class LogoutBroadcastFilter implements Filter {
             deferredContentLengthIsLong = false;
         }
 
+        // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+        @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
         private boolean isContentLengthHeader(String name) {
             return "Content-Length".equalsIgnoreCase(name);
         }
 
+        // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+        @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
         private boolean isContentTypeHeader(String name) {
             return "Content-Type".equalsIgnoreCase(name);
         }

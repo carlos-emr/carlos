@@ -19,10 +19,14 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.ResourceBundle;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -46,6 +50,7 @@ import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.documentManager.IncomingDocUtil;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -64,6 +69,7 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 import java.util.List;
 import io.github.carlos_emr.carlos.utility.LogSafe;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class DocumentUpload2Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -79,6 +85,8 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         return executeUpload();
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     public String executeUpload() throws Exception {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
@@ -103,7 +111,10 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
 
         if (docFile != null && destination != null && destination.equals("incomingDocs")) {
             String fileName = this.filedataFileName;
-            if (!fileName.toLowerCase().endsWith(".pdf")) {
+            String sanitizedFileName = sanitizeFileNameForIncomingDocs(fileName);
+            if (sanitizedFileName == null) {
+                map.put("error", props.getString("dms.error.invalidFilename"));
+            } else if (!sanitizedFileName.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
                 map.put("error", props.getString("dms.documentUpload.onlyPdf"));
             } else if (docFile.length() == 0) {
                 map.put("error", 4);
@@ -112,20 +123,17 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                 String queueId = request.getParameter("queue");
                 String destFolder = request.getParameter("destFolder");
 
-                // Sanitize filename to prevent path traversal
-                String sanitizedFileName = sanitizeFileNameForIncomingDocs(fileName);
-                File f = new File(IncomingDocUtil.getAndCreateIncomingDocumentFilePathName(queueId, destFolder, sanitizedFileName));
-                if (f.exists()) {
-                    map.put("error", fileName + " " + props.getString("dms.documentUpload.alreadyExists"));
+                File incomingDir = PathValidationUtils.resolveConfiguredDirectory(IncomingDocUtil.getAndCreateIncomingDocumentFilePath(queueId, destFolder), "incoming document directory");
+                File destinationFile = PathValidationUtils.validateGeneratedChildPath(sanitizedFileName, incomingDir);
+                WriteToIncomingDocsResult writeResult = writeToIncomingDocs(docFile, destinationFile);
+                if (writeResult == WriteToIncomingDocsResult.ALREADY_EXISTS) {
+                    map.put("error", sanitizedFileName + " " + props.getString("dms.documentUpload.alreadyExists"));
+                } else if (writeResult == WriteToIncomingDocsResult.FAILED) {
+                    map.put("error", "Failed to write file. Please contact administrator");
+                    MiscUtils.getLogger().error("Failed to write file to {}", LogSafe.sanitize(destFolder)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                 } else {
-                    boolean success = writeToIncomingDocs(docFile, queueId, destFolder, sanitizedFileName);
-                    if (!success) {
-                        map.put("error", "Failed to write file. Please contact administrator");
-                        MiscUtils.getLogger().error("Failed to write file to {}", LogSafe.sanitize(destFolder)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                    } else {
-                        map.put("name", docFile.getName());
-                        map.put("size", docFile.length());
-                    }
+                    map.put("name", docFile.getName());
+                    map.put("size", docFile.length());
                 }
 
                 if (queueId != null) {
@@ -142,9 +150,17 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                 }
 
             }
-        } else {
+        } else if (docFile != null) {
             int numberOfPages = 0;
-            String fileName = MiscUtils.sanitizeFileName(this.filedataFileName);
+            String fileName;
+            try {
+                fileName = PathValidationUtils.validateFileName(this.filedataFileName);
+            } catch (FileValidationException e) {
+                logger.warn("Rejected invalid document upload filename");
+                map.put("error", props.getString("dms.error.invalidFilename"));
+                writeUploadResponse(map);
+                return null;
+            }
             String user = (String) request.getSession().getAttribute("user");
             SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
             EDoc newDoc = new EDoc("", "", fileName, "", user, user, this.getSource(), 'A',
@@ -210,6 +226,11 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                 docFile = null;
             }
         }
+        writeUploadResponse(map);
+        return null;
+    }
+
+    private void writeUploadResponse(HashMap<String, Object> map) throws IOException {
         ArrayNode jsonArray = objectMapper.createArrayNode();
         ObjectNode jsonObject = objectMapper.valueToTree(map);
         jsonArray.add(jsonObject);
@@ -218,7 +239,6 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         response.setCharacterEncoding("UTF-8");
 
         objectMapper.writeValue(response.getOutputStream(), jsonArray);
-        return null;
     }
 
     /**
@@ -238,6 +258,8 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
      * @param fileName the name for the file on disk
      * @throws Exception when an error occurs
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private void writeLocalFile(File docFile, String fileName) throws Exception {
         InputStream fis = null;
         FileOutputStream fos = null;
@@ -268,48 +290,36 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         }
     }
 
-    private boolean writeToIncomingDocs(File docFile, String queueId, String PdfDir, String fileName) {
-        if (queueId == null || PdfDir == null || fileName == null) {
+    private WriteToIncomingDocsResult writeToIncomingDocs(File docFile, File destinationFile) {
+        if (docFile == null || destinationFile == null) {
             logger.error("Invalid parameters provided for writeToIncomingDocs");
-            return false;
+            return WriteToIncomingDocsResult.FAILED;
         }
 
-        // Check that filename doesn't contain path traversal sequences
-        if (fileName.contains("..") || fileName.contains("/") || fileName.contains("\\")) {
-            logger.error("Filename contains invalid path characters");
-            return false;
-        }
-
-        // Create directory structure and get validated parent path
-        String parentPath = IncomingDocUtil.getAndCreateIncomingDocumentFilePath(queueId, PdfDir);
-        File parentDir = new File(parentPath);
-        if (!parentDir.exists()) {
-            return false;
-        }
-
-        // Use PathValidationUtils to construct and validate the destination file path
-        // (sanitizes fileName, rejects traversal, ensures result is within parentDir).
-        File destinationFile;
         try {
-            destinationFile = PathValidationUtils.validatePath(fileName, parentDir);
-        } catch (SecurityException e) {
-            logger.error("Destination file is outside allowed directory: {}", LogSafe.sanitize(fileName));
-            return false;
-        }
-
-        // Write the file - validate source file at point of use for static analysis visibility
-        File validatedDocFile = PathValidationUtils.validateUpload(docFile);
-        try (InputStream fis = Files.newInputStream(validatedDocFile.toPath());
-                FileOutputStream fos = new FileOutputStream(destinationFile)) {
-            IOUtils.copy(fis, fos);
-        } catch (IOException e) {
+            // validateUpload throws SecurityException if the source escaped the allowed temp dir; keep it
+            // inside the handled block so this returns FAILED rather than escaping as an unhandled 500.
+            File validatedDocFile = PathValidationUtils.validateUpload(docFile);
+            try (InputStream fis = Files.newInputStream(validatedDocFile.toPath());
+                    OutputStream fos = Files.newOutputStream(destinationFile.toPath(), StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+                IOUtils.copy(fis, fos);
+            }
+        } catch (FileAlreadyExistsException e) {
+            return WriteToIncomingDocsResult.ALREADY_EXISTS;
+        } catch (IOException | SecurityException e) {
             logger.error("Error writing file to incoming docs", e);
-            return false;
+            return WriteToIncomingDocsResult.FAILED;
         }
 
-        return true;
+        return WriteToIncomingDocsResult.SUCCESS;
     }
-    
+
+    private enum WriteToIncomingDocsResult {
+        SUCCESS,
+        ALREADY_EXISTS,
+        FAILED
+    }
+
     /**
      * Sanitizes a filename for use in incoming documents to prevent path traversal attacks.
      * Uses Apache Commons IO FilenameUtils for robust path traversal prevention.
@@ -322,7 +332,12 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             return null;
         }
 
-        String baseName = FilenameUtils.getName(fileName);
+        String baseName;
+        try {
+            baseName = FilenameUtils.getName(fileName);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
 
         // Ensure baseName doesn't contain any path separators
         if (baseName.contains("/") || baseName.contains("\\") || baseName.contains("..")) {
@@ -334,8 +349,8 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             return null;
         }
 
-        // Ensure baseName is not empty and ends with .pdf
-        if (baseName.trim().isEmpty() || !baseName.toLowerCase().endsWith(".pdf") || baseName.equals(".pdf")) {
+        // Ensure baseName is not empty
+        if (baseName.trim().isEmpty()) {
             return null;
         }
 
@@ -402,11 +417,25 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             for (UploadedFile uploaded : uploadedFiles) {
                 String inputName = uploaded.getInputName();
                 if ("filedata".equals(inputName)) {
-                    this.filedata = new File(uploaded.getAbsolutePath());
+                    // Validation runs during Struts binding (before execute()). On rejection leave the
+                    // field null instead of throwing: executeUpload() already maps a null upload to a
+                    // graceful error, so a raw SecurityException here would otherwise bypass it as an
+                    // unhandled 500 to the AJAX uploader.
+                    try {
+                        this.filedata = PathValidationUtils.validateUploadContent(uploaded.getContent());
+                    } catch (SecurityException e) {
+                        logger.warn("Rejected invalid upload content for field filedata");
+                        this.filedata = null;
+                    }
                     this.filedataContentType = uploaded.getContentType();
                     this.filedataFileName = uploaded.getOriginalName();
                 } else if ("docFile".equals(inputName)) {
-                    this.docFile = new File(uploaded.getAbsolutePath());
+                    try {
+                        this.docFile = PathValidationUtils.validateUploadContent(uploaded.getContent());
+                    } catch (SecurityException e) {
+                        logger.warn("Rejected invalid upload content for field docFile");
+                        this.docFile = null;
+                    }
                 }
             }
         }

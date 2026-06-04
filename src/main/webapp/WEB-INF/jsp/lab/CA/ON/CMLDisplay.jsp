@@ -104,8 +104,10 @@
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CML.CMLLabTest" %>
 <%@ page import="io.github.carlos_emr.carlos.mds.data.ReportStatus" %>
 <%@ page import="io.github.carlos_emr.carlos.mds.data.MDSSegmentData" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
     <title><%=lab.pLastName%>, <%=lab.pFirstName%> <fmt:message key="oscarMDS.segmentDisplay.title"/></title>

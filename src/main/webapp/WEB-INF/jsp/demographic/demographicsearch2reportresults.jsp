@@ -96,6 +96,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 
@@ -111,6 +112,7 @@
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <title><fmt:message key="demographic.demographicsearch2apptresults.title"/>(demographicsearch2reportresults)</title>
 

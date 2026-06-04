@@ -45,6 +45,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -81,6 +82,7 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
 <html>
 
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <title><carlos:encode value='<%= pd.getPatientName() %>' context="html"/> - <fmt:message key="oscarMDS.segmentDisplay.title"/></title>
     <script language="javascript" type="text/javascript"

@@ -26,7 +26,7 @@
     Contains action mappings for diagnosis research, prevention/immunization, case management notes, and clinical decision support.
 -->
 <struts>
-    <package name="clinical" namespace="/" extends="struts-default">
+    <package name="clinical" namespace="/" extends="struts-default" strict-method-invocation="true">
 
         <global-results>
             <result name="securityError">/WEB-INF/jsp/error/securityError.jsp</result>
@@ -402,9 +402,6 @@
         </action>
         <action name="encounter/oscarMeasurements/ViewProcessAddMeasurementGroupAction" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
             <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/ProcessAddMeasurementGroupAction.jsp</result>
-        </action>
-        <action name="encounter/oscarMeasurements/ViewProcessMeasurementsSubmission" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
-            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/ProcessMeasurementsSubmission.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/ViewSelectMeasurementGroup" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
             <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/SelectMeasurementGroup.jsp</result>

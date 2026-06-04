@@ -81,7 +81,7 @@ import io.github.carlos_emr.carlos.PMmodule.utility.UtilDateUtilities;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementsExtDao;
 import io.github.carlos_emr.carlos.commn.model.MeasurementsExt;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -96,6 +96,7 @@ import io.github.carlos_emr.carlos.lab.ca.on.CommonLabTestValues;
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class MeasurementGraphAction22Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -204,6 +205,8 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         return dataset;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static String[] getDrugSymbol(Integer demographic, String[] dins) {
         if (dins == null) {
             return new String[0];
@@ -672,20 +675,30 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         org.jfree.data.time.TimeSeriesCollection dataset = new org.jfree.data.time.TimeSeriesCollection();
 
 
-        ArrayList<Map<String, Serializable>> list = null;
-        MiscUtils.getLogger().debug(" lab type >" + labType + "< >" + labType.equals("loinc") + "<" + testName + " " + identifier);
-        if (labType.equals("loinc")) {
+        ArrayList<Map<String, Serializable>> list = new ArrayList<>();
+        boolean loincLab = "loinc".equals(labType);
+        MiscUtils.getLogger().debug("lab type >{}< >{}< {} {}",
+                LogSafe.sanitize(labType), loincLab, LogSafe.sanitize(testName), LogSafe.sanitize(identifier));
+        if (loincLab) {
             try {
 
-                Connection conn = DbConnectionFilter.getThreadLocalDbConnection();
-                list = CommonLabTestValues.findValuesByLoinc2(demographicNo.toString(), identifier, conn);
-                MiscUtils.getLogger().debug("List ->" + list.size());
-                conn.close();
+                try (Connection conn = LegacyJdbcQuery.getConnection()) {
+                    ArrayList<Map<String, Serializable>> loincValues =
+                            CommonLabTestValues.findValuesByLoinc2(demographicNo.toString(), identifier, conn);
+                    if (loincValues != null) {
+                        list = loincValues;
+                    }
+                    MiscUtils.getLogger().debug("List ->{}", list.size());
+                }
             } catch (Exception ed) {
                 MiscUtils.getLogger().error("Error", ed);
             }
         } else {
-            list = CommonLabTestValues.findValuesForTest(labType, demographicNo, testName, identifier);
+            ArrayList<Map<String, Serializable>> testValues =
+                    CommonLabTestValues.findValuesForTest(labType, demographicNo, testName, identifier);
+            if (testValues != null) {
+                list = testValues;
+            }
         }
         String typeYAxisName = "";
         ArrayList<OHLCDataItem> dataItems = new ArrayList<OHLCDataItem>();

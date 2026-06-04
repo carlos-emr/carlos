@@ -59,6 +59,7 @@
 <!DOCTYPE HTML>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <link rel="stylesheet" type="text/css" href="<%=request.getContextPath()%>/rx/styles.css">
         <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.14.2.min.js"></script>

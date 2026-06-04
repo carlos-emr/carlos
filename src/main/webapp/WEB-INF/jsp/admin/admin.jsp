@@ -70,6 +70,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath()%>/js/global.js"></script>
@@ -327,19 +328,21 @@
                     <%
                     } else if (oscarVariables.getProperty("billregion", "").equals("ON")) {
                     %>
+                    <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.billing" rights="w" reverse="<%=false%>">
                     <li><a href="#"
                            onclick='popupPage(700,1000, "${pageContext.request.contextPath}/billing/CA/ON/ViewBenefitScheduleUpload");return false;'><fmt:message key="admin.admin.scheduleOfBenefits"/></a></li>
                     <li><a href="#"
                            onclick='popupPage(300,600, "${pageContext.request.contextPath}/billing/CA/ON/AddEditServiceCode");return false;'><fmt:message key="admin.admin.manageBillingServiceCode"/></a></li>
                     <li><a href="#"
                            onclick='popupPage(300,600, "${pageContext.request.contextPath}/billing/CA/ON/ViewBillingONEditPrivateCode");return false;'><fmt:message key="admin.admin.managePrivBillingCode"/></a></li>
+                    </security:oscarSec>
                     <li><a href="#"
                            onclick='popupPage(700,1000, "${pageContext.request.contextPath}/admin/manageCSSStyles");return false;'><fmt:message key="admin.admin.manageCodeStyles"/></a></li>
+                    <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.billing" rights="w" reverse="<%=false%>">
                     <li><a href="${pageContext.request.contextPath}/admin/GstControl"><fmt:message key="admin.admin.manageGSTControl"/></a></li>
                     <li><a href="${pageContext.request.contextPath}/admin/GstReport"><fmt:message key="admin.admin.gstReport"/></a></li>
                     <li><a href="#"
                            onclick='popupPage(700,1000, "${pageContext.request.contextPath}/billing/CA/ON/ManageBillingLocation");return false;'><fmt:message key="admin.admin.btnAddBillingLocation"/></a></li>
-                    <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.billing" rights="w" reverse="<%=false%>">
                     <li><a href="#"
                            onclick='popupPage(700,1000, "${pageContext.request.contextPath}/billing/CA/ON/ManageBillingform");return false;'><fmt:message key="admin.admin.btnManageBillingForm"/></a></li>
                     </security:oscarSec>
@@ -353,11 +356,13 @@
                            onclick='popupPage(700,820, "${pageContext.request.contextPath}/billing/CA/ON/BatchBill?service_code=all");return false;'><fmt:message key="admin.admin.btnBatchBilling"/></a></li>
                     <li><a href="#"
                            onclick='popupPage(700,640, "${pageContext.request.contextPath}/billing/CA/ON/ViewInrReportINR?provider_no=all");return false;'><fmt:message key="admin.admin.btnINRBatchBilling"/></a></li>
+                    <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.billing" rights="w" reverse="<%=false%>">
                     <li><a href="#"
                            onclick='popupPage(600,900, "${pageContext.request.contextPath}/billing/CA/ON/BillingONUpload");return false;'><fmt:message key="admin.admin.uploadMOHFile"/></a></li>
                     <% if (CarlosProperties.getInstance().isPropertyActive("moh_file_management_enabled")) { %>
                     <li><a href="#" onclick='popupPage(600,900, "${pageContext.request.contextPath}/billing/CA/ON/moveMOHFiles");return false;'><fmt:message key="admin.admin.viewMOHFiles"/></a></li>
                     <% } %>
+                    </security:oscarSec>
                     <li><a href="#"
                            onclick='popupPage(600,900, "${pageContext.request.contextPath}<%= oscarVariables.getProperty("RA_FORWORD", "/billing/CA/ON/ViewGenRA") %>");return false;'><fmt:message key="admin.admin.btnBillingReconciliation"/></a></li>
                     <!-- li><a href="#" onclick ='popupPage(600,1000,"${pageContext.request.contextPath}/billing/CA/ON/ViewBillingOBECEA");return false;'><fmt:message key="admin.admin.btnEDTBillingReportGenerator"/></a></li-->
@@ -403,7 +408,9 @@
                     <li><a href="#"
                            onclick='popupPage(800,1000,"${pageContext.request.contextPath}/lab/labUpload");return false;'><fmt:message key="admin.admin.oldLabUpload"/></a></li>
                 </oscar:oscarPropertiesCheck>
+                <security:oscarSec roleName="<%=roleName$%>" objectName="_lab" rights="w" reverse="<%=false%>">
                 <li><a href="#" onclick='popupPage(800,1000,"${pageContext.request.contextPath}/admin/labForwardingRules");return false;'><fmt:message key="admin.admin.labFwdRules"/></a></li>
+                </security:oscarSec>
                 <li><a href="javascript:void(0);" onclick='popupPage(550,800,"${pageContext.request.contextPath}/admin/ViewAddQueue");return false;'><fmt:message key="admin.admin.AddNewQueue"/></a></li>
             </ul>
         </div>
@@ -620,14 +627,17 @@
                         <li><a href="#"
                                onclick="popupPage(500,screen.width,'${pageContext.request.contextPath}/appointment/appointmentTypeAction'); return false;"><fmt:message key="admin.admin.appointmentTypeList"/></a></li>
 
-                        <li><a href="#"
-                               onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/AdminNewGroup?submit=blank");return false;'><fmt:message key="admin.admin.btnAddGroupNoRecord"/></a></li>
+                        <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.schedule.groupCreate"
+                                           rights="w" reverse="<%=false%>">
+                            <li><a href="#"
+                                   onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/AdminNewGroup?submit=blank");return false;'><fmt:message key="admin.admin.btnAddGroupNoRecord"/></a></li>
+                        </security:oscarSec>
                         <li><a href="#"
                                onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/ViewAdminDisplayMyGroup");return false;'><fmt:message key="admin.admin.btnSearchGroupNoRecords"/></a></li>
                         <li><a href="#"
                                onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/GroupNoAcl")'><fmt:message key="admin.admin.btnGroupNoAcl"/></a></li>
                         <li><a href="#"
-                               onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/groupPreferences")'><fmt:message key="admin.admin.btnGroupPreference"/></a></li>
+                               onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/GroupPreference")'><fmt:message key="admin.admin.btnGroupPreference"/></a></li>
                         <li><a href="#" onclick='popupPage(800, 700, "${pageContext.request.contextPath}/prevention/ViewPreventionManager");return false;'
                                title="Customize prevention notifications."><fmt:message key="admin.admin.preventionNotification.title"/></a></li>
                     </security:oscarSec>
@@ -776,14 +786,6 @@
                                onclick='popupPage(500,800, "${pageContext.request.contextPath}/admin/LogReport?keyword=admin");return false;'>
                             <fmt:message key="admin.admin.securityLogReport"/></a></li>
                     </security:oscarSec>
-                    <security:oscarSec roleName="<%=roleName$%>"
-                                       objectName="_admin, _admin.traceability" rights="r">
-                        <li><a href="#"
-                               onclick='popupPage(500,800, "${pageContext.request.contextPath}/admin/ViewTraceReport?keyword=admin");return false;'>
-                            <fmt:message key="admin.admin.traceabilityReport"/></a></li>
-                    </security:oscarSec>
-
-
                 </ul>
             </div>
         </security:oscarSec>

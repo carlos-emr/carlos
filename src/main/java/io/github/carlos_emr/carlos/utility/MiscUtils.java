@@ -47,6 +47,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.LoggerContext;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 /**
  * When using the shutdown hook...
  * <br /><br />
@@ -136,6 +138,8 @@ public final class MiscUtils {
     public MiscUtils() {
     }
 
+    // FindSecBugs CRLF_INJECTION_LOGS: resolvedLocation derives from the log4j.override.configuration JVM system property and the servlet container's contextPath (getServletContext().getContextPath()); both are trusted server/deployment config, not request input.
+    @SuppressFBWarnings(value = "CRLF_INJECTION_LOGS", justification = "resolvedLocation is built from the log4j.override.configuration system property and the servlet context path, both trusted deployment config; no request-controlled CR/LF.")
     public static void addLoggingOverrideConfiguration(String contextPath) {
         String configLocation = System.getProperty("log4j.override.configuration");
         if (configLocation != null) {
@@ -151,7 +155,13 @@ public final class MiscUtils {
 
             String resolvedLocation = configLocation.replace("${contextName}", contextPath);
 
-            File configFile = new File(resolvedLocation);
+            File configFile;
+            try {
+                configFile = PathValidationUtils.resolveConfiguredFile(resolvedLocation, "log4j override configuration");
+            } catch (SecurityException e) {
+                getLogger().warn("log4j.override.configuration points to a missing or unreadable file: " + resolvedLocation, e);
+                return;
+            }
             if (!configFile.isFile() || !configFile.canRead()) {
                 getLogger().warn("log4j.override.configuration points to a missing or unreadable file: " + resolvedLocation);
                 return;
@@ -229,7 +239,15 @@ public final class MiscUtils {
     }
 
     public static void serializeToFile(Serializable s, String filename) throws IOException {
-        try (FileOutputStream fos = new FileOutputStream(filename);
+        File outputFile;
+        try {
+            outputFile = PathValidationUtils.resolveConfiguredFile(filename, "serialized output file");
+        } catch (SecurityException e) {
+            // Preserve the declared IOException contract (mirrors deserializeFromFile): a blank or
+            // un-canonicalizable path surfaces as a checked IOException, not an unchecked SecurityException.
+            throw new IOException("Cannot write serialized output file", e);
+        }
+        try (FileOutputStream fos = new FileOutputStream(outputFile);
              ObjectOutputStream oos = new ObjectOutputStream(fos)) {
             oos.writeObject(s);
             oos.flush();
@@ -243,7 +261,16 @@ public final class MiscUtils {
     public static Serializable deserializeFromFile(String filename) throws IOException, ClassNotFoundException { // lgtm[java/unsafe-deserialization]
         InputStream rawIs = MiscUtils.class.getResourceAsStream(filename);
         if (rawIs == null) {
-            rawIs = new FileInputStream(filename);
+            File inputFile;
+            try {
+                inputFile = PathValidationUtils.validateConfiguredFile(filename, "serialized input file");
+            } catch (SecurityException e) {
+                // Preserve the declared IOException contract: a missing/invalid file surfaced as
+                // FileNotFoundException before this validation was added, so callers catching
+                // IOException for "not found" keep working.
+                throw new IOException("Cannot read serialized input file", e);
+            }
+            rawIs = new FileInputStream(inputFile);
         }
         // Include rawIs in try-with-resources so it is closed even if
         // ObjectInputStream construction throws (e.g. StreamCorruptedException).
@@ -361,19 +388,21 @@ public final class MiscUtils {
 
 
 	/**
-	 * Sanitizes a file name to ensure it is safe for use and complies with naming conventions .
-	 *		<p>- Replace spaces with underscores
-	 * 		<p>- Remove invalid characters, excluding valid delimiter like {@code -}.
-	 * 		<p>- Remove repeated dots
+	 * Sanitizes a file name to ensure it is safe for use and complies with naming conventions.
+	 *		<p>- Replace spaces with underscores.
+	 * 		<p>- Remove characters outside {@code [a-zA-Z0-9._]}, including hyphens.
+	 * 		<p>- Collapse repeated dots.
 	 *
 	 * @param fileName The original file name to be sanitized. It must not be {@code null}.
 	 * @return A sanitized value of the input file name.
 	 * @throws NullPointerException if the input fileName is {@code null}.
+	 * @deprecated Use {@link PathValidationUtils#validateFileName(String)} for filename-only
+	 * validation or {@link PathValidationUtils#validateUserFilePath(String, File)} when
+	 * constructing file paths from user-provided filenames.
 	 */
+	@Deprecated(since = "2026-05-21", forRemoval = true)
 	public static String sanitizeFileName(String fileName) {
-        return fileName.replaceAll("\\s+", "_")
-                .replaceAll("[^a-zA-Z0-9._]", "")
-                .replaceAll("\\.+", ".");
+        return PathValidationUtils.normalizeFileNameCharacters(fileName);
 	}
 
 }
