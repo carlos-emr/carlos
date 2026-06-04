@@ -137,11 +137,6 @@ class DocumentManagerUnitTest extends CarlosUnitTestBase {
                 .thenReturn(false);
     }
 
-    private void grantDocumentsWritePrivilege() {
-        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_newCasemgmt.documents"), eq(SecurityInfoManager.WRITE), isNull()))
-                .thenReturn(true);
-    }
-
     private Document createTestDocument(Integer id, String filename) {
         Document doc = new Document();
         doc.setDocumentNo(id);

@@ -41,7 +41,7 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("demographic")
 class AgeCalculatorUnitTest {
 
-    private static final LocalDate REFERENCE_DATE = LocalDate.of(2026, 5, 19);
+    private static final LocalDate REFERENCE_DATE = LocalDate.of(2026, Month.MAY, 19);
 
     /**
      * Creates a Calendar birth date using a 1-based month value for readability.

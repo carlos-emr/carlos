@@ -130,8 +130,9 @@ class DateRangeUnitTest {
         void shouldBeEqual_forSameDates() {
             DateRange r1 = new DateRange(date(2026, 1, 1), date(2026, 12, 31));
             DateRange r2 = new DateRange(date(2026, 1, 1), date(2026, 12, 31));
-            assertThat(r1).isEqualTo(r2);
-            assertThat(r1).hasSameHashCodeAs(r2);
+            assertThat(r1)
+                    .isEqualTo(r2)
+                    .hasSameHashCodeAs(r2);
         }
 
         @Test

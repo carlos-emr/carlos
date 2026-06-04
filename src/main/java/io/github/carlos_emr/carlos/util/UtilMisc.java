@@ -86,34 +86,30 @@ public class UtilMisc {
         StringBuilder sb = new StringBuilder(N);
         int i = 0;
         while (i < N) {
-            char c = S.charAt(i);
-            if (c == '&') {//the read one more char and encode
+            char replacement = S.charAt(i);
+            int nextIndex = i + 1;
+            if (replacement == '&') {//the read one more char and encode
                 String temp = new String();
                 if (i + 1 < N) temp += S.charAt(i + 1);
                 if (temp.equalsIgnoreCase("a")) {//&amp
-                    sb.append("&");
-                    i += 5;
-                    continue;
+                    replacement = '&';
+                    nextIndex = i + 5;
                 } else if (temp.equalsIgnoreCase("l")) {//&lt
-                    sb.append("<");
-                    i += 4;
-                    continue;
+                    replacement = '<';
+                    nextIndex = i + 4;
                 } else if (temp.equalsIgnoreCase("g")) {//&gt
-                    sb.append(">");
-                    i += 4;
-                    continue;
+                    replacement = '>';
+                    nextIndex = i + 4;
                 } else if (temp.equalsIgnoreCase("q")) {//&quot
-                    sb.append("\"");
-                    i += 6;
-                    continue;
+                    replacement = '"';
+                    nextIndex = i + 6;
                 } else if (i + 4 < N && S.startsWith("&#39;", i)) {//'
-                    sb.append('\'');
-                    i += 5;
-                    continue;
+                    replacement = '\'';
+                    nextIndex = i + 5;
                 }
             }
-            sb.append(c);
-            i++;
+            sb.append(replacement);
+            i = nextIndex;
         }
         return sb.toString();
     }

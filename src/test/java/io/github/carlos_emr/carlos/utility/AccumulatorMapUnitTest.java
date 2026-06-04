@@ -69,8 +69,9 @@ class AccumulatorMapUnitTest {
             map.increment("a");
             map.increment("b");
             map.increment("a");
-            assertThat(map).containsEntry("a", 2);
-            assertThat(map).containsEntry("b", 1);
+            assertThat(map)
+                    .containsEntry("a", 2)
+                    .containsEntry("b", 1);
         }
     }
 

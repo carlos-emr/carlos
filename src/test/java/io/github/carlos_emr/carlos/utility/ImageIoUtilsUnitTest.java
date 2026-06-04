@@ -111,8 +111,9 @@ class ImageIoUtilsUnitTest {
             byte[] jpegBytes = toJpegBytes(image);
 
             byte[] result = ImageIoUtils.scaleJpgSmallerProportionally(jpegBytes, 100, 50, 0.9f);
-            assertThat(result).isNotNull();
-            assertThat(result).hasSizeGreaterThan(0);
+            assertThat(result)
+                    .isNotNull()
+                    .hasSizeGreaterThan(0);
         }
     }
 
