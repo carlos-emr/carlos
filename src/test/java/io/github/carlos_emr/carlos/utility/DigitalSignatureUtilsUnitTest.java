@@ -52,7 +52,6 @@ import static org.mockito.Mockito.when;
 @Tag("unit")
 @Tag("fast")
 @Tag("utility")
-@Tag("security")
 @DisplayName("DigitalSignatureUtils")
 class DigitalSignatureUtilsUnitTest extends CarlosUnitTestBase {
 

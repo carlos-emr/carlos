@@ -28,6 +28,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -171,10 +172,26 @@ class SecurityManagerUnitTest extends CarlosUnitTestBase {
 
             manager.updateSecurityRecord(loggedInInfo, updated);
 
-            verify(mockSecurityArchiveDao).archiveRecord(existing);
-            verify(mockSecurityDao).merge(updated);
+            InOrder inOrder = inOrder(mockSecurityArchiveDao, mockSecurityDao);
+            inOrder.verify(mockSecurityArchiveDao).archiveRecord(existing);
+            inOrder.verify(mockSecurityDao).merge(updated);
             assertThat(updated.getLastUpdateUser()).isEqualTo("999998");
             assertThat(updated.getLastUpdateDate()).isNotNull();
+        }
+
+        @Test
+        @DisplayName("should not merge when archive fails")
+        void shouldNotMerge_whenArchiveFails() {
+            Security existing = createValidSecurity(1, "111", "user1", "oldpass");
+            Security updated = createValidSecurity(1, "111", "user1", "newpass");
+            when(mockSecurityDao.find((Object) 1)).thenReturn(existing);
+            doThrow(new RuntimeException("archive failed")).when(mockSecurityArchiveDao).archiveRecord(existing);
+
+            assertThatThrownBy(() -> manager.updateSecurityRecord(loggedInInfo, updated))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessageContaining("archive failed");
+
+            verify(mockSecurityDao, never()).merge(any(Security.class));
         }
 
         @Test

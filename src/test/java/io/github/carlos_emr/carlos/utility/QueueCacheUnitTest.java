@@ -92,10 +92,15 @@ class QueueCacheUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should clone values when cloner provided")
     void shouldCloneValues_whenClonerProvided() {
-        QueueCacheValueCloner<String> cloner = String::new;
-        QueueCache<String, String> cache = new QueueCache<>(2, 100, cloner);
-        cache.put("key", "value");
-        assertThat(cache.get("key")).isEqualTo("value");
+        QueueCacheValueCloner<StringBuilder> cloner = StringBuilder::new;
+        QueueCache<String, StringBuilder> cache = new QueueCache<>(2, 100, cloner);
+        StringBuilder original = new StringBuilder("value");
+
+        cache.put("key", original);
+
+        StringBuilder retrieved = cache.get("key");
+        assertThat(retrieved).hasToString("value");
+        assertThat(retrieved).isNotSameAs(original);
     }
 
     @Test

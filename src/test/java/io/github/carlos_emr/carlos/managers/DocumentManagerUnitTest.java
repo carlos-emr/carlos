@@ -32,8 +32,6 @@ import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -56,7 +54,6 @@ import static org.mockito.Mockito.*;
  */
 @ExtendWith(MockitoExtension.class)
 @Execution(ExecutionMode.SAME_THREAD)
-@MockitoSettings(strictness = Strictness.LENIENT)
 @DisplayName("DocumentManager Unit Tests")
 @Tag("unit")
 @Tag("fast")
@@ -101,7 +98,7 @@ class DocumentManagerUnitTest extends CarlosUnitTestBase {
         injectDependency(manager, "queueDocumentLinkDAO", mockQueueDocumentLinkDao);
 
         loggedInInfo = mock(LoggedInInfo.class);
-        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        lenient().when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
     }
 
     private void grantEdocReadPrivilege() {
@@ -382,6 +379,22 @@ class DocumentManagerUnitTest extends CarlosUnitTestBase {
             verify(mockDocumentDao).merge(doc);
             verify(mockDocumentDao, never()).persist(any());
             verify(mockCtlDocumentDao).persist(ctlDoc);
+        }
+
+        @Test
+        @DisplayName("should skip persistence when document ID is zero")
+        void shouldSkipPersistence_whenDocumentIdIsZero() {
+            grantEdocWritePrivilege();
+            Document doc = createTestDocument(0, "zero.pdf");
+            CtlDocument ctlDoc = new CtlDocument();
+            ctlDoc.setId(new CtlDocumentPK());
+
+            Integer result = manager.saveDocument(loggedInInfo, doc, ctlDoc);
+
+            assertThat(result).isNull();
+            verify(mockDocumentDao, never()).persist(any());
+            verify(mockDocumentDao, never()).merge(any());
+            verify(mockCtlDocumentDao, never()).persist(any());
         }
 
         @Test

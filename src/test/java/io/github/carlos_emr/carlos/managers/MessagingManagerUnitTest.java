@@ -380,6 +380,22 @@ class MessagingManagerUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should not change status of sent messages")
+        void shouldNotChangeStatus_ofSentMessages() {
+            grantMsgUpdatePrivilege();
+            MessageList sentMsg = new MessageList();
+            sentMsg.setMessage(100);
+            sentMsg.setStatus(MessageList.STATUS_SENT);
+            sentMsg.setDestinationFacilityId(0);
+            when(mockMessageListDao.findByProviderNoAndMessageNo("999998", 42L)).thenReturn(List.of(sentMsg));
+
+            manager.setMessageRead(loggedInInfo, 42L, "999998");
+
+            assertThat(sentMsg.getStatus()).isEqualTo(MessageList.STATUS_SENT);
+            verify(mockMessageListDao, never()).merge(any());
+        }
+
+        @Test
         @DisplayName("should not change status of remote facility messages")
         void shouldNotChangeStatus_ofRemoteMessages() {
             grantMsgUpdatePrivilege();

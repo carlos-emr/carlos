@@ -45,6 +45,19 @@ class FileSortByDateUnitTest {
     }
 
     @Test
+    @DisplayName("should return positive when first file is older")
+    void shouldReturnPositive_whenFirstOlder() throws IOException {
+        Path older = Files.createFile(tempDir.resolve("older-first.txt"));
+        Path newer = Files.createFile(tempDir.resolve("newer-second.txt"));
+        long fixedEpochMillis = 1_609_459_200_000L;
+        Files.setLastModifiedTime(older, FileTime.fromMillis(fixedEpochMillis));
+        Files.setLastModifiedTime(newer, FileTime.fromMillis(fixedEpochMillis + 10_000));
+
+        int result = sorter.compare(older.toFile(), newer.toFile());
+        assertThat(result).isPositive();
+    }
+
+    @Test
     @DisplayName("should return zero for same file")
     void shouldReturnZero_forSameFile() throws IOException {
         Path file = Files.createFile(tempDir.resolve("same.txt"));
