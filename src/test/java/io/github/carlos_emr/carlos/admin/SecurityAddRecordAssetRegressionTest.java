@@ -47,13 +47,31 @@ class SecurityAddRecordAssetRegressionTest {
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "admin", "securityaddarecord.jsp");
 
     @Test
-    @DisplayName("should offer providers without login records when site access privacy is enabled")
-    void shouldOfferProviders_withoutLoginRecordsWhenSiteAccessPrivacyEnabled() throws IOException {
-        String jsp = Files.readString(SECURITY_ADD_RECORD_JSP, StandardCharsets.UTF_8);
+    @DisplayName("should offer same-site providers without login records when site access privacy is enabled")
+    void shouldOfferSameSiteProviders_withoutLoginRecordsWhenSiteAccessPrivacyEnabled() throws IOException {
+        String jsp = readSecurityAddRecordJsp();
 
         assertThat(jsp)
+                .contains("ProviderSiteDao providerSiteDao = SpringUtils.getBean(ProviderSiteDao.class);")
                 .contains("List<Security> s = securityDao.findByProviderNo(p.getProviderNo());")
                 .contains("if (s.isEmpty()) {")
-                .doesNotContain("if (s.size() > 0) {");
+                .containsPattern("if \\(isSiteAccessPrivacy\\) \\{\\s+"
+                        + "for \\(Provider p : providerSiteDao\\.findActiveProvidersWithSites\\(curProvider_no\\)\\)")
+                .doesNotContain("if (s.size() > 0) {")
+                .doesNotContain("if (isSiteAccessPrivacy) {\n"
+                        + "                                for (Provider p : providerDao.getActiveProviders()) {");
+    }
+
+    @Test
+    @DisplayName("should keep all active providers when site access privacy is disabled")
+    void shouldKeepAllActiveProviders_whenSiteAccessPrivacyDisabled() throws IOException {
+        String jsp = readSecurityAddRecordJsp();
+
+        assertThat(jsp)
+                .containsPattern("\\} else \\{\\s+for \\(Provider p : providerDao\\.getActiveProviders\\(\\)\\) \\{");
+    }
+
+    private static String readSecurityAddRecordJsp() throws IOException {
+        return Files.readString(SECURITY_ADD_RECORD_JSP, StandardCharsets.UTF_8);
     }
 }
