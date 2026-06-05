@@ -50,7 +50,7 @@
 		</ul>
 	</li>
 
-	<li class="nav-item"><a href="<%= request.getContextPath() %>/eform/efmimagemanager" class="contentLink">Image Library <!--<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnUploadImage"/>--></a></li>
+	<li class="nav-item"><a href="<%= request.getContextPath() %>/eform/efmimagemanager" class="contentLink">Image Library</a></li>
     </ul>
     </div>
     </div>

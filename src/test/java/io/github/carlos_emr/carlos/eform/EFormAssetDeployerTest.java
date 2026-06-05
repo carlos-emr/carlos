@@ -34,6 +34,7 @@ import org.mockito.*;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -292,7 +293,7 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
 
         @Test
         @DisplayName("Should create missing directory and deploy all assets")
-        void shouldCreateDirectoryAndDeployAllAssets_whenDirectoryDoesNotExist() throws Exception {
+        void shouldCreateDirectoryAndDeployAllAssets_whenDirectoryDoesNotExist() throws IOException {
             Path newDir = tempDir.resolve("missing-eform-images");
             // newDir does not exist yet — deployer must create it
             when(mockProperties.getEformImageDirectory()).thenReturn(newDir.toString());

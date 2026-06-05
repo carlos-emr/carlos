@@ -127,15 +127,15 @@ class EFormJspMigrationRegressionTest {
         String nav = Files.readString(EFM_TOP_NAV_JSPF, StandardCharsets.UTF_8);
 
         // Bootstrap 5 requires the toggle element to be a <button> — <a href="javascript:void(0)"> does not fire
-        assertThat(nav).contains("<button type=\"button\"");
-        assertThat(nav).contains("aria-expanded=\"false\"");
-        assertThat(nav).contains("data-bs-toggle=\"dropdown\"");
-        assertThat(nav).doesNotContain("javascript:void(0)");
-        // Bootstrap 5 navbar requires nav-item on li and navbar-nav on the ul for correct caret/positioning
-        assertThat(nav).contains("navbar-nav");
-        assertThat(nav).contains("nav-item dropdown");
-        // navbar-expand keeps nav items horizontal — without it navbar-nav stacks vertically
-        assertThat(nav).contains("navbar-expand");
+        // navbar-expand keeps items horizontal; navbar-nav/nav-item required for correct BS5 caret/positioning
+        assertThat(nav)
+            .contains("<button type=\"button\"")
+            .contains("aria-expanded=\"false\"")
+            .contains("data-bs-toggle=\"dropdown\"")
+            .doesNotContain("javascript:void(0)")
+            .contains("navbar-nav")
+            .contains("nav-item dropdown")
+            .contains("navbar-expand");
     }
 
     @Test
@@ -143,11 +143,12 @@ class EFormJspMigrationRegressionTest {
     void shouldNavigateCurrentWindow_notOpener_afterSave() throws IOException {
         String jsp = Files.readString(EFM_FORM_MANAGER_EDIT_JSP, StandardCharsets.UTF_8);
 
-        // window.opener.location.href navigates the main CARLOS window (opener of the admin popup),
+        // window.opener.location navigates the main CARLOS window (opener of the admin popup),
         // which would replace Schedule/Search/Inbox with the admin page — "losing the Carlos menu"
-        assertThat(jsp).doesNotContain("window.opener.location.href");
-        assertThat(jsp).doesNotContain("window.opener.location");
-        assertThat(jsp).contains("window.location.href");
+        assertThat(jsp)
+            .doesNotContain("window.opener.location.href")
+            .doesNotContain("window.opener.location")
+            .contains("window.location.href");
     }
 
     @Test

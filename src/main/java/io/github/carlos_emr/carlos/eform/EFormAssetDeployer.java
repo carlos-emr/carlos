@@ -125,24 +125,34 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
             logger.warn("eForm image directory is invalid: {}; skipping asset deployment", imageDir, e);
             return;
         }
-        if (!targetDir.isDirectory()) {
-            if (!targetDir.mkdirs() && !targetDir.isDirectory()) {
-                logger.warn("eForm image directory does not exist and could not be created: {}; skipping asset deployment", imageDir);
-                return;
-            }
-            boolean readable = targetDir.setReadable(true, true);
-            boolean writable = targetDir.setWritable(true, true);
-            boolean executable = targetDir.setExecutable(true, true);
-            if (!readable || !writable || !executable) {
-                String failed = (!readable ? "setReadable " : "") + (!writable ? "setWritable " : "") + (!executable ? "setExecutable " : "");
-                logger.warn("Could not set owner-only permissions on eForm image directory: {}; failed: [{}]; OS default permissions remain in place", imageDir, failed.trim());
-            }
-            logger.info("Created eForm image directory: {}", imageDir);
+        if (!targetDir.isDirectory() && !createDirectory(targetDir, imageDir)) {
+            return;
         }
 
         for (String asset : ASSETS) {
             deployAsset(asset, targetDir);
         }
+    }
+
+    /**
+     * Creates the target directory and sets owner-only permissions.
+     *
+     * @return {@code true} if the directory exists after this call, {@code false} if creation failed
+     */
+    private boolean createDirectory(File targetDir, String imageDir) {
+        if (!targetDir.mkdirs() && !targetDir.isDirectory()) {
+            logger.warn("eForm image directory does not exist and could not be created: {}; skipping asset deployment", imageDir);
+            return false;
+        }
+        boolean readable = targetDir.setReadable(true, true);
+        boolean writable = targetDir.setWritable(true, true);
+        boolean executable = targetDir.setExecutable(true, true);
+        if ((!readable || !writable || !executable) && logger.isWarnEnabled()) {
+            String failed = (!readable ? "setReadable " : "") + (!writable ? "setWritable " : "") + (!executable ? "setExecutable " : "");
+            logger.warn("Could not set owner-only permissions on eForm image directory: {}; failed: [{}]; OS default permissions remain in place", imageDir, failed.trim());
+        }
+        logger.info("Created eForm image directory: {}", imageDir);
+        return true;
     }
 
     /**
@@ -172,8 +182,10 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
         } catch (IOException e) {
             logger.error("Failed to deploy eForm asset: {}", filename, e);
             // Remove the partial file so a subsequent restart can retry deployment cleanly
-            if (!targetFile.delete() && targetFile.exists()) {
-                logger.warn("Could not remove partial eForm asset file: {}; next restart will skip redeployment", targetFile.getAbsolutePath());
+            try {
+                Files.deleteIfExists(targetFile.toPath());
+            } catch (IOException deleteEx) {
+                logger.warn("Could not remove partial eForm asset file: {}; next restart will skip redeployment", targetFile.getAbsolutePath(), deleteEx);
             }
         }
     }
