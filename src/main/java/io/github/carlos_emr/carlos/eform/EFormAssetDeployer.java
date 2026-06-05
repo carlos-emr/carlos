@@ -171,7 +171,9 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
         } catch (IOException e) {
             logger.error("Failed to deploy eForm asset: {}", filename, e);
             // Remove the partial file so a subsequent restart can retry deployment cleanly
-            targetFile.delete();
+            if (!targetFile.delete() && targetFile.exists()) {
+                logger.warn("Could not remove partial eForm asset file: {}; next restart will skip redeployment", targetFile.getAbsolutePath());
+            }
         }
     }
 }
