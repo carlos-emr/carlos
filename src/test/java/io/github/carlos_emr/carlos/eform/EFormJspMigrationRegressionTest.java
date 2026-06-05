@@ -50,6 +50,8 @@ class EFormJspMigrationRegressionTest {
             Path.of("src/main/webapp/WEB-INF/jsp/eform/efmpatientformlist.jsp");
     private static final Path IMPORT_PARTIAL_JSP =
             Path.of("src/main/webapp/WEB-INF/jsp/eform/partials/import.jsp");
+    private static final Path EFM_TOP_NAV_JSPF =
+            Path.of("src/main/webapp/WEB-INF/jsp/eform/efmTopNav.jspf");
     private static final Path STRUTS_EFORM_XML =
             Path.of("src/main/webapp/WEB-INF/classes/struts-eform.xml");
     private static final Path STRUTS_FORM_XML =
@@ -115,6 +117,18 @@ class EFormJspMigrationRegressionTest {
         assertThat(struts).doesNotContainPattern("/WEB-INF/jsp/form/[^<\"]+\\.do");
         assertThat(struts).contains("<action name=\"form/xmlUpload\"");
         assertThat(struts).contains("<action name=\"form/formname\"");
+    }
+
+    @Test
+    @DisplayName("admin nav Create eForm dropdown should use a button element with aria-expanded for Bootstrap 5 compatibility")
+    void shouldUseButtonToggle_forCreateEFormDropdown() throws IOException {
+        String nav = Files.readString(EFM_TOP_NAV_JSPF, StandardCharsets.UTF_8);
+
+        // Bootstrap 5 requires the toggle element to be a <button> — <a href="javascript:void(0)"> does not fire
+        assertThat(nav).contains("<button type=\"button\"");
+        assertThat(nav).contains("aria-expanded=\"false\"");
+        assertThat(nav).contains("data-bs-toggle=\"dropdown\"");
+        assertThat(nav).doesNotContain("javascript:void(0)");
     }
 
     @Test

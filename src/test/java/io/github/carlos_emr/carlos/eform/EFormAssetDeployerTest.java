@@ -22,9 +22,12 @@
 package io.github.carlos_emr.carlos.eform;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
 import jakarta.servlet.ServletContext;
+import org.apache.commons.io.FileUtils;
+import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.*;
 import org.mockito.*;
 
@@ -88,16 +91,7 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
         if (carlosPropertiesMock != null) {
             carlosPropertiesMock.close();
         }
-        // Clean up temp directory
-        if (tempDir != null) {
-            File[] files = tempDir.toFile().listFiles();
-            if (files != null) {
-                for (File f : files) {
-                    f.delete();
-                }
-            }
-            tempDir.toFile().delete();
-        }
+        FileUtils.deleteDirectory(tempDir != null ? tempDir.toFile() : null);
     }
 
     private InputStream toStream(String content) {
@@ -191,9 +185,15 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("Should skip deployment when image directory does not exist")
-        void shouldSkipDeployment_whenImageDirectoryDoesNotExist() {
-            when(mockProperties.getEformImageDirectory()).thenReturn("/nonexistent/path/eform/images");
+        @DisplayName("Should skip deployment when directory cannot be created")
+        void shouldSkipDeployment_whenDirectoryCannotBeCreated() throws Exception {
+            // Place a regular file where a parent directory is needed — mkdirs() fails even as root
+            // because a file cannot contain a subdirectory
+            Path blockingFile = tempDir.resolve("blocker");
+            Files.writeString(blockingFile, "I am a file, not a directory");
+            Path uncreatable = blockingFile.resolve("images");
+
+            when(mockProperties.getEformImageDirectory()).thenReturn(uncreatable.toString());
 
             deployer.afterPropertiesSet();
 
@@ -270,6 +270,71 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
             EFormAssetDeployer d = new EFormAssetDeployer();
 
             assertThatCode(() -> d.setServletContext(ctx)).doesNotThrowAnyException();
+        }
+    }
+
+    @Nested
+    @DisplayName("Directory Creation")
+    class DirectoryCreation {
+
+        @Test
+        @DisplayName("Should create missing directory and deploy all assets")
+        void shouldCreateDirectoryAndDeployAllAssets_whenDirectoryDoesNotExist() throws Exception {
+            Path newDir = tempDir.resolve("missing-eform-images");
+            // newDir does not exist yet — deployer must create it
+            when(mockProperties.getEformImageDirectory()).thenReturn(newDir.toString());
+            stubAllAssets();
+
+            deployer.afterPropertiesSet();
+
+            assertThat(newDir).isDirectory();
+            assertThat(new File(newDir.toFile(), "editControl2.js")).exists();
+            assertThat(new File(newDir.toFile(), "blank.rtl")).exists();
+            assertThat(new File(newDir.toFile(), "editor_help.html")).exists();
+        }
+
+        @Test
+        @DisplayName("Should log info message when directory is created")
+        void shouldLogInfo_whenDirectoryIsCreated() {
+            Path newDir = tempDir.resolve("log-test-images");
+            when(mockProperties.getEformImageDirectory()).thenReturn(newDir.toString());
+            when(mockServletContext.getResourceAsStream(anyString())).thenReturn(null);
+
+            try (LogCapture log = LogCapture.forLogger(EFormAssetDeployer.class)) {
+                deployer.afterPropertiesSet();
+
+                assertThat(log.events())
+                    .anySatisfy(event -> {
+                        assertThat(event.getLevel()).isEqualTo(Level.INFO);
+                        assertThat(event.getMessage().getFormattedMessage())
+                            .contains("Created eForm image directory");
+                    });
+            }
+        }
+
+        @Test
+        @DisplayName("Should skip deployment when configured path exists as a regular file")
+        void shouldSkipDeployment_whenConfiguredPathIsExistingFile() throws Exception {
+            // resolveConfiguredDirectory throws SecurityException when the path is an existing file
+            File existingFile = tempDir.resolve("not-a-directory.txt").toFile();
+            Files.writeString(existingFile.toPath(), "I am a file");
+
+            when(mockProperties.getEformImageDirectory()).thenReturn(existingFile.toString());
+
+            deployer.afterPropertiesSet();
+
+            verifyNoInteractions(mockServletContext);
+        }
+
+        @Test
+        @DisplayName("Should not throw when directory creation succeeds and no assets are in WAR")
+        void shouldNotThrow_whenDirectoryCreatedButNoAssetsInWar() {
+            Path newDir = tempDir.resolve("empty-war-test");
+            when(mockProperties.getEformImageDirectory()).thenReturn(newDir.toString());
+            when(mockServletContext.getResourceAsStream(anyString())).thenReturn(null);
+
+            assertThatCode(() -> deployer.afterPropertiesSet()).doesNotThrowAnyException();
+            assertThat(newDir).isDirectory();
         }
     }
 }
