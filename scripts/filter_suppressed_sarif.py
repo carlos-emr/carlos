@@ -1,4 +1,25 @@
 #!/usr/bin/env python3
+
+# Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+#
+# This software is published under the GPL GNU General Public License.
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+#
+# CARLOS EMR Project
+# https://github.com/carlos-emr/carlos
+
 """Remove suppressed SARIF results before uploading to GitHub Code Scanning."""
 
 from __future__ import annotations
@@ -42,6 +63,8 @@ def filter_sarif(sarif: dict[str, Any]) -> tuple[int, int]:
 
 
 def write_json_atomically(path: Path, data: dict[str, Any]) -> None:
+    original_mode = path.stat().st_mode & 0o777 if path.exists() else 0o644
+
     with tempfile.NamedTemporaryFile(
         "w",
         encoding="utf-8",
@@ -54,6 +77,7 @@ def write_json_atomically(path: Path, data: dict[str, Any]) -> None:
         temp_file.write("\n")
         temp_name = temp_file.name
 
+    os.chmod(temp_name, original_mode)
     os.replace(temp_name, path)
 
 
