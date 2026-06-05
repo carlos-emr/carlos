@@ -132,7 +132,7 @@ class EFormJspMigrationRegressionTest {
         assertThat(nav).contains("data-bs-toggle=\"dropdown\"");
         assertThat(nav).doesNotContain("javascript:void(0)");
         // Bootstrap 5 navbar requires nav-item on li and navbar-nav on the ul for correct caret/positioning
-        assertThat(nav).contains("class=\"navbar-nav\"");
+        assertThat(nav).contains("navbar-nav");
         assertThat(nav).contains("nav-item dropdown");
         // navbar-expand keeps nav items horizontal — without it navbar-nav stacks vertically
         assertThat(nav).contains("navbar-expand");

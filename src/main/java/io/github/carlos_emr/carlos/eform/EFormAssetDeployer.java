@@ -134,7 +134,7 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
             boolean writable = targetDir.setWritable(true, true);
             boolean executable = targetDir.setExecutable(true, true);
             if (!readable || !writable || !executable) {
-                logger.warn("Could not restrict permissions on eForm image directory: {}; directory may be world-accessible", imageDir);
+                logger.warn("Could not set owner-only permissions on eForm image directory: {}; OS default permissions remain in place", imageDir);
             }
             logger.info("Created eForm image directory: {}", imageDir);
         }
@@ -165,10 +165,13 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
                 logger.warn("Bundled eForm asset not found in WAR: {}", resourcePath);
                 return;
             }
+            // REPLACE_EXISTING guards the TOCTOU window between the exists() check above and the actual copy
             Files.copy(is, targetFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
             logger.info("Deployed eForm asset: {} -> {}", resourcePath, targetFile.getAbsolutePath());
         } catch (IOException e) {
             logger.error("Failed to deploy eForm asset: {}", filename, e);
+            // Remove the partial file so a subsequent restart can retry deployment cleanly
+            targetFile.delete();
         }
     }
 }

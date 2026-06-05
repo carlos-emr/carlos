@@ -91,7 +91,7 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
         if (carlosPropertiesMock != null) {
             carlosPropertiesMock.close();
         }
-        FileUtils.deleteDirectory(tempDir != null ? tempDir.toFile() : null);
+        FileUtils.deleteQuietly(tempDir != null ? tempDir.toFile() : null);
     }
 
     private InputStream toStream(String content) {
@@ -253,6 +253,8 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
 
             assertThatCode(() -> deployer.afterPropertiesSet()).doesNotThrowAnyException();
 
+            // editControl2.js copy failed — must not produce a zero-byte or partial file
+            assertThat(new File(tempDir.toFile(), "editControl2.js")).doesNotExist();
             // blank.rtl and editor_help.html should have been deployed despite editControl2.js failure
             assertThat(new File(tempDir.toFile(), "blank.rtl")).exists();
             assertThat(new File(tempDir.toFile(), "editor_help.html")).exists();
