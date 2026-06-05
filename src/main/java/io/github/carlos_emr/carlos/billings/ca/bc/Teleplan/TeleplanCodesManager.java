@@ -42,11 +42,11 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.CarlosProperties;
-
-
 /**
- * @author jay
+ * Manager for Teleplan billing codes.
  */
+
+
 public class TeleplanCodesManager {
 
     /**

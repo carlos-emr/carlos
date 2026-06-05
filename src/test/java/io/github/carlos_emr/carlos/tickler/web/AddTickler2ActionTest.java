@@ -18,14 +18,9 @@
  * This software was written for
  * Magenta Health
  * Toronto, Ontario, Canada
- *
  * AddTickler2Action Struts2 Action Test Suite
- *
  * This test class provides comprehensive testing for the AddTickler2Action
  * Struts2 action, including security, validation, and business logic.
- *
- * @author yingbull
- * @since 2025-09-15
  */
 package io.github.carlos_emr.carlos.tickler.web;
 
@@ -51,46 +46,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 /**
- * Integration test suite for {@link AddTickler2Action} Struts2 action.
- *
- * <p>This test class validates the complete web layer workflow for creating
- * ticklers, including request handling, security, validation, and response.
- *
- * <p><b>Test Coverage Summary:</b>
- * <table border="1">
- *   <tr><th>Test Method</th><th>What It Tests</th><th>User Story</th></tr>
- *   <tr><td>testSecurityCheckRequired</td><td>_tickler write privilege</td><td>Only authorized users can create ticklers</td></tr>
- *   <tr><td>testAddSingleTicklerSuccess</td><td>Single tickler creation</td><td>Provider creates reminder for patient</td></tr>
- *   <tr><td>testAddMultipleDemographicsTickler</td><td>Bulk tickler creation</td><td>Mass reminders for patient groups</td></tr>
- *   <tr><td>testDefaultValues</td><td>Parameter defaults</td><td>Simplified tickler creation</td></tr>
- *   <tr><td>testValidPriorities</td><td>Priority validation</td><td>Task urgency classification</td></tr>
- *   <tr><td>testMessageRequired</td><td>Message validation</td><td>Ensure meaningful reminders</td></tr>
- *   <tr><td>testDemographicRequired</td><td>Patient validation</td><td>Ticklers must be patient-specific</td></tr>
- *   <tr><td>testDateParsing</td><td>Date handling</td><td>Scheduled reminder dates</td></tr>
- *   <tr><td>testProgramIdHandling</td><td>Program association</td><td>Program-specific reminders</td></tr>
- *   <tr><td>testAjaxRequest</td><td>AJAX support</td><td>Dynamic UI updates</td></tr>
- *   <tr><td>testInvalidDemographicNumber</td><td>Error handling</td><td>Graceful failure for bad input</td></tr>
- *   <tr><td>testManagerException</td><td>Exception propagation</td><td>System error handling</td></tr>
- *   <tr><td>testCreatorFromSession</td><td>Session management</td><td>Automatic creator tracking</td></tr>
- * </table>
- *
- * <p><b>Testing Strategy:</b>
- * <ul>
- *   <li>Uses MockMvc to simulate HTTP requests</li>
- *   <li>Mocks SpringUtils beans for isolation</li>
- *   <li>Tests both success and failure paths</li>
- *   <li>Validates Struts2 ActionContext handling</li>
- * </ul>
- *
- * <p><b>Security Testing:</b>
- * All tests verify that proper security checks are enforced,
- * ensuring HIPAA/PIPEDA compliance for patient data access.
- *
- * @see AddTickler2Action
- * @see CarlosWebTestBase
- * @see TicklerManager
- * @author yingbull
- * @since 2025-09-15
+ * This test class provides comprehensive testing for the AddTickler2Action Struts2 action, including security, validation, and business logic.
  */
 @DisplayName("AddTickler2Action Web Layer Tests")
 @Tag("integration")
@@ -113,7 +69,6 @@ class AddTickler2ActionTest extends CarlosWebTestBase {
 
     /**
      * Set up test fixtures before each test method.
-     *
      * <p>This method:
      * <ol>
      *   <li>Replaces SpringUtils beans with mocks</li>
@@ -154,7 +109,6 @@ class AddTickler2ActionTest extends CarlosWebTestBase {
 
     /**
      * Test security enforcement for tickler creation.
-     *
      * <p>Validates that the action properly checks for _tickler write
      * privilege before allowing tickler creation. This is critical for
      * maintaining proper access control to patient data.
@@ -176,10 +130,8 @@ class AddTickler2ActionTest extends CarlosWebTestBase {
 
     /**
      * Test successful creation of a single tickler with all fields.
-     *
      * <p>This test represents the typical use case where a provider
      * creates a reminder for a specific patient with all details specified.
-     *
      * <p>Validates:
      * <ul>
      *   <li>All request parameters are properly parsed</li>
@@ -429,7 +381,6 @@ class AddTickler2ActionTest extends CarlosWebTestBase {
 
     /**
      * Nested test class for error handling scenarios.
-     *
      * <p>These tests ensure the action gracefully handles various
      * error conditions and provides appropriate feedback to users.
      */
@@ -439,7 +390,6 @@ class AddTickler2ActionTest extends CarlosWebTestBase {
 
         /**
          * Test handling of non-numeric demographic IDs.
-         *
          * <p>The system should reject invalid patient identifiers
          * to prevent data corruption and maintain referential integrity.
          */
@@ -472,7 +422,6 @@ class AddTickler2ActionTest extends CarlosWebTestBase {
 
         /**
          * Test exception handling from the business layer.
-         *
          * <p>When the TicklerManager throws an exception (e.g., database
          * error), the action should propagate it appropriately for the
          * error handling framework to process.

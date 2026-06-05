@@ -44,10 +44,10 @@ import io.github.carlos_emr.carlos.billings.ca.bc.MSP.TeleplanFileWriter;
 import java.text.Format;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-
 /**
- * @author jaygallagher
+ * Represents a WCB Teleplan submission.
  */
+
 public class WCBTeleplanSubmission {
     private static Logger log = MiscUtils.getLogger();
 

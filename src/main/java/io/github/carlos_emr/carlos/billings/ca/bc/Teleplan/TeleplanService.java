@@ -36,10 +36,10 @@ import java.io.FileWriter;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-
 /**
- * @author jay
+ * Service class for managing Teleplan interactions.
  */
+
 public class TeleplanService {
     static Logger log = MiscUtils.getLogger();
 

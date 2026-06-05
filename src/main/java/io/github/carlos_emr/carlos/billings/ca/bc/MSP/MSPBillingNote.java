@@ -29,7 +29,6 @@
 
 /*
  * MSPBillingNote.java
- *
  * Created on July 1, 2004, 1:18 PM
  */
 
@@ -46,9 +45,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
- * @author root
- * <p>
- * This class is used to deal with MSP N01 correspondence notes.
+ * Represents an MSP billing note.
  */
 public class MSPBillingNote {
 
@@ -109,6 +106,9 @@ public class MSPBillingNote {
         String s = "N01" + Misc.forwardZero(dataCenterNum, 5) + Misc.forwardZero(dataCenterSeqNum, 7) + Misc.forwardZero(payeeNum, 5) + Misc.forwardZero(practitionerNum, 5) + Misc.forwardSpace(noteType, 1) + Misc.backwardSpace(Misc.stripLineBreaks(note), 400);
         return s;
     }
+/**
+ * Represents an MSP billing note.
+ */
 
     class Note {
         String billingnote_no = null;
@@ -119,7 +119,6 @@ public class MSPBillingNote {
 
         /**
          * Getter for property billingnote_no.
-         *
          * @return Value of property billingnote_no.
          */
         public java.lang.String getBillingnote_no() {
@@ -128,7 +127,6 @@ public class MSPBillingNote {
 
         /**
          * Setter for property billingnote_no.
-         *
          * @param billingnote_no New value of property billingnote_no.
          */
         public void setBillingnote_no(java.lang.String billingnote_no) {
@@ -137,7 +135,6 @@ public class MSPBillingNote {
 
         /**
          * Getter for property billingmaster_no.
-         *
          * @return Value of property billingmaster_no.
          */
         public java.lang.String getBillingmaster_no() {
@@ -146,7 +143,6 @@ public class MSPBillingNote {
 
         /**
          * Setter for property billingmaster_no.
-         *
          * @param billingmaster_no New value of property billingmaster_no.
          */
         public void setBillingmaster_no(java.lang.String billingmaster_no) {
@@ -155,7 +151,6 @@ public class MSPBillingNote {
 
         /**
          * Getter for property createdate.
-         *
          * @return Value of property createdate.
          */
         public java.lang.String getCreatedate() {
@@ -164,7 +159,6 @@ public class MSPBillingNote {
 
         /**
          * Setter for property createdate.
-         *
          * @param createdate New value of property createdate.
          */
         public void setCreatedate(java.lang.String createdate) {
@@ -173,7 +167,6 @@ public class MSPBillingNote {
 
         /**
          * Getter for property provider_no.
-         *
          * @return Value of property provider_no.
          */
         public java.lang.String getProviderNo() {
@@ -182,7 +175,6 @@ public class MSPBillingNote {
 
         /**
          * Setter for property provider_no.
-         *
          * @param provider_no New value of property provider_no.
          */
         public void setProviderNo(java.lang.String provider_no) {
@@ -191,7 +183,6 @@ public class MSPBillingNote {
 
         /**
          * Getter for property note.
-         *
          * @return Value of property note.
          */
         public java.lang.String getNote() {
@@ -200,7 +191,6 @@ public class MSPBillingNote {
 
         /**
          * Setter for property note.
-         *
          * @param note New value of property note.
          */
         public void setNote(java.lang.String note) {

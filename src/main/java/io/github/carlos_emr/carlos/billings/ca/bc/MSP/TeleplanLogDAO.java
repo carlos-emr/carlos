@@ -36,9 +36,8 @@ import io.github.carlos_emr.carlos.billing.CA.BC.dao.LogTeleplanTxDao;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.LogTeleplanTx;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-
 /**
- * @author jay
+ * Data Access Object for Teleplan logs.
  */
 
 public class TeleplanLogDAO {

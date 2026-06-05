@@ -43,10 +43,7 @@ import io.github.carlos_emr.carlos.entities.PrivateBillTransaction;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
- * Provides CRUD operations for BillingPrivateTransactions and legacy
- * {@link PrivateBillTransaction} classes.
- *
- * @author Joel Legris
+ * Data Access Object for private bill transactions.
  */
 @Repository
 public class PrivateBillTransactionsDAO extends AbstractDaoImpl<BillingPrivateTransactions> {

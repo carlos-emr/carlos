@@ -59,10 +59,10 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.CarlosProperties;
-
 /**
- * @author jay
+ * API interface for Teleplan services.
  */
+
 public class TeleplanAPI {
     static Logger log = MiscUtils.getLogger();
 

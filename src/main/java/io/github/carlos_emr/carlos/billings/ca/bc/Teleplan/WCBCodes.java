@@ -37,10 +37,10 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.CarlosProperties;
-
 /**
- * @author jaygallagher
+ * Constants and definitions for WCB codes.
  */
+
 public class WCBCodes {
 
     private static Logger log = MiscUtils.getLogger();

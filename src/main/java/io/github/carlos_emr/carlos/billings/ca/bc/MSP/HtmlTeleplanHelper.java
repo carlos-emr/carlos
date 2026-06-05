@@ -37,9 +37,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 /**
- * Used to consolidate the teleplan submission html into one place.
- *
- * @author jay
+ * Helper class for generating HTML related to Teleplan.
  */
 public class HtmlTeleplanHelper {
 

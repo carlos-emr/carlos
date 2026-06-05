@@ -40,9 +40,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
- * Deals with storing the teleplan sequence #
- *
- * @author jay
+ * Data Access Object for Teleplan credentials.
  */
 public class TeleplanUserPassDAO {
     static Logger log = MiscUtils.getLogger();

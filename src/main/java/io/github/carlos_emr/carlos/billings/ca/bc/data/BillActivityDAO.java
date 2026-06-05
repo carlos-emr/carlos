@@ -42,10 +42,10 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.entities.Billactivity;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
-
 /**
- * @author jay
+ * Data Access Object for bill activities.
  */
+
 public class BillActivityDAO {
 
     private BillActivityDao dao = SpringUtils.getBean(BillActivityDao.class);

@@ -18,14 +18,9 @@
  * This software was written for
  * Magenta Health
  * Toronto, Ontario, Canada
- *
  * TicklerDao Integration Test Suite
- *
  * This test class provides comprehensive integration testing for the TicklerDao
  * data access layer using JUnit 5 and modern testing practices.
- *
- * @author yingbull
- * @since 2025-09-15
  */
 package io.github.carlos_emr.carlos.tickler.dao.archive;
 
@@ -51,59 +46,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 
 /**
- * Integration test suite for {@link TicklerDao} data access operations.
- *
- * <p>This test class validates the complete lifecycle of Tickler entities including:
- * <ul>
- *   <li>CRUD operations (Create, Read, Update, Delete)</li>
- *   <li>Complex search and filtering capabilities</li>
- *   <li>Date range queries and pagination</li>
- *   <li>Status and priority management</li>
- *   <li>Batch operations and performance testing</li>
- * </ul>
- *
- * <p><b>Test Coverage Summary:</b>
- * <table border="1">
- *   <tr><th>Test Method</th><th>What It Tests</th><th>Business Value</th></tr>
- *   <tr><td>testCreateAndRetrieve</td><td>Basic CRUD operations</td><td>Core tickler creation and retrieval</td></tr>
- *   <tr><td>testFindActiveByDemographic</td><td>Status-based filtering</td><td>Active task management for patients</td></tr>
- *   <tr><td>testFindByDemographicAndMessage</td><td>Content search</td><td>Finding specific reminders</td></tr>
- *   <tr><td>testTicklerStatuses</td><td>All status transitions</td><td>Task lifecycle management</td></tr>
- *   <tr><td>testTicklerPriorities</td><td>Priority levels</td><td>Task prioritization</td></tr>
- *   <tr><td>testSearchByDateRange</td><td>Temporal queries</td><td>Overdue and upcoming task identification</td></tr>
- *   <tr><td>testCountActiveTicklersByProvider</td><td>Provider workload</td><td>Task distribution analysis</td></tr>
- *   <tr><td>testGetTicklersWithFilter</td><td>Complex filtering</td><td>Advanced search capabilities</td></tr>
- *   <tr><td>testPagination</td><td>Result pagination</td><td>UI performance optimization</td></tr>
- *   <tr><td>testUpdateTicklerStatus</td><td>Status updates</td><td>Task completion workflow</td></tr>
- *   <tr><td>testNullHandling</td><td>Optional field handling</td><td>Robustness with partial data</td></tr>
- *   <tr><td>testBatchInsert</td><td>Bulk operations</td><td>Mass reminder creation</td></tr>
- * </table>
- *
- * <p><b>Test Configuration:</b>
- * <ul>
- *   <li>Uses in-memory H2 database in MySQL compatibility mode</li>
- *   <li>Transactions are rolled back after each test (@Rollback)</li>
- *   <li>SpringUtils anti-pattern is properly handled via test context</li>
- *   <li>Each test runs in isolation with fresh test data</li>
- * </ul>
- *
- * <p><b>Test Data Strategy:</b>
- * Each test creates its own test demographic and tickler data to ensure
- * test isolation and repeatability. Helper methods provide consistent
- * test data factories.
- *
- * <p><b>Performance Considerations:</b>
- * <ul>
- *   <li>Batch tests validate handling of 100+ records</li>
- *   <li>Pagination tests ensure efficient large result set handling</li>
- *   <li>Transaction boundaries are explicitly tested</li>
- * </ul>
- *
- * @see TicklerDao
- * @see CarlosDaoTestBase
- * @see Tickler
- * @author yingbull
- * @since 2025-09-15
+ * This test class provides comprehensive integration testing for the TicklerDao data access layer using JUnit 5 and modern testing practices.
  */
 @DisplayName("TicklerDao Integration Tests")
 @Tag("integration")
@@ -128,14 +71,12 @@ class TicklerDaoTest extends CarlosDaoTestBase {
 
     /**
      * Set up test fixtures before each test method.
-     *
      * <p>This method:
      * <ol>
      *   <li>Obtains DAO instances via SpringUtils to validate the anti-pattern</li>
      *   <li>Verifies SpringUtils integration is working correctly</li>
      *   <li>Creates a test demographic record for tickler testing</li>
      * </ol>
-     *
      * @throws Exception if setup fails
      */
     @BeforeEach
@@ -152,7 +93,6 @@ class TicklerDaoTest extends CarlosDaoTestBase {
 
     /**
      * Test basic CRUD operations: Create and Retrieve.
-     *
      * <p>Validates that:
      * <ul>
      *   <li>A tickler can be successfully persisted to the database</li>
@@ -266,7 +206,6 @@ class TicklerDaoTest extends CarlosDaoTestBase {
 
     /**
      * Test date range search functionality.
-     *
      * <p>Validates that the DAO correctly filters ticklers based on
      * service date ranges, which is critical for:
      * <ul>
@@ -348,7 +287,6 @@ class TicklerDaoTest extends CarlosDaoTestBase {
 
     /**
      * Test complex filtering using CustomFilter.
-     *
      * <p>CustomFilter is the primary mechanism for advanced tickler searches,
      * supporting multiple criteria including status, priority, assignee, etc.
      * This test validates the filter's ability to handle multiple conditions.
@@ -449,7 +387,6 @@ class TicklerDaoTest extends CarlosDaoTestBase {
 
     /**
      * Nested test class for batch operation scenarios.
-     *
      * <p>Batch operations are critical for:
      * <ul>
      *   <li>Bulk imports from external systems</li>
@@ -463,7 +400,6 @@ class TicklerDaoTest extends CarlosDaoTestBase {
 
         /**
          * Test efficient batch insertion of multiple ticklers.
-         *
          * <p>This test validates that the DAO can handle large-scale
          * insertions efficiently by using periodic flushing to optimize
          * database write operations.
@@ -500,10 +436,8 @@ class TicklerDaoTest extends CarlosDaoTestBase {
 
     /**
      * Creates a test demographic record for tickler testing.
-     *
      * <p>This method creates a minimal but valid demographic record
      * that satisfies all database constraints and business rules.
-     *
      * @return the ID of the created demographic
      */
     private Integer createTestDemographic() {
@@ -527,11 +461,9 @@ class TicklerDaoTest extends CarlosDaoTestBase {
 
     /**
      * Factory method to create a basic tickler for testing.
-     *
      * <p>Creates a tickler with all required fields populated with
      * sensible defaults. This ensures consistent test data across
      * all test methods.
-     *
      * @param message the tickler message content
      * @return a fully populated Tickler instance ready for persistence
      */
@@ -560,10 +492,8 @@ class TicklerDaoTest extends CarlosDaoTestBase {
 
     /**
      * Specifies which database tables should be cleaned before each test.
-     *
      * <p>This ensures test isolation by removing any existing data
      * that might interfere with test execution.
-     *
      * @return array of table names to be cleaned
      */
     @Override

@@ -49,10 +49,10 @@ import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.entities.WCB;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-
 /**
- * @author jay
+ * Data Access Object for billing masters.
  */
+
 @Repository
 @SuppressWarnings("unchecked")
 @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -173,7 +173,6 @@ public class BillingmasterDAO {
 
     /**
      * Sets the specified billing unit for the billing master with the specified number.
-     *
      * @param billingUnit Billing unit to be set on the billing master
      * @param billingNo   Number of the billing master to be updated
      * @return Returns the total number of rows affected by the operation

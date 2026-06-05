@@ -35,19 +35,13 @@ import java.util.GregorianCalendar;
 
 /**
  * Calendar table grid bean for managing date information in a monthly view.
- * 
  * <p>This bean provides functionality for:</p>
  * <ul>
  *   <li>Tracking current year, month, and day</li>
  *   <li>Calendar calculations for monthly grid display</li>
  *   <li>Navigation between months and years</li>
  * </ul>
- * 
  * <p>Useful for generating calendar-based UI components and schedule views.</p>
- * 
- * @author Martin
- * @version 1.0
- * @since JDK 1.3
  */
 public class DateInMonthTable {
     private int curYear = 0;
@@ -67,7 +61,6 @@ public class DateInMonthTable {
 
     /**
      * Constructs a DateInMonthTable with a specific date.
-     * 
      * @param year the year (e.g., 2024)
      * @param month the month (0-11, where 0=January)
      * @param day the day of month (1-31)
@@ -80,7 +73,6 @@ public class DateInMonthTable {
 
     /**
      * Gets the current year.
-     * 
      * @return the year
      */
     public int getCurYear() {

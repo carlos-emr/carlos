@@ -5,16 +5,13 @@
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
- *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- *
  * This software was written for the
  * Department of Family Medicine
  * McMaster University
@@ -51,13 +48,7 @@ import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.UtilMisc;
 
 /**
- * <p>Title:ServiceCodeValidationLogic </p>
- *
- * @author Joel Legris
- * @version 1.0
- * @todo Should be renamed to something more appropriate eg ServiceCodeDAO
- * <p>Description: </p>
- * <p>Responsible for service code validation
+ * Logic for validating MSP service codes.
  */
 public class ServiceCodeValidationLogic {
 
@@ -79,7 +70,6 @@ public class ServiceCodeValidationLogic {
      * Filters a list of BillingService objects according to the supplied Demographic data
      * The filter essentially creates a new list with the codes that pertain to the specified
      * Demographic record's age and gender
-     *
      * @param svcList BillingService[]
      * @param d       Demographic
      * @return BillingService[]
@@ -98,7 +88,6 @@ public class ServiceCodeValidationLogic {
 
     /**
      * Returns true if the service code is valid for the specified demographic and service code
-     *
      * @param d       Demographic
      * @param svcCode String
      * @return boolean
@@ -111,7 +100,6 @@ public class ServiceCodeValidationLogic {
 
     /**
      * Returns a ServiceCodeValidator for the supplied demographic data and service code
-     *
      * @param serviceCode String
      * @param d           Demographic
      * @return ServiceCodeValidator
@@ -129,7 +117,6 @@ public class ServiceCodeValidationLogic {
 
     /**
      * Returns a ServiceCodeValidator for the supplied demographic data and service code
-     *
      * @param serviceCode String
      * @param d           Demographic
      * @return ServiceCodeValidator
@@ -147,7 +134,6 @@ public class ServiceCodeValidationLogic {
     /**
      * Returns the number of days since a 13050 code was billed to a patient
      * if no record is found the return value is -1
-     *
      * @param demoNo String
      * @return int
      */
@@ -158,7 +144,6 @@ public class ServiceCodeValidationLogic {
     /**
      * Returns the number of days since a 13050 code was billed to a patient
      * if no record is found the return value is -1
-     *
      * @param demoNo String
      * @return int
      */
@@ -182,7 +167,6 @@ public class ServiceCodeValidationLogic {
     /**
      * Returns false if a patient has used up all 4 allowable 00120 codes
      * for the current year
-     *
      * @param demoNo String
      * @return boolean
      */
@@ -199,7 +183,6 @@ public class ServiceCodeValidationLogic {
      * The rules are as follows:
      * A maximum of 6 units may be billed per calendar year
      * A maximum of 4 units may be billed on any given day
-     *
      * @param demoNo      String - The uid of the patient
      * @param code        String - The service code to be evaluated
      * @param serviceDate String - The date of service
@@ -289,7 +272,6 @@ public class ServiceCodeValidationLogic {
 
     /**
      * Returns the date of the last time that Service Code 13050 was billed
-     *
      * @param demoNo String
      * @return String
      */

@@ -37,10 +37,7 @@ import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
 /**
- * Responsible for CRUD operation a user Billing Module Preferences
- *
- * @author not attributable
- * @version 1.0
+ * Data Access Object for billing preferences.
  */
 @Repository
 public class BillingPreferencesDAO extends AbstractDaoImpl<BillingPreference> {
@@ -62,7 +59,6 @@ public class BillingPreferencesDAO extends AbstractDaoImpl<BillingPreference> {
     /**
      * Saves the preferences for a specific user, if a record exists for the specific user,
      * the values in that record are updated otherwise a new record is created
-     *
      * @param pref the preferences
      * @deprecated
      */

@@ -31,16 +31,7 @@
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
 /**
- * +------------------+---------+------+-----+---------+----------------+
- * | Field            | Type    | Null | Key | Default | Extra          |
- * +------------------+---------+------+-----+---------+----------------+
- * | log_no           | int(10) |      | PRI | NULL    | auto_increment |
- * | claim            | blob    | YES  |     | NULL    |                |
- * | sequence_no      | int(10) | YES  |     | NULL    |                |
- * | billingmaster_no | int(10) | YES  |     | NULL    |                |
- * +------------------+---------+------+-----+---------+----------------+
- *
- * @author jay
+ * Represents a log entry for Teleplan transactions.
  */
 public class TeleplanLog {
     private int logNo;

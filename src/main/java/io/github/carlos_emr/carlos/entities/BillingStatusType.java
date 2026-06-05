@@ -30,12 +30,7 @@
 package io.github.carlos_emr.carlos.entities;
 
 /**
- * <p>Title:BillingStatusType </p>
- *
- * <p>Description: Represents a bill status type as defined by MSP</p>
- *
- * @author not attributable
- * @version 1.0
+ * Represents a bill status type as defined by MSP
  */
 public class BillingStatusType {
 

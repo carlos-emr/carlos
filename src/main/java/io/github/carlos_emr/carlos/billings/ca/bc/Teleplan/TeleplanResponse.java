@@ -43,10 +43,10 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.CarlosProperties;
-
 /**
- * @author jay
+ * Represents a response from the Teleplan API.
  */
+
 public class TeleplanResponse {
     static Logger log = MiscUtils.getLogger();
     private static final String DOCUMENT_DIR_PROPERTY = "DOCUMENT_DIR";

@@ -36,10 +36,10 @@ import io.github.carlos_emr.carlos.billing.CA.BC.dao.WcbDao;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.Wcb;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
-
 /**
- * @author Jay Gallagher
+ * Helper class for WCB billing operations.
  */
+
 public class WcbHelper {
 
     ArrayList empList = null;
@@ -118,7 +118,6 @@ public class WcbHelper {
 
     /**
      * Getter for property empList.
-     *
      * @return Value of property empList.
      */
     public java.util.ArrayList getEmpList() {
@@ -127,7 +126,6 @@ public class WcbHelper {
 
     /**
      * Setter for property empList.
-     *
      * @param empList New value of property empList.
      */
     public void setEmpList(java.util.ArrayList empList) {
@@ -136,7 +134,6 @@ public class WcbHelper {
 
     /**
      * Getter for property claimList.
-     *
      * @return Value of property claimList.
      */
     public java.util.ArrayList getClaimList() {
@@ -145,12 +142,14 @@ public class WcbHelper {
 
     /**
      * Setter for property claimList.
-     *
      * @param claimList New value of property claimList.
      */
     public void setClaimList(java.util.ArrayList claimList) {
         this.claimList = claimList;
     }
+/**
+ * Helper class for WCB billing operations.
+ */
 
     public class WCBClaim {
         public String w_wcbNo = "";
@@ -172,6 +171,9 @@ public class WcbHelper {
 
 
     }
+/**
+ * Helper class for WCB billing operations.
+ */
 
 
     public class WCBEmployer {

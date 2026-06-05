@@ -44,10 +44,10 @@ import jakarta.persistence.Temporal;
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 
 import io.github.carlos_emr.carlos.util.StringUtils;
-
 /**
- * @author jaygallagher
+ * Entity representing a Workers' Compensation Board (WCB) record.
  */
+
 @Entity
 @Table(name = "wcb")
 public class WCB {
@@ -747,7 +747,6 @@ public class WCB {
     }
 
     /*
-     * 
     Form 
     Field         MSP  MSP
     Label  REC #  REC  SEQ     Data Element Name      MAND   Wcb Specific   Should be check with bill

@@ -50,10 +50,10 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
-
 /**
- * @author jay
+ * Represents a diagnosis reference.
  */
+
 public class DxReference {
     private static final Logger _log = MiscUtils.getLogger();
     DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);
@@ -127,6 +127,9 @@ public class DxReference {
             code.setDesc(dxCode.getDescription());
         }
     }
+/**
+ * Represents a diagnosis reference.
+ */
 
 
     public class DxCode implements Comparable {
