@@ -38,7 +38,7 @@
     <li class="nav-item"><a href="<%= request.getContextPath() %>/eform/efmmanageformgroups" class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.groups.name"/></a></li>
     <!-- <li><a href="#">eForm Emporium</a></li> -->
 	<li class="nav-item dropdown">
-		<button type="button" class="contentLink dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+		<button type="button" class="contentLink dropdown-toggle" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
 		Create eForm
 		</button>
 		<ul class="dropdown-menu">

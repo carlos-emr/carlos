@@ -134,7 +134,8 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
             boolean writable = targetDir.setWritable(true, true);
             boolean executable = targetDir.setExecutable(true, true);
             if (!readable || !writable || !executable) {
-                logger.warn("Could not set owner-only permissions on eForm image directory: {}; OS default permissions remain in place", imageDir);
+                String failed = (!readable ? "setReadable " : "") + (!writable ? "setWritable " : "") + (!executable ? "setExecutable " : "");
+                logger.warn("Could not set owner-only permissions on eForm image directory: {}; failed: [{}]; OS default permissions remain in place", imageDir, failed.trim());
             }
             logger.info("Created eForm image directory: {}", imageDir);
         }
