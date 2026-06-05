@@ -106,9 +106,9 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
      * Called by Spring after all properties are set. Deploys each bundled asset
      * to the eForm images directory if it doesn't already exist there.
      *
-     * <p>Exits early (with a warning log) if the directory is not configured
-     * or doesn't exist on disk. This is non-fatal — the application still starts,
-     * but the RTL editor will be broken until the directory is created and Tomcat restarted.</p>
+     * <p>Creates the directory if it does not already exist. Exits early (with a
+     * warning log) if the path is not configured or cannot be created — the
+     * application still starts, but the RTL editor will be broken.</p>
      */
     @Override
     public void afterPropertiesSet() {
@@ -126,8 +126,11 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
             return;
         }
         if (!targetDir.isDirectory()) {
-            logger.warn("eForm image directory does not exist: {}; skipping asset deployment", imageDir);
-            return;
+            if (!targetDir.mkdirs()) {
+                logger.warn("eForm image directory does not exist and could not be created: {}; skipping asset deployment", imageDir);
+                return;
+            }
+            logger.info("Created eForm image directory: {}", imageDir);
         }
 
         for (String asset : ASSETS) {
