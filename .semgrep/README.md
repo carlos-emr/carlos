@@ -67,6 +67,26 @@ For `jsp-scriptlet-xss-carlos.yml`, the workflow keeps the built-in Semgrep
 Cloud rule enabled and uploads the local supplemental CARLOS scan as
 `semgrep-carlos.sarif`.
 
+`nosemgrep` suppressions are honored by Semgrep CI, but Semgrep still writes
+suppressed results into SARIF with `result.suppressions`. GitHub Code Scanning
+creates PR annotations from uploaded SARIF results and does not treat those
+Semgrep suppressions as dismissals, so the workflow runs
+`scripts/filter_suppressed_sarif.py semgrep.sarif` before uploading the Semgrep
+Cloud SARIF. This keeps Semgrep Cloud as the triage source of truth while keeping
+GitHub Code Scanning focused on actionable unsuppressed findings.
+
+## Handling False Positives
+
+1. Prefer fixing the code or adding the missing sanitizer model to a CARLOS rule.
+2. If a built-in Semgrep rule is fully replaced by a CARLOS sanitizer-aware rule,
+   disable only that exact built-in rule in the Semgrep Cloud policy and document
+   it above.
+3. If the built-in rule still provides broader coverage, keep it enabled and use
+   narrow rule-specific `nosemgrep` comments only at already-safe findings.
+4. Do not use blanket file ignores, broad rule disables, or bare `nosemgrep`
+   comments unless a rule-specific suppression is impossible and the rationale is
+   documented in the surrounding code or PR.
+
 ## Maintenance
 
 - **Adding a new sanitizer**: For taint-mode rules, add a `- pattern: NewSanitizer.method(...)`
