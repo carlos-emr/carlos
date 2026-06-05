@@ -52,6 +52,8 @@ class EFormJspMigrationRegressionTest {
             Path.of("src/main/webapp/WEB-INF/jsp/eform/partials/import.jsp");
     private static final Path EFM_TOP_NAV_JSPF =
             Path.of("src/main/webapp/WEB-INF/jsp/eform/efmTopNav.jspf");
+    private static final Path EFM_FORM_MANAGER_EDIT_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/eform/efmformmanageredit.jsp");
     private static final Path STRUTS_EFORM_XML =
             Path.of("src/main/webapp/WEB-INF/classes/struts-eform.xml");
     private static final Path STRUTS_FORM_XML =
@@ -120,7 +122,7 @@ class EFormJspMigrationRegressionTest {
     }
 
     @Test
-    @DisplayName("admin nav Create eForm dropdown should use a button element with aria-expanded for Bootstrap 5 compatibility")
+    @DisplayName("admin nav Create eForm dropdown should use a button element with aria-expanded and proper Bootstrap 5 nav-item structure")
     void shouldUseButtonToggle_forCreateEFormDropdown() throws IOException {
         String nav = Files.readString(EFM_TOP_NAV_JSPF, StandardCharsets.UTF_8);
 
@@ -129,6 +131,23 @@ class EFormJspMigrationRegressionTest {
         assertThat(nav).contains("aria-expanded=\"false\"");
         assertThat(nav).contains("data-bs-toggle=\"dropdown\"");
         assertThat(nav).doesNotContain("javascript:void(0)");
+        // Bootstrap 5 navbar requires nav-item on li and navbar-nav on the ul for correct caret/positioning
+        assertThat(nav).contains("class=\"navbar-nav\"");
+        assertThat(nav).contains("nav-item dropdown");
+        // navbar-expand keeps nav items horizontal — without it navbar-nav stacks vertically
+        assertThat(nav).contains("navbar-expand");
+    }
+
+    @Test
+    @DisplayName("eForm editor should navigate current window to eForm library after save, not the opener window")
+    void shouldNavigateCurrentWindow_notOpener_afterSave() throws IOException {
+        String jsp = Files.readString(EFM_FORM_MANAGER_EDIT_JSP, StandardCharsets.UTF_8);
+
+        // window.opener.location.href navigates the main CARLOS window (opener of the admin popup),
+        // which would replace Schedule/Search/Inbox with the admin page — "losing the Carlos menu"
+        assertThat(jsp).doesNotContain("window.opener.location.href");
+        assertThat(jsp).doesNotContain("window.opener.location");
+        assertThat(jsp).contains("window.location.href");
     }
 
     @Test
