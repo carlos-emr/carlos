@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.eform;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import jakarta.servlet.ServletContext;
 import org.apache.commons.io.FileUtils;
@@ -105,6 +106,8 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
     }
 
     @Nested
+    @Tag("unit")
+    @Tag("eform")
     @DisplayName("Asset Deployment")
     class AssetDeployment {
 
@@ -161,6 +164,8 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
     }
 
     @Nested
+    @Tag("unit")
+    @Tag("eform")
     @DisplayName("Configuration Edge Cases")
     class ConfigurationEdgeCases {
 
@@ -202,6 +207,8 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
     }
 
     @Nested
+    @Tag("unit")
+    @Tag("eform")
     @DisplayName("Error Handling")
     class ErrorHandling {
 
@@ -262,6 +269,8 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
     }
 
     @Nested
+    @Tag("unit")
+    @Tag("eform")
     @DisplayName("ServletContextAware")
     class ServletContextAwareTests {
 
@@ -276,6 +285,8 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
     }
 
     @Nested
+    @Tag("unit")
+    @Tag("eform")
     @DisplayName("Directory Creation")
     class DirectoryCreation {
 
@@ -337,6 +348,43 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
 
             assertThatCode(() -> deployer.afterPropertiesSet()).doesNotThrowAnyException();
             assertThat(newDir).isDirectory();
+        }
+
+        @Test
+        @DisplayName("Should log warning with specific failed op names when permission setting fails after directory creation")
+        void shouldLogWarningWithFailedOps_whenPermissionSettingFails() throws Exception {
+            // Spy a real directory so new File(spiedDir, filename) can access the internal path field,
+            // then override permission methods to return false — exercises the warning branch
+            // without needing to run as a non-root user or modify real filesystem permissions.
+            Path permTestDir = tempDir.resolve("perms-spy-test");
+            Files.createDirectory(permTestDir);
+            File spiedDir = spy(permTestDir.toFile());
+            doReturn(false).when(spiedDir).isDirectory();      // forces entry into creation block
+            doReturn(true).when(spiedDir).mkdirs();            // mkdirs reports success
+            doReturn(false).when(spiedDir).setReadable(true, true);
+            doReturn(true).when(spiedDir).setWritable(true, true);
+            doReturn(false).when(spiedDir).setExecutable(true, true);
+
+            when(mockServletContext.getResourceAsStream(anyString())).thenReturn(null);
+
+            try (MockedStatic<PathValidationUtils> pvMock = mockStatic(PathValidationUtils.class);
+                 LogCapture log = LogCapture.forLogger(EFormAssetDeployer.class)) {
+
+                pvMock.when(() -> PathValidationUtils.resolveConfiguredDirectory(anyString(), anyString()))
+                      .thenReturn(spiedDir);
+                when(mockProperties.getEformImageDirectory()).thenReturn(permTestDir.toString());
+
+                deployer.afterPropertiesSet();
+
+                assertThat(log.events()).anySatisfy(event -> {
+                    assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                    assertThat(event.getMessage().getFormattedMessage())
+                        .contains("Could not set owner-only permissions")
+                        .contains("setReadable")
+                        .contains("setExecutable")
+                        .doesNotContain("setWritable");
+                });
+            }
         }
     }
 }
