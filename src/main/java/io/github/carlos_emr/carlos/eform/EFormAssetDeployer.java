@@ -126,10 +126,13 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
             return;
         }
         if (!targetDir.isDirectory()) {
-            if (!targetDir.mkdirs()) {
+            if (!targetDir.mkdirs() && !targetDir.isDirectory()) {
                 logger.warn("eForm image directory does not exist and could not be created: {}; skipping asset deployment", imageDir);
                 return;
             }
+            targetDir.setReadable(true, true);
+            targetDir.setWritable(true, true);
+            targetDir.setExecutable(true, true);
             logger.info("Created eForm image directory: {}", imageDir);
         }
 
