@@ -131,8 +131,8 @@ public class MsgAttachPDF2Action extends ActionSupport {
      *
      * @return {@link #SUCCESS} when all attachments are complete; {@code "attaching"}
      *         when more attachments are pending; {@link #NONE} when the request
-     *         is rejected with HTTP 405 (non-POST); {@code null} for the
-     *         preview-mode happy path (PDF streamed directly to the response)
+     *         is rejected with HTTP 405 (non-POST) or after streaming a preview PDF
+     *         directly to the response
      * @throws IOException if there's an error writing to the response stream
      * @throws ServletException if there's a servlet processing error
      * @throws SecurityException if the current user lacks {@code _msg} write privilege

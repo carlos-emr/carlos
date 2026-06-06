@@ -74,9 +74,9 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  *
  * <p>Error handling:</p>
  * <ul>
- *   <li>Returns SUCCESS even on errors to prevent error page display</li>
- *   <li>Logs exceptions but doesn't propagate them to user</li>
- *   <li>No validation that file_id is within bounds</li>
+ * <li>Returns NONE after streaming PDF content directly to the response</li>
+ * <li>Logs exceptions but doesn't propagate them to user</li>
+ * <li>Validates file_id before accessing the attachment vector</li>
  * </ul>
  *
  * @version 2.0
@@ -121,7 +121,9 @@ public class MsgViewPDF2Action extends ActionSupport {
      * returns SUCCESS regardless to prevent error pages from displaying.
      * This could result in blank responses if the PDF cannot be retrieved.</p>
      *
-     * @return SUCCESS constant regardless of whether PDF was successfully displayed
+     * @return {@link #NONE} after streaming PDF content directly to the response or
+     *         after rejecting an invalid file_id request; {@link #SUCCESS} when no PDF
+     *         is streamed or when a caught exception is handled
      * @throws IOException if there's an error writing to response stream
      * @throws ServletException if there's a servlet processing error
      * @throws SecurityException if user lacks read permissions for messaging
@@ -144,7 +146,7 @@ public class MsgViewPDF2Action extends ActionSupport {
 
                 // Reject invalid file_id values before accessing the attachment vector
                 if (attVector == null || fileID < 0 || fileID >= attVector.size()) {
-                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid file_id");
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid or out-of-range file_id");
                     return NONE;
                 }
                 // Get the specific PDF by index
