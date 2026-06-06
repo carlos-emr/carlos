@@ -29,6 +29,7 @@
 
 
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.Misc;
 
@@ -67,6 +68,7 @@ public class HtmlTeleplanHelper {
         try {
             dateStr = new SimpleDateFormat("yyyyMMdd").format(new Date());
         } catch (Exception e) {
+            MiscUtils.getLogger().error("Error formatting date", e);
         }
         StringBuilder htmlContentHeader = new StringBuilder();
         htmlContentHeader.append("<tr> \n");
