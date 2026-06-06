@@ -348,6 +348,23 @@
         <Method name="withUploadedFiles"/>
     </Match>
 
+
+    <!--
+      Generated JSP classes call Spring BeanUtils.copyProperties between fixed CARLOS model/archive
+      types. No request-controlled property name reaches the sink; request parameters only select
+      the already-loaded provider/demographic context around the copy.
+    -->
+    <Match>
+        <Bug pattern="BEAN_PROPERTY_INJECTION"/>
+        <Class name="jsp.WEB_002dINF.jsp.admin.providerupdate_jsp"/>
+        <Method name="_jspService"/>
+    </Match>
+    <Match>
+        <Bug pattern="BEAN_PROPERTY_INJECTION"/>
+        <Class name="jsp.WEB_002dINF.jsp.demographic.demographicappthistory_jsp"/>
+        <Method name="_jspService"/>
+    </Match>
+
     <!-- ================================================================
          FIND SECURITY BUGS INFORMATIONAL TAINT-SOURCE / ENDPOINT MARKERS
          These detectors are NOT vulnerabilities. Find Security Bugs emits

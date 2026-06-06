@@ -263,8 +263,13 @@ public class HCValidationResult {
         return null;
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision.
+    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between known CARLOS types; no user-controlled property name reaches the sink.
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "BEAN_PROPERTY_INJECTION"},
+            justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); " +
+                    "not a security or authorization decision. Spring BeanUtils.copyProperties copies " +
+                    "fixed JavaBean descriptors between known CARLOS types; no user-controlled " +
+                    "property name reaches the sink")
     private FeeServiceDetails getFeeServiceDetailsbyFeeServiceCode(String feeServiceCode) {
         FeeServiceDetails selectedFeeServiceDetails = new FeeServiceDetails();
         selectedFeeServiceDetails.setFeeServiceCode(feeServiceCode);
