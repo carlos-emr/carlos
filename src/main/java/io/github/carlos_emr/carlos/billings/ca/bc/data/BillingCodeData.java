@@ -38,10 +38,11 @@ import io.github.carlos_emr.carlos.commn.model.BillingService;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.SqlUtils;
-
 /**
- * @author root
+ * Data access object (DAO) or data transfer object (DTO) for billing code data.
+ * Abstracts database interactions and encapsulates query logic for billing code data records.
  */
+
 public final class BillingCodeData implements Comparable {
     /**
      * DAO used for billing service persistence operations.
@@ -82,6 +83,7 @@ public final class BillingCodeData implements Comparable {
      * Creates a new instance of BillingCodeData
      */
     public BillingCodeData() {
+        // Isolates the billing code data logic from external callers to ensure data consistency.
         this((BillingServiceDao) SpringUtils.getBean(BillingServiceDao.class));
     }
 

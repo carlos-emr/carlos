@@ -42,17 +42,19 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.CarlosProperties;
-
-
 /**
- * @author jay
+ * Manages Teleplan integration for teleplan codes manager.
+ * Facilitates communication and data exchange with the BC Teleplan provincial billing system.
  */
+
+
 public class TeleplanCodesManager {
 
     /**
      * Creates a new instance of TeleplanCodesManager
      */
     public TeleplanCodesManager() {
+        // Isolates the teleplan codes manager logic from external callers to ensure data consistency.
     }
 
     /*

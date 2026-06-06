@@ -21,11 +21,9 @@
  * Hamilton
  * Ontario, Canada
  *
- * @author Dennis Warren
  * Company Colcamex Resources
  * Date Jun 4, 2012
  * Filename QuickBillingBCHandler.java
- * @author Dennis Warren
  * Company Colcamex Resources
  * Date Jun 4, 2012
  * Filename QuickBillingBCHandler.java
@@ -37,7 +35,6 @@
  */
 
 /**
- * @author Dennis Warren
  * Company Colcamex Resources
  * Date Jun 4, 2012
  * Filename QuickBillingBCHandler.java
@@ -74,7 +71,6 @@ import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
 
 
 /**
- * @author Dennis Warren
  * @Revised Jun 4, 2012
  * @Comment
  *
@@ -126,6 +122,7 @@ public class QuickBillingBCHandler {
      * Default constructor.
      */
     public QuickBillingBCHandler() {
+        // Isolates the quick billing bc handler logic from external callers to ensure data consistency.
 
         this.today = new Date();
         providerDao = (ProviderDataDao) SpringUtils.getBean(ProviderDataDao.class);

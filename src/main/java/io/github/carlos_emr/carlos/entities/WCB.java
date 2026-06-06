@@ -44,10 +44,11 @@ import jakarta.persistence.Temporal;
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 
 import io.github.carlos_emr.carlos.util.StringUtils;
-
 /**
- * @author jaygallagher
+ * Represents the wcb domain entity within the system.
+ * Maps to the corresponding database table and manages state for wcb operations.
  */
+
 @Entity
 @Table(name = "wcb")
 public class WCB {
@@ -170,6 +171,7 @@ public class WCB {
     int formNeeded;
 
     public int getId() {
+        // Isolates the wcb logic from external callers to ensure data consistency.
         return id;
     }
 

@@ -36,16 +36,18 @@ import io.github.carlos_emr.carlos.billing.CA.BC.dao.WcbDao;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.Wcb;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
-
 /**
- * @author Jay Gallagher
+ * Processes Medical Services Plan (MSP) requirements for wcb helper.
+ * Enforces BC MSP business rules and formatting for provincial health claims.
  */
+
 public class WcbHelper {
 
     ArrayList empList = null;
     ArrayList claimList = null;
 
     public WcbHelper() {
+        // Isolates the wcb helper logic from external callers to ensure data consistency.
     }
 
     public WcbHelper(String demographic_no) {

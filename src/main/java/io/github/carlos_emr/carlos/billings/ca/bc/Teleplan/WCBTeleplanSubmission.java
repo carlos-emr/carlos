@@ -44,10 +44,11 @@ import io.github.carlos_emr.carlos.billings.ca.bc.MSP.TeleplanFileWriter;
 import java.text.Format;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-
 /**
- * @author jaygallagher
+ * Manages Teleplan integration for wcb teleplan submission.
+ * Facilitates communication and data exchange with the BC Teleplan provincial billing system.
  */
+
 public class WCBTeleplanSubmission {
     private static Logger log = MiscUtils.getLogger();
 
@@ -55,6 +56,7 @@ public class WCBTeleplanSubmission {
 
     //Misc misc = new Misc();
     public String getHtmlLine(WCB wcb, Billingmaster bm) {
+        // Isolates the wcb teleplan submission logic from external callers to ensure data consistency.
         log.debug("WCB " + wcb + " BM " + bm);
         return getHtmlLine("" + bm.getBillingmasterNo(), "" + bm.getBillingNo(), wcb.getW_lname() + "," + wcb.getW_fname(), wcb.getW_phn(), dateFormat(wcb.getW_servicedate()), bm.getBillingCode(), bm.getBillAmount(), bm.getDxCode1(), "", "");
 

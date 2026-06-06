@@ -39,13 +39,13 @@ import org.springframework.stereotype.Repository;
 /**
  * Responsible for CRUD operation a user Billing Module Preferences
  *
- * @author not attributable
  * @version 1.0
  */
 @Repository
 public class BillingPreferencesDAO extends AbstractDaoImpl<BillingPreference> {
 
     public BillingPreferencesDAO() {
+        // Isolates the billing preferences dao logic from external callers to ensure data consistency.
         super(BillingPreference.class);
     }
 

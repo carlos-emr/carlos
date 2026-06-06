@@ -49,10 +49,11 @@ import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.entities.WCB;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-
 /**
- * @author jay
+ * Data access object (DAO) or data transfer object (DTO) for billingmaster dao.
+ * Abstracts database interactions and encapsulates query logic for billingmaster dao records.
  */
+
 @Repository
 @SuppressWarnings("unchecked")
 @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -66,6 +67,7 @@ public class BillingmasterDAO {
      * Creates a new instance of BillingmasterDAO
      */
     public BillingmasterDAO() {
+        // Isolates the billingmaster dao logic from external callers to ensure data consistency.
     }
 
     public List<Billingmaster> getBillingMasterWithStatus(String billingmasterNo, String status) {

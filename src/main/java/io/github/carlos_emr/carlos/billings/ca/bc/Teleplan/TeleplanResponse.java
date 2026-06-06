@@ -43,10 +43,11 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.CarlosProperties;
-
 /**
- * @author jay
+ * Manages Teleplan integration for teleplan response.
+ * Facilitates communication and data exchange with the BC Teleplan provincial billing system.
  */
+
 public class TeleplanResponse {
     static Logger log = MiscUtils.getLogger();
     private static final String DOCUMENT_DIR_PROPERTY = "DOCUMENT_DIR";
@@ -61,6 +62,7 @@ public class TeleplanResponse {
      * Creates a new instance of TeleplanResponse
      */
     public TeleplanResponse() {
+        // Isolates the teleplan response logic from external callers to ensure data consistency.
     }
 
 

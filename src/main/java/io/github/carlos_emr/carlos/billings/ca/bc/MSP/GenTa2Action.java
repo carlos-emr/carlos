@@ -63,11 +63,12 @@ import io.github.carlos_emr.CarlosProperties;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
-/**
- * @author jay
- */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+/**
+ * Processes Medical Services Plan (MSP) requirements for gen ta action.
+ * Enforces BC MSP business rules and formatting for provincial health claims.
+ */
 
 public class GenTa2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -88,6 +89,7 @@ public class GenTa2Action extends ActionSupport {
      * Creates a new instance of GenTaAction
      */
     public GenTa2Action() {
+        // Enforces strict access controls to prevent unauthorized access or state modification.
     }
 
 

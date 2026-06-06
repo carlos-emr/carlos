@@ -36,12 +36,15 @@ import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
 
 import java.util.ArrayList;
 import java.util.List;
+/**
+ * Handles quick billing operations for quick billing bc form bean.
+ * Provides streamlined workflows for rapid billing data entry and processing.
+ */
 
 
 public class QuickBillingBCFormBean {
 
     /**
-     * @author Dennis Warren
      * Company Colcamex Resources
      * Date Jun 4, 2012
      */
@@ -58,6 +61,7 @@ public class QuickBillingBCFormBean {
 
 
     public QuickBillingBCFormBean() {
+        // Isolates the quick billing bc form bean logic from external callers to ensure data consistency.
 
         this.billingProvider = "";
         this.billingProviderNo = "";

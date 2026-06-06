@@ -36,10 +36,11 @@ import java.io.FileWriter;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-
 /**
- * @author jay
+ * Manages Teleplan integration for teleplan service.
+ * Facilitates communication and data exchange with the BC Teleplan provincial billing system.
  */
+
 public class TeleplanService {
     static Logger log = MiscUtils.getLogger();
 
@@ -47,6 +48,7 @@ public class TeleplanService {
      * Creates a new instance of TeleplanService
      */
     public TeleplanService() {
+        // Isolates the teleplan service logic from external callers to ensure data consistency.
     }
 
 

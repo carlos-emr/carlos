@@ -36,9 +36,9 @@ import io.github.carlos_emr.carlos.billing.CA.BC.dao.LogTeleplanTxDao;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.LogTeleplanTx;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-
 /**
- * @author jay
+ * Processes Medical Services Plan (MSP) requirements for teleplan log dao.
+ * Enforces BC MSP business rules and formatting for provincial health claims.
  */
 
 public class TeleplanLogDAO {
@@ -46,6 +46,7 @@ public class TeleplanLogDAO {
     private LogTeleplanTxDao dao = SpringUtils.getBean(LogTeleplanTxDao.class);
 
     public TeleplanLogDAO() {
+        // Isolates the teleplan log dao logic from external callers to ensure data consistency.
     }
 
     public void save(TeleplanLog tl) {

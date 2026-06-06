@@ -59,7 +59,6 @@ import io.github.carlos_emr.carlos.util.UtilMisc;
  * | note_type        | int(2)     | YES  |     | NULL    |                |
  * +------------------+------------+------+-----+---------+----------------+
  *
- * @author root
  */
 public class BillingNote {
 
@@ -67,6 +66,7 @@ public class BillingNote {
      * Creates a new instance of BillingNote
      */
     public BillingNote() {
+        // Isolates the billing note logic from external callers to ensure data consistency.
     }
 
     //

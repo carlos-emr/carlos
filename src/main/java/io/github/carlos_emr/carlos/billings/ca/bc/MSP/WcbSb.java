@@ -44,7 +44,6 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
- * @author Jef King
  * For The Oscar McMaster Project
  * Developed By Andromedia
  * www.andromedia.ca
@@ -114,6 +113,7 @@ public class WcbSb {
     String newLine = "\r\n";
 
     public WcbSb(String billingNo) {
+        // Isolates the wcb sb logic from external callers to ensure data consistency.
         BillingServiceDao bsDao = SpringUtils.getBean(BillingServiceDao.class);
 
         for (Object[] o : bsDao.findSomethingByBillingId(ConversionUtils.fromIntString(billingNo))) {

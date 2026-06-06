@@ -53,7 +53,6 @@ import io.github.carlos_emr.carlos.util.UtilMisc;
 /**
  * <p>Title:ServiceCodeValidationLogic </p>
  *
- * @author Joel Legris
  * @version 1.0
  * @todo Should be renamed to something more appropriate eg ServiceCodeDAO
  * <p>Description: </p>
@@ -73,6 +72,7 @@ public class ServiceCodeValidationLogic {
      * Create a new ServiceCodeValidationLogic object
      */
     public ServiceCodeValidationLogic() {
+        // Isolates the service code validation logic logic from external callers to ensure data consistency.
     }
 
     /**

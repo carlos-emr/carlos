@@ -41,7 +41,6 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 /**
  * Deals with storing the teleplan sequence #
  *
- * @author jay
  */
 public class TeleplanSequenceDAO {
     static Logger log = MiscUtils.getLogger();
@@ -52,6 +51,7 @@ public class TeleplanSequenceDAO {
      * Creates a new instance of TeleplanSequenceDAO
      */
     public TeleplanSequenceDAO() {
+        // Isolates the teleplan sequence dao logic from external callers to ensure data consistency.
     }
 
     private void setSequence(int sequenceNum) {

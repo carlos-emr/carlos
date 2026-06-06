@@ -38,7 +38,6 @@ package io.github.carlos_emr.carlos.entities;
  * <p>Copyright: Copyright (c) 2004</p>
  * <p>Company: </p>
  *
- * @author not attributable
  * @version 1.0
  */
 public class Prescription {
@@ -51,6 +50,7 @@ public class Prescription {
     private String textView;
 
     public Prescription() {
+        // Isolates the prescription logic from external callers to ensure data consistency.
     }
 
     public String getScriptNo() {

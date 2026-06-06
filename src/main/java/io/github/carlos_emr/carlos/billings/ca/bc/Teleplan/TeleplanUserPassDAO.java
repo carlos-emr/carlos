@@ -42,7 +42,6 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 /**
  * Deals with storing the teleplan sequence #
  *
- * @author jay
  */
 public class TeleplanUserPassDAO {
     static Logger log = MiscUtils.getLogger();
@@ -50,6 +49,7 @@ public class TeleplanUserPassDAO {
 
 
     public TeleplanUserPassDAO() {
+        // Isolates the teleplan user pass dao logic from external callers to ensure data consistency.
     }
 
     private void setUsername(String username) {

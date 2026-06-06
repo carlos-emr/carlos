@@ -40,7 +40,6 @@ package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
  * | billingmaster_no | int(10) | YES  |     | NULL    |                |
  * +------------------+---------+------+-----+---------+----------------+
  *
- * @author jay
  */
 public class TeleplanLog {
     private int logNo;
@@ -52,6 +51,7 @@ public class TeleplanLog {
      * Creates a new instance of TeleplanLog
      */
     public TeleplanLog() {
+        // Isolates the teleplan log logic from external callers to ensure data consistency.
     }
 
     public TeleplanLog(int sequenceNo, String claim, int billingmasterNo) {

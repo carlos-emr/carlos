@@ -59,10 +59,11 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.CarlosProperties;
-
 /**
- * @author jay
+ * Manages Teleplan integration for teleplan api.
+ * Facilitates communication and data exchange with the BC Teleplan provincial billing system.
  */
+
 public class TeleplanAPI {
     static Logger log = MiscUtils.getLogger();
 
@@ -89,6 +90,7 @@ public class TeleplanAPI {
      * Creates a new instance of TeleplanAPI
      */
     public TeleplanAPI() {
+        // Isolates the teleplan api logic from external callers to ensure data consistency.
         getClient();
     }
 

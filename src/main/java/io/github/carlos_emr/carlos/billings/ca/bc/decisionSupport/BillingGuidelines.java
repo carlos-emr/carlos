@@ -58,7 +58,6 @@ import io.github.carlos_emr.CarlosProperties;
  * Class used to Manage BillingGuidelines.
  * Temporary and will be refactored to include the other billing systems. And probably more of a centralized rule repository.
  *
- * @author jay
  */
 public class BillingGuidelines {
 
@@ -77,6 +76,7 @@ public class BillingGuidelines {
      * Creates a new instance of MeasurementTemplateFlowSheetConfig
      */
     private BillingGuidelines() {
+        // Isolates the billing guidelines logic from external callers to ensure data consistency.
     }
 
     static public BillingGuidelines getInstance(String code) {

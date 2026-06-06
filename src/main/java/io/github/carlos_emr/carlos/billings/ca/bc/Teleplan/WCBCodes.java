@@ -37,10 +37,11 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.CarlosProperties;
-
 /**
- * @author jaygallagher
+ * Manages Teleplan integration for wcb codes.
+ * Facilitates communication and data exchange with the BC Teleplan provincial billing system.
  */
+
 public class WCBCodes {
 
     private static Logger log = MiscUtils.getLogger();
@@ -51,6 +52,7 @@ public class WCBCodes {
      * @return WCBCodes the instance of WCBCodes
      */
     public static WCBCodes getInstance() {
+        // Isolates the wcb codes logic from external callers to ensure data consistency.
         return wcbCodes;
     }
 

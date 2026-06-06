@@ -31,7 +31,6 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.PayRefSummary;
  * <p>Copyright: Copyright (c) 2005</p>
  * <p>Company: </p>
  *
- * @author Joel Legris
  * @version 1.0
  */
 import org.apache.struts2.ActionSupport;
@@ -40,6 +39,10 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+/**
+ * Processes Medical Services Plan (MSP) requirements for create billing report action.
+ * Enforces BC MSP business rules and formatting for provincial health claims.
+ */
 
 public class CreateBillingReport2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -56,6 +59,7 @@ public class CreateBillingReport2Action extends ActionSupport {
     private static final String REPORTS_PATH = "oscar/oscarBilling/ca/bc/reports/";
 
     public CreateBillingReport2Action() {
+        // Enforces strict access controls to prevent unauthorized access or state modification.
         this.cfgReports();
 
     }

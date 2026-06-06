@@ -60,7 +60,6 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
 /*
- * @author Jef King
  * For The Oscar McMaster Project
  * Developed By Andromedia
  * www.andromedia.ca
@@ -72,6 +71,10 @@ import io.github.carlos_emr.carlos.util.StringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+/**
+ * Provides administrative controls and actions for teleplan correction action wc action.
+ * Secures and processes management functions for billing and system configuration.
+ */
 
 public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -87,6 +90,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
 
     public String execute()
             throws IOException, ServletException {
+        // Enforces strict access controls to prevent unauthorized access or state modification.
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
             throw new SecurityException("missing required sec object (_admin.billing)");

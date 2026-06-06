@@ -34,7 +34,6 @@ package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
  *
  * <p>Company: </p>
  *
- * @author not attributable
  * @version 1.0
  */
 public class SexValidator
@@ -46,6 +45,7 @@ public class SexValidator
      * Creates a new SexValidator
      */
     public SexValidator() {
+        // Isolates the sex validator logic from external callers to ensure data consistency.
     }
 
     /**

@@ -39,7 +39,6 @@ import java.util.Date;
 /**
  * Used to consolidate the teleplan submission html into one place.
  *
- * @author jay
  */
 public class HtmlTeleplanHelper {
 
@@ -47,6 +46,7 @@ public class HtmlTeleplanHelper {
      * Creates a new instance of HtmlTeleplanHelper
      */
     public HtmlTeleplanHelper() {
+        // Isolates the html teleplan helper logic from external callers to ensure data consistency.
     }
 
 

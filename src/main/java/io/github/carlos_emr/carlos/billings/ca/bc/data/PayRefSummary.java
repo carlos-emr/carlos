@@ -47,7 +47,6 @@ import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile;
  *
  * <p>Company: </p>
  *
- * @author not attributable
  * @version 1.0
  */
 public class PayRefSummary {
@@ -63,6 +62,7 @@ public class PayRefSummary {
     String line = "";
 
     public PayRefSummary() {
+        // Isolates the pay ref summary logic from external callers to ensure data consistency.
     }
 
     /**

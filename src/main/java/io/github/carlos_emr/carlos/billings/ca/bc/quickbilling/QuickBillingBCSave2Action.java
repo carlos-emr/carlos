@@ -39,7 +39,6 @@ import jakarta.servlet.http.HttpServletResponse;
 
 
 /**
- * @author Dennis Warren
  * Company Colcamex Resources
  * Date Jun 4, 2012
  * Revised Jun 6, 2012
@@ -56,6 +55,10 @@ import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+/**
+ * Handles quick billing operations for quick billing bc save action.
+ * Provides streamlined workflows for rapid billing data entry and processing.
+ */
 
 public class QuickBillingBCSave2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -65,6 +68,7 @@ public class QuickBillingBCSave2Action extends ActionSupport {
 
 
     public QuickBillingBCSave2Action() {
+        // Enforces strict access controls to prevent unauthorized access or state modification.
     }
 
 

@@ -50,10 +50,11 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
-
 /**
- * @author jay
+ * Data access object (DAO) or data transfer object (DTO) for dx reference.
+ * Abstracts database interactions and encapsulates query logic for dx reference records.
  */
+
 public class DxReference {
     private static final Logger _log = MiscUtils.getLogger();
     DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);
@@ -62,6 +63,7 @@ public class DxReference {
      * Creates a new instance of DxReference
      */
     public DxReference() {
+        // Isolates the dx reference logic from external callers to ensure data consistency.
     }
     //select dx_code1, dx_code2, dx_code3,service_date from billingmaster order by service_date desc;
     /*

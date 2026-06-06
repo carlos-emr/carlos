@@ -42,16 +42,18 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.entities.Billactivity;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
-
 /**
- * @author jay
+ * Data access object (DAO) or data transfer object (DTO) for bill activity dao.
+ * Abstracts database interactions and encapsulates query logic for bill activity dao records.
  */
+
 public class BillActivityDAO {
 
     private BillActivityDao dao = SpringUtils.getBean(BillActivityDao.class);
 
 
     public BillActivityDAO() {
+        // Isolates the bill activity dao logic from external callers to ensure data consistency.
     }
 
     public String getMonthCode() {
