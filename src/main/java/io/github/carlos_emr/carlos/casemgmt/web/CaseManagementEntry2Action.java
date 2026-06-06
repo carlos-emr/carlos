@@ -2071,7 +2071,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                     + "&start_time=" + start_time
                     + "&bNewForm=1" + dxCodes.toString();
             logger.debug("BILLING URL " + url);
-            response.sendRedirect(url);
+            sendBillingRedirect(url);
         }
 
         String chain = request.getParameter("chain");
@@ -2089,6 +2089,12 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         return "windowClose";
+    }
+
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin billing path built from the current context path and server-side billing values.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin billing path built from the current context path and server-side billing values")
+    private void sendBillingRedirect(String url) throws IOException {
+        response.sendRedirect(url);
     }
 
     public String cancel() {

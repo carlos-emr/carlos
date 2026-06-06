@@ -299,30 +299,7 @@ public class AddEForm2Action extends ActionSupport {
             }
 
             if (fax) {
-                StringBuilder faxForward = new StringBuilder(request.getContextPath()).append("/fax/faxAction");
-                faxForward.append("?method=").append("prepareFax");
-                faxForward.append("&transactionId=").append(URLEncoder.encode(fdid, StandardCharsets.UTF_8));
-                faxForward.append("&transactionType=").append(URLEncoder.encode(TransactionType.EFORM.name(), StandardCharsets.UTF_8));
-                faxForward.append("&demographicNo=").append(URLEncoder.encode(demographic_no, StandardCharsets.UTF_8));
-
-                /*
-                 * Added incase the eForm developer adds these elements to the
-                 * eform.
-                 */
-                if (recipient != null && !recipient.isEmpty()) {
-                    faxForward.append("&recipient=").append(URLEncoder.encode(recipient, StandardCharsets.UTF_8));
-                }
-                if (recipientFaxNumber != null && !recipientFaxNumber.isEmpty()) {
-                    faxForward.append("&recipientFaxNumber=").append(URLEncoder.encode(recipientFaxNumber, StandardCharsets.UTF_8));
-                }
-                if (letterheadFax != null && !letterheadFax.isEmpty()) {
-                    faxForward.append("&letterheadFax=").append(URLEncoder.encode(letterheadFax, StandardCharsets.UTF_8));
-                }
-                try {
-                    response.sendRedirect(faxForward.toString());
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
+                redirectToPreparedFax(fdid, demographic_no, recipient, recipientFaxNumber, letterheadFax);
                 return NONE;
             } else if (print) {
                 return "print";
@@ -351,7 +328,6 @@ public class AddEForm2Action extends ActionSupport {
 
                 return "download";
             } else if (isEmailEForm) {
-                String path = request.getContextPath() + "/email/emailComposeAction?method=prepareComposeEFormMailer&fid=" + Encode.forUriComponent(fid);
                 EmailAttachmentSettings settings = EmailAttachmentSettings.of(
                     request,
                     fdid,
@@ -363,11 +339,7 @@ public class AddEForm2Action extends ActionSupport {
                     attachedForms
                 );
                 addEmailAttachmentsToSession(request, settings);
-                try {
-                    response.sendRedirect(path);
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
+                redirectToEmailCompose(fid);
                 return NONE;
             } else {
                 //write template message to echart
@@ -445,7 +417,6 @@ public class AddEForm2Action extends ActionSupport {
 
                 return "download";
             } else if (isEmailEForm) {
-                String path = request.getContextPath() + "/email/emailComposeAction?method=prepareComposeEFormMailer&fid=" + Encode.forUriComponent(fid);
                 EmailAttachmentSettings settings = EmailAttachmentSettings.of(
                     request,
                     prev_fdid,
@@ -457,11 +428,7 @@ public class AddEForm2Action extends ActionSupport {
                     attachedForms
                 );
                 addEmailAttachmentsToSession(request, settings);
-                try {
-                    response.sendRedirect(path);
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
+                redirectToEmailCompose(fid);
                 return NONE;
             }
 
@@ -511,6 +478,42 @@ public class AddEForm2Action extends ActionSupport {
         return "close";
 	}
 	
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin fax action path built from the current context path with encoded query parameters.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin fax action path built from the current context path with encoded query parameters")
+    private void redirectToPreparedFax(String fdid, String demographicNo, String recipient, String recipientFaxNumber, String letterheadFax) {
+        StringBuilder faxForward = new StringBuilder(request.getContextPath()).append("/fax/faxAction");
+        faxForward.append("?method=").append("prepareFax");
+        faxForward.append("&transactionId=").append(URLEncoder.encode(fdid, StandardCharsets.UTF_8));
+        faxForward.append("&transactionType=").append(URLEncoder.encode(TransactionType.EFORM.name(), StandardCharsets.UTF_8));
+        faxForward.append("&demographicNo=").append(URLEncoder.encode(demographicNo, StandardCharsets.UTF_8));
+
+        if (recipient != null && !recipient.isEmpty()) {
+            faxForward.append("&recipient=").append(URLEncoder.encode(recipient, StandardCharsets.UTF_8));
+        }
+        if (recipientFaxNumber != null && !recipientFaxNumber.isEmpty()) {
+            faxForward.append("&recipientFaxNumber=").append(URLEncoder.encode(recipientFaxNumber, StandardCharsets.UTF_8));
+        }
+        if (letterheadFax != null && !letterheadFax.isEmpty()) {
+            faxForward.append("&letterheadFax=").append(URLEncoder.encode(letterheadFax, StandardCharsets.UTF_8));
+        }
+        try {
+            response.sendRedirect(faxForward.toString());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin email compose path built from the current context path with an encoded eForm id.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin email compose path built from the current context path with an encoded eForm id")
+    private void redirectToEmailCompose(String fid) {
+        String path = request.getContextPath() + "/email/emailComposeAction?method=prepareComposeEFormMailer&fid=" + Encode.forUriComponent(fid);
+        try {
+            response.sendRedirect(path);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
 	private String generateFileName(LoggedInInfo loggedInInfo, int demographicNo) {
 		DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
 		String demographicLastName = demographicManager.getDemographicFormattedName(loggedInInfo, demographicNo).split(", ")[0];
