@@ -126,16 +126,16 @@
             <label class="form-label"><fmt:message key="admin.UsageReport.startDate"/></label>
             <div>
                 <input type="text" id="startDate" name="startDate"
-                       <%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>value="<carlos:encode value='<%= request.getParameter("startDate") != null ? request
-					.getParameter("startDate") : "" %>' context="htmlAttribute"/>"/>
+                       value="<carlos:encode value='<%= request.getParameter("startDate") != null ? request
+					.getParameter("startDate") : "" %>' context="htmlAttribute"/>"/><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
             </div>
         </div>
         <div class="mb-3">
             <label class="form-label"><fmt:message key="admin.UsageReport.endDate"/></label>
             <div>
                 <input type="text" id="endDate" name="endDate"
-                       <%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>value="<carlos:encode value='<%= request.getParameter("endDate") != null ? request
-					.getParameter("endDate") : "" %>' context="htmlAttribute"/>"/>
+                       value="<carlos:encode value='<%= request.getParameter("endDate") != null ? request
+					.getParameter("endDate") : "" %>' context="htmlAttribute"/>"/><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
             </div>
         </div>
         <div class="mb-3">
