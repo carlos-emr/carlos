@@ -52,6 +52,7 @@ import io.github.carlos_emr.carlos.commn.model.CVCImmunization;
 import io.github.carlos_emr.carlos.commn.model.CVCMapping;
 import io.github.carlos_emr.carlos.managers.CanadianVaccineCatalogueManager;
 import io.github.carlos_emr.carlos.managers.PreventionManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -258,7 +259,7 @@ public class PreventionDisplayConfig {
     public String getDisplay(LoggedInInfo loggedInInfo, Map<String, Object> setHash, String Demographic_no) {
         String display = "style=\"display:none;\"";
         DemographicData dData = new DemographicData();
-        log.debug("demoage " + Demographic_no);
+        log.debug("demoage {}", LogSafe.sanitize(Demographic_no));
         Demographic demograph = dData.getDemographic(loggedInInfo, Demographic_no);
         try {
             String minAgeStr = (String) setHash.get("minAge");
@@ -267,8 +268,14 @@ public class PreventionDisplayConfig {
             int demoAge = demograph.getAgeInYears();
             String demoSex = demograph.getSex();
             boolean inAgeGroup = true;
-            log.debug("min age " + minAgeStr + " max age " + maxAgeStr + " sex " + sex + " demoAge " + demoAge
-                    + " demoSex " + demoSex);
+            log.debug(
+                "min age {} max age {} sex {} demoAge {} demoSex {}",
+                minAgeStr,
+                maxAgeStr,
+                sex,
+                LogSafe.sanitizeObject(demoAge),
+                LogSafe.sanitize(demoSex)
+            );
             if (minAgeStr != null && maxAgeStr != null) { // between ages
                 log.debug("HERE1");
                 int minAge = Integer.parseInt(minAgeStr);
