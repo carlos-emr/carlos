@@ -139,7 +139,7 @@ public class FrmFormRHPrevention2Action extends ActionSupport {
         MiscUtils.getLogger().debug(
         "New workflow for {} EDD {}",
         LogSafe.sanitize(demographicNo),
-        dateToParse
+        LogSafe.sanitize(dateToParse)
         );
         Date endDate = UtilDateUtilities.StringToDate(dateToParse);
 
@@ -154,7 +154,7 @@ public class FrmFormRHPrevention2Action extends ActionSupport {
                 MiscUtils.getLogger().debug(
                 "Changing workflow for {} to {}",
                 LogSafe.sanitize(demographicNo),
-                state
+                LogSafe.sanitize(state)
                 );
 
                 WorkFlowState wfs = new WorkFlowState();

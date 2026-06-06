@@ -50,7 +50,7 @@ public final class PreventionReportUtil {
     public static DemographicArchiveDao demographicArchiveDao = (DemographicArchiveDao) SpringUtils.getBean(DemographicArchiveDao.class);
 
     public static boolean wasRostered(LoggedInInfo loggedInInfo, Integer demographicId, Date onThisDate) {
-        logger.debug("Checking rosterd: {}", LogSafe.sanitizeObject(demographicId));
+        logger.debug("Checking rostered: {}", LogSafe.sanitizeObject(demographicId));
         Demographic demographic = demographicManager.getDemographic(loggedInInfo, demographicId);
 
         if (rosteredDuringThisTimeDemographic(onThisDate, demographic.getRosterDate(), demographic.getRosterTerminationDate()))
@@ -68,7 +68,7 @@ public final class PreventionReportUtil {
 
     public static boolean wasEnrolledToThisProvider(LoggedInInfo loggedInInfo, Integer demographicId, Date onThisDate, String providerNo) {
         logger.debug(
-            "Checking rosterd: {} for this date {} for this providerNo {}",
+            "Checking rostered: {} for this date {} for this providerNo {}",
          LogSafe.sanitizeObject(demographicId),
          onThisDate,
     LogSafe.sanitize(providerNo)
@@ -94,7 +94,7 @@ public final class PreventionReportUtil {
 
     public static boolean wasRosteredToThisProvider(LoggedInInfo loggedInInfo, Integer demographicId, Date onThisDate, String providerNo) {
             logger.debug(
-            "Checking rosterd: {} for this date {} for this providerNo {}",
+            "Checking rostered: {} for this date {} for this providerNo {}",
             LogSafe.sanitizeObject(demographicId),
             onThisDate,
             LogSafe.sanitize(providerNo)

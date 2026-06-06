@@ -124,7 +124,11 @@ public class AddPrevention2Action extends ActionSupport {
         if (action != null && "Save & Submit".equals(action)) {
             submitToDhir = true;
         }
-        MiscUtils.getLogger().debug("id {} delete {}", LogSafe.sanitize(id), delete);
+        MiscUtils.getLogger().debug(
+        "id {} delete {}",
+        LogSafe.sanitize(id),
+        LogSafe.sanitize(delete)
+        );
 
         MiscUtils.getLogger().debug("prevention Type " + preventionType);
 
