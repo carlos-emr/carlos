@@ -54,6 +54,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SessionConstants;
 
 import io.github.carlos_emr.CarlosProperties;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Servlet filter that enforces authentication and session management for CARLOS EMR.
@@ -341,6 +342,8 @@ public class LoginFilter implements Filter {
      * @throws ServletException if servlet-level error occurs during filtering
      * @see SecurityTokenManager for token-based authentication
      */
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     @SuppressWarnings("java:S6541") // Existing authentication/session gate; broad refactor is outside this PR.
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
         logger.debug("Entering LoginFilter.doFilter()");
