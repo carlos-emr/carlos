@@ -124,6 +124,26 @@ class JspJavaScriptEncodingRegressionTest {
     }
 
     @Test
+    @DisplayName("should encode bill status table fields in HTML and JavaScript attribute contexts")
+    @Tag("security")
+    void shouldContainEncodedBillingStatusNamesAndDescriptions_inSafeContexts() throws Exception {
+        String billStatusJsp = readJsp("billing/CA/BC/billStatus.jsp");
+
+        assertThat(billStatusJsp)
+                .doesNotContain("<a href=\"javascript: setDemographic('<%=b.demoNo%>');\"><%=b.demoName%>")
+                .doesNotContain("<td><%=b.providerLastName%>,<%=b.providerFirstName%>")
+                .doesNotContain("<td title=\"<%=msp.getStatusDesc(b.reason)%>\"><%=msp.getStatusDesc(b.reason) == null ? \"&nbsp\" : msp.getStatusDesc(b.reason)%>")
+                .doesNotContain("SafeEncode.forJavaScriptAttribute(String.valueOf(b.demoNo))")
+                .contains("SafeEncode.forJavaScriptAttribute(b.demoNo)")
+                .contains("SafeEncode.forHtml(b.demoName)")
+                .contains("SafeEncode.forHtml(b.providerLastName)")
+                .contains("SafeEncode.forHtml(b.providerFirstName)")
+                .contains("String statusDesc = msp.getStatusDesc(b.reason);")
+                .contains("title=\"<%=SafeEncode.forHtmlAttribute(statusDesc)%>\"")
+                .contains("statusDesc == null ? \"&nbsp;\" : SafeEncode.forHtml(statusDesc)");
+    }
+
+    @Test
     void shouldContainEncodedMeasurementGroupNames_inHtmlBodyContext() throws Exception {
         String addGroupJsp = readJsp("encounter/oscarMeasurements/AddMeasurementGroup.jsp");
         String editGroupJsp = readJsp("encounter/oscarMeasurements/EditMeasurementGroup.jsp");
@@ -136,23 +156,6 @@ class JspJavaScriptEncodingRegressionTest {
                 .doesNotContain("<%= session.getAttribute(\"groupName\") %>")
                 .contains("<carlos:encode value='<%= groupName %>' context=\"html\"/>")
                 .doesNotContainPattern(">(?:\\s*)<%=\\s*groupName\\s*%>(?:\\s*)<");
-    }
-
-    @Test
-    void shouldContainEncodedBillingStatusNamesAndDescriptions_inSafeContexts() throws Exception {
-        String billStatusJsp = readJsp("billing/CA/BC/billStatus.jsp");
-
-        assertThat(billStatusJsp)
-                .doesNotContain("<a href=\"javascript: setDemographic('<%=b.demoNo%>');\"><%=b.demoName%>")
-                .doesNotContain("<td><%=b.providerLastName%>,<%=b.providerFirstName%>")
-                .doesNotContain("<td title=\"<%=msp.getStatusDesc(b.reason)%>\"><%=msp.getStatusDesc(b.reason) == null ? \"&nbsp\" : msp.getStatusDesc(b.reason)%>")
-                .contains("SafeEncode.forJavaScriptAttribute(String.valueOf(b.demoNo))")
-                .contains("SafeEncode.forHtml(b.demoName)")
-                .contains("SafeEncode.forHtml(b.providerLastName)")
-                .contains("SafeEncode.forHtml(b.providerFirstName)")
-                .contains("String statusDesc = msp.getStatusDesc(b.reason);")
-                .contains("title=\"<%=SafeEncode.forHtmlAttribute(statusDesc)%>\"")
-                .contains("statusDesc == null ? \"&nbsp;\" : SafeEncode.forHtml(statusDesc)");
     }
 
     private static String readJsp(String relativePath) throws Exception {

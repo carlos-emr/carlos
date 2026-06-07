@@ -590,7 +590,7 @@
                 <%
                     if (!"true".equals(readonly)) {
                 %>
-                <td><a href="javascript: setDemographic('<%=SafeEncode.forJavaScriptAttribute(String.valueOf(b.demoNo))%>');"><%=SafeEncode.forHtml(b.demoName)%>
+                <td><a href="javascript: setDemographic('<%=SafeEncode.forJavaScriptAttribute(b.demoNo)%>');"><%=SafeEncode.forHtml(b.demoName)%>
                 </a></td>
                 <%}%>
                 <td><%=SafeEncode.forHtml(b.providerLastName)%>,<%=SafeEncode.forHtml(b.providerFirstName)%>
