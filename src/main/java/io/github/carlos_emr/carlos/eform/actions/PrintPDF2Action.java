@@ -34,6 +34,7 @@ package io.github.carlos_emr.carlos.eform.actions;
 
 import java.io.IOException;
 import java.util.Enumeration;
+import java.util.Optional;
 import java.util.Properties;
 
 import jakarta.servlet.ServletException;
@@ -69,8 +70,6 @@ public final class PrintPDF2Action extends ActionSupport {
         }
 
         int newID = 0;
-        String where = null;
-
         try {
             Properties props = new Properties();
 
@@ -82,11 +81,12 @@ public final class PrintPDF2Action extends ActionSupport {
             String submit = request.getParameter("submit");
             log.info("SUBMIT {}", LogSafe.sanitize(submit)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
 
-            String strAction = findActionValue(submit);
-            if ("failure".equals(strAction)) {
+            Optional<String> actionValue = findActionValue(submit);
+            if (!actionValue.isPresent()) {
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Unsupported submit action");
                 return NONE;
             }
+            String strAction = actionValue.get();
 
             //if we are graphing, we need to grab info from db and add it to request object
             if ("graph".equals(strAction)) {
@@ -107,9 +107,8 @@ public final class PrintPDF2Action extends ActionSupport {
                 }
             }
 
-            where = "/eform/createpdf";
-            where = createActionURL(where, strAction, request.getParameter("demographic_no"), "" + newID);
-            response.sendRedirect(where);
+            String redirectUrl = createActionURL("/eform/createpdf", strAction, request.getParameter("demographic_no"), "" + newID);
+            response.sendRedirect(redirectUrl);
         } catch (Exception ex) {
             throw new ServletException(ex);
         }
@@ -120,13 +119,13 @@ public final class PrintPDF2Action extends ActionSupport {
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    private String findActionValue(String submit) {
+    private Optional<String> findActionValue(String submit) {
         if (submit != null && submit.equalsIgnoreCase("graph")) {
-            return "graph";
+            return Optional.of("graph");
         } else if (submit != null && submit.equalsIgnoreCase("printall")) {
-            return "printAll";
+            return Optional.of("printAll");
         } else {
-            return "failure";
+            return Optional.empty();
         }
     }
 
