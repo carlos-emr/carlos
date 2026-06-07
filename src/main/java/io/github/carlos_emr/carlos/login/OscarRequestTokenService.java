@@ -75,7 +75,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.Locale;
 
 public class OscarRequestTokenService {
 
@@ -169,22 +169,24 @@ public class OscarRequestTokenService {
         return out.toString();
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     private static String normalizeUrl(String url) {
         if (url == null || url.isEmpty()) {
             return url;
         }
         try {
             var u = URI.create(url).normalize();
-            String scheme = u.getScheme() == null ? null : u.getScheme().toLowerCase();
-            if (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme)) {
+            String scheme = normalizeScheme(u);
+            if (!isHttpScheme(scheme)) {
                 throw new OAuth1Exception(400, "invalid_callback_scheme");
             }
-            String host   = u.getHost()   == null ? null : u.getHost().toLowerCase();
+            String host = u.getHost();
+            if (host == null || host.isBlank()) {
+                throw new OAuth1Exception(400, "invalid_callback");
+            }
+            host = host.toLowerCase(Locale.ROOT);
             int port = u.getPort();
-            if ((port == 80 && "http".equalsIgnoreCase(scheme)) ||
-                (port == 443 && "https".equalsIgnoreCase(scheme))) {
+            if ((port == 80 && "http".equals(scheme)) ||
+                (port == 443 && "https".equals(scheme))) {
                 port = -1; // drop default ports
             }
             String path = (u.getPath() == null || u.getPath().isEmpty()) ? "/" : u.getPath();
@@ -194,6 +196,15 @@ public class OscarRequestTokenService {
         } catch (IllegalArgumentException | URISyntaxException e) {
             throw new OAuth1Exception(400, "invalid_callback");
         }
+    }
+
+    private static String normalizeScheme(URI uri) {
+        String scheme = uri.getScheme();
+        return scheme == null ? null : scheme.toLowerCase(Locale.ROOT);
+    }
+
+    private static boolean isHttpScheme(String scheme) {
+        return "http".equals(scheme) || "https".equals(scheme);
     }
 
 }

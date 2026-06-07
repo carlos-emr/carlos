@@ -31,8 +31,11 @@ package io.github.carlos_emr.carlos.login;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 import io.github.carlos_emr.carlos.commn.dao.ServiceAccessTokenDao;
@@ -55,13 +58,11 @@ import io.github.carlos_emr.carlos.webserv.oauth.RequestToken;
 import io.github.carlos_emr.carlos.webserv.oauth.RequestTokenRegistration;
 import io.github.carlos_emr.carlos.webserv.oauth.UserSubject;
 
-import java.util.*;
-
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-
 @Component
 @Transactional
 public class OscarOAuthDataProvider {
+
+    private static final String OOB_CALLBACK = "oob";
 
     private final org.apache.logging.log4j.Logger logger = MiscUtils.getLogger();
 
@@ -271,8 +272,6 @@ public class OscarOAuthDataProvider {
         return System.currentTimeMillis() / 1000 >= expiresAt;
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     private static void validateCallbackAllowed(RequestTokenRegistration reg) {
         Client client = reg.getClient();
         String registeredCallback = client == null ? null : client.getCallbackUri();
@@ -284,13 +283,13 @@ public class OscarOAuthDataProvider {
             throw new OAuth1Exception(400, "callback_uri not allowed");
         }
 
-        if ("oob".equalsIgnoreCase(registeredCallback)) {
-            if (!"oob".equalsIgnoreCase(requestedCallback)) {
+        if (isOutOfBandCallback(registeredCallback)) {
+            if (!isOutOfBandCallback(requestedCallback)) {
                 throw new OAuth1Exception(400, "callback_uri not allowed");
             }
             return;
         }
-        if ("oob".equalsIgnoreCase(requestedCallback)) {
+        if (isOutOfBandCallback(requestedCallback)) {
             throw new OAuth1Exception(400, "callback_uri not allowed");
         }
 
@@ -305,26 +304,34 @@ public class OscarOAuthDataProvider {
         if (!requested.startsWith(registered)) {
             return false;
         }
-        if (requested.length() == registered.length() || registered.endsWith("/")) {
+        if (requested.length() == registered.length()) {
             return true;
         }
         char next = requested.charAt(registered.length());
-        return next == '/' || next == '?' || next == '#' || next == '&';
+        if (registered.contains("?")) {
+            return next == '&' || next == '#';
+        }
+        if (registered.contains("#")) {
+            return false;
+        }
+        return registered.endsWith("/") || next == '/' || next == '?' || next == '#';
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     private static String normalizeCallbackForComparison(String callback) {
         try {
             URI uri = URI.create(callback).normalize();
-            String scheme = uri.getScheme() == null ? null : uri.getScheme().toLowerCase();
-            if (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme)) {
+            String scheme = normalizeScheme(uri);
+            if (!isHttpScheme(scheme)) {
                 throw new OAuth1Exception(400, "invalid_callback_scheme");
             }
-            String host = uri.getHost() == null ? null : uri.getHost().toLowerCase();
+            String host = uri.getHost();
+            if (host == null || host.isBlank()) {
+                throw new OAuth1Exception(400, "invalid_callback");
+            }
+            host = host.toLowerCase(Locale.ROOT);
             int port = uri.getPort();
-            if ((port == 80 && "http".equalsIgnoreCase(scheme))
-                    || (port == 443 && "https".equalsIgnoreCase(scheme))) {
+            if ((port == 80 && "http".equals(scheme))
+                    || (port == 443 && "https".equals(scheme))) {
                 port = -1;
             }
             String path = (uri.getPath() == null || uri.getPath().isEmpty()) ? "/" : uri.getPath();
@@ -334,6 +341,19 @@ public class OscarOAuthDataProvider {
         } catch (IllegalArgumentException | URISyntaxException e) {
             throw new OAuth1Exception(400, "invalid_callback");
         }
+    }
+
+    private static boolean isOutOfBandCallback(String callback) {
+        return callback != null && OOB_CALLBACK.equals(callback.toLowerCase(Locale.ROOT));
+    }
+
+    private static String normalizeScheme(URI uri) {
+        String scheme = uri.getScheme();
+        return scheme == null ? null : scheme.toLowerCase(Locale.ROOT);
+    }
+
+    private static boolean isHttpScheme(String scheme) {
+        return "http".equals(scheme) || "https".equals(scheme);
     }
 
 }

@@ -61,6 +61,31 @@ class OscarRequestTokenServiceUnitTest {
     }
 
     @Test
+    @DisplayName("should reject callback without host when initiating request token")
+    void shouldRejectCallbackWithoutHost_whenInitiatingRequestToken() {
+        OscarOAuthDataProvider dataProvider = mock(OscarOAuthDataProvider.class);
+        OAuth1ParamParser parser = mock(OAuth1ParamParser.class);
+        OAuth1SignatureVerifier verifier = mock(OAuth1SignatureVerifier.class);
+        OscarRequestTokenService service = new OscarRequestTokenService(dataProvider, parser);
+        ReflectionTestUtils.setField(service, "verifier", verifier);
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/ws/oauth/initiate");
+        request.setServerName("carlos.example");
+        request.setScheme("https");
+        OAuth1Request oauthRequest = new OAuth1Request();
+        oauthRequest.consumerKey = "consumer";
+        oauthRequest.callback = "https:callback";
+        Client client = new Client("consumer", "secret", "App", "https://trusted.example");
+        client.setCallbackUri("https://trusted.example/callback");
+        when(parser.parseFromRequest(request)).thenReturn(oauthRequest);
+        when(dataProvider.getClient("consumer")).thenReturn(client);
+
+        assertThatThrownBy(() -> service.initiatePost(request))
+                .isInstanceOf(OAuth1Exception.class)
+                .hasMessage("invalid_callback");
+        verify(dataProvider, never()).createRequestToken(any());
+    }
+
+    @Test
     @DisplayName("should normalize and store valid HTTPS callback when initiating request token")
     void shouldNormalizeAndStoreCallbackUrl_whenCallbackIsValidHttps() {
         OscarOAuthDataProvider dataProvider = mock(OscarOAuthDataProvider.class);

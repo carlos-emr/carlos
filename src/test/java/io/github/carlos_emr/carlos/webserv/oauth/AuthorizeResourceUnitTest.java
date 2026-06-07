@@ -134,6 +134,26 @@ class AuthorizeResourceUnitTest {
     }
 
     @Test
+    @DisplayName("should reject callback with HTTP scheme but no host")
+    void shouldRejectCallback_whenHttpSchemeHasNoHost() {
+        OscarOAuthDataProvider provider = mock(OscarOAuthDataProvider.class);
+        RequestToken token = requestToken("request-token");
+        token.setCallback("https:callback");
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/ws/oauth/authorize");
+        request.getSession().setAttribute("user", "999");
+        request.getSession().setAttribute("oauth.authorize.nonce.request-token", "nonce-123");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        when(provider.getRequestToken("request-token")).thenReturn(token);
+        AuthorizeResource resource = resource(request, response, provider);
+
+        Response result = resource.approve("request-token", "nonce-123", "allow");
+
+        assertThat(result.getStatus()).isEqualTo(400);
+        assertThat(result.getEntity()).isEqualTo("invalid_callback");
+        verify(provider, never()).finalizeAuthorization(token, "999");
+    }
+
+    @Test
     @DisplayName("should reject callback with malformed URI")
     void shouldRejectCallback_whenUriIsMalformed() {
         OscarOAuthDataProvider provider = mock(OscarOAuthDataProvider.class);
