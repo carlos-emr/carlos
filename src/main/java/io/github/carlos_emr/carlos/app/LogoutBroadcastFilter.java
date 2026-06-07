@@ -51,6 +51,7 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.RequestNegotiation;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Servlet filter that injects session heartbeat and logout broadcast JavaScript
@@ -300,6 +301,8 @@ public class LogoutBroadcastFilter implements Filter {
      * @param request current HTTP request
      * @return true for session-establishing POST routes
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private boolean isSessionEstablishingPath(HttpServletRequest request) {
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
             return false;
@@ -428,6 +431,8 @@ public class LogoutBroadcastFilter implements Filter {
      * @param script String the script content to append
      * @throws IOException if the writer flush fails
      */
+    // FindSecBugs XSS_SERVLET: intentionally injects logout-broadcast script; buildScript encodes dynamic values for JavaScript.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "intentionally injects logout-broadcast script; buildScript encodes dynamic values for JavaScript")
     private void writeScriptToWriter(DelegatingServletResponse delegatingResponse, String script)
             throws IOException {
         PrintWriter writer = delegatingResponse.getWriter();
@@ -956,10 +961,14 @@ public class LogoutBroadcastFilter implements Filter {
             deferredContentLengthIsLong = false;
         }
 
+        // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+        @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
         private boolean isContentLengthHeader(String name) {
             return "Content-Length".equalsIgnoreCase(name);
         }
 
+        // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+        @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
         private boolean isContentTypeHeader(String name) {
             return "Content-Type".equalsIgnoreCase(name);
         }

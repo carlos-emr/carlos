@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import java.util.Objects;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action to delete all data associated with a generic billing service type.
@@ -73,6 +74,8 @@ public class DbManageBillingformDelete2Action extends ActionSupport {
      *         if the request method is not POST
      * @throws SecurityException if the user lacks {@code _admin.billing} write privilege
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String execute() throws Exception {
         if (!"POST".equalsIgnoreCase(request.getMethod())) {

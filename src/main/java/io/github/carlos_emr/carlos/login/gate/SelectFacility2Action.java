@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Set;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Authenticated facility-selection endpoint for providers who belong to multiple facilities.
@@ -62,6 +63,8 @@ public final class SelectFacility2Action extends BaseLoginPageView2Action {
         this.facilityDao = facilityDao;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();

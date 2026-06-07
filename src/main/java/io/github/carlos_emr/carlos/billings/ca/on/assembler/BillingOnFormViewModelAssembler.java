@@ -49,6 +49,7 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean;
 import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnRequestParameters;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Orchestrator that assembles the {@link BillingOnFormViewModel} from
@@ -125,6 +126,8 @@ public class BillingOnFormViewModelAssembler {
      * scriptlet ordering in the original JSP so the resulting state is
      * equivalent to the expected page contract.
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @SuppressWarnings("deprecation")
     public BillingOnFormViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo) {
         CarlosProperties oscarVars = CarlosProperties.getInstance();

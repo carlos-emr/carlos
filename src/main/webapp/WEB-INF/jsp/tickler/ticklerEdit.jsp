@@ -466,7 +466,7 @@
         <form name="serviceform" action="<%=request.getContextPath()%>/tickler/EditTickler" method="post">
             <input type="hidden" name="method" value="editTickler"/>
             <input type="hidden" name="ticklerNo" value="<%=ticklerNo%>"/>
-            <input type="hidden" name="parentAjaxId" value="<carlos:encode value='<%= request.getParameter("parentAjaxId") != null ? request.getParameter("parentAjaxId") : "" %>' context="htmlAttribute"/>"/>
+            <input type="hidden" name="parentAjaxId" value="<carlos:encode value='<%= request.getParameter("parentAjaxId") != null ? request.getParameter("parentAjaxId") : "" %>' context="htmlAttribute"/>"/><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
             <div class="page-header-bar">
                 <h2 class="page-header-title"><fmt:message key="tickler.ticklerEdit.title"/></h2>
             </div>

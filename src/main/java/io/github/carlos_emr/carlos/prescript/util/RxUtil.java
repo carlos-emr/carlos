@@ -45,6 +45,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.prescript.data.RxCodesData;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class RxUtil {
 
@@ -205,6 +206,8 @@ public class RxUtil {
         return (int) Math.round(Clcr);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static double findNDays(String durationUnit) {
         double nDays = 0d;
         if (durationUnit.equalsIgnoreCase("D")) {
@@ -217,6 +220,8 @@ public class RxUtil {
         return nDays;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static Double findNPerDay(String frequency) {
         double nPerDay = 0d;
         if (frequency.equalsIgnoreCase("od")) {
@@ -412,6 +417,8 @@ public class RxUtil {
         rx.setSpecial("");
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static String changeToStandardFrequencyCode(String str) {
         String retVal = str;
         if (str.equalsIgnoreCase("daily")) {
@@ -436,6 +443,8 @@ public class RxUtil {
         return retVal;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static String convertWordToNumerical(String s) {
 
         s = s.trim();
@@ -481,6 +490,8 @@ public class RxUtil {
         return retVal;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static void instrucParser(RxPrescriptionData.Prescription rx) {
         if (rx == null) {
             return;
@@ -1043,6 +1054,8 @@ public class RxUtil {
 	}
 
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static String trimSpecial(RxPrescriptionData.Prescription rx) {
         String special = rx.getSpecial();
         if (special == null || special.trim().length() == 0) return "";
@@ -1231,6 +1244,8 @@ public class RxUtil {
         return retList;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static List<HashMap<String, String>> trimMedHistoryList(RxPrescriptionData.Prescription rx, List<HashMap<String, String>> l) {
 
         String customName = rx.getCustomName();
@@ -1439,6 +1454,8 @@ public class RxUtil {
     }
 
     //check to see if a represcription of a med is clicked twice.
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static boolean isRxUniqueInStash(final RxSessionBean beanRx, final RxPrescriptionData.Prescription rx) {
         boolean unique = true;
         if (rx.isCustom()) {

@@ -73,6 +73,7 @@ import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class OscarRequestTokenService {
 
@@ -165,6 +166,8 @@ public class OscarRequestTokenService {
         return out.toString();
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     private static String normalizeUrl(String url) {
         try {
             var u = java.net.URI.create(url).normalize();

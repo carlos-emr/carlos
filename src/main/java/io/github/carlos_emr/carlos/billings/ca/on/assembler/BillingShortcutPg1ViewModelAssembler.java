@@ -59,6 +59,7 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnRequestParameters;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Assembles {@link BillingShortcutPg1ViewModel} for {@code billingShortcutPg1.jsp}.
@@ -120,6 +121,8 @@ public class BillingShortcutPg1ViewModelAssembler {
         this.billingClaimQueryService = billingClaimQueryService;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public BillingShortcutPg1ViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo) {
         String userProviderNo = loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null
                 ? "" : loggedInInfo.getLoggedInProviderNo();
