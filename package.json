@@ -13,6 +13,7 @@
     "write-translations": "docusaurus write-translations",
     "write-heading-ids": "docusaurus write-heading-ids",
     "test:login-playwright": "node scripts/login-playwright-checks.js",
+    "test:add-login-account-playwright": "node scripts/add-login-account-playwright-checks.js",
     "test:logout-broadcast-playwright": "node scripts/logout-broadcast-playwright-checks.js",
     "test:echart-playwright": "node scripts/echart-playwright-checks.js",
     "test:browser-surfaces-playwright": "node scripts/browser-surface-playwright-checks.js",
