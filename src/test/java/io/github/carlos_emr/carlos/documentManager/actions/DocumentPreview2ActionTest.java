@@ -56,6 +56,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
@@ -120,7 +121,9 @@ class DocumentPreview2ActionTest extends CarlosUnitTestBase {
         registerMock(DocumentAttachmentManager.class, mockDocumentAttachmentManager);
         registerMock(FormsManager.class, mockFormsManager);
 
-        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), any(), any(), any())).thenReturn(true);
+        // lenient: not every test exercises a privilege check (e.g. unsupported-method returns 400
+        // before any hasPrivilege call), so this shared default must not trip strict-stub checks.
+        lenient().when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), any(), any(), any())).thenReturn(true);
 
         action = spy(new DocumentPreview2Action());
     }
@@ -222,6 +225,9 @@ class DocumentPreview2ActionTest extends CarlosUnitTestBase {
         when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_hrm", SecurityInfoManager.READ, null)).thenReturn(false);
         when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_lab", SecurityInfoManager.READ, null)).thenReturn(false);
         when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_form", SecurityInfoManager.READ, null)).thenReturn(false);
+        // fetchConsultDocuments also gates eForms on _eform; deny it too so "lacks all access"
+        // truly fetches nothing and verifyNoInteractions(EFormUtil) holds.
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_eform", SecurityInfoManager.READ, null)).thenReturn(false);
 
         eDocUtilMock = mockStatic(EDocUtil.class);
         eFormUtilMock = mockStatic(EFormUtil.class);

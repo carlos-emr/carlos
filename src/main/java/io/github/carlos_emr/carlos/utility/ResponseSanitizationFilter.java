@@ -454,6 +454,8 @@ public class ResponseSanitizationFilter implements Filter {
      * @param content  String the captured response body to write; no-op if null or empty
      * @throws IOException if an I/O error occurs
      */
+    // FindSecBugs XSS_SERVLET: replays captured response content after sanitization; content originates from downstream response pipeline.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "replays captured response content after sanitization; content originates from downstream response pipeline")
     private static void writeToResponse(HttpServletResponse response, String content)
             throws IOException {
         if (content == null || content.isEmpty()) {
@@ -886,6 +888,8 @@ public class ResponseSanitizationFilter implements Filter {
             this.maxChars = maxChars;
         }
 
+        // FindSecBugs XSS_SERVLET: buffers or passes through downstream response body for sanitization size-limit handling.
+        @SuppressFBWarnings(value = "XSS_SERVLET", justification = "buffers or passes through downstream response body for sanitization size-limit handling")
         @Override
         public void write(char[] cbuf, int off, int len) throws IOException {
             if (!limitExceeded && buffer.size() + len > maxChars) {
@@ -912,6 +916,8 @@ public class ResponseSanitizationFilter implements Filter {
             }
         }
 
+        // FindSecBugs XSS_SERVLET: buffers or passes through downstream response body for sanitization size-limit handling.
+        @SuppressFBWarnings(value = "XSS_SERVLET", justification = "buffers or passes through downstream response body for sanitization size-limit handling")
         @Override
         public void write(String str, int off, int len) throws IOException {
             if (!limitExceeded && buffer.size() + len > maxChars) {
@@ -969,6 +975,8 @@ public class ResponseSanitizationFilter implements Filter {
          *                     stack traces when the first write itself exceeds the limit
          * @throws IOException if the real response writer cannot be obtained or written to
          */
+        // FindSecBugs XSS_SERVLET: switches captured downstream response body to passthrough after sanitization size limit is exceeded.
+        @SuppressFBWarnings(value = "XSS_SERVLET", justification = "switches captured downstream response body to passthrough after sanitization size limit is exceeded")
         private void switchToPassthrough(String pendingWrite) throws IOException {
             if (limitExceeded) {
                 return;
