@@ -2524,30 +2524,25 @@ function initLabHistoryDisplay() {
         }
     });
 
-    var loincCodes = Object.keys(loincRows);
-    labHxFetchSequential(loincCodes, loincRows, 0);
+    Object.keys(loincRows).forEach(function(loinc) {
+        labHxFetch(loinc, loincRows[loinc]);
+    });
 }
 
-function labHxFetchSequential(codes, loincRows, index) {
-    if (index >= codes.length) return;
-    var loinc = codes[index];
-    var url = contextpath + '/lab/CA/ON/LabHistoryByLoinc?demographicNo='
-            + encodeURIComponent(labDemographicNo) + '&loincCode=' + encodeURIComponent(loinc);
+function labHxFetch(loinc, cells) {
     var xhr = new XMLHttpRequest();
     xhr.onreadystatechange = function() {
-        if (xhr.readyState !== 4) return;
-        if (xhr.status === 200) {
-            try {
-                var values = JSON.parse(xhr.responseText);
-                // Need at least two entries: values[0]=current, values[1..2]=prior
-                if (values.length > 1) {
-                    loincRows[loinc].forEach(function(cell) { labHxInject(cell, values); });
-                }
-            } catch (e) { /* ignore parse errors */ }
-        }
-        labHxFetchSequential(codes, loincRows, index + 1);
+        if (xhr.readyState !== 4 || xhr.status !== 200) return;
+        try {
+            var values = JSON.parse(xhr.responseText);
+            // Need at least two entries: values[0]=current, values[1..2]=prior
+            if (values.length > 1) {
+                cells.forEach(function(cell) { labHxInject(cell, values); });
+            }
+        } catch (e) { /* ignore parse errors */ }
     };
-    xhr.open('GET', url, true);
+    xhr.open('GET', contextpath + '/lab/CA/ON/LabHistoryByLoinc?demographicNo='
+            + encodeURIComponent(labDemographicNo) + '&loincCode=' + encodeURIComponent(loinc), true);
     xhr.send();
 }
 

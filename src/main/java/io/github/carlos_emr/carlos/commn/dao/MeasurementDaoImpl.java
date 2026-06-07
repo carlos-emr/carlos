@@ -482,16 +482,26 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
 
     @Override
     public List<Object[]> findMeasurementsByDemographicIdAndLocationCode(Integer demoNo, String loincCode) {
-        String sql = "SELECT m.dataField, m.dateObserved, e1.val, e3.val "
-                + "FROM Measurement m, MeasurementsExt e1, MeasurementsExt e2, MeasurementsExt e3, MeasurementMap mm "
-                + "WHERE m.id = e1.measurementId " + "AND e1.keyVal = 'lab_no' " + "AND m.id = e2.measurementId "
-                + "AND e2.keyVal = 'identifier' " + "AND m.id = e3.measurementId " + "AND e3.keyVal = 'abnormal' "
-                + "AND e2.val = mm.identCode " + "AND mm.loincCode = ?1" + "AND m.demographicId = ?2"
-                + "ORDER BY m.dateObserved DESC";
-        Query query = entityManager.createQuery(sql);
-        query.setParameter(1, loincCode);
-        query.setParameter(2, demoNo);
-        return query.getResultList();
+        // Native SQL with conditional aggregation: reads measurementsExt twice (identifier lookup
+        // + lab_no/abnormal pivot) instead of three separate cross-joins, and adds LIMIT 10 so
+        // we never fetch more rows than the caller uses.
+        String sql = "SELECT m.dataField, m.dateObserved,"
+                + " MAX(CASE WHEN me.keyval = 'lab_no' THEN me.val END),"
+                + " MAX(CASE WHEN me.keyval = 'abnormal' THEN me.val END)"
+                + " FROM measurements m"
+                + " INNER JOIN measurementsExt e_id ON e_id.measurement_id = m.id AND e_id.keyval = 'identifier'"
+                + " INNER JOIN measurementMap mm ON mm.ident_code = e_id.val AND mm.loinc_code = :loincCode"
+                + " INNER JOIN measurementsExt me ON me.measurement_id = m.id AND me.keyval IN ('lab_no', 'abnormal')"
+                + " WHERE m.demographicNo = :demoNo"
+                + " GROUP BY m.id, m.dataField, m.dateObserved"
+                + " HAVING MAX(CASE WHEN me.keyval = 'lab_no' THEN me.val END) IS NOT NULL"
+                + "    AND MAX(CASE WHEN me.keyval = 'abnormal' THEN me.val END) IS NOT NULL"
+                + " ORDER BY m.dateObserved DESC"
+                + " LIMIT 10";
+        return entityManager.createNativeQuery(sql)
+                .setParameter("loincCode", loincCode)
+                .setParameter("demoNo", demoNo)
+                .getResultList();
     }
 
     @Override
