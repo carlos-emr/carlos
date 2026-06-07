@@ -197,8 +197,10 @@ public class DmsInboxManage2Action extends ActionSupport {
     public String prepareForIndexPage() {
         HttpSession session = request.getSession();
         try {
-            if (session.getAttribute("userrole") == null)
+            if (session.getAttribute("userrole") == null) {
                 response.sendRedirect(request.getContextPath() + "/logoutPage");
+                return NONE;
+            }
         } catch (Exception e) {
             MiscUtils.getLogger().error("error", e);
         }
@@ -292,7 +294,10 @@ public class DmsInboxManage2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         HttpSession session = request.getSession();
         try {
-            if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
+            if (session.getAttribute("userrole") == null) {
+                response.sendRedirect(request.getContextPath() + "/logoutPage");
+                return NONE;
+            }
         } catch (Exception e) {
             logger.error("Error", e);
         }
@@ -756,7 +761,10 @@ public class DmsInboxManage2Action extends ActionSupport {
     public String getDocumentsInQueues() {
         HttpSession session = request.getSession();
         try {
-            if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
+            if (session.getAttribute("userrole") == null) {
+                response.sendRedirect(request.getContextPath() + "/logoutPage");
+                return NONE;
+            }
         } catch (Exception e) {
             logger.error("Error", e);
         }
