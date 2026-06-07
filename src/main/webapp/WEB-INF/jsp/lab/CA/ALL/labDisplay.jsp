@@ -238,6 +238,28 @@
     String formName2 = bShortcutForm ? CarlosProperties.getInstance().getProperty("appt_formview_name2", "") : "";
     String formName2Short = formName2.length() > 3 ? (formName2.substring(0, 2) + ".") : formName2;
     boolean bShortcutForm2 = bShortcutForm && !formName2.equals("");
+
+    // Load LAB_VALUE_HX_JSON from carlos.properties (admin-controlled); default covers common tracked labs.
+    // Re-serialised through Jackson to reject malformed input and normalise the output.
+    String labValueHxDefault = "[{\"name\":\"eGFR\",\"LOINC\":\"33914-3\"}"
+            + ",{\"name\":\"A1C\",\"LOINC\":\"4548-4\"}"
+            + ",{\"name\":\"K\",\"LOINC\":\"2823-3\"}"
+            + ",{\"name\":\"Hb\",\"LOINC\":\"718-7\"}"
+            + ",{\"name\":\"ACR\",\"LOINC\":\"9318-7\"}"
+            + ",{\"name\":\"PSA\",\"LOINC\":\"2857-1\"}"
+            + ",{\"name\":\"CEA\",\"LOINC\":\"2039-6\"}"
+            + ",{\"name\":\"Ferritin\",\"LOINC\":\"2276-4\"}"
+            + ",{\"name\":\"TSH\",\"LOINC\":\"3016-3\"}]";
+    String labValueHxJson;
+    try {
+        ObjectMapper labHxMapper = new ObjectMapper();
+        JsonNode labHxNode = labHxMapper.readTree(props.getProperty("LAB_VALUE_HX_JSON", labValueHxDefault));
+        // Replace "</" so the JSON can be safely embedded inside a <script> block
+        labValueHxJson = labHxMapper.writeValueAsString(labHxNode).replace("</", "<\\/");
+    } catch (Exception e_labHx) {
+        labValueHxJson = labValueHxDefault;
+    }
+
     List<MessageHandler> handlers = new ArrayList<MessageHandler>();
     String[] segmentIDs = null;
     Boolean showAll = showAllstr != null && !"null".equalsIgnoreCase(showAllstr);
@@ -381,6 +403,10 @@ if (securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && is
 
     </script>
 
+    <script>
+        var labValueHxConfig = <%=labValueHxJson%>;
+        var labDemographicNo = '<%=SafeEncode.forJavaScript(demographicID != null ? demographicID : "")%>';
+    </script>
 
     <script type="text/javascript">
         // alternately refer to this function in oscarMDSindex.js as labDisplayAjax.jsp does
@@ -2459,6 +2485,117 @@ input[id^='acklabel_']{
         src="${pageContext.servletContext.contextPath}/library/dompurify/purify.min.js"></script>
 <script type="text/javascript"
         src="${pageContext.servletContext.contextPath}/share/javascript/oscarMDSIndex.js"></script>
+
+<script>
+/**
+ * Lab history display: appends the two prior values for configured LOINC codes to each
+ * matching result cell, with a hover tooltip showing all recent values and their dates.
+ * Configured via LAB_VALUE_HX_JSON in carlos.properties (default: eGFR, A1C, K, Hb, ACR,
+ * PSA, CEA, Ferritin, TSH).
+ */
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof labValueHxConfig === 'undefined' || !labDemographicNo || labDemographicNo === '0') return;
+    initLabHistoryDisplay();
+});
+
+function initLabHistoryDisplay() {
+    // Map each LOINC code to the result cells of matching rows
+    var loincRows = {};
+    document.querySelectorAll('tr.NormalRes, tr.AbnormalRes, tr.HiLoRes').forEach(function(row) {
+        var cells = row.querySelectorAll('td');
+        if (cells.length < 2) return;
+        var links = cells[0].querySelectorAll('a');
+        for (var li = 0; li < links.length; li++) {
+            var href = links[li].getAttribute('href') || '';
+            if (href.indexOf('ViewLabValues') < 0) continue;
+            var m = href.match(/identifier=([^&'")\s]+)/);
+            if (!m) break;
+            var identifier = decodeURIComponent(m[1]);
+            for (var ci = 0; ci < labValueHxConfig.length; ci++) {
+                var loinc = labValueHxConfig[ci].LOINC;
+                // OBX identifiers may be bare LOINC ("33914-3") or prefixed ("33914-3^Name^LN")
+                if (identifier === loinc || identifier.indexOf(loinc + '^') === 0) {
+                    if (!loincRows[loinc]) loincRows[loinc] = [];
+                    loincRows[loinc].push(cells[1]);
+                    break;
+                }
+            }
+            break; // only inspect the first ViewLabValues anchor per row
+        }
+    });
+
+    var loincCodes = Object.keys(loincRows);
+    labHxFetchSequential(loincCodes, loincRows, 0);
+}
+
+function labHxFetchSequential(codes, loincRows, index) {
+    if (index >= codes.length) return;
+    var loinc = codes[index];
+    var url = contextpath + '/lab/CA/ON/LabHistoryByLoinc?demographicNo='
+            + encodeURIComponent(labDemographicNo) + '&loincCode=' + encodeURIComponent(loinc);
+    var xhr = new XMLHttpRequest();
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState !== 4) return;
+        if (xhr.status === 200) {
+            try {
+                var values = JSON.parse(xhr.responseText);
+                // Need at least two entries: values[0]=current, values[1..2]=prior
+                if (values.length > 1) {
+                    loincRows[loinc].forEach(function(cell) { labHxInject(cell, values); });
+                }
+            } catch (e) { /* ignore parse errors */ }
+        }
+        labHxFetchSequential(codes, loincRows, index + 1);
+    };
+    xhr.open('GET', url, true);
+    xhr.send();
+}
+
+function labHxInject(cell, values) {
+    var prior = values.slice(1, 3);
+    if (prior.length === 0) return;
+
+    var prevText = prior.map(function(v) { return labHxEsc(v.result); }).join(' / ');
+    var span = document.createElement('span');
+    span.style.cssText = 'margin-left:8px;color:#000080;font-size:11px;cursor:default;';
+    span.innerHTML = '(' + prevText + ')';
+
+    var tooltip = document.createElement('div');
+    tooltip.style.cssText = 'position:absolute;background:#fefefe;border:1px solid #ccc;'
+            + 'padding:6px 8px;box-shadow:2px 2px 6px rgba(0,0,0,0.2);border-radius:4px;'
+            + 'white-space:nowrap;z-index:9999;display:none;font-size:12px;line-height:1.6;';
+    // Tooltip shows all values; current (index 0) in bold
+    tooltip.innerHTML = values.map(function(v, i) {
+        return '<div>'
+                + (i === 0 ? '<strong>' : '')
+                + labHxEsc(v.result)
+                + (i === 0 ? '</strong>' : '')
+                + ' <span style="color:#36454F;">(' + labHxEsc(v.date) + ')</span></div>';
+    }).join('');
+    document.body.appendChild(tooltip);
+
+    span.addEventListener('mouseover', function(e) {
+        tooltip.style.left = (e.pageX + 12) + 'px';
+        tooltip.style.top = (e.pageY + 12) + 'px';
+        tooltip.style.display = 'block';
+    });
+    span.addEventListener('mousemove', function(e) {
+        tooltip.style.left = (e.pageX + 12) + 'px';
+        tooltip.style.top = (e.pageY + 12) + 'px';
+    });
+    span.addEventListener('mouseout', function() { tooltip.style.display = 'none'; });
+
+    cell.appendChild(span);
+}
+
+function labHxEsc(s) {
+    return String(s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+}
+</script>
 
 </body>
 </html>

@@ -128,5 +128,6 @@
         <action name="lab/CA/ON/ViewLabValuesGraph" class="io.github.carlos_emr.carlos.lab.gate.ViewLabValuesGraph2Action">
             <result name="success">/WEB-INF/jsp/lab/CA/ON/labValuesGraph.jsp</result>
         </action>
+        <action name="lab/CA/ON/LabHistoryByLoinc" class="io.github.carlos_emr.carlos.lab.gate.LabHistoryByLoinc2Action"/>
     </package>
 </struts>
