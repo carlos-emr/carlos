@@ -48,6 +48,7 @@ import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.entities.WCB;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * @author jay
@@ -206,6 +207,8 @@ public class BillingmasterDAO {
     }
 
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @NativeSql({"billingmaster", "billing"})
     public List<Object[]> getBillingMasterByVariousFields(String statusType, String providerNo, String startDate, String endDate) {
         StringBuilder sb = new StringBuilder(" select "

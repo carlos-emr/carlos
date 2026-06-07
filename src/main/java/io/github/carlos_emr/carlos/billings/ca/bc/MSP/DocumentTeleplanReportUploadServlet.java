@@ -49,8 +49,12 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.DocumentBean;
 import io.github.carlos_emr.CarlosProperties;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 public class DocumentTeleplanReportUploadServlet extends HttpServlet {
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void service(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
 
         String foldername = "", fileheader = "", forwardTo = "";

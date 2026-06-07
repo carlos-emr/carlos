@@ -50,6 +50,7 @@ import java.util.HashMap;
 import java.util.Set;
 import java.util.regex.Pattern;
 import io.github.carlos_emr.carlos.utility.LogSafe;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 
 /**
@@ -114,6 +115,8 @@ public class EctDisplayAction extends ActionSupport {
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() throws IOException, ServletException {
         EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
         String forward = "error";
@@ -264,7 +267,7 @@ public class EctDisplayAction extends ActionSupport {
                 Dao.setDivId(cmd);
 
                 SecurityManager securityMgr = new SecurityManager();
-                if (securityMgr.hasReadAccess("_" + cmd.toLowerCase(), request.getSession().getAttribute("userrole") + "," + request.getSession().getAttribute("user"))) {
+                if (hasReadAccessForDisplayCommand(securityMgr, cmd)) {
 
                     if (getInfo(bean, request, Dao)) {
                         request.setAttribute("DAO", Dao);
@@ -331,6 +334,13 @@ public class EctDisplayAction extends ActionSupport {
      *
      * @return Returns name of the module corresponding to the mapping in the {@link #Actions}
      */
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
+    private boolean hasReadAccessForDisplayCommand(SecurityManager securityMgr, String cmd) {
+        return securityMgr.hasReadAccess("_" + cmd.toLowerCase(),
+                request.getSession().getAttribute("userrole") + "," + request.getSession().getAttribute("user"));
+    }
+
     public String getCmd() {
         return "";
     }

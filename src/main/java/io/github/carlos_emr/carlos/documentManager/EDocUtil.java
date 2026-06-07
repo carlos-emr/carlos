@@ -92,6 +92,7 @@ import io.github.carlos_emr.carlos.mds.data.ReportStatus;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 // all SQL statements here
 public final class EDocUtil {
@@ -190,6 +191,8 @@ public final class EDocUtil {
      * @return boolean true if the module is "provider" or "providers" (case-insensitive), false otherwise
      * @since 2026-01-28
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static boolean isProviderModule(String module) {
         return "provider".equalsIgnoreCase(module) || "providers".equalsIgnoreCase(module);
     }
@@ -219,21 +222,25 @@ public final class EDocUtil {
         return modules;
     }
 
-    private static ProgramManager programManager = (ProgramManager) SpringUtils.getBean(ProgramManager.class);
-    private static CaseManagementNoteLinkDAO caseManagementNoteLinkDao = (CaseManagementNoteLinkDAO) SpringUtils.getBean(CaseManagementNoteLinkDAO.class);
-    private static CaseManagementNoteDAO caseManagementNoteDao = (CaseManagementNoteDAO) SpringUtils.getBean(CaseManagementNoteDAO.class);
-    private static TicklerLinkDao ticklerLinkDao = (TicklerLinkDao) SpringUtils.getBean(TicklerLinkDao.class);
-    private static TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
-    private static ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
-    private static CtlDocTypeDao ctldoctypedao = (CtlDocTypeDao) SpringUtils.getBean(CtlDocTypeDao.class);
-    private static DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
-    private static CtlDocumentDao ctlDocumentDao = (CtlDocumentDao) SpringUtils.getBean(CtlDocumentDao.class);
+    // Collaborator beans are resolved lazily (per call) instead of in static-final field
+    // initializers, so merely loading EDocUtil (e.g. Mockito.mockStatic in a unit test) no longer
+    // fetches from the Spring context at class-load time. SpringUtils.getBean returns the cached
+    // singleton, so the per-call cost is a map lookup and behavior is unchanged.
+    private static ProgramManager programManager() { return SpringUtils.getBean(ProgramManager.class); }
+    private static CaseManagementNoteLinkDAO caseManagementNoteLinkDao() { return SpringUtils.getBean(CaseManagementNoteLinkDAO.class); }
+    private static CaseManagementNoteDAO caseManagementNoteDao() { return SpringUtils.getBean(CaseManagementNoteDAO.class); }
+    private static TicklerLinkDao ticklerLinkDao() { return SpringUtils.getBean(TicklerLinkDao.class); }
+    private static TicklerManager ticklerManager() { return SpringUtils.getBean(TicklerManager.class); }
+    private static ProviderDao providerDao() { return SpringUtils.getBean(ProviderDao.class); }
+    private static CtlDocTypeDao ctldoctypedao() { return SpringUtils.getBean(CtlDocTypeDao.class); }
+    private static DemographicManager demographicManager() { return SpringUtils.getBean(DemographicManager.class); }
+    private static CtlDocumentDao ctlDocumentDao() { return SpringUtils.getBean(CtlDocumentDao.class); }
 
     public static String getProviderName(String providerNo) {
         if (providerNo == null || providerNo.length() == 0) {
             return "";
         }
-        Provider p = providerDao.getProvider(providerNo);
+        Provider p = providerDao().getProvider(providerNo);
         if (p != null) {
             return p.getLastName().toUpperCase() + ", " + p.getFirstName().toUpperCase();
         }
@@ -244,7 +251,7 @@ public final class EDocUtil {
         if (demographicNo == null || demographicNo.length() == 0) {
             return "";
         }
-        Demographic d = demographicManager.getDemographic(loggedInInfo, demographicNo);
+        Demographic d = demographicManager().getDemographic(loggedInInfo, demographicNo);
         if (d != null) {
             return d.getLastName().toUpperCase() + ", " + d.getFirstName().toUpperCase();
         }
@@ -255,12 +262,12 @@ public final class EDocUtil {
         if (providerNo == null || providerNo.length() == 0) {
             return null;
         }
-        return providerDao.getProvider(providerNo);
+        return providerDao().getProvider(providerNo);
     }
 
     public static ArrayList<String> getDoctypesByStatus(String module, String[] statuses) {
         ArrayList<String> doctypes = new ArrayList<String>();
-        List<CtlDocType> result = ctldoctypedao.findByStatusAndModule(statuses, module);
+        List<CtlDocType> result = ctldoctypedao().findByStatusAndModule(statuses, module);
         for (CtlDocType obj : result) {
             doctypes.add(obj.getDocType());
         }
@@ -277,7 +284,7 @@ public final class EDocUtil {
     }
 
     public static String getDocStatus(String module, String doctype) {
-        List<CtlDocType> result = ctldoctypedao.findByDocTypeAndModule(doctype, module);
+        List<CtlDocType> result = ctldoctypedao().findByDocTypeAndModule(doctype, module);
         String status = "";
         for (CtlDocType obj : result) {
             status = obj.getStatus();
@@ -286,7 +293,7 @@ public final class EDocUtil {
     }
 
     public static void addCaseMgmtNoteLink(CaseManagementNoteLink cmnl) {
-        caseManagementNoteLinkDao.save(cmnl);
+        caseManagementNoteLinkDao().save(cmnl);
         logger.debug("ADD CASEMGMT NOTE LINK : Id=" + cmnl.getId());
     }
 
@@ -330,7 +337,7 @@ public final class EDocUtil {
         cdpk.setDocumentNo(document_no);
         cd.getId().setModuleId(ConversionUtils.fromIntString(newDocument.getModuleId()));
         cd.setStatus(String.valueOf(newDocument.getStatus()));
-        ctlDocumentDao.persist(cd);
+        ctlDocumentDao().persist(cd);
 
         return document_no.toString();
     }
@@ -344,18 +351,18 @@ public final class EDocUtil {
         ctldoctype.setDocType(docType);
         ctldoctype.setModule(module.toLowerCase(Locale.ROOT));
         ctldoctype.setStatus(status);
-        ctldoctypedao.persist(ctldoctype);
+        ctldoctypedao().persist(ctldoctype);
     }
 
     public static void changeDocTypeStatusSQL(String docType, String module, String status) {
-        ctldoctypedao.changeDocType(docType, module, status);
+        ctldoctypedao().changeDocType(docType, module, status);
     }
 
     /**
      * new method to let the user add a new DocumentType into the database
      */
     public static void addDocTypeSQL(String docType, String module) {
-        ctldoctypedao.addDocType(docType, module);
+        ctldoctypedao().addDocType(docType, module);
     }
 
     public static void detachDocConsult(String docNo, String consultId) {
@@ -748,7 +755,7 @@ public final class EDocUtil {
 
         for (EDoc eDoc : eDocs) {
             Integer programId = eDoc.getProgramId();
-            if (programManager.hasAccessBasedOnCurrentFacility(loggedInInfo, programId)) results.add(eDoc);
+            if (programManager().hasAccessBasedOnCurrentFacility(loggedInInfo, programId)) results.add(eDoc);
         }
 
         return results;
@@ -879,7 +886,7 @@ public final class EDocUtil {
     }
 
     public static void undeleteDocument(String documentNo) {
-        CtlDocument cd = ctlDocumentDao.getCtrlDocument(ConversionUtils.fromIntString(documentNo));
+        CtlDocument cd = ctlDocumentDao().getCtrlDocument(ConversionUtils.fromIntString(documentNo));
         String status = "";
         if (cd != null) {
             status = cd.getStatus();
@@ -902,6 +909,8 @@ public final class EDocUtil {
         }
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static void refileDocument(String documentNo, String queueId) throws Exception {
 
         File sourceBaseDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
@@ -989,7 +998,7 @@ public final class EDocUtil {
             cdpk.setDocumentNo(doc.getDocumentNo());
             cd.getId().setModuleId(ConversionUtils.fromIntString(demoNo));
             cd.setStatus(String.valueOf('A'));
-            ctlDocumentDao.persist(cd);
+            ctlDocumentDao().persist(cd);
 
         }
 
@@ -1021,7 +1030,7 @@ public final class EDocUtil {
         FileInputStream fis = null;
         try {
             // first we get length of file and allocate mem for file
-            File file = new File(fpath);
+            File file = validateResolvedDocumentOrTempFile(fpath);
             long length = file.length();
             fdata = new byte[(int) length];
 
@@ -1034,6 +1043,10 @@ public final class EDocUtil {
         } catch (FileNotFoundException ex) {
             logger.error("Error", ex);
         } catch (IOException ex) {
+            logger.error("Error", ex);
+        } catch (SecurityException ex) {
+            // PathValidationUtils rejecting a malformed document path leaves fdata null, matching the
+            // existing return-null contract instead of throwing an unchecked exception at the caller.
             logger.error("Error", ex);
         } finally {
             try {
@@ -1061,7 +1074,7 @@ public final class EDocUtil {
     // get noteId from tableId
     public static Long getNoteIdFromDocId(Long docId) {
         Long noteId = 0L;
-        CaseManagementNoteLink cmnLink = caseManagementNoteLinkDao.getLastLinkByTableId(CaseManagementNoteLink.DOCUMENT, docId);
+        CaseManagementNoteLink cmnLink = caseManagementNoteLinkDao().getLastLinkByTableId(CaseManagementNoteLink.DOCUMENT, docId);
         if (cmnLink != null) noteId = cmnLink.getNoteId();
         return noteId;
     }
@@ -1069,7 +1082,7 @@ public final class EDocUtil {
     // get tableId from noteId when table_name is document
     public static Long getTableIdFromNoteId(Long noteId) {
         Long tableId = 0L;
-        CaseManagementNoteLink cmnLink = caseManagementNoteLinkDao.getLastLinkByNote(noteId);
+        CaseManagementNoteLink cmnLink = caseManagementNoteLinkDao().getLastLinkByNote(noteId);
         if (cmnLink != null && cmnLink.getTableName().equals(CaseManagementNoteLink.DOCUMENT)) {
             tableId = cmnLink.getTableId();
         }
@@ -1105,14 +1118,14 @@ public final class EDocUtil {
     public static String getHtmlTicklers(LoggedInInfo loggedInInfo, String docId) {
 
         Long table_id = Long.valueOf(docId);
-        List<TicklerLink> linkList = ticklerLinkDao.getLinkByTableId("DOC", table_id);
+        List<TicklerLink> linkList = ticklerLinkDao().getLinkByTableId("DOC", table_id);
         String HtmlTickler = "";
         Integer ticklerNo;
 
         if (linkList != null) {
             for (TicklerLink tl : linkList) {
                 ticklerNo = tl.getTicklerNo();
-                Tickler t = ticklerManager.getTickler(loggedInInfo, ticklerNo.intValue());
+                Tickler t = ticklerManager().getTickler(loggedInInfo, ticklerNo);
                 HtmlTickler += "<br>" + Encode.forHtml(t.getMessage());
             }
         }
@@ -1160,12 +1173,12 @@ public final class EDocUtil {
             tableId = Long.valueOf(docId);
         }
 
-        CaseManagementNoteLink cmnLink = caseManagementNoteLinkDao.getLastLinkByTableId(CaseManagementNoteLink.DOCUMENT, tableId);
+        CaseManagementNoteLink cmnLink = caseManagementNoteLinkDao().getLastLinkByTableId(CaseManagementNoteLink.DOCUMENT, tableId);
         CaseManagementNote p_cmn = null;
         if (cmnLink != null) {
-            p_cmn = caseManagementNoteDao.getNote(cmnLink.getNoteId());
+            p_cmn = caseManagementNoteDao().getNote(cmnLink.getNoteId());
             //get the most recent previous note from uuid.
-            p_cmn = caseManagementNoteDao.getMostRecentNote(p_cmn.getUuid());
+            p_cmn = caseManagementNoteDao().getMostRecentNote(p_cmn.getUuid());
         }
 
         //if get providers no is -1, it's a document note.
@@ -1189,14 +1202,35 @@ public final class EDocUtil {
     public static byte[] readContent(String fileName) throws IOException {
         InputStream is = null;
         try {
-            is = new BufferedInputStream(new FileInputStream(new File(fileName)));
+            is = new BufferedInputStream(new FileInputStream(validateResolvedDocumentOrTempFile(fileName)));
             return IOUtils.toByteArray(is);
+        } catch (SecurityException e) {
+            // Honour the declared throws IOException: a rejected document path surfaces as a checked
+            // IOException rather than an unchecked SecurityException callers are not expecting. Throwing
+            // here also leaves is null, so the finally below must null-guard before closing.
+            throw new IOException("Unable to resolve document file", e);
         } finally {
             try {
-                is.close();
+                if (is != null) is.close();
             } catch (IOException e) {
                 logger.error("Unable to close output stream", e);
             }
+        }
+    }
+
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
+    private static File validateResolvedDocumentOrTempFile(String fileName) {
+        File resolvedFile = new File(resolvePath(fileName));
+        File documentDir = PathValidationUtils.resolveConfiguredDirectory(
+                CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
+        try {
+            return PathValidationUtils.validateExistingPath(resolvedFile, documentDir);
+        } catch (SecurityException e) {
+            if (PathValidationUtils.isInAllowedTempDirectory(resolvedFile)) {
+                return PathValidationUtils.resolveTrustedPath(resolvedFile);
+            }
+            throw e;
         }
     }
 
@@ -1209,6 +1243,8 @@ public final class EDocUtil {
      * @throws IOException       IOException is thrown in case of any save errors
      * @throws SecurityException if the fileName contains path traversal sequences
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static void writeDocContent(String fileName, byte[] content) throws IOException {
         String docDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         File docDirFile = new File(docDir);
@@ -1223,6 +1259,8 @@ public final class EDocUtil {
      * @return Returns the absolute path on the file system.
      * @throws SecurityException if the resolved path is outside allowed directories
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static String resolvePath(String fileName) {
         if (fileName == null || fileName.trim().isEmpty()) {
             throw new IllegalArgumentException("File name cannot be null or empty");
@@ -1230,7 +1268,7 @@ public final class EDocUtil {
 
         try {
             String docDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-            File documentDir = new File(docDir);
+            File documentDir = PathValidationUtils.resolveConfiguredDirectory(docDir, "DOCUMENT_DIR");
 
             // Determine the input file - if relative, resolve against document directory
             Path inputPath = Paths.get(fileName);
@@ -1264,6 +1302,8 @@ public final class EDocUtil {
         }
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private static void writeContent(String fileName, byte[] content) throws IOException {
         String docDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         File docDirFile = new File(docDir);
@@ -1326,6 +1366,8 @@ public final class EDocUtil {
      * @return number of pages
      * @throws IOException
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static int getPDFPageCount(String fileName) {
         int pagecount = 0;
 
@@ -1341,7 +1383,7 @@ public final class EDocUtil {
                 logger.debug("File not found (may be from different environment): " + fileName);
                 return 0;
             }
-            // resolvePath validates the path is within allowed directories
+            // resolvePath validates the path is within allowed directories, including temp directories.
             String resolvedPath = resolvePath(fileName);
             Path path = Paths.get(resolvedPath);
 
@@ -1381,7 +1423,8 @@ public final class EDocUtil {
 		}
 
 		String destPath = IncomingDocUtil.getIncomingDocumentFilePath(String.valueOf(queueId), "Refile");
-		File destFile = new File(destPath, "R" + destFileName);
+		File destDir = PathValidationUtils.validateConfiguredDirectory(destPath, "incoming refile directory");
+		File destFile = PathValidationUtils.validateGeneratedChildPath("R" + PathValidationUtils.validateGeneratedFileName(destFileName), destDir);
 		return destFile.exists();
 	}
 

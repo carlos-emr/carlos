@@ -41,6 +41,7 @@
          errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 
 <html>
@@ -108,7 +109,7 @@
                 aline = raf.readLine();
                 if (aline != null) {
                     //					aline="<pre>" + aline + "</pre>"  ;
-                    out.println(aline);
+                    out.println(SafeEncode.forHtml(aline));
                 } else {
                     break;
                 }

@@ -34,6 +34,7 @@ import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.AdmissionTo1;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Component;
 
@@ -50,6 +51,11 @@ public class AdmissionConverter extends AbstractConverter<Admission, AdmissionTo
     }
 
     @Override
+    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
+    // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
+    @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
+            justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
+                    "known CARLOS types; no user-controlled property name reaches the sink")
     public Admission getAsDomainObject(LoggedInInfo loggedInInfo, AdmissionTo1 t) throws ConversionException {
         Admission d = new Admission();
 
@@ -59,6 +65,11 @@ public class AdmissionConverter extends AbstractConverter<Admission, AdmissionTo
     }
 
     @Override
+    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
+    // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
+    @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
+            justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
+                    "known CARLOS types; no user-controlled property name reaches the sink")
     public AdmissionTo1 getAsTransferObject(LoggedInInfo loggedInInfo, Admission d) throws ConversionException {
         AdmissionTo1 t = new AdmissionTo1();
 

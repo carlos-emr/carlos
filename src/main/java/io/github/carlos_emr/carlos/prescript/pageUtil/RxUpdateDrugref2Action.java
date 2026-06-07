@@ -35,6 +35,7 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.prescript.util.RxDrugRef;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -126,6 +127,8 @@ public class RxUpdateDrugref2Action extends ActionSupport {
         }
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     private void writeJson(Object payload) throws IOException {
         response.setContentType(JSON_CONTENT_TYPE);
         ObjectNode json = (ObjectNode) objectMapper.valueToTree(payload);

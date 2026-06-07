@@ -73,6 +73,7 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class ManageTeleplan2Action extends ActionSupport {
     private static final Set<String> POST_ONLY_METHODS = Set.of(
@@ -103,6 +104,8 @@ public class ManageTeleplan2Action extends ActionSupport {
     public ManageTeleplan2Action() {
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() throws Exception {
         String method = request.getParameter("method");
         if (method != null && POST_ONLY_METHODS.contains(method) && !"POST".equalsIgnoreCase(request.getMethod())) {
@@ -524,6 +527,8 @@ public class ManageTeleplan2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String checkElig()
             throws Exception {
         log.debug("checkElig");

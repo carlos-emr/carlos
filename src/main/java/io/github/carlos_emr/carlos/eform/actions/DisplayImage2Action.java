@@ -54,6 +54,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.RequestNegotiation;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action that streams eform image and asset files (images, CSS, JavaScript, JSON)
@@ -124,6 +125,8 @@ public class DisplayImage2Action extends ActionSupport {
         }
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private File getValidatedImageFile(String fileName) throws Exception {
         if (fileName == null || fileName.isEmpty()) {
             throw new IllegalArgumentException("imagefile parameter is required");
@@ -146,6 +149,8 @@ public class DisplayImage2Action extends ActionSupport {
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private StreamData process(File file, String fileName) throws Exception {
         // Gets content type from image extension
         String contentType = new MimetypesFileTypeMap().getContentType(file);
@@ -259,6 +264,8 @@ public class DisplayImage2Action extends ActionSupport {
         return f.substring(dot + 1);
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static File getImageFile(String imageFileName) throws Exception {
         String home_dir = CarlosProperties.getInstance().getEformImageDirectory();
         File directory = new File(home_dir);
@@ -272,6 +279,8 @@ public class DisplayImage2Action extends ActionSupport {
      * Process only files under dir
      * This method used to list images for eform generator
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public String[] visitAllFiles(File dir) {
         String[] children = null;
         if (dir.isDirectory()) {

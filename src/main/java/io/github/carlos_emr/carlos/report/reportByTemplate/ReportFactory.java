@@ -27,6 +27,7 @@
 
 
 package io.github.carlos_emr.carlos.report.reportByTemplate;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * @author rjonasz
@@ -45,6 +46,8 @@ public class ReportFactory {
     public ReportFactory() {
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static Reporter getReporter(String type) {
 
         if (type == null || type.equals("") || type.equalsIgnoreCase(SQL_TYPE)) {

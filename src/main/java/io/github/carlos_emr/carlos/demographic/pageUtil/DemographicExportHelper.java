@@ -52,6 +52,7 @@ import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import cds.MedicationsAndTreatmentsDocument.MedicationsAndTreatments;
 import cds.PatientRecordDocument.PatientRecord;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Manager class for handling demographic exports. This component retains state for each export, and therefore must not be
@@ -91,6 +92,8 @@ public class DemographicExportHelper {
         addMedications(demoNo, patientRec, null);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     void addMedications(String demoNo, PatientRecord patientRec, DemographicExportHelperCallback callback) {
         if (logger.isDebugEnabled()) {
             logger.debug("Exporting medications");

@@ -53,6 +53,7 @@ import java.net.URLEncoder;
 import java.util.List;
 import java.util.ArrayList;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 /**
  * Routes operator-uploaded MOH return files to the right parser based on
  * the leading filename character: {@code B*} → batch acknowledgement, {@code
@@ -155,6 +156,8 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static boolean isPost(HttpServletRequest request) {
         return "POST".equalsIgnoreCase(request.getMethod());
     }
@@ -189,6 +192,8 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
         return saveFileDetailed(file, fileName).success();
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private static SaveReportFileResult saveFileDetailed(File file, String fileName) {
         try {
             CarlosProperties props = CarlosProperties.getInstance();
@@ -282,6 +287,8 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
      * @throws ServletException unused (kept for back-compat with caller signature)
      * @throws IOException unused (kept for back-compat with caller signature)
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private MohReportReadResult getData(LoggedInInfo loggedInInfo, String fileName, String pathDir, HttpServletRequest request)
             throws ServletException, IOException {
         boolean isGot = false;
@@ -579,6 +586,8 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
 
     private String filename; // Filename parameter from request
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     @Override
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
@@ -625,10 +634,6 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport imple
         if (value == null) {
             return null;
         }
-        String basename = org.apache.commons.io.FilenameUtils.getName(value);
-        if (!basename.equals(value)) {
-            throw new SecurityException("MOH report filename must not include a path");
-        }
-        return basename;
+        return PathValidationUtils.validateStrictFileName(value);
     }
 }

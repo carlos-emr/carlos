@@ -60,6 +60,7 @@ import java.util.Iterator;
 import java.util.List;
 
 import org.springframework.dao.DataAccessException;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Manages provider signature stamp images for consultations, prescriptions, and eForms.
@@ -84,6 +85,8 @@ public class ProviderSignatureStamp2Action extends ActionSupport implements Uplo
     private static final int MAX_SIGNATURE_WIDTH = 1000;
     private static final int MAX_SIGNATURE_HEIGHT = 400;
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String execute() {
         HttpServletRequest request = ServletActionContext.getRequest();
@@ -249,6 +252,8 @@ public class ProviderSignatureStamp2Action extends ActionSupport implements Uplo
         return NONE;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private String handleDelete(HttpServletResponse response, String providerNo) {
         UserProperty prop;
         try {
@@ -291,6 +296,8 @@ public class ProviderSignatureStamp2Action extends ActionSupport implements Uplo
         return NONE;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private String handleCheck(HttpServletRequest request, HttpServletResponse response, String providerNo) {
         UserProperty prop;
         try {
@@ -334,6 +341,8 @@ public class ProviderSignatureStamp2Action extends ActionSupport implements Uplo
         return "{\"success\":true,\"imageUrl\":\"" + Encode.forJavaScript(imageUrl) + "\"}";
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     private static File getImageFolder() throws IOException {
         File imageFolder = new File(CarlosProperties.getInstance().getEformImageDirectory() + "/");
         if (!imageFolder.exists() && !imageFolder.mkdirs()) {
@@ -380,6 +389,8 @@ public class ProviderSignatureStamp2Action extends ActionSupport implements Uplo
         }
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     private void writeJson(HttpServletResponse resp, String json) {
         resp.setContentType("application/json");
         resp.setCharacterEncoding("UTF-8");

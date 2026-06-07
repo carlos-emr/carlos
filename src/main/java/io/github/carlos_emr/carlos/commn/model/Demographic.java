@@ -45,6 +45,7 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.springframework.context.i18n.LocaleContextHolder;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * This is the object class that relates to the demographic table. Any customizations belong here.
@@ -239,6 +240,11 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         initialize();
     }
 
+    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
+    // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
+    @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
+            justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
+                    "known CARLOS types; no user-controlled property name reaches the sink")
     public Demographic(Demographic d) {
         try {
             BeanUtils.copyProperties(d, this);
@@ -704,6 +710,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the last name as parsed from column: family_doctor
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @jakarta.persistence.Transient
     public String getFamilyDoctorLastName() {
         String doctorName = "";
@@ -720,6 +728,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the first name as parsed from column: family_doctor
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @jakarta.persistence.Transient
     public String getFamilyDoctorFirstName() {
         String doctorName = "";
@@ -732,6 +742,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         }
         return doctorName;
     }
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @jakarta.persistence.Transient
 
     public String getFamilyDoctorName() {
@@ -1327,6 +1339,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
      * @param key
      * @return
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public DemographicExt getExtra(DemographicExt.DemographicProperty key) {
         List<DemographicExt> demographicExtList = new ArrayList<>();
         DemographicExt demographicExtResult = null;
