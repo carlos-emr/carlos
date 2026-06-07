@@ -231,11 +231,13 @@ public class ProviderSiteDaoIntegrationTest extends CarlosTestBase {
             String sameSiteProvider = "710002";
             String inactiveSameSiteProvider = "710003";
             String otherSiteProvider = "710004";
+            String systemSameSiteProvider = "-71005";
 
             ensureProviderExists(currentProvider, "Current", "Provider", "1");
             ensureProviderExists(sameSiteProvider, "Blank", "Billing", "1");
             ensureProviderExists(inactiveSameSiteProvider, "Inactive", "Provider", "0");
             ensureProviderExists(otherSiteProvider, "Other", "Site", "1");
+            ensureProviderExists(systemSameSiteProvider, "System", "Provider", "1");
 
             ensureSiteExists(7101);
             ensureSiteExists(7102);
@@ -243,13 +245,14 @@ public class ProviderSiteDaoIntegrationTest extends CarlosTestBase {
             ensureProviderSiteExists(sameSiteProvider, 7101);
             ensureProviderSiteExists(inactiveSameSiteProvider, 7101);
             ensureProviderSiteExists(otherSiteProvider, 7102);
+            ensureProviderSiteExists(systemSameSiteProvider, 7101);
 
             List<Provider> result = dao.findActiveProvidersBySharedSites(currentProvider);
 
             assertThat(result)
                     .extracting(Provider::getProviderNo)
                     .contains(currentProvider, sameSiteProvider)
-                    .doesNotContain(inactiveSameSiteProvider, otherSiteProvider);
+                    .doesNotContain(inactiveSameSiteProvider, otherSiteProvider, systemSameSiteProvider);
             assertThat(result)
                     .filteredOn(provider -> sameSiteProvider.equals(provider.getProviderNo()))
                     .singleElement()

@@ -74,6 +74,7 @@ public class ProviderSiteDaoImpl extends AbstractDaoImpl<ProviderSite> implement
     @Override
     public List<Provider> findActiveProvidersBySharedSites(String providerNo) {
         String sql = "FROM Provider p where p.status = '1' " +
+                "AND p.providerNo NOT LIKE '-%' " +
                 "AND EXISTS( " +
                 "   FROM ProviderSite s WHERE p.providerNo = s.id.providerNo " +
                 "   AND s.id.siteId IN ( " +
