@@ -2070,7 +2070,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                     + "&appointment_date=" + date
                     + "&start_time=" + start_time
                     + "&bNewForm=1" + dxCodes.toString();
-            logger.debug("BILLING URL " + url);
+            logger.debug("Redirecting to billing form for appointment_no={}, demographic_no={}",
+                    appointmentNo, demoNo);
             sendBillingRedirect(url);
         }
 
