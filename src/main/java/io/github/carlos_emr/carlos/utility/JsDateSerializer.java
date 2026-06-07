@@ -6,6 +6,10 @@ import com.fasterxml.jackson.databind.SerializerProvider;
 import java.io.IOException;
 import java.util.Calendar;
 
+
+/**
+ * Custom Jackson serializer that converts Java Date objects into a JavaScript-friendly ISO 8601 format.
+ */
 public class JsDateSerializer extends JsonSerializer<java.sql.Date> {
     @Override
     public void serialize(java.sql.Date value, JsonGenerator gen, SerializerProvider serializers) 

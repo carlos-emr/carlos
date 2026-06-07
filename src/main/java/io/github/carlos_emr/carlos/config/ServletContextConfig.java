@@ -7,6 +7,10 @@ import jakarta.servlet.ServletContext;
 
 import org.springframework.web.context.ServletContextAware;
 
+
+/**
+ * Spring configuration class that registers essential Servlets, Filters, and Listeners for the web application context.
+ */
 @Configuration
 public class ServletContextConfig implements ServletContextAware {
 

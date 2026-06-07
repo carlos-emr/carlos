@@ -12,6 +12,10 @@ import jakarta.persistence.Table;
 import java.util.Date;
 import java.util.List;
 
+
+/**
+ * JPA entity defining the logical link and metadata for a document attached to an electronic referral.
+ */
 @Entity
 @Table(name = "erefer_attachment")
 public class EReferAttachment extends AbstractModel<Integer> {

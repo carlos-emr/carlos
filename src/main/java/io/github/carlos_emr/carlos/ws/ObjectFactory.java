@@ -5,6 +5,10 @@ import jakarta.xml.bind.JAXBElement;
 import javax.xml.namespace.QName;
 import jakarta.xml.bind.annotation.XmlRegistry;
 
+
+/**
+ * JAXB ObjectFactory that programmatically creates instances of schema-derived XML representations for the web service.
+ */
 @XmlRegistry
 public class ObjectFactory
 {

@@ -1,5 +1,9 @@
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.data;
 
+
+/**
+ * Data Transfer Object carrying specialist provider details for routing eConsult and consultation requests.
+ */
 public class SpecialistDto {
     private Integer specId;
     private String name;

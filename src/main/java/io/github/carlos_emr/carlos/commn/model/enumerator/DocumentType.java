@@ -1,5 +1,9 @@
 package io.github.carlos_emr.carlos.commn.model.enumerator;
 
+
+/**
+ * Enumeration defining the various categories of clinical and administrative documents supported by the system.
+ */
 public enum DocumentType {
     EFORM("E", "eForm"),
     DOC("D", "doc"),
