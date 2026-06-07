@@ -46,37 +46,58 @@ import java.util.Hashtable;
  */
 public final class LabHistoryByLoinc2Action extends ActionSupport {
 
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Reads {@code demographicNo} and {@code loincCode} from the query string, verifies the
+     * caller holds the {@code _lab} read privilege for that patient, then streams the 10
+     * most-recent measurement values for the patient/LOINC pair as a JSON array.
+     *
+     * <p>Request parameters:
+     * <ul>
+     *   <li>{@code demographicNo} – the patient's demographic number (digits only)</li>
+     *   <li>{@code loincCode} – a valid LOINC code (digits hyphen digits, e.g. {@code 33914-3})</li>
+     * </ul>
+     *
+     * <p>Response body on HTTP 200: a JSON array ordered newest-first, e.g.
+     * {@code [{"result":"65","date":"2025-11-20","abn":"N"}, ...]}.
+     * Returns HTTP 400 for missing or malformed parameters; HTTP 403 when the caller lacks
+     * the required lab read privilege for the requested patient.
+     *
+     * @return {@link #NONE} in all paths; this action writes directly to the servlet response
+     * @throws Exception if JSON serialization or response writing fails
+     */
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
 
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", "r", null)) {
-            response.sendError(HttpServletResponse.SC_FORBIDDEN);
-            return NONE;
-        }
-
+        // Parse and validate inputs before the privilege check so demographicNo
+        // can be passed to hasPrivilege for patient-scoped authorization.
         String demographicNo = StringUtils.trimToEmpty(request.getParameter("demographicNo"));
         String loincCode = StringUtils.trimToEmpty(request.getParameter("loincCode"));
 
-        // demographicNo must be digits; loincCode must follow LOINC format (digits-digit)
-        if (!demographicNo.matches("\\d+") || !loincCode.matches("[0-9]+-[0-9]")) {
+        if (!demographicNo.matches("\\d+") || !loincCode.matches("[0-9]+-[0-9]+")) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", "r", demographicNo)) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return NONE;
         }
 
         ArrayList<Hashtable<String, Serializable>> history =
                 CommonLabTestValues.findValuesByLoinc(demographicNo, loincCode);
 
-        ObjectMapper mapper = new ObjectMapper();
-        ArrayNode arr = mapper.createArrayNode();
+        ArrayNode arr = MAPPER.createArrayNode();
         int limit = Math.min(history.size(), 10);
         for (int i = 0; i < limit; i++) {
             Hashtable<String, Serializable> h = history.get(i);
-            ObjectNode entry = mapper.createObjectNode();
+            ObjectNode entry = MAPPER.createObjectNode();
             entry.put("result", String.valueOf(h.getOrDefault("result", "")));
             // dateObserved from java.sql.Date/Timestamp toString starts with YYYY-MM-DD
             String dateStr = String.valueOf(h.getOrDefault("date", ""));
@@ -90,7 +111,7 @@ public final class LabHistoryByLoinc2Action extends ActionSupport {
 
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
-        mapper.writeValue(response.getWriter(), arr);
+        MAPPER.writeValue(response.getWriter(), arr);
         return NONE;
     }
 }

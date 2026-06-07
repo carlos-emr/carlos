@@ -40,6 +40,8 @@ __pycache__/
 /.smarttomcat/
 .claude/settings.local.json
 .claude/*.lock
+# Nested .claude dirs created when Claude runs in a subdirectory are local tooling, not project config
+src/**/.claude/
 
 
 # Docusaurus
