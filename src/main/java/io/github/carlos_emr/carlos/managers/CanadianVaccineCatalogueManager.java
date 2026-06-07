@@ -360,8 +360,9 @@ public class CanadianVaccineCatalogueManager {
                 }
 
                 for (Extension ext : cc.getExtension()) {
+                    String extUrl = ext.getUrl();
                     // nvc-parent-concept was renamed to nvc-linked-generic-concept in NVC V2
-                    if (NVC_LINKED_GENERIC_CONCEPT_URL.equals(ext.getUrl())) {
+                    if (NVC_LINKED_GENERIC_CONCEPT_URL.equals(extUrl)) {
                         if (!(ext.getValue() instanceof CodeableConcept)) continue;
                         CodeableConcept parentC = (CodeableConcept) ext.getValue();
                         for (Coding parentCode : parentC.getCoding()) {
@@ -370,7 +371,7 @@ public class CanadianVaccineCatalogueManager {
                                 break;
                             }
                         }
-                    } else if (NVC_MARKET_AUTH_HOLDERS_URL.equals(ext.getUrl())) {
+                    } else if (NVC_MARKET_AUTH_HOLDERS_URL.equals(extUrl)) {
                         for (Extension mahExt : ext.getExtension()) {
                             if (NVC_MARKET_AUTH_HOLDER_URL.equals(mahExt.getUrl())) {
                                 if (imm.getSnomedConceptId() != null && mahExt.getValue() != null) {
@@ -421,11 +422,12 @@ public class CanadianVaccineCatalogueManager {
             }
 
             for (Extension ext : med.getExtension()) {
-                if (NVC_MARKET_AUTH_HOLDER_URL.equals(ext.getUrl())) {
+                String extUrl = ext.getUrl();
+                if (NVC_MARKET_AUTH_HOLDER_URL.equals(extUrl)) {
                     if (ext.getValue() != null) {
                         cMed.setManufacturerDisplay(ext.getValue().primitiveValue());
                     }
-                } else if (NVC_PRODUCT_STATUS_URL.equals(ext.getUrl())) {
+                } else if (NVC_PRODUCT_STATUS_URL.equals(extUrl)) {
                     if (ext.getValue() instanceof CodeableConcept) {
                         CodeableConcept statusConcept = (CodeableConcept) ext.getValue();
                         for (Coding statusCode : statusConcept.getCoding()) {
