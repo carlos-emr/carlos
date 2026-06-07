@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(xargs grep -l \"CanadianVaccine\")",
-      "Bash(xargs grep -l \"FhirContext.forR4\\\\|hapi.*fhir.*r4\\\\|hl7.fhir.r4\")"
-    ]
-  }
-}

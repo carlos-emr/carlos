@@ -43,10 +43,14 @@ import java.util.Set;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
+import org.apache.hc.client5.http.config.ConnectionConfig;
+import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.apache.hc.core5.util.Timeout;
 import org.apache.logging.log4j.Logger;
 
 import org.hl7.fhir.r4.model.Bundle;
@@ -82,9 +86,11 @@ import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class CanadianVaccineCatalogueManager {
@@ -95,6 +101,24 @@ public class CanadianVaccineCatalogueManager {
     private static final String NVC_DEFAULT_BASE_URL = "https://nvc-cnv.canada.ca/fhir/v2";
     private static final String CVC_FIRST_DATE_PROP = "cvc.firstdate";
     private static final String CVC_UPDATED_PROP = "cvc.updated";
+
+    // Official NVC V2 canonical URLs for FHIR extension/value-set parsing.
+    // These are fixed to the NVC canonical namespace and MUST NOT be derived from
+    // getCVCURL() — the transport endpoint may be overridden to a proxy or mirror,
+    // while FHIR canonicals embedded in the bundle always use the official base.
+    private static final String NVC_CANONICAL_BASE = "https://nvc-cnv.canada.ca/fhir/v2";
+    private static final String NVC_LINKED_GENERIC_CONCEPT_URL =
+            NVC_CANONICAL_BASE + "/StructureDefinition/nvc-linked-generic-concept";
+    private static final String NVC_MARKET_AUTH_HOLDERS_URL =
+            NVC_CANONICAL_BASE + "/StructureDefinition/nvc-market-authorization-holders";
+    private static final String NVC_MARKET_AUTH_HOLDER_URL =
+            NVC_CANONICAL_BASE + "/StructureDefinition/nvc-market-authorization-holder";
+    private static final String NVC_GENERIC_VALUESET_URL =
+            NVC_CANONICAL_BASE + "/ValueSet/Generic";
+    private static final String NVC_PRODUCT_STATUS_URL =
+            NVC_CANONICAL_BASE + "/StructureDefinition/nvc-product-status";
+    private static final String NVC_SHELF_STATUS_VALUESET_URL =
+            NVC_CANONICAL_BASE + "/ValueSet/ShelfStatus";
 
     @Autowired
     CVCMedicationDao medicationDao;
@@ -142,9 +166,11 @@ public class CanadianVaccineCatalogueManager {
     }
 
     /**
-     * Downloads the NVC V2 bundle, validates connectivity, then replaces all local CVC data.
-     * Aborts without clearing local data if the bundle cannot be fetched or parsed.
+     * Downloads the NVC V2 bundle, validates connectivity, then atomically replaces all local CVC
+     * data. Aborts without clearing local data if the bundle cannot be fetched or parsed. If a DB
+     * write fails mid-update the transaction rolls back, preserving the previous catalogue state.
      */
+    @Transactional(rollbackFor = Exception.class)
     public void update(LoggedInInfo loggedInInfo) throws IOException {
         String jsonString;
         Bundle bundle;
@@ -160,13 +186,14 @@ public class CanadianVaccineCatalogueManager {
         CarlosProperties carlosProps = CarlosProperties.getInstance();
         if (carlosProps.hasProperty("CVC_BUNDLE_LOCAL_FILE")) {
             try {
+                String rawPath = carlosProps.getProperty("CVC_BUNDLE_LOCAL_FILE");
+                File rawFile = new File(rawPath);
+                File parentDir = rawFile.getParentFile() != null ? rawFile.getParentFile() : new File(".");
+                File safeFile = PathValidationUtils.validatePath(rawFile.getName(), parentDir);
                 String prettyJson = ctxR4.newJsonParser().setPrettyPrint(true).encodeResourceToString(bundle);
-                FileUtils.writeStringToFile(
-                        new File(carlosProps.getProperty("CVC_BUNDLE_LOCAL_FILE")),
-                        prettyJson,
-                        StandardCharsets.UTF_8);
-                logger.info("NVC bundle written to {}", carlosProps.getProperty("CVC_BUNDLE_LOCAL_FILE"));
-            } catch (IOException e) {
+                FileUtils.writeStringToFile(safeFile, prettyJson, StandardCharsets.UTF_8);
+                logger.info("NVC bundle written to {}", safeFile.getAbsolutePath());
+            } catch (Exception e) {
                 logger.error("Failed to write NVC bundle to CVC_BUNDLE_LOCAL_FILE", e);
             }
         }
@@ -212,7 +239,22 @@ public class CanadianVaccineCatalogueManager {
 
         logger.debug("Fetching NVC V2 bundle from: {}", fullUrl);
 
-        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+        RequestConfig requestConfig = RequestConfig.custom()
+                .setConnectionRequestTimeout(Timeout.ofSeconds(30))
+                .setResponseTimeout(Timeout.ofSeconds(120))
+                .build();
+
+        ConnectionConfig connectionConfig = ConnectionConfig.custom()
+                .setConnectTimeout(Timeout.ofSeconds(10))
+                .build();
+
+        PoolingHttpClientConnectionManager connManager = new PoolingHttpClientConnectionManager();
+        connManager.setDefaultConnectionConfig(connectionConfig);
+
+        try (CloseableHttpClient httpClient = HttpClients.custom()
+                .setConnectionManager(connManager)
+                .setDefaultRequestConfig(requestConfig)
+                .build()) {
             HttpGet request = new HttpGet(fullUrl);
             request.addHeader("Accept", accept);
             request.addHeader("x-app-desc", xAppDesc);
@@ -239,12 +281,16 @@ public class CanadianVaccineCatalogueManager {
 
     private void clearCurrentData() {
         medicationDao.removeAll();
-        lotNumberDao.removeAll();
-        gtinDao.removeAll();
+        // lotNumberDao and gtinDao are intentionally NOT cleared here:
+        // NVC V2 no longer provides lot-number or GTIN data (removed in V2 spec).
+        // These tables are managed independently and must not be wiped during NVC refresh.
         immunizationDao.removeAll();
     }
 
     public void updateGenericImmunizations(LoggedInInfo loggedInInfo, ValueSet vs) {
+        if (!vs.hasCompose()) {
+            return;
+        }
         for (ConceptSetComponent c : vs.getCompose().getInclude()) {
             for (ConceptReferenceComponent cc : c.getConcept()) {
                 CVCImmunization imm = new CVCImmunization();
@@ -280,6 +326,9 @@ public class CanadianVaccineCatalogueManager {
     }
 
     public void updateBrandNameImmunizations(LoggedInInfo loggedInInfo, ValueSet vs) {
+        if (!vs.hasCompose()) {
+            return;
+        }
         for (ConceptSetComponent c : vs.getCompose().getInclude()) {
             for (ConceptReferenceComponent cc : c.getConcept()) {
                 CVCImmunization imm = new CVCImmunization();
@@ -312,19 +361,21 @@ public class CanadianVaccineCatalogueManager {
 
                 for (Extension ext : cc.getExtension()) {
                     // nvc-parent-concept was renamed to nvc-linked-generic-concept in NVC V2
-                    if ((getCVCURL() + "/StructureDefinition/nvc-linked-generic-concept").equals(ext.getUrl())) {
+                    if (NVC_LINKED_GENERIC_CONCEPT_URL.equals(ext.getUrl())) {
+                        if (!(ext.getValue() instanceof CodeableConcept)) continue;
                         CodeableConcept parentC = (CodeableConcept) ext.getValue();
                         for (Coding parentCode : parentC.getCoding()) {
-                            if ((getCVCURL() + "/ValueSet/Generic").equals(parentCode.getSystem())) {
+                            if (NVC_GENERIC_VALUESET_URL.equals(parentCode.getSystem())) {
                                 imm.setParentConceptId(parentCode.getCode());
                                 break;
                             }
                         }
-                    } else if ((getCVCURL() + "/StructureDefinition/nvc-market-authorization-holders").equals(ext.getUrl())) {
+                    } else if (NVC_MARKET_AUTH_HOLDERS_URL.equals(ext.getUrl())) {
                         for (Extension mahExt : ext.getExtension()) {
-                            if ((getCVCURL() + "/StructureDefinition/nvc-market-authorization-holder").equals(mahExt.getUrl())) {
-                                if (imm.getSnomedConceptId() != null) {
-                                    dinManufactureMap.put(imm.getSnomedConceptId(), mahExt.getValue().primitiveValue());
+                            if (NVC_MARKET_AUTH_HOLDER_URL.equals(mahExt.getUrl())) {
+                                if (imm.getSnomedConceptId() != null && mahExt.getValue() != null) {
+                                    dinManufactureMap.put(imm.getSnomedConceptId(),
+                                            mahExt.getValue().primitiveValue());
                                 }
                             }
                         }
@@ -348,31 +399,39 @@ public class CanadianVaccineCatalogueManager {
         for (BundleEntryComponent entry : bundle.getEntry()) {
             CVCMedication cMed = new CVCMedication();
             Medication med = (Medication) entry.getResource();
-            String snomedId = med.getIdElement().getIdPart();
 
-            if (dinManufactureMap.containsKey(snomedId)) {
-                cMed.setManufacturerDisplay(dinManufactureMap.get(snomedId));
+            // Extract the SNOMED code first so it can be used as the map key for manufacturer
+            // lookup — keying by resource ID risks mismatch if the Medication ID differs from
+            // the SNOMED concept code used in the Tradename ValueSet.
+            String snomedCode = null;
+            for (Coding c : med.getCode().getCoding()) {
+                if ("http://snomed.info/sct".equals(c.getSystem())) {
+                    snomedCode = c.getCode();
+                    cMed.setSnomedCode(c.getCode());
+                    cMed.setSnomedDisplay(c.getDisplay());
+                }
+            }
+
+            if (snomedCode != null && dinManufactureMap.containsKey(snomedCode)) {
+                cMed.setManufacturerDisplay(dinManufactureMap.get(snomedCode));
             }
 
             if (med.getStatus() != null) {
                 cMed.setStatus(med.getStatus().toString());
             }
 
-            for (Coding c : med.getCode().getCoding()) {
-                if ("http://snomed.info/sct".equals(c.getSystem())) {
-                    cMed.setSnomedCode(c.getCode());
-                    cMed.setSnomedDisplay(c.getDisplay());
-                }
-            }
-
             for (Extension ext : med.getExtension()) {
-                if ((getCVCURL() + "/StructureDefinition/nvc-market-authorization-holder").equals(ext.getUrl())) {
-                    cMed.setManufacturerDisplay(ext.getValue().primitiveValue());
-                } else if ((getCVCURL() + "/StructureDefinition/nvc-product-status").equals(ext.getUrl())) {
-                    CodeableConcept statusConcept = (CodeableConcept) ext.getValue();
-                    for (Coding statusCode : statusConcept.getCoding()) {
-                        if ((getCVCURL() + "/ValueSet/ShelfStatus").equals(statusCode.getSystem())) {
-                            cMed.setStatus(statusCode.getDisplay());
+                if (NVC_MARKET_AUTH_HOLDER_URL.equals(ext.getUrl())) {
+                    if (ext.getValue() != null) {
+                        cMed.setManufacturerDisplay(ext.getValue().primitiveValue());
+                    }
+                } else if (NVC_PRODUCT_STATUS_URL.equals(ext.getUrl())) {
+                    if (ext.getValue() instanceof CodeableConcept) {
+                        CodeableConcept statusConcept = (CodeableConcept) ext.getValue();
+                        for (Coding statusCode : statusConcept.getCoding()) {
+                            if (NVC_SHELF_STATUS_VALUESET_URL.equals(statusCode.getSystem())) {
+                                cMed.setStatus(statusCode.getDisplay());
+                            }
                         }
                     }
                 }
@@ -403,6 +462,9 @@ public class CanadianVaccineCatalogueManager {
             }
         }
 
+        if (!vs.hasCompose()) {
+            return;
+        }
         int displayOrder = 0;
         for (ConceptSetComponent c : vs.getCompose().getInclude()) {
             for (ConceptReferenceComponent cc : c.getConcept()) {
@@ -438,6 +500,9 @@ public class CanadianVaccineCatalogueManager {
             }
         }
 
+        if (!vs.hasCompose()) {
+            return;
+        }
         int displayOrder = 0;
         for (ConceptSetComponent c : vs.getCompose().getInclude()) {
             for (ConceptReferenceComponent cc : c.getConcept()) {
@@ -548,6 +613,7 @@ public class CanadianVaccineCatalogueManager {
     /**
      * Returns the NVC base URL, allowing override from UserProperty then CarlosProperties.
      * Default is the NVC V2 base URL: {@value NVC_DEFAULT_BASE_URL}.
+     * Trailing slashes are stripped so callers can safely concatenate path segments.
      */
     public static String getCVCURL() {
         String url = CarlosProperties.getInstance().getProperty("cvc.url", NVC_DEFAULT_BASE_URL);
@@ -556,12 +622,16 @@ public class CanadianVaccineCatalogueManager {
         if (up != null && up.getValue() != null && !up.getValue().isBlank()) {
             url = up.getValue();
         }
+        // Normalize: strip trailing slash to prevent double-slash when concatenating path segments
+        while (url.endsWith("/")) {
+            url = url.substring(0, url.length() - 1);
+        }
         return url;
     }
 
     /**
      * Returns true if CVC data has been loaded and the given creation date falls after
-     * the first CVC load date (i.e. the record predates CVC activation).
+     * the first CVC load date (i.e. the record was created after CVC was first activated).
      */
     public static boolean getCVCActive(Date creationDate) {
         UserPropertyDAO upDao = SpringUtils.getBean(UserPropertyDAO.class);
@@ -572,8 +642,13 @@ public class CanadianVaccineCatalogueManager {
         if (creationDate == null) {
             return true;
         }
-        Date cvcFirstDate = new Date(Long.parseLong(up.getValue()));
-        return cvcFirstDate.before(creationDate);
+        try {
+            Date cvcFirstDate = new Date(Long.parseLong(up.getValue()));
+            return cvcFirstDate.before(creationDate);
+        } catch (NumberFormatException e) {
+            MiscUtils.getLogger().warn("CVC first-date property is not a valid long: {}", up.getValue());
+            return false;
+        }
     }
 }
 
