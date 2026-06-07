@@ -112,6 +112,7 @@ class ScheduleNavigationAssetRegressionTest {
         String viewMessage = Files.readString(VIEW_MESSAGE_JSP, StandardCharsets.UTF_8);
         String createMessage = Files.readString(CREATE_MESSAGE_JSP, StandardCharsets.UTF_8);
         String sentMessage = Files.readString(SENT_MESSAGE_JSP, StandardCharsets.UTF_8);
+        String normalizedSentMessage = normalizeWhitespace(sentMessage);
         String inboxhub = Files.readString(INBOXHUB_JSP, StandardCharsets.UTF_8);
         String ticklerMain = Files.readString(TICKLER_MAIN_JSP, StandardCharsets.UTF_8);
         String mainMenu = Files.readString(MAIN_MENU_JSP, StandardCharsets.UTF_8);
@@ -162,10 +163,11 @@ class ScheduleNavigationAssetRegressionTest {
                 .contains("DisplayMessages<%=scheduleNavFirstQuerySuffix%>");
         assertThat(sentMessage)
                 .contains("boolean showScheduleNav = \"1\".equals(request.getParameter(\"scheduleNav\"));")
-                .contains("<link rel=\"stylesheet\" href=\"<%=request.getContextPath()%>/css/topnav.css\">")
-                .contains("<jsp:include page=\"/WEB-INF/jsp/provider/mainMenu.jsp\"/>")
                 .contains("ViewCreateMessage<%=scheduleNavFirstQuerySuffix%>")
                 .contains("DisplayMessages<%=scheduleNavFirstQuerySuffix%>");
+        assertThat(normalizedSentMessage)
+                .contains("<% if (showScheduleNav) { %> <link rel=\"stylesheet\" href=\"<%=request.getContextPath()%>/css/topnav.css\"> <% } %>")
+                .contains("<% if (showScheduleNav) { %> <jsp:include page=\"/WEB-INF/jsp/provider/mainMenu.jsp\"/> <% } %>");
         assertThat(inboxhub)
                 .contains("<c:if test=\"${param.scheduleNav eq '1'}\">")
                 .contains("<link rel=\"stylesheet\" type=\"text/css\" href=\"${pageContext.request.contextPath}/css/topnav.css\"/>")
