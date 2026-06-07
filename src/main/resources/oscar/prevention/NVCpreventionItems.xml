@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+    Document   : NVCpreventionItems.xml
+    Created on : Sept 14, 2024, 3:06 PM
+    Author     : Peter Hutten-Czapski
+    Source     : src/main/resources/oscar/oscarPrevention/NVCpreventionItems.xml
+    Updated on : September 14, 2024 by Peter Hutten-Czapski
+    Description:
+        Xml configuration used in the Prevention Module to set up the types of preventions available.
+        Legacy immunizations have been removed from this list as are supplanted with the NVC
+-->
+
+<preventions>
+
+	<!--Screenings-->
+
+	<item
+			resultDesc=""
+			desc="TB=Tuberculosis Mantoux " 
+            name="Tuberculosis"
+			headingName="Screenings" link="" 
+            layout="injection"
+			atc="J07AN01" showIfMinRecordNum="1" />
+
+	<item
+			resultDesc=""
+			desc="Women from ages 25 to 70 are recommended to receive a PAP" name="PAP"
+			headingName="Screenings" link="" layout="PAPMAM" minAge="25"
+			maxAge="70" sex="F" showIfMinRecordNum="1" />
+
+	<item
+			resultDesc=""
+			desc="Women from ages 25 to 74" name="HPV-CERVIX"
+			headingName="Screenings" link="" layout="PAPMAM" minAge="25"
+			maxAge="74" sex="F" showIfMinRecordNum="1" />
+
+	<item
+			resultDesc=""
+			desc="Mammogram" name="MAM"
+			headingName="Screenings" link="" layout="PAPMAM" minAge="40"
+			maxAge="70" sex="F" showIfMinRecordNum="1" />
+
+	<item
+			resultDesc=""
+			desc="PSA" name="PSA"
+			headingName="Screenings" link="" layout="PAPMAM" minAge="50"
+			maxAge="70" sex="M" showIfMinRecordNum="1" />
+
+	<item
+			resultDesc=""
+			displayName="FIT or FOBT"
+			desc="Fecal Immunochemical Test or Fecal Occult Blood Test" name="FOBT"
+			headingName="Screenings" link="" layout="PAPMAM"
+			minAge="49" maxAge="80" showIfMinRecordNum="1" />
+
+	<item
+			resultDesc=""
+			displayName="Abdominal U/S"
+			desc="One-time screening with ultrasound for abdominal aortic aneurysm" name="AAA"
+			headingName="Screenings" link="" layout="PAPMAM"
+			minAge="65" maxAge="80" sex="M" showIfMinRecordNum="1" />
+
+	<item
+			resultDesc=""
+			displayName="Chest CT"
+			desc="Low Dose chest CT for 30 pack year smokers up to three times" name="CTC"
+			headingName="Screenings" link="" layout="PAPMAM"
+			minAge="55" maxAge="74" showIfMinRecordNum="1" />
+
+	<item
+			resultDesc=""
+			desc="Colonoscopy" name="COLONOSCOPY"
+			headingName="Screenings" link="" layout="PAPMAM"
+			showIfMinRecordNum="1" />
+
+	<item
+			resultDesc=""
+			desc="Bone Mineral Density" name="BMD"
+			headingName="Screenings" link="" layout="PAPMAM" minAge="65"
+			showIfMinRecordNum="1" />
+
+	<item
+			resultDesc=""
+			desc="HIV = all pregnant women, opt out routine screening of all adults"
+			name="HIV"
+			headingName="Screenings"
+			link="http://www.cdc.gov/std/treatment/"
+			layout="PAPMAM"
+			minAge="13"
+			maxAge="75"
+			showIfMinRecordNum="1" />
+
+	<item
+			resultDesc=""
+			desc="HepB screen= Hepatitis B serology (hep B sAg + anti-HBc or anti-HBs) in those with multiple sex partners, MSM, and injection drug users"
+			name="HepB screen"
+			headingName="Screenings"
+			link="http://www.cdc.gov/std/treatment/"
+			layout="PAPMAM"
+			minAge="15"
+			maxAge="24"
+			showIfMinRecordNum="1" />
+
+	<item
+			resultDesc=""
+			desc="HepC screen = Hep C Ab serology in contacts of multiple sex partners, traumatic anal intercourse with infected person, IVDU"
+			name="HepC screen"
+			headingName="Screenings"
+			link="http://www.cdc.gov/std/treatment/"
+			layout="PAPMAM"
+			minAge="15"
+			maxAge="24"
+			showIfMinRecordNum="1" />
+
+	<item
+			resultDesc=""
+			desc="VDRL = VDRL screening for syphillis; pregnant women at the first prenatal visit (and 3rd trimester and delivery high-risk groups), all sex workers, in correctional facilities, diagnosed with another STD, MSM with high-risk behaviors"
+			name="VDRL"
+			headingName="Screenings"
+			link="http://www.cdc.gov/std/treatment/"
+			layout="PAPMAM"
+			minAge="15"
+			maxAge="25"
+			showIfMinRecordNum="1" />
+
+	<item
+			resultDesc=""
+			desc="Chlamydia = chlamydia urine PCR; sexually active women age 25 years or younger (including pregnant women), women older than 25 years with: new sex partner in prior 60 days, more than one sex partner, inconsistent condom use, unmarried, or history of STD; men: asymptomatic screening may or may not benefit "
+			name="chlamydia"
+			headingName="Screenings"
+			link="http://www.cdc.gov/std/treatment/"
+			layout="PAPMAM"
+			minAge="12"
+			maxAge="25"
+			showIfMinRecordNum="1" />
+
+	<item
+			resultDesc=""
+			desc= "ghonorrhea = ghonorrhea urine PCR in men with symptoms or asymptomatic women: Sexually active younger than 25 years, pregnancy, inconsistent condom use, multiple partners, partner with multiple contacts, sexual contact with partner with culture-proven STD, repeated episodes of STD, Sex work or drug use"
+			name="ghonorrhea PCR"
+			headingName="Screenings"
+			link="http://www.cdc.gov/std/treatment/"
+			layout="PAPMAM"
+			minAge="12"
+			maxAge="25"
+			showIfMinRecordNum="1" />
+
+	<item
+			resultDesc=""
+			desc= "Periodic Health Visit"
+			name="PHV"
+			headingName="Screenings"
+			layout="history"
+			showIfMinRecordNum="1" />
+
+	<item
+			resultDesc=""
+			desc= "Smoking history"
+			name="Smoking"
+			layout="history"
+			headingName="Screenings"
+			minAge="13"
+			showIfMinRecordNum="1" />
+
+	<!-- Other -->
+
+	<item
+			resultDesc=""
+			desc="Other Layout A" 
+            name="OtherA"
+			headingName="Other"
+			healthCanadaType=""
+            link="" layout="injection"
+			showIfMinRecordNum="1" />
+
+	<item
+			resultDesc=""
+			desc="Other Layout B" 
+            name="OtherB"
+			headingName="Other" 
+            link="" layout="PAPMAM"
+			showIfMinRecordNum="1" />
+
+
+</preventions>

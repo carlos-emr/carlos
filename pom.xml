@@ -1279,6 +1279,12 @@
             <artifactId>hapi-fhir-structures-dstu3</artifactId>
             <version>${hapifhir.version}</version>
         </dependency>
+        <!-- FHIR R4 structure definitions (NVC V2 bundle uses FHIR R4) -->
+        <dependency>
+            <groupId>ca.uhn.hapi.fhir</groupId>
+            <artifactId>hapi-fhir-structures-r4</artifactId>
+            <version>${hapifhir.version}</version>
+        </dependency>
 
         <!-- JAX-WS RI (used at runtime for SOAP web services) -->
         <dependency>
