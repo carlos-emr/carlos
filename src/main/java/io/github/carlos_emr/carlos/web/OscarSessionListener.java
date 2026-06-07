@@ -68,7 +68,7 @@ public class OscarSessionListener implements HttpSessionListener {
 		if (userSecurityCode != null) {
 			try {
 				UserSessionManager userSessionManager = SpringUtils.getBean(UserSessionManager.class);
-				userSessionManager.unregisterUserSession(userSecurityCode);
+				userSessionManager.unregisterUserSession(userSecurityCode, session);
 			} catch (UserSessionNotFoundException e) {
 				MiscUtils.getLogger().warn("Failed to unregister session on destroy: {}", e.getMessage());
 			}

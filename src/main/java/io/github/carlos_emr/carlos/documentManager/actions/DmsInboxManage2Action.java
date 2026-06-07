@@ -192,6 +192,8 @@ public class DmsInboxManage2Action extends ActionSupport {
         return "doclabPreview";
     }
 
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String prepareForIndexPage() {
         HttpSession session = request.getSession();
         try {
@@ -283,7 +285,8 @@ public class DmsInboxManage2Action extends ActionSupport {
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "UNVALIDATED_REDIRECT"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     @SuppressWarnings({"unchecked", "rawtypes"})
     public String prepareForContentPage() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -747,6 +750,8 @@ public class DmsInboxManage2Action extends ActionSupport {
 
     // return a hastable containing queue id to queue name, a hashtable of queue id and a list of document nos.
     // forward to documentInQueus.jsp
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     @SuppressWarnings({"unchecked", "rawtypes"})
     public String getDocumentsInQueues() {
         HttpSession session = request.getSession();

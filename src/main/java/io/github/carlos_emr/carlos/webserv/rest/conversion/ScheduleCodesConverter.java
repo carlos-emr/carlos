@@ -31,11 +31,17 @@ package io.github.carlos_emr.carlos.webserv.rest.conversion;
 import io.github.carlos_emr.carlos.commn.model.ScheduleTemplateCode;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ScheduleTemplateCodeTo;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.beans.BeanUtils;
 
 public class ScheduleCodesConverter extends AbstractConverter<ScheduleTemplateCode, ScheduleTemplateCodeTo> {
 
     @Override
+    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
+    // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
+    @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
+            justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
+                    "known CARLOS types; no user-controlled property name reaches the sink")
     public ScheduleTemplateCode getAsDomainObject(LoggedInInfo loggedInInfo, ScheduleTemplateCodeTo t) throws ConversionException {
         ScheduleTemplateCode d = new ScheduleTemplateCode();
         BeanUtils.copyProperties(t, d);
@@ -43,6 +49,11 @@ public class ScheduleCodesConverter extends AbstractConverter<ScheduleTemplateCo
     }
 
     @Override
+    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
+    // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
+    @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
+            justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
+                    "known CARLOS types; no user-controlled property name reaches the sink")
     public ScheduleTemplateCodeTo getAsTransferObject(LoggedInInfo loggedInInfo, ScheduleTemplateCode d) throws ConversionException {
         ScheduleTemplateCodeTo t = new ScheduleTemplateCodeTo();
         BeanUtils.copyProperties(d, t);

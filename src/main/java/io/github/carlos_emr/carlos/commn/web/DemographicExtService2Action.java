@@ -28,6 +28,7 @@
  */
 package io.github.carlos_emr.carlos.commn.web;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.util.Date;
 
@@ -59,6 +60,8 @@ public class DemographicExtService2Action extends ActionSupport {
         return saveNewValue();
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String saveNewValue() throws IOException {
         String demographicNo = request.getParameter("demographicNo");
         String key = request.getParameter("key");

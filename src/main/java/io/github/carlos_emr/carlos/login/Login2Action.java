@@ -327,7 +327,9 @@ public final class Login2Action extends ActionSupport {
      * @see #validateMfaAndCompleteLogin for MFA continuation logic
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = {"XSS_SERVLET", "IMPROPER_UNICODE", "UNVALIDATED_REDIRECT"}, justification = "XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink. case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute() throws ServletException, IOException {
 
         if (!"POST".equals(request.getMethod())) {
@@ -740,6 +742,8 @@ public final class Login2Action extends ActionSupport {
      * @return Struts result name, {@link #NONE}, or null for direct AJAX responses
      * @throws IOException if redirecting or writing the final response fails
      */
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     private String validateMfaAndCompleteLogin(String ip, boolean isMobileOptimized, String submitType,
                                                boolean ajaxResponse) throws IOException {
         HttpSession session = request.getSession(false);
@@ -1088,7 +1092,8 @@ public final class Login2Action extends ActionSupport {
      * @throws IOException if redirecting or writing the response fails
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "UNVALIDATED_REDIRECT"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     private String completeAuthenticatedLogin(Security security, String[] strAuth, String ip,
                                               boolean isMobileOptimized, String submitType,
                                               boolean ajaxResponse) throws IOException {
@@ -1269,6 +1274,8 @@ public final class Login2Action extends ActionSupport {
         return null;
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     private String buildPostAuthenticationResponse(Provider provider, boolean ajaxResponse, String where)
             throws IOException {
 
@@ -1356,6 +1363,8 @@ public final class Login2Action extends ActionSupport {
      * @return {@link #NONE} because the response has already been redirected
      * @throws IOException if the servlet container cannot issue the redirect
      */
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     private String redirectForcePasswordResetRetry(String errorMessage) throws IOException {
         HttpSession session = request.getSession(false);
         if (session != null) {

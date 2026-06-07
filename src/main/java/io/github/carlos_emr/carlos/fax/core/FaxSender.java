@@ -31,6 +31,7 @@ import java.nio.file.Paths;
 import java.util.Date;
 import java.util.List;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.FaxClientLogDao;
 import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
@@ -245,6 +246,8 @@ public class FaxSender {
      * @throws SecurityException if the path fails validation (path traversal attempt or
      *         unauthorized absolute path)
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private Path resolveFilePath(String filename, String documentDir) {
         // ALWAYS validate paths using PathValidationUtils to prevent path traversal attacks
         if (filename == null || filename.trim().isEmpty()) {
