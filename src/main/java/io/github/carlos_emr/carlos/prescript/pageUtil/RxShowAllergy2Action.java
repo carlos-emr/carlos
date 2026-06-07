@@ -96,13 +96,17 @@ public final class RxShowAllergy2Action extends ActionSupport {
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
     @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String reorder() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_allergy", "r", null)) {
+            throw new RuntimeException("missing required sec object (_allergy)");
+        }
+
         String demoNoParam = request.getParameter("demographicNo");
         if (demoNoParam == null || !demoNoParam.matches("\\d{1,9}")) {
             return "failure";
         }
         reorder(request);
         try {
-            LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
             RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, demoNoParam);
             if (patient != null) {
                 // demoNoParam validated as numeric at method entry

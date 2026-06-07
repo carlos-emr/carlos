@@ -217,7 +217,7 @@ public class FrmBCAR20202Action extends ActionSupport {
             url = url + forwardTo + ".jsp";
         }
         url = url + "?demographic_no=" + demographicNo + "&formId=" + formId + "&provNo=" + providerNo;
-        response.sendRedirect(url);
+        response.sendRedirect(request.getContextPath() + url);
         return NONE;
     }
 

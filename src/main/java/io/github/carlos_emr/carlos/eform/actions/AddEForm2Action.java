@@ -49,6 +49,7 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.eform.data.EForm;
@@ -70,7 +71,6 @@ import java.util.regex.Pattern;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import org.owasp.encoder.Encode;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class AddEForm2Action extends ActionSupport {
@@ -364,31 +364,7 @@ public class AddEForm2Action extends ActionSupport {
                  * This form id is sent to the fax action to render it as a faxable PDF.
                  * A preview is returned to the user once the form is rendered.
                  */
-                StringBuilder faxForward = new StringBuilder(request.getContextPath()).append("/fax/faxAction");
-                faxForward.append("?method=").append(URLEncoder.encode("prepareFax", StandardCharsets.UTF_8));
-                faxForward.append("&transactionId=").append(URLEncoder.encode(prev_fdid, StandardCharsets.UTF_8));
-                faxForward.append("&transactionType=").append(URLEncoder.encode(TransactionType.EFORM.name(), StandardCharsets.UTF_8));
-                faxForward.append("&demographicNo=").append(URLEncoder.encode(demographic_no, StandardCharsets.UTF_8));
-
-
-                /*
-                 * Added incase the eForm developer adds these elements to the
-                 * eform.
-                 */
-                if (recipient != null) {
-                    faxForward.append("&recipient=").append(recipient);
-                }
-                if (recipientFaxNumber != null) {
-                    faxForward.append("&recipientFaxNumber=").append(recipientFaxNumber);
-                }
-                if (letterheadFax != null) {
-                    faxForward.append("&letterheadFax=").append(letterheadFax);
-                }
-                try {
-                    response.sendRedirect(faxForward.toString());
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
+                redirectToPreparedFax(prev_fdid, demographic_no, recipient, recipientFaxNumber, letterheadFax);
                 return NONE;
             } else if (print) {
                 return "print";
@@ -506,7 +482,7 @@ public class AddEForm2Action extends ActionSupport {
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin email compose path built from the current context path with an encoded eForm id.
     @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin email compose path built from the current context path with an encoded eForm id")
     private void redirectToEmailCompose(String fid) {
-        String path = request.getContextPath() + "/email/emailComposeAction?method=prepareComposeEFormMailer&fid=" + Encode.forUriComponent(fid);
+        String path = request.getContextPath() + "/email/emailComposeAction?method=prepareComposeEFormMailer&fid=" + SafeEncode.forUriComponent(fid);
         try {
             response.sendRedirect(path);
         } catch (IOException e) {

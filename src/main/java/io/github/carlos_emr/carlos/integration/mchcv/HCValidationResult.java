@@ -31,8 +31,6 @@ package io.github.carlos_emr.carlos.integration.mchcv;
 import ca.ontario.health.ebs.EbsFault;
 import ca.ontario.health.hcv.FeeServiceDetails;
 import ca.ontario.health.hcv.ResponseID;
-import org.springframework.beans.BeanUtils;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import javax.xml.datatype.XMLGregorianCalendar;
 import java.util.Collections;
@@ -264,23 +262,15 @@ public class HCValidationResult {
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision.
-    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between known CARLOS types; no user-controlled property name reaches the sink.
-    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "BEAN_PROPERTY_INJECTION"},
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE",
             justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); " +
-                    "not a security or authorization decision. Spring BeanUtils.copyProperties copies " +
-                    "fixed JavaBean descriptors between known CARLOS types; no user-controlled " +
-                    "property name reaches the sink")
+                    "not a security or authorization decision")
     private FeeServiceDetails getFeeServiceDetailsbyFeeServiceCode(String feeServiceCode) {
         FeeServiceDetails selectedFeeServiceDetails = new FeeServiceDetails();
         selectedFeeServiceDetails.setFeeServiceCode(feeServiceCode);
         for (FeeServiceDetails feeServiceDetail : this.feeServiceDetails) {
             if (feeServiceCode.equalsIgnoreCase(feeServiceDetail.getFeeServiceCode())) {
                 selectedFeeServiceDetails = feeServiceDetail;
-                try {
-                    BeanUtils.copyProperties(feeServiceDetail, selectedFeeServiceDetails);
-                } catch (Exception e) {
-                    MiscUtils.getLogger().warn("Bean Copy error. Fee Service code: " + feeServiceCode, e);
-                }
                 break;
             }
         }
