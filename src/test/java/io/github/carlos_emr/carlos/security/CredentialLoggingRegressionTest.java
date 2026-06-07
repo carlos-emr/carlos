@@ -80,6 +80,15 @@ class CredentialLoggingRegressionTest {
                 .doesNotContain("MiscUtils.getLogger().debug(\"key=\" + key)");
     }
 
+    @Test
+    @DisplayName("Spire lab loading should not log demographic number values")
+    void shouldNotLogDemographicNumberValues_forSpireLabLoading() throws IOException {
+        String spireLabTest = readSource("lab/ca/on/Spire/SpireLabTest.java");
+
+        assertThat(spireLabTest)
+                .doesNotContain("log.debug(\"going out \" + this.demographicNo)");
+    }
+
     private static String readSource(String relativePath) throws IOException {
         return Files.readString(Path.of("src/main/java/io/github/carlos_emr/carlos", relativePath));
     }
