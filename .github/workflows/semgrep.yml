@@ -63,6 +63,10 @@ jobs:
         continue-on-error: true
         run: semgrep scan --config .semgrep/jsp-scriptlet-xss-carlos.yml --sarif --output semgrep-carlos.sarif
 
+      - name: Filter suppressed Semgrep SARIF results
+        if: always() && steps.run_semgrep.outcome != 'skipped' && hashFiles('semgrep.sarif') != ''
+        run: python3 scripts/filter_suppressed_sarif.py semgrep.sarif
+
       - name: Skip Semgrep CI when token is not configured
         if: env.HAS_SEMGREP_TOKEN != 'true'
         run: |
