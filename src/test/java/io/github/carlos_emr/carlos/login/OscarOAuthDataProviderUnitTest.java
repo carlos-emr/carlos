@@ -6,9 +6,13 @@
 package io.github.carlos_emr.carlos.login;
 
 import io.github.carlos_emr.carlos.commn.dao.ServiceAccessTokenDao;
+import io.github.carlos_emr.carlos.commn.dao.ServiceClientDao;
+import io.github.carlos_emr.carlos.commn.dao.ServiceRequestTokenDao;
 import io.github.carlos_emr.carlos.commn.model.ServiceAccessToken;
+import io.github.carlos_emr.carlos.commn.model.ServiceClient;
 import io.github.carlos_emr.carlos.webserv.oauth.Client;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1Exception;
+import io.github.carlos_emr.carlos.webserv.oauth.RequestToken;
 import io.github.carlos_emr.carlos.webserv.oauth.RequestTokenRegistration;
 
 import org.junit.jupiter.api.DisplayName;
@@ -116,6 +120,79 @@ class OscarOAuthDataProviderUnitTest {
                 .hasMessage("callback_uri not allowed");
     }
 
+    @Test
+    @DisplayName("should allow request token creation when requested callback is null")
+    void shouldAllowRequestToken_whenRequestedCallbackIsNull() {
+        OscarOAuthDataProvider provider = providerWithCallbackDaos();
+        RequestTokenRegistration registration = registration("https://trusted.example/callback", null);
+
+        RequestToken rt = provider.createRequestToken(registration);
+
+        assertThat(rt).isNotNull();
+        assertThat(rt.getCallback()).isNull();
+    }
+
+    @Test
+    @DisplayName("should reject request token callback when registered callback is blank")
+    void shouldRejectRequestTokenCallback_whenRegisteredCallbackIsBlank() {
+        OscarOAuthDataProvider provider = new OscarOAuthDataProvider();
+        RequestTokenRegistration registration = registration("   ", "https://trusted.example/callback");
+
+        assertThatThrownBy(() -> provider.createRequestToken(registration))
+                .isInstanceOf(OAuth1Exception.class)
+                .hasMessage("callback_uri not allowed");
+    }
+
+    @Test
+    @DisplayName("should allow request token creation when both callbacks are OOB")
+    void shouldAllowRequestToken_whenBothCallbacksAreOob() {
+        OscarOAuthDataProvider provider = providerWithCallbackDaos();
+        RequestTokenRegistration registration = registration("oob", "oob");
+
+        RequestToken rt = provider.createRequestToken(registration);
+
+        assertThat(rt).isNotNull();
+        assertThat(rt.getCallback()).isEqualTo("oob");
+    }
+
+    @Test
+    @DisplayName("should reject request token callback when requested callback scheme is not http or https")
+    void shouldRejectRequestTokenCallback_whenRequestedCallbackSchemeIsInvalid() {
+        OscarOAuthDataProvider provider = new OscarOAuthDataProvider();
+        RequestTokenRegistration registration = registration("https://trusted.example/callback",
+                "ftp://trusted.example/callback");
+
+        assertThatThrownBy(() -> provider.createRequestToken(registration))
+                .isInstanceOf(OAuth1Exception.class)
+                .hasMessage("invalid_callback_scheme");
+    }
+
+    @Test
+    @DisplayName("should allow request token creation when callback exactly matches registered callback")
+    void shouldAllowRequestToken_whenCallbackExactlyMatchesRegistered() {
+        OscarOAuthDataProvider provider = providerWithCallbackDaos();
+        RequestTokenRegistration registration = registration("https://trusted.example/callback",
+                "https://trusted.example/callback");
+
+        RequestToken rt = provider.createRequestToken(registration);
+
+        assertThat(rt).isNotNull();
+        assertThat(rt.getCallback()).isEqualTo("https://trusted.example/callback");
+    }
+
+    @Test
+    @DisplayName("should allow request token creation when callback is a sub-path of registered callback")
+    void shouldAllowRequestToken_whenCallbackIsSubpathOfRegistered() {
+        OscarOAuthDataProvider provider = providerWithCallbackDaos();
+        RequestTokenRegistration registration = registration("https://trusted.example/app",
+                "https://trusted.example/app/sub");
+
+        RequestToken rt = provider.createRequestToken(registration);
+
+        assertThat(rt).isNotNull();
+        assertThat(rt.getCallback()).isEqualTo("https://trusted.example/app/sub");
+    }
+
     private static OscarOAuthDataProvider provider(ServiceAccessTokenDao accessTokenDao) {
         OscarOAuthDataProvider provider = new OscarOAuthDataProvider();
         ReflectionTestUtils.setField(provider, "serviceAccessTokenDao", accessTokenDao);
@@ -139,5 +216,15 @@ class OscarOAuthDataProviderUnitTest {
         RequestTokenRegistration registration = new RequestTokenRegistration(client);
         registration.setCallback(requestedCallback);
         return registration;
+    }
+
+    private static OscarOAuthDataProvider providerWithCallbackDaos() {
+        OscarOAuthDataProvider provider = new OscarOAuthDataProvider();
+        ServiceClientDao clientDao = mock(ServiceClientDao.class);
+        ServiceRequestTokenDao requestTokenDao = mock(ServiceRequestTokenDao.class);
+        ReflectionTestUtils.setField(provider, "serviceClientDao", clientDao);
+        ReflectionTestUtils.setField(provider, "serviceRequestTokenDao", requestTokenDao);
+        when(clientDao.findByKey("consumer")).thenReturn(mock(ServiceClient.class));
+        return provider;
     }
 }

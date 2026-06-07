@@ -128,7 +128,7 @@ public class OscarRequestTokenService {
         } else {
             // fallback to app-registered callback if your flow allows it
             String registeredCallback = client.getCallbackUri();
-            cbToStore = "oob".equalsIgnoreCase(registeredCallback) ? "oob" : normalizeUrl(registeredCallback);
+            cbToStore = "oob".equals(registeredCallback) ? "oob" : normalizeUrl(registeredCallback);
         }
 
         reg.setCallback(cbToStore);   // <-- store plain URL now (not encoded)

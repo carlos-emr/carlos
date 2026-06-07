@@ -61,6 +61,65 @@ class OscarRequestTokenServiceUnitTest {
     }
 
     @Test
+    @DisplayName("should normalize and store valid HTTPS callback when initiating request token")
+    void shouldNormalizeAndStoreCallbackUrl_whenCallbackIsValidHttps() {
+        OscarOAuthDataProvider dataProvider = mock(OscarOAuthDataProvider.class);
+        OAuth1ParamParser parser = mock(OAuth1ParamParser.class);
+        OAuth1SignatureVerifier verifier = mock(OAuth1SignatureVerifier.class);
+        OscarRequestTokenService service = new OscarRequestTokenService(dataProvider, parser);
+        ReflectionTestUtils.setField(service, "verifier", verifier);
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/ws/oauth/initiate");
+        request.setServerName("carlos.example");
+        request.setScheme("https");
+        OAuth1Request oauthRequest = new OAuth1Request();
+        oauthRequest.consumerKey = "consumer";
+        oauthRequest.callback = "https://app.example/callback";
+        Client client = new Client("consumer", "secret", "App", "https://trusted.example");
+        client.setCallbackUri("https://trusted.example/callback");
+        RequestToken token = new RequestToken(client, "token-id", "token-secret");
+        when(parser.parseFromRequest(request)).thenReturn(oauthRequest);
+        when(dataProvider.getClient("consumer")).thenReturn(client);
+        when(dataProvider.createRequestToken(any())).thenReturn(token);
+
+        Response response = service.initiatePost(request);
+
+        ArgumentCaptor<RequestTokenRegistration> registrationCaptor =
+                ArgumentCaptor.forClass(RequestTokenRegistration.class);
+        verify(dataProvider).createRequestToken(registrationCaptor.capture());
+        assertThat(registrationCaptor.getValue().getCallback()).isEqualTo("https://app.example/callback");
+        assertThat(response.getStatus()).isEqualTo(200);
+    }
+
+    @Test
+    @DisplayName("should use registered callback URL when request omits callback and registered callback is HTTPS")
+    void shouldUseRegisteredCallbackUrl_whenRequestOmitsCallbackAndRegisteredIsHttps() {
+        OscarOAuthDataProvider dataProvider = mock(OscarOAuthDataProvider.class);
+        OAuth1ParamParser parser = mock(OAuth1ParamParser.class);
+        OAuth1SignatureVerifier verifier = mock(OAuth1SignatureVerifier.class);
+        OscarRequestTokenService service = new OscarRequestTokenService(dataProvider, parser);
+        ReflectionTestUtils.setField(service, "verifier", verifier);
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/ws/oauth/initiate");
+        request.setServerName("carlos.example");
+        request.setScheme("https");
+        OAuth1Request oauthRequest = new OAuth1Request();
+        oauthRequest.consumerKey = "consumer";
+        Client client = new Client("consumer", "secret", "App", "https://trusted.example/callback");
+        client.setCallbackUri("https://trusted.example/callback");
+        RequestToken token = new RequestToken(client, "token-id", "token-secret");
+        when(parser.parseFromRequest(request)).thenReturn(oauthRequest);
+        when(dataProvider.getClient("consumer")).thenReturn(client);
+        when(dataProvider.createRequestToken(any())).thenReturn(token);
+
+        Response response = service.initiatePost(request);
+
+        ArgumentCaptor<RequestTokenRegistration> registrationCaptor =
+                ArgumentCaptor.forClass(RequestTokenRegistration.class);
+        verify(dataProvider).createRequestToken(registrationCaptor.capture());
+        assertThat(registrationCaptor.getValue().getCallback()).isEqualTo("https://trusted.example/callback");
+        assertThat(response.getStatus()).isEqualTo(200);
+    }
+
+    @Test
     @DisplayName("should use OOB callback when registered callback is OOB and request omits callback")
     void shouldUseOobCallback_whenRegisteredCallbackIsOobAndRequestOmitsCallback() {
         OscarOAuthDataProvider dataProvider = mock(OscarOAuthDataProvider.class);
