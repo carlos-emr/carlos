@@ -79,9 +79,17 @@ public final class PrintPDF2Action extends ActionSupport {
                 props.setProperty(name, request.getParameter(name));
             }
 
-            log.info("SUBMIT {}", LogSafe.sanitize(request.getParameter("submit"))); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            String submit = request.getParameter("submit");
+            log.info("SUBMIT {}", LogSafe.sanitize(submit)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+
+            String strAction = findActionValue(submit);
+            if ("failure".equals(strAction)) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Unsupported submit action");
+                return NONE;
+            }
+
             //if we are graphing, we need to grab info from db and add it to request object
-            if (request.getParameter("submit").equals("graph")) {
+            if ("graph".equals(strAction)) {
                 props = EFormPrintPDFUtil.getFrmRourkeGraph(loggedInInfo, props);
 
                 for (Enumeration<?> e = props.propertyNames(); e.hasMoreElements(); ) {
@@ -90,7 +98,7 @@ public final class PrintPDF2Action extends ActionSupport {
                 }
             }
             //if we are printing all pages of form, grab info from db and merge with current page info
-            else if (request.getParameter("submit").equals("printAll")) {
+            else if ("printAll".equals(strAction)) {
                 String name;
                 for (Enumeration<?> e = props.propertyNames(); e.hasMoreElements(); ) {
                     name = (String) e.nextElement();
@@ -99,12 +107,7 @@ public final class PrintPDF2Action extends ActionSupport {
                 }
             }
 
-            String strAction = findActionValue(request.getParameter("submit"));
-            if ("printAll".equals(strAction)) {
-                where = "/eform/createpdf";
-            } else if ("graph".equals(strAction)) {
-                where = "/eform/createpdf";
-            }
+            where = "/eform/createpdf";
             where = createActionURL(where, strAction, request.getParameter("demographic_no"), "" + newID);
             response.sendRedirect(where);
         } catch (Exception ex) {
