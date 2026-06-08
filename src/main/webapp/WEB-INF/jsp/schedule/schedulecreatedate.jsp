@@ -39,7 +39,7 @@
 %>
 <%
 
-    List<Site> sites = null;
+    List<Site> sites = Collections.emptyList();
     boolean bMultisites = io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable();
 
     if (bMultisites) {
