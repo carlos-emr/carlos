@@ -27,7 +27,7 @@ public final class SmsAuditRedactor {
     }
 
     public static String digest(String value, int length) {
-        int safeLength = Math.max(1, Math.min(length, 64));
+        int safeLength = Math.clamp(length, 1, 64);
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] hash = digest.digest((value == null ? "" : value).getBytes(StandardCharsets.UTF_8));

@@ -19,7 +19,12 @@ public record SmsSendResultDto(
     }
 
     public static SmsSendResultDto consentBlocked(SmsConsentDecisionDto decision) {
-        return new SmsSendResultDto(false, decision.blockedStatus(), null, List.of(decision.operatorMessage()));
+        return new SmsSendResultDto(
+                false,
+                decision.blockedStatus(),
+                null,
+                decision.operatorMessage() == null ? List.of() : List.of(decision.operatorMessage())
+        );
     }
 
     public static SmsSendResultDto fromProvider(SmsProviderSendResultDto providerResult) {

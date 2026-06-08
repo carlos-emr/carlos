@@ -30,16 +30,27 @@ public class StubSmsProviderClient implements SmsProviderClient {
 
     @Override
     public boolean validateCallback(String payload, Map<String, String> headers, String secret) {
-        return true;
+        if (secret == null || secret.isBlank()) {
+            return true;
+        }
+        return payload != null
+                && headers != null
+                && secret.equals(headers.get("X-Carlos-Sms-Stub-Secret"));
     }
 
     @Override
     public Optional<SmsInboundWebhookDto> parseInboundWebhook(String payload, Map<String, String> headers) {
+        if (payload == null || headers == null) {
+            return Optional.empty();
+        }
         return Optional.empty();
     }
 
     @Override
     public Optional<SmsDeliveryWebhookDto> parseDeliveryWebhook(String payload, Map<String, String> headers) {
+        if (payload == null || headers == null) {
+            return Optional.empty();
+        }
         return Optional.empty();
     }
 }
