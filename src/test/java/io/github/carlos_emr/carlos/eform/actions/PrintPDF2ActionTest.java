@@ -96,6 +96,7 @@ class PrintPDF2ActionTest extends CarlosWebTestBase {
     @Test
     @DisplayName("Should redirect to createpdf when submit is printAll")
     void shouldRedirectToCreatePdf_whenSubmitIsPrintAll() throws Exception {
+        mockRequest.setContextPath("/carlos");
         mockRequest.setParameter("submit", "PrInTaLl");
         mockRequest.setParameter("demographic_no", "123");
 
@@ -103,7 +104,8 @@ class PrintPDF2ActionTest extends CarlosWebTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_FOUND);
-        assertThat(mockResponse.getRedirectedUrl()).isEqualTo("/eform/createpdf?demographic_no=123&formId=0");
+        assertThat(mockResponse.getRedirectedUrl())
+                .isEqualTo("/carlos/eform/createpdf?demographic_no=123&formId=0");
         assertThat(mockResponse.getErrorMessage()).isNull();
     }
 

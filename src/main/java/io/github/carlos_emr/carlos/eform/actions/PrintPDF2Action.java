@@ -107,7 +107,9 @@ public final class PrintPDF2Action extends ActionSupport {
                 }
             }
 
-            String redirectUrl = createActionURL("/eform/createpdf", strAction, request.getParameter("demographic_no"), "" + newID);
+            String createPdfPath = request.getContextPath() + "/eform/createpdf";
+            String demographicNo = request.getParameter("demographic_no");
+            String redirectUrl = createActionURL(createPdfPath, strAction, demographicNo, "" + newID);
             response.sendRedirect(redirectUrl);
         } catch (Exception ex) {
             throw new ServletException(ex);
