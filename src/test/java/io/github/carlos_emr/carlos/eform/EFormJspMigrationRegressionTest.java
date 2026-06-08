@@ -136,10 +136,11 @@ class EFormJspMigrationRegressionTest {
 
         assertThat(createTogglePattern.matcher(nav).find()).isTrue();
         assertThat(toggleClassPattern.matcher(nav).find()).isTrue();
-        assertThat(nav).doesNotContain("javascript:void(0)");
-        assertThat(nav).containsPattern("<button[^>]*data-bs-toggle=\"dropdown\"");
-        assertThat(nav).containsPattern("<button[^>]*aria-haspopup=\"true\"");
-        assertThat(nav).containsPattern("<button[^>]*aria-expanded=\"false\"");
+        assertThat(nav)
+            .doesNotContain("javascript:void(0)")
+            .containsPattern("<button[^>]*data-bs-toggle=\"dropdown\"")
+            .containsPattern("<button[^>]*aria-haspopup=\"true\"")
+            .containsPattern("<button[^>]*aria-expanded=\"false\"");
     }
 
     @Test
