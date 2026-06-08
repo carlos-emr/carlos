@@ -199,6 +199,21 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
             assertThat(missingDir).doesNotExist();
             verifyNoInteractions(mockServletContext);
         }
+
+        @Test
+        @DisplayName("Should skip deployment when image directory path points to a file")
+        void shouldSkipDeployment_whenImageDirectoryPathPointsToFile() throws Exception {
+            Path imagePath = tempDir.resolve("images-as-file");
+            Files.writeString(imagePath, "not a directory");
+
+            when(mockProperties.getEformImageDirectory()).thenReturn(imagePath.toString());
+
+            deployer.afterPropertiesSet();
+
+            assertThat(imagePath).isRegularFile();
+            assertThat(Files.readString(imagePath)).isEqualTo("not a directory");
+            verifyNoInteractions(mockServletContext);
+        }
     }
 
     @Nested
