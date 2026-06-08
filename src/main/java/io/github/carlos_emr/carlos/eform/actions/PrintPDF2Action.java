@@ -49,11 +49,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.eform.util.EFormPrintPDFUtil;
 import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import org.owasp.encoder.Encode;
 
 public final class PrintPDF2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -137,8 +137,8 @@ public final class PrintPDF2Action extends ActionSupport {
 
         if (action.equals("printAll")) {
             temp = where
-                    + "?demographic_no=" + Encode.forUriComponent(demoId)
-                    + "&formId=" + Encode.forUriComponent(formId);
+                    + "?demographic_no=" + SafeEncode.forUriComponent(demoId)
+                    + "&formId=" + SafeEncode.forUriComponent(formId);
         } else {
             temp = where;
         }
