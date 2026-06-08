@@ -26,8 +26,19 @@ function assert(condition, message) {
   }
 }
 
-function readRepoFile(relativePath) {
-  return fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
+const files = {
+  navJsp: path.join(repoRoot, 'src/main/webapp/WEB-INF/jsp/eform/efmTopNav.jspf'),
+  editorJsp: path.join(repoRoot, 'src/main/webapp/WEB-INF/jsp/eform/efmformmanageredit.jsp'),
+  bootstrapJs: path.join(repoRoot, 'src/main/webapp/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js'),
+  bootstrapCss: path.join(repoRoot, 'src/main/webapp/library/bootstrap/5.3.8/css/bootstrap.min.css'),
+};
+
+function readKnownRepoFile(filePath) {
+  const resolved = path.resolve(filePath);
+  if (!resolved.startsWith(`${repoRoot}${path.sep}`)) {
+    throw new Error(`Refusing to read file outside repository root: ${resolved}`);
+  }
+  return fs.readFileSync(resolved, 'utf8');
 }
 
 function jspFragmentToHtml(jsp) {
@@ -46,10 +57,8 @@ function appPathFromHref(href) {
 }
 
 (async () => {
-  const navJsp = readRepoFile('src/main/webapp/WEB-INF/jsp/eform/efmTopNav.jspf');
-  const editorJsp = readRepoFile('src/main/webapp/WEB-INF/jsp/eform/efmformmanageredit.jsp');
-  const bootstrapJs = readRepoFile('src/main/webapp/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js');
-  const bootstrapCss = readRepoFile('src/main/webapp/library/bootstrap/5.3.8/css/bootstrap.min.css');
+  const navJsp = readKnownRepoFile(files.navJsp);
+  const editorJsp = readKnownRepoFile(files.editorJsp);
   const navHtml = jspFragmentToHtml(navJsp);
 
   assert(!navHtml.includes('javascript:void(0)'), 'eForm nav must not use javascript:void(0) links');
@@ -75,11 +84,14 @@ function appPathFromHref(href) {
 <html>
 <head>
 <meta charset="utf-8">
-<style>${bootstrapCss}</style>
-<script>${bootstrapJs}</script>
 </head>
-<body>${navHtml}</body>
+<body><div id="fixture-root"></div></body>
 </html>`, { waitUntil: 'domcontentloaded' });
+    await page.addStyleTag({ path: files.bootstrapCss });
+    await page.addScriptTag({ path: files.bootstrapJs });
+    await page.locator('#fixture-root').evaluate((root, html) => {
+      root.innerHTML = html;
+    }, navHtml);
 
     const toggle = page.locator('button.dropdown-toggle', { hasText: 'Create eForm' });
     await toggle.waitFor({ state: 'visible', timeout: 10000 });
