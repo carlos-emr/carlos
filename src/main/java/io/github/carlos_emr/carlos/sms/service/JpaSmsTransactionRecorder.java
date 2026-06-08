@@ -11,6 +11,8 @@ import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Date;
+import java.util.List;
 import java.util.Objects;
 
 @Service
@@ -43,10 +45,33 @@ public class JpaSmsTransactionRecorder implements SmsTransactionRecorder {
 
     @Override
     @Transactional
+    public SmsTransaction markSending(SmsTransaction transaction, Date attemptAt) {
+        Objects.requireNonNull(transaction, "transaction is required");
+        transaction.markSending(attemptAt);
+        smsTransactionDao.merge(transaction);
+        return transaction;
+    }
+
+    @Override
+    @Transactional
     public SmsTransaction markProviderResult(SmsTransaction transaction, SmsProviderSendResultDto providerResult) {
         Objects.requireNonNull(transaction, "transaction is required");
         Objects.requireNonNull(providerResult, "providerResult is required");
         transaction.markProviderResult(providerResult);
+        smsTransactionDao.merge(transaction);
+        return transaction;
+    }
+
+    @Override
+    @Transactional
+    public SmsTransaction markRetryScheduled(
+            SmsTransaction transaction,
+            SmsProviderSendResultDto providerResult,
+            Date nextAttemptAt
+    ) {
+        Objects.requireNonNull(transaction, "transaction is required");
+        Objects.requireNonNull(providerResult, "providerResult is required");
+        transaction.markRetryScheduled(providerResult, nextAttemptAt);
         smsTransactionDao.merge(transaction);
         return transaction;
     }
@@ -78,5 +103,11 @@ public class JpaSmsTransactionRecorder implements SmsTransactionRecorder {
             smsTransactionDao.merge(transaction);
         }
         return transaction;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<SmsTransaction> findDueOutboundQueue(SmsProviderType providerType, Date now, int limit) {
+        return smsTransactionDao.findDueOutboundQueue(providerType, now, limit);
     }
 }

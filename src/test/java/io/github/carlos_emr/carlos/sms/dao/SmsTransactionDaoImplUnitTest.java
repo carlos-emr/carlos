@@ -12,6 +12,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.Instant;
+import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 
@@ -101,6 +103,39 @@ class SmsTransactionDaoImplUnitTest {
         verify(query).setParameter("providerType", SmsProviderType.STUB);
         verify(query).setParameter("providerMessageId", "provider-1");
         verify(query).setMaxResults(1);
+    }
+
+    @Test
+    @DisplayName("findDueOutboundQueue skips querying when provider is missing")
+    void shouldReturnEmptyList_whenQueueProviderIsMissing() {
+        SmsTransactionDaoImpl dao = newDao();
+
+        List<SmsTransaction> transactions = dao.findDueOutboundQueue(null, new Date(), 100);
+
+        assertThat(transactions).isEmpty();
+        verify(entityManager, never()).createQuery(anyString(), eq(SmsTransaction.class));
+    }
+
+    @Test
+    @DisplayName("findDueOutboundQueue binds queue parameters and caps limits")
+    void shouldBindParameters_whenFindingDueQueue() {
+        SmsTransactionDaoImpl dao = newDao();
+        Date now = Date.from(Instant.parse("2026-06-08T12:00:00Z"));
+        SmsTransaction expected = new SmsTransaction();
+        when(entityManager.createQuery(anyString(), eq(SmsTransaction.class))).thenReturn(query);
+        when(query.setParameter(eq("direction"), org.mockito.ArgumentMatchers.any())).thenReturn(query);
+        when(query.setParameter("providerType", SmsProviderType.STUB)).thenReturn(query);
+        when(query.setParameter(eq("status"), org.mockito.ArgumentMatchers.any())).thenReturn(query);
+        when(query.setParameter("now", now)).thenReturn(query);
+        when(query.setMaxResults(500)).thenReturn(query);
+        when(query.getResultList()).thenReturn(List.of(expected));
+
+        List<SmsTransaction> transactions = dao.findDueOutboundQueue(SmsProviderType.STUB, now, 5_000);
+
+        assertThat(transactions).singleElement().isSameAs(expected);
+        verify(query).setParameter("providerType", SmsProviderType.STUB);
+        verify(query).setParameter("now", now);
+        verify(query).setMaxResults(500);
     }
 
     private SmsTransactionDaoImpl newDao() {

@@ -18,13 +18,17 @@ CREATE TABLE IF NOT EXISTS sms_transaction (
   error_code VARCHAR(64) NULL,
   error_message VARCHAR(1024) NULL,
   provider_metadata TEXT NULL,
+  attempt_count INT NOT NULL DEFAULT 0,
   created_at DATETIME NOT NULL,
   updated_at DATETIME NOT NULL,
+  next_attempt_at DATETIME NULL,
+  last_attempt_at DATETIME NULL,
   sent_at DATETIME NULL,
   delivered_at DATETIME NULL,
   received_at DATETIME NULL,
   PRIMARY KEY (id),
   KEY sms_transaction_demographic_created_idx (demographic_no, created_at),
   KEY sms_transaction_provider_message_idx (provider_type, provider_message_id),
+  KEY sms_transaction_queue_idx (status, provider_type, next_attempt_at),
   KEY sms_transaction_status_updated_idx (status, updated_at)
 );

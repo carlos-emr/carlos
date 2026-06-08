@@ -55,6 +55,7 @@ class SmsTransactionUnitTest {
                         20
                 );
         assertThat(transaction.getMessageBodySha256()).hasSize(64);
+        assertThat(transaction.getNextAttemptAt()).isNotNull();
     }
 
     @Test
@@ -91,13 +92,76 @@ class SmsTransactionUnitTest {
                 SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
         );
+        transaction.markSending(Date.from(Instant.parse("2026-06-08T12:00:00Z")));
 
         transaction.markProviderResult(SmsProviderSendResultDto.accepted("provider-1", SmsStatus.SENT));
 
         assertThat(transaction)
-                .extracting(SmsTransaction::getStatus, SmsTransaction::getProviderMessageId)
-                .containsExactly(SmsStatus.SENT, "provider-1");
+                .extracting(
+                        SmsTransaction::getStatus,
+                        SmsTransaction::getProviderMessageId,
+                        SmsTransaction::getAttemptCount,
+                        SmsTransaction::getNextAttemptAt
+                )
+                .containsExactly(SmsStatus.SENT, "provider-1", 1, null);
         assertThat(transaction.getSentAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("retry scheduling preserves failed provider details")
+    void shouldScheduleRetry_whenProviderSendFails() {
+        SmsTransaction transaction = SmsTransaction.outboundAttempt(
+                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsProviderType.STUB
+        );
+        Date attemptAt = Date.from(Instant.parse("2026-06-08T12:00:00Z"));
+        Date nextAttemptAt = Date.from(Instant.parse("2026-06-08T12:05:00Z"));
+
+        transaction.markSending(attemptAt);
+        transaction.markRetryScheduled(
+                SmsProviderSendResultDto.failed("PROVIDER_ERROR", "Provider rejected message"),
+                nextAttemptAt
+        );
+
+        assertThat(transaction)
+                .extracting(
+                        SmsTransaction::getStatus,
+                        SmsTransaction::getAttemptCount,
+                        SmsTransaction::getLastAttemptAt,
+                        SmsTransaction::getNextAttemptAt,
+                        SmsTransaction::getErrorCode
+                )
+                .containsExactly(SmsStatus.QUEUED, 1, attemptAt, nextAttemptAt, "PROVIDER_ERROR");
+    }
+
+    @Test
+    @DisplayName("transaction can rebuild send command for queued workers")
+    void shouldCreateSendCommand_whenTransactionIsQueued() {
+        SmsTransaction transaction = SmsTransaction.outboundAttempt(
+                new SmsSendCommand(
+                        123,
+                        "416-555-1212",
+                        "Appointment reminder",
+                        null,
+                        "999998",
+                        456,
+                        789
+                ),
+                SmsProviderType.STUB
+        );
+
+        SmsSendCommand command = transaction.toSendCommand();
+
+        assertThat(command)
+                .extracting(
+                        SmsSendCommand::demographicNo,
+                        SmsSendCommand::recipientPhoneNumber,
+                        SmsSendCommand::body,
+                        SmsSendCommand::providerNo,
+                        SmsSendCommand::appointmentNo,
+                        SmsSendCommand::relatedId
+                )
+                .containsExactly(123, "+14165551212", "Appointment reminder", "999998", 456, 789);
     }
 
     @Test
