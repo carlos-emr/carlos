@@ -25,7 +25,9 @@ package io.github.carlos_emr.carlos.eform;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
 import org.apache.logging.log4j.LogManager;
@@ -106,8 +108,8 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
      * Called by Spring after all properties are set. Deploys each bundled asset
      * to the eForm images directory if it doesn't already exist there.
      *
-     * <p>Creates the directory if it does not already exist. Exits early (with a
-     * warning log) if the path is not configured or cannot be created — the
+     * <p>Exits early (with a warning log) if the path is not configured or does
+     * not exist. Environment bootstrap is responsible for creating the directory; the
      * application still starts, but the RTL editor will be broken.</p>
      */
     @Override
@@ -125,34 +127,14 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
             logger.warn("eForm image directory is invalid: {}; skipping asset deployment", imageDir, e);
             return;
         }
-        if (!targetDir.isDirectory() && !createDirectory(targetDir, imageDir)) {
+        if (!targetDir.isDirectory()) {
+            logger.warn("eForm image directory does not exist: {}; skipping asset deployment", imageDir);
             return;
         }
 
         for (String asset : ASSETS) {
             deployAsset(asset, targetDir);
         }
-    }
-
-    /**
-     * Creates the target directory and sets owner-only permissions.
-     *
-     * @return {@code true} if the directory exists after this call, {@code false} if creation failed
-     */
-    private boolean createDirectory(File targetDir, String imageDir) {
-        if (!targetDir.mkdirs() && !targetDir.isDirectory()) {
-            logger.warn("eForm image directory does not exist and could not be created: {}; skipping asset deployment", imageDir);
-            return false;
-        }
-        boolean readable = targetDir.setReadable(true, true);
-        boolean writable = targetDir.setWritable(true, true);
-        boolean executable = targetDir.setExecutable(true, true);
-        if ((!readable || !writable || !executable) && logger.isWarnEnabled()) {
-            String failed = (!readable ? "setReadable " : "") + (!writable ? "setWritable " : "") + (!executable ? "setExecutable " : "");
-            logger.warn("Could not set owner-only permissions on eForm image directory: {}; failed: [{}]; OS default permissions remain in place", imageDir, failed.trim());
-        }
-        logger.info("Created eForm image directory: {}", imageDir);
-        return true;
     }
 
     /**
@@ -165,6 +147,8 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     private void deployAsset(String filename, File targetDir) {
         File targetFile = new File(targetDir, filename);
+        Path targetPath = targetFile.toPath();
+        Path tempFile = null;
         if (targetFile.exists()) {
             logger.debug("eForm asset already exists, skipping: {}", targetFile.getAbsolutePath());
             return;
@@ -176,17 +160,27 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
                 logger.warn("Bundled eForm asset not found in WAR: {}", resourcePath);
                 return;
             }
-            // REPLACE_EXISTING guards the TOCTOU window between the exists() check above and the actual copy
-            Files.copy(is, targetFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            tempFile = Files.createTempFile(targetDir.toPath(), filename + ".", ".tmp");
+            Files.copy(is, tempFile, StandardCopyOption.REPLACE_EXISTING);
+            Files.move(tempFile, targetPath);
             logger.info("Deployed eForm asset: {} -> {}", resourcePath, targetFile.getAbsolutePath());
+        } catch (FileAlreadyExistsException e) {
+            logger.debug("eForm asset was created concurrently, skipping: {}", targetFile.getAbsolutePath());
         } catch (IOException e) {
             logger.error("Failed to deploy eForm asset: {}", filename, e);
-            // Remove the partial file so a subsequent restart can retry deployment cleanly
-            try {
-                Files.deleteIfExists(targetFile.toPath());
-            } catch (IOException deleteEx) {
-                logger.warn("Could not remove partial eForm asset file: {}; next restart will skip redeployment", targetFile.getAbsolutePath(), deleteEx);
-            }
+        } finally {
+            deleteTempFile(tempFile);
+        }
+    }
+
+    private void deleteTempFile(Path tempFile) {
+        if (tempFile == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(tempFile);
+        } catch (IOException deleteEx) {
+            logger.warn("Could not remove temporary eForm asset file: {}", tempFile, deleteEx);
         }
     }
 }

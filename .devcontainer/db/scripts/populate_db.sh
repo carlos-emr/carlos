@@ -35,7 +35,7 @@ mysql -u root -p"$DB_PASSWORD" oscar < /scripts/development.sql
 echo 'Preparing demographic names for development environment...'
 mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2025-11-06-demo-name-sanitization.sql
 echo 'Creating eForm images directory for RTL asset deployment...'
-mkdir -p /var/lib/OscarDocument/oscar/eform/images/
+/scripts/bootstrap-property-directories /root/carlos.properties EFORM_IMAGES_DIR
 echo 'Seeding Rich Text Letter eForm...'
 mysql -u root -p"$DB_PASSWORD" oscar < /database/mysql/updates/update-2012-07-12.sql
 echo 'Modernizing Rich Text Letter eForm to 2026.3.0...'

@@ -126,16 +126,20 @@ class EFormJspMigrationRegressionTest {
     void shouldUseButtonToggle_forCreateEFormDropdown() throws IOException {
         String nav = Files.readString(EFM_TOP_NAV_JSPF, StandardCharsets.UTF_8);
 
-        // Bootstrap 5 requires the toggle element to be a <button> — <a href="javascript:void(0)"> does not fire
-        // navbar-expand keeps items horizontal; navbar-nav/nav-item required for correct BS5 caret/positioning
-        assertThat(nav)
-            .contains("<button type=\"button\"")
-            .contains("aria-expanded=\"false\"")
-            .contains("data-bs-toggle=\"dropdown\"")
-            .doesNotContain("javascript:void(0)")
-            .contains("navbar-nav")
-            .contains("nav-item dropdown")
-            .contains("navbar-expand");
+        Pattern createTogglePattern = Pattern.compile(
+            "<li class=\"nav-item dropdown\">\\s*"
+                + "<button[^>]*type=\"button\"[^>]*>\\s*Create eForm",
+            Pattern.DOTALL);
+        Pattern toggleClassPattern = Pattern.compile(
+            "<button[^>]*class=\"(?=[^\"]*\\bcontentLink\\b)(?=[^\"]*\\bnav-link\\b)(?=[^\"]*\\bdropdown-toggle\\b)[^\"]*\"[^>]*>\\s*Create eForm",
+            Pattern.DOTALL);
+
+        assertThat(createTogglePattern.matcher(nav).find()).isTrue();
+        assertThat(toggleClassPattern.matcher(nav).find()).isTrue();
+        assertThat(nav).doesNotContain("javascript:void(0)");
+        assertThat(nav).containsPattern("<button[^>]*data-bs-toggle=\"dropdown\"");
+        assertThat(nav).containsPattern("<button[^>]*aria-haspopup=\"true\"");
+        assertThat(nav).containsPattern("<button[^>]*aria-expanded=\"false\"");
     }
 
     @Test

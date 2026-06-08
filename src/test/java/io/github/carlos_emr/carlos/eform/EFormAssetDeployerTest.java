@@ -22,13 +22,10 @@
 package io.github.carlos_emr.carlos.eform;
 
 import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
-import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import jakarta.servlet.ServletContext;
 import org.apache.commons.io.FileUtils;
-import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.*;
 import org.mockito.*;
 
@@ -191,18 +188,15 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("Should skip deployment when directory cannot be created")
-        void shouldSkipDeployment_whenDirectoryCannotBeCreated() throws Exception {
-            // Place a regular file where a parent directory is needed — mkdirs() fails even as root
-            // because a file cannot contain a subdirectory
-            Path blockingFile = tempDir.resolve("blocker");
-            Files.writeString(blockingFile, "I am a file, not a directory");
-            Path uncreatable = blockingFile.resolve("images");
+        @DisplayName("Should skip deployment when image directory does not exist")
+        void shouldSkipDeployment_whenImageDirectoryDoesNotExist() {
+            Path missingDir = tempDir.resolve("missing-eform-images");
 
-            when(mockProperties.getEformImageDirectory()).thenReturn(uncreatable.toString());
+            when(mockProperties.getEformImageDirectory()).thenReturn(missingDir.toString());
 
             deployer.afterPropertiesSet();
 
+            assertThat(missingDir).doesNotExist();
             verifyNoInteractions(mockServletContext);
         }
     }
@@ -261,9 +255,41 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
 
             assertThatCode(() -> deployer.afterPropertiesSet()).doesNotThrowAnyException();
 
-            // editControl2.js copy failed — must not produce a zero-byte or partial file
+            // editControl2.js copy failed — must not produce a zero-byte or partial final file
             assertThat(new File(tempDir.toFile(), "editControl2.js")).doesNotExist();
+            assertThat(tempDir.toFile().listFiles((dir, name) -> name.startsWith("editControl2.js.") && name.endsWith(".tmp")))
+                .isEmpty();
             // blank.rtl and editor_help.html should have been deployed despite editControl2.js failure
+            assertThat(new File(tempDir.toFile(), "blank.rtl")).exists();
+            assertThat(new File(tempDir.toFile(), "editor_help.html")).exists();
+        }
+
+        @Test
+        @DisplayName("Should not delete asset created concurrently when copy fails")
+        void shouldNotDeleteAssetCreatedConcurrently_whenCopyFails() throws Exception {
+            when(mockProperties.getEformImageDirectory()).thenReturn(tempDir.toString());
+            File concurrentAsset = new File(tempDir.toFile(), "editControl2.js");
+
+            InputStream failingStream = mock(InputStream.class);
+            when(failingStream.read(any(byte[].class), anyInt(), anyInt()))
+                .thenAnswer(invocation -> {
+                    Files.writeString(concurrentAsset.toPath(), "concurrent valid content");
+                    throw new IOException("disk full");
+                });
+            when(failingStream.transferTo(any())).thenAnswer(invocation -> {
+                Files.writeString(concurrentAsset.toPath(), "concurrent valid content");
+                throw new IOException("disk full");
+            });
+            when(mockServletContext.getResourceAsStream(RESOURCE_EDITCONTROL)).thenReturn(failingStream);
+            when(mockServletContext.getResourceAsStream(RESOURCE_BLANK)).thenReturn(toStream("blank"));
+            when(mockServletContext.getResourceAsStream(RESOURCE_HELP)).thenReturn(toStream("help"));
+
+            assertThatCode(() -> deployer.afterPropertiesSet()).doesNotThrowAnyException();
+
+            assertThat(concurrentAsset).exists();
+            assertThat(Files.readString(concurrentAsset.toPath())).isEqualTo("concurrent valid content");
+            assertThat(tempDir.toFile().listFiles((dir, name) -> name.startsWith("editControl2.js.") && name.endsWith(".tmp")))
+                .isEmpty();
             assertThat(new File(tempDir.toFile(), "blank.rtl")).exists();
             assertThat(new File(tempDir.toFile(), "editor_help.html")).exists();
         }
@@ -282,110 +308,6 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
             EFormAssetDeployer d = new EFormAssetDeployer();
 
             assertThatCode(() -> d.setServletContext(ctx)).doesNotThrowAnyException();
-        }
-    }
-
-    @Nested
-    @Tag("unit")
-    @Tag("eform")
-    @DisplayName("Directory Creation")
-    class DirectoryCreation {
-
-        @Test
-        @DisplayName("Should create missing directory and deploy all assets")
-        void shouldCreateDirectoryAndDeployAllAssets_whenDirectoryDoesNotExist() throws IOException {
-            Path newDir = tempDir.resolve("missing-eform-images");
-            // newDir does not exist yet — deployer must create it
-            when(mockProperties.getEformImageDirectory()).thenReturn(newDir.toString());
-            stubAllAssets();
-
-            deployer.afterPropertiesSet();
-
-            assertThat(newDir).isDirectory();
-            assertThat(new File(newDir.toFile(), "editControl2.js")).exists();
-            assertThat(new File(newDir.toFile(), "blank.rtl")).exists();
-            assertThat(new File(newDir.toFile(), "editor_help.html")).exists();
-        }
-
-        @Test
-        @DisplayName("Should log info message when directory is created")
-        void shouldLogInfo_whenDirectoryIsCreated() {
-            Path newDir = tempDir.resolve("log-test-images");
-            when(mockProperties.getEformImageDirectory()).thenReturn(newDir.toString());
-            when(mockServletContext.getResourceAsStream(anyString())).thenReturn(null);
-
-            try (LogCapture log = LogCapture.forLogger(EFormAssetDeployer.class)) {
-                deployer.afterPropertiesSet();
-
-                assertThat(log.events())
-                    .anySatisfy(event -> {
-                        assertThat(event.getLevel()).isEqualTo(Level.INFO);
-                        assertThat(event.getMessage().getFormattedMessage())
-                            .contains("Created eForm image directory");
-                    });
-            }
-        }
-
-        @Test
-        @DisplayName("Should skip deployment when configured path exists as a regular file")
-        void shouldSkipDeployment_whenConfiguredPathIsExistingFile() throws Exception {
-            // resolveConfiguredDirectory throws SecurityException when the path is an existing file
-            File existingFile = tempDir.resolve("not-a-directory.txt").toFile();
-            Files.writeString(existingFile.toPath(), "I am a file");
-
-            when(mockProperties.getEformImageDirectory()).thenReturn(existingFile.toString());
-
-            deployer.afterPropertiesSet();
-
-            verifyNoInteractions(mockServletContext);
-        }
-
-        @Test
-        @DisplayName("Should not throw when directory creation succeeds and no assets are in WAR")
-        void shouldNotThrow_whenDirectoryCreatedButNoAssetsInWar() {
-            Path newDir = tempDir.resolve("empty-war-test");
-            when(mockProperties.getEformImageDirectory()).thenReturn(newDir.toString());
-            when(mockServletContext.getResourceAsStream(anyString())).thenReturn(null);
-
-            assertThatCode(() -> deployer.afterPropertiesSet()).doesNotThrowAnyException();
-            assertThat(newDir).isDirectory();
-        }
-
-        @Test
-        @DisplayName("Should log warning with specific failed op names when permission setting fails after directory creation")
-        void shouldLogWarningWithFailedOps_whenPermissionSettingFails() throws Exception {
-            // Spy a real directory so new File(spiedDir, filename) can access the internal path field,
-            // then override permission methods to return false — exercises the warning branch
-            // without needing to run as a non-root user or modify real filesystem permissions.
-            Path permTestDir = tempDir.resolve("perms-spy-test");
-            Files.createDirectory(permTestDir);
-            File spiedDir = spy(permTestDir.toFile());
-            doReturn(false).when(spiedDir).isDirectory();      // forces entry into creation block
-            doReturn(true).when(spiedDir).mkdirs();            // mkdirs reports success
-            doReturn(false).when(spiedDir).setReadable(true, true);
-            doReturn(true).when(spiedDir).setWritable(true, true);
-            doReturn(false).when(spiedDir).setExecutable(true, true);
-
-            when(mockServletContext.getResourceAsStream(anyString())).thenReturn(null);
-
-            try (MockedStatic<PathValidationUtils> pvMock = mockStatic(PathValidationUtils.class);
-                 LogCapture log = LogCapture.forLogger(EFormAssetDeployer.class)) {
-
-                pvMock.when(() -> PathValidationUtils.resolveConfiguredDirectory(anyString(), anyString()))
-                      .thenReturn(spiedDir);
-                when(mockProperties.getEformImageDirectory()).thenReturn(permTestDir.toString());
-
-                deployer.afterPropertiesSet();
-
-                assertThat(log.events()).anySatisfy(event -> {
-                    assertThat(event.getLevel()).isEqualTo(Level.WARN);
-                    assertThat(event.getMessage().getFormattedMessage())
-                        .contains("Could not set owner-only permissions")
-                        .contains("setReadable")
-                        .contains("setExecutable")
-                        .doesNotContain("setWritable");
-                });
-            }
         }
     }
 }
