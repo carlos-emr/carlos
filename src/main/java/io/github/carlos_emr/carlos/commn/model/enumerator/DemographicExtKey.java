@@ -19,6 +19,11 @@ import java.util.Map;
 /**
  * <code>DemographicExtKey</code> contains key name constants for demographicExt table
  */
+/**
+ * Enumeration defining the specific constants for DemographicExtKey within the CARLOS system.
+ * These values represent strictly allowed options for DemographicExtKey in the domain model.
+ */
+
 public enum DemographicExtKey {
     ABORIGINAL("aboriginal"),
     ALERT_ALLERGY("alertForAllergy", "allergyalert"),

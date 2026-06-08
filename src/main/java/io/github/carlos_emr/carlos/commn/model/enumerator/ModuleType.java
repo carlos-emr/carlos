@@ -26,6 +26,10 @@
  */
 
 package io.github.carlos_emr.carlos.commn.model.enumerator;
+/**
+ * Enumeration defining the specific constants for ModuleType within the CARLOS system.
+ * These values represent strictly allowed options for ModuleType in the domain model.
+ */
 
 public enum ModuleType {
     CONSULTATION,

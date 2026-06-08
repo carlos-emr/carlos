@@ -1,4 +1,8 @@
 package io.github.carlos_emr.carlos.commn.model.enumerator;
+/**
+ * Enumeration defining the specific constants for DocumentType within the CARLOS system.
+ * These values represent strictly allowed options for DocumentType in the domain model.
+ */
 
 public enum DocumentType {
     EFORM("E", "eForm"),

@@ -5,6 +5,10 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import java.io.Serializable;
 import java.util.Objects;
+/**
+ * Composite key representation for the EReferAttachmentData entity.
+ * Used by JPA to uniquely identify records using multiple columns.
+ */
 
 public class EReferAttachmentDataCompositeKey implements Serializable {
     @ManyToOne

@@ -11,6 +11,10 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.util.Date;
 import java.util.List;
+/**
+ * JPA Entity representing the EReferAttachment record in the database.
+ * Maps the EReferAttachment table columns to object properties for data access.
+ */
 
 @Entity
 @Table(name = "erefer_attachment")
@@ -41,6 +45,7 @@ public class EReferAttachment extends AbstractModel<Integer> {
         this.created = new Date();
     }
 
+    // Retrieves the primary key identifier for this entity
     public Integer getId() {
         return id;
     }

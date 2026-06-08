@@ -32,12 +32,17 @@ import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 
 import jakarta.persistence.*;
 import java.io.Serializable;
+/**
+ * Enumeration defining the specific constants for Pronoun within the CARLOS system.
+ * These values represent strictly allowed options for Pronoun in the domain model.
+ */
 
 @Entity
 @Table(name = "lst_pronoun")
 @NamedQuery(name = "Pronoun.findAll", query = "SELECT p FROM Pronoun p")
 public class Pronoun extends AbstractModel<String> implements Serializable {
 
+    // Unique identifier for reliable serialization across different JVMs
     private static final long serialVersionUID = 1L;
 
 

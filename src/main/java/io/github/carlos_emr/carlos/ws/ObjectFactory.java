@@ -4,6 +4,10 @@ import jakarta.xml.bind.annotation.XmlElementDecl;
 import jakarta.xml.bind.JAXBElement;
 import javax.xml.namespace.QName;
 import jakarta.xml.bind.annotation.XmlRegistry;
+/**
+ * JAXB ObjectFactory used to create instances of web service payload classes.
+ * Required by the JAXB context to instantiate XML elements like HelloWorld and Gender.
+ */
 
 @XmlRegistry
 public class ObjectFactory

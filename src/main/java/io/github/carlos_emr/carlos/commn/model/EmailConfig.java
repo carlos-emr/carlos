@@ -4,6 +4,10 @@ import io.github.carlos_emr.carlos.commn.model.converter.EmailConfigProviderConv
 import io.github.carlos_emr.carlos.commn.model.converter.EmailConfigTypeConverter;
 import jakarta.persistence.*;
 import java.util.List;
+/**
+ * JPA Entity representing the EmailConfig record in the database.
+ * Maps the EmailConfig table columns to object properties for data access.
+ */
 
 @Entity
 @Table(name = "emailConfig")
@@ -55,6 +59,7 @@ public class EmailConfig extends AbstractModel<Integer> {
     }
 
     @Override
+    // Retrieves the primary key identifier for this entity
     public Integer getId() {
         return id;
     }

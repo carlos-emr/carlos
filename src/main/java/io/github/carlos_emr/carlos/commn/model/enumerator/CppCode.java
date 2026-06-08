@@ -2,6 +2,10 @@ package io.github.carlos_emr.carlos.commn.model.enumerator;
 
 import java.util.ArrayList;
 import java.util.List;
+/**
+ * Enumeration defining the specific constants for CppCode within the CARLOS system.
+ * These values represent strictly allowed options for CppCode in the domain model.
+ */
 
 public enum CppCode {
     OMEDS("OMeds"),

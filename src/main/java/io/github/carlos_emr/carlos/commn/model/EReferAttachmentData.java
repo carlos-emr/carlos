@@ -7,6 +7,10 @@ import jakarta.persistence.IdClass;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+/**
+ * JPA Entity representing the EReferAttachmentData record in the database.
+ * Maps the EReferAttachmentData table columns to object properties for data access.
+ */
 
 @Entity
 @IdClass(EReferAttachmentDataCompositeKey.class)
@@ -34,6 +38,7 @@ public class EReferAttachmentData extends AbstractModel<EReferAttachmentDataComp
         this.labType = labType;
     }
 
+    // Retrieves the primary key identifier for this entity
     public EReferAttachmentDataCompositeKey getId() {
         return new EReferAttachmentDataCompositeKey(eReferAttachment, labId, labType);
     }

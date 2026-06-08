@@ -5,11 +5,16 @@ import jakarta.xml.bind.annotation.XmlType;
 import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
+/**
+ * Data Transfer Object representing the payload for the HelloWorld2Response web service response.
+ * Encapsulates the result data sent back to the SOAP/REST client.
+ */
 
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "helloWorld2Response", propOrder = { "_return" })
 public class HelloWorld2Response implements Serializable
 {
+    // Unique identifier for reliable serialization across different JVMs
     private static final long serialVersionUID = 1L;
     @XmlElement(name = "return")
     protected String _return;

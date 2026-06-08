@@ -38,10 +38,16 @@ import io.github.carlos_emr.carlos.commn.model.AbstractModel;
  * Model class for the lst_gender database table.
  * Contains an enumerated class for Gender code.
  */
+/**
+ * Enumeration defining the specific constants for Gender within the CARLOS system.
+ * These values represent strictly allowed options for Gender in the domain model.
+ */
+
 @Entity
 @Table(name = "lst_gender")
 @NamedQuery(name = "Gender.findAll", query = "SELECT g FROM Gender g")
 public class Gender extends AbstractModel<String> implements Serializable {
+    // Unique identifier for reliable serialization across different JVMs
     private static final long serialVersionUID = 1L;
 
 

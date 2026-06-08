@@ -1,4 +1,8 @@
 package io.github.carlos_emr.carlos.commn.model.enumerator;
+/**
+ * Enumeration defining the specific constants for ConsultationRequestExtKey within the CARLOS system.
+ * These values represent strictly allowed options for ConsultationRequestExtKey in the domain model.
+ */
 
 public enum ConsultationRequestExtKey {
     EREFERRAL_REF("ereferral_ref"),

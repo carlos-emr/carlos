@@ -4,6 +4,10 @@ import io.github.carlos_emr.carlos.commn.model.converter.EmailAttachmentDocument
 import jakarta.persistence.*;
 
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+/**
+ * JPA Entity representing the EmailAttachment record in the database.
+ * Maps the EmailAttachment table columns to object properties for data access.
+ */
 
 @Entity
 @Table(name = "emailAttachment")
@@ -55,6 +59,7 @@ public class EmailAttachment extends AbstractModel<Integer> {
         this.documentId = documentId;
     }
 
+    // Retrieves the primary key identifier for this entity
     public Integer getId() {
         return id;
     }

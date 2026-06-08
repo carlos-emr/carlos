@@ -13,6 +13,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
+/**
+ * JPA Entity representing the JSONAction record in the database.
+ * Maps the JSONAction table columns to object properties for data access.
+ */
 
 public class JSONAction extends ActionSupport {
 
