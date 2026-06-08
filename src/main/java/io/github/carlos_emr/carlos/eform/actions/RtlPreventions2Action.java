@@ -35,8 +35,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import org.owasp.encoder.Encode;
 
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.commn.model.Prevention;
 import io.github.carlos_emr.carlos.managers.PreventionManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -100,7 +100,7 @@ public class RtlPreventions2Action extends ActionSupport {
         // Mandatory security check — same _eform privilege used by all eForm endpoints
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", "r", null)) {
-            throw new SecurityException("missing required security object _eform");
+            throw new SecurityException("missing required sec object (_eform)");
         }
 
         // Validate demographic_no: must be digits only. The regex check prevents
@@ -139,8 +139,8 @@ public class RtlPreventions2Action extends ActionSupport {
                         ? DATE_FORMAT.format(p.getPreventionDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate())
                         : "";
                     // OWASP-encode both values before inserting into HTML
-                    html.append("<tr><td>").append(Encode.forHtml(type))
-                        .append("</td><td>").append(Encode.forHtml(date))
+                    html.append("<tr><td>").append(SafeEncode.forHtml(type))
+                        .append("</td><td>").append(SafeEncode.forHtml(date))
                         .append("</td></tr>");
                 }
                 html.append("</table>");
