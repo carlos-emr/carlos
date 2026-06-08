@@ -115,6 +115,7 @@ class ScheduleNavigationAssetRegressionTest {
         String normalizedSentMessage = normalizeWhitespace(sentMessage);
         String inboxhub = Files.readString(INBOXHUB_JSP, StandardCharsets.UTF_8);
         String ticklerMain = Files.readString(TICKLER_MAIN_JSP, StandardCharsets.UTF_8);
+        String normalizedTicklerMain = normalizeWhitespace(ticklerMain);
         String mainMenu = Files.readString(MAIN_MENU_JSP, StandardCharsets.UTF_8);
         String appointmentProviderDay = Files.readString(APPOINTMENT_PROVIDER_DAY_JSP, StandardCharsets.UTF_8);
         String scheduleScript = Files.readString(SCHEDULE_PAGE_SCRIPT, StandardCharsets.UTF_8);
@@ -176,10 +177,11 @@ class ScheduleNavigationAssetRegressionTest {
                 .doesNotContain("const contextPath =");
         assertThat(ticklerMain)
                 .contains("boolean showScheduleNav = \"1\".equals(request.getParameter(\"scheduleNav\"));")
-                .contains("<link rel=\"stylesheet\" href=\"<%=request.getContextPath()%>/css/topnav.css\">")
-                .contains("<jsp:include page=\"/WEB-INF/jsp/provider/mainMenu.jsp\"/>")
                 .contains("action=\"<%= request.getContextPath() %>/tickler/ViewTicklerMain\"")
                 .contains("<input type=\"hidden\" name=\"scheduleNav\" value=\"1\">");
+        assertThat(normalizedTicklerMain)
+                .contains("<% if (showScheduleNav) { %> <link rel=\"stylesheet\" href=\"<%=request.getContextPath()%>/css/topnav.css\"> <% } %>")
+                .contains("<% if (showScheduleNav) { %> <jsp:include page=\"/WEB-INF/jsp/provider/mainMenu.jsp\"/> <% } %>");
         assertThat(mainMenu)
                 .contains("NavPath.requestPathMatches")
                 .doesNotContain("private boolean requestPathMatches")
