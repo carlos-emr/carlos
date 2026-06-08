@@ -34,6 +34,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -137,6 +138,39 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
             File deployed = new File(tempDir.toFile(), "editControl2.js");
             assertThat(deployed).exists();
             assertThat(Files.readString(deployed.toPath())).isEqualTo(expectedContent);
+        }
+
+        @Test
+        @DisplayName("Should fall back to regular move when atomic move is unsupported")
+        void shouldFallbackToRegularMove_whenAtomicMoveUnsupported() throws Exception {
+            when(mockProperties.getEformImageDirectory()).thenReturn(tempDir.toString());
+            when(mockServletContext.getResourceAsStream(RESOURCE_EDITCONTROL)).thenReturn(toStream("js content"));
+            when(mockServletContext.getResourceAsStream(RESOURCE_BLANK)).thenReturn(null);
+            when(mockServletContext.getResourceAsStream(RESOURCE_HELP)).thenReturn(null);
+
+            boolean[] fallbackUsed = {false};
+            EFormAssetDeployer fallbackDeployer = new EFormAssetDeployer() {
+                @Override
+                void moveTempFileAtomically(Path tempFile, Path targetPath) throws IOException {
+                    throw new AtomicMoveNotSupportedException(tempFile.toString(), targetPath.toString(), "test filesystem");
+                }
+
+                @Override
+                void moveTempFileWithoutAtomicOption(Path tempFile, Path targetPath) throws IOException {
+                    fallbackUsed[0] = true;
+                    super.moveTempFileWithoutAtomicOption(tempFile, targetPath);
+                }
+            };
+            fallbackDeployer.setServletContext(mockServletContext);
+
+            fallbackDeployer.afterPropertiesSet();
+
+            File deployed = new File(tempDir.toFile(), "editControl2.js");
+            assertThat(fallbackUsed[0]).isTrue();
+            assertThat(deployed).exists();
+            assertThat(Files.readString(deployed.toPath())).isEqualTo("js content");
+            assertThat(tempDir.toFile().listFiles((dir, name) -> name.startsWith("editControl2.js.") && name.endsWith(".tmp")))
+                .isEmpty();
         }
 
         @Test

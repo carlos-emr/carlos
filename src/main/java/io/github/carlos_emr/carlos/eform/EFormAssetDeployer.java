@@ -25,6 +25,7 @@ package io.github.carlos_emr.carlos.eform;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -162,7 +163,7 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
             }
             tempFile = Files.createTempFile(targetDir.toPath(), filename + ".", ".tmp");
             Files.copy(is, tempFile, StandardCopyOption.REPLACE_EXISTING);
-            Files.move(tempFile, targetPath, StandardCopyOption.ATOMIC_MOVE);
+            moveTempFile(tempFile, targetPath);
             logger.info("Deployed eForm asset: {} -> {}", resourcePath, targetFile.getAbsolutePath());
         } catch (FileAlreadyExistsException e) {
             logger.debug("eForm asset was created concurrently, skipping: {}", targetFile.getAbsolutePath());
@@ -171,6 +172,23 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
         } finally {
             deleteTempFile(tempFile);
         }
+    }
+
+    void moveTempFile(Path tempFile, Path targetPath) throws IOException {
+        try {
+            moveTempFileAtomically(tempFile, targetPath);
+        } catch (AtomicMoveNotSupportedException e) {
+            logger.debug("Atomic move not supported for eForm asset deployment; falling back to regular move: {} -> {}", tempFile, targetPath);
+            moveTempFileWithoutAtomicOption(tempFile, targetPath);
+        }
+    }
+
+    void moveTempFileAtomically(Path tempFile, Path targetPath) throws IOException {
+        Files.move(tempFile, targetPath, StandardCopyOption.ATOMIC_MOVE);
+    }
+
+    void moveTempFileWithoutAtomicOption(Path tempFile, Path targetPath) throws IOException {
+        Files.move(tempFile, targetPath);
     }
 
     private void deleteTempFile(Path tempFile) {

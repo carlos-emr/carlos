@@ -13,10 +13,8 @@
  */
 
 const fs = require('fs');
-const path = require('path');
 const { chromium } = require('playwright');
 
-const repoRoot = path.resolve(__dirname, '..');
 const chromePath = process.env.CHROME_PATH || '';
 const screenshotDir = process.env.EFORM_SCREENSHOT_DIR || '/tmp';
 
@@ -26,19 +24,17 @@ function assert(condition, message) {
   }
 }
 
-const files = {
-  navJsp: path.join(repoRoot, 'src/main/webapp/WEB-INF/jsp/eform/efmTopNav.jspf'),
-  editorJsp: path.join(repoRoot, 'src/main/webapp/WEB-INF/jsp/eform/efmformmanageredit.jsp'),
-  bootstrapJs: path.join(repoRoot, 'src/main/webapp/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js'),
-  bootstrapCss: path.join(repoRoot, 'src/main/webapp/library/bootstrap/5.3.8/css/bootstrap.min.css'),
-};
+const navJspPath = `${__dirname}/../src/main/webapp/WEB-INF/jsp/eform/efmTopNav.jspf`;
+const editorJspPath = `${__dirname}/../src/main/webapp/WEB-INF/jsp/eform/efmformmanageredit.jsp`;
+const bootstrapJsPath = `${__dirname}/../src/main/webapp/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js`;
+const bootstrapCssPath = `${__dirname}/../src/main/webapp/library/bootstrap/5.3.8/css/bootstrap.min.css`;
 
-function readKnownRepoFile(filePath) {
-  const resolved = path.resolve(filePath);
-  if (!resolved.startsWith(`${repoRoot}${path.sep}`)) {
-    throw new Error(`Refusing to read file outside repository root: ${resolved}`);
-  }
-  return fs.readFileSync(resolved, 'utf8');
+function readNavJsp() {
+  return fs.readFileSync(navJspPath, 'utf8');
+}
+
+function readEditorJsp() {
+  return fs.readFileSync(editorJspPath, 'utf8');
 }
 
 function jspFragmentToHtml(jsp) {
@@ -57,8 +53,8 @@ function appPathFromHref(href) {
 }
 
 (async () => {
-  const navJsp = readKnownRepoFile(files.navJsp);
-  const editorJsp = readKnownRepoFile(files.editorJsp);
+  const navJsp = readNavJsp();
+  const editorJsp = readEditorJsp();
   const navHtml = jspFragmentToHtml(navJsp);
 
   assert(!navHtml.includes('javascript:void(0)'), 'eForm nav must not use javascript:void(0) links');
@@ -87,8 +83,8 @@ function appPathFromHref(href) {
 </head>
 <body><div id="fixture-root"></div></body>
 </html>`, { waitUntil: 'domcontentloaded' });
-    await page.addStyleTag({ path: files.bootstrapCss });
-    await page.addScriptTag({ path: files.bootstrapJs });
+    await page.addStyleTag({ path: bootstrapCssPath });
+    await page.addScriptTag({ path: bootstrapJsPath });
     await page.locator('#fixture-root').evaluate((root, html) => {
       root.innerHTML = html;
     }, navHtml);
@@ -132,7 +128,7 @@ function appPathFromHref(href) {
     assert(menuItems.some((item) => item.onclick.includes('/carlos/eform/eformGenerator')), 'eForm generator popup route missing');
 
     fs.mkdirSync(screenshotDir, { recursive: true });
-    const screenshotPath = path.join(screenshotDir, 'eform-admin-dropdown.png');
+    const screenshotPath = `${screenshotDir.replace(/\/+$/, '')}/eform-admin-dropdown.png`;
     await page.screenshot({ path: screenshotPath, fullPage: true });
 
     assert(consoleIssues.length === 0, `Unexpected browser console issues:\n${consoleIssues.join('\n')}`);
