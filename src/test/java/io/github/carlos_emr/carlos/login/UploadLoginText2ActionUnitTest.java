@@ -21,11 +21,19 @@
  */
 package io.github.carlos_emr.carlos.login;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import org.apache.struts2.ActionSupport;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -35,9 +43,33 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("login")
 class UploadLoginText2ActionUnitTest extends CarlosWebTestBase {
 
+    @TempDir
+    private Path documentDir;
+
+    @TempDir
+    private Path uploadDir;
+
+    private String originalDocumentDir;
+
+    @BeforeEach
+    void setUpDocumentDir() {
+        originalDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir.toString());
+    }
+
+    @AfterEach
+    void restoreDocumentDir() {
+        if (originalDocumentDir == null) {
+            CarlosProperties.getInstance().remove("DOCUMENT_DIR");
+        } else {
+            CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", originalDocumentDir);
+        }
+    }
+
     @Test
     @DisplayName("should return success when upload file is missing")
     void shouldReturnSuccess_whenUploadFileIsMissing() throws Exception {
+        addValidDurationParameters();
         UploadLoginText2Action action = new UploadLoginText2Action();
         action.setImportFile(null);
 
@@ -45,5 +77,28 @@ class UploadLoginText2ActionUnitTest extends CarlosWebTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
         assertThat(getMockRequest().getAttribute("error")).isEqualTo(false);
+        assertThat(documentDir.resolve("OSCARloginText.txt")).doesNotExist();
+    }
+
+    @Test
+    @DisplayName("should write login text when upload file is present")
+    void shouldWriteLoginText_whenUploadFileIsPresent() throws Exception {
+        addValidDurationParameters();
+        Path uploadFile = Files.createTempFile(uploadDir, "login-text-", ".txt");
+        Files.writeString(uploadFile, "updated login text", StandardCharsets.UTF_8);
+        UploadLoginText2Action action = new UploadLoginText2Action();
+        action.setImportFile(uploadFile.toFile());
+
+        String result = executeAction(action);
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(getMockRequest().getAttribute("error")).isEqualTo(false);
+        assertThat(documentDir.resolve("OSCARloginText.txt"))
+                .hasContent("updated login text");
+    }
+
+    private void addValidDurationParameters() {
+        addRequestParameter("validDurationNumber", "1");
+        addRequestParameter("validDurationPeriod", "year");
     }
 }
