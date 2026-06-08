@@ -18,6 +18,8 @@ import jakarta.ws.rs.core.Response;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -85,9 +87,15 @@ class OscarRequestTokenServiceUnitTest {
         verify(dataProvider, never()).createRequestToken(any());
     }
 
-    @Test
-    @DisplayName("should normalize and store valid HTTPS callback when initiating request token")
-    void shouldNormalizeAndStoreCallbackUrl_whenCallbackIsValidHttps() {
+    @ParameterizedTest
+    @CsvSource({
+            "HTTPS://APP.EXAMPLE/callback, https://app.example/callback",
+            "HTTPS://APP.EXAMPLE:443/callback, https://app.example/callback",
+            "OOB, oob"
+    })
+    @DisplayName("should store canonical callback when request callback is allowed")
+    void shouldStoreCanonicalCallback_whenRequestCallbackIsAllowed(String requestedCallback,
+                                                                   String expectedCallback) {
         OscarOAuthDataProvider dataProvider = mock(OscarOAuthDataProvider.class);
         OAuth1ParamParser parser = mock(OAuth1ParamParser.class);
         OAuth1SignatureVerifier verifier = mock(OAuth1SignatureVerifier.class);
@@ -98,7 +106,7 @@ class OscarRequestTokenServiceUnitTest {
         request.setScheme("https");
         OAuth1Request oauthRequest = new OAuth1Request();
         oauthRequest.consumerKey = "consumer";
-        oauthRequest.callback = "HTTPS://APP.EXAMPLE/callback";
+        oauthRequest.callback = requestedCallback;
         Client client = new Client("consumer", "secret", "App", "https://trusted.example");
         client.setCallbackUri("https://trusted.example/callback");
         RequestToken token = new RequestToken(client, "token-id", "token-secret");
@@ -111,67 +119,7 @@ class OscarRequestTokenServiceUnitTest {
         ArgumentCaptor<RequestTokenRegistration> registrationCaptor =
                 ArgumentCaptor.forClass(RequestTokenRegistration.class);
         verify(dataProvider).createRequestToken(registrationCaptor.capture());
-        assertThat(registrationCaptor.getValue().getCallback()).isEqualTo("https://app.example/callback");
-        assertThat(response.getStatus()).isEqualTo(200);
-    }
-
-    @Test
-    @DisplayName("should strip default HTTPS port when initiating request token")
-    void shouldStripDefaultHttpsPort_whenInitiatingRequestToken() {
-        OscarOAuthDataProvider dataProvider = mock(OscarOAuthDataProvider.class);
-        OAuth1ParamParser parser = mock(OAuth1ParamParser.class);
-        OAuth1SignatureVerifier verifier = mock(OAuth1SignatureVerifier.class);
-        OscarRequestTokenService service = new OscarRequestTokenService(dataProvider, parser);
-        ReflectionTestUtils.setField(service, "verifier", verifier);
-        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/ws/oauth/initiate");
-        request.setServerName("carlos.example");
-        request.setScheme("https");
-        OAuth1Request oauthRequest = new OAuth1Request();
-        oauthRequest.consumerKey = "consumer";
-        oauthRequest.callback = "HTTPS://APP.EXAMPLE:443/callback";
-        Client client = new Client("consumer", "secret", "App", "https://trusted.example");
-        client.setCallbackUri("https://trusted.example/callback");
-        RequestToken token = new RequestToken(client, "token-id", "token-secret");
-        when(parser.parseFromRequest(request)).thenReturn(oauthRequest);
-        when(dataProvider.getClient("consumer")).thenReturn(client);
-        when(dataProvider.createRequestToken(any())).thenReturn(token);
-
-        Response response = service.initiatePost(request);
-
-        ArgumentCaptor<RequestTokenRegistration> registrationCaptor =
-                ArgumentCaptor.forClass(RequestTokenRegistration.class);
-        verify(dataProvider).createRequestToken(registrationCaptor.capture());
-        assertThat(registrationCaptor.getValue().getCallback()).isEqualTo("https://app.example/callback");
-        assertThat(response.getStatus()).isEqualTo(200);
-    }
-
-    @Test
-    @DisplayName("should canonicalize OOB callback when request callback is uppercase OOB")
-    void shouldCanonicalizeOobCallback_whenRequestCallbackIsUppercaseOob() {
-        OscarOAuthDataProvider dataProvider = mock(OscarOAuthDataProvider.class);
-        OAuth1ParamParser parser = mock(OAuth1ParamParser.class);
-        OAuth1SignatureVerifier verifier = mock(OAuth1SignatureVerifier.class);
-        OscarRequestTokenService service = new OscarRequestTokenService(dataProvider, parser);
-        ReflectionTestUtils.setField(service, "verifier", verifier);
-        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/ws/oauth/initiate");
-        request.setServerName("carlos.example");
-        request.setScheme("https");
-        OAuth1Request oauthRequest = new OAuth1Request();
-        oauthRequest.consumerKey = "consumer";
-        oauthRequest.callback = "OOB";
-        Client client = new Client("consumer", "secret", "App", "https://trusted.example");
-        client.setCallbackUri("https://trusted.example/callback");
-        RequestToken token = new RequestToken(client, "token-id", "token-secret");
-        when(parser.parseFromRequest(request)).thenReturn(oauthRequest);
-        when(dataProvider.getClient("consumer")).thenReturn(client);
-        when(dataProvider.createRequestToken(any())).thenReturn(token);
-
-        Response response = service.initiatePost(request);
-
-        ArgumentCaptor<RequestTokenRegistration> registrationCaptor =
-                ArgumentCaptor.forClass(RequestTokenRegistration.class);
-        verify(dataProvider).createRequestToken(registrationCaptor.capture());
-        assertThat(registrationCaptor.getValue().getCallback()).isEqualTo("oob");
+        assertThat(registrationCaptor.getValue().getCallback()).isEqualTo(expectedCallback);
         assertThat(response.getStatus()).isEqualTo(200);
     }
 
