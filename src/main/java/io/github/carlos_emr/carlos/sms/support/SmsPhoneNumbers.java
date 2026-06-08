@@ -7,6 +7,7 @@ public final class SmsPhoneNumbers {
     private static final int MIN_E164_DIGITS = 8;
     private static final int MAX_E164_DIGITS = 15;
     private static final Pattern E164 = Pattern.compile("^\\+[1-9]\\d{7,14}$");
+    private static final String ALLOWED_SEPARATORS = "-(). ";
 
     private SmsPhoneNumbers() {
     }
@@ -71,7 +72,7 @@ public final class SmsPhoneNumbers {
                 leadingPlus = true;
             } else if (Character.isDigit(c)) {
                 digits.append(c);
-            } else if (Character.isLetter(c)) {
+            } else if (Character.isLetter(c) || !isAllowedSeparator(c)) {
                 invalid = true;
             }
         }
@@ -97,6 +98,10 @@ public final class SmsPhoneNumbers {
             }
         }
         return digits.toString();
+    }
+
+    private static boolean isAllowedSeparator(char c) {
+        return ALLOWED_SEPARATORS.indexOf(c) >= 0;
     }
 
     private record ParsedPhone(boolean leadingPlus, String digits, boolean invalid) {

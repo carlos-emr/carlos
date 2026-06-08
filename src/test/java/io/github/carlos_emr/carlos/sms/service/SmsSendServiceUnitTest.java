@@ -6,16 +6,19 @@ import io.github.carlos_emr.carlos.sms.dto.SmsConsentDecisionDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsSendResultDto;
 import io.github.carlos_emr.carlos.sms.validator.SmsSendValidator;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@Tag("unit")
+@Tag("service")
 class SmsSendServiceUnitTest {
     @Test
     @DisplayName("send returns consent-blocked until consent integration is implemented")
-    void sendBlocksWhenDeferredConsentServiceIsUsed() {
+    void shouldBlockSend_whenDeferredConsentServiceIsUsed() {
         SmsSendService service = new SmsSendService(
                 new SmsSendValidator(),
                 new DeferredSmsConsentService(),
@@ -31,7 +34,7 @@ class SmsSendServiceUnitTest {
 
     @Test
     @DisplayName("send uses the provider once validation and consent pass")
-    void sendUsesProviderWhenConsentAllows() {
+    void shouldUseProvider_whenConsentAllows() {
         SmsConsentService allowConsent = command -> SmsConsentDecisionDto.permit();
         SmsSendService service = new SmsSendService(
                 new SmsSendValidator(),
