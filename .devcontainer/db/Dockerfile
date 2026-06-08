@@ -14,14 +14,12 @@ LABEL description="OpenOSP-EMR Docker Image for Development Environment"
 COPY ./.devcontainer/db/scripts/populate_db.sh /docker-entrypoint-initdb.d/populate_db.sh
 RUN mkdir /scripts
 COPY ./.devcontainer/db/scripts/development.sql /scripts/development.sql
-COPY ./.devcontainer/development/scripts/bootstrap-property-directories /scripts/bootstrap-property-directories
-COPY ./.devcontainer/development/config/shared/volumes/carlos.properties /root/carlos.properties
 COPY ./database /database
 COPY ./.devcontainer/development/config/shared/my.cnf /etc/mysql/my.cnf
 
 # Change permissions
 RUN chmod 744 /etc/mysql/my.cnf
-RUN chmod 755 /scripts /scripts/bootstrap-property-directories
+RUN chmod 755 /scripts
 
 RUN mkdir -p /var/lib/OscarDocument && chown -R mysql:mysql /var/lib/OscarDocument
 

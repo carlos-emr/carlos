@@ -27,9 +27,12 @@ for property_name in "$@"; do
                     value=substr($0, index($0, "=") + 1)
                     sub(/^[[:space:]]+/, "", value)
                     sub(/[[:space:]]+$/, "", value)
-                    print value
-                    exit
+                    last=value
+                    found=1
                 }
+            }
+            END {
+                if (found) print last
             }
         ' "$properties_file"
     )"

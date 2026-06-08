@@ -162,7 +162,7 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
             }
             tempFile = Files.createTempFile(targetDir.toPath(), filename + ".", ".tmp");
             Files.copy(is, tempFile, StandardCopyOption.REPLACE_EXISTING);
-            Files.move(tempFile, targetPath);
+            Files.move(tempFile, targetPath, StandardCopyOption.ATOMIC_MOVE);
             logger.info("Deployed eForm asset: {} -> {}", resourcePath, targetFile.getAbsolutePath());
         } catch (FileAlreadyExistsException e) {
             logger.debug("eForm asset was created concurrently, skipping: {}", targetFile.getAbsolutePath());
