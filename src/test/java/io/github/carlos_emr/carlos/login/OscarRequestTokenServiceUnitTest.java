@@ -98,7 +98,7 @@ class OscarRequestTokenServiceUnitTest {
         request.setScheme("https");
         OAuth1Request oauthRequest = new OAuth1Request();
         oauthRequest.consumerKey = "consumer";
-        oauthRequest.callback = "https://app.example/callback";
+        oauthRequest.callback = "HTTPS://APP.EXAMPLE/callback";
         Client client = new Client("consumer", "secret", "App", "https://trusted.example");
         client.setCallbackUri("https://trusted.example/callback");
         RequestToken token = new RequestToken(client, "token-id", "token-secret");

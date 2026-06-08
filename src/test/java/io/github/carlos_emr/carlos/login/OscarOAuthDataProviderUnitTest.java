@@ -184,7 +184,7 @@ class OscarOAuthDataProviderUnitTest {
     @ParameterizedTest
     @CsvSource({
             "oob, oob, oob",
-            "https://trusted.example/callback, https://trusted.example/callback, https://trusted.example/callback",
+            "HTTPS://TRUSTED.EXAMPLE/callback, https://trusted.example/callback, https://trusted.example/callback",
             "https://trusted.example/app, https://trusted.example/app/sub, https://trusted.example/app/sub",
             "https://trusted.example/app?client=car, https://trusted.example/app?client=car&state=ready, https://trusted.example/app?client=car&state=ready"
     })

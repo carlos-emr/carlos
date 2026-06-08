@@ -35,7 +35,6 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
-import java.util.Locale;
 import java.util.UUID;
 
 import io.github.carlos_emr.carlos.commn.dao.ServiceAccessTokenDao;
@@ -328,7 +327,7 @@ public class OscarOAuthDataProvider {
             if (host == null || host.isBlank()) {
                 throw new OAuth1Exception(400, "invalid_callback");
             }
-            host = host.toLowerCase(Locale.ROOT);
+            host = toAsciiLowerCase(host);
             int port = uri.getPort();
             if ((port == 80 && "http".equals(scheme))
                     || (port == 443 && "https".equals(scheme))) {
@@ -344,16 +343,29 @@ public class OscarOAuthDataProvider {
     }
 
     private static boolean isOutOfBandCallback(String callback) {
-        return callback != null && OOB_CALLBACK.equals(callback.toLowerCase(Locale.ROOT));
+        return asciiEqualsIgnoreCase(callback, OOB_CALLBACK);
     }
 
     private static String normalizeScheme(URI uri) {
         String scheme = uri.getScheme();
-        return scheme == null ? null : scheme.toLowerCase(Locale.ROOT);
+        return scheme == null ? null : toAsciiLowerCase(scheme);
     }
 
     private static boolean isHttpScheme(String scheme) {
         return "http".equals(scheme) || "https".equals(scheme);
+    }
+
+    private static boolean asciiEqualsIgnoreCase(String actual, String expected) {
+        return actual != null && toAsciiLowerCase(actual).equals(expected);
+    }
+
+    private static String toAsciiLowerCase(String value) {
+        StringBuilder lowered = new StringBuilder(value.length());
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            lowered.append(c >= 'A' && c <= 'Z' ? (char) (c + ('a' - 'A')) : c);
+        }
+        return lowered.toString();
     }
 
 }

@@ -44,7 +44,6 @@ import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-import java.util.Locale;
 import java.util.stream.Collectors;
 
 import io.github.carlos_emr.carlos.login.OscarOAuthDataProvider;
@@ -157,7 +156,7 @@ public class AuthorizeResource {
         } catch (IllegalArgumentException e) {
             throw new OAuth1Exception(400, "invalid_callback");
         }
-        String scheme = normalizeScheme(callbackUri);
+        String scheme = callbackUri.getScheme();
         if (!isHttpScheme(scheme)) {
             throw new OAuth1Exception(400, "invalid_callback_scheme");
         }
@@ -181,16 +180,25 @@ public class AuthorizeResource {
     }
 
     private static boolean isOutOfBandCallback(String callback) {
-        return callback != null && "oob".equals(callback.toLowerCase(Locale.ROOT));
-    }
-
-    private static String normalizeScheme(URI uri) {
-        String scheme = uri.getScheme();
-        return scheme == null ? null : scheme.toLowerCase(Locale.ROOT);
+        return asciiEqualsIgnoreCase(callback, "oob");
     }
 
     private static boolean isHttpScheme(String scheme) {
-        return "http".equals(scheme) || "https".equals(scheme);
+        return asciiEqualsIgnoreCase(scheme, "http") || asciiEqualsIgnoreCase(scheme, "https");
+    }
+
+    private static boolean asciiEqualsIgnoreCase(String actual, String expected) {
+        if (actual == null || actual.length() != expected.length()) {
+            return false;
+        }
+        for (int i = 0; i < actual.length(); i++) {
+            char c = actual.charAt(i);
+            char lowered = c >= 'A' && c <= 'Z' ? (char) (c + ('a' - 'A')) : c;
+            if (lowered != expected.charAt(i)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static String enc(String v) { return URLEncoder.encode(v, StandardCharsets.UTF_8); }

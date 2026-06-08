@@ -75,7 +75,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.Locale;
 
 public class OscarRequestTokenService {
 
@@ -183,7 +182,7 @@ public class OscarRequestTokenService {
             if (host == null || host.isBlank()) {
                 throw new OAuth1Exception(400, "invalid_callback");
             }
-            host = host.toLowerCase(Locale.ROOT);
+            host = toAsciiLowerCase(host);
             int port = u.getPort();
             if ((port == 80 && "http".equals(scheme)) ||
                 (port == 443 && "https".equals(scheme))) {
@@ -200,11 +199,20 @@ public class OscarRequestTokenService {
 
     private static String normalizeScheme(URI uri) {
         String scheme = uri.getScheme();
-        return scheme == null ? null : scheme.toLowerCase(Locale.ROOT);
+        return scheme == null ? null : toAsciiLowerCase(scheme);
     }
 
     private static boolean isHttpScheme(String scheme) {
         return "http".equals(scheme) || "https".equals(scheme);
+    }
+
+    private static String toAsciiLowerCase(String value) {
+        StringBuilder lowered = new StringBuilder(value.length());
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            lowered.append(c >= 'A' && c <= 'Z' ? (char) (c + ('a' - 'A')) : c);
+        }
+        return lowered.toString();
     }
 
 }

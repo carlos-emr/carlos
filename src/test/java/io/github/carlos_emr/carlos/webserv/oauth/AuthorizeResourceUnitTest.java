@@ -15,6 +15,8 @@ import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -96,7 +98,7 @@ class AuthorizeResourceUnitTest {
     void shouldRedirectToHttpsCallback_whenNonceValid() {
         OscarOAuthDataProvider provider = mock(OscarOAuthDataProvider.class);
         RequestToken token = requestToken("request-token");
-        token.setCallback("https://app.example/callback");
+        token.setCallback("HTTPS://APP.EXAMPLE/callback");
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/ws/oauth/authorize");
         request.getSession().setAttribute("user", "999");
         request.getSession().setAttribute("oauth.authorize.nonce.request-token", "nonce-123");
@@ -109,16 +111,21 @@ class AuthorizeResourceUnitTest {
 
         assertThat(result.getStatus()).isEqualTo(303);
         assertThat(result.getLocation())
-                .hasToString("https://app.example/callback?oauth_token=request-token&oauth_verifier=verifier-123");
+                .hasToString("HTTPS://APP.EXAMPLE/callback?oauth_token=request-token&oauth_verifier=verifier-123");
         verify(provider).finalizeAuthorization(token, "999");
     }
 
-    @Test
-    @DisplayName("should reject callback with non HTTP scheme")
-    void shouldRejectCallback_whenSchemeIsNotHttp() {
+    @ParameterizedTest
+    @CsvSource({
+            "javascript:alert(1), invalid_callback_scheme",
+            "https:callback, invalid_callback",
+            "http://[::1, invalid_callback"
+    })
+    @DisplayName("should reject invalid callback before finalizing authorization")
+    void shouldRejectCallback_whenCallbackIsInvalid(String callback, String expectedEntity) {
         OscarOAuthDataProvider provider = mock(OscarOAuthDataProvider.class);
         RequestToken token = requestToken("request-token");
-        token.setCallback("javascript:alert(1)");
+        token.setCallback(callback);
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/ws/oauth/authorize");
         request.getSession().setAttribute("user", "999");
         request.getSession().setAttribute("oauth.authorize.nonce.request-token", "nonce-123");
@@ -129,47 +136,7 @@ class AuthorizeResourceUnitTest {
         Response result = resource.approve("request-token", "nonce-123", "allow");
 
         assertThat(result.getStatus()).isEqualTo(400);
-        assertThat(result.getEntity()).isEqualTo("invalid_callback_scheme");
-        verify(provider, never()).finalizeAuthorization(token, "999");
-    }
-
-    @Test
-    @DisplayName("should reject callback with HTTP scheme but no host")
-    void shouldRejectCallback_whenHttpSchemeHasNoHost() {
-        OscarOAuthDataProvider provider = mock(OscarOAuthDataProvider.class);
-        RequestToken token = requestToken("request-token");
-        token.setCallback("https:callback");
-        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/ws/oauth/authorize");
-        request.getSession().setAttribute("user", "999");
-        request.getSession().setAttribute("oauth.authorize.nonce.request-token", "nonce-123");
-        MockHttpServletResponse response = new MockHttpServletResponse();
-        when(provider.getRequestToken("request-token")).thenReturn(token);
-        AuthorizeResource resource = resource(request, response, provider);
-
-        Response result = resource.approve("request-token", "nonce-123", "allow");
-
-        assertThat(result.getStatus()).isEqualTo(400);
-        assertThat(result.getEntity()).isEqualTo("invalid_callback");
-        verify(provider, never()).finalizeAuthorization(token, "999");
-    }
-
-    @Test
-    @DisplayName("should reject callback with malformed URI")
-    void shouldRejectCallback_whenUriIsMalformed() {
-        OscarOAuthDataProvider provider = mock(OscarOAuthDataProvider.class);
-        RequestToken token = requestToken("request-token");
-        token.setCallback("http://[::1"); // malformed: unclosed IPv6 bracket
-        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/ws/oauth/authorize");
-        request.getSession().setAttribute("user", "999");
-        request.getSession().setAttribute("oauth.authorize.nonce.request-token", "nonce-123");
-        MockHttpServletResponse response = new MockHttpServletResponse();
-        when(provider.getRequestToken("request-token")).thenReturn(token);
-        AuthorizeResource resource = resource(request, response, provider);
-
-        Response result = resource.approve("request-token", "nonce-123", "allow");
-
-        assertThat(result.getStatus()).isEqualTo(400);
-        assertThat(result.getEntity()).isEqualTo("invalid_callback");
+        assertThat(result.getEntity()).isEqualTo(expectedEntity);
         verify(provider, never()).finalizeAuthorization(token, "999");
     }
 
