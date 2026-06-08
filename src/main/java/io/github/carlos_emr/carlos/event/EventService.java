@@ -52,7 +52,7 @@ public class EventService implements ApplicationEventPublisherAware {
      */
     public void appointmentStatusChanged(Object source, String appointment_no, String provider_no, String status) {
         if (logger.isDebugEnabled()) {
-            logger.debug("appointmentStatusChanged thrown by {} appt# {} status {}",
+            logger.debug("appointmentStatusChanged thrown by {} appt# {} status {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     source.getClass().getName(),
                     LogSafe.sanitize(appointment_no),
                     LogSafe.sanitize(status));

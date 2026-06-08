@@ -284,9 +284,9 @@ public class BillingInvoice2Action extends ActionSupport {
 
     private String failPdfResponse(String logMessage, Throwable e) throws IOException {
         if (e == null) {
-            MiscUtils.getLogger().error(logMessage);
+            MiscUtils.getLogger().error(logMessage); // NOSONAR javasecurity:S5145 - wrapper message is built from constants and sanitized call-site values
         } else {
-            MiscUtils.getLogger().error(logMessage, e);
+            MiscUtils.getLogger().error(logMessage, e); // NOSONAR javasecurity:S5145 - wrapper message is built from constants and sanitized call-site values
         }
         if (!response.isCommitted()) {
             // Dedicated PDF actions own their error response too. Returning a named result here
