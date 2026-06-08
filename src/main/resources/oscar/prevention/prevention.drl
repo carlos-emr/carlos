@@ -1005,7 +1005,7 @@ end
 // FOBT / Colonoscopy: Colorectal cancer screening (4 rules)
 // CCO guideline: FIT/FOBT every 2 years ages 45-74; colonoscopy every 10 years
 // Rule 1: WARNING - FIT overdue (>24mo since FOBT) AND no colonoscopy on record
-// Rule 2: WARNING - No FIT/FOBT or colonoscopy records at all (ages 50-74)
+// Rule 2: WARNING - No FIT/FOBT or colonoscopy records at all (ages 45-74)
 // Rule 3: WARNING - Colonoscopy >10 years old (120 months) - needs repeat
 // "FOBT Inelligible": REMINDER that colonoscopy makes FIT ineligible (any age)
 // Logic: Colonoscopy supersedes FOBT - if colonoscopy exists, FOBT not needed
