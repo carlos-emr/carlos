@@ -100,6 +100,17 @@ class OscarOAuthDataProviderUnitTest {
     }
 
     @Test
+    @DisplayName("should reject request token callback when requested callback is OOB")
+    void shouldRejectRequestTokenCallback_whenRequestedCallbackIsOob() {
+        OscarOAuthDataProvider provider = new OscarOAuthDataProvider();
+        RequestTokenRegistration registration = registration("https://trusted.example/callback", "oob");
+
+        assertThatThrownBy(() -> provider.createRequestToken(registration))
+                .isInstanceOf(OAuth1Exception.class)
+                .hasMessage("callback_uri not allowed");
+    }
+
+    @Test
     @DisplayName("should reject request token callback when registered callback is missing")
     void shouldRejectRequestTokenCallback_whenRegisteredCallbackIsMissing() {
         OscarOAuthDataProvider provider = new OscarOAuthDataProvider();
@@ -185,6 +196,7 @@ class OscarOAuthDataProviderUnitTest {
     @CsvSource({
             "oob, oob, oob",
             "HTTPS://TRUSTED.EXAMPLE/callback, https://trusted.example/callback, https://trusted.example/callback",
+            "HTTPS://TRUSTED.EXAMPLE:443/callback, https://trusted.example/callback, https://trusted.example/callback",
             "https://trusted.example/app, https://trusted.example/app/sub, https://trusted.example/app/sub",
             "https://trusted.example/app?client=car, https://trusted.example/app?client=car&state=ready, https://trusted.example/app?client=car&state=ready"
     })

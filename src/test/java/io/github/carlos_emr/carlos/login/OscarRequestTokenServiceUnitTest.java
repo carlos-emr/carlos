@@ -116,6 +116,36 @@ class OscarRequestTokenServiceUnitTest {
     }
 
     @Test
+    @DisplayName("should strip default HTTPS port when initiating request token")
+    void shouldStripDefaultHttpsPort_whenInitiatingRequestToken() {
+        OscarOAuthDataProvider dataProvider = mock(OscarOAuthDataProvider.class);
+        OAuth1ParamParser parser = mock(OAuth1ParamParser.class);
+        OAuth1SignatureVerifier verifier = mock(OAuth1SignatureVerifier.class);
+        OscarRequestTokenService service = new OscarRequestTokenService(dataProvider, parser);
+        ReflectionTestUtils.setField(service, "verifier", verifier);
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/ws/oauth/initiate");
+        request.setServerName("carlos.example");
+        request.setScheme("https");
+        OAuth1Request oauthRequest = new OAuth1Request();
+        oauthRequest.consumerKey = "consumer";
+        oauthRequest.callback = "HTTPS://APP.EXAMPLE:443/callback";
+        Client client = new Client("consumer", "secret", "App", "https://trusted.example");
+        client.setCallbackUri("https://trusted.example/callback");
+        RequestToken token = new RequestToken(client, "token-id", "token-secret");
+        when(parser.parseFromRequest(request)).thenReturn(oauthRequest);
+        when(dataProvider.getClient("consumer")).thenReturn(client);
+        when(dataProvider.createRequestToken(any())).thenReturn(token);
+
+        Response response = service.initiatePost(request);
+
+        ArgumentCaptor<RequestTokenRegistration> registrationCaptor =
+                ArgumentCaptor.forClass(RequestTokenRegistration.class);
+        verify(dataProvider).createRequestToken(registrationCaptor.capture());
+        assertThat(registrationCaptor.getValue().getCallback()).isEqualTo("https://app.example/callback");
+        assertThat(response.getStatus()).isEqualTo(200);
+    }
+
+    @Test
     @DisplayName("should use registered callback URL when request omits callback and registered callback is HTTPS")
     void shouldUseRegisteredCallbackUrl_whenRequestOmitsCallbackAndRegisteredIsHttps() {
         OscarOAuthDataProvider dataProvider = mock(OscarOAuthDataProvider.class);
