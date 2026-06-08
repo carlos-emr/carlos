@@ -118,7 +118,7 @@ public class OscarRequestTokenService {
         String cbRaw = oreq.callback; // keep whatever the parser gives (was working before)
         String cbToStore;
 
-        if ("oob".equals(cbRaw)) {
+        if (isOutOfBandCallback(cbRaw)) {
             cbToStore = "oob";
         } else if (cbRaw != null && !cbRaw.isEmpty()) {
             // decode once (RFC3986) and normalize to plain canonical URL
@@ -127,7 +127,7 @@ public class OscarRequestTokenService {
         } else {
             // fallback to app-registered callback if your flow allows it
             String registeredCallback = client.getCallbackUri();
-            cbToStore = "oob".equals(registeredCallback) ? "oob" : normalizeUrl(registeredCallback);
+            cbToStore = isOutOfBandCallback(registeredCallback) ? "oob" : normalizeUrl(registeredCallback);
         }
 
         reg.setCallback(cbToStore);   // <-- store plain URL now (not encoded)
@@ -204,6 +204,10 @@ public class OscarRequestTokenService {
 
     private static boolean isHttpScheme(String scheme) {
         return "http".equals(scheme) || "https".equals(scheme);
+    }
+
+    private static boolean isOutOfBandCallback(String callback) {
+        return callback != null && toAsciiLowerCase(callback).equals("oob");
     }
 
     private static String toAsciiLowerCase(String value) {
