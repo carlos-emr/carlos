@@ -234,7 +234,7 @@
         %>
         <p>
         <h2><fmt:message key="admin.providerupdate.msgUpdateSuccess"/>
-            <a href="${pageContext.request.contextPath}/admin/ViewProviderUpdateProvider?keyword=<carlos:encode value='<%= request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "" %>' context="uriComponent"/>"><carlos:encode value='<%= request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "" %>' context="html"/>
+            <a href="${pageContext.request.contextPath}/admin/ViewProviderUpdateProvider?keyword=<carlos:encode value='<%= request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "" %>' context="uriComponent"/>"><carlos:encode value='<%= request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "" %>' context="html"/><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
             </a>
         </h2>
         <%

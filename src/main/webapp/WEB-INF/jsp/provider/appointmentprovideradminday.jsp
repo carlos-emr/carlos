@@ -890,8 +890,8 @@
     <%-- Provider numbers visible on this schedule view, comma-separated, for the quick-search slot finder --%>
     <input type="hidden" id="scheduleVisibleProviderNos" value="<carlos:encode value='<%= java.util.Arrays.stream(curProvider_no).filter(p -> p != null && !p.isEmpty()).collect(java.util.stream.Collectors.joining(",")) %>' context="htmlAttribute"/>"/>
     <%-- Current schedule view parameters needed to rebuild the navigation URL after finding a slot --%>
-    <input type="hidden" id="scheduleViewAll" value="<carlos:encode value='<%= request.getParameter("viewall") != null ? request.getParameter("viewall") : "1" %>' context="htmlAttribute"/>"/>
-    <input type="hidden" id="scheduleView" value="<carlos:encode value='<%= request.getParameter("view") != null ? request.getParameter("view") : "0" %>' context="htmlAttribute"/>"/>
+    <input type="hidden" id="scheduleViewAll" value="<carlos:encode value='<%= request.getParameter("viewall") != null ? request.getParameter("viewall") : "1" %>' context="htmlAttribute"/>"/><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
+    <input type="hidden" id="scheduleView" value="<carlos:encode value='<%= request.getParameter("view") != null ? request.getParameter("view") : "0" %>' context="htmlAttribute"/>"/><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
 
     <div id="fixedHeaderWrapper">
     <table id="firstTable" class="noprint">

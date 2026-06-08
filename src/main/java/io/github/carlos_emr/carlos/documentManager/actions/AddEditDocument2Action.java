@@ -309,6 +309,8 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
      * @return String the Struts2 result name ("failEdit", "failAdd", "successEdit", or NONE)
      * @throws SecurityException if the user lacks _edoc write privilege
      */
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute2() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
