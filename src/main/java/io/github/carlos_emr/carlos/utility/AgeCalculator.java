@@ -30,16 +30,27 @@ package io.github.carlos_emr.carlos.utility;
 
 import java.time.LocalDate;
 import java.time.Period;
+import java.time.ZoneId;
 import java.util.Calendar;
 
 public class AgeCalculator {
 
     public static Age calculateAge(Calendar birthDate) {
+        return calculateAge(birthDate, LocalDate.now(ZoneId.systemDefault()));
+    }
+
+    /**
+     * Calculates age against an explicit reference date for deterministic tests.
+     *
+     * @param birthDate Calendar date of birth
+     * @param now LocalDate reference date to calculate age against
+     * @return Age difference between the birth date and reference date
+     */
+    static Age calculateAge(Calendar birthDate, LocalDate now) {
         LocalDate birthdate = LocalDate.of(
                 birthDate.get(Calendar.YEAR),
                 birthDate.get(Calendar.MONTH) + 1,
                 birthDate.get(Calendar.DAY_OF_MONTH));
-        LocalDate now = LocalDate.now();
         Period period = Period.between(birthdate, now);
 
         return new Age(period.getDays(), period.getMonths(), period.getYears());

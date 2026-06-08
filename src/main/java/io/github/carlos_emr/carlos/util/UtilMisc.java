@@ -84,42 +84,36 @@ public class UtilMisc {
 
         int N = S.length();
         StringBuilder sb = new StringBuilder(N);
-        for (int i = 0; i < N; i++) {
-            char c = S.charAt(i);
-            if (c == '&') {//the read one more char and encode
+        int i = 0;
+        while (i < N) {
+            char replacement = S.charAt(i);
+            int nextIndex = i + 1;
+            if (replacement == '&') {//the read one more char and encode
                 String temp = new String();
                 if (i + 1 < N) temp += S.charAt(i + 1);
                 if (temp.equalsIgnoreCase("a")) {//&amp
-                    sb.append("&");
-                    i += 4;
-                    continue;
+                    replacement = '&';
+                    nextIndex = i + 5;
                 } else if (temp.equalsIgnoreCase("l")) {//&lt
-                    sb.append("<");
-                    i += 3;
-                    continue;
+                    replacement = '<';
+                    nextIndex = i + 4;
                 } else if (temp.equalsIgnoreCase("g")) {//&gt
-                    sb.append(">");
-                    i += 3;
-                    continue;
+                    replacement = '>';
+                    nextIndex = i + 4;
                 } else if (temp.equalsIgnoreCase("q")) {//&quot
-                    sb.append("\"");
-                    i += 5;
-                    continue;
-                } else if (temp.equals("#")) {//&#
-                    if (i + 2 < N) temp += S.charAt(i + 2); //&#?
-                    if (i + 3 < N) temp += S.charAt(i + 3); //&#??
-                    if (i + 4 < N) temp += S.charAt(i + 4); //&#???
-                    if (temp.equals("&#39;")) {//'
-                        sb.append("\'");
-                        i += 5;
-                        continue;
-                    }
+                    replacement = '"';
+                    nextIndex = i + 6;
+                } else if (i + 4 < N && S.startsWith("&#39;", i)) {//'
+                    replacement = '\'';
+                    nextIndex = i + 5;
                 }
             }
-            sb.append(c);
+            sb.append(replacement);
+            i = nextIndex;
         }
         return sb.toString();
     }
+
 
     public static String mysqlEscape(String S) {
         if (null == S) {

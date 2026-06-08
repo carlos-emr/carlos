@@ -45,15 +45,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * Unit tests for {@link PDFEncryptionUtil}, which encrypts e-mail attachment PDFs.
  *
- * <p>Guards the behaviour relied on by {@code EmailManager.encryptAttachments}: the output is a
- * real, password-protected PDF, and (since the move to {@code createSecureTempFile}) the encrypted
- * copy in the system temp dir is created with OWNER-only permissions instead of the default
- * world-readable permissions.</p>
- *
  * @since 2026-06-01
  */
 @Tag("unit")
 @Tag("fast")
+@Tag("utility")
+@Tag("security")
 @DisplayName("PDFEncryptionUtil")
 class PDFEncryptionUtilUnitTest {
 
@@ -92,15 +89,16 @@ class PDFEncryptionUtilUnitTest {
 
         Path encrypted = encrypt(source, "s3cret");
 
-        assertThat(encrypted).exists();
+        assertThat(encrypted)
+                .exists()
+                .isNotEqualTo(source);
         assertThat(encrypted.toString()).endsWith(".pdf");
-        // Opening without the password must fail...
         assertThatThrownBy(() -> Loader.loadPDF(encrypted.toFile()).close())
                 .isInstanceOf(InvalidPasswordException.class);
-        // ...and with the password the original content is preserved.
         try (PDDocument opened = Loader.loadPDF(encrypted.toFile(), "s3cret")) {
-            assertThat(opened.isEncrypted()).isTrue();
-            assertThat(opened.getNumberOfPages()).isEqualTo(1);
+            assertThat(opened)
+                    .satisfies(doc -> assertThat(doc.isEncrypted()).isTrue())
+                    .satisfies(doc -> assertThat(doc.getNumberOfPages()).isEqualTo(1));
         }
     }
 
@@ -112,7 +110,6 @@ class PDFEncryptionUtilUnitTest {
         Path encrypted = encrypt(source, "pw");
 
         assertThat(encrypted).isNotEqualTo(source);
-        // Source remains a normal, openable (unencrypted) PDF.
         try (PDDocument original = Loader.loadPDF(source.toFile())) {
             assertThat(original.isEncrypted()).isFalse();
         }

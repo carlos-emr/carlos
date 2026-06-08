@@ -32,6 +32,7 @@ import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import io.github.carlos_emr.carlos.commn.dao.DigitalSignatureDao;
@@ -44,20 +45,14 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for {@link DigitalSignatureUtils#storeDigitalSignatureFromTempFileToDB}.
- *
- * <p>Pins the behaviour of the {@code readAllBytes()} read: the persisted signature image must be a
- * byte-for-byte copy of the collected file, for both a small payload (the previous fixed 256&nbsp;KB
- * array persisted trailing padding) and a payload larger than that array (which would have been
- * truncated). The image is PHI, so an exact copy matters clinically and legally.</p>
- *
- * <p>The temp file is written to the real {@code java.io.tmpdir} under a unique request id (and
- * deleted afterward) because {@link DigitalSignatureUtils#getTempFilePath} derives the path from
- * that system property; the persisting DAO is mocked via {@link CarlosUnitTestBase}.</p>
+ * Unit tests for {@link DigitalSignatureUtils} signature helpers and persistence behavior.
  *
  * @since 2026-06-01
  */
-@DisplayName("DigitalSignatureUtils.storeDigitalSignatureFromTempFileToDB")
+@Tag("unit")
+@Tag("fast")
+@Tag("utility")
+@DisplayName("DigitalSignatureUtils")
 class DigitalSignatureUtilsUnitTest extends CarlosUnitTestBase {
 
     private static final int DEMOGRAPHIC_ID = 1373;
@@ -84,6 +79,40 @@ class DigitalSignatureUtilsUnitTest extends CarlosUnitTestBase {
         for (Path p : writtenFiles) {
             Files.deleteIfExists(p);
         }
+    }
+
+    @Test
+    @DisplayName("should start generated request ID with provider number")
+    void shouldStartGeneratedRequestId_withProviderNumber() {
+        String result = DigitalSignatureUtils.generateSignatureRequestId("999998");
+        assertThat(result).startsWith("999998");
+    }
+
+    @Test
+    @DisplayName("should include timestamp component in generated request ID")
+    void shouldIncludeTimestampComponent_inGeneratedRequestId() {
+        String result = DigitalSignatureUtils.generateSignatureRequestId("111");
+        assertThat(result.length()).isGreaterThan(3);
+    }
+
+    @Test
+    @DisplayName("should include signature request ID in temp filename")
+    void shouldIncludeRequestId_inTempFilename() {
+        String result = DigitalSignatureUtils.getTempFilePath("abc123");
+        assertThat(result).contains("signature_abc123.jpg");
+    }
+
+    @Test
+    @DisplayName("should use system temp directory for signature temp path")
+    void shouldUseSystemTempDir_forSignatureTempPath() {
+        String result = DigitalSignatureUtils.getTempFilePath("test");
+        assertThat(result).startsWith(System.getProperty("java.io.tmpdir"));
+    }
+
+    @Test
+    @DisplayName("should expose expected signature request ID key")
+    void shouldExposeExpectedSignatureRequestIdKey() {
+        assertThat(DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY).isEqualTo("signatureRequestId");
     }
 
     @Test

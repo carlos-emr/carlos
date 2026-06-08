@@ -73,8 +73,14 @@ public final class EncryptionUtils {
      * weak: do not use for generating password hashes.
      * use the hash(String password) method below.
      */
+    // Legacy callers depend on null-in/null-out for this deprecated SHA-1 helper.
+    @SuppressWarnings("java:S1168")
     @Deprecated
     public static byte[] getSha1(String s) {
+        if (s == null) {
+            return null;
+        }
+
         byte[] b = (byte[]) sha1Cache.get(s);
         if (b == null) {
             b = getSha1NoCache(s);
