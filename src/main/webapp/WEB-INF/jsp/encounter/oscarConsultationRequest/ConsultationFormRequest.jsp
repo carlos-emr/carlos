@@ -2005,7 +2005,7 @@ if (userAgent != null) {
             jQuery.ajax({
                 type: "POST",
                 url: "${ pageContext.request.contextPath }/encounter/RequestConsultation",
-                data: form.serialize(),
+                data: jQuery(form).serialize(),
                 dataType: "json",
                 success: function (data) {
                     HideSpin();
@@ -2160,7 +2160,7 @@ if (userAgent != null) {
         <%-- Page Header --%>
         <div class="page-header-bar d-flex align-items-center justify-content-between">
             <h4 class="page-header-title mb-0">
-                <i class="fa-solid fa-file-medical me-2"></i>Consultation Request
+                <i class="fa-solid fa-file-medical me-2"></i><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.title"/>
             </h4>
             <div class="d-flex align-items-center gap-2">
                 <span class="badge bg-light text-dark border" style="font-size:0.85rem;">
@@ -2229,6 +2229,8 @@ if (userAgent != null) {
 
                                                                                         <c:set var="__enc_2"><carlos:encode value='<%= demo %>' context="uriComponent"/></c:set>
                                                <c:set var="__enc_3"><carlos:encode value='<%= requestId %>' context="uriComponent"/></c:set>
+                                               
+                                               
                                             <fmt:message var="manageAttachmentsTitle" key="encounter.oscarConsultationRequest.ConsultationFormRequest.titleManageAttachments"/>
     <%
                                                 if (thisForm.iseReferral()) {
@@ -2239,15 +2241,15 @@ if (userAgent != null) {
                                                data-poload="${ ctx }/previewDocs?method=fetchConsultDocuments&amp;demographicNo=<carlos:encode value='${__enc_2}' context="htmlAttribute"/>&amp;requestId=<carlos:encode value='${__enc_3}' context="htmlAttribute"/>">
                                                 <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnManageAttachments"/>
                                             </a>
-                                                                                      <c:set var="__enc_4"><carlos:encode value='<%= demo %>' context="uriComponent"/></c:set>
-                                               <c:set var="__enc_5"><carlos:encode value='<%= requestId %>' context="uriComponent"/></c:set>
+                                                                                      
+                                               
      <input type="hidden" id="isOceanEReferral"
                                                    value="<%=thisForm.iseReferral()%>"/>
                                             <%
                                             } else { %>
                                             <a href="javascript:void(0);" id="attachDocumentPanelBtn"
                                                title="${carlos:forHtmlAttribute(manageAttachmentsTitle)}"
-                                               data-poload="${ ctx }/previewDocs?method=fetchConsultDocuments&amp;demographicNo=<carlos:encode value='${__enc_4}' context="htmlAttribute"/>&amp;requestId=<carlos:encode value='${__enc_5}' context="htmlAttribute"/>">
+                                               data-poload="${ ctx }/previewDocs?method=fetchConsultDocuments&amp;demographicNo=<carlos:encode value='${__enc_2}' context="htmlAttribute"/>&amp;requestId=<carlos:encode value='${__enc_3}' context="htmlAttribute"/>">
                                                 <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnManageAttachments"/>
                                             </a>
 
@@ -2391,7 +2393,8 @@ if (userAgent != null) {
                                 <input name="updateAndPrint" type="button" class="btn btn-primary btn-sm"
                                        value="<fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnUpdateAndPrint"/>"
                                        onclick="return checkForm('Update Consultation Request And Print Preview','EctConsultationFormRequest2Form');"/>
-                                <input name="printPreview" type="button" class="btn btn-primary btn-sm" value="Print Preview"
+                                <input name="printPreview" type="button" class="btn btn-primary btn-sm" 
+                                       value="<fmt:message key="global.btnPrint"/>"
                                        onclick="return checkForm('And Print Preview','EctConsultationFormRequest2Form');"/>
 
                                 <oscar:oscarPropertiesCheck value="yes" property="consultation_fax_enabled">
@@ -2429,8 +2432,8 @@ if (userAgent != null) {
                                         <div class="row g-2" style="font-size:0.85rem;">
                                             <div class="col-md-4">
                                                 <small class="text-muted"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgAddress"/></small><br>
-                                                <div style="white-space: pre-line;">
-                                                <carlos:encode value='<%= thisForm.getPatientAddress() %>' context="html"/>
+                                                <div>
+                                                <%= SafeEncode.forHtml(thisForm.getPatientAddress()).replace("&lt;br /&gt;","<br>") %>
                                                 </div>
                                             </div>
                                             <div class="col-md-4">

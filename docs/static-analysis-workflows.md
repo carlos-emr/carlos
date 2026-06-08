@@ -1,16 +1,17 @@
-# Static Analysis Workflows — PMD, SpotBugs, Find Security Bugs
+# Static Analysis Workflows — Semgrep, PMD, SpotBugs, Find Security Bugs
 
 > **Added**: April 2026
-> **Workflows**: `pmd.yml`, `spotbugs.yml`
-> **Configuration**: `.github/pmd/carlos-ruleset.xml`, `.github/spotbugs/spotbugs-exclude.xml`
+> **Workflows**: `semgrep.yml`, `pmd.yml`, `spotbugs.yml`
+> **Configuration**: `.semgrep/`, `.github/pmd/carlos-ruleset.xml`, `.github/spotbugs/spotbugs-exclude.xml`
 
 ## Overview
 
-CARLOS EMR uses three complementary static analysis tools in CI, each catching a different
+CARLOS EMR uses complementary static analysis tools in CI, each catching a different
 class of defect:
 
 | Tool | Analyzes | Finds | Workflow |
 |------|----------|-------|----------|
+| **Semgrep** | Source code and generic text patterns | Injection, XSS, path traversal, policy rules | `semgrep.yml` |
 | **PMD** | Source code (`.java`) | Code patterns, complexity, dead code, style | `pmd.yml` |
 | **SpotBugs** | Compiled bytecode (`.class`) | Null deref, resource leaks, concurrency bugs | `spotbugs.yml` |
 | **Find Security Bugs** | Compiled bytecode (`.class`) | SQLi, XSS, XXE, crypto, deserialization | `spotbugs.yml` |
@@ -18,9 +19,33 @@ class of defect:
 All findings are uploaded as SARIF to the **GitHub Security tab** under **Code scanning alerts**
 and appear as inline PR annotations.
 
-These tools complement the existing SonarCloud, Semgrep, and CodeQL workflows — each tool has
-different detection strengths and together they provide defense-in-depth coverage appropriate
-for a healthcare application handling PHI.
+These tools complement the existing SonarCloud and CodeQL workflows — each tool has different
+detection strengths and together they provide defense-in-depth coverage appropriate for a
+healthcare application handling PHI.
+
+---
+
+## Semgrep
+
+### What it detects
+
+Semgrep runs two scans in `.github/workflows/semgrep.yml`:
+
+- `semgrep ci --sarif --output semgrep.sarif` runs the Semgrep Cloud policy, including Semgrep Pro rules when `SEMGREP_APP_TOKEN` is configured.
+- `semgrep scan --config .semgrep/jsp-scriptlet-xss-carlos.yml --sarif --output semgrep-carlos.sarif` runs CARLOS sanitizer-aware JSP checks that recognize project encoders.
+
+### False-positive handling
+
+Use the narrowest control that preserves useful coverage:
+
+1. Fix real flows first, especially request data reaching HTML, filesystem, SQL, log, or response sinks.
+2. Add sanitizer-aware CARLOS rules under `.semgrep/` when a project utility is consistently safe but a built-in rule cannot model it.
+3. Disable exact built-in rules in Semgrep Cloud only when a CARLOS rule fully replaces their coverage. `.semgrep/README.md` lists the rules intended for policy disablement.
+4. For isolated already-safe findings from still-useful built-in rules, use rule-specific `nosemgrep: <rule-id>` comments at the finding site.
+
+Semgrep CI honors `nosemgrep` by treating those findings as ignored, but Semgrep still includes them in SARIF with `result.suppressions`. GitHub Code Scanning creates PR alerts from uploaded SARIF results, so the workflow runs `scripts/filter_suppressed_sarif.py semgrep.sarif` before uploading the Semgrep Cloud SARIF. This removes only explicitly suppressed results from the GitHub upload; unsuppressed Semgrep Pro findings still appear in Code Scanning.
+
+Do not use broad `.semgrepignore` entries, blanket rule disables, or bare `nosemgrep` comments to clear PR noise unless a narrower option is impossible and the rationale is documented.
 
 ---
 
@@ -281,6 +306,44 @@ cannot be cleared by editing. The codebase suppresses it per-site with two justi
 These annotations were applied in bulk by `scripts/lint/annotate-improper-unicode.py`, which
 re-derives the flagged sites from source (tree-sitter) and is idempotent — re-run it after large
 merges to annotate any new drift.
+
+##### `UNVALIDATED_REDIRECT` (open redirect)
+
+Find Security Bugs flags any `response.sendRedirect(...)` whose argument is data-flow reachable
+from request input. The overwhelming majority of CARLOS sites are false positives because the
+redirect target is a **fixed same-origin path** — `request.getContextPath() + "<literal route>"` —
+with request-derived data appended only as URL-encoded **query parameters**, which cannot change
+the host or scheme. The standard justification is:
+
+> *"redirect target is a same-origin application path or validated internal path, not an
+> attacker-controlled external URL."*
+
+**Guard — do not paste this string onto a redirect whose *destination* is request-influenced.**
+It is only accurate when the scheme+host+path are contextPath-anchored or a server-side allowlist
+value. If a request parameter can become the redirect *target* itself (a `nextPage` / `returnURL` /
+`chain` style value), the finding is **real** — gate it through
+`io.github.carlos_emr.carlos.utility.RedirectValidationUtils.isValidRelativeRedirect(...)` (which
+rejects absolute, protocol-relative, backslash/`%5c`, encoded control chars, and `..` traversal)
+**before** suppressing, and write a site-specific justification naming the validator.
+
+##### `BEAN_PROPERTY_INJECTION` (mass assignment)
+
+Fires on `BeanUtils.copyProperties(...)`. The CARLOS sites are false positives because they use the
+Spring **bean-to-bean** form `copyProperties(source, target)` — and its overload
+`copyProperties(source, target, ignoreProperties)`, where the third argument is a *hardcoded* list
+of property names to **skip**, not a source of request input. In both forms the property names come
+from the compiled JavaBean descriptors of the fixed source/target model/DTO types, so no
+request-controlled property name reaches the sink (see e.g. the legitimate 3-arg suppressions in
+`OscarJobService` and `FacilityTransfer`). The standard justification states exactly that.
+
+The distinguishing factor is whether the **property name** is request-derived, not the argument
+count. **Do not** reuse this rationale for Apache Commons `BeanUtils.populate(bean, map)` /
+`BeanUtilsBean.setProperty`, or any sink where the property name itself comes from request data —
+those are genuine mass-assignment sinks.
+For generated-JSP sinks the suppression lives in `.github/spotbugs/spotbugs-exclude.xml` keyed to
+the generated `_jspService` class name — note that such entries silently stop matching if the JSP is
+renamed or migrated to a `2Action`, so prefer an in-source `@SuppressFBWarnings` once the sink moves
+to Java.
 
 ---
 
