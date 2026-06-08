@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -126,8 +127,24 @@ class SmsSendServiceUnitTest {
         }
 
         @Override
+        public SmsTransaction markSending(SmsTransaction transaction, Date attemptAt) {
+            transaction.markSending(attemptAt);
+            return transaction;
+        }
+
+        @Override
         public SmsTransaction markProviderResult(SmsTransaction transaction, SmsProviderSendResultDto providerResult) {
             transaction.markProviderResult(providerResult);
+            return transaction;
+        }
+
+        @Override
+        public SmsTransaction markRetryScheduled(
+                SmsTransaction transaction,
+                SmsProviderSendResultDto providerResult,
+                Date nextAttemptAt
+        ) {
+            transaction.markRetryScheduled(providerResult, nextAttemptAt);
             return transaction;
         }
 
@@ -143,6 +160,14 @@ class SmsSendServiceUnitTest {
             SmsTransaction transaction = SmsTransaction.deliveryEvent(webhook);
             transactions.add(transaction);
             return transaction;
+        }
+
+        @Override
+        public List<SmsTransaction> findDueOutboundQueue(SmsProviderType providerType, Date now, int limit) {
+            return transactions.stream()
+                    .filter(transaction -> transaction.getStatus() == SmsStatus.QUEUED)
+                    .limit(limit)
+                    .toList();
         }
 
         private List<SmsTransaction> transactions() {

@@ -1,12 +1,15 @@
 package io.github.carlos_emr.carlos.sms.dao;
 
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
+import io.github.carlos_emr.carlos.sms.SmsDirection;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
+import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
 import jakarta.persistence.TypedQuery;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 
@@ -49,6 +52,28 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
         query.setParameter("providerMessageId", providerMessageId);
         query.setMaxResults(1);
         return query.getResultList().stream().findFirst();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<SmsTransaction> findDueOutboundQueue(SmsProviderType providerType, Date now, int limit) {
+        if (providerType == null || now == null) {
+            return List.of();
+        }
+        TypedQuery<SmsTransaction> query = entityManager.createQuery(
+                "SELECT t FROM SmsTransaction t WHERE t.direction = :direction "
+                        + "AND t.providerType = :providerType "
+                        + "AND t.status = :status "
+                        + "AND (t.nextAttemptAt IS NULL OR t.nextAttemptAt <= :now) "
+                        + "ORDER BY t.createdAt ASC",
+                SmsTransaction.class
+        );
+        query.setParameter("direction", SmsDirection.OUTBOUND);
+        query.setParameter("providerType", providerType);
+        query.setParameter("status", SmsStatus.QUEUED);
+        query.setParameter("now", now);
+        query.setMaxResults(safeLimit(limit));
+        return query.getResultList();
     }
 
     private int safeLimit(int limit) {

@@ -27,6 +27,10 @@ public record SmsSendResultDto(
         );
     }
 
+    public static SmsSendResultDto queued() {
+        return new SmsSendResultDto(true, SmsStatus.QUEUED, null, List.of());
+    }
+
     public static SmsSendResultDto fromProvider(SmsProviderSendResultDto providerResult) {
         return new SmsSendResultDto(
                 providerResult.accepted(),

@@ -18,6 +18,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
+import java.util.Date;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -76,6 +78,24 @@ class JpaSmsTransactionRecorderUnitTest {
     }
 
     @Test
+    @DisplayName("markSending increments attempts and merges sending state")
+    void shouldMergeTransaction_whenMarkingSending() {
+        JpaSmsTransactionRecorder recorder = new JpaSmsTransactionRecorder(smsTransactionDao);
+        SmsTransaction transaction = SmsTransaction.outboundAttempt(
+                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsProviderType.STUB
+        );
+        Date attemptAt = Date.from(Instant.parse("2026-06-08T12:00:00Z"));
+
+        recorder.markSending(transaction, attemptAt);
+
+        verify(smsTransactionDao).merge(transaction);
+        assertThat(transaction)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount, SmsTransaction::getLastAttemptAt)
+                .containsExactly(SmsStatus.SENDING, 1, attemptAt);
+    }
+
+    @Test
     @DisplayName("markProviderResult merges the provider transaction state")
     void shouldMergeTransaction_whenProviderResultIsRecorded() {
         JpaSmsTransactionRecorder recorder = new JpaSmsTransactionRecorder(smsTransactionDao);
@@ -90,6 +110,28 @@ class JpaSmsTransactionRecorderUnitTest {
         assertThat(transaction)
                 .extracting(SmsTransaction::getStatus, SmsTransaction::getProviderMessageId)
                 .containsExactly(SmsStatus.SENT, "provider-1");
+    }
+
+    @Test
+    @DisplayName("markRetryScheduled re-queues a failed provider attempt")
+    void shouldMergeTransaction_whenRetryIsScheduled() {
+        JpaSmsTransactionRecorder recorder = new JpaSmsTransactionRecorder(smsTransactionDao);
+        SmsTransaction transaction = SmsTransaction.outboundAttempt(
+                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsProviderType.STUB
+        );
+        Date nextAttemptAt = Date.from(Instant.parse("2026-06-08T12:05:00Z"));
+
+        recorder.markRetryScheduled(
+                transaction,
+                SmsProviderSendResultDto.failed("PROVIDER_ERROR", "Provider rejected message"),
+                nextAttemptAt
+        );
+
+        verify(smsTransactionDao).merge(transaction);
+        assertThat(transaction)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode, SmsTransaction::getNextAttemptAt)
+                .containsExactly(SmsStatus.QUEUED, "PROVIDER_ERROR", nextAttemptAt);
     }
 
     @Test
@@ -194,5 +236,22 @@ class JpaSmsTransactionRecorderUnitTest {
                         SmsTransaction::getErrorCode
                 )
                 .containsExactly(SmsStatus.FAILED, "provider-1", "PROVIDER_ERROR");
+    }
+
+    @Test
+    @DisplayName("findDueOutboundQueue delegates to the transaction DAO")
+    void shouldReturnTransactions_whenFindingDueOutboundQueue() {
+        JpaSmsTransactionRecorder recorder = new JpaSmsTransactionRecorder(smsTransactionDao);
+        Date now = Date.from(Instant.parse("2026-06-08T12:00:00Z"));
+        SmsTransaction transaction = SmsTransaction.outboundAttempt(
+                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsProviderType.STUB
+        );
+        when(smsTransactionDao.findDueOutboundQueue(SmsProviderType.STUB, now, 25))
+                .thenReturn(List.of(transaction));
+
+        List<SmsTransaction> transactions = recorder.findDueOutboundQueue(SmsProviderType.STUB, now, 25);
+
+        assertThat(transactions).singleElement().isSameAs(transaction);
     }
 }

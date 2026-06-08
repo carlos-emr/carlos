@@ -34,6 +34,16 @@ class SmsDtoUnitTest {
     }
 
     @Test
+    @DisplayName("queued send result reports accepted queue state")
+    void shouldCreateQueuedResult_whenMessageIsQueued() {
+        SmsSendResultDto result = SmsSendResultDto.queued();
+
+        assertThat(result)
+                .extracting(SmsSendResultDto::accepted, SmsSendResultDto::status, SmsSendResultDto::messages)
+                .containsExactly(true, SmsStatus.QUEUED, List.of());
+    }
+
+    @Test
     @DisplayName("inbound webhook metadata allows nullable provider values and remains immutable")
     void shouldPreserveInboundMetadata_whenProviderValueIsNull() {
         Map<String, String> metadata = new HashMap<>();

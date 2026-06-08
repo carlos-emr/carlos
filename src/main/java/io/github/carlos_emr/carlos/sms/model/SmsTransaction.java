@@ -107,6 +107,9 @@ public class SmsTransaction extends AbstractModel<Long> {
     @Column(name = "provider_metadata", columnDefinition = "TEXT")
     private String providerMetadata;
 
+    @Column(name = "attempt_count", nullable = false)
+    private int attemptCount;
+
     @Temporal(TemporalType.TIMESTAMP)
     @Column(name = "created_at", nullable = false)
     private Date createdAt = new Date();
@@ -114,6 +117,14 @@ public class SmsTransaction extends AbstractModel<Long> {
     @Temporal(TemporalType.TIMESTAMP)
     @Column(name = "updated_at", nullable = false)
     private Date updatedAt = new Date();
+
+    @Temporal(TemporalType.TIMESTAMP)
+    @Column(name = "next_attempt_at")
+    private Date nextAttemptAt;
+
+    @Temporal(TemporalType.TIMESTAMP)
+    @Column(name = "last_attempt_at")
+    private Date lastAttemptAt;
 
     @Temporal(TemporalType.TIMESTAMP)
     @Column(name = "sent_at")
@@ -143,6 +154,7 @@ public class SmsTransaction extends AbstractModel<Long> {
         transaction.transactionType = command.transactionType();
         transaction.toPhoneNumber = normalizePhone(command.recipientPhoneNumber());
         transaction.messageBody = command.body();
+        transaction.nextAttemptAt = new Date();
         transaction.refreshBodyAudit();
         return transaction;
     }
@@ -183,18 +195,41 @@ public class SmsTransaction extends AbstractModel<Long> {
         touch();
     }
 
+    public void markSending(Date attemptAt) {
+        Date safeAttemptAt = copyOf(attemptAt);
+        if (safeAttemptAt == null) {
+            safeAttemptAt = new Date();
+        }
+        status = SmsStatus.SENDING;
+        attemptCount++;
+        lastAttemptAt = safeAttemptAt;
+        nextAttemptAt = null;
+        touch();
+    }
+
     public void markProviderResult(SmsProviderSendResultDto providerResult) {
         Objects.requireNonNull(providerResult, "providerResult is required");
         status = providerResult.status() == null ? SmsStatus.FAILED : providerResult.status();
         providerMessageId = trimTo(providerResult.providerMessageId(), MAX_PROVIDER_MESSAGE_ID_LENGTH);
         errorCode = trimTo(providerResult.errorCode(), MAX_REASON_CODE_LENGTH);
         errorMessage = trimTo(providerResult.errorMessage(), MAX_ERROR_MESSAGE_LENGTH);
+        nextAttemptAt = null;
         if (status == SmsStatus.SENT && sentAt == null) {
             sentAt = new Date();
         }
         if (status == SmsStatus.DELIVERED && deliveredAt == null) {
             deliveredAt = new Date();
         }
+        touch();
+    }
+
+    public void markRetryScheduled(SmsProviderSendResultDto providerResult, Date nextAttemptAt) {
+        Objects.requireNonNull(providerResult, "providerResult is required");
+        status = SmsStatus.QUEUED;
+        providerMessageId = trimTo(providerResult.providerMessageId(), MAX_PROVIDER_MESSAGE_ID_LENGTH);
+        errorCode = trimTo(providerResult.errorCode(), MAX_REASON_CODE_LENGTH);
+        errorMessage = trimTo(providerResult.errorMessage(), MAX_ERROR_MESSAGE_LENGTH);
+        this.nextAttemptAt = copyOf(nextAttemptAt);
         touch();
     }
 
@@ -262,6 +297,18 @@ public class SmsTransaction extends AbstractModel<Long> {
         }
     }
 
+    public SmsSendCommand toSendCommand() {
+        return new SmsSendCommand(
+                demographicNo,
+                toPhoneNumber,
+                messageBody,
+                transactionType,
+                providerNo,
+                appointmentNo,
+                relatedId
+        );
+    }
+
     @Override
     public Long getId() {
         return id;
@@ -311,6 +358,10 @@ public class SmsTransaction extends AbstractModel<Long> {
         return providerMessageId;
     }
 
+    /**
+     * Full SMS body access should go through the SMS body reader so access can be audited.
+     */
+    @Deprecated
     public String getMessageBody() {
         return messageBody;
     }
@@ -339,12 +390,24 @@ public class SmsTransaction extends AbstractModel<Long> {
         return providerMetadata;
     }
 
+    public int getAttemptCount() {
+        return attemptCount;
+    }
+
     public Date getCreatedAt() {
         return copyOf(createdAt);
     }
 
     public Date getUpdatedAt() {
         return copyOf(updatedAt);
+    }
+
+    public Date getNextAttemptAt() {
+        return copyOf(nextAttemptAt);
+    }
+
+    public Date getLastAttemptAt() {
+        return copyOf(lastAttemptAt);
     }
 
     public Date getSentAt() {
