@@ -39,7 +39,6 @@ rules:
       # Known-safe scriptlet outputs: context path, boolean/constant control
       # values, and server-side custom tag attributes.
       - pattern-not-regex: '(?m)^.*<%=\s*request\s*\.\s*getContextPath\s*\(\s*\)\s*%>.*$'
-      - pattern-not-regex: '(?m)^.*<%--.*request\s*\.\s*(?:getParameter|getParameterValues|getParameterMap|getParameterNames|getPart|getParts|getQueryString|getHeader|getHeaders|getRequestURI|getRequestURL|getPathInfo|getCookies)\s*\(.*--%>.*$'
       - pattern-not-regex: '(?m)^.*<%=.*request\s*\.\s*getParameter\s*\([^)]*\)\s*==\s*null.*%>.*$'
       - pattern-not-regex: '(?m)^.*<%=.*"true"\s*\.\s*equals\s*\(\s*request\s*\.\s*getParameter\s*\([^)]*\)\s*\).*%>.*$'
       - pattern-not-regex: '(?m)^.*<%=.*\?\s*"[^"]*"\s*:\s*"[^"]*"\s*%>.*$'
