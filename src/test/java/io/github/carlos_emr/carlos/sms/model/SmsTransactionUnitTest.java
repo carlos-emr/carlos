@@ -2,6 +2,7 @@ package io.github.carlos_emr.carlos.sms.model;
 
 import io.github.carlos_emr.carlos.sms.SmsDirection;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
+import io.github.carlos_emr.carlos.sms.SmsRecipientPhoneType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.SmsTransactionType;
 import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
@@ -34,11 +35,24 @@ class SmsTransactionUnitTest {
     }
 
     @Test
+    @DisplayName("recipient phone type exposes supported patient phone fields")
+    void shouldExposeSupportedValues_whenReadingRecipientPhoneTypes() {
+        assertThat(SmsRecipientPhoneType.values())
+                .containsExactly(
+                        SmsRecipientPhoneType.CELL,
+                        SmsRecipientPhoneType.HOME,
+                        SmsRecipientPhoneType.WORK,
+                        SmsRecipientPhoneType.OTHER
+                );
+    }
+
+    @Test
     @DisplayName("outbound transaction captures normalized send metadata")
     void shouldCreateOutboundTransaction_whenCommandIsValid() {
         SmsSendCommand command = SmsSendCommand.direct(
                 123,
                 "(416) 555-1212",
+                SmsRecipientPhoneType.WORK,
                 "Appointment reminder",
                 "999998",
                 1001
@@ -55,6 +69,7 @@ class SmsTransactionUnitTest {
                         SmsTransaction::getRequestedByProviderNo,
                         SmsTransaction::getRequestedBySecurityNo,
                         SmsTransaction::getToPhoneNumber,
+                        SmsTransaction::getRecipientPhoneType,
                         SmsTransaction::getMessageBody,
                         SmsTransaction::getMessageBodyLength
                 )
@@ -66,6 +81,7 @@ class SmsTransactionUnitTest {
                         "999998",
                         1001,
                         "+14165551212",
+                        SmsRecipientPhoneType.WORK,
                         "Appointment reminder",
                         20
                 );
@@ -156,6 +172,7 @@ class SmsTransactionUnitTest {
                 new SmsSendCommand(
                         123,
                         "416-555-1212",
+                        SmsRecipientPhoneType.HOME,
                         "Appointment reminder",
                         null,
                         "999998",
@@ -172,11 +189,20 @@ class SmsTransactionUnitTest {
                         SmsSendCommand::demographicNo,
                         SmsSendCommand::recipientPhoneNumber,
                         SmsSendCommand::body,
+                        SmsSendCommand::recipientPhoneType,
                         SmsSendCommand::requestedByProviderNo,
                         SmsSendCommand::requestedBySecurityNo,
                         SmsSendCommand::appointmentNo
                 )
-                .containsExactly(123, "+14165551212", "Appointment reminder", "999998", 1001, 456);
+                .containsExactly(
+                        123,
+                        "+14165551212",
+                        "Appointment reminder",
+                        SmsRecipientPhoneType.HOME,
+                        "999998",
+                        1001,
+                        456
+                );
     }
 
     @Test

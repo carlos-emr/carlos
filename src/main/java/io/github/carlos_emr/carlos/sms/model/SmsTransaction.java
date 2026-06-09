@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 import io.github.carlos_emr.carlos.sms.SmsDirection;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
+import io.github.carlos_emr.carlos.sms.SmsRecipientPhoneType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.SmsTransactionType;
 import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
@@ -82,6 +83,10 @@ public class SmsTransaction extends AbstractModel<Long> {
     @Column(name = "to_phone_number", length = MAX_PHONE_LENGTH)
     private String toPhoneNumber;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "recipient_phone_type", length = 16)
+    private SmsRecipientPhoneType recipientPhoneType;
+
     @Column(name = "provider_message_id", length = MAX_PROVIDER_MESSAGE_ID_LENGTH)
     private String providerMessageId;
 
@@ -156,6 +161,7 @@ public class SmsTransaction extends AbstractModel<Long> {
         transaction.appointmentNo = command.appointmentNo();
         transaction.transactionType = command.transactionType();
         transaction.toPhoneNumber = normalizePhone(command.recipientPhoneNumber());
+        transaction.recipientPhoneType = command.recipientPhoneType();
         transaction.messageBody = command.body();
         transaction.nextAttemptAt = new Date();
         transaction.refreshBodyAudit();
@@ -304,6 +310,7 @@ public class SmsTransaction extends AbstractModel<Long> {
         return new SmsSendCommand(
                 demographicNo,
                 toPhoneNumber,
+                recipientPhoneType,
                 messageBody,
                 transactionType,
                 requestedByProviderNo,
@@ -355,6 +362,10 @@ public class SmsTransaction extends AbstractModel<Long> {
 
     public String getToPhoneNumber() {
         return toPhoneNumber;
+    }
+
+    public SmsRecipientPhoneType getRecipientPhoneType() {
+        return recipientPhoneType;
     }
 
     public String getProviderMessageId() {

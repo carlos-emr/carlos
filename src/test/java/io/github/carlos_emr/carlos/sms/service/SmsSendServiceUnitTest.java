@@ -1,6 +1,7 @@
 package io.github.carlos_emr.carlos.sms.service;
 
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
+import io.github.carlos_emr.carlos.sms.SmsRecipientPhoneType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
 import io.github.carlos_emr.carlos.sms.dto.SmsConsentDecisionDto;
@@ -19,6 +20,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -49,7 +51,11 @@ class SmsSendServiceUnitTest {
     @Test
     @DisplayName("send uses the provider once validation and consent pass")
     void shouldUseProvider_whenConsentAllows() {
-        SmsConsentService allowConsent = command -> SmsConsentDecisionDto.permit();
+        AtomicReference<SmsSendCommand> consentCommand = new AtomicReference<>();
+        SmsConsentService allowConsent = command -> {
+            consentCommand.set(command);
+            return SmsConsentDecisionDto.permit();
+        };
         RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder();
         SmsSendService service = new SmsSendService(
                 new SmsSendValidator(),
@@ -58,15 +64,23 @@ class SmsSendServiceUnitTest {
                 recorder
         );
 
-        SmsSendResultDto result = service.send(SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"));
+        SmsSendResultDto result = service.send(SmsSendCommand.direct(
+                123,
+                "416-555-1212",
+                SmsRecipientPhoneType.WORK,
+                "Appointment reminder",
+                "999998"
+        ));
 
         assertThat(result.accepted()).isTrue();
         assertThat(result.status()).isEqualTo(SmsStatus.SENT);
         assertThat(result.providerMessageId()).startsWith("stub-");
+        assertThat(consentCommand.get().recipientPhoneType()).isEqualTo(SmsRecipientPhoneType.WORK);
         assertThat(recorder.transactions()).singleElement()
                 .satisfies(transaction -> {
                     assertThat(transaction.getStatus()).isEqualTo(SmsStatus.SENT);
                     assertThat(transaction.getProviderMessageId()).startsWith("stub-");
+                    assertThat(transaction.getRecipientPhoneType()).isEqualTo(SmsRecipientPhoneType.WORK);
                 });
     }
 
