@@ -37,4 +37,19 @@ class SmsSendValidatorUnitTest {
                 "SMS message body is required."
         );
     }
+
+    @Test
+    @DisplayName("validation limits SMS bodies to one standard segment")
+    void shouldRejectCommand_whenBodyExceedsSingleSmsSegment() {
+        SmsSendValidator.Result accepted = validator.validate(
+                SmsSendCommand.direct(123, "416-555-1212", "a".repeat(160), "999998")
+        );
+        SmsSendValidator.Result rejected = validator.validate(
+                SmsSendCommand.direct(123, "416-555-1212", "a".repeat(161), "999998")
+        );
+
+        assertThat(accepted.valid()).isTrue();
+        assertThat(rejected.valid()).isFalse();
+        assertThat(rejected.messages()).containsExactly("SMS message body exceeds the maximum supported length.");
+    }
 }
