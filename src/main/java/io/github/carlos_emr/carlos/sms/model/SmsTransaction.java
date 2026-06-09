@@ -38,7 +38,7 @@ import java.util.TreeMap;
 public class SmsTransaction extends AbstractModel<Long> {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final int MAX_PHONE_LENGTH = 32;
-    private static final int MAX_PROVIDER_NO_LENGTH = 16;
+    private static final int MAX_REQUESTED_BY_PROVIDER_NO_LENGTH = 16;
     private static final int MAX_PROVIDER_MESSAGE_ID_LENGTH = 128;
     private static final int MAX_REASON_CODE_LENGTH = 64;
     private static final int MAX_ERROR_MESSAGE_LENGTH = 1024;
@@ -67,14 +67,14 @@ public class SmsTransaction extends AbstractModel<Long> {
     @Column(name = "demographic_no")
     private Integer demographicNo;
 
-    @Column(name = "provider_no", length = MAX_PROVIDER_NO_LENGTH)
-    private String providerNo;
+    @Column(name = "requested_by_provider_no", length = MAX_REQUESTED_BY_PROVIDER_NO_LENGTH)
+    private String requestedByProviderNo;
+
+    @Column(name = "requested_by_security_no")
+    private Integer requestedBySecurityNo;
 
     @Column(name = "appointment_no")
     private Integer appointmentNo;
-
-    @Column(name = "related_id")
-    private Integer relatedId;
 
     @Column(name = "from_phone_number", length = MAX_PHONE_LENGTH)
     private String fromPhoneNumber;
@@ -148,9 +148,12 @@ public class SmsTransaction extends AbstractModel<Long> {
         transaction.providerType = providerType == null ? SmsProviderType.STUB : providerType;
         transaction.status = SmsStatus.QUEUED;
         transaction.demographicNo = command.demographicNo();
-        transaction.providerNo = trimTo(command.providerNo(), MAX_PROVIDER_NO_LENGTH);
+        transaction.requestedByProviderNo = trimTo(
+                command.requestedByProviderNo(),
+                MAX_REQUESTED_BY_PROVIDER_NO_LENGTH
+        );
+        transaction.requestedBySecurityNo = command.requestedBySecurityNo();
         transaction.appointmentNo = command.appointmentNo();
-        transaction.relatedId = command.relatedId();
         transaction.transactionType = command.transactionType();
         transaction.toPhoneNumber = normalizePhone(command.recipientPhoneNumber());
         transaction.messageBody = command.body();
@@ -303,9 +306,9 @@ public class SmsTransaction extends AbstractModel<Long> {
                 toPhoneNumber,
                 messageBody,
                 transactionType,
-                providerNo,
-                appointmentNo,
-                relatedId
+                requestedByProviderNo,
+                requestedBySecurityNo,
+                appointmentNo
         );
     }
 
@@ -334,16 +337,16 @@ public class SmsTransaction extends AbstractModel<Long> {
         return demographicNo;
     }
 
-    public String getProviderNo() {
-        return providerNo;
+    public String getRequestedByProviderNo() {
+        return requestedByProviderNo;
+    }
+
+    public Integer getRequestedBySecurityNo() {
+        return requestedBySecurityNo;
     }
 
     public Integer getAppointmentNo() {
         return appointmentNo;
-    }
-
-    public Integer getRelatedId() {
-        return relatedId;
     }
 
     public String getFromPhoneNumber() {

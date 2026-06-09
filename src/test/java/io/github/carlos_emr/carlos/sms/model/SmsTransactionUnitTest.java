@@ -40,7 +40,8 @@ class SmsTransactionUnitTest {
                 123,
                 "(416) 555-1212",
                 "Appointment reminder",
-                "999998"
+                "999998",
+                1001
         );
 
         SmsTransaction transaction = SmsTransaction.outboundAttempt(command, SmsProviderType.VOIPMS);
@@ -51,7 +52,8 @@ class SmsTransactionUnitTest {
                         SmsTransaction::getProviderType,
                         SmsTransaction::getStatus,
                         SmsTransaction::getDemographicNo,
-                        SmsTransaction::getProviderNo,
+                        SmsTransaction::getRequestedByProviderNo,
+                        SmsTransaction::getRequestedBySecurityNo,
                         SmsTransaction::getToPhoneNumber,
                         SmsTransaction::getMessageBody,
                         SmsTransaction::getMessageBodyLength
@@ -62,6 +64,7 @@ class SmsTransactionUnitTest {
                         SmsStatus.QUEUED,
                         123,
                         "999998",
+                        1001,
                         "+14165551212",
                         "Appointment reminder",
                         20
@@ -156,8 +159,8 @@ class SmsTransactionUnitTest {
                         "Appointment reminder",
                         null,
                         "999998",
-                        456,
-                        789
+                        1001,
+                        456
                 ),
                 SmsProviderType.STUB
         );
@@ -169,11 +172,11 @@ class SmsTransactionUnitTest {
                         SmsSendCommand::demographicNo,
                         SmsSendCommand::recipientPhoneNumber,
                         SmsSendCommand::body,
-                        SmsSendCommand::providerNo,
-                        SmsSendCommand::appointmentNo,
-                        SmsSendCommand::relatedId
+                        SmsSendCommand::requestedByProviderNo,
+                        SmsSendCommand::requestedBySecurityNo,
+                        SmsSendCommand::appointmentNo
                 )
-                .containsExactly(123, "+14165551212", "Appointment reminder", "999998", 456, 789);
+                .containsExactly(123, "+14165551212", "Appointment reminder", "999998", 1001, 456);
     }
 
     @Test
