@@ -412,7 +412,7 @@
                         <%--    	 <% if(echartPreferencesMap.getOrDefault("echart_paste_fax_note", false)) {--%>
                         <% String timeStamp = new SimpleDateFormat("dd-MMM-yyyy hh:mm a").format(Calendar.getInstance().getTime()); %>
                         // %>
-                        text = "[Rx faxed to " + '<%= pharmacy!=null?SafeEncode.forJavaScript(pharmacy.getName()):""%>' + " Fax#: " + '<%= pharmacy!=null?pharmacy.getFax():""%>';
+                        text = "[Rx faxed to " + '<%= pharmacy!=null?SafeEncode.forJavaScript(pharmacy.getName()):""%>' + " Fax#: " + '<%= pharmacy != null ? SafeEncode.forJavaScript(pharmacy.getFax()) : "" %>';
 
                         <%--    	 <% if (rxPreferencesMap.getOrDefault("rx_paste_provider_to_echart", false)) { %>--%>
                         text += " prescribed by <carlos:encode value='<%= loggedInInfo.getLoggedInProvider().getFormattedName() %>' context="javaScript"/>";
@@ -803,7 +803,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 
                                                     <option value="<%=i%>"
                                                             <% if ( rxAddr != null && rxAddr.equals(""+i)){ %>SELECTED<%}%>
-                                                    ><%=te%>
+                                                    ><carlos:encode value='<%= te %>' context="html"/>
                                                     </option>
                                                     <% }%>
 
@@ -951,8 +951,8 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         %>
                                         <tr>
                                             <td><span><a
-                                                    href="javascript:ShowDrugInfo('<%= rx.getGenericName() %>');">
-						<%= rx.getGenericName() %> (<%= rx.getBrandName() %>) </a></span></td>
+                                                    href="javascript:ShowDrugInfo('<carlos:encode value='<%= rx.getGenericName() %>' context="javaScriptAttribute"/>');">
+						<carlos:encode value='<%= rx.getGenericName() %>' context="html"/> (<carlos:encode value='<%= rx.getBrandName() %>' context="html"/>) </a></span></td>
                                         </tr>
                                         <%
                                                 }

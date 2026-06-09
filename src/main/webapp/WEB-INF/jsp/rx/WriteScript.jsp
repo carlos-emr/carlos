@@ -915,7 +915,7 @@
             String drugId = thisForm.getGCN_SEQNO();
         }
     %>
-    <!--
+    <%--
 DemographicNo:   <%= thisForm.getDemographicNo() %><br>
 RxDate:          <%= thisForm.getRxDate() %><br>
 EndDate:         <%= thisForm.getEndDate() %><br>
@@ -946,7 +946,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
 
 <% regionalIdentifier = thisForm.getRegionalIdentifier(); %>
 
--->
+--%>
     <%
 
         // set patient info
@@ -1030,7 +1030,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                     <tr>
                         <td>
                             <div class="DivContentSectionHead"><fmt:message key="WriteScript.section2Title"/>
-                                for <%= patient.getFirstName() %> <%= patient.getSurname() %>
+                                for <carlos:encode value='<%= patient.getFirstName() %>' context="html"/> <carlos:encode value='<%= patient.getSurname() %>' context="html"/>
                             </div>
                         </td>
                     </tr>
@@ -1047,7 +1047,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                     </td>
                                     <td colspan=2>
                                         <input type="hidden" name="genericName" id="genericName"/>
-                                        <b><%= thisForm.getGenericName() %>
+                                        <b><carlos:encode value='<%= thisForm.getGenericName() %>' context="html"/>
                                         </b>
                                         <%if (compString != null) {%>
                                         <a href="javascript: function myFunction() {return false; }"
@@ -1057,8 +1057,8 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                     <td valign=top rowspan=9>
                                         <select size=20 name="selSpecial" ondblclick="javascript:cmdSpecial_click();">
                                             <%for (i = 0; i < spec.length; i++) {%>
-                                            <option value="<%= spec[i] %>">
-                                                <%= spec[i] %>
+                                            <option value="<carlos:encode value='<%= spec[i] %>' context="htmlAttribute"/>">
+                                                <carlos:encode value='<%= spec[i] %>' context="html"/>
                                             </option>
                                             <%}%>
                                         </select>
@@ -1071,7 +1071,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                     </td>
                                     <td colspan=2>
                                         <input type="hidden" name="brandName" id="brandName"/>
-                                        <b title="<%=thisForm.getRegionalIdentifier()%>"><%= thisForm.getBrandName() %>
+                                        <b title="<carlos:encode value='<%= thisForm.getRegionalIdentifier() %>' context="htmlAttribute"/>"><carlos:encode value='<%= thisForm.getBrandName() %>' context="html"/>
                                         </b>
                                         <oscar:oscarPropertiesCheck property="SHOW_ODB_LINK" value="yes">
                                             <!--a href="javascript: function myFunction() {return false; }" onclick="javascript:popup(700,630,'http://216.176.50.202/formulary/SearchServlet?searchType=singleQuery&phrase=exact&keywords=<%=regionalIdentifier%>','ODBInfo')">ODB info</a-->
@@ -1097,7 +1097,7 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                         <div style="z-index: 0;"><select size=20 name="selSpecial"
                                                                          ondblclick="javascript:cmdSpecial_click();">
                                             <%for (i = 0; i < spec.length; i++) {%>
-                                            <option value="<%= spec[i] %>"><%= spec[i] %>
+                                            <option value="<carlos:encode value='<%= spec[i] %>' context="htmlAttribute"/>"><carlos:encode value='<%= spec[i] %>' context="html"/>
                                             </option>
                                             <%}%>
                                         </select></div>
@@ -1173,8 +1173,8 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                     </select> <select name="frequencyCode" style="width:80px"
                                                                 onchange="javascript:changeDuration();calcQty();">
                                         <%for (i = 0; i < freq.length; i++) {%>
-                                        <option value="<%= freq[i].getFreqCode() %>">
-                                            <%= freq[i].getFreqCode() %>
+                                        <option value="<carlos:encode value='<%= freq[i].getFreqCode() %>' context="htmlAttribute"/>">
+                                            <carlos:encode value='<%= freq[i].getFreqCode() %>' context="html"/>
                                         </option>
                                         <%}%>
                                     </select> <input type="hidden" name="takeMin" id="takeMin"/>
@@ -1446,8 +1446,8 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                     for (int allergIndex = 0; allergIndex < allerg.length; allergIndex++) {
                             %>
                             <div style="background-color:<%=severityOfReactionColor(allerg[allergIndex].getSeverityOfReaction())%>;margin-right:100px;margin-left:20px;margin-top:10px;padding-left:10px;padding-top:10px;padding-bottom:5px;border-bottom: 2px solid gray;border-right: 2px solid #999;border-top: 1px solid #CCC;border-left: 1px solid #CCC;">
-                                <b>Allergy:</b> <%= allerg[allergIndex].getDescription() %> <b>Reaction:</b>
-                                <%= allerg[allergIndex].getReaction() %>
+                                <b>Allergy:</b> <carlos:encode value='<%= allerg[allergIndex].getDescription() %>' context="html"/> <b>Reaction:</b>
+                                <carlos:encode value='<%= allerg[allergIndex].getReaction() %>' context="html"/>
                                 <b>Severity:</b> <%=severityOfReaction(allerg[allergIndex].getSeverityOfReaction())%>
                                 <b>Onset of Reaction:</b> <%=onSetOfReaction(allerg[allergIndex].getOnsetOfReaction())%>
                             </div>
