@@ -29,8 +29,6 @@
 
 package io.github.carlos_emr.carlos.utility;
 
-import java.util.Date;
-
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 
@@ -47,8 +45,7 @@ public class AppointmentUtil {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static String getNextAppointment(String demographicNo) {
-        Date nextApptDate = null;
-        if (demographicNo != null && !demographicNo.equalsIgnoreCase("") && !demographicNo.equalsIgnoreCase("null")) {
+        if (demographicNo == null || demographicNo.equalsIgnoreCase("") || demographicNo.equalsIgnoreCase("null")) {
             return NONE;
         }
 
@@ -58,7 +55,7 @@ public class AppointmentUtil {
             return NONE;
         }
 
-        return ConversionUtils.toDateString(nextApptDate);
+        return ConversionUtils.toDateString(appt.getAppointmentDate());
     }
 
 }
