@@ -85,7 +85,7 @@ Exploded WAR".
 
 ## Access the application
 
-* Open your web browser and navigate to `http://localhost:8080`.
+* Open your web browser and navigate to `http://localhost:8080/carlos`.
 * You should see the CARLOS EMR application running.
 * Login credentials for local development are: 
     * Username: carlosdoc
