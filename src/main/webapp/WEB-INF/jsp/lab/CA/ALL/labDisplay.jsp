@@ -849,8 +849,8 @@ input[id^='acklabel_']{
                         const lab = labConfigs.find(l => testName === l.testName);
                         if (lab && i + 1 < cells.length) {
                             const resultText = cells[i + 1].textContent.trim();
-                            const valueMatch = resultText.match(/-?\d+(?:\.\d+)?/); // extract the number portion of <10
-                            const value = valueMatch ? parseFloat(valueMatch[0]) : NaN;
+                            const normalizedResult = resultText.replace(/^[<>]=?\s*/, ""); // handle result <10 and 1x10E12
+                            const value = parseFloat(normalizedResult);
                             if (!isNaN(value) && (value < lab.normalRange.min || value > lab.normalRange.max)) {
                                 if (!abnormalLabs.includes(lab)) {
                                     abnormalLabs.push(lab);
@@ -937,7 +937,9 @@ input[id^='acklabel_']{
                         if (anchorText === lab.testName) {
                           const resultCell = cells[cellIndex + 1];
                           if (resultCell) {
-                              const recentResult = parseFloat(resultCell.textContent.trim());
+                              const resultText = resultCell.textContent.trim();
+                              const normalizedResult = resultText.replace(/^[<>]=?\s*/, "");
+                              const recentResult = parseFloat(normalizedResult);      
       
                               if (!isNaN(recentResult) &&
                                   (recentResult < lab.normalRange.min || recentResult > lab.normalRange.max)) {
