@@ -100,7 +100,7 @@ public class RtlPreventions2Action extends ActionSupport {
         // Mandatory security check — same _eform privilege used by all eForm endpoints
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", "r", null)) {
-            throw new SecurityException("missing required sec object (_eform)");
+            throw new SecurityException("missing required sec object");
         }
 
         // Validate demographic_no: must be digits only. The regex check prevents
