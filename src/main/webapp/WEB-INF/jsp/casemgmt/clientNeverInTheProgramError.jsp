@@ -30,9 +30,11 @@
 
 
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.*" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
 <%
     String programId_str = (String) request.getSession().getAttribute("case_program_id");
@@ -50,8 +52,10 @@
 
 %>
 
-<h3 style="color: red">Access Denied</h3>
-<p>You cannot access this client's Encounters because he/she has never admitted in the <%=programName %>.
+<h3 style="color: red"><fmt:message key="casemgmt.accessDenied.title"/></h3>
+<p><fmt:message key="casemgmt.clientNeverInProgram.message">
+    <fmt:param value="<%=SafeEncode.forHtmlContent(programName)%>"/>
+</fmt:message>
 </p>
 
-<input type="button" value="Close Window" onclick="self.close()"/>
+<input type="button" value="<fmt:message key='demographic.manageContacts.closeWindow'/>" onclick="self.close()"/>

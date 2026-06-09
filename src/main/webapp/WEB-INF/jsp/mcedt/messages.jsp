@@ -32,6 +32,7 @@
 <%@ taglib uri="/struts-tags" prefix="s"%>
 <%@ taglib uri="jakarta.tags.core" prefix="c"%> 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt"%> 
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="http://www.oscar-emr.com/tags/integration" prefix="i"%> 
 <%@ taglib uri="jakarta.tags.functions" prefix="fn"%>
 

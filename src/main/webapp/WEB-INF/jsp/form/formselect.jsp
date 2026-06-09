@@ -28,6 +28,8 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%-- i18n scope: full (general form) --%>
+
 
 
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.report.pageUtil.*" %>
