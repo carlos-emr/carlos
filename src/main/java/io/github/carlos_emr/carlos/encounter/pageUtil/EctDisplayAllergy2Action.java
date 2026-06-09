@@ -39,7 +39,6 @@ import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.provider.web.CppPreferencesUIBean;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
-import org.owasp.encoder.Encode;
 
 import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
 import io.github.carlos_emr.carlos.util.DateUtils;
