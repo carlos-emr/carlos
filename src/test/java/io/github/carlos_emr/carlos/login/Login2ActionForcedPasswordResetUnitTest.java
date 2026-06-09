@@ -1497,8 +1497,8 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should persist oauth token provider when program location login completes")
-    void shouldPersistOauthTokenProvider_whenProgramLocationLoginCompletes() throws Exception {
+    @DisplayName("should persist oauth token provider when program location flag is enabled")
+    void shouldPersistOauthTokenProvider_whenProgramLocationFlagIsEnabled() throws Exception {
         String originalUseProgramLocation = CarlosProperties.getInstance().getProperty("useProgramLocation");
         Security security = forcedResetSecurity();
         security.setForcePasswordReset(Boolean.FALSE);
@@ -1517,7 +1517,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
 
                 String result = action.execute();
 
-                assertThat(result).isEqualTo("programLocation");
+                assertThat(result).isEqualTo(ActionSupport.NONE);
                 assertThat(token.getProviderNo()).isEqualTo("999998");
                 verify(serviceRequestTokenDao).merge(token);
             }
@@ -1545,7 +1545,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
 
                 String result = action.execute();
 
-                assertThat(result).isEqualTo("programLocation");
+                assertThat(result).isEqualTo("provider");
                 verify(serviceRequestTokenDao, never()).findByTokenId(anyString());
                 verify(serviceRequestTokenDao, never()).merge(any());
                 logActionMock.verify(() -> LogAction.addLog("999998", "log in", "login",

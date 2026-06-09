@@ -48,7 +48,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public final class SelectFacility2Action extends BaseLoginPageView2Action {
     private static final Logger LOGGER = MiscUtils.getLogger();
     private static final Set<String> ALLOWED_NEXT_RESULTS =
-            Set.of("provider", "caisiPMM", "programLocation", "failure");
+            Set.of("provider", "caisiPMM", "failure");
 
     private final ProviderDao providerDao;
     private final FacilityDao facilityDao;

@@ -46,7 +46,7 @@
     List<Integer> facilityIds = providerDao.getFacilityIds(provider.getProviderNo());
 
     // Empty nextPage means the action should use its provider default; non-empty values are allowlisted.
-    java.util.Set<String> allowedNextPages = java.util.Set.of("provider", "caisiPMM", "programLocation", "failure");
+    java.util.Set<String> allowedNextPages = java.util.Set.of("provider", "caisiPMM", "failure");
     String rawNextPage = request.getParameter("nextPage");
     String safeNextPage = (rawNextPage != null && allowedNextPages.contains(rawNextPage)) ? rawNextPage : "";
     if (rawNextPage != null && safeNextPage.isEmpty()) {
