@@ -12,6 +12,9 @@ import org.springframework.stereotype.Service;
 @Service
 public class SmsSendService {
     private static final SmsProviderType DEFAULT_PROVIDER_TYPE = SmsProviderType.STUB;
+    private static final String DIRECT_PROVIDER_EXCEPTION_CODE = "DIRECT_PROVIDER_EXCEPTION";
+    private static final String DIRECT_PROVIDER_EXCEPTION_MESSAGE =
+            "SMS direct send failed because the provider client threw an exception.";
 
     private final SmsSendValidator validator;
     private final SmsConsentService consentService;
@@ -48,7 +51,10 @@ public class SmsSendService {
         try {
             providerResult = providerClient.send(command);
         } catch (RuntimeException e) {
-            providerResult = SmsProviderSendResultDto.failed("PROVIDER_EXCEPTION", "SMS provider send failed.");
+            providerResult = SmsProviderSendResultDto.failed(
+                    DIRECT_PROVIDER_EXCEPTION_CODE,
+                    DIRECT_PROVIDER_EXCEPTION_MESSAGE
+            );
         }
         transactionRecorder.markProviderResult(transaction, providerResult);
         return SmsSendResultDto.fromProvider(providerResult);

@@ -82,7 +82,9 @@ class SmsQueueWorkerUnitTest {
         assertThat(processed).isEqualTo(1);
         assertThat(transaction)
                 .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount, SmsTransaction::getErrorCode)
-                .containsExactly(SmsStatus.QUEUED, 1, "PROVIDER_ERROR");
+                .containsExactly(SmsStatus.QUEUED, 1, "QUEUE_PROVIDER_FAILURE_RETRY_SCHEDULED");
+        assertThat(transaction.getErrorMessage())
+                .isEqualTo("SMS queued provider failure recorded; retry scheduled.");
         assertThat(transaction.getNextAttemptAt()).isNotNull();
     }
 
@@ -90,10 +92,7 @@ class SmsQueueWorkerUnitTest {
     @DisplayName("processDueMessages marks final failure after retry limit")
     void shouldMarkFailed_whenRetryLimitIsReached() {
         SmsTransaction transaction = queuedTransaction();
-        transaction.markSending(new Date());
-        transaction.markRetryScheduled(SmsProviderSendResultDto.failed("PROVIDER_ERROR", "Provider rejected message"), new Date());
-        transaction.markSending(new Date());
-        transaction.markRetryScheduled(SmsProviderSendResultDto.failed("PROVIDER_ERROR", "Provider rejected message"), new Date());
+        scheduleTwoFailedAttempts(transaction);
         RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder(List.of(transaction));
         SmsQueueWorker worker = new SmsQueueWorker(
                 recorder,
@@ -106,8 +105,88 @@ class SmsQueueWorkerUnitTest {
 
         assertThat(processed).isEqualTo(1);
         assertThat(transaction)
-                .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount, SmsTransaction::getNextAttemptAt)
-                .containsExactly(SmsStatus.FAILED, 3, null);
+                .extracting(
+                        SmsTransaction::getStatus,
+                        SmsTransaction::getAttemptCount,
+                        SmsTransaction::getErrorCode,
+                        SmsTransaction::getErrorMessage,
+                        SmsTransaction::getNextAttemptAt
+                )
+                .containsExactly(
+                        SmsStatus.FAILED,
+                        3,
+                        "QUEUE_PROVIDER_FAILURE_RETRY_EXHAUSTED",
+                        "SMS queued provider failure reached retry limit; no further retry scheduled.",
+                        null
+                );
+    }
+
+    @Test
+    @DisplayName("processDueMessages records queue provider exceptions distinctly")
+    void shouldScheduleRetry_whenQueuedProviderThrows() {
+        SmsTransaction transaction = queuedTransaction();
+        RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder(List.of(transaction));
+        SmsQueueWorker worker = new SmsQueueWorker(
+                recorder,
+                new SmsProviderResolver(List.of(new ThrowingProviderClient())),
+                new SmsRetryPolicy(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
+                providerType -> true
+        );
+
+        int processed = worker.processDueMessages(25);
+
+        assertThat(processed).isEqualTo(1);
+        assertThat(transaction)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount, SmsTransaction::getErrorCode)
+                .containsExactly(SmsStatus.QUEUED, 1, "QUEUE_PROVIDER_EXCEPTION_RETRY_SCHEDULED");
+        assertThat(transaction.getErrorMessage())
+                .isEqualTo("SMS queued provider exception recorded; retry scheduled.");
+    }
+
+    @Test
+    @DisplayName("processDueMessages marks final queue provider exceptions distinctly")
+    void shouldMarkFailed_whenQueuedProviderThrowsAtRetryLimit() {
+        SmsTransaction transaction = queuedTransaction();
+        scheduleTwoFailedAttempts(transaction);
+        RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder(List.of(transaction));
+        SmsQueueWorker worker = new SmsQueueWorker(
+                recorder,
+                new SmsProviderResolver(List.of(new ThrowingProviderClient())),
+                new SmsRetryPolicy(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
+                providerType -> true
+        );
+
+        int processed = worker.processDueMessages(25);
+
+        assertThat(processed).isEqualTo(1);
+        assertThat(transaction)
+                .extracting(
+                        SmsTransaction::getStatus,
+                        SmsTransaction::getAttemptCount,
+                        SmsTransaction::getErrorCode,
+                        SmsTransaction::getErrorMessage,
+                        SmsTransaction::getNextAttemptAt
+                )
+                .containsExactly(
+                        SmsStatus.FAILED,
+                        3,
+                        "QUEUE_PROVIDER_EXCEPTION_RETRY_EXHAUSTED",
+                        "SMS queued provider exception reached retry limit; no further retry scheduled.",
+                        null
+                );
+    }
+
+    private static void scheduleTwoFailedAttempts(SmsTransaction transaction) {
+        transaction.markSending(new Date());
+        transaction.markRetryScheduled(
+                SmsProviderSendResultDto.failed("PROVIDER_ERROR", "Provider rejected message"),
+                new Date()
+        );
+        transaction.markSending(new Date());
+        transaction.markRetryScheduled(
+                SmsProviderSendResultDto.failed("PROVIDER_ERROR", "Provider rejected message"),
+                new Date()
+        );
     }
 
     private static SmsTransaction queuedTransaction() {
@@ -174,9 +253,13 @@ class SmsQueueWorkerUnitTest {
         }
 
         @Override
-        public List<SmsTransaction> findDueOutboundQueue(SmsProviderType providerType, Date now, int limit) {
+        public List<SmsTransaction> claimDueOutboundQueue(SmsProviderType providerType, Date now, int limit) {
             return transactions.stream()
                     .filter(transaction -> transaction.getStatus() == SmsStatus.QUEUED)
+                    .filter(transaction ->
+                            transaction.getNextAttemptAt() == null || !transaction.getNextAttemptAt().after(now)
+                    )
+                    .peek(transaction -> transaction.markSending(now))
                     .limit(limit)
                     .toList();
         }
@@ -213,6 +296,13 @@ class SmsQueueWorkerUnitTest {
         @Override
         public SmsProviderSendResultDto send(SmsSendCommand command) {
             return SmsProviderSendResultDto.failed("PROVIDER_ERROR", "Provider rejected message");
+        }
+    }
+
+    private static class ThrowingProviderClient extends AcceptingProviderClient {
+        @Override
+        public SmsProviderSendResultDto send(SmsSendCommand command) {
+            throw new IllegalStateException("provider unavailable");
         }
     }
 }

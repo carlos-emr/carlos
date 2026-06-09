@@ -26,5 +26,5 @@ public interface SmsTransactionRecorder {
 
     SmsTransaction recordDeliveryEvent(SmsDeliveryWebhookDto webhook);
 
-    List<SmsTransaction> findDueOutboundQueue(SmsProviderType providerType, Date now, int limit);
+    List<SmsTransaction> claimDueOutboundQueue(SmsProviderType providerType, Date now, int limit);
 }

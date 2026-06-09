@@ -140,7 +140,7 @@ class SmsQueueServiceUnitTest {
         }
 
         @Override
-        public List<SmsTransaction> findDueOutboundQueue(SmsProviderType providerType, Date now, int limit) {
+        public List<SmsTransaction> claimDueOutboundQueue(SmsProviderType providerType, Date now, int limit) {
             return List.of();
         }
 

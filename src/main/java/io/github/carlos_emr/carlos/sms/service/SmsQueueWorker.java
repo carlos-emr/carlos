@@ -12,6 +12,23 @@ import java.util.List;
 public class SmsQueueWorker {
     private static final SmsProviderType DEFAULT_PROVIDER_TYPE = SmsProviderType.STUB;
     private static final int DEFAULT_BATCH_SIZE = 25;
+    private static final String QUEUE_PROVIDER_EXCEPTION_CODE = "QUEUE_PROVIDER_EXCEPTION";
+    private static final String QUEUE_PROVIDER_FAILURE_RETRY_SCHEDULED_CODE =
+            "QUEUE_PROVIDER_FAILURE_RETRY_SCHEDULED";
+    private static final String QUEUE_PROVIDER_EXCEPTION_RETRY_SCHEDULED_CODE =
+            "QUEUE_PROVIDER_EXCEPTION_RETRY_SCHEDULED";
+    private static final String QUEUE_PROVIDER_FAILURE_RETRY_EXHAUSTED_CODE =
+            "QUEUE_PROVIDER_FAILURE_RETRY_EXHAUSTED";
+    private static final String QUEUE_PROVIDER_EXCEPTION_RETRY_EXHAUSTED_CODE =
+            "QUEUE_PROVIDER_EXCEPTION_RETRY_EXHAUSTED";
+    private static final String QUEUE_PROVIDER_FAILURE_RETRY_SCHEDULED_MESSAGE =
+            "SMS queued provider failure recorded; retry scheduled.";
+    private static final String QUEUE_PROVIDER_EXCEPTION_RETRY_SCHEDULED_MESSAGE =
+            "SMS queued provider exception recorded; retry scheduled.";
+    private static final String QUEUE_PROVIDER_FAILURE_RETRY_EXHAUSTED_MESSAGE =
+            "SMS queued provider failure reached retry limit; no further retry scheduled.";
+    private static final String QUEUE_PROVIDER_EXCEPTION_RETRY_EXHAUSTED_MESSAGE =
+            "SMS queued provider exception reached retry limit; no further retry scheduled.";
 
     private final SmsTransactionRecorder transactionRecorder;
     private final SmsProviderResolver providerResolver;
@@ -35,35 +52,76 @@ public class SmsQueueWorker {
     }
 
     public int processDueMessages(int limit) {
-        Date now = new Date();
-        List<SmsTransaction> transactions = transactionRecorder.findDueOutboundQueue(DEFAULT_PROVIDER_TYPE, now, limit);
         int processed = 0;
-        for (SmsTransaction transaction : transactions) {
-            if (!rateLimiter.tryAcquire(transaction.getProviderType())) {
+        int safeLimit = Math.max(1, limit);
+        while (processed < safeLimit) {
+            if (!rateLimiter.tryAcquire(DEFAULT_PROVIDER_TYPE)) {
                 break;
             }
-            processTransaction(transaction, now);
+            List<SmsTransaction> transactions = transactionRecorder.claimDueOutboundQueue(
+                    DEFAULT_PROVIDER_TYPE,
+                    new Date(),
+                    1
+            );
+            if (transactions.isEmpty()) {
+                break;
+            }
+            processTransaction(transactions.get(0));
             processed++;
         }
         return processed;
     }
 
-    private void processTransaction(SmsTransaction transaction, Date attemptAt) {
-        transactionRecorder.markSending(transaction, attemptAt);
+    private void processTransaction(SmsTransaction transaction) {
         SmsProviderClient providerClient = providerResolver.resolve(transaction.getProviderType());
         SmsProviderSendResultDto providerResult;
         try {
             providerResult = providerClient.send(transaction.toSendCommand());
         } catch (RuntimeException e) {
-            providerResult = SmsProviderSendResultDto.failed("PROVIDER_EXCEPTION", "SMS provider send failed.");
+            providerResult = SmsProviderSendResultDto.failed(QUEUE_PROVIDER_EXCEPTION_CODE, null);
         }
 
-        if (providerResult.accepted() || !retryPolicy.canRetry(transaction)) {
+        if (providerResult.accepted()) {
             transactionRecorder.markProviderResult(transaction, providerResult);
             return;
         }
 
+        if (!retryPolicy.canRetry(transaction)) {
+            transactionRecorder.markProviderResult(transaction, retryExhaustedResult(providerResult));
+            return;
+        }
+
         Date nextAttemptAt = retryPolicy.nextAttemptAt(transaction, new Date());
-        transactionRecorder.markRetryScheduled(transaction, providerResult, nextAttemptAt);
+        transactionRecorder.markRetryScheduled(transaction, retryScheduledResult(providerResult), nextAttemptAt);
+    }
+
+    private SmsProviderSendResultDto retryScheduledResult(SmsProviderSendResultDto providerResult) {
+        if (isProviderException(providerResult)) {
+            return SmsProviderSendResultDto.failed(
+                    QUEUE_PROVIDER_EXCEPTION_RETRY_SCHEDULED_CODE,
+                    QUEUE_PROVIDER_EXCEPTION_RETRY_SCHEDULED_MESSAGE
+            );
+        }
+        return SmsProviderSendResultDto.failed(
+                QUEUE_PROVIDER_FAILURE_RETRY_SCHEDULED_CODE,
+                QUEUE_PROVIDER_FAILURE_RETRY_SCHEDULED_MESSAGE
+        );
+    }
+
+    private SmsProviderSendResultDto retryExhaustedResult(SmsProviderSendResultDto providerResult) {
+        if (isProviderException(providerResult)) {
+            return SmsProviderSendResultDto.failed(
+                    QUEUE_PROVIDER_EXCEPTION_RETRY_EXHAUSTED_CODE,
+                    QUEUE_PROVIDER_EXCEPTION_RETRY_EXHAUSTED_MESSAGE
+            );
+        }
+        return SmsProviderSendResultDto.failed(
+                QUEUE_PROVIDER_FAILURE_RETRY_EXHAUSTED_CODE,
+                QUEUE_PROVIDER_FAILURE_RETRY_EXHAUSTED_MESSAGE
+        );
+    }
+
+    private boolean isProviderException(SmsProviderSendResultDto providerResult) {
+        return QUEUE_PROVIDER_EXCEPTION_CODE.equals(providerResult.errorCode());
     }
 }

@@ -5,6 +5,7 @@ import io.github.carlos_emr.carlos.sms.SmsDirection;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.TypedQuery;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,8 +56,8 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public List<SmsTransaction> findDueOutboundQueue(SmsProviderType providerType, Date now, int limit) {
+    @Transactional
+    public List<SmsTransaction> findDueOutboundQueueForUpdate(SmsProviderType providerType, Date now, int limit) {
         if (providerType == null || now == null) {
             return List.of();
         }
@@ -73,6 +74,7 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
         query.setParameter("status", SmsStatus.QUEUED);
         query.setParameter("now", now);
         query.setMaxResults(safeLimit(limit));
+        query.setLockMode(LockModeType.PESSIMISTIC_WRITE);
         return query.getResultList();
     }
 

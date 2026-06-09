@@ -239,19 +239,23 @@ class JpaSmsTransactionRecorderUnitTest {
     }
 
     @Test
-    @DisplayName("findDueOutboundQueue delegates to the transaction DAO")
-    void shouldReturnTransactions_whenFindingDueOutboundQueue() {
+    @DisplayName("claimDueOutboundQueue marks locked rows as sending")
+    void shouldMarkTransactionsSending_whenClaimingDueOutboundQueue() {
         JpaSmsTransactionRecorder recorder = new JpaSmsTransactionRecorder(smsTransactionDao);
         Date now = Date.from(Instant.parse("2026-06-08T12:00:00Z"));
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
                 SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
         );
-        when(smsTransactionDao.findDueOutboundQueue(SmsProviderType.STUB, now, 25))
+        when(smsTransactionDao.findDueOutboundQueueForUpdate(SmsProviderType.STUB, now, 25))
                 .thenReturn(List.of(transaction));
 
-        List<SmsTransaction> transactions = recorder.findDueOutboundQueue(SmsProviderType.STUB, now, 25);
+        List<SmsTransaction> transactions = recorder.claimDueOutboundQueue(SmsProviderType.STUB, now, 25);
 
         assertThat(transactions).singleElement().isSameAs(transaction);
+        assertThat(transaction)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount, SmsTransaction::getLastAttemptAt)
+                .containsExactly(SmsStatus.SENDING, 1, now);
+        verify(smsTransactionDao).flush();
     }
 }
