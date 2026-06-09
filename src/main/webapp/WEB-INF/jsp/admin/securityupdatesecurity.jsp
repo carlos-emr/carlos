@@ -51,9 +51,10 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ page import="java.lang.*, java.util.*, java.text.*,java.sql.*, io.github.carlos_emr.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="jakarta.servlet.http.HttpServletResponse" %>
+<%@ page import="io.github.carlos_emr.carlos.admin.web.SecurityRecordAccessGuard" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Security" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.SecurityDao" %>
 <%@ page import="io.github.carlos_emr.carlos.security.MfaActions2Action" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.MfaManager" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
@@ -230,9 +231,14 @@
         <table cellspacing="0" cellpadding="2" width="100%" border="0">
             <form method="post" action="${pageContext.request.contextPath}/admin/SecurityUpdate" name="updatearecord" onsubmit="return onsub()">
                 <%
-                    SecurityDao securityDao = SpringUtils.getBean(SecurityDao.class);
-                    Integer securityId = Integer.valueOf(request.getParameter("keyword"));
-                    Security security = securityDao.find(securityId);
+                    SecurityRecordAccessGuard securityRecordAccessGuard = new SecurityRecordAccessGuard();
+                    Integer securityId = securityRecordAccessGuard.parseSecurityId(request.getParameter("keyword"));
+                    Security security = securityRecordAccessGuard.findSecurity(securityId);
+
+                    if (security != null && !securityRecordAccessGuard.hasCurrentFacilityAccess(LoggedInInfo.getLoggedInInfoFromSession(request), security)) {
+                        response.sendError(HttpServletResponse.SC_FORBIDDEN, "Cross-facility access denied");
+                        return;
+                    }
 
                     if (security == null) {
                 %>
