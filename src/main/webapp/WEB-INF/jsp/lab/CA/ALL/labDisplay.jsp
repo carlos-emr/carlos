@@ -238,6 +238,35 @@
     String formName2 = bShortcutForm ? CarlosProperties.getInstance().getProperty("appt_formview_name2", "") : "";
     String formName2Short = formName2.length() > 3 ? (formName2.substring(0, 2) + ".") : formName2;
     boolean bShortcutForm2 = bShortcutForm && !formName2.equals("");
+
+    // Load LAB_VALUE_HX_JSON from carlos.properties (admin-controlled); default covers common tracked labs.
+    // Re-serialised through Jackson to reject malformed input and normalise the output.
+    String labValueHxDefault = "[{\"name\":\"eGFR\",\"LOINC\":\"33914-3\",\"testName\":\"Estimated GFR\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":60,\"max\":999}},"
+  + "{\"name\":\"A1C\",\"LOINC\":\"4548-4\",\"testName\":\"Hemoglobin A1c\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":4,\"max\":5.9}},"
+  + "{\"name\":\"K\",\"LOINC\":\"2823-3\",\"testName\":\"Potassium\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":3.5,\"max\":5}},"
+  + "{\"name\":\"CRP\",\"LOINC\":\"1988-5\",\"testName\":\"C Reactive Protein\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":0,\"max\":7.5}},"
+  + "{\"name\":\"Hb\",\"LOINC\":\"718-7\",\"testName\":\"Hemoglobin\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":135,\"max\":180}},"
+  + "{\"name\":\"Hb\",\"LOINC\":\"718-7\",\"testName\":\"Hemoglobin\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":135,\"max\":180}},"
+  + "{\"name\":\"AST\",\"LOINC\":\"1920-8\",\"testName\":\"Aspartate Aminotransferase\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":0,\"max\":36}},"
+  + "{\"name\":\"ALT\",\"LOINC\":\"1742-6\",\"testName\":\"Alanine Aminotransferase\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":0,\"max\":50}},"
+  + "{\"name\":\"LDL\",\"LOINC\":\"39469-2\",\"testName\":\"LDL Cholesterol\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":0,\"max\":0}},"
+  + "{\"name\":\"ACR\",\"LOINC\":\"9318-7\",\"testName\":\"Urine ACR (Albumin/Creatinine Ratio)\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":0,\"max\":2}},"
+  + "{\"name\":\"PSA\",\"LOINC\":\"2857-1\",\"testName\":\"Prostate Specific Ag\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":0,\"max\":0}},"
+  + "{\"name\":\"CEA\",\"LOINC\":\"2039-6\",\"testName\":\"Carcinoembryonic Ag\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":0,\"max\":0}},"
+  + "{\"name\":\"Ferritin\",\"LOINC\":\"2276-4\",\"testName\":\"Ferritin\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":45,\"max\":200}},"
+  + "{\"name\":\"TSH\",\"LOINC\":\"3016-3\",\"testName\":\"TSH\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":0.3,\"max\":5.5}},"
+  + "{\"name\":\"TG\",\"LOINC\":\"14927-8\",\"testName\":\"Triglycerides\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":0,\"max\":2.3}}]";
+    String labValueHxJson;
+    try {
+        ObjectMapper labHxMapper = new ObjectMapper();
+        JsonNode labHxNode = labHxMapper.readTree(props.getProperty("LAB_VALUE_HX_JSON", labValueHxDefault));
+        // Replace "</" so the JSON can be safely embedded inside a <script> block
+        labValueHxJson = labHxMapper.writeValueAsString(labHxNode).replace("</", "<\\/");
+    } catch (Exception e_labHx) {
+        labValueHxJson = labValueHxDefault;
+    }
+
+
     List<MessageHandler> handlers = new ArrayList<MessageHandler>();
     String[] segmentIDs = null;
     Boolean showAll = showAllstr != null && !"null".equalsIgnoreCase(showAllstr);
@@ -568,6 +597,8 @@ input[id^='acklabel_']{
         var providerNo = '<carlos:encode value='<%= providerNo %>' context="javaScriptBlock"/>';
         var demographicNo = '<carlos:encode value='<%= isLinkedToDemographic ? demographicID : "" %>' context="javaScriptBlock"/>';
 
+
+
         function popupStart(vheight, vwidth, varpage, windowname) {
             var page = varpage;
             windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes";
@@ -796,11 +827,175 @@ input[id^='acklabel_']{
             }
         }
 
+        const labConfigs = <%=labValueHxJson%>;
+        console.log("config "+labConfigs);
+        const abnormalLabs = [];
+
+        function loadHL7hx() {
+            const start = Date.now();
+             
+            // First pass: check for abnormalities in current values
+            const rows = document.querySelectorAll("tr.NormalRes, tr.AbnormalRes, tr.HiLoRes");
+        
+            rows.forEach(row => {
+                const cells = row.querySelectorAll("td");
+                cells.forEach((cell, i) => {
+                    const anchors = cell.querySelectorAll("a");
+                    anchors.forEach(a => {
+                        const testName = a.textContent.trim();
+                        //const lab = labConfigs.find(l => testName.includes(l.testName));
+                        const lab = labConfigs.find(l => testName === l.testName);
+                        if (lab && i + 1 < cells.length) {
+                            const resultText = cells[i + 1].textContent.trim();
+                            const value = parseFloat(resultText);
+                            if (!isNaN(value) && (value < lab.normalRange.min || value > lab.normalRange.max)) {
+                                if (!abnormalLabs.includes(lab)) {
+                                    abnormalLabs.push(lab);
+                                }
+                            }
+                        }
+                    });
+                });
+            });
+            console.log("abnormal Labs "+abnormalLabs);
+               
+          // Fetch and insert only for abnormal labs
+          fetchLabsSequentially().then(() => {
+              const ms = Date.now() - start;
+              console.log("All labs fetched and inserted at "+Math.floor(ms / 100)/10+"sec");
+          });
+        }
+
+        async function fetchLabsSequentially() {
+          for (let i = 0; i < abnormalLabs.length; i++) {
+              const lab = abnormalLabs[i];
+      
+              // Fetch values for this lab
+              await fetchLabValues(lab, demographicNo);
+      
+              // Insert values immediately after fetching
+              insertLabValues(lab);
+              console.log("Inserted values for "+lab.name);
+          }      
+      }
+
+      async function fetchLabValues(lab, demographicNo) {
+          const newURL = `<%=request.getContextPath()%>/lab/CA/ON/ViewLabValues?t?testName=\${encodeURIComponent(
+              lab.testName
+          )}&demo=\${demographicNo}&labType=HL7&identifier=\${lab.LOINC}`;
+      
+          console.log(`Fetching \${lab.name} values from URL:`, newURL);
+      
+          try {
+              const response = await fetch(newURL);
+      
+              if (!response.ok) {
+                  console.warn(
+                      `Failed to fetch lab: \${lab.name} — status: \${response.status}`
+                  );
+                  return;
+              }
+      
+              const responseText = await response.text();
+      
+              // Convert returned HTML into a DOM document
+              const parser = new DOMParser();
+              const doc = parser.parseFromString(responseText, "text/html");
+      
+              // Select all result rows
+              const rows = doc.querySelectorAll(
+                  "tr.NormalRes, tr.AbnormalRes, tr.LoRes, tr.HiLoRes"
+              );
+      
+              rows.forEach((row) => {
+                  const cells = row.querySelectorAll("td");
+                  if (cells.length < 6) return;
+                  const value = cells[1].textContent.trim();
+                  const dateTime = cells[5].textContent.trim();
+                  // Extract only the YYYY-MM-DD part
+                  const dateMatch = dateTime.match(/^(\d{4}-\d{2}-\d{2})/);
+                  if (!dateMatch) return;
+                  if (lab.values.length < 10) {
+                      lab.values.push(value);
+                      lab.dates.push(dateMatch[1]);
+                  }
+              });
+          } catch (error) {
+              console.error(`Error fetching lab: \${lab.name}`, error);
+          }
+      }
+
+      function insertLabValues(lab) {
+          const rows = document.querySelectorAll("tr.NormalRes, tr.AbnormalRes, tr.HiLoRes");
+      
+          rows.forEach((row) => {
+              const cells = row.querySelectorAll("td");
+      
+              cells.forEach((cell, cellIndex) => {
+                  const anchors = cell.querySelectorAll("a");
+                  anchors.forEach((a) => {
+                      const anchorText = a.textContent.replace(/\s+/g, " ").trim();
+      
+                      //if (anchorText.includes(lab.testName)) {
+                        if (anchorText === lab.testName) {
+                          const resultCell = cells[cellIndex + 1];
+                          if (resultCell) {
+                              const recentResult = parseFloat(resultCell.textContent.trim());
+      
+                              if (!isNaN(recentResult) &&
+                                  (recentResult < lab.normalRange.min || recentResult > lab.normalRange.max)) {
+                                  const span = document.createElement("span");
+                                  span.style.marginLeft = "10px";
+                                  span.style.color = "#000080";
+                                  span.textContent = ` (\${lab.values.slice(1, 3).join(" / ")})`;
+      
+                                  const tooltip = document.createElement("div");
+                                  tooltip.className = "custom-tooltip";
+                                  tooltip.innerHTML = lab.values.map((val, i) =>
+                                     `<div><strong>\${val}</strong> <strong style="color:#36454F;">(\${lab.dates[i]})</strong></div>`
+                                  ).join("");
+                                  tooltip.style.position = "absolute";
+                                  tooltip.style.background = "#fefefe";
+                                  tooltip.style.border = "1px solid #ccc";
+                                  tooltip.style.padding = "6px 8px";
+                                  tooltip.style.boxShadow = "2px 2px 6px rgba(0,0,0,0.2)";
+                                  tooltip.style.borderRadius = "4px";
+                                  tooltip.style.whiteSpace = "nowrap";
+                                  tooltip.style.zIndex = "1000";
+                                  tooltip.style.display = "none";
+                                  tooltip.style.fontSize = "12px";
+      
+                                  document.body.appendChild(tooltip);
+      
+                                  span.addEventListener("mouseover", (e) => {
+                                      tooltip.style.left = (e.pageX + 10) + "px";
+                                      tooltip.style.top = (e.pageY + 10) + "px";
+                                      tooltip.style.display = "block";
+                                  });
+      
+                                  span.addEventListener("mousemove", (e) => {
+                                      tooltip.style.left = (e.pageX + 10) + "px";
+                                      tooltip.style.top = (e.pageY + 10) + "px";
+                                  });
+      
+                                  span.addEventListener("mouseout", () => {
+                                      tooltip.style.display = "none";
+                                  });
+      
+                                  resultCell.appendChild(span);
+                              }
+                          }
+                      }
+                  });
+              });
+          });
+      }
+      
     </script>
 
 </head>
 
-<body onLoad="javascript:matchMe();">
+<body onLoad="javascript:matchMe(); loadHL7hx();">
 
 <!-- form forwarding of the lab -->
 <%
