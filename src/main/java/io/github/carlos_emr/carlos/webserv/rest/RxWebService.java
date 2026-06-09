@@ -83,6 +83,7 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Path("/rx")
 @Component("rxWebService")
@@ -173,6 +174,8 @@ public class RxWebService extends AbstractServiceImpl {
         return Response.status(Status.OK).entity(RxStatus.values()).build();
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @GET
     @Path("/drugs/{status}/{demographicNo}")
     @Produces(MediaType.APPLICATION_JSON)

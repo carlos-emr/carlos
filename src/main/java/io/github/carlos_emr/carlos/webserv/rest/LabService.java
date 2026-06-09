@@ -28,15 +28,17 @@
  */
 package io.github.carlos_emr.carlos.webserv.rest;
 
+import io.github.carlos_emr.CarlosProperties;
+
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.io.File;
 import java.util.Optional;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -51,6 +53,7 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.Response;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.Hl7TextMessage;
@@ -67,6 +70,7 @@ import io.github.carlos_emr.carlos.lab.FileUploadCheck;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.HandlerClassFactory;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.MessageHandler;
 import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Path("/labs")
 @Component("labService")
@@ -99,6 +103,8 @@ public class LabService extends AbstractServiceImpl {
 	@Path("/hl7LabUpload")
 	@Produces("application/json")
 	@Consumes("application/json")
+	// FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+	@SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
 	public Response uploadHl7Lab(Hl7TextMessageTo1 labT, @Context HttpServletRequest request) {
 		LoggedInInfo loggedInInfo = getLoggedInInfo();
 
@@ -120,8 +126,17 @@ public class LabService extends AbstractServiceImpl {
 		}
 
 		int checkFileUploadedSuccessfully;
-        try (InputStream localFileInputStream = Files.newInputStream(Paths.get(filePath))) {
-            checkFileUploadedSuccessfully = FileUploadCheck.addFile(Paths.get(filePath).getFileName().toString(), localFileInputStream, loggedInInfo.getLoggedInProviderNo());
+        File savedLabFile;
+        try {
+            savedLabFile = PathValidationUtils.validateExistingPath(new File(filePath), PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR"));
+            // Use the containment-validated path for all downstream consumers (e.g. msgHandler.parse below).
+            filePath = savedLabFile.getPath();
+        } catch (SecurityException e) {
+            logger.error("Invalid saved lab file path", e);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createResponseMap(labT.getFileName(), "Failed", "Error occurred while processing the file", null, type)).build();
+        }
+        try (InputStream localFileInputStream = Files.newInputStream(savedLabFile.toPath())) {
+            checkFileUploadedSuccessfully = FileUploadCheck.addFile(savedLabFile.getName(), localFileInputStream, loggedInInfo.getLoggedInProviderNo());
         } catch (IOException e) {
             logger.error("Error occurred while processing " + labT.getFileName() + " file", e);
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createResponseMap(labT.getFileName(), "Failed", "Error occurred while processing the file", null, type)).build();
@@ -143,7 +158,7 @@ public class LabService extends AbstractServiceImpl {
 			Hl7TextMessage hl7TextMessage = labManager.getHl7Message(loggedInInfo, lastLabNo);
 			Hl7TextMessageConverter converter = new Hl7TextMessageConverter();
 			labT = converter.getAsTransferObject(loggedInInfo, hl7TextMessage);
-			labT.setFileName(Paths.get(filePath).getFileName().toString());
+			labT.setFileName(savedLabFile.getName());
 		}
 		return Response.ok(labT).build();
 	}

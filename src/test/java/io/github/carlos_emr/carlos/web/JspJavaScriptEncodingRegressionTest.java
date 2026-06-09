@@ -62,6 +62,16 @@ class JspJavaScriptEncodingRegressionTest {
     }
 
     @Test
+    void shouldEncodeCurrentProgram_inDemographicPaperArchiveJavaScriptString() throws Exception {
+        String editJsp = readJsp("demographic/edit.jsp");
+
+        assertThat(editJsp)
+                .containsPattern(SAFE_ENCODE_IMPORT_PATTERN)
+                .contains("jQuery(\"#paper_chart_archived_program\").val('<%=SafeEncode.forJavaScript(currentProgram)%>');")
+                .doesNotContain("jQuery(\"#paper_chart_archived_program\").val('<%=currentProgram%>');");
+    }
+
+    @Test
     void shouldContainEncodedInlineHandlers_inJavaScriptAttributeContext() throws Exception {
         String chartNotesJsp = readJsp("casemgmt/ChartNotesAjax.jsp");
         String multiPageJsp = readJsp("documentManager/MultiPageDocDisplay.jsp");
@@ -142,6 +152,26 @@ class JspJavaScriptEncodingRegressionTest {
                 .doesNotContain("<%= session.getAttribute(\"groupName\") %>")
                 .contains("<carlos:encode value='<%= groupName %>' context=\"html\"/>")
                 .doesNotContainPattern(">(?:\\s*)<%=\\s*groupName\\s*%>(?:\\s*)<");
+    }
+
+    @Test
+    @DisplayName("should encode provider values in lab forwarding rules JSP")
+    @Tag("security")
+    void shouldEncodeProviderValues_inLabForwardingRulesJsp() throws Exception {
+        String jsp = readJsp("admin/labforwardingrules.jsp");
+
+        assertThat(jsp)
+                .doesNotContain("<option value=\"<%= prov_no %>\"")
+                .doesNotContain("removeProvider('<%= (String) ((ArrayList) frwdProviders.get(i)).get(0) %>'")
+                .contains("<option value=\"<carlos:encode value='<%= prov_no %>' context=\"htmlAttribute\"/>\"")
+                .contains("<option value=\"<carlos:encode value='<%= prov_no %>' context=\"htmlAttribute\"/>\"><carlos:encode "
+                        + "value='<%= (String) ((ArrayList) providers.get(i)).get(1) %>' context=\"html\"/>")
+                .contains("<td><carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(1) %>' context=\"html\"/> "
+                        + "<carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(2) %>' context=\"html\"/>")
+                .contains("removeProvider('<carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(0) %>' "
+                        + "context=\"javaScriptAttribute\"/>', '<carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(1) %>' "
+                        + "context=\"javaScriptAttribute\"/> <carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(2) %>' "
+                        + "context=\"javaScriptAttribute\"/>')");
     }
 
     @Test

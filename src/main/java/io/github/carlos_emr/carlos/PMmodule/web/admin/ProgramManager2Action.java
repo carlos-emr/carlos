@@ -94,6 +94,7 @@ import io.github.carlos_emr.carlos.services.security.RolesManager;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts 2 action for comprehensive program management in the PMmodule.
@@ -1150,6 +1151,8 @@ public class ProgramManager2Action extends ActionSupport {
         return edit();
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private void saveTemplateOrVacancy(HashMap<String, String[]> parameters, String[] answers, CriteriaType type, Criteria criteria, HttpServletRequest request) {
 
         if (type.getFieldType().equalsIgnoreCase("select_multiple") || type.getFieldType().equalsIgnoreCase("select_multiple_narrowing")) {

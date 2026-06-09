@@ -48,6 +48,7 @@ import java.util.stream.Collectors;
 
 import io.github.carlos_emr.carlos.login.OscarOAuthDataProvider;
 import io.github.carlos_emr.carlos.login.OAuthData; // model used by 3rdpartyLogin.jsp
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Produces(MediaType.TEXT_HTML)
 public class AuthorizeResource {
@@ -103,6 +104,8 @@ public class AuthorizeResource {
     }
 
     /** POST /ws/oauth/authorize — approve and redirect (or OOB) */
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     @POST
     @Path("/authorize")
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)

@@ -60,6 +60,7 @@ import io.github.carlos_emr.carlos.tickler.dto.TicklerLinkDTO;
 import io.github.carlos_emr.carlos.tickler.dto.TicklerListDTO;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts 2 action that provides a JSON endpoint for server-side DataTables
@@ -84,6 +85,8 @@ public class TicklerList2Action extends ActionSupport {
     private TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     @Override
     public String execute() throws IOException {
         HttpServletRequest request = ServletActionContext.getRequest();
@@ -175,6 +178,8 @@ public class TicklerList2Action extends ActionSupport {
      * @param request HttpServletRequest the incoming request
      * @return CustomFilter populated with filter criteria
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private CustomFilter buildFilterFromRequest(HttpServletRequest request) {
         CustomFilter filter = new CustomFilter();
 
@@ -327,6 +332,8 @@ public class TicklerList2Action extends ActionSupport {
      * @param message String the error message
      * @throws IOException if writing fails
      */
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     private void writeJsonError(HttpServletResponse response, int statusCode, String message) throws IOException {
         response.setStatus(statusCode);
         Map<String, Object> error = new HashMap<>();

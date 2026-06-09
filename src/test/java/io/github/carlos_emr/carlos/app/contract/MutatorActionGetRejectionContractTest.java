@@ -225,6 +225,8 @@ class MutatorActionGetRejectionContractTest {
         "io.github.carlos_emr.carlos.messenger.config.pageUtil.MsgMessengerAdmin2Action",
         // Provider document descriptions: read methods permit GET; write methods are POST-only.
         "io.github.carlos_emr.carlos.provider.web.DocumentDescriptionTemplate2Action",
+        // Document manager: read methods permit GET; addIncomingDocument is POST-only.
+        "io.github.carlos_emr.carlos.documentManager.actions.ManageDocument2Action",
         // Admin API clients: list methods permit GET; add/delete are POST-only.
         "io.github.carlos_emr.carlos.admin.web.ClientManage2Action",
         // Schedule: all below reject GET on Save/Delete/mutation-intent params.
@@ -335,6 +337,18 @@ class MutatorActionGetRejectionContractTest {
                 "w",
                 "GET",
                 Map.of("method", method));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD"})
+    @DisplayName("ManageDocument2Action should reject unsafe methods for addIncomingDocument")
+    void shouldRejectUnsafeMethod_forManageDocumentAddIncomingDocumentDispatch(String httpMethod) throws Exception {
+        assertRejectsUnsafeMethod(
+                "io.github.carlos_emr.carlos.documentManager.actions.ManageDocument2Action",
+                "_edoc",
+                "w",
+                httpMethod,
+                Map.of("method", "addIncomingDocument"));
     }
 
     private static void assertRejectsUnsafeMethod(
