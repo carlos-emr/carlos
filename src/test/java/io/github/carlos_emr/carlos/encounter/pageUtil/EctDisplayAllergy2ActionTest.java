@@ -22,7 +22,7 @@ import static org.mockito.Mockito.when;
 @Tag("unit")
 @Tag("fast")
 @Tag("encounter")
-public class EctDisplayAllergy2ActionTest {
+class EctDisplayAllergy2ActionTest {
 
     @Test
     @DisplayName("Null description should not render literal null when start date is enabled")
