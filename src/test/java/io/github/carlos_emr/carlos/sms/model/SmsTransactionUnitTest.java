@@ -3,6 +3,7 @@ package io.github.carlos_emr.carlos.sms.model;
 import io.github.carlos_emr.carlos.sms.SmsDirection;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
+import io.github.carlos_emr.carlos.sms.SmsTransactionType;
 import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
 import io.github.carlos_emr.carlos.sms.dto.SmsConsentDecisionDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsDeliveryWebhookDto;
@@ -21,6 +22,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("unit")
 @Tag("model")
 class SmsTransactionUnitTest {
+    @Test
+    @DisplayName("transaction type exposes only supported SMS workflows")
+    void shouldExposeSupportedValues_whenReadingTransactionTypes() {
+        assertThat(SmsTransactionType.values())
+                .containsExactly(
+                        SmsTransactionType.DIRECT,
+                        SmsTransactionType.APPOINTMENT_REMINDER,
+                        SmsTransactionType.SYSTEM_TEST
+                );
+    }
+
     @Test
     @DisplayName("outbound transaction captures normalized send metadata")
     void shouldCreateOutboundTransaction_whenCommandIsValid() {
