@@ -240,22 +240,26 @@
     boolean bShortcutForm2 = bShortcutForm && !formName2.equals("");
 
     // Load LAB_VALUE_HX_JSON from carlos.properties (admin-controlled); default covers common tracked labs.
-    // Re-serialised through Jackson to reject malformed input and normalise the output.
+    // normal ranges are necessarily provided here to allow for 
+    // - override (min max of 0) to always show past values eg PSA, CEA, LDL
+    // - when the lab does not offer ranges but a note eg Cholesterol Ferritin or only one bound eg <10
+    // NOTE: the LOINC key is not validated to allow for any coding system Identifier to be used, see OBX.4.1
     String labValueHxDefault = "[{\"name\":\"eGFR\",\"LOINC\":\"33914-3\",\"testName\":\"Glomerular Filtration Rate (eGFR)\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":60,\"max\":999}},"
-  + "{\"name\":\"A1C\",\"LOINC\":\"4548-4\",\"testName\":\"Hemoglobin A1c\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":4,\"max\":5.9}},"
-  + "{\"name\":\"K\",\"LOINC\":\"2823-3\",\"testName\":\"Potassium\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":3.5,\"max\":5}},"
-  + "{\"name\":\"CRP\",\"LOINC\":\"1988-5\",\"testName\":\"C Reactive Protein\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":0,\"max\":7.5}},"
-  + "{\"name\":\"Hb\",\"LOINC\":\"718-7\",\"testName\":\"Hemoglobin\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":135,\"max\":180}},"
-  + "{\"name\":\"AST\",\"LOINC\":\"1920-8\",\"testName\":\"Aspartate Aminotransferase\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":0,\"max\":36}},"
-  + "{\"name\":\"ALT\",\"LOINC\":\"1742-6\",\"testName\":\"Alanine Aminotransferase\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":0,\"max\":50}},"
-  + "{\"name\":\"LDL\",\"LOINC\":\"39469-2\",\"testName\":\"LDL Cholesterol\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":0,\"max\":0}},"
-  + "{\"name\":\"ACR\",\"LOINC\":\"9318-7\",\"testName\":\"Urine ACR (Albumin/Creatinine Ratio)\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":0,\"max\":2}},"
-  + "{\"name\":\"PSA\",\"LOINC\":\"2857-1\",\"testName\":\"Prostate Specific Ag\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":0,\"max\":0}},"
-  + "{\"name\":\"CEA\",\"LOINC\":\"2039-6\",\"testName\":\"Carcinoembryonic Ag\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":0,\"max\":0}},"
-  + "{\"name\":\"Ferritin\",\"LOINC\":\"2276-4\",\"testName\":\"Ferritin\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":45,\"max\":200}},"
-  + "{\"name\":\"TSH\",\"LOINC\":\"3016-3\",\"testName\":\"TSH\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":0.3,\"max\":5.5}},"
-  + "{\"name\":\"TG\",\"LOINC\":\"14927-8\",\"testName\":\"Triglycerides\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":0,\"max\":2.3}}]";
+      + "{\"name\":\"A1C\",\"LOINC\":\"4548-4\",\"testName\":\"Hemoglobin A1c\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":4,\"max\":5.9}},"
+      + "{\"name\":\"K\",\"LOINC\":\"2823-3\",\"testName\":\"Potassium\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":3.5,\"max\":5}},"
+      + "{\"name\":\"CRP\",\"LOINC\":\"1988-5\",\"testName\":\"C Reactive Protein\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":0,\"max\":7.5}},"
+      + "{\"name\":\"Hb\",\"LOINC\":\"718-7\",\"testName\":\"Hemoglobin\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":135,\"max\":180}},"
+      + "{\"name\":\"AST\",\"LOINC\":\"1920-8\",\"testName\":\"Aspartate Aminotransferase\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":0,\"max\":36}},"
+      + "{\"name\":\"ALT\",\"LOINC\":\"1742-6\",\"testName\":\"Alanine Aminotransferase\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":0,\"max\":50}},"
+      + "{\"name\":\"LDL\",\"LOINC\":\"39469-2\",\"testName\":\"LDL Cholesterol\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":0,\"max\":0}},"
+      + "{\"name\":\"ACR\",\"LOINC\":\"9318-7\",\"testName\":\"Urine ACR (Albumin/Creatinine Ratio)\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":0,\"max\":2}},"
+      + "{\"name\":\"PSA\",\"LOINC\":\"2857-1\",\"testName\":\"Total PSA\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":0,\"max\":0}},"
+      + "{\"name\":\"CEA\",\"LOINC\":\"2039-6\",\"testName\":\"Carcinoembryonic Ag\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":0,\"max\":0}},"
+      + "{\"name\":\"Ferritin\",\"LOINC\":\"2276-4\",\"testName\":\"Ferritin\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":50,\"max\":200}},"
+      + "{\"name\":\"TSH\",\"LOINC\":\"3016-3\",\"testName\":\"TSH\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":0.3,\"max\":5.5}},"
+      + "{\"name\":\"TG\",\"LOINC\":\"14927-8\",\"testName\":\"Triglycerides\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":0,\"max\":2.3}}]";
     String labValueHxJson;
+    // Re-serialised through Jackson to reject malformed input and normalise the output.
     try {
         ObjectMapper labHxMapper = new ObjectMapper();
         JsonNode labHxNode = labHxMapper.readTree(props.getProperty("LAB_VALUE_HX_JSON", labValueHxDefault));
@@ -833,9 +837,9 @@ input[id^='acklabel_']{
         function loadHL7hx() {
             const start = Date.now();
              
-            // First pass: check for abnormalities in current values
-            const rows = document.querySelectorAll("tr.AbnormalRes, tr.HiLoRes");
-        
+            // First pass: check for current values out of range
+            // note that tr.NormalRes can occur for abnormal labs without stated normal ranges    
+            const rows = document.querySelectorAll("tr.NormalRes, tr.AbnormalRes, tr.HiLoRes");
             rows.forEach(row => {
                 const cells = row.querySelectorAll("td");
                 cells.forEach((cell, i) => {
@@ -843,8 +847,14 @@ input[id^='acklabel_']{
                     anchors.forEach(a => {
                         const testName = a.textContent.trim();
                         const lab = labConfigs.find(l => testName === l.testName);
-                        if (lab && !abnormalLabs.includes(lab)) {
-                            abnormalLabs.push(lab);
+                        if (lab && i + 1 < cells.length) {
+                            const resultText = cells[i + 1].textContent.trim();
+                            const value = parseFloat(resultText);
+                            if (!isNaN(value) && (value < lab.normalRange.min || value > lab.normalRange.max)) {
+                                if (!abnormalLabs.includes(lab)) {
+                                    abnormalLabs.push(lab);
+                                }
+                            }
                         }
                     });
                 });
@@ -872,11 +882,9 @@ input[id^='acklabel_']{
       }
 
       async function fetchLabValues(lab, demographicNo) {
-          const newURL = `<%=request.getContextPath()%>/lab/CA/ON/ViewLabValues?testName=\${encodeURIComponent(
-              lab.testName
-          )}&demo=\${demographicNo}&labType=HL7&identifier=\${lab.LOINC}`;
-      
-          console.log(`Fetching \${lab.name} values from URL:`, newURL);
+          const newURL = "<%=request.getContextPath()%>/lab/CA/ON/ViewLabValues?testName=" + encodeURIComponent(lab.testName) +
+            "&demo=" + encodeURIComponent(demographicNo) + "&labType=HL7&identifier=" + encodeURIComponent(lab.LOINC);      
+          console.log("Fetching " + lab.name + " values from URL: " + newURL);
       
           try {
               const response = await fetch(newURL);
@@ -947,7 +955,7 @@ input[id^='acklabel_']{
                                       valueEl.textContent = val;
 
                                       const dateEl = document.createElement("strong");
-                                      dateEl.style.color = "`#36454F`";
+                                      dateEl.style.color = "#36454F";
                                       dateEl.textContent = lab.dates[i];
                                       rowEl.append(valueEl, document.createTextNode(" "), dateEl);
                                       tooltip.appendChild(rowEl);
