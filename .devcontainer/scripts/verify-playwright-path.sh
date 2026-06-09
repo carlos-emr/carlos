@@ -41,18 +41,16 @@ fi
 echo
 echo "🌐 Latest installed Chromium revision: ${LATEST_CHROMIUM}"
 
-# Check if the executable exists
-EXPECTED_PATH="/root/.cache/ms-playwright/chromium-${LATEST_CHROMIUM}/chrome-linux/chrome"
-if [ -f "$EXPECTED_PATH" ]; then
+# Check if the executable exists. Playwright browser layouts can change
+# between releases, so discover the path instead of assuming chrome-linux.
+EXPECTED_PATH=$(find "/root/.cache/ms-playwright/chromium-${LATEST_CHROMIUM}" -path "*/chrome" -type f 2>/dev/null | sort | head -1 || true)
+if [ -n "$EXPECTED_PATH" ] && [ -f "$EXPECTED_PATH" ]; then
     echo -e "${GREEN}✅ Chromium executable found at: ${EXPECTED_PATH}${NC}"
 else
-    echo -e "${RED}❌ Chromium executable not found at expected path${NC}"
-    echo "   Expected: ${EXPECTED_PATH}"
-    
-    # Try to find alternative paths
+    echo -e "${RED}❌ Chromium executable not found${NC}"
     echo
     echo "🔎 Searching for chrome executable..."
-    find /root/.cache/ms-playwright/chromium-${LATEST_CHROMIUM} -name "chrome" -type f 2>/dev/null || echo "  Not found"
+    find "/root/.cache/ms-playwright/chromium-${LATEST_CHROMIUM}" -name "chrome" -type f 2>/dev/null || echo "  Not found"
     exit 1
 fi
 

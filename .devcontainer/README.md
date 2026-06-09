@@ -410,7 +410,7 @@ This script checks that:
 
 ### Quick Reference
 
-- **Playwright Version**: Defined in `.devcontainer/development/Dockerfile`
+- **Playwright Version**: `1.60.0`, defined in `.devcontainer/development/Dockerfile`
 - **Configuration File**: `.mcp.json` in repository root
 - **Verification Script**: `.devcontainer/scripts/verify-playwright-path.sh`
 
