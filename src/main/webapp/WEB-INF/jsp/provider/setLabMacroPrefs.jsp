@@ -113,7 +113,6 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@taglib uri="jakarta.tags.fmt" prefix="fmt"%>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%-- Capture i18n message into page-scope variable for safe use in JavaScript with OWASP encoding --%>

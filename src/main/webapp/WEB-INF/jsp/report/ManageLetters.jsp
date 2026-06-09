@@ -49,7 +49,6 @@
 <%@ page import="io.github.carlos_emr.carlos.report.data.ManageLetters" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 

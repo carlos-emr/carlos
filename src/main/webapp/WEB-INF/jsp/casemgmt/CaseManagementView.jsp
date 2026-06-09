@@ -48,7 +48,6 @@
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementCPP" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%
     Logger logger = MiscUtils.getLogger();
 

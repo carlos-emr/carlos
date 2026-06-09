@@ -29,7 +29,6 @@
 
 --%>
 <%@ page session="true" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <html>
 
