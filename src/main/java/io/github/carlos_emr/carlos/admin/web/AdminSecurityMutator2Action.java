@@ -21,7 +21,10 @@
  */
 package io.github.carlos_emr.carlos.admin.web;
 
+import java.util.Locale;
+
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -29,32 +32,39 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
-/**
- * Security gate for the Security Search Results display page.
- *
- * <p>Requires either {@code _admin r} or {@code _admin.userAdmin r} privilege.
- * All search and display logic is handled by the JSP.</p>
- *
- * @since 2026-04-05
- */
-public class SecuritySearchResults2Action extends ActionSupport {
+abstract class AdminSecurityMutator2Action extends ActionSupport {
 
     private final transient SecurityInfoManager securityInfoManager;
 
-    public SecuritySearchResults2Action(SecurityInfoManager securityInfoManager) {
+    protected AdminSecurityMutator2Action(SecurityInfoManager securityInfoManager) {
         this.securityInfoManager = securityInfoManager;
     }
 
     @Override
-    public String execute() {
+    public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)
-                && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.userAdmin", "r", null)) {
+        if (!hasAdminWritePrivilege(loggedInInfo)) {
             throw new SecurityException("missing required sec object (_admin or _admin.userAdmin)");
         }
 
+        if (!isPost(request)) {
+            HttpServletResponse response = ServletActionContext.getResponse();
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
+
         return SUCCESS;
+    }
+
+    private boolean hasAdminWritePrivilege(LoggedInInfo loggedInInfo) {
+        return securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)
+                || securityInfoManager.hasPrivilege(loggedInInfo, "_admin.userAdmin", "w", null);
+    }
+
+    private static boolean isPost(HttpServletRequest request) {
+        return "POST".equals(request.getMethod().toUpperCase(Locale.ROOT));
     }
 }

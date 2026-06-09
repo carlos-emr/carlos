@@ -49,9 +49,11 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.util.List;
+import java.util.Locale;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 
 public class UploadLoginText2Action extends ActionSupport implements UploadedFilesAware {
@@ -59,27 +61,59 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static Logger _logger = MiscUtils.getLogger();
-    private final SecurityInfoManager securityInfoManager;
+    private final transient SecurityInfoManager securityInfoManager;
 
     public UploadLoginText2Action(SecurityInfoManager securityInfoManager) {
         this.securityInfoManager = securityInfoManager;
     }
 
+    @Override
     public String execute() throws Exception {
+        requireAdminWrite();
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin)");
-        }
-
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+        if (rejectNonPost()) {
             return NONE;
         }
 
-        InputStream fis = null;
-        FileOutputStream fos = null;
-        boolean error = false;
+        updateAcceptableUseAgreementDuration();
 
+        boolean error = uploadLoginText();
+        request.setAttribute("error", error);
+        return SUCCESS;
+    }
+
+    private void requireAdminWrite() {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null)) {
+            throw new SecurityException("missing required sec object (_admin)");
+        }
+    }
+
+    private boolean rejectNonPost() throws IOException {
+        if ("POST".equals(request.getMethod().toUpperCase(Locale.ROOT))) {
+            return false;
+        }
+
+        response.setHeader("Allow", "POST");
+        response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+        return true;
+    }
+
+    private void updateAcceptableUseAgreementDuration() {
+        Property prop = buildAcceptableUseAgreementProperty();
+        if (prop == null) {
+            return;
+        }
+
+        PropertyDao propertyDao = SpringUtils.getBean(PropertyDao.class);
+        Property latestProperty = AcceptableUseAgreementManager.findLatestProperty();
+        if (latestProperty == null || !prop.getValue().equals(latestProperty.getValue())) {
+            propertyDao.persist(prop);
+        } else {
+            _logger.debug("No need to update. Same AcceptableUse Property as it was before");
+        }
+    }
+
+    private Property buildAcceptableUseAgreementProperty() {
         String validDurationNumber = request.getParameter("validDurationNumber"); // verify it's a number
         String validDurationPeriod = request.getParameter("validDurationPeriod"); //verify it's one of these year month weeks days
         String validForever = request.getParameter("validForever");
@@ -87,59 +121,49 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
 
         _logger.debug("validDurationNumber={} validDurationPeriod={} validForever={} foreverFrom={}", LogSafe.sanitize(validDurationNumber), LogSafe.sanitize(validDurationPeriod), LogSafe.sanitize(validForever), LogSafe.sanitize(foreverFrom));
 
-        PropertyDao propertyDao = SpringUtils.getBean(PropertyDao.class);
-        Property prop = null;
-
         if (validForever != null && validForever.equals("forever")) {
-            prop = new Property();
+            Property prop = new Property();
             prop.setName("aua_valid_from");
             prop.setValue(foreverFrom);
-        } else { //time period was selected
-            try {
-                Integer.parseInt(validDurationNumber);
-            } catch (Exception e) {
-                _logger.error("Not an Int:{}", LogSafe.sanitize(validDurationNumber), e);
-            }
-
-            if (validDurationPeriod != null && ("year".equals(validDurationPeriod) || "month".equals(validDurationPeriod) || "weeks".equals(validDurationPeriod) || "days".equals(validDurationPeriod))) {
-                prop = new Property();
-                prop.setName("aua_valid_duration");
-                prop.setValue(validDurationNumber + " " + validDurationPeriod);
-            } else {
-                _logger.error("Not a valid Period :{}", LogSafe.sanitize(validDurationPeriod)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-            }
+            return prop;
         }
-
-        if (prop != null) {
-            //Check to see if prop is still the same as last time.
-            Property latestProperty = AcceptableUseAgreementManager.findLatestProperty();
-            if (latestProperty == null || !prop.getValue().equals(latestProperty.getValue())) {
-                propertyDao.persist(prop);
-            } else {
-                _logger.debug("No need to update. Same AcceptableUse Property as it was before");
-            }
-        }
-
 
         try {
+            Integer.parseInt(validDurationNumber);
+        } catch (Exception e) {
+            _logger.error("Not an Int:{}", LogSafe.sanitize(validDurationNumber), e);
+        }
+
+        if (validDurationPeriod != null && ("year".equals(validDurationPeriod) || "month".equals(validDurationPeriod) || "weeks".equals(validDurationPeriod) || "days".equals(validDurationPeriod))) {
+            Property prop = new Property();
+            prop.setName("aua_valid_duration");
+            prop.setValue(validDurationNumber + " " + validDurationPeriod);
+            return prop;
+        }
+
+        _logger.error("Not a valid Period :{}", LogSafe.sanitize(validDurationPeriod)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+        return null;
+    }
+
+    private boolean uploadLoginText() {
+        try {
             if (importFile.getName().length() > 0) {
-                fis = Files.newInputStream(importFile.toPath());
                 String savePath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "/OSCARloginText.txt";
-                fos = new FileOutputStream(savePath);
-                byte[] buf = new byte[128 * 1024];
-                int i = 0;
-                while ((i = fis.read(buf)) != -1) {
-                    fos.write(buf, 0, i);
+                try (InputStream fis = Files.newInputStream(importFile.toPath());
+                        FileOutputStream fos = new FileOutputStream(savePath)) {
+                    byte[] buf = new byte[128 * 1024];
+                    int i = 0;
+                    while ((i = fis.read(buf)) != -1) {
+                        fos.write(buf, 0, i);
+                    }
                 }
-                error = false;
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
-            error = true;
+            return true;
         }
 
-        request.setAttribute("error", error);
-        return SUCCESS;
+        return false;
     }
 
     private File importFile;

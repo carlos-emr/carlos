@@ -21,15 +21,7 @@
  */
 package io.github.carlos_emr.carlos.admin.web;
 
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-
-import org.apache.struts2.ActionSupport;
-import org.apache.struts2.ServletActionContext;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Security gate for the Security Update admin page.
@@ -40,33 +32,9 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *
  * @since 2026-04-05
  */
-public class SecurityUpdate2Action extends ActionSupport {
-
-    private final SecurityInfoManager securityInfoManager;
+public class SecurityUpdate2Action extends AdminSecurityMutator2Action {
 
     public SecurityUpdate2Action(SecurityInfoManager securityInfoManager) {
-        this.securityInfoManager = securityInfoManager;
-    }
-
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    @Override
-    public String execute() throws Exception {
-        HttpServletRequest request = ServletActionContext.getRequest();
-        HttpServletResponse response = ServletActionContext.getResponse();
-
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)
-                && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.userAdmin", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin or _admin.userAdmin)");
-        }
-
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
-            return NONE;
-        }
-
-        return SUCCESS;
+        super(securityInfoManager);
     }
 }
