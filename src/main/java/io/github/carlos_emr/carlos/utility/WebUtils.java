@@ -37,7 +37,6 @@ import java.util.Map.Entry;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 
-import org.owasp.encoder.Encode;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -80,8 +79,8 @@ public final class WebUtils {
             while (i$.hasNext()) {
                 String s = (String) i$.next();
                 sb.append("<li>");
-                sb.append(s);
-                sb.append("</il>");
+                sb.append(SafeEncode.forHtmlContent(s));
+                sb.append("</li>");
             }
 
             sb.append("</ul>");
