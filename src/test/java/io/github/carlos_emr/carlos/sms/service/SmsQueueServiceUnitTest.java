@@ -1,6 +1,7 @@
 package io.github.carlos_emr.carlos.sms.service;
 
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
+import io.github.carlos_emr.carlos.sms.SmsRecipientPhoneType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
 import io.github.carlos_emr.carlos.sms.dto.SmsConsentDecisionDto;
@@ -34,15 +35,25 @@ class SmsQueueServiceUnitTest {
         );
 
         SmsSendResultDto result = service.enqueue(
-                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998")
+                SmsSendCommand.direct(
+                        123,
+                        "416-555-1212",
+                        SmsRecipientPhoneType.HOME,
+                        "Appointment reminder",
+                        "999998"
+                )
         );
 
         assertThat(result)
                 .extracting(SmsSendResultDto::accepted, SmsSendResultDto::status)
                 .containsExactly(true, SmsStatus.QUEUED);
         assertThat(recorder.transactions()).singleElement()
-                .extracting(SmsTransaction::getStatus, SmsTransaction::getProviderType)
-                .containsExactly(SmsStatus.QUEUED, SmsProviderType.STUB);
+                .extracting(
+                        SmsTransaction::getStatus,
+                        SmsTransaction::getProviderType,
+                        SmsTransaction::getRecipientPhoneType
+                )
+                .containsExactly(SmsStatus.QUEUED, SmsProviderType.STUB, SmsRecipientPhoneType.HOME);
     }
 
     @Test

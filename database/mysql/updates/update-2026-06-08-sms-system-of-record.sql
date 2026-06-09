@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS sms_transaction (
   appointment_no INT NULL,
   from_phone_number VARCHAR(32) NULL,
   to_phone_number VARCHAR(32) NULL,
+  recipient_phone_type VARCHAR(16) NULL,
   provider_message_id VARCHAR(128) NULL,
   message_body TEXT NULL,
   message_body_sha256 CHAR(64) NOT NULL,

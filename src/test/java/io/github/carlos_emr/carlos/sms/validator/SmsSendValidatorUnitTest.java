@@ -39,6 +39,26 @@ class SmsSendValidatorUnitTest {
     }
 
     @Test
+    @DisplayName("validation rejects missing recipient phone type")
+    void shouldRejectCommand_whenRecipientPhoneTypeIsMissing() {
+        SmsSendValidator.Result result = validator.validate(
+                new SmsSendCommand(
+                        123,
+                        "416-555-1212",
+                        null,
+                        "Appointment reminder",
+                        null,
+                        "999998",
+                        1001,
+                        null
+                )
+        );
+
+        assertThat(result.valid()).isFalse();
+        assertThat(result.messages()).containsExactly("SMS recipient phone type is required.");
+    }
+
+    @Test
     @DisplayName("validation limits SMS bodies to one standard segment")
     void shouldRejectCommand_whenBodyExceedsSingleSmsSegment() {
         SmsSendValidator.Result accepted = validator.validate(

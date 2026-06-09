@@ -25,6 +25,10 @@ public class SmsSendValidator {
             messages.add("A valid recipient phone number is required.");
         }
 
+        if (command.recipientPhoneType() == null) {
+            messages.add("SMS recipient phone type is required.");
+        }
+
         String body = command.body();
         if (body == null || body.trim().isEmpty()) {
             messages.add("SMS message body is required.");
