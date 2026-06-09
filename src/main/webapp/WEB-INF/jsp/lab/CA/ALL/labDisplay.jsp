@@ -241,11 +241,10 @@
 
     // Load LAB_VALUE_HX_JSON from carlos.properties (admin-controlled); default covers common tracked labs.
     // Re-serialised through Jackson to reject malformed input and normalise the output.
-    String labValueHxDefault = "[{\"name\":\"eGFR\",\"LOINC\":\"33914-3\",\"testName\":\"Estimated GFR\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":60,\"max\":999}},"
+    String labValueHxDefault = "[{\"name\":\"eGFR\",\"LOINC\":\"33914-3\",\"testName\":\"Glomerular Filtration Rate (eGFR)\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":60,\"max\":999}},"
   + "{\"name\":\"A1C\",\"LOINC\":\"4548-4\",\"testName\":\"Hemoglobin A1c\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":4,\"max\":5.9}},"
   + "{\"name\":\"K\",\"LOINC\":\"2823-3\",\"testName\":\"Potassium\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":3.5,\"max\":5}},"
   + "{\"name\":\"CRP\",\"LOINC\":\"1988-5\",\"testName\":\"C Reactive Protein\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":0,\"max\":7.5}},"
-  + "{\"name\":\"Hb\",\"LOINC\":\"718-7\",\"testName\":\"Hemoglobin\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":135,\"max\":180}},"
   + "{\"name\":\"Hb\",\"LOINC\":\"718-7\",\"testName\":\"Hemoglobin\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":135,\"max\":180}},"
   + "{\"name\":\"AST\",\"LOINC\":\"1920-8\",\"testName\":\"Aspartate Aminotransferase\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":0,\"max\":36}},"
   + "{\"name\":\"ALT\",\"LOINC\":\"1742-6\",\"testName\":\"Alanine Aminotransferase\",\"values\":[],\"dates\":[],\"normalRange\":{\"min\":0,\"max\":50}},"
@@ -708,7 +707,7 @@ input[id^='acklabel_']{
                             console.log("Setting lab Tickler. Labid: " + labid + " Demoid: " + demoid);
                             demoid = json.demoId;
                             if (demoid != null && demoid.length > 0) {
-                                window.popup(450, 600, '${pageContext.request.contextPath}/tickler/ForwardDemographicTickler?docType=HL7&docId=' + encodeURIComponent(labid) + '&demographic_no=' + encodeURIComponent(demoid), 'tickler')
+                                window.popup(450, 600, '${pageContext.request.contextPath}/tickler/ForwardDemographicTickler?docType=HL7&docId=' + encodeURIComponent(labid) + '&demographic_no=' + encodeURIComponent(demoid), 'tickler');
                             }
                         } else if (action === 'addComment') {
                             console.log("Adding comment. Formid: " + formid + " labid: " + labid);
@@ -835,7 +834,7 @@ input[id^='acklabel_']{
             const start = Date.now();
              
             // First pass: check for abnormalities in current values
-            const rows = document.querySelectorAll("tr.NormalRes, tr.AbnormalRes, tr.HiLoRes");
+            const rows = document.querySelectorAll("tr.AbnormalRes, tr.HiLoRes");
         
             rows.forEach(row => {
                 const cells = row.querySelectorAll("td");
@@ -843,26 +842,19 @@ input[id^='acklabel_']{
                     const anchors = cell.querySelectorAll("a");
                     anchors.forEach(a => {
                         const testName = a.textContent.trim();
-                        //const lab = labConfigs.find(l => testName.includes(l.testName));
                         const lab = labConfigs.find(l => testName === l.testName);
-                        if (lab && i + 1 < cells.length) {
-                            const resultText = cells[i + 1].textContent.trim();
-                            const value = parseFloat(resultText);
-                            if (!isNaN(value) && (value < lab.normalRange.min || value > lab.normalRange.max)) {
-                                if (!abnormalLabs.includes(lab)) {
-                                    abnormalLabs.push(lab);
-                                }
-                            }
+                        if (lab && !abnormalLabs.includes(lab)) {
+                            abnormalLabs.push(lab);
                         }
                     });
                 });
             });
-            console.log("abnormal Labs "+abnormalLabs);
+            console.log("of "+rows.length +" abnormal Labs "+abnormalLabs.length +" to be checked");
                
           // Fetch and insert only for abnormal labs
           fetchLabsSequentially().then(() => {
               const ms = Date.now() - start;
-              console.log("All labs fetched and inserted at "+Math.floor(ms / 100)/10+"sec");
+              console.log("All labs fetched and inserted in "+Math.floor(ms / 100)/10+" sec");
           });
         }
 
@@ -880,7 +872,7 @@ input[id^='acklabel_']{
       }
 
       async function fetchLabValues(lab, demographicNo) {
-          const newURL = `<%=request.getContextPath()%>/lab/CA/ON/ViewLabValues?t?testName=\${encodeURIComponent(
+          const newURL = `<%=request.getContextPath()%>/lab/CA/ON/ViewLabValues?testName=\${encodeURIComponent(
               lab.testName
           )}&demo=\${demographicNo}&labType=HL7&identifier=\${lab.LOINC}`;
       
@@ -890,9 +882,7 @@ input[id^='acklabel_']{
               const response = await fetch(newURL);
       
               if (!response.ok) {
-                  console.warn(
-                      `Failed to fetch lab: \${lab.name} — status: \${response.status}`
-                  );
+                  console.warn("Failed to fetch lab: " + lab.name + " — status: " + response.status);
                   return;
               }
       
@@ -921,7 +911,7 @@ input[id^='acklabel_']{
                   }
               });
           } catch (error) {
-              console.error(`Error fetching lab: \${lab.name}`, error);
+              console.error("Error fetching lab: "+ lab.name, error);
           }
       }
 
@@ -936,7 +926,6 @@ input[id^='acklabel_']{
                   anchors.forEach((a) => {
                       const anchorText = a.textContent.replace(/\s+/g, " ").trim();
       
-                      //if (anchorText.includes(lab.testName)) {
                         if (anchorText === lab.testName) {
                           const resultCell = cells[cellIndex + 1];
                           if (resultCell) {
@@ -951,9 +940,18 @@ input[id^='acklabel_']{
       
                                   const tooltip = document.createElement("div");
                                   tooltip.className = "custom-tooltip";
-                                  tooltip.innerHTML = lab.values.map((val, i) =>
-                                     `<div><strong>\${val}</strong> <strong style="color:#36454F;">(\${lab.dates[i]})</strong></div>`
-                                  ).join("");
+
+                                  lab.values.forEach((val, i) => {
+                                      const rowEl = document.createElement("div");
+                                      const valueEl = document.createElement("strong");
+                                      valueEl.textContent = val;
+
+                                      const dateEl = document.createElement("strong");
+                                      dateEl.style.color = "`#36454F`";
+                                      dateEl.textContent = lab.dates[i];
+                                      rowEl.append(valueEl, document.createTextNode(" "), dateEl);
+                                      tooltip.appendChild(rowEl);
+                                  });
                                   tooltip.style.position = "absolute";
                                   tooltip.style.background = "#fefefe";
                                   tooltip.style.border = "1px solid #ccc";
