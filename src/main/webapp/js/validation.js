@@ -1,4 +1,15 @@
 /* This method will return true if valid, false otherwise (and present an alert box). */
+function carlosValidationMessage(key, fallback) {
+    return (window.carlosI18n && window.carlosI18n[key]) || fallback;
+}
+
+function carlosValidationFormat(template) {
+    for (var i = 1; i < arguments.length; i++) {
+        template = template.replace(new RegExp('\\{' + (i - 1) + '\\}', 'g'), arguments[i]);
+    }
+    return template;
+}
+
 String.prototype.trim = function () {
     return this.replace(/^\s+|\s+$/, '');
 };
@@ -27,7 +38,7 @@ function isUserId(str) {
     var reg = new RegExp(/^[\sa-zA-Z0-9]+$/);
     var flag = reg.test(str);
     if (!flag) {
-        alert("User ID should be alphanumeric");
+        alert(carlosValidationMessage('js.validation.userIdAlphanumeric', 'User ID should be alphanumeric'));
     }
     return flag;
 }
@@ -37,12 +48,12 @@ function validateRequiredField(fieldId, fieldName, maxLength) {
     var field = document.getElementById(fieldId);
 
     if (field.value == null || field.value == '') {
-        alert('The field ' + fieldName + ' is required.');
+        alert(carlosValidationFormat(carlosValidationMessage('js.validation.fieldRequired', 'The field {0} is required.'), fieldName));
         return (false);
     }
 
     if (field.value.length > maxLength) {
-        alert('The value you entered for ' + fieldName + ' is too long, maximum length allowed is ' + maxLength + ' characters.');
+        alert(carlosValidationFormat(carlosValidationMessage('js.validation.valueTooLong', 'The value you entered for {0} is too long, maximum length allowed is {1} characters.'), fieldName, maxLength));
         return (false);
     }
 
@@ -52,12 +63,12 @@ function validateRequiredField(fieldId, fieldName, maxLength) {
 function validateLength(field, fieldNameDisplayed, maxLength, minLength) {
 
     if (maxLength > 0 && field.value.length > maxLength) {
-        alert('The value you entered for "' + fieldNameDisplayed + '" is too long, maximum length allowed is ' + maxLength + ' characters.');
+        alert(carlosValidationFormat(carlosValidationMessage('js.validation.valueTooLongQuoted', 'The value you entered for "{0}" is too long, maximum length allowed is {1} characters.'), fieldNameDisplayed, maxLength));
         return (false);
     }
 
     if (minLength > 0 && field.value.length < minLength) {
-        alert('The value you entered for "' + fieldNameDisplayed + '" is too short, minimum length allowed is ' + minLength + ' characters.');
+        alert(carlosValidationFormat(carlosValidationMessage('js.validation.valueTooShortQuoted', 'The value you entered for "{0}" is too short, minimum length allowed is {1} characters.'), fieldNameDisplayed, minLength));
         return (false);
     }
 
@@ -186,12 +197,12 @@ function validateRequiredFieldByName(fieldName, fieldNameDisplayed, maxLength) {
     var field = document.getElementsByName(fieldName)[0];
 
     if (field.value == null || field.value == '') {
-        alert('The field ' + fieldName + ' is required.');
+        alert(carlosValidationFormat(carlosValidationMessage('js.validation.fieldRequired', 'The field {0} is required.'), fieldName));
         return (false);
     }
 
     if (field.value.length > maxLength) {
-        alert('The value you entered for ' + fieldNameDisplayed + ' is too long, maximum length allowed is ' + maxLength + ' characters.');
+        alert(carlosValidationFormat(carlosValidationMessage('js.validation.valueTooLong', 'The value you entered for {0} is too long, maximum length allowed is {1} characters.'), fieldNameDisplayed, maxLength));
         return (false);
     }
 
