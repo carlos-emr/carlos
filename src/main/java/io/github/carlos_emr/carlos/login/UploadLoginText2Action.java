@@ -49,10 +49,13 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
 
 public class UploadLoginText2Action extends ActionSupport implements UploadedFilesAware {
@@ -133,13 +136,31 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
         File documentDir = PathValidationUtils.validateConfiguredDirectory(
                 CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
         File saveFile = PathValidationUtils.validateGeneratedChildPath(LOGIN_TEXT_FILE_NAME, documentDir);
-        try (InputStream fis = Files.newInputStream(importFile.toPath());
-             FileOutputStream fos = new FileOutputStream(saveFile)) {
-            byte[] buf = new byte[128 * 1024];
-            int i;
-            while ((i = fis.read(buf)) != -1) {
-                fos.write(buf, 0, i);
+        Path tempFile = Files.createTempFile(documentDir.toPath(), "OSCARloginText-", ".tmp");
+        boolean moved = false;
+        try {
+            try (InputStream fis = Files.newInputStream(importFile.toPath());
+                 OutputStream fos = Files.newOutputStream(tempFile)) {
+                byte[] buf = new byte[128 * 1024];
+                int i;
+                while ((i = fis.read(buf)) != -1) {
+                    fos.write(buf, 0, i);
+                }
             }
+            moveLoginTextFile(tempFile, saveFile.toPath());
+            moved = true;
+        } finally {
+            if (!moved) {
+                Files.deleteIfExists(tempFile);
+            }
+        }
+    }
+
+    private void moveLoginTextFile(Path tempFile, Path saveFile) throws IOException {
+        try {
+            Files.move(tempFile, saveFile, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        } catch (AtomicMoveNotSupportedException e) {
+            Files.move(tempFile, saveFile, StandardCopyOption.REPLACE_EXISTING);
         }
     }
 

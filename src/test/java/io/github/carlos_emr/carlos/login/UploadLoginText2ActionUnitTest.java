@@ -34,6 +34,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -114,6 +115,30 @@ class UploadLoginText2ActionUnitTest extends CarlosWebTestBase {
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
         assertThat(getMockRequest().getAttribute("error")).isEqualTo(true);
         assertThat(invalidDocumentDir).hasContent("not a directory");
+    }
+
+    @Test
+    @DisplayName("should preserve existing login text when upload read fails")
+    void shouldPreserveLoginText_whenUploadReadFails() throws Exception {
+        addValidDurationParameters();
+        Path existingLoginText = documentDir.resolve("OSCARloginText.txt");
+        Files.writeString(existingLoginText, "existing login text", StandardCharsets.UTF_8);
+        Path uploadFile = Files.createTempFile(uploadDir, "login-text-", ".txt");
+        Files.writeString(uploadFile, "updated login text", StandardCharsets.UTF_8);
+        UploadLoginText2Action action = new UploadLoginText2Action();
+        action.setImportFile(uploadFile.toFile());
+        Files.delete(uploadFile);
+
+        String result = executeAction(action);
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(getMockRequest().getAttribute("error")).isEqualTo(true);
+        assertThat(existingLoginText).hasContent("existing login text");
+        try (Stream<Path> documentFiles = Files.list(documentDir)) {
+            assertThat(documentFiles)
+                    .extracting(path -> path.getFileName().toString())
+                    .containsExactly("OSCARloginText.txt");
+        }
     }
 
     private void addValidDurationParameters() {
