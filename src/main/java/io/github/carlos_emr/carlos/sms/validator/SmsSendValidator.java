@@ -9,7 +9,7 @@ import java.util.List;
 
 @Service
 public class SmsSendValidator {
-    private static final int MAX_SMS_BODY_LENGTH = 1600;
+    private static final int MAX_SMS_BODY_LENGTH = 160;
 
     public Result validate(SmsSendCommand command) {
         List<String> messages = new ArrayList<>();
