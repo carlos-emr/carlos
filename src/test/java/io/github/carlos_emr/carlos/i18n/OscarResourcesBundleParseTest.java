@@ -26,13 +26,16 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Properties;
 import java.util.ResourceBundle;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
@@ -57,6 +60,19 @@ class OscarResourcesBundleParseTest {
 
     private static final Path RESOURCE_DIR = Path.of("src/main/resources");
     private static final String[] LOCALES = {"en", "fr", "es", "pt_BR", "pl"};
+    private static final String[] NON_ENGLISH_LOCALES = {"fr", "es", "pt_BR", "pl"};
+    private static final String[] MODULE_BUNDLES = {
+            "MessageResources",
+            "MessageResources_program",
+            "MessageResources_mcedt",
+            "MessageResources_casemgmt"
+    };
+    private static final Locale[] MODULE_LOCALES = {
+            new Locale("es"),
+            Locale.FRENCH,
+            new Locale("pl"),
+            new Locale("pt", "BR")
+    };
     private static final String[] LOGIN_ERROR_KEYS = {
             "login.errorApplicationError",
             "login.errorAccountLocked",
@@ -133,6 +149,43 @@ class OscarResourcesBundleParseTest {
     }
 
     @Test
+    @DisplayName("should keep oscarResources locale keys in English source order")
+    void shouldKeepOscarResourcesKeys_inEnglishSourceOrder() throws Exception {
+        List<String> englishKeys = sourceKeysInOrder(RESOURCE_DIR.resolve("oscarResources_en.properties"));
+
+        for (String locale : NON_ENGLISH_LOCALES) {
+            Path localizedBundle = RESOURCE_DIR.resolve("oscarResources_" + locale + ".properties");
+            assertThat(sourceKeysInOrder(localizedBundle))
+                    .as("%s should define exactly the English keys in English order", localizedBundle)
+                    .containsExactlyElementsOf(englishKeys);
+        }
+    }
+
+    @Test
+    @DisplayName("should provide translated module bundle placeholders for every shipped locale")
+    void shouldProvideModuleBundlePlaceholders_forEveryLocale() throws Exception {
+        for (String bundleName : MODULE_BUNDLES) {
+            Properties english = loadProperties("/" + bundleName + ".properties");
+            for (Locale locale : MODULE_LOCALES) {
+                ResourceBundle bundle = ResourceBundle.getBundle(bundleName, locale);
+                assertThat(bundle.getLocale())
+                        .as("%s should resolve a dedicated bundle for %s", bundleName, locale)
+                        .isEqualTo(locale);
+
+                Properties localized = loadProperties("/" + bundleName + "_" + localeSuffix(locale) + ".properties");
+                assertThat(localized.stringPropertyNames())
+                        .as("%s %s should define the same keys as English", bundleName, locale)
+                        .containsExactlyInAnyOrderElementsOf(english.stringPropertyNames());
+                for (String key : english.stringPropertyNames()) {
+                    assertThat(localized.getProperty(key))
+                            .as("%s %s should mark %s as an English placeholder", bundleName, locale, key)
+                            .startsWith("[EN]");
+                }
+            }
+        }
+    }
+
+    @Test
     @DisplayName("should keep properties source files ASCII-only")
     void shouldKeepPropertiesSourceFiles_asciiOnly() throws Exception {
         for (String locale : LOCALES) {
@@ -166,5 +219,55 @@ class OscarResourcesBundleParseTest {
             p.load(is);
             return p;
         }
+    }
+
+    private Properties loadProperties(String resource) throws Exception {
+        try (InputStream is = OscarResourcesBundleParseTest.class.getResourceAsStream(resource)) {
+            assertThat(is).as("resource %s must exist on the classpath", resource).isNotNull();
+            Properties p = new Properties();
+            p.load(is);
+            return p;
+        }
+    }
+
+    private List<String> sourceKeysInOrder(Path bundlePath) throws IOException {
+        Set<String> seen = new LinkedHashSet<>();
+        for (String line : Files.readAllLines(bundlePath)) {
+            String key = sourceKey(line);
+            if (key != null) {
+                seen.add(key);
+            }
+        }
+        return new ArrayList<>(seen);
+    }
+
+    private String sourceKey(String line) {
+        if (line.isEmpty() || Character.isWhitespace(line.charAt(0))
+                || line.charAt(0) == '#' || line.charAt(0) == '!') {
+            return null;
+        }
+        boolean escaped = false;
+        for (int i = 0; i < line.length(); i++) {
+            char c = line.charAt(i);
+            if (escaped) {
+                escaped = false;
+                continue;
+            }
+            if (c == '\\') {
+                escaped = true;
+                continue;
+            }
+            if (c == '=' || c == ':' || Character.isWhitespace(c)) {
+                return line.substring(0, i).stripTrailing();
+            }
+        }
+        return line.stripTrailing();
+    }
+
+    private String localeSuffix(Locale locale) {
+        if (locale.getCountry().isEmpty()) {
+            return locale.getLanguage();
+        }
+        return locale.getLanguage() + "_" + locale.getCountry();
     }
 }
