@@ -28,7 +28,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-
+<%@ page import="io.github.carlos_emr.carlos.utility.LogSafe" %>
 <%@page import="org.apache.hc.client5.http.impl.classic.HttpClients" %>
 <%@page import="org.apache.hc.client5.http.impl.classic.CloseableHttpClient" %>
 <%@page import="org.apache.hc.client5.http.config.RequestConfig" %>
@@ -367,7 +367,7 @@
                                 resp -> EntityUtils.toString(resp.getEntity()));
 
                         JsonNode object = dhirMapper.readTree(entity);
-                        logger.info("object=" + object.toString());
+                        logger.info("DHIR response received (body redacted)");
 
                         int code = object.get("code").asInt();
 
@@ -460,7 +460,7 @@
                 <%
                         }
                     } catch (IOException e) {
-                        logger.error("Failed to retrieve eConsults for the OneID account " + providerEmail, e);
+                        logger.error("Failed to submit to DHIR for provider {}", LogSafe.sanitize(providerEmail), e);
                     } catch (NoSuchAlgorithmException e) {
                         logger.error("Failed to create an HttpClient that allows all SSL", e);
                     } catch (KeyManagementException e) {
