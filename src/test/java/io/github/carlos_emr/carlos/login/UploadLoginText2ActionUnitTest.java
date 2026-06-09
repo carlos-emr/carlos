@@ -97,6 +97,25 @@ class UploadLoginText2ActionUnitTest extends CarlosWebTestBase {
                 .hasContent("updated login text");
     }
 
+    @Test
+    @DisplayName("should set error when configured document directory is invalid")
+    void shouldSetError_whenDocumentDirectoryIsInvalid() throws Exception {
+        addValidDurationParameters();
+        Path invalidDocumentDir = Files.createTempFile(documentDir, "not-a-dir-", ".txt");
+        Files.writeString(invalidDocumentDir, "not a directory", StandardCharsets.UTF_8);
+        CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", invalidDocumentDir.toString());
+        Path uploadFile = Files.createTempFile(uploadDir, "login-text-", ".txt");
+        Files.writeString(uploadFile, "updated login text", StandardCharsets.UTF_8);
+        UploadLoginText2Action action = new UploadLoginText2Action();
+        action.setImportFile(uploadFile.toFile());
+
+        String result = executeAction(action);
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(getMockRequest().getAttribute("error")).isEqualTo(true);
+        assertThat(invalidDocumentDir).hasContent("not a directory");
+    }
+
     private void addValidDurationParameters() {
         addRequestParameter("validDurationNumber", "1");
         addRequestParameter("validDurationPeriod", "year");

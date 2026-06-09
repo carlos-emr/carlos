@@ -31,6 +31,7 @@
 package io.github.carlos_emr.carlos.login;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
@@ -49,12 +50,14 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.util.List;
-import io.github.carlos_emr.carlos.utility.LogSafe;
 
 public class UploadLoginText2Action extends ActionSupport implements UploadedFilesAware {
+    private static final String LOGIN_TEXT_FILE_NAME = "OSCARloginText.txt";
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -114,15 +117,7 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
             if (importFile == null) {
                 _logger.warn("No file uploaded; skipping login text write");
             } else if (!importFile.getName().isEmpty()) {
-                String savePath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "/OSCARloginText.txt";
-                try (InputStream fis = Files.newInputStream(importFile.toPath());
-                     FileOutputStream fos = new FileOutputStream(savePath)) {
-                    byte[] buf = new byte[128 * 1024];
-                    int i;
-                    while ((i = fis.read(buf)) != -1) {
-                        fos.write(buf, 0, i);
-                    }
-                }
+                writeLoginTextFile();
                 error = false;
             }
         } catch (Exception e) {
@@ -132,6 +127,20 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
 
         request.setAttribute("error", error);
         return SUCCESS;
+    }
+
+    private void writeLoginTextFile() throws IOException {
+        File documentDir = PathValidationUtils.validateConfiguredDirectory(
+                CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
+        File saveFile = PathValidationUtils.validateGeneratedChildPath(LOGIN_TEXT_FILE_NAME, documentDir);
+        try (InputStream fis = Files.newInputStream(importFile.toPath());
+             FileOutputStream fos = new FileOutputStream(saveFile)) {
+            byte[] buf = new byte[128 * 1024];
+            int i;
+            while ((i = fis.read(buf)) != -1) {
+                fos.write(buf, 0, i);
+            }
+        }
     }
 
     private File importFile;
