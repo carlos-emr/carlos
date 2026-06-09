@@ -107,18 +107,24 @@ public class EctDisplayAllergy2Action extends EctDisplayAction {
         }
         item.setDate(entryDate);
 
-        String customDescription = description;
+        String customDescription = buildCustomDescription(description, locale, prefsBean, startDate, severityDescription);
+        String encodedDescription = SafeEncode.forHtmlContent(customDescription);
+        item.setTitle(encodedDescription);
+        item.setLinkTitle(encodedDescription);
+        item.setURL("return false;");
+
+        return (item);
+    }
+
+    static String buildCustomDescription(String description, Locale locale, CppPreferencesUIBean prefsBean, Date startDate, String severityDescription) {
+        String customDescription = description != null ? description : "";
         if (prefsBean != null && "on".equals(prefsBean.getAllergyStartDate())) {
             customDescription = customDescription + " Start Date:" + DateUtils.formatDate(startDate, locale);
         }
         if (prefsBean != null && "on".equals(prefsBean.getAllergySeverity())) {
-            customDescription = customDescription + " Severity:" + severityDescription;
+            customDescription = customDescription + " Severity:" + (severityDescription != null ? severityDescription : "");
         }
-        item.setTitle(SafeEncode.forHtmlContent(customDescription));
-        item.setLinkTitle(SafeEncode.forHtmlContent(customDescription));
-        item.setURL("return false;");
-
-        return (item);
+        return customDescription;
     }
 
     public String getCmd() {
