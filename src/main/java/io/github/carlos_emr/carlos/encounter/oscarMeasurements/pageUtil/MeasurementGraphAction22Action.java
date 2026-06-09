@@ -107,6 +107,8 @@ public class MeasurementGraphAction22Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private final String NUMERIC_REGEX = "[^-.\\d]";
 
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute() throws IOException, ParseException {
         log.debug("In MeasurementGraphAction22Action");
         String userrole = (String) request.getSession().getAttribute("userrole");

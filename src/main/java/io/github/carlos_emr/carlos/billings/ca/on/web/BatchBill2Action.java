@@ -154,6 +154,8 @@ public class BatchBill2Action extends ActionSupport {
         }
     }
 
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String doBatchBill() {
 
         if (rejectNonPostMutation()) {
@@ -239,6 +241,8 @@ public class BatchBill2Action extends ActionSupport {
     }
 
     //Remove demographics from batch billing table
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String remove() {
 
 

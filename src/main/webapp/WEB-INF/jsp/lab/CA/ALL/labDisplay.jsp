@@ -880,7 +880,7 @@ input[id^='acklabel_']{
         }
     });
 
-    var _in_window = <%= request.getParameter("inWindow") == null || "true".equals(request.getParameter("inWindow")) %>;
+    var _in_window = <%= request.getParameter("inWindow") == null || "true".equals(request.getParameter("inWindow")) %><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>;
     var contextpath = "<%=request.getContextPath()%>";
 
 </script>
