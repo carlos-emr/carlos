@@ -3,6 +3,7 @@ package io.github.carlos_emr.carlos.sms.dao;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.TypedQuery;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -106,18 +107,18 @@ class SmsTransactionDaoImplUnitTest {
     }
 
     @Test
-    @DisplayName("findDueOutboundQueue skips querying when provider is missing")
+    @DisplayName("findDueOutboundQueueForUpdate skips querying when provider is missing")
     void shouldReturnEmptyList_whenQueueProviderIsMissing() {
         SmsTransactionDaoImpl dao = newDao();
 
-        List<SmsTransaction> transactions = dao.findDueOutboundQueue(null, new Date(), 100);
+        List<SmsTransaction> transactions = dao.findDueOutboundQueueForUpdate(null, new Date(), 100);
 
         assertThat(transactions).isEmpty();
         verify(entityManager, never()).createQuery(anyString(), eq(SmsTransaction.class));
     }
 
     @Test
-    @DisplayName("findDueOutboundQueue binds queue parameters and caps limits")
+    @DisplayName("findDueOutboundQueueForUpdate binds queue parameters and locks rows")
     void shouldBindParameters_whenFindingDueQueue() {
         SmsTransactionDaoImpl dao = newDao();
         Date now = Date.from(Instant.parse("2026-06-08T12:00:00Z"));
@@ -128,14 +129,16 @@ class SmsTransactionDaoImplUnitTest {
         when(query.setParameter(eq("status"), org.mockito.ArgumentMatchers.any())).thenReturn(query);
         when(query.setParameter("now", now)).thenReturn(query);
         when(query.setMaxResults(500)).thenReturn(query);
+        when(query.setLockMode(LockModeType.PESSIMISTIC_WRITE)).thenReturn(query);
         when(query.getResultList()).thenReturn(List.of(expected));
 
-        List<SmsTransaction> transactions = dao.findDueOutboundQueue(SmsProviderType.STUB, now, 5_000);
+        List<SmsTransaction> transactions = dao.findDueOutboundQueueForUpdate(SmsProviderType.STUB, now, 5_000);
 
         assertThat(transactions).singleElement().isSameAs(expected);
         verify(query).setParameter("providerType", SmsProviderType.STUB);
         verify(query).setParameter("now", now);
         verify(query).setMaxResults(500);
+        verify(query).setLockMode(LockModeType.PESSIMISTIC_WRITE);
     }
 
     private SmsTransactionDaoImpl newDao() {

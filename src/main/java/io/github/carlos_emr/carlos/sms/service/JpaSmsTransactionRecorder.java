@@ -106,8 +106,14 @@ public class JpaSmsTransactionRecorder implements SmsTransactionRecorder {
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public List<SmsTransaction> findDueOutboundQueue(SmsProviderType providerType, Date now, int limit) {
-        return smsTransactionDao.findDueOutboundQueue(providerType, now, limit);
+    @Transactional
+    public List<SmsTransaction> claimDueOutboundQueue(SmsProviderType providerType, Date now, int limit) {
+        Date claimAt = now == null ? new Date() : new Date(now.getTime());
+        List<SmsTransaction> transactions = smsTransactionDao.findDueOutboundQueueForUpdate(providerType, claimAt, limit);
+        for (SmsTransaction transaction : transactions) {
+            transaction.markSending(claimAt);
+        }
+        smsTransactionDao.flush();
+        return transactions;
     }
 }

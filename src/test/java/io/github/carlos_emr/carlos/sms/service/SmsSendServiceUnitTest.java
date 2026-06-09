@@ -104,10 +104,15 @@ class SmsSendServiceUnitTest {
 
         assertThat(result.accepted()).isFalse();
         assertThat(result.status()).isEqualTo(SmsStatus.FAILED);
-        assertThat(result.messages()).containsExactly("SMS provider send failed.");
+        assertThat(result.messages())
+                .containsExactly("SMS direct send failed because the provider client threw an exception.");
         assertThat(recorder.transactions()).singleElement()
                 .extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode, SmsTransaction::getErrorMessage)
-                .containsExactly(SmsStatus.FAILED, "PROVIDER_EXCEPTION", "SMS provider send failed.");
+                .containsExactly(
+                        SmsStatus.FAILED,
+                        "DIRECT_PROVIDER_EXCEPTION",
+                        "SMS direct send failed because the provider client threw an exception."
+                );
     }
 
     private static class RecordingSmsTransactionRecorder implements SmsTransactionRecorder {
@@ -163,9 +168,10 @@ class SmsSendServiceUnitTest {
         }
 
         @Override
-        public List<SmsTransaction> findDueOutboundQueue(SmsProviderType providerType, Date now, int limit) {
+        public List<SmsTransaction> claimDueOutboundQueue(SmsProviderType providerType, Date now, int limit) {
             return transactions.stream()
                     .filter(transaction -> transaction.getStatus() == SmsStatus.QUEUED)
+                    .peek(transaction -> transaction.markSending(now))
                     .limit(limit)
                     .toList();
         }
