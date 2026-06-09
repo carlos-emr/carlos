@@ -7,9 +7,9 @@ public record SmsSendCommand(
         String recipientPhoneNumber,
         String body,
         SmsTransactionType transactionType,
-        String providerNo,
-        Integer appointmentNo,
-        Integer relatedId
+        String requestedByProviderNo,
+        Integer requestedBySecurityNo,
+        Integer appointmentNo
 ) {
     public SmsSendCommand {
         if (transactionType == null) {
@@ -17,7 +17,30 @@ public record SmsSendCommand(
         }
     }
 
-    public static SmsSendCommand direct(Integer demographicNo, String recipientPhoneNumber, String body, String providerNo) {
-        return new SmsSendCommand(demographicNo, recipientPhoneNumber, body, SmsTransactionType.DIRECT, providerNo, null, null);
+    public static SmsSendCommand direct(
+            Integer demographicNo,
+            String recipientPhoneNumber,
+            String body,
+            String requestedByProviderNo
+    ) {
+        return direct(demographicNo, recipientPhoneNumber, body, requestedByProviderNo, null);
+    }
+
+    public static SmsSendCommand direct(
+            Integer demographicNo,
+            String recipientPhoneNumber,
+            String body,
+            String requestedByProviderNo,
+            Integer requestedBySecurityNo
+    ) {
+        return new SmsSendCommand(
+                demographicNo,
+                recipientPhoneNumber,
+                body,
+                SmsTransactionType.DIRECT,
+                requestedByProviderNo,
+                requestedBySecurityNo,
+                null
+        );
     }
 }
