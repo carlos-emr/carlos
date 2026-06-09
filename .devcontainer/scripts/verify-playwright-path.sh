@@ -22,7 +22,17 @@ if [ ! -d "/root/.cache/ms-playwright" ]; then
 fi
 
 # Get Playwright version from Dockerfile
-PLAYWRIGHT_VERSION=$(grep -oP 'playwright@\K[0-9.]+' /workspace/.devcontainer/development/Dockerfile || echo "unknown")
+DOCKERFILE="/workspace/.devcontainer/development/Dockerfile"
+PLAYWRIGHT_VERSION="unknown"
+if [ -f "$DOCKERFILE" ]; then
+    PLAYWRIGHT_VERSION=$(awk -F= '/^ARG[[:space:]]+PLAYWRIGHT_VERSION=/ {print $2; exit}' "$DOCKERFILE")
+    if [ -z "$PLAYWRIGHT_VERSION" ]; then
+        PLAYWRIGHT_VERSION=$(grep -oP 'playwright@\K[0-9.]+' "$DOCKERFILE" | head -1 || true)
+    fi
+    if [ -z "$PLAYWRIGHT_VERSION" ]; then
+        PLAYWRIGHT_VERSION="unknown"
+    fi
+fi
 echo "📦 Playwright version in Dockerfile: ${PLAYWRIGHT_VERSION}"
 
 # Check installed Chromium directories

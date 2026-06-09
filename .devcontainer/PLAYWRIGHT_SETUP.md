@@ -16,7 +16,7 @@ If you need to verify or update the Chromium executable path, follow these steps
 
 1. **Check Playwright version** in the Dockerfile:
    ```bash
-   grep "playwright@" .devcontainer/development/Dockerfile
+   grep "PLAYWRIGHT_VERSION" .devcontainer/development/Dockerfile
    ```
 
 2. **Find the Chromium revision** for that Playwright version:
