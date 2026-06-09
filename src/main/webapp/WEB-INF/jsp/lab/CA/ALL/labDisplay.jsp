@@ -849,7 +849,8 @@ input[id^='acklabel_']{
                         const lab = labConfigs.find(l => testName === l.testName);
                         if (lab && i + 1 < cells.length) {
                             const resultText = cells[i + 1].textContent.trim();
-                            const value = parseFloat(resultText);
+                            const valueMatch = resultText.match(/-?\d+(?:\.\d+)?/); // extract the number portion of <10
+                            const value = valueMatch ? parseFloat(valueMatch[0]) : NaN;
                             if (!isNaN(value) && (value < lab.normalRange.min || value > lab.normalRange.max)) {
                                 if (!abnormalLabs.includes(lab)) {
                                     abnormalLabs.push(lab);
@@ -884,8 +885,7 @@ input[id^='acklabel_']{
       async function fetchLabValues(lab, demographicNo) {
           const newURL = "<%=request.getContextPath()%>/lab/CA/ON/ViewLabValues?testName=" + encodeURIComponent(lab.testName) +
             "&demo=" + encodeURIComponent(demographicNo) + "&labType=HL7&identifier=" + encodeURIComponent(lab.LOINC);      
-          console.log("Fetching " + lab.name + " values from URL: " + newURL);
-      
+     
           try {
               const response = await fetch(newURL);
       
