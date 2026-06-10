@@ -44,6 +44,8 @@ class CsrfGuardConfigurationRegressionTest {
 
     private static final Path CSRF_GUARD_PROPERTIES =
             Path.of("src/main/webapp/WEB-INF/Owasp.CsrfGuard.properties");
+    private static final String PRNG_PROPERTY = "org.owasp.csrfguard.PRNG";
+    private static final String PRNG_PROVIDER_PROPERTY = "org.owasp.csrfguard.PRNG.Provider";
 
     @Test
     @DisplayName("should use native PRNG without provider constraint")
@@ -53,7 +55,7 @@ class CsrfGuardConfigurationRegressionTest {
             properties.load(reader);
         }
 
-        assertThat(properties.getProperty("PRNG")).isEqualTo("NativePRNG");
-        assertThat(properties).doesNotContainKey("Provider");
+        assertThat(properties.getProperty(PRNG_PROPERTY)).isEqualTo("NativePRNG");
+        assertThat(properties).doesNotContainKey(PRNG_PROVIDER_PROPERTY);
     }
 }
