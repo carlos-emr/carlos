@@ -261,6 +261,8 @@ public class MoveMohFiles2Action extends ActionSupport {
      * @param folderParam folder name from the request ({@code "inbox"}, {@code "outbox"}, etc.)
      * @return populated view model (never null)
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private ViewMohFilesViewModel buildViewModel(HttpServletRequest req, String folderParam) {
         // EDTFolder.getFolder never returns null — invalid input falls back
         // to INBOX. Keeps the previous "if (folder == null)" branch out of
@@ -355,6 +357,8 @@ public class MoveMohFiles2Action extends ActionSupport {
      * @param file File object representing the file to validate (must not be null)
      * @return boolean true if the file is within an authorized EDT folder, false otherwise
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private boolean validateFileLocation(File file) {
         boolean result = false;
         for (EDTFolder folder : EDTFolder.values()) {
@@ -372,7 +376,7 @@ public class MoveMohFiles2Action extends ActionSupport {
                 // and surfaces as a pattern in audit triage; legitimate
                 // calls that hit the right folder break out before more
                 // than one DEBUG fires.
-                logger.debug("EDT folder {} rejected file path during validation: {}",
+                logger.debug("EDT folder {} rejected file path during validation: {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                         io.github.carlos_emr.carlos.utility.LogSafe.sanitize(folder.name()),
                         io.github.carlos_emr.carlos.utility.LogSafe.sanitize(
                                 file == null ? "null" : file.getPath()));
@@ -397,15 +401,17 @@ public class MoveMohFiles2Action extends ActionSupport {
      * @param fileName String representing the URL-encoded filename to retrieve
      * @return File object representing the file at the specified path, or null if filename decoding fails
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private File getFile(String folderPath, String fileName) {
         try {
             fileName = URLDecoder.decode(fileName, "UTF-8");
         } catch (UnsupportedEncodingException e) {
-            logger.error("Unable to decode {}", LogSafe.sanitize(fileName), e);
+            logger.error("Unable to decode {}", LogSafe.sanitize(fileName), e); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
             return null;
         }
         if (fileName.contains("/") || fileName.contains("\\") || fileName.contains("..")) {
-            logger.warn("Rejected decoded file path: {}", LogSafe.sanitize(fileName));
+            logger.warn("Rejected decoded file path: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
             return null;
         }
         String safeFileName = FilenameUtils.getName(fileName);
@@ -419,7 +425,7 @@ public class MoveMohFiles2Action extends ActionSupport {
         try {
             return PathValidationUtils.validatePath(safeFileName, new File(folderPath));
         } catch (SecurityException e) {
-            logger.warn("Rejected file path: {} in {}",
+            logger.warn("Rejected file path: {} in {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(fileName), LogSafe.sanitize(folderPath), e);
             return null;
         }
@@ -443,15 +449,17 @@ public class MoveMohFiles2Action extends ActionSupport {
      * @param file File object representing the MOH billing file to move to archive
      * @return boolean true if the file was successfully moved to the archive directory, false if the move failed
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: trusted configured archive directory is canonicalized before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "trusted configured archive directory is canonicalized before use")
     private boolean moveFile(File file) {
-    File archiveDir = new File(EDTFolder.ARCHIVE.getPath());
-    try {
-        FileUtils.moveToDirectory(file, archiveDir, true);
-    } catch (IOException e) {
-        logger.error("Unable to move", e);
-        return false;
-    }
-    return true;
+        try {
+            File archiveDir = PathValidationUtils.resolveConfiguredDirectory(EDTFolder.ARCHIVE.getPath(), "ONEDT_ARCHIVE");
+            FileUtils.moveToDirectory(file, archiveDir, true);
+        } catch (IOException | SecurityException e) {
+            logger.error("Unable to move", e);
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -470,7 +478,7 @@ public class MoveMohFiles2Action extends ActionSupport {
     private String getFolderPath(String folderName) {
     EDTFolder folder = EDTFolder.getFolder(folderName);
     if (folder == null) {
-        logger.warn("moveMOHFiles: invalid folder parameter '{}'", LogSafe.sanitize(folderName));
+        logger.warn("moveMOHFiles: invalid folder parameter '{}'", LogSafe.sanitize(folderName)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
         return null;
     }
     return folder.getPath();

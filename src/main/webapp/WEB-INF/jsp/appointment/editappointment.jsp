@@ -995,7 +995,7 @@
                     >
 
 				<input type="number" name="duration" id="duration" class="form-control"
-                               value="<%=request.getParameter("duration")!=null?(request.getParameter("duration").equals(" ")||request.getParameter("duration").equals("")||request.getParameter("duration").equals("null")?(""+everyMin) :SafeEncode.forHtmlAttribute(request.getParameter("duration"))):(""+everyMin)%>"
+                               value="<%=request.getParameter("duration")!=null?(request.getParameter("duration").equals(" ")||request.getParameter("duration").equals("")||request.getParameter("duration").equals("null")?(""+everyMin) :SafeEncode.forHtmlAttribute(request.getParameter("duration"))):(""+everyMin)%>"<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                                onblur="calculateEndTime();">
                     </td>
                 </tr>

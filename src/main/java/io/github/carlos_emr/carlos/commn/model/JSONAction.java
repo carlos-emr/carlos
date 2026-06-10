@@ -2,6 +2,7 @@ package io.github.carlos_emr.carlos.commn.model;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.struts2.ActionContext;
 import org.apache.struts2.ActionSupport;
@@ -31,6 +32,8 @@ public class JSONAction extends ActionSupport {
         }
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     protected void jsonResponse(ObjectNode jsonObject) {
         if (!hasResponseContext()) {
             return;
@@ -45,6 +48,8 @@ public class JSONAction extends ActionSupport {
         }
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     protected void jsonResponse(String jsonString) {
         if (!hasResponseContext()) {
             return;
