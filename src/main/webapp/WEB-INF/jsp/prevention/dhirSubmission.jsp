@@ -28,7 +28,17 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@ page import="io.github.carlos_emr.carlos.utility.LogSafe" %>
+
+<%--
+ * Purpose: Handles DHIR secure submissions for the prevention module.
+ * Features: Formats outbound request payloads and redacts response logs to prevent PHI leakage.
+ * Parameters: 
+ * - uuid (request): Patient unique identifier.
+ * - bundles (session): Clinical dataset for transmission.
+ * - oneid_token (session): Authentication token.
+ * @since 1.0
+--%>
+
 <%@page import="org.apache.hc.client5.http.impl.classic.HttpClients" %>
 <%@page import="org.apache.hc.client5.http.impl.classic.CloseableHttpClient" %>
 <%@page import="org.apache.hc.client5.http.config.RequestConfig" %>
@@ -346,7 +356,7 @@
                         HttpPost httpPost = new HttpPost(url);
 
                         String oneIdToken = (String) session.getAttribute("oneid_token");
-                        logger.debug("oneid_token is " + oneIdToken);
+                       
 
                         httpPost.addHeader("x-oneid-email", providerEmail);
                         httpPost.addHeader("x-access-token", oneIdToken);
@@ -367,9 +377,9 @@
                                 resp -> EntityUtils.toString(resp.getEntity()));
 
                         JsonNode object = dhirMapper.readTree(entity);
-                        logger.info("DHIR response received (body redacted)");
-
-                        int code = object.get("code").asInt();
+                        
+                        int code = (object != null && object.has("code")) ? object.get("code").asInt() : -1;
+                        logger.info("DHIR response received with response code: {} (body redacted for PHI protection)", code);
 
                         if (code >= 200 && code < 300) {
                             String val = null;
@@ -460,7 +470,7 @@
                 <%
                         }
                     } catch (IOException e) {
-                        logger.error("Failed to submit to DHIR for provider {}", LogSafe.sanitize(providerEmail), e);
+                        logger.error("Failed to submit DHIR request", e);
                     } catch (NoSuchAlgorithmException e) {
                         logger.error("Failed to create an HttpClient that allows all SSL", e);
                     } catch (KeyManagementException e) {
