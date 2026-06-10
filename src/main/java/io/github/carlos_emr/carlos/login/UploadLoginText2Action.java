@@ -20,7 +20,7 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -113,19 +113,24 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
 
 
         try {
-            if (importFile.getName().length() > 0) {
+            if (importFile == null) {
+                MiscUtils.getLogger().warn("No file uploaded — skipping AUA text write");
+            } else if (importFile.getName().length() > 0) {
                 fis = Files.newInputStream(importFile.toPath());
                 String savePath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "/OSCARloginText.txt";
                 fos = new FileOutputStream(savePath);
+
                 byte[] buf = new byte[128 * 1024];
                 int i = 0;
+
                 while ((i = fis.read(buf)) != -1) {
                     fos.write(buf, 0, i);
                 }
+
                 error = false;
             }
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            MiscUtils.getLogger().error("Failed to upload AUA text file", e);
             error = true;
         }
 
