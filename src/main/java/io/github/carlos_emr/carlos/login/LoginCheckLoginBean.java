@@ -51,6 +51,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Bean that validates user credentials and enforces authentication security policies for CARLOS EMR.
@@ -122,6 +123,11 @@ public final class LoginCheckLoginBean {
      * Pre-computed BCrypt hash of a random decoy password, used only to equalize missing-user
      * authentication timing with the normal password-validation path.
      */
+    @SuppressFBWarnings(value = "HARD_CODE_PASSWORD",
+            justification = "BCrypt timing-equalization decoy: a pre-computed hash of a random "
+                    + "throwaway password with no usable plaintext, used only to make "
+                    + "missing-user paths take the same wall-clock time as real password checks")
+    // NOSONAR java:S2068,secrets:S8215 — BCrypt decoy hash for timing equalization; not a usable credential
     private static final String MISSING_USER_DUMMY_PASSWORD_HASH =
             "{bcrypt}$2b$10$YzOXP.2axkRiYS07sVHWkuyvQjcuwR.bGeZd5WHQVJ23py57UES8C";
 
@@ -344,6 +350,9 @@ public final class LoginCheckLoginBean {
      *
      * @return Security object containing only the precomputed BCrypt dummy password hash
      */
+    @SuppressFBWarnings(value = "HARD_CODE_PASSWORD",
+            justification = "Sets the BCrypt timing-equalization decoy hash; see MISSING_USER_DUMMY_PASSWORD_HASH")
+    // BCrypt timing-equalization decoy — sets dummy hash, not a real credential
     private static Security missingUserDummySecurity() {
         Security dummySecurity = new Security();
         dummySecurity.setPassword(MISSING_USER_DUMMY_PASSWORD_HASH);
