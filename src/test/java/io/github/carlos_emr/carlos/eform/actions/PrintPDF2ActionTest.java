@@ -114,6 +114,7 @@ class PrintPDF2ActionTest extends CarlosWebTestBase {
     void shouldRedirectToCreatePdf_whenSubmitIsGraph() throws Exception {
         Properties graphProperties = new Properties();
         graphProperties.setProperty("graphScore", "42");
+        mockRequest.setContextPath("/carlos");
         mockRequest.setParameter("submit", "gRaPh");
         mockRequest.setParameter("demographic_no", "123");
 
@@ -126,7 +127,7 @@ class PrintPDF2ActionTest extends CarlosWebTestBase {
 
             assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_FOUND);
-            assertThat(mockResponse.getRedirectedUrl()).isEqualTo("/eform/createpdf");
+            assertThat(mockResponse.getRedirectedUrl()).isEqualTo("/carlos/eform/createpdf");
             assertThat(mockRequest.getAttribute("graphScore")).isEqualTo("42");
             assertThat(mockResponse.getErrorMessage()).isNull();
         }
