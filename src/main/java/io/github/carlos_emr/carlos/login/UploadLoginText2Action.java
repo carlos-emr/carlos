@@ -128,8 +128,9 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
 
         try {
             Integer.parseInt(validDurationNumber);
-        } catch (Exception e) {
+        } catch (NumberFormatException e) {
             _logger.error("Not an Int:{}", LogSafe.sanitize(validDurationNumber), e);
+            return null;
         }
 
         if (validDurationPeriod != null && ("year".equals(validDurationPeriod) || "month".equals(validDurationPeriod) || "weeks".equals(validDurationPeriod) || "days".equals(validDurationPeriod))) {
@@ -144,14 +145,16 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
     }
 
     private boolean uploadLoginText() {
+        if (importFile == null) {
+            return true;
+        }
+
         try {
-            if (importFile.getName().length() > 0) {
-                File documentDir = PathValidationUtils.resolveConfiguredDirectory(
-                        CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
-                File loginTextFile = PathValidationUtils.validateGeneratedChildPath("OSCARloginText.txt", documentDir);
-                File validatedImportFile = PathValidationUtils.validateUpload(importFile);
-                Files.copy(validatedImportFile.toPath(), loginTextFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-            }
+            File documentDir = PathValidationUtils.resolveConfiguredDirectory(
+                    CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
+            File loginTextFile = PathValidationUtils.validateGeneratedChildPath("OSCARloginText.txt", documentDir);
+            File validatedImportFile = PathValidationUtils.validateUpload(importFile);
+            Files.copy(validatedImportFile.toPath(), loginTextFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
             return true;

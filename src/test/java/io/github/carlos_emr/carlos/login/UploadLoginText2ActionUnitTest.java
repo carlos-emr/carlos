@@ -2,6 +2,22 @@
  * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
  *
  * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.login;
 
@@ -232,6 +248,26 @@ class UploadLoginText2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should skip AUA persist when duration period is missing")
+    void shouldSkipAuaPersist_whenDurationPeriodMissing() throws Exception {
+        Path uploadFile = Files.writeString(tempDir.resolve("login-upload.txt"), "welcome");
+        Path documentDir = Files.createDirectory(tempDir.resolve("document"));
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)).thenReturn(true);
+        when(carlosProperties.getProperty("DOCUMENT_DIR")).thenReturn(documentDir.toString());
+        request.setMethod("POST");
+        request.addParameter("validDurationNumber", "30");
+
+        UploadLoginText2Action action = new UploadLoginText2Action(securityInfoManager);
+        action.setImportFile(uploadFile.toFile());
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(request.getAttribute("error")).isEqualTo(false);
+        verify(propertyDao, never()).persist(any(Property.class));
+    }
+
+    @Test
     @DisplayName("should skip AUA persist when latest property is unchanged")
     void shouldSkipAuaPersist_whenLatestPropertyUnchanged() throws Exception {
         Path uploadFile = Files.writeString(tempDir.resolve("login-upload.txt"), "welcome");
@@ -267,6 +303,20 @@ class UploadLoginText2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         assertThat(response.getHeader("Allow")).isEqualTo("POST");
         verify(carlosProperties, never()).getProperty("DOCUMENT_DIR");
+    }
+
+    @Test
+    @DisplayName("should set error when import file is missing")
+    void shouldSetError_whenImportFileMissing() throws Exception {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)).thenReturn(true);
+        request.setMethod("POST");
+
+        String result = new UploadLoginText2Action(securityInfoManager).execute();
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(request.getAttribute("error")).isEqualTo(true);
+        verify(carlosProperties, never()).getProperty("DOCUMENT_DIR");
+        verify(propertyDao, never()).persist(any(Property.class));
     }
 
     @Test

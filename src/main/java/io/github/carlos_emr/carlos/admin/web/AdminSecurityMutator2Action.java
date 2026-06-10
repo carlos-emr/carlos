@@ -30,6 +30,15 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Shared gate for admin security mutator 2Actions.
+ *
+ * <p>Requests require either {@code _admin} or {@code _admin.userAdmin} write
+ * privilege. Authorized requests must use POST; non-POST requests receive
+ * HTTP 405 with {@code Allow: POST} and return {@link #NONE}. Failed
+ * authorization throws {@link SecurityException}. Subclasses expose only the
+ * Struts action name; the JSP mutation runs after this gate succeeds.</p>
+ */
 abstract class AdminSecurityMutator2Action extends ActionSupport {
 
     private final transient SecurityInfoManager securityInfoManager;
