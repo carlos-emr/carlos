@@ -144,6 +144,17 @@
     <div style="font-size:0; line-height:0">&nbsp;</div>
 
     <script>
+        function checkFormAndDisable() {
+            if (document.forms[0].formHtml.value === "") {
+                alert("<fmt:message key="eform.uploadhtml.msgFileMissing"/>");
+                return false;
+            }
+
+            document.forms[0].subm.value = "<fmt:message key="eform.uploadimages.processing"/>";
+            document.forms[0].subm.disabled = true;
+            return true;
+        }
+
         $(document).ready(function () {
             $(".check").on("change", validate).keyup(validate);
         });

@@ -111,7 +111,7 @@
         eForm = new EForm(fid, "-1"); //form cannot be submitted, demographic_no "-1" indicate this specialty
         eForm.setContextPath(request.getContextPath());
         eForm.setOscarOPEN(request.getRequestURI());
-        eForm.setImagePath();
+        eForm.setImagePath(request.getContextPath());
         eForm.setFdid("");
     }
 
