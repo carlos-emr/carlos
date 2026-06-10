@@ -21,8 +21,6 @@
  */
 package io.github.carlos_emr.carlos.admin.web;
 
-import java.util.Locale;
-
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -65,6 +63,6 @@ abstract class AdminSecurityMutator2Action extends ActionSupport {
     }
 
     private static boolean isPost(HttpServletRequest request) {
-        return "POST".equals(request.getMethod().toUpperCase(Locale.ROOT));
+        return "POST".equals(request.getMethod());
     }
 }

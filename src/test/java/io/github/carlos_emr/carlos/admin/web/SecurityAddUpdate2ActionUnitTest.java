@@ -95,7 +95,7 @@ class SecurityAddUpdate2ActionUnitTest extends CarlosUnitTestBase {
 
         String result = actionFactory.apply(securityInfoManager).execute();
 
-        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(result).as("%s action result", label).isEqualTo(ActionSupport.SUCCESS);
         verify(securityInfoManager).hasPrivilege(loggedInInfo, "_admin", "w", null);
         verify(securityInfoManager, never()).hasPrivilege(
                 eq(loggedInInfo), eq("_admin.userAdmin"), eq("w"), nullable(String.class));
@@ -112,7 +112,7 @@ class SecurityAddUpdate2ActionUnitTest extends CarlosUnitTestBase {
 
         String result = actionFactory.apply(securityInfoManager).execute();
 
-        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(result).as("%s action result", label).isEqualTo(ActionSupport.SUCCESS);
         verify(securityInfoManager).hasPrivilege(loggedInInfo, "_admin", "w", null);
         verify(securityInfoManager).hasPrivilege(loggedInInfo, "_admin.userAdmin", "w", null);
     }
@@ -126,7 +126,10 @@ class SecurityAddUpdate2ActionUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)).thenReturn(false);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin.userAdmin", "w", null)).thenReturn(false);
 
-        assertThatThrownBy(() -> actionFactory.apply(securityInfoManager).execute())
+        ActionSupport action = actionFactory.apply(securityInfoManager);
+
+        assertThatThrownBy(action::execute)
+                .as("%s action rejection", label)
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("(_admin or _admin.userAdmin)");
         verify(securityInfoManager).hasPrivilege(loggedInInfo, "_admin", "w", null);
@@ -143,9 +146,10 @@ class SecurityAddUpdate2ActionUnitTest extends CarlosUnitTestBase {
 
         String result = actionFactory.apply(securityInfoManager).execute();
 
-        assertThat(result).isEqualTo(ActionSupport.NONE);
-        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-        assertThat(response.getHeader("Allow")).isEqualTo("POST");
+        assertThat(result).as("%s action result", label).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).as("%s response status", label)
+                .isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        assertThat(response.getHeader("Allow")).as("%s Allow header", label).isEqualTo("POST");
         verify(securityInfoManager).hasPrivilege(loggedInInfo, "_admin", "w", null);
     }
 }

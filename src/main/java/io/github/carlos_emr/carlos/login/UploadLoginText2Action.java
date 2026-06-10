@@ -48,12 +48,10 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
-import java.util.Locale;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 
 public class UploadLoginText2Action extends ActionSupport implements UploadedFilesAware {
@@ -89,7 +87,7 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
     }
 
     private boolean rejectNonPost() throws IOException {
-        if ("POST".equals(request.getMethod().toUpperCase(Locale.ROOT))) {
+        if ("POST".equals(request.getMethod())) {
             return false;
         }
 
@@ -148,15 +146,11 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
     private boolean uploadLoginText() {
         try {
             if (importFile.getName().length() > 0) {
-                String savePath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "/OSCARloginText.txt";
-                try (InputStream fis = Files.newInputStream(importFile.toPath());
-                        FileOutputStream fos = new FileOutputStream(savePath)) {
-                    byte[] buf = new byte[128 * 1024];
-                    int i = 0;
-                    while ((i = fis.read(buf)) != -1) {
-                        fos.write(buf, 0, i);
-                    }
-                }
+                File documentDir = PathValidationUtils.resolveConfiguredDirectory(
+                        CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
+                File loginTextFile = PathValidationUtils.validateGeneratedChildPath("OSCARloginText.txt", documentDir);
+                File validatedImportFile = PathValidationUtils.validateUpload(importFile);
+                Files.copy(validatedImportFile.toPath(), loginTextFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);

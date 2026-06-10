@@ -98,7 +98,8 @@ import static org.mockito.Mockito.when;
  * <p><b>Adding a new mutator 2Action.</b> The {@link #discoveryCandidatesMustBeRegistered()}
  * test scans {@code src/main/java} for any {@code *2Action.java} in an audited
  * slice, or explicitly registered legacy class, containing both
- * {@code SC_METHOD_NOT_ALLOWED} and an {@code equalsIgnoreCase("POST")} check
+ * {@code SC_METHOD_NOT_ALLOWED} and a {@code "POST".equals(...)} or
+ * {@code equalsIgnoreCase("POST")} check
  * and fails the build if the class is not listed here. New mutators must be
  * registered in one of:
  *
@@ -517,7 +518,8 @@ class MutatorActionGetRejectionContractTest {
     /**
      * Walks {@code src/main/java} and fails if any {@code *2Action.java}
      * containing both a {@code SC_METHOD_NOT_ALLOWED} reference and a
-     * {@code "POST".equalsIgnoreCase(...)} (or {@code equalsIgnoreCase("POST")})
+     * {@code "POST".equals(...)}, {@code "POST".equalsIgnoreCase(...)}, or
+     * {@code equalsIgnoreCase("POST")}
      * check is not registered in one of
      * {@link #unconditionalMutators()}, {@link #CONDITIONAL_MUTATORS}, or
      * {@link #NON_MUTATOR_GATES}.
@@ -585,7 +587,8 @@ class MutatorActionGetRejectionContractTest {
                         + actionSource, e);
             }
             if (source.contains("SC_METHOD_NOT_ALLOWED")
-                    && (source.contains("\"POST\".equalsIgnoreCase(")
+                    && (source.contains("\"POST\".equals(")
+                        || source.contains("\"POST\".equalsIgnoreCase(")
                         || source.contains(".equalsIgnoreCase(\"POST\")"))) {
                 out.add(className);
             }
