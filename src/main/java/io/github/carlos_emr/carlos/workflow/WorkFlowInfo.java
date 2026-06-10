@@ -56,7 +56,7 @@ public class WorkFlowInfo {
     public WorkFlowInfo() {
     }
 
-    public WorkFlowInfo(Hashtable h) {
+    public WorkFlowInfo(Hashtable<String, Object> h) {
         MiscUtils.getLogger().debug("loading data...");
         this.setID((String) h.get("ID"));
         this.setWorkflowType((String) h.get("workflow_type"));
