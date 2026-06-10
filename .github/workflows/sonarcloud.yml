@@ -56,7 +56,7 @@ jobs:
         run: |
           if [ -z "$SONAR_TOKEN" ]; then
             echo "::error::SONAR_TOKEN is not available in this workflow run."
-            echo "::error::If this is a Dependabot PR, GitHub does not provide repository secrets to the workflow; SonarCloud analysis must be skipped or run via a trusted event."
+            echo "::error::If this is a forked pull request, GitHub does not provide repository secrets to the workflow; SonarCloud analysis must be skipped or run via a trusted event (e.g., push or pull_request_target with appropriate hardening)."
             echo "::error::Otherwise, configure the SONAR_TOKEN repository secret with access to the carlos-emr SonarCloud organization and carlos-emr_carlos project."
             exit 1
           fi
