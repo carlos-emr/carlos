@@ -308,8 +308,14 @@ class UploadLoginText2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should set error when import file is missing")
     void shouldSetError_whenImportFileMissing() throws Exception {
+        Property latestProperty = new Property();
+        latestProperty.setValue("2026-06-10");
+        acceptableUseAgreementManagerStatic.when(AcceptableUseAgreementManager::findLatestProperty)
+                .thenReturn(latestProperty);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)).thenReturn(true);
         request.setMethod("POST");
+        request.addParameter("validForever", "forever");
+        request.addParameter("foreverFrom", "2026-06-10");
 
         String result = new UploadLoginText2Action(securityInfoManager).execute();
 

@@ -141,7 +141,9 @@ class AdminSecurityReadGate2ActionUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)).thenReturn(false);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin.userAdmin", "r", null)).thenReturn(false);
 
-        assertThatThrownBy(() -> actionFactory.apply(securityInfoManager).execute())
+        ActionSupport action = actionFactory.apply(securityInfoManager);
+
+        assertThatThrownBy(action::execute)
                 .as("%s denial", label)
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_admin or _admin.userAdmin");
