@@ -682,7 +682,7 @@
                                         for (RSchedule rs : rss) {
                                     %>
                                     <option value="<%=ConversionUtils.toDateString(rs.getsDate())%>"
-                                            <%=request.getParameter("sdate") != null ? (ConversionUtils.toDateString(rs.getsDate()).equals(request.getParameter("sdate")) ? "selected" : "") : (ConversionUtils.toDateString(rs.getsDate()).equals(scheduleRscheduleBean.sdate) ? "selected" : "")%>>
+                                            <%=request.getParameter("sdate") != null ? (ConversionUtils.toDateString(rs.getsDate()).equals(request.getParameter("sdate")) ? "selected" : "") : (ConversionUtils.toDateString(rs.getsDate()).equals(scheduleRscheduleBean.sdate) ? "selected" : "")%><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>>
                                         <%=ConversionUtils.toDateString(rs.getsDate()) + " ~ " + ConversionUtils.toDateString(rs.geteDate())%>
                                     </option>
                                     <%
