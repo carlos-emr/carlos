@@ -151,6 +151,6 @@ public class WorkFlowState {
         h.put("4", "Missed Appt");
         h.put("C", "Closed");
         String ss = (String) s;
-        return (String) h.get(ss);
+        return h.get(ss);
     }
 }
