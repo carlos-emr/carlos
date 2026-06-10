@@ -139,7 +139,7 @@ public class FrmFormRHPrevention2Action extends ActionSupport {
         if (currentWorkFlows != null && currentWorkFlows.size() > 0) {
             MiscUtils.getLogger().debug("size of current workflows " + currentWorkFlows.size());
             request.setAttribute("currentWorkFlow", currentWorkFlows.get(0));
-            Hashtable<String, Object> h = (Hashtable<String, Object>) currentWorkFlows.get(0);
+            Hashtable<String, Object> h = currentWorkFlows.get(0);
             String currentId = (String) h.get("ID");
             if (workflowId != null) {
                 //LOG CHANGE NOW
@@ -170,7 +170,7 @@ public class FrmFormRHPrevention2Action extends ActionSupport {
             rec = recorder.factory(request.getParameter("form_class"));
             Properties props = new Properties();
             for (Enumeration<String> varEnum = request.getParameterNames(); varEnum.hasMoreElements(); ) {
-                String name = (String) varEnum.nextElement();
+                String name = varEnum.nextElement();
                 props.setProperty(name, request.getParameter(name));
             }
             if (!props.containsKey("workflowId")) {
