@@ -64,7 +64,7 @@ public class PapReport implements PreventionReport {
     public PapReport() {
     }
 
-    public Hashtable runReport(LoggedInInfo loggedInInfo, ArrayList list, Date asofDate) {
+    public Hashtable<String, Object> runReport(LoggedInInfo loggedInInfo, ArrayList<ArrayList<String>> list, Date asofDate) {
         int inList = 0;
         double done = 0, doneWithGrace = 0;
         ArrayList<PreventionReportDisplay> returnReport = new ArrayList<PreventionReportDisplay>();

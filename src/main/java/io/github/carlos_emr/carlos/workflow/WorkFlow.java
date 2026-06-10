@@ -50,17 +50,17 @@ import java.util.List;
  * @author jay
  */
 public interface WorkFlow {
-    public ArrayList getActiveWorkFlowList(String demographicNo);
+    public ArrayList<Hashtable<String, Object>> getActiveWorkFlowList(String demographicNo);
 
-    public ArrayList getActiveWorkFlowList();
+    public ArrayList<Hashtable<String, Object>> getActiveWorkFlowList();
 
     public String getState(String state);
 
-    public List getStates();
+    public List<WFState> getStates();
 
-    public WorkFlowInfo executeRules(Hashtable hashtable);
+    public WorkFlowInfo executeRules(Hashtable<String, Object> hashtable);
 
-    public WorkFlowInfo executeRules(WorkFlowDS wfDS, Hashtable hashtable);
+    public WorkFlowInfo executeRules(WorkFlowDS wfDS, Hashtable<String, Object> hashtable);
 
     public String getLink(String demographic, String workFlowId);
 

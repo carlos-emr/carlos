@@ -80,12 +80,12 @@ public class RHWorkFlow implements WorkFlow {
     }
 
 
-    public ArrayList getActiveWorkFlowList(String demographicNo) {
+    public ArrayList<Hashtable<String, Object>> getActiveWorkFlowList(String demographicNo) {
         WorkFlowState wfs = new WorkFlowState();
         return wfs.getActiveWorkFlowList(RHWorkFlow.WORKFLOWTYPE, demographicNo);
     }
 
-    public ArrayList getActiveWorkFlowList() {
+    public ArrayList<Hashtable<String, Object>> getActiveWorkFlowList() {
         WorkFlowState wfs = new WorkFlowState();
         return wfs.getActiveWorkFlowList(RHWorkFlow.WORKFLOWTYPE);
     }
@@ -111,7 +111,7 @@ public class RHWorkFlow implements WorkFlow {
         return wfs.addToWorkFlow(WorkFlowState.RHWORKFLOW, providerNo, demographicNo, endDate, WorkFlowState.INIT_STATE);
     }
 
-    public WorkFlowInfo executeRules(Hashtable hashtable) {
+    public WorkFlowInfo executeRules(Hashtable<String, Object> hashtable) {
         WorkFlowInfo wfi = new WorkFlowInfo(hashtable);
         WorkFlowDS wfDS = WorkFlowDSFactory.getWorkFlowDS("Rh_workflow.drl");
         try {
@@ -122,7 +122,7 @@ public class RHWorkFlow implements WorkFlow {
         return wfi;
     }
 
-    public WorkFlowInfo executeRules(WorkFlowDS wfDS, Hashtable hashtable) {
+    public WorkFlowInfo executeRules(WorkFlowDS wfDS, Hashtable<String, Object> hashtable) {
         WorkFlowInfo wfi = new WorkFlowInfo(hashtable);
         try {
             wfi = wfDS.getMessages(wfi);

@@ -84,12 +84,12 @@ public class WorkFlowState {
     }
 
 
-    public ArrayList getWorkFlowList(String workflowType) {
-        ArrayList list = new ArrayList();
+    public ArrayList<Hashtable<String, Object>> getWorkFlowList(String workflowType) {
+        ArrayList<Hashtable<String, Object>> list = new ArrayList<Hashtable<String, Object>>();
 
         List<WorkFlow> ws = dao.findByWorkflowType(workflowType);
         for (WorkFlow w : ws) {
-            Hashtable h = new Hashtable();
+            Hashtable<String, Object> h = new Hashtable<String, Object>();
             h.put("ID", w.getId().toString());
             h.put("workflow_type", w.getWorkflowType());
             h.put("create_date_time", w.getCreateDateTime());
@@ -104,12 +104,12 @@ public class WorkFlowState {
         return list;
     }
 
-    public ArrayList getActiveWorkFlowList(String workflowType) {
-        ArrayList list = new ArrayList();
+    public ArrayList<Hashtable<String, Object>> getActiveWorkFlowList(String workflowType) {
+        ArrayList<Hashtable<String, Object>> list = new ArrayList<Hashtable<String, Object>>();
 
         List<WorkFlow> ws = dao.findActiveByWorkflowType(workflowType);
         for (WorkFlow w : ws) {
-            Hashtable h = new Hashtable();
+            Hashtable<String, Object> h = new Hashtable<String, Object>();
             h.put("ID", w.getId().toString());
             h.put("workflow_type", w.getWorkflowType());
             h.put("create_date_time", w.getCreateDateTime());
@@ -124,11 +124,11 @@ public class WorkFlowState {
         return list;
     }
 
-    public ArrayList getActiveWorkFlowList(String workflowType, String demographicNo) {
-        ArrayList list = new ArrayList();
+    public ArrayList<Hashtable<String, Object>> getActiveWorkFlowList(String workflowType, String demographicNo) {
+        ArrayList<Hashtable<String, Object>> list = new ArrayList<Hashtable<String, Object>>();
         List<WorkFlow> ws = dao.findActiveByWorkflowTypeAndDemographicNo(workflowType, demographicNo);
         for (WorkFlow w : ws) {
-            Hashtable h = new Hashtable();
+            Hashtable<String, Object> h = new Hashtable<String, Object>();
             h.put("ID", w.getId().toString());
             h.put("workflow_type", w.getWorkflowType());
             h.put("create_date_time", w.getCreateDateTime());
@@ -144,7 +144,7 @@ public class WorkFlowState {
 
 
     public static String rhState(Object s) {
-        Hashtable h = new Hashtable();
+        Hashtable<String, String> h = new Hashtable<String, String>();
         h.put("1", "No Appt made");
         h.put("2", "Appt Booked");
         h.put("3", "Injection 28");

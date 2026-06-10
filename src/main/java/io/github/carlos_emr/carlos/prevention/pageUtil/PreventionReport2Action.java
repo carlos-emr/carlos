@@ -118,7 +118,7 @@ public class PreventionReport2Action extends ActionSupport {
             request.setAttribute("ReportType", prevention);
         }
 
-        Hashtable h = report.runReport(loggedInInfo, list, asDate);
+        Hashtable<String, Object> h = report.runReport(loggedInInfo, list, asDate);
         request.setAttribute("up2date", h.get("up2date"));
         request.setAttribute("percent", h.get("percent"));
         request.setAttribute("percentWithGrace", h.get("percentWithGrace"));
