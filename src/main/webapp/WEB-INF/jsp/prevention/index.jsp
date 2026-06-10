@@ -69,7 +69,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
-
+<%@page import="org.owasp.encoder.Encode" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.CVCMapping" %>
