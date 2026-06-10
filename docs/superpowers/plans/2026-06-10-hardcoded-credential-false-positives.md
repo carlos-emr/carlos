@@ -373,10 +373,11 @@ Expected: `BUILD SUCCESS` with all tests passing. These are compilation + unit t
 - [ ] **Step 2: Verify alert count in spotbugs-exclude.xml matches expectation**
 
 ```bash
-grep -c "HARD_CODE_PASSWORD" .github/spotbugs/spotbugs-exclude.xml
+grep -c 'pattern="HARD_CODE_PASSWORD"' .github/spotbugs/spotbugs-exclude.xml
 ```
 
-Expected output: `5` (the five new entries added in Task 1).
+Expected output: `5` (the five new `<Bug pattern="HARD_CODE_PASSWORD"/>` entries added in Task 1).
+Note: a plain `grep -c "HARD_CODE_PASSWORD"` would return 7 because the XML section-header comment also mentions the string twice; use the narrower pattern above to count only the suppression entries.
 
 - [ ] **Step 3: Verify all four Java files compile independently**
 
