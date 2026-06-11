@@ -154,7 +154,7 @@ public class BillingThirdPartyService {
             dao.merge(b);
             return true;
         }
-        MiscUtils.getLogger().warn("BillingThirdPartyService.update3rdAddr: address id {} not found",
+        MiscUtils.getLogger().warn("BillingThirdPartyService.update3rdAddr: address id {} not found", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                 LogSafe.sanitize(id));
         return false;
     }
