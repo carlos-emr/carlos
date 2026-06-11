@@ -136,7 +136,7 @@ public class FluBillingAdd2Action extends ActionSupport {
         // wrong fee would silently misprice the bill.
         List<BillingService> bsList = billingServiceDao.findByServiceCode(request.getParameter("svcCode"));
         if (bsList != null && bsList.size() > 1) {
-            MiscUtils.getLogger().error(
+            MiscUtils.getLogger().error( // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     "FluBillingAdd2Action: ambiguous fee — {} BillingService rows for svcCode={}",
                     bsList.size(),
                     LogSafe.sanitize(request.getParameter("svcCode")));
