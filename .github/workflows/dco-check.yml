@@ -100,6 +100,7 @@ jobs:
             -H "Accept: application/vnd.github+json" \
             "https://api.github.com/repos/$REPO/pulls/$PR_NUMBER")
           pr_commit_count=$(jq -r '.commits' <<< "$pr_json")
+          base_ref=$(jq -r '.base.ref' <<< "$pr_json")
 
           if [ "$pr_commit_count" -gt 250 ]; then
             echo "::error::CARLOS EMR DCO check cannot automatically verify $pr_commit_count commits because GitHub's pull request commits API is capped at 250 commits."
@@ -115,8 +116,24 @@ jobs:
 
           bot_authors_regex='^(google-labs-jules\[bot\]|copilot-swe-agent\[bot\]|claude\[bot\]|coderabbitai\[bot\]|github-actions\[bot\]|dependabot\[bot\]) <'
 
+          is_github_base_update_merge() {
+            local subject=$1
+            local committer_login=$2
+            local parent_count=$3
+            local base_ref=$4
+            local direct_prefix="Merge branch '$base_ref' into "
+            local remote_prefix="Merge remote-tracking branch 'origin/$base_ref' into "
+
+            if [ "$parent_count" -lt 2 ] || [ "$committer_login" != "web-flow" ]; then
+              return 1
+            fi
+
+            [[ "$subject" == "$direct_prefix"* || "$subject" == "$remote_prefix"* ]]
+          }
+
           missing=()
           bot_exempt=()
+          base_update_merge_exempt=()
           total=0
           passed=0
           page=1
@@ -137,6 +154,8 @@ jobs:
               message=$(jq -r '.message' <<< "$commit")
               author_name=$(jq -r '.author_name // ""' <<< "$commit")
               author_email=$(jq -r '.author_email // ""' <<< "$commit")
+              committer_login=$(jq -r '.committer_login // ""' <<< "$commit")
+              parent_count=$(jq -r '.parent_count // 0' <<< "$commit")
               short="${sha:0:7}"
               subject=$(printf '%s\n' "$message" | sed -n '1p')
               author="$author_name <$author_email>"
@@ -147,6 +166,9 @@ jobs:
               elif printf '%s' "$author" | grep -qE "$bot_authors_regex"; then
                 passed=$((passed + 1))
                 bot_exempt+=("$short - $subject")
+              elif is_github_base_update_merge "$subject" "$committer_login" "$parent_count" "$base_ref"; then
+                passed=$((passed + 1))
+                base_update_merge_exempt+=("$short - $subject")
               else
                 missing+=("$short $subject")
               fi
@@ -154,7 +176,9 @@ jobs:
               sha: .sha,
               message: .commit.message,
               author_name: .commit.author.name,
-              author_email: .commit.author.email
+              author_email: .commit.author.email,
+              committer_login: (.committer.login // ""),
+              parent_count: (.parents | length)
             }' <<< "$commits")
 
             page=$((page + 1))
@@ -163,6 +187,14 @@ jobs:
           if [ ${#bot_exempt[@]} -gt 0 ]; then
             echo "DCO-exempt bot commits (${#bot_exempt[@]}):"
             for entry in "${bot_exempt[@]}"; do
+              printf '  - %s\n' "$entry"
+            done
+            echo ""
+          fi
+
+          if [ ${#base_update_merge_exempt[@]} -gt 0 ]; then
+            echo "DCO-exempt GitHub base-update merge commits (${#base_update_merge_exempt[@]}):"
+            for entry in "${base_update_merge_exempt[@]}"; do
               printf '  - %s\n' "$entry"
             done
             echo ""
