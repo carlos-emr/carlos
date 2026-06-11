@@ -333,7 +333,7 @@ public final class Login2Action extends ActionSupport {
     public String execute() throws ServletException, IOException {
 
         if (!"POST".equals(request.getMethod())) {
-            MiscUtils.getLogger().info("Rejected non-POST login request: method={}, remote={}, uri={}",
+            MiscUtils.getLogger().info("Rejected non-POST login request: method={}, remote={}, uri={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(request.getMethod()), LogSafe.sanitize(request.getRemoteAddr()),
                     LogSafe.sanitizeUri(request.getRequestURI()));
             String newURL = loginFailedRedirectUrl(message("login.errorApplicationError"));
@@ -373,7 +373,7 @@ public final class Login2Action extends ActionSupport {
                 && request.getParameter("forcedpasswordchange").equalsIgnoreCase("true")
                 && (this.oldPassword != null || this.newPassword != null || this.confirmPassword != null);
         if (forcedPasswordChangeRequest && !isForcedPasswordResetSubmitPath(request)) {
-            logger.warn("Rejected forced password reset payload on non-reset route: uri={}, remote={}",
+            logger.warn("Rejected forced password reset payload on non-reset route: uri={}, remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitizeUri(request.getRequestURI()), LogSafe.sanitize(ip));
             LogAction.addLog("", LogConst.LOGIN, LogConst.CON_LOGIN,
                     "forced_password_reset_wrong_route", ip);
@@ -421,7 +421,7 @@ public final class Login2Action extends ActionSupport {
             // Validate cached nextPage as defense in depth against open redirects.
             if (!RedirectValidationUtils.isValidRelativeRedirect(nextPage)) {
                 if (nextPage != null) {
-                    logger.warn("Rejected invalid nextPage from credential cache: {}", LogSafe.sanitize(nextPage));
+                    logger.warn("Rejected invalid nextPage from credential cache: {}", LogSafe.sanitize(nextPage)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                 }
                 nextPage = null;
             }
@@ -471,7 +471,7 @@ public final class Login2Action extends ActionSupport {
                     auditForcedPasswordResetFailure(userName, "persistence_failure");
                     removeAttributesFromSession(request);
                 } catch (RuntimeException secondary) {
-                    logger.error("Unable to cleanly report forced password reset persistence failure: user={}",
+                    logger.error("Unable to cleanly report forced password reset persistence failure: user={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                             LogSafe.sanitize(userName), secondary);
                 }
                 response.sendRedirect(loginFailedRedirectUrl(message("login.errorResetPersistence")));
@@ -490,7 +490,7 @@ public final class Login2Action extends ActionSupport {
                 try {
                     auditForcedPasswordResetCompletion(userName, "cleanup_failure_relogin");
                 } catch (RuntimeException auditFailure) {
-                    logger.error("Unable to audit forced password reset cleanup failure: user={}",
+                    logger.error("Unable to audit forced password reset cleanup failure: user={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                             LogSafe.sanitize(userName), auditFailure);
                 }
                 HttpSession session = request.getSession(false);
@@ -523,10 +523,10 @@ public final class Login2Action extends ActionSupport {
             }
             nextPage = request.getParameter("nextPage");
 
-            logger.debug("nextPage: {}", LogSafe.sanitize(nextPage));
+            logger.debug("nextPage: {}", LogSafe.sanitize(nextPage)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
             // Empty hidden nextPage fields are absent; facility choices post to /select_facility.
             if (nextPage != null && !nextPage.isEmpty()) {
-                logger.warn("Rejected facility selection on CSRF-exempt login route: user={}, nextPage={}",
+                logger.warn("Rejected facility selection on CSRF-exempt login route: user={}, nextPage={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                         LogSafe.sanitize(userName), LogSafe.sanitize(nextPage));
                 LogAction.addLog(userName, LogConst.LOGIN, LogConst.CON_LOGIN,
                         "facility_selection_on_login_rejected", ip);
@@ -535,7 +535,7 @@ public final class Login2Action extends ActionSupport {
             }
 
             if (cl.isBlock(ip, userName)) {
-                logger.info("{} Blocked: {}", LOG_PRE, LogSafe.sanitize(userName));
+                logger.info("{} Blocked: {}", LOG_PRE, LogSafe.sanitize(userName)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                 String lockedMessage = message("login.errorAccountLocked");
                 String newURL = loginFailedRedirectUrl(lockedMessage);
 
@@ -552,7 +552,7 @@ public final class Login2Action extends ActionSupport {
                 return NONE;
             }
 
-            logger.debug("ip was not blocked: {}", LogSafe.sanitize(ip));
+            logger.debug("ip was not blocked: {}", LogSafe.sanitize(ip)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
         }
 
         // Credential provider authentication boundary.
@@ -560,7 +560,7 @@ public final class Login2Action extends ActionSupport {
         try {
             strAuth = cl.auth(userName, password, pin, ip);
         } catch (Exception e) {
-            logger.error("Authentication provider failed during login: user={}, remote={}, ajax={}",
+            logger.error("Authentication provider failed during login: user={}, remote={}, ajax={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(userName), LogSafe.sanitize(ip), ajaxResponse, e);
             recordAuthenticationExceptionFailure(cl, ip, userName);
             String unableToProcessMessage = message("login.errorUnableToProcess");
@@ -579,7 +579,7 @@ public final class Login2Action extends ActionSupport {
             return NONE;
         }
         
-        logger.debug("strAuth : {}", LogSafe.sanitize(Arrays.toString(strAuth)));
+        logger.debug("strAuth : {}", LogSafe.sanitize(Arrays.toString(strAuth))); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
         
         // Successful login handling.
         if (strAuth != null && strAuth.length != 1) { // login successfully
@@ -587,7 +587,7 @@ public final class Login2Action extends ActionSupport {
             // is the providers record inactive?
             Provider p = providerDao.getProvider(strAuth[0]);
             if (p == null || (p.getStatus() != null && p.getStatus().equals("0"))) {
-                logger.info("{} Inactive: {}", LOG_PRE, LogSafe.sanitize(userName));
+                logger.info("{} Inactive: {}", LOG_PRE, LogSafe.sanitize(userName)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                 LogAction.addLog(strAuth[0], "login", "failed", "inactive");
 
                 String newURL = loginFailedRedirectUrl(message("login.errorAccountInactive"));
@@ -601,7 +601,7 @@ public final class Login2Action extends ActionSupport {
              */
             Security security = getSecurity(userName);
             if (security == null) {
-                logger.error("Authenticated user has no security record: {}", LogSafe.sanitize(userName));
+                logger.error("Authenticated user has no security record: {}", LogSafe.sanitize(userName)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                 response.sendRedirect(loginFailedRedirectUrl(message("login.errorSecurityRecordMissing")));
                 return NONE;
             }
@@ -637,7 +637,7 @@ public final class Login2Action extends ActionSupport {
         // Authentication failure handling.
         // expired password
         else if (strAuth != null && strAuth.length == 1 && strAuth[0].equals("expired")) {
-            logger.warn("Expired password: user={}, remote={}",
+            logger.warn("Expired password: user={}, remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(userName), LogSafe.sanitize(ip));
             cl.updateLoginList(ip, userName);
             String expiredMessage = message("login.errorAccountExpired");
@@ -708,7 +708,7 @@ public final class Login2Action extends ActionSupport {
             }
         } catch (RuntimeException e) {
             session.invalidate();
-            logger.error("Unable to prepare MFA registration: providerNo={}, securityId={}, remote={}",
+            logger.error("Unable to prepare MFA registration: providerNo={}, securityId={}, remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(security.getProviderNo()),
                     LogSafe.sanitize(String.valueOf(security.getSecurityNo())),
                     LogSafe.sanitize(ip),
@@ -748,7 +748,7 @@ public final class Login2Action extends ActionSupport {
                                                boolean ajaxResponse) throws IOException {
         HttpSession session = request.getSession(false);
         if (!hasPendingMfaSession(session)) {
-            logger.info("Rejected MFA verification without valid pending challenge: remote={}",
+            logger.info("Rejected MFA verification without valid pending challenge: remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(ip));
             if (session != null) {
                 clearPendingMfaSession(session);
@@ -762,7 +762,7 @@ public final class Login2Action extends ActionSupport {
         PendingMfaChallengeCache.PendingMfaChallenge challenge =
                 PendingMfaChallengeCache.getInstance().peek(challengeToken);
         if (challenge == null) {
-            logger.info("Rejected MFA verification because pending challenge token was missing or expired: providerNo={}, remote={}",
+            logger.info("Rejected MFA verification because pending challenge token was missing or expired: providerNo={}, remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(pendingProviderNo), LogSafe.sanitize(ip));
             clearPendingMfaSession(session);
             response.sendRedirect(loginFailedRedirectUrl(message("provider.providerchangepassword.errorSessionExpired")));
@@ -774,7 +774,7 @@ public final class Login2Action extends ActionSupport {
         try {
             security = securityDao.find(challenge.securityNo());
         } catch (RuntimeException e) {
-            logger.error("Unable to load security record for pending MFA challenge: providerNo={}, securityId={}, remote={}",
+            logger.error("Unable to load security record for pending MFA challenge: providerNo={}, securityId={}, remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(challenge.providerNo()),
                     LogSafe.sanitize(String.valueOf(challenge.securityNo())),
                     LogSafe.sanitize(ip),
@@ -783,7 +783,7 @@ public final class Login2Action extends ActionSupport {
             return loginFailureResult(message("login.errorUnableToProcess"));
         }
         if (security == null) {
-            logger.error("Rejected MFA verification because pending challenge has no security record: providerNo={}, securityId={}, remote={}",
+            logger.error("Rejected MFA verification because pending challenge has no security record: providerNo={}, securityId={}, remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(challenge.providerNo()),
                     LogSafe.sanitize(String.valueOf(challenge.securityNo())),
                     LogSafe.sanitize(ip));
@@ -797,7 +797,7 @@ public final class Login2Action extends ActionSupport {
         if (registrationChallenge) {
             mfaSecret = challenge.registrationSecret();
             if (mfaSecret == null || mfaSecret.isEmpty()) {
-                logger.warn("Rejected MFA registration submit without a staged secret: providerNo={}, securityId={}, remote={}",
+                logger.warn("Rejected MFA registration submit without a staged secret: providerNo={}, securityId={}, remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                         LogSafe.sanitize(security.getProviderNo()),
                         LogSafe.sanitize(String.valueOf(security.getSecurityNo())),
                         LogSafe.sanitize(ip));
@@ -809,7 +809,7 @@ public final class Login2Action extends ActionSupport {
             try {
                 mfaSecret = this.mfaManager.getMfaSecret(security);
             } catch (Exception e) {
-                logger.error("Unable to retrieve MFA secret: providerNo={}, securityId={}, remote={}",
+                logger.error("Unable to retrieve MFA secret: providerNo={}, securityId={}, remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                         LogSafe.sanitize(security.getProviderNo()),
                         LogSafe.sanitize(String.valueOf(security.getSecurityNo())),
                         LogSafe.sanitize(ip),
@@ -823,7 +823,7 @@ public final class Login2Action extends ActionSupport {
         try {
             validCode = isValidTotpCode(mfaSecret, this.code);
         } catch (InvalidKeyException e) {
-            logger.error("Unable to validate MFA code: providerNo={}, securityId={}, remote={}",
+            logger.error("Unable to validate MFA code: providerNo={}, securityId={}, remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(security.getProviderNo()),
                     LogSafe.sanitize(String.valueOf(security.getSecurityNo())),
                     LogSafe.sanitize(ip),
@@ -837,7 +837,7 @@ public final class Login2Action extends ActionSupport {
             int failedAttempts = incrementPendingMfaAttempts(session);
             if (failedAttempts >= MAX_PENDING_MFA_ATTEMPTS) {
                 LogAction.addLog(security.getProviderNo(), "login", "mfa_locked", "mfa", ip);
-                logger.warn("MFA challenge exhausted retry limit: providerNo={}, securityId={}, remote={}, attempts={}",
+                logger.warn("MFA challenge exhausted retry limit: providerNo={}, securityId={}, remote={}, attempts={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                         LogSafe.sanitize(security.getProviderNo()),
                         LogSafe.sanitize(String.valueOf(security.getSecurityNo())),
                         LogSafe.sanitize(ip),
@@ -857,7 +857,7 @@ public final class Login2Action extends ActionSupport {
         PendingMfaChallengeCache.PendingMfaChallenge terminalChallenge =
                 PendingMfaChallengeCache.getInstance().consume(challengeToken);
         if (terminalChallenge == null) {
-            logger.info("Rejected MFA verification because pending challenge token was already consumed: providerNo={}, remote={}",
+            logger.info("Rejected MFA verification because pending challenge token was already consumed: providerNo={}, remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(pendingProviderNo), LogSafe.sanitize(ip));
             clearPendingMfaSession(session);
             response.sendRedirect(loginFailedRedirectUrl(message("provider.providerchangepassword.errorSessionExpired")));
@@ -873,7 +873,7 @@ public final class Login2Action extends ActionSupport {
             try {
                 this.mfaManager.saveMfaSecret(buildLoggedInInfoForPendingMfa(session, strAuth, security), security, mfaSecret);
             } catch (Exception e) {
-                logger.error("Unable to persist MFA registration secret: providerNo={}, securityId={}, remote={}",
+                logger.error("Unable to persist MFA registration secret: providerNo={}, securityId={}, remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                         LogSafe.sanitize(security.getProviderNo()),
                         LogSafe.sanitize(String.valueOf(security.getSecurityNo())),
                         LogSafe.sanitize(ip),
@@ -1023,12 +1023,12 @@ public final class Login2Action extends ActionSupport {
                 if (providerNo instanceof String) {
                     caseMgmtUsers.add((String) providerNo);
                 } else {
-                    logger.warn("Ignoring non-String CaseMgmtUsers entry during login session setup: type={}",
+                    logger.warn("Ignoring non-String CaseMgmtUsers entry during login session setup: type={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                             providerNo == null ? "null" : LogSafe.sanitize(providerNo.getClass().getName()));
                 }
             }
         } else if (caseMgmtUsersAttr != null) {
-            logger.warn("CaseMgmtUsers context attribute is not a List: type={}",
+            logger.warn("CaseMgmtUsers context attribute is not a List: type={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(caseMgmtUsersAttr.getClass().getName()));
         }
         return caseMgmtUsers;
@@ -1064,7 +1064,7 @@ public final class Login2Action extends ActionSupport {
             Long longFreq = Long.valueOf(alertFreq);
             AlertTimer.getInstance(configuredAlerts.split(","), longFreq.longValue());
         } catch (NumberFormatException e) {
-            logger.warn("Skipping BC alert timer setup because ALERT_POLL_FREQUENCY is invalid: value={}",
+            logger.warn("Skipping BC alert timer setup because ALERT_POLL_FREQUENCY is invalid: value={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(alertFreq), e);
         } catch (RuntimeException e) {
             // The alert timer is post-login convenience work; startup defects must be visible but
@@ -1111,7 +1111,7 @@ public final class Login2Action extends ActionSupport {
             this.userSessionManager.registerUserSession(security.getSecurityNo(), session);
         }
 
-        logger.debug("Assigned new session for: {} : {} : {}", LogSafe.sanitize(strAuth[0]), LogSafe.sanitize(strAuth[3]), LogSafe.sanitize(strAuth[4]));
+        logger.debug("Assigned new session for: {} : {} : {}", LogSafe.sanitize(strAuth[0]), LogSafe.sanitize(strAuth[3]), LogSafe.sanitize(strAuth[4])); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
         LogAction.addLog(strAuth[0], LogConst.LOGIN, LogConst.CON_LOGIN, "", ip);
 
         Properties pvar = CarlosProperties.getInstance();
@@ -1196,7 +1196,7 @@ public final class Login2Action extends ActionSupport {
 
         Provider provider = providerManager.getProvider(providerNo);
         if (provider == null) {
-            logger.error("Authenticated login could not load provider record: providerNo={}, remote={}",
+            logger.error("Authenticated login could not load provider record: providerNo={}, remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(providerNo), LogSafe.sanitize(ip));
             session.invalidate();
             return loginFailureResult(message("login.errorUnableToProcess"));
@@ -1260,7 +1260,7 @@ public final class Login2Action extends ActionSupport {
             return null;
         }
         if (!isValidOauthTokenId(oauthToken)) {
-            logger.warn("Rejected malformed oauth_token during login completion: providerNo={}, remote={}",
+            logger.warn("Rejected malformed oauth_token during login completion: providerNo={}, remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(providerNo), LogSafe.sanitize(ip));
             LogAction.addLog(providerNo, LogConst.LOGIN, LogConst.CON_LOGIN, "invalid_oauth_token", ip);
             return buildPostAuthenticationResponse(provider, ajaxResponse, where);
@@ -1347,7 +1347,7 @@ public final class Login2Action extends ActionSupport {
                 || "off".equals(normalized) || "0".equals(normalized)) {
             return false;
         }
-        logger.warn("Unrecognized mandatory_password_reset value {}; defaulting to enabled",
+        logger.warn("Unrecognized mandatory_password_reset value {}; defaulting to enabled", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                 LogSafe.sanitize(value));
         return true;
     }
@@ -1529,7 +1529,7 @@ public final class Login2Action extends ActionSupport {
         String validatedNextPage = nextPage;
         if (!RedirectValidationUtils.isValidRelativeRedirect(validatedNextPage)) {
             if (validatedNextPage != null) {
-                logger.warn("Rejected invalid nextPage before credential cache: {}",
+                logger.warn("Rejected invalid nextPage before credential cache: {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                         LogSafe.sanitize(validatedNextPage));
             }
             validatedNextPage = null;
@@ -1681,7 +1681,7 @@ public final class Login2Action extends ActionSupport {
      * @param auditReason stable symbolic rejection reason
      */
     private void auditForcedPasswordResetFailure(String userName, String auditReason) {
-        logger.info("Forced password reset rejected: user={}, reason={}",
+        logger.info("Forced password reset rejected: user={}, reason={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                 LogSafe.sanitize(userName), auditReason);
         LogAction.addLog(userName, "login", "forced_password_reset_failed", auditReason);
     }
@@ -1693,7 +1693,7 @@ public final class Login2Action extends ActionSupport {
      * @param auditReason stable symbolic completion condition
      */
     private void auditForcedPasswordResetCompletion(String userName, String auditReason) {
-        logger.info("Forced password reset completed with follow-up action: user={}, reason={}",
+        logger.info("Forced password reset completed with follow-up action: user={}, reason={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                 LogSafe.sanitize(userName), auditReason);
         LogAction.addLog(userName, "login", "forced_password_reset_completed", auditReason);
     }
@@ -1706,7 +1706,7 @@ public final class Login2Action extends ActionSupport {
         try {
             cl.updateLoginList(ip, userName);
         } catch (RuntimeException updateFailure) {
-            logger.warn("Unable to update login-failure counter after authentication exception: user={}, remote={}",
+            logger.warn("Unable to update login-failure counter after authentication exception: user={}, remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(userName), LogSafe.sanitize(ip), updateFailure);
         }
     }
@@ -1836,7 +1836,7 @@ public final class Login2Action extends ActionSupport {
         try {
             return Integer.parseInt(value.trim());
         } catch (NumberFormatException e) {
-            logger.warn("Invalid integer property {}={}, using default {}", key, LogSafe.sanitize(value),
+            logger.warn("Invalid integer property {}={}, using default {}", key, LogSafe.sanitize(value), // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     defaultValue);
             return defaultValue;
         }
