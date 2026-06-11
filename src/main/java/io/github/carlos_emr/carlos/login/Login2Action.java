@@ -311,7 +311,6 @@ public final class Login2Action extends ActionSupport {
      * <ul>
      *   <li>"provider" - Standard provider interface</li>
      *   <li>"caisiPMM" - CAISI program management module interface</li>
-     *   <li>"programLocation" - Program location selection interface</li>
      *   <li>"patientIntake" - Patient intake role interface</li>
      *   <li>"mfaHandler" - MFA validation/registration interface</li>
      *   <li>"error" - Authentication cannot continue safely and a login failure page should render</li>
@@ -1187,11 +1186,6 @@ public final class Login2Action extends ActionSupport {
             where = "caisiPMM";
         }
 
-        if (where.equals("provider")
-                && CarlosProperties.getInstance().getProperty("useProgramLocation", "false").equals("true")) {
-            where = "programLocation";
-        }
-
         startBcAlertTimerIfConfigured(pvar);
 
         Provider provider = providerManager.getProvider(providerNo);
@@ -1245,6 +1239,9 @@ public final class Login2Action extends ActionSupport {
         }
 
         if ("provider".equals(where)) {
+            if (ajaxResponse) {
+                return buildPostAuthenticationResponse(provider, true, where);
+            }
             response.sendRedirect(buildDefaultProviderSchedulePath());
             return NONE;
         }

@@ -30,7 +30,6 @@
 
 --%>
 
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
 <%@ taglib uri="carlos" prefix="carlos" %>

@@ -77,6 +77,8 @@ class LoginJspMigrationRegressionTest {
             Path.of("src/main/webapp/WEB-INF/jsp/login/forcepasswordreset.jsp");
     private static final Path LOGIN_FAILED_JSP =
             Path.of("src/main/webapp/WEB-INF/jsp/login/loginfailed.jsp");
+    private static final Path LOGIN_INDEX_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/login/index.jsp");
     private static final Path SELECT_FACILITY_JSP =
             Path.of("src/main/webapp/WEB-INF/jsp/login/select_facility.jsp");
     private static final Path THIRD_PARTY_LOGIN_JSP =
@@ -108,13 +110,19 @@ class LoginJspMigrationRegressionTest {
         assertThat(struts).contains("/WEB-INF/jsp/login/index.jsp");
         assertThat(struts).contains("/WEB-INF/jsp/error/errorpage.jsp");
         assertThat(struts).contains("/WEB-INF/jsp/common/closenreload.jsp");
+        assertThat(actionBlock(struts, "location"))
+                .contains("class=\"io.github.carlos_emr.carlos.login.gate.ViewAuthenticatedPage2Action\"")
+                .contains("<result name=\"success\" type=\"redirect\">/provider/providercontrol</result>");
         assertThat(actionBlock(struts, "select_facility"))
                 .contains("io.github.carlos_emr.carlos.login.gate.SelectFacility2Action")
-                .contains("<result name=\"provider\" type=\"redirect\">/provider/providercontrol</result>");
+                .contains("<result name=\"provider\" type=\"redirect\">/provider/providercontrol</result>")
+                .doesNotContain("programLocation");
         assertThat(actionBlock(struts, "login"))
-                .contains("<result name=\"error\">/WEB-INF/jsp/login/loginfailed.jsp</result>");
+                .contains("<result name=\"error\">/WEB-INF/jsp/login/loginfailed.jsp</result>")
+                .doesNotContain("programLocation");
         assertThat(actionBlock(struts, "forcepasswordresetSubmit"))
-                .contains("<result name=\"error\">/WEB-INF/jsp/login/loginfailed.jsp</result>");
+                .contains("<result name=\"error\">/WEB-INF/jsp/login/loginfailed.jsp</result>")
+                .doesNotContain("programLocation");
         assertThat(struts).doesNotContain("/WEB-INF/jsp/error/WEB-INF/jsp/error/");
         assertThat(struts).doesNotContain("/WEB-INF/jsp/common/WEB-INF/jsp/common/");
     }
@@ -315,6 +323,29 @@ class LoginJspMigrationRegressionTest {
                 .doesNotContain("/login;jsessionid=")
                 .doesNotContain("oauthData.replyTo)};jsessionid=")
                 .doesNotContain("pageContext.session.id");
+    }
+
+    @Test
+    @DisplayName("login JSPs should not retain unused OWASP advanced encoder taglibs")
+    void shouldNotRetainUnusedOwaspAdvancedEncoderTaglibs_forLoginJsps() throws IOException {
+        String loginIndexJsp = Files.readString(LOGIN_INDEX_JSP, StandardCharsets.UTF_8);
+        String thirdPartyLoginJsp = Files.readString(THIRD_PARTY_LOGIN_JSP, StandardCharsets.UTF_8);
+
+        assertThat(loginIndexJsp).doesNotContain("owasp.encoder.jakarta.advanced");
+        assertThat(thirdPartyLoginJsp).doesNotContain("owasp.encoder.jakarta.advanced");
+    }
+
+    @Test
+    @DisplayName("login flow should retire the legacy program location page")
+    void shouldRetireLegacyProgramLocationPage_forLoginFlow() throws IOException {
+        String struts = Files.readString(STRUTS_LOGIN_XML, StandardCharsets.UTF_8);
+        String loginAction = Files.readString(LOGIN_ACTION, StandardCharsets.UTF_8);
+        String selectFacilityJsp = Files.readString(SELECT_FACILITY_JSP, StandardCharsets.UTF_8);
+
+        assertThat(Path.of("src/main/webapp/WEB-INF/jsp/login/location.jsp")).doesNotExist();
+        assertThat(struts).doesNotContain("/WEB-INF/jsp/login/location.jsp");
+        assertThat(loginAction).doesNotContain("\"programLocation\"");
+        assertThat(selectFacilityJsp).doesNotContain("\"programLocation\"");
     }
 
     @Test
