@@ -153,11 +153,11 @@ def is_stringbuilder_entity_name_query(line: str, content: str) -> bool:
 
     builder = re.escape(start_match.group(1))
     has_entity_metadata_append = re.search(
-        rf'{builder}\.append\s*\(\s*(?:modelClass\.getSimpleName\(\)|\w+\.class\.getSimpleName\(\))\s*\)',
+        rf'{builder}\.append\s*\(\s*(?:modelClass\.getSimpleName\(\)|\w+\.class\.getSimpleName\(\))\s*\)',  # nosemgrep: skills.code-injection.skill-ldap-injection.skill-ldap-injection -- SQL safety hook regex, not an LDAP filter; builder is escaped with re.escape().
         content,
     )
     has_query_creation = re.search(
-        rf'(?:createQuery|createNativeQuery|createSQLQuery)\s*\(\s*{builder}\.toString\(\)\s*\)',
+        rf'(?:createQuery|createNativeQuery|createSQLQuery)\s*\(\s*{builder}\.toString\(\)\s*\)',  # nosemgrep: skills.code-injection.skill-ldap-injection.skill-ldap-injection -- SQL safety hook regex, not an LDAP filter; builder is escaped with re.escape().
         content,
         re.IGNORECASE,
     )

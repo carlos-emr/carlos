@@ -234,11 +234,11 @@
     </form>
     <script type="text/javascript">
         function goToPage() {
-            document.forms[0].waitingListId.value =
+            var waitingListId =
                 document.forms[0].selectedWL.options[document.forms[0].selectedWL.selectedIndex].value;
-            // codeql[js/xss-through-dom] -- assigns a navigation URL; it does not reinterpret text as HTML.
+            document.forms[0].waitingListId.value = waitingListId;
             window.location = "<%=request.getContextPath()%>/waitinglist/SetupDisplayWaitingList?waitingListId=" +
-                document.forms[0].selectedWL.options[document.forms[0].selectedWL.selectedIndex].value;
+                encodeURIComponent(waitingListId); // codeql[js/xss-through-dom] -- assigns a navigation URL; it does not reinterpret text as HTML.
         }
 
         function popupEditWlNamePage() {

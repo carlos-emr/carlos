@@ -2421,17 +2421,17 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         }
 
         EntityManager s = entityManager();
-            Query q = s.createQuery(sql); // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string, java.lang.security.audit.sqli.jpa-sqli.jpa-sqli -- field/order names are allowlisted above; fieldValue is bound via setParameter below
-            if (!isFieldValueEmpty) {
-                q.setParameter("fieldValue", fieldValue);
-            }
+        Query q = s.createQuery(sql); // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string, java.lang.security.audit.sqli.jpa-sqli.jpa-sqli -- field/order names are allowlisted above; fieldValue is bound via setParameter below
+        if (!isFieldValueEmpty) {
+            q.setParameter("fieldValue", fieldValue);
+        }
 
-            q.setMaxResults(10);
+        q.setMaxResults(10);
 
-            if (offset > 0) {
-                q.setFirstResult(offset);
-            }
-            return q.getResultList();
+        if (offset > 0) {
+            q.setFirstResult(offset);
+        }
+        return q.getResultList();
     }
 
     @SuppressWarnings("unchecked")
