@@ -271,7 +271,7 @@ public class ManageInboxhub2Action extends ActionSupport {
         labDataController.sanitizeInboxFormQuery(loggedInInfo, query, demographicFilter, typeFilter);
         ArrayList<LabResultData> labDocs = labDataController.getLabData(loggedInInfo, query);
         if (labDocs.size() > 0) {
-            String providerNo = request.getSession().getAttribute("user").toString();
+            String providerNo = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
             ArrayList<String> labLinks = labDataController.getLabLink(labDocs, query, request.getContextPath(), providerNo);
             request.setAttribute("labLinks", labLinks);
         }
