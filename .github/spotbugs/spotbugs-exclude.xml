@@ -1069,70 +1069,8 @@
         <Method name="toDocument"/>
     </Match>
 
-    <!-- No shell is invoked: commands are fixed or configured executable arrays,
-         with working directories validated before Runtime.exec. -->
-    <Match>
-        <Bug pattern="COMMAND_INJECTION"/>
-        <Class name="io.github.carlos_emr.carlos.demographic.pageUtil.PGPEncrypt"/>
-        <Method name="check"/>
-    </Match>
-    <Match>
-        <Bug pattern="COMMAND_INJECTION"/>
-        <Class name="io.github.carlos_emr.carlos.demographic.pageUtil.PGPEncrypt"/>
-        <Method name="encrypt"/>
-    </Match>
-    <Match>
-        <Bug pattern="COMMAND_INJECTION"/>
-        <Class name="io.github.carlos_emr.carlos.managers.AuditLogManager"/>
-        <Method name="purgeAuditLog"/>
-    </Match>
-
-    <!-- Logout creates empty maxAge(0) deletion cookies; it is not storing
-         sensitive data in insecure cookies. -->
-    <Match>
-        <Bug pattern="INSECURE_COOKIE"/>
-        <Class name="io.github.carlos_emr.carlos.login.Logout2Action"/>
-        <Method name="logout"/>
-    </Match>
-    <Match>
-        <Bug pattern="COOKIE_USAGE"/>
-        <Class name="io.github.carlos_emr.carlos.login.Logout2Action"/>
-        <Method name="logout"/>
-    </Match>
-
-    <!-- ObjectInputFilter is installed before readObject, and file inputs are
-         validated before ObjectInputStream construction. -->
-    <Match>
-        <Bug pattern="OBJECT_DESERIALIZATION"/>
-        <Class name="io.github.carlos_emr.carlos.utility.MiscUtils"/>
-        <Method name="deserialize"/>
-    </Match>
-    <Match>
-        <Bug pattern="OBJECT_DESERIALIZATION"/>
-        <Class name="io.github.carlos_emr.carlos.utility.MiscUtils"/>
-        <Method name="deserializeFromFile"/>
-    </Match>
-
-    <!-- Random values are local filenames/cache busters, not secrets, tokens,
-         credentials, or authorization decisions. -->
-    <Match>
-        <Bug pattern="PREDICTABLE_RANDOM"/>
-        <Class name="io.github.carlos_emr.carlos.lab.ca.all.web.SubmitLabByForm2Action"/>
-        <Method name="saveManage"/>
-    </Match>
-    <Match>
-        <Bug pattern="PREDICTABLE_RANDOM"/>
-        <Class name="io.github.carlos_emr.carlos.billings.ca.bc.Teleplan.TeleplanResponse"/>
-        <Method name="processResponseStream"/>
-    </Match>
-
-    <!-- Redirects are context-relative/validated or fixed-host with URL-encoded
-         query values. Host-header hardening alert #21966 remains out of scope. -->
-    <Match>
-        <Bug pattern="UNVALIDATED_REDIRECT"/>
-        <Class name="io.github.carlos_emr.carlos.casemgmt.web.CaseManagementEntry2Action"/>
-        <Method name="saveAndExit"/>
-    </Match>
+    <!-- Redirect target is a same-origin application path, not an attacker-controlled
+         external URL. -->
     <Match>
         <Bug pattern="UNVALIDATED_REDIRECT"/>
         <Class name="io.github.carlos_emr.carlos.prescript.pageUtil.RxDrugInfo2Action"/>
@@ -1163,11 +1101,6 @@
         <Method name="execute"/>
     </Match>
     <Match>
-        <Bug pattern="SERVLET_SERVER_NAME"/>
-        <Class name="io.github.carlos_emr.carlos.util.FullPathReWrite"/>
-        <Method name="doStartTag"/>
-    </Match>
-    <Match>
         <Bug pattern="SERVLET_CONTENT_TYPE"/>
         <Class name="io.github.carlos_emr.carlos.webserv.oauth.util.OAuth1ParamParser"/>
         <Method name="parseFromRequest"/>
@@ -1185,17 +1118,17 @@
     <Match>
         <Bug pattern="SERVLET_CONTENT_TYPE"/>
         <Class name="io.github.carlos_emr.carlos.webserv.oauth.util.OAuth1SignatureVerifierImplementation"/>
-        <Method name="verify"/>
+        <Method name="verifySignature"/>
     </Match>
     <Match>
         <Bug pattern="SERVLET_QUERY_STRING"/>
         <Class name="io.github.carlos_emr.carlos.webserv.oauth.util.OAuth1SignatureVerifierImplementation"/>
-        <Method name="verify"/>
+        <Method name="verifySignature"/>
     </Match>
     <Match>
         <Bug pattern="SERVLET_SERVER_NAME"/>
         <Class name="io.github.carlos_emr.carlos.webserv.oauth.util.OAuth1SignatureVerifierImplementation"/>
-        <Method name="verify"/>
+        <Method name="verifySignature"/>
     </Match>
     <Match>
         <Bug pattern="SERVLET_HEADER"/>
