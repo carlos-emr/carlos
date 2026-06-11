@@ -275,7 +275,7 @@ async function cleanupImportedEform(page, fid) {
   await page.evaluate((submittedFid) => {
     const form = document.createElement('form');
     form.method = 'post';
-    form.action = `${window.location.origin}${window.location.pathname.replace(/\/efmformmanager.*$/, '')}/delEForm`.replace(/\/eform\/delEForm$/, '/eform/delEForm');
+    form.action = `${window.location.origin}${window.location.pathname.replace(/\/efmformmanager.*$/, '')}/delEForm`;
     const input = document.createElement('input');
     input.type = 'hidden';
     input.name = 'fid';
