@@ -461,7 +461,7 @@
                 <%
                         }
                     } catch (IOException e) {
-                        logger.error("Failed to retrieve eConsults for the OneID account " + providerEmail, e);
+                        logger.error("Failed to submit to DHIR for provider {}", LogSafe.sanitize(providerEmail), e);
                     } catch (NoSuchAlgorithmException e) {
                         logger.error("Failed to create an HttpClient that allows all SSL", e);
                     } catch (KeyManagementException e) {
