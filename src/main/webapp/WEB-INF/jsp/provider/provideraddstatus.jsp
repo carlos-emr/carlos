@@ -29,57 +29,100 @@
 
 --%>
 
-<%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.MyDateFormat,io.github.carlos_emr.carlos.event.EventService" %>
+<%@ page
+  import="java.sql.*, java.util.*, io.github.carlos_emr.MyDateFormat,io.github.carlos_emr.carlos.event.EventService" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
-    AppointmentArchiveDao appointmentArchiveDao = (AppointmentArchiveDao) SpringUtils.getBean(AppointmentArchiveDao.class);
-    OscarAppointmentDao appointmentDao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);
+  AppointmentArchiveDao appointmentArchiveDao = (AppointmentArchiveDao) SpringUtils.getBean(AppointmentArchiveDao.class);
+  OscarAppointmentDao appointmentDao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);
 %>
 <%
-    //if action is good, then give me the result
-    String[] param = new String[3];
-    param[0] = request.getParameter("status") + request.getParameter("statusch");
-    param[1] = (String) session.getAttribute("user");
-    param[2] = request.getParameter("appointment_no");
-    Appointment appt = appointmentDao.find(Integer.parseInt(request.getParameter("appointment_no")));
-    appointmentArchiveDao.archiveAppointment(appt);
-    int rowsAffected = 0;
-    if (appt != null) {
-        appt.setStatus(request.getParameter("status") + request.getParameter("statusch"));
-        appt.setLastUpdateUser((String) session.getAttribute("user"));
-        appointmentDao.merge(appt);
-        rowsAffected = 1;
-    }
+  //if action is good, then give me the result
+  String curUser_no = (String) session.getAttribute("user");
 
+  if (curUser_no == null) {
+    response.sendRedirect(request.getContextPath() + "/logout.htm");
+    return;
+  }
+  String[] param = new String[3];
+  param[0] = request.getParameter("status") + request.getParameter("statusch");
+  param[1] = curUser_no;
+  param[2] = request.getParameter("appointment_no");
+  String appointmentNoParam = request.getParameter("appointment_no");
+
+  int appointmentNo;
+
+  try {
+    appointmentNo = Integer.parseInt(appointmentNoParam);
+  } catch (NumberFormatException e) {
+    response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+    return;
+  }
+
+  Appointment appt = appointmentDao.find(appointmentNo);
+  int rowsAffected = 0;
+
+  if (appt != null) {
+    appointmentArchiveDao.archiveAppointment(appt);
+    appt.setStatus(request.getParameter("status") + request.getParameter("statusch"));
+    appt.setLastUpdateUser(curUser_no);
+    appointmentDao.merge(appt);
+    rowsAffected = 1;
+  }
+
+
+
+  if (rowsAffected == 1) {//add_record
     EventService eventService = SpringUtils.getBean(EventService.class);//This is when the icon is clicked in the appt screen
     eventService.appointmentStatusChanged(this, request.getParameter("appointment_no"), request.getParameter("provider_no"), request.getParameter("statusch"));
+    int view = 0;
 
-    if (rowsAffected == 1) {//add_record
-        int view = 0;
-        if (request.getParameter("view") != null)
-            view = Integer.parseInt(request.getParameter("view")); //0-multiple views, 1-single view
-        String strView = (view == 0) ? "0" : ("1&curProvider=" + request.getParameter("curProvider") + "&curProviderName=" + request.getParameter("curProviderName"));
-        String strViewAll = request.getParameter("viewall") == null ? "0" : (request.getParameter("viewall"));
-        String displaypage = request.getContextPath() + "/provider/providercontrol?year=" + request.getParameter("year") + "&month=" + request.getParameter("month") + "&day=" + request.getParameter("day") + "&view=" + strView + "&displaymode=day&dboperation=searchappointmentday" + "&viewall=" + strViewAll + "&x=" + request.getParameter("x") + "&y=" + request.getParameter("y");
-        if (request.getParameter("viewWeek") != null) {
-            displaypage += "&provider_no=" + request.getParameter("provider_no");
-        }
-        if (true) {
-            out.clear();
-            response.sendRedirect(displaypage);
-            //pageContext.forward(displaypage); //forward request&response to the target page
-            return;
-        }
-    } else {
+    String viewParam = request.getParameter("view");
+
+    if (viewParam != null) {
+      try {
+        view = Integer.parseInt(viewParam);
+      } catch (NumberFormatException e) {
+        response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+        return;
+      }
+    } //0-multiple views, 1-single view
+    String strView = (view == 0) ? "0"
+      : ("1&curProvider=" + SafeEncode.forUriComponent(request.getParameter("curProvider"))
+      + "&curProviderName=" + SafeEncode.forUriComponent(request.getParameter("curProviderName")));
+    String strViewAll = request.getParameter("viewall") == null
+      ? "0"
+      : SafeEncode.forUriComponent(request.getParameter("viewall"));
+    String displaypage = request.getContextPath()
+      + "/provider/providercontrol?year=" + SafeEncode.forUriComponent(request.getParameter("year"))
+      + "&month=" + SafeEncode.forUriComponent(request.getParameter("month"))
+      + "&day=" + SafeEncode.forUriComponent(request.getParameter("day"))
+      + "&view=" + strView
+      + "&displaymode=day&dboperation=searchappointmentday"
+      + "&viewall=" + strViewAll
+      + "&x=" + SafeEncode.forUriComponent(request.getParameter("x"))
+      + "&y=" + SafeEncode.forUriComponent(request.getParameter("y"));
+    if (request.getParameter("viewWeek") != null) {
+      displaypage += "&provider_no="
+        + SafeEncode.forUriComponent(request.getParameter("provider_no"));
+    }
+    if (true) {
+      out.clear();
+      response.sendRedirect(displaypage);
+      //pageContext.forward(displaypage); //forward request&response to the target page
+      return;
+    }
+  } else {
 %>
 <p>
 <h1><fmt:message key="AddProviderStatus.msgAddFailure"/></h1>
 
 <%
-    }
+  }
 %>
