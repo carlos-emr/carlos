@@ -127,9 +127,8 @@ public final class LoginCheckLoginBean {
             justification = "BCrypt timing-equalization decoy: a pre-computed hash of a random "
                     + "throwaway password with no usable plaintext, used only to make "
                     + "missing-user paths take the same wall-clock time as real password checks")
-    // NOSONAR java:S2068,secrets:S8215 — BCrypt decoy hash for timing equalization; not a usable credential
     private static final String MISSING_USER_DUMMY_PASSWORD_HASH =
-            "{bcrypt}$2b$10$YzOXP.2axkRiYS07sVHWkuyvQjcuwR.bGeZd5WHQVJ23py57UES8C";
+            "{bcrypt}$2b$10$YzOXP.2axkRiYS07sVHWkuyvQjcuwR.bGeZd5WHQVJ23py57UES8C"; // NOSONAR java:S2068,secrets:S8215 — BCrypt decoy hash for timing equalization; not a usable credential
 
     /** Security manager for password encoding, validation, and hash migration */
     private final SecurityManager securityManager = SpringUtils.getBean(SecurityManager.class);
