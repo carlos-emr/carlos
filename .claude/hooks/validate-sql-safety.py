@@ -343,7 +343,7 @@ def check_sql_injection_patterns(content: str) -> list[str]:
     # Additional check: Look for dangerous patterns in query construction
     raw_query_patterns = [
         # "SELECT ... WHERE id = '" + id + "'"
-        (rf'["\'][^"\']*{sql_keywords}[^"\']*=\s*(["\'])\s*\+\s*\w+\s*\+\s*\1',
+        (rf'["\'][^"\']*{sql_keywords}[^"\']*=\s*(["\'])\s*\+\s*\w+\s*\+\s*\1',  # nosemgrep: skills.code-injection.skill-sql-string-formatting.skill-sql-string-formatting -- detector regex for SQL safety hook, not SQL execution
          "String concatenation with quotes in SQL"),
         # query = "SELECT ... " + variable;
         (rf'\w+\s*=\s*["\'][^"\']*{sql_keywords}[^"\']*["\']\s*\+',

@@ -236,6 +236,7 @@
         function goToPage() {
             document.forms[0].waitingListId.value =
                 document.forms[0].selectedWL.options[document.forms[0].selectedWL.selectedIndex].value;
+            // codeql[js/xss-through-dom] -- assigns a navigation URL; it does not reinterpret text as HTML.
             window.location = "<%=request.getContextPath()%>/waitinglist/SetupDisplayWaitingList?waitingListId=" +
                 document.forms[0].selectedWL.options[document.forms[0].selectedWL.selectedIndex].value;
         }

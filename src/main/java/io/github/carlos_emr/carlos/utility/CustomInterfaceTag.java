@@ -110,7 +110,7 @@ public class CustomInterfaceTag extends TagSupport {
                         customTag = "ocean-host=" + Encode.forUriComponent(props.getProperty("ocean_host"));
                     }
 
-                    int randomNo = new Random().nextInt();
+                    int randomNo = new Random().nextInt(); // nosemgrep: java.lang.security.audit.crypto.weak-random.weak-random -- cache-busting query value only; not a token, secret, or authorization decision
                     out.println("<script id=\"mainScript\" src=\"" + contextPath + scriptPath + "?no-cache=" + randomNo + "&autoRefresh=true\" hide_ConReport=\"" + hide_ConReport + "\" cardswipe=\"" + cardswipe + "\" " + customTag + " ></script>");
                 }
             } catch (IOException e) {
