@@ -12,6 +12,11 @@ import jakarta.persistence.Table;
 import java.util.Date;
 import java.util.List;
 
+/**
+ * Represents a EReferAttachment in the system.
+ *
+ * @since 2026-06-10
+ */
 @Entity
 @Table(name = "erefer_attachment")
 public class EReferAttachment extends AbstractModel<Integer> {

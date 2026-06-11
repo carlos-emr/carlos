@@ -5,6 +5,11 @@ import io.github.carlos_emr.carlos.commn.model.converter.EmailConfigTypeConverte
 import jakarta.persistence.*;
 import java.util.List;
 
+/**
+ * Configuration component defining Email beans and properties.
+ *
+ * @since 2026-06-10
+ */
 @Entity
 @Table(name = "emailConfig")
 public class EmailConfig extends AbstractModel<Integer> {

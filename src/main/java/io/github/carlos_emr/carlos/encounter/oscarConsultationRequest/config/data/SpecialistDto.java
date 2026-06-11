@@ -1,5 +1,10 @@
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.data;
 
+/**
+ * Data Transfer Object carrying Specialist data across architectural boundaries.
+ *
+ * @since 2026-06-10
+ */
 public class SpecialistDto {
     private Integer specId;
     private String name;

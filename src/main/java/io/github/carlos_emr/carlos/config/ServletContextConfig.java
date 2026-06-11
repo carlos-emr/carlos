@@ -7,6 +7,11 @@ import jakarta.servlet.ServletContext;
 
 import org.springframework.web.context.ServletContextAware;
 
+/**
+ * Configuration component defining ServletContext beans and properties.
+ *
+ * @since 2026-06-10
+ */
 @Configuration
 public class ServletContextConfig implements ServletContextAware {
 

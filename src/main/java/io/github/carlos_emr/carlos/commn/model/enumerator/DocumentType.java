@@ -1,5 +1,10 @@
 package io.github.carlos_emr.carlos.commn.model.enumerator;
 
+/**
+ * Represents a DocumentType in the system.
+ *
+ * @since 2026-06-10
+ */
 public enum DocumentType {
     EFORM("E", "eForm"),
     DOC("D", "doc"),

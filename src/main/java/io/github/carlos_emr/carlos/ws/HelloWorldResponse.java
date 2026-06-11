@@ -6,6 +6,11 @@ import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
 
+/**
+ * Represents a HelloWorldResponse in the system.
+ *
+ * @since 2026-06-10
+ */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "helloWorldResponse", propOrder = { "_return" })
 public class HelloWorldResponse implements Serializable

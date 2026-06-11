@@ -14,6 +14,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
 
+/**
+ * Struts action controller handling JSON HTTP requests.
+ *
+ * @since 2026-06-10
+ */
 public class JSONAction extends ActionSupport {
 
     private final String ENCODING = "UTF-8";

@@ -5,6 +5,11 @@ import jakarta.xml.bind.JAXBElement;
 import javax.xml.namespace.QName;
 import jakarta.xml.bind.annotation.XmlRegistry;
 
+/**
+ * Represents a ObjectFactory in the system.
+ *
+ * @since 2026-06-10
+ */
 @XmlRegistry
 public class ObjectFactory
 {

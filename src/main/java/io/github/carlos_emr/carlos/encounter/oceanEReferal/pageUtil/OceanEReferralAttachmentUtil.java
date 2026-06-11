@@ -10,6 +10,11 @@ import io.github.carlos_emr.carlos.commn.model.EReferAttachment;
 import io.github.carlos_emr.carlos.commn.model.EReferAttachmentData;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Utility class providing static helper methods for OceanEReferralAttachment operations.
+ *
+ * @since 2026-06-10
+ */
 public class OceanEReferralAttachmentUtil {
     private static EReferAttachmentDataDaoImpl eReferAttachmentDataDao = SpringUtils.getBean(EReferAttachmentDataDaoImpl.class);
     private static EReferAttachmentDaoImpl eReferAttachmentDao = SpringUtils.getBean(EReferAttachmentDaoImpl.class);
