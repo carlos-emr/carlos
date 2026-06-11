@@ -244,7 +244,7 @@
                 WorkFlowFactory flowFactory = new WorkFlowFactory();
                 WorkFlow flow = flowFactory.getWorkFlow(workflowType);
 
-                ArrayList currentWorkFlows = flow.getActiveWorkFlowList(demographicNo);
+                List<Map<String, Object>> currentWorkFlows = flow.getActiveWorkFlowList(demographicNo);
 
                 if (currentWorkFlows != null && currentWorkFlows.size() > 0) {
                     request.setAttribute("currentWorkFlow", currentWorkFlows.get(0));
