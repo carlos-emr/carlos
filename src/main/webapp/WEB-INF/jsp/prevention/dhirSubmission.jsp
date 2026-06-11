@@ -60,6 +60,7 @@
 <%@page import="org.apache.hc.core5.http.ContentType" %>
 <%@page import="org.apache.logging.log4j.Logger" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LogSafe" %>
 <%@page import="java.io.UnsupportedEncodingException" %>
 <%@page import="java.io.IOException" %>
 <%@page import="java.text.SimpleDateFormat" %>
