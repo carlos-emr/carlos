@@ -545,13 +545,14 @@ public class BillingSaveBilling2Action extends ActionSupport {
         return redirectUrl.toString();
     }
 
-    private void sendReceiptRedirect(HttpServletResponse response, String redirectUrl) throws IOException { // nosemgrep: java.lang.security.audit.unvalidated-redirect.unvalidated-redirect -- redirectUrl is generated server-side by receiptRedirectUrl(...), URL-encodes billing_no values, and is accepted only after RedirectValidationUtils.isValidRelativeRedirect(...)
+    private void sendReceiptRedirect(HttpServletResponse response, String redirectUrl) throws IOException {
         if (!RedirectValidationUtils.isValidRelativeRedirect(redirectUrl)) {
             log.error("Refused unsafe BC billing receipt redirect: redirectUrl={}",
                     LogSafe.sanitize(redirectUrl));
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             return;
         }
+        // nosemgrep: java.lang.security.audit.unvalidated-redirect.unvalidated-redirect -- redirectUrl is generated server-side by receiptRedirectUrl(...), URL-encodes billing_no values, and is accepted only after RedirectValidationUtils.isValidRelativeRedirect(...)
         response.sendRedirect(redirectUrl);
     }
 

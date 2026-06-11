@@ -2654,7 +2654,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         MiscUtils.getLogger().debug("demographicQuery: {}", LogSafe.sanitize(demographicQuery, 1000));
 
         EntityManager session = entityManager();
-            Query sqlQuery = session.createNativeQuery(demographicQuery); // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string -- generateDemographicSearchQuery allowlists SQL fragments and returns bound params separately
+            Query sqlQuery = session.createNativeQuery(demographicQuery); // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string -- generateDemographicSearchQuery builds SQL from enum-selected column/order fragments plus a server-owned inactive_statuses config list; all request values flow through bound params (setParameter below)
             for (String key : params.keySet()) {
                 sqlQuery.setParameter(key, params.get(key));
                 MiscUtils.getLogger().debug("query param: {}={}", LogSafe.sanitize(key),
@@ -2676,7 +2676,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
                 "p.first_name as providerFirstName,d.hin,dm.merged_to");
 
         EntityManager session = entityManager();
-        NativeQuery<?> baseQuery = session.createNativeQuery(demographicQuery).unwrap(NativeQuery.class); // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string -- generateDemographicSearchQuery allowlists SQL fragments and returns bound params separately
+        NativeQuery<?> baseQuery = session.createNativeQuery(demographicQuery).unwrap(NativeQuery.class); // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string -- generateDemographicSearchQuery builds SQL from enum-selected column/order fragments plus a server-owned inactive_statuses config list; all request values flow through bound params (setParameter below)
 
         for (String key : params.keySet()) {
             baseQuery.setParameter(key, params.get(key));
