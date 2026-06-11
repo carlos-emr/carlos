@@ -116,7 +116,9 @@ class EncounterPanelPrivilegeRegressionUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", "123")).thenReturn(true);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_eChart", "r", "123")).thenReturn(false);
 
-        assertThatThrownBy(() -> new EctDisplayEpisode2Action().execute())
+        EctDisplayEpisode2Action action = new EctDisplayEpisode2Action();
+
+        assertThatThrownBy(action::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_eChart");
 
@@ -130,6 +132,7 @@ class EncounterPanelPrivilegeRegressionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should allow panel loading when eChart privilege is granted")
+    @SuppressWarnings("deprecation")
     void shouldAllowPanelLoading_whenEChartPrivilegeGranted() throws Exception {
         EctSessionBean bean = encounterSession();
         RecordingDisplayAction action = new RecordingDisplayAction();
@@ -222,6 +225,7 @@ class EncounterPanelPrivilegeRegressionUnitTest extends CarlosUnitTestBase {
         private boolean invoked;
 
         @Override
+        @SuppressWarnings("deprecation")
         public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO dao) {
             invoked = true;
             dao.setRightHeadingID("episode");
