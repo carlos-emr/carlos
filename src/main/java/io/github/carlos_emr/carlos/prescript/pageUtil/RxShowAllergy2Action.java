@@ -53,6 +53,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import org.owasp.encoder.Encode;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts 2 action for displaying and managing patient allergies.
@@ -92,14 +93,20 @@ public final class RxShowAllergy2Action extends ActionSupport {
      * @return String NONE (redirect handled manually)
      * @throws RuntimeException if redirect fails
      */
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String reorder() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_allergy", "r", null)) {
+            throw new RuntimeException("missing required sec object (_allergy)");
+        }
+
         String demoNoParam = request.getParameter("demographicNo");
         if (demoNoParam == null || !demoNoParam.matches("\\d{1,9}")) {
             return "failure";
         }
         reorder(request);
         try {
-            LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
             RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, demoNoParam);
             if (patient != null) {
                 // demoNoParam validated as numeric at method entry

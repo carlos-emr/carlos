@@ -376,7 +376,7 @@ public class MoveMohFiles2Action extends ActionSupport {
                 // and surfaces as a pattern in audit triage; legitimate
                 // calls that hit the right folder break out before more
                 // than one DEBUG fires.
-                logger.debug("EDT folder {} rejected file path during validation: {}",
+                logger.debug("EDT folder {} rejected file path during validation: {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                         io.github.carlos_emr.carlos.utility.LogSafe.sanitize(folder.name()),
                         io.github.carlos_emr.carlos.utility.LogSafe.sanitize(
                                 file == null ? "null" : file.getPath()));
@@ -407,11 +407,11 @@ public class MoveMohFiles2Action extends ActionSupport {
         try {
             fileName = URLDecoder.decode(fileName, "UTF-8");
         } catch (UnsupportedEncodingException e) {
-            logger.error("Unable to decode {}", LogSafe.sanitize(fileName), e);
+            logger.error("Unable to decode {}", LogSafe.sanitize(fileName), e); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
             return null;
         }
         if (fileName.contains("/") || fileName.contains("\\") || fileName.contains("..")) {
-            logger.warn("Rejected decoded file path: {}", LogSafe.sanitize(fileName));
+            logger.warn("Rejected decoded file path: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
             return null;
         }
         String safeFileName = FilenameUtils.getName(fileName);
@@ -425,7 +425,7 @@ public class MoveMohFiles2Action extends ActionSupport {
         try {
             return PathValidationUtils.validatePath(safeFileName, new File(folderPath));
         } catch (SecurityException e) {
-            logger.warn("Rejected file path: {} in {}",
+            logger.warn("Rejected file path: {} in {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(fileName), LogSafe.sanitize(folderPath), e);
             return null;
         }
@@ -478,7 +478,7 @@ public class MoveMohFiles2Action extends ActionSupport {
     private String getFolderPath(String folderName) {
     EDTFolder folder = EDTFolder.getFolder(folderName);
     if (folder == null) {
-        logger.warn("moveMOHFiles: invalid folder parameter '{}'", LogSafe.sanitize(folderName));
+        logger.warn("moveMOHFiles: invalid folder parameter '{}'", LogSafe.sanitize(folderName)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
         return null;
     }
     return folder.getPath();
