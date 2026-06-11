@@ -367,7 +367,7 @@
                                 resp -> EntityUtils.toString(resp.getEntity()));
 
                         JsonNode object = dhirMapper.readTree(entity);
-                        logger.info("object=" + object.toString());
+                        logger.info("DHIR response received (body redacted for PHI)");
 
                         int code = object.get("code").asInt();
 
