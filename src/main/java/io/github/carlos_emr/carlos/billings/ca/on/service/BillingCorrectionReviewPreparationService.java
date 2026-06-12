@@ -28,6 +28,9 @@ import io.github.carlos_emr.carlos.billings.ca.on.command.BillingCorrectionLineC
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingCorrectionReviewDraft;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingCorrectionReviewItemDraft;
 import io.github.carlos_emr.carlos.billings.ca.on.command.BillingCorrectionValidationCommand;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingCorrectionCodedTokenValidator;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Service;
@@ -49,9 +52,6 @@ public class BillingCorrectionReviewPreparationService {
 
     private static final Logger LOGGER = MiscUtils.getLogger();
     private static final Pattern XML_ELEMENT_NAME = Pattern.compile("^[A-Za-z_][A-Za-z0-9_.-]*$");
-    private static final Pattern REFERRAL_OHIP_TOKEN = Pattern.compile("^[A-Za-z0-9]{0,6}$");
-    private static final Pattern HEALTH_CARD_TYPE_TOKEN = Pattern.compile("^[A-Za-z]{0,2}$");
-    private static final Pattern DEMOGRAPHIC_SEX_TOKEN = Pattern.compile("^[A-Za-z0-9]{0,2}$");
 
     private final ServiceCodeLoader serviceCodeLoader;
 
@@ -59,6 +59,15 @@ public class BillingCorrectionReviewPreparationService {
         this.serviceCodeLoader = serviceCodeLoader;
     }
 
+    /**
+     * Builds the review draft (including the persisted-format content blob)
+     * from the submitted correction form.
+     *
+     * @throws BillingValidationException if a coded MOH token ({@code rdohip},
+     *         {@code hctype}, {@code demosex}) fails its allowlist or money
+     *         fields are malformed; the message is operator-facing and the
+     *         caller is expected to render it (see {@code BillingCorrectionValid2Action})
+     */
     public BillingCorrectionReviewDraft prepareReviewDraft(BillingCorrectionValidationCommand command) {
         BigDecimal billingunit = BillingMoney.zeroAmount();
         BigDecimal percentPremium = BillingMoney.zeroAmount();
@@ -219,12 +228,12 @@ public class BillingCorrectionReviewPreparationService {
 
     private String buildContent(BillingCorrectionValidationCommand command) {
         StringBuilder content = new StringBuilder();
-        appendCodedXmlElement(content, "rdohip", command.referralDoctorOhip(), REFERRAL_OHIP_TOKEN);
+        appendCodedXmlElement(content, "rdohip", command.referralDoctorOhip());
         appendEscapedXmlElement(content, "rd", command.referralDoctor());
         appendEscapedXmlElement(content, "xml_referral", command.referralChecked() ? "checked" : "");
         appendEscapedXmlElement(content, "mreview", command.manualReview() ? "checked" : "");
-        appendCodedXmlElement(content, "hctype", command.hcType(), HEALTH_CARD_TYPE_TOKEN);
-        appendCodedXmlElement(content, "demosex", command.hcSex(), DEMOGRAPHIC_SEX_TOKEN);
+        appendCodedXmlElement(content, "hctype", command.hcType());
+        appendCodedXmlElement(content, "demosex", command.hcSex());
         appendEscapedXmlElement(content, "specialty", command.specialty());
         appendEscapedXmlElement(content, "xml_roster", command.rosterStatus());
 
@@ -236,7 +245,7 @@ public class BillingCorrectionReviewPreparationService {
 
     private static void appendEscapedXmlElement(StringBuilder content, String elementName, String value) {
         if (elementName == null || !XML_ELEMENT_NAME.matcher(elementName).matches()) {
-            LOGGER.warn("Skipping invalid billing correction XML element name");
+            LOGGER.warn("Skipping invalid billing correction XML element name {}", LogSafe.sanitize(elementName));
             return;
         }
         content.append("<").append(elementName).append(">")
@@ -244,13 +253,10 @@ public class BillingCorrectionReviewPreparationService {
                 .append("</").append(elementName).append(">");
     }
 
+    // FindSecBugs POTENTIAL_XML_INJECTION: element names are fixed by callers and values are regex-validated coded MOH tokens; XML escaping these fields corrupts fixed-width extraction.
     @SuppressFBWarnings(value = "POTENTIAL_XML_INJECTION", justification = "OHIP extract fields are fixed element names and regex-validated coded values; entity escaping corrupts fixed-width MOH output because the extractor does not unescape")
-    private static void appendCodedXmlElement(StringBuilder content, String elementName, String value, Pattern allowedValue) {
-        String safeValue = value == null ? "" : value;
-        if (!allowedValue.matcher(safeValue).matches()) {
-            LOGGER.warn("Skipping invalid billing correction coded XML value");
-            safeValue = "";
-        }
+    private static void appendCodedXmlElement(StringBuilder content, String elementName, String value) {
+        String safeValue = BillingCorrectionCodedTokenValidator.validate(elementName, value);
         content.append("<").append(elementName).append(">")
                 .append(safeValue)
                 .append("</").append(elementName).append(">");

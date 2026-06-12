@@ -167,12 +167,14 @@ public class CustomInterfaceTag extends TagSupport {
 
 
     private void appendIssueNoteUrl(StringBuilder sb, String position, String issueCode, String titleVariable) {
-        String jsPosition = SafeEncode.forJavaScript(position);
+        String rawPosition = position == null ? "" : position;
+        String jsPosition = SafeEncode.forJavaScript(rawPosition);
+        String jsCommand = SafeEncode.forJavaScript(SafeEncode.forUriComponent("div" + rawPosition));
         sb.append("\"div").append(jsPosition)
                 .append("\":    ctx + \"/CaseManagementView?hc=996633&method=listNotes&providerNo=\" + providerNo + \"&demographicNo=\" + demographicNo + \"&issue_code=")
                 .append(issueCode)
                 .append("&title=\" + ").append(titleVariable)
-                .append(" + \"&cmd=div").append(jsPosition).append("\"");
+                .append(" + \"&cmd=").append(jsCommand).append("\"");
     }
 
     private String getPreferenceBasedEChart(CppPreferencesUIBean bean) {

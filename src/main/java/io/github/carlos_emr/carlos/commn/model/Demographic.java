@@ -1838,7 +1838,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         //--> Insurance number
         if (getHin() != null && getHin().length() > 0) {
             sb.append("<div id='patient-hin' class='copyable' onclick=\"copyToClip('")
-                    .append(SafeEncode.forJavaScript(getHin()))
+                    .append(SafeEncode.forHtmlAttribute(SafeEncode.forJavaScript(getHin())))
                     .append("',this)\">");
             sb.append("<div class='label'>");
             String hinLabel = getRes(carlosRes, "demographic.patient.context.hin", "HIN");
@@ -1857,7 +1857,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
             sb.append("<div id='patient-phone' class='copyable' title='")
                     .append(SafeEncode.forHtmlAttribute(getPhoneComment()))
                     .append("' onclick=\"copyToClip('")
-                    .append(SafeEncode.forJavaScript(getPhone()))
+                    .append(SafeEncode.forHtmlAttribute(SafeEncode.forJavaScript(getPhone())))
                     .append("',this)\">");
             sb.append("<div class='label'>");
             String phoneLabel = getRes(carlosRes, "demographic.demographicaddrecordhtm.formPhone", "Phone");
@@ -1872,7 +1872,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
             sb.append("<div id='patient-cell-phone' class='copyable' title='")
                     .append(SafeEncode.forHtmlAttribute(getPhoneComment()))
                     .append("' onclick=\"copyToClip('")
-                    .append(SafeEncode.forJavaScript(getCellPhone()))
+                    .append(SafeEncode.forHtmlAttribute(SafeEncode.forJavaScript(getCellPhone())))
                     .append("',this)\">");
             sb.append("<div class='label'>");
             String cell = getRes(carlosRes, "demographic.demographicaddrecordhtm.formPhoneCell", "Cell Phone");
@@ -1885,7 +1885,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         //--> email
         if (getEmail() != null && !getEmail().isEmpty()) {
             sb.append("<div id='patient-email' class='copyable' onclick=\"copyToClip('")
-                    .append(SafeEncode.forJavaScript(getEmail()))
+                    .append(SafeEncode.forHtmlAttribute(SafeEncode.forJavaScript(getEmail())))
                     .append("',this)\">");
             sb.append("<div class='label'>");
             String emailLabel = getRes(carlosRes, "demographic.demographicaddrecordhtm.formEMail", "Email");

@@ -19,7 +19,7 @@
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
-package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
+package io.github.carlos_emr.carlos.billings.MSP;
 
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 
@@ -29,31 +29,14 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@DisplayName("HtmlTeleplanHelper")
+/**
+ * Mirror of {@code billings.ca.bc.MSP.HtmlTeleplanHelperUnitTest}'s
+ * validation-row coverage for the duplicate legacy copy of
+ * {@code CheckBillingData}; both copies must keep the same encoding contract.
+ */
+@DisplayName("CheckBillingData (legacy MSP copy)")
 @Tag("unit")
-class HtmlTeleplanHelperUnitTest {
-
-    @Test
-    void shouldEncodeBillingMasterNumber_whenRenderingAdjustmentLink() {
-        String html = HtmlTeleplanHelper.htmlLine(
-                "1&2=3#4",
-                "INV-1",
-                "<b>Patient</b>",
-                "123&456",
-                "2026-06-12",
-                "A001A",
-                "10.00",
-                "250",
-                "",
-                "");
-
-        assertThat(html).contains("adjustBill.jsp?billingmaster_no=1%262%3D3%234");
-        assertThat(html).contains(SafeEncode.forHtmlContent("<b>Patient</b>"));
-        assertThat(html).contains(SafeEncode.forHtmlContent("123&456"));
-        assertThat(html).doesNotContain("adjustBill.jsp?billingmaster_no=1&2=3#4");
-        assertThat(html).doesNotContain("<b>Patient</b>");
-        assertThat(html).doesNotContain(">123&456<");
-    }
+class CheckBillingDataUnitTest {
 
     @Test
     void shouldEncodeValidationRows_whenRenderingTeleplanErrors() {

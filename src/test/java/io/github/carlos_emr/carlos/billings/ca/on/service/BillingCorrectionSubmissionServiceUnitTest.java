@@ -154,6 +154,47 @@ class BillingCorrectionSubmissionServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldRejectTamperedContent_whenCodedTokenFailsAllowlist() {
+        // The content blob round-trips through a browser hidden field; a
+        // tampered POST must not reach the recycle bin or the billing row.
+        BillingCorrectionSubmitCommand command = new BillingCorrectionSubmitCommand(
+                "42",
+                "<rdohip>123<456</rdohip><hctype>ON</hctype><demosex>1</demosex>",
+                "3000",
+                "1234567890",
+                "1980-01-01",
+                "00",
+                "2026-04-28",
+                "O",
+                "0000",
+                "999998",
+                "2026-04-28",
+                List.of());
+
+        assertThatThrownBy(() -> service.submit(loggedInInfo, command))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("Referral doctor OHIP number");
+
+        verify(recycleBinDao, never()).persist(any(RecycleBin.class));
+        verify(billingDao, never()).merge(any(Billing.class));
+        verify(billingDetailDao, never()).persist(any(BillingDetail.class));
+    }
+
+    @Test
+    void shouldAcceptContentWithoutCodedTokens_whenElementsAreAbsent() {
+        // Legacy corrections may carry content with no coded elements at all;
+        // absence validates trivially (every allowlist accepts empty).
+        Billing existing = new Billing();
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        when(billingDetailDao.findAllIncludingDeletedByBillingNo(42)).thenReturn(List.of());
+        when(billingDao.find(42)).thenReturn(existing);
+
+        service.submit(loggedInInfo, command("42", List.of()));
+
+        verify(billingDao).merge(existing);
+    }
+
+    @Test
     void shouldSkipDetailPersist_whenCorrectionHasNoItems() {
         Billing existing = new Billing();
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");

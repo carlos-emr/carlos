@@ -208,6 +208,9 @@ public class MoveMohFiles2Action extends ActionSupport {
                         } else {
                             errors.add(localizedMessage("billing.moveMohFiles.error.archiveFailed", file.getName()));
                         }
+                    } else {
+                        logger.warn("Selected MOH file disappeared before archive {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                        errors.add(localizedMessage("billing.moveMohFiles.error.fileMissing", fileName));
                     }
                 }
             }
@@ -232,7 +235,12 @@ public class MoveMohFiles2Action extends ActionSupport {
 
     private String localizedMessage(String key, Object... args) {
         Locale locale = request == null || request.getLocale() == null ? Locale.getDefault() : request.getLocale();
-        return new MessageFormat(LocaleUtils.getMessage(locale, key), locale).format(args);
+        // Apostrophe is MessageFormat's quoting character: an unescaped one in a
+        // translation ("Impossible d'archiver {0}.") silently disables the {0}
+        // placeholder. Doubling it here means bundle values stay natural prose;
+        // the trade-off is these keys can never use MessageFormat quote syntax.
+        String pattern = LocaleUtils.getMessage(locale, key).replace("'", "''");
+        return new MessageFormat(pattern, locale).format(args);
     }
 
     /** Builds the {@code roleName} string the {@code <security:oscarSec>} tag wants. */

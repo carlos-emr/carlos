@@ -51,7 +51,8 @@ public class HtmlTeleplanHelper {
     public HtmlTeleplanHelper() {
     }
 
-    @SuppressFBWarnings(value = "POTENTIAL_XML_INJECTION", justification = "Teleplan validation helpers return fixed table-row HTML fragments; caller-provided billing data is encoded before rendering")
+    // FindSecBugs POTENTIAL_XML_INJECTION: Teleplan validation producers encode billing/message data and return fixed table-row HTML fragments for report assembly.
+    @SuppressFBWarnings(value = "POTENTIAL_XML_INJECTION", justification = "Teleplan validation producers encode billing/message data and return fixed table-row HTML fragments for report assembly")
     private static void appendTrustedTeleplanValidationRows(StringBuilder html, String validationRowsHtml) {
         html.append(validationRowsHtml);
     }

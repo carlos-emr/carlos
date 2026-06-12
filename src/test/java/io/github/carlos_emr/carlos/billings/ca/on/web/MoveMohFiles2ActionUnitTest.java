@@ -21,8 +21,10 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
+import io.github.carlos_emr.carlos.billing.CA.ON.util.EDTFolder;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.util.zip;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -46,14 +48,17 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import java.io.File;
+import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Locale;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
@@ -79,6 +84,7 @@ class MoveMohFiles2ActionUnitTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
+    private MockedStatic<LocaleUtils> localeUtilsMock;
     private AutoCloseable mockitoCloseable;
 
     @Mock
@@ -87,15 +93,12 @@ class MoveMohFiles2ActionUnitTest extends CarlosUnitTestBase {
     @Mock
     private LoggedInInfo mockLoggedInInfo;
 
-    private String originalLocaleBaseName;
     private MockHttpServletRequest mockRequest;
     private MockHttpServletResponse mockResponse;
 
     @BeforeEach
     void setUp() {
         mockitoCloseable = MockitoAnnotations.openMocks(this);
-        originalLocaleBaseName = LocaleUtils.BASE_NAME;
-        LocaleUtils.BASE_NAME = "oscarResources";
 
         mockRequest = new MockHttpServletRequest();
         mockResponse = new MockHttpServletResponse();
@@ -114,13 +117,17 @@ class MoveMohFiles2ActionUnitTest extends CarlosUnitTestBase {
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(mockLoggedInInfo);
 
+        localeUtilsMock = mockStatic(LocaleUtils.class);
+        localeUtilsMock.when(() -> LocaleUtils.getMessage(any(Locale.class), anyString()))
+                .thenAnswer(invocation -> localizedTestMessage(invocation.getArgument(1)));
+
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.billing"), eq("w"), isNull()))
                 .thenReturn(true);
     }
 
     @AfterEach
     void tearDown() throws Exception {
-        if (originalLocaleBaseName != null) LocaleUtils.BASE_NAME = originalLocaleBaseName;
+        if (localeUtilsMock != null) localeUtilsMock.close();
         if (loggedInInfoMock != null) loggedInInfoMock.close();
         if (servletActionContextMock != null) servletActionContextMock.close();
         if (mockitoCloseable != null) mockitoCloseable.close();
@@ -160,6 +167,21 @@ class MoveMohFiles2ActionUnitTest extends CarlosUnitTestBase {
                 .contains("A folder must be selected.", "Please select file(s) to archive.");
         assertThat(errors.toString()).doesNotContain("<br/>");
         assertThat(mockRequest.getSession().getAttribute(WebUtils.INFO_MESSAGE_SESSION_KEY)).isNull();
+    }
+
+    @Test
+    void shouldSubstitutePlaceholder_whenLocalizedPatternContainsApostrophe() throws Exception {
+        localeUtilsMock.when(() -> LocaleUtils.getMessage(any(Locale.class), eq("billing.moveMohFiles.error.fileMissing")))
+                .thenReturn("Impossible d'archiver {0}.");
+        MoveMohFiles2Action action = new MoveMohFiles2Action();
+
+        Method method = MoveMohFiles2Action.class
+                .getDeclaredMethod("localizedMessage", String.class, Object[].class);
+        method.setAccessible(true);
+        String message = (String) method.invoke(
+                action, "billing.moveMohFiles.error.fileMissing", new Object[]{"claim.000"});
+
+        assertThat(message).isEqualTo("Impossible d'archiver claim.000.");
     }
 
     @Test
@@ -226,9 +248,13 @@ class MoveMohFiles2ActionUnitTest extends CarlosUnitTestBase {
         mockRequest.addParameter("folder", "inbox");
         mockRequest.addParameter("unzipfile", "claim.zip");
 
-        MoveMohFiles2Action action = new MoveMohFiles2Action();
+        try (MockedStatic<zip> zipMock = mockStatic(zip.class)) {
+            zipMock.when(() -> zip.unzipXML(anyString(), eq("claim.zip"))).thenReturn(true);
+            MoveMohFiles2Action action = new MoveMohFiles2Action();
 
-        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        }
+
         assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
         Object errors = mockRequest.getSession().getAttribute(WebUtils.ERROR_MESSAGE_SESSION_KEY);
         assertThat(errors == null ? "" : errors.toString())
@@ -275,6 +301,28 @@ class MoveMohFiles2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldAddMissingFileError_whenSelectedFileDisappears() throws Exception {
+        Path folder = Files.createTempDirectory("moh-files");
+        Object originalInboxPath = ReflectionTestUtils.getField(EDTFolder.INBOX, "path");
+        ReflectionTestUtils.setField(EDTFolder.INBOX, "path", folder.toString());
+        mockRequest.addParameter("folder", "inbox");
+        mockRequest.addParameter("mohFile", "claim.000");
+
+        try {
+            MoveMohFiles2Action action = new MoveMohFiles2Action();
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        } finally {
+            ReflectionTestUtils.setField(EDTFolder.INBOX, "path", originalInboxPath);
+        }
+
+        @SuppressWarnings("unchecked")
+        List<String> errors = (List<String>) mockRequest.getSession()
+                .getAttribute(WebUtils.ERROR_MESSAGE_SESSION_KEY);
+        assertThat(errors).contains("Unable to find file claim.000.");
+    }
+
+    @Test
     void shouldRejectEncodedTraversal_whenResolvingMohFile() throws Exception {
         Path folder = Files.createTempDirectory("moh-files");
         MoveMohFiles2Action action = new MoveMohFiles2Action();
@@ -283,5 +331,18 @@ class MoveMohFiles2ActionUnitTest extends CarlosUnitTestBase {
                 action, "getFile", folder.toString(), "..%2F..%2Fsecret.txt");
 
         assertThat(resolved).isNull();
+    }
+
+    private static String localizedTestMessage(String key) {
+        return switch (key) {
+            case "billing.moveMohFiles.error.folderRequired" -> "A folder must be selected.";
+            case "billing.moveMohFiles.error.fileRequired" -> "Please select file(s) to archive.";
+            case "billing.moveMohFiles.error.invalidFolder" -> "Invalid folder selection.";
+            case "billing.moveMohFiles.error.fileMissing" -> "Unable to find file {0}.";
+            case "billing.moveMohFiles.error.invalidFileLocation" -> "File is not in a valid location: {0}.";
+            case "billing.moveMohFiles.info.archived" -> "Archived file {0} successfully.";
+            case "billing.moveMohFiles.error.archiveFailed" -> "Unable to archive {0}.";
+            default -> key;
+        };
     }
 }

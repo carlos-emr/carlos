@@ -26,6 +26,7 @@ import io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao;
 import io.github.carlos_emr.carlos.billing.CA.model.BillingDetail;
 import io.github.carlos_emr.carlos.billings.ca.on.command.BillingCorrectionSubmitCommand;
 import io.github.carlos_emr.carlos.billings.ca.on.command.BillingCorrectionSubmitItemCommand;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingCorrectionCodedTokenValidator;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.dao.RecycleBinDao;
@@ -59,7 +60,18 @@ public class BillingCorrectionSubmissionService {
         this.billingDao = billingDao;
     }
 
+    /**
+     * Persists the reviewed correction.
+     *
+     * @throws BillingValidationException if the billing number is malformed, the
+     *         billing record is missing, or the content blob carries a coded MOH
+     *         token that fails its allowlist (the blob round-trips through a
+     *         browser hidden field, so review-time validation alone is bypassable)
+     */
     public void submit(LoggedInInfo loggedInInfo, BillingCorrectionSubmitCommand command) {
+        // Re-check the coded tokens exactly as the OHIP extractor will read
+        // them; a tampered hidden 'content' field must not reach persistence.
+        BillingCorrectionCodedTokenValidator.validateStoredContent(command.content());
         int billingNo = parseBillingNo(command.billingNo());
         Billing billing = billingDao.find(billingNo);
         if (billing == null) {

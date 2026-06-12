@@ -101,6 +101,10 @@ public final class WebUtils {
         return renderMessagesAsHtml(session, INFO_MESSAGE_SESSION_KEY, styleClass, style, id, name);
     }
 
+    /**
+     * Adds a plain-text error message. Do not pass markup; HTML renderers encode
+     * message text before output.
+     */
     public static void addErrorMessage(HttpSession session, String message) {
         addMessage(session, ERROR_MESSAGE_SESSION_KEY, message);
     }
@@ -113,6 +117,10 @@ public final class WebUtils {
         addLocalisedMessage(request, ERROR_MESSAGE_SESSION_KEY, messageKey, additionalText);
     }
 
+    /**
+     * Adds a plain-text informational message. Do not pass markup; HTML renderers
+     * encode message text before output.
+     */
     public static void addInfoMessage(HttpSession session, String message) {
         addMessage(session, INFO_MESSAGE_SESSION_KEY, message);
     }

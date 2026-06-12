@@ -205,6 +205,29 @@ class JspJavaScriptEncodingRegressionTest {
                 .doesNotContain("${\"on\" eq dataBean[\"invoice_use_custom_clinic_info\"] ? dataBean[\"invoice_custom_clinic_info\"] : clinicData.label }");
     }
 
+    @Test
+    @DisplayName("should render MOH archive session messages on the MOH files page")
+    @Tag("security")
+    void shouldRenderMohMessages_onViewMohFilesPage() throws Exception {
+        String jsp = readJsp("billing/CA/ON/viewMOHFiles.jsp");
+
+        assertThat(jsp)
+                .contains("WebUtils.popErrorAndInfoMessagesAsHtml(session)")
+                .doesNotContain("WebUtils.popErrorMessagesAsAlert(session)");
+    }
+
+    @Test
+    @DisplayName("should encode measurement comments in HTML body context")
+    @Tag("security")
+    void shouldEncodeMeasurementComments_onDisplayHistoryPage() throws Exception {
+        String jsp = readJsp("encounter/oscarMeasurements/DisplayHistory.jsp");
+
+        assertThat(jsp)
+                .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
+                .contains("${carlos:forHtml(data.comments)}")
+                .doesNotContain("${data.comments}</td>");
+    }
+
     private static String readJsp(String relativePath) throws Exception {
         return Files.readString(JSP_ROOT.resolve(relativePath));
     }

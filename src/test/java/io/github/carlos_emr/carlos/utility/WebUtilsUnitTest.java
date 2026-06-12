@@ -44,6 +44,7 @@ class WebUtilsUnitTest {
         assertThat(html).contains("</li>");
         assertThat(html).doesNotContain("</il>");
     }
+
     @Test
     void shouldEscapeInfoMessages_whenRenderedAsHtml() {
         MockHttpSession session = new MockHttpSession();
@@ -53,6 +54,22 @@ class WebUtilsUnitTest {
 
         assertThat(html).contains("saved &lt;b&gt;file&lt;/b&gt;");
         assertThat(html).doesNotContain("<b>file</b>");
+        assertThat(html).contains("</li>");
+        assertThat(html).doesNotContain("</il>");
+    }
+
+    @Test
+    void shouldEscapeStyledMessages_whenRenderedAsHtml() {
+        MockHttpSession session = new MockHttpSession();
+        WebUtils.addErrorMessage(session, "failed <b>claim</b>");
+
+        String html = WebUtils.popErrorMessagesAsHtml(session, "alert", "color:red", "err", "errName");
+
+        assertThat(html).contains("id=\"err\"");
+        assertThat(html).contains("name=\"errName\"");
+        assertThat(html).contains("class=\"alert\"");
+        assertThat(html).contains("failed &lt;b&gt;claim&lt;/b&gt;");
+        assertThat(html).doesNotContain("<b>claim</b>");
         assertThat(html).contains("</li>");
         assertThat(html).doesNotContain("</il>");
     }

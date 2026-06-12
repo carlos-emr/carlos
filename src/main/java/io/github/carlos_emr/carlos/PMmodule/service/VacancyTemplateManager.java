@@ -33,6 +33,8 @@
 package io.github.carlos_emr.carlos.PMmodule.service;
 
 import io.github.carlos_emr.carlos.utility.SafeEncode;
+
+import java.util.Locale;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -147,8 +149,13 @@ public interface VacancyTemplateManager {
         return criteriaTypeDAO.find(id);
     }
 
+    /**
+     * Stable form-field key shared by the generated vacancy-template controls
+     * and {@link io.github.carlos_emr.carlos.PMmodule.web.admin.ProgramManager2Action}
+     * request parsing.
+     */
     public static String criteriaFieldKey(String fieldName) {
-        return fieldName.toLowerCase().replaceAll(" ", "_");
+        return fieldName.toLowerCase(Locale.ROOT).replace(" ", "_");
     }
 
     public static Vacancy getVacancyById(Integer id) {

@@ -107,6 +107,7 @@ public class OnRaSummaryTotalsService {
         raHeaderDao.merge(header);
     }
 
+    // FindSecBugs POTENTIAL_XML_INJECTION: RA transaction/balance fragments are application-generated XML/HTML tables extracted from existing RA headers and preserved verbatim.
     @SuppressFBWarnings(value = "POTENTIAL_XML_INJECTION", justification = "RA transaction/balance fragments are application-generated XML/HTML tables extracted from the existing RA header and must be preserved verbatim")
     private static void appendPreservedRaFragment(StringBuilder rebuilt, String elementName, String fragment) {
         rebuilt.append("<").append(elementName).append(">").append(nullSafe(fragment)).append("</").append(elementName).append(">");
