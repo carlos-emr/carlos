@@ -240,13 +240,13 @@ public class BillingCorrectionReviewPreparationService {
             return;
         }
         content.append("<").append(elementName).append(">")
-                .append(SxmlMisc.replaceHTMLContent(String.valueOf(value)))
+                .append(SxmlMisc.replaceHTMLContent(value == null ? "" : value))
                 .append("</").append(elementName).append(">");
     }
 
     @SuppressFBWarnings(value = "POTENTIAL_XML_INJECTION", justification = "OHIP extract fields are fixed element names and regex-validated coded values; entity escaping corrupts fixed-width MOH output because the extractor does not unescape")
     private static void appendCodedXmlElement(StringBuilder content, String elementName, String value, Pattern allowedValue) {
-        String safeValue = String.valueOf(value);
+        String safeValue = value == null ? "" : value;
         if (!allowedValue.matcher(safeValue).matches()) {
             LOGGER.warn("Skipping invalid billing correction coded XML value");
             safeValue = "";

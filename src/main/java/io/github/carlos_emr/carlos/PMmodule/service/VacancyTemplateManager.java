@@ -197,7 +197,7 @@ public interface VacancyTemplateManager {
         String fieldKey = criteriaFieldKey(type);
         String attrFieldKey = SafeEncode.forHtmlAttribute(fieldKey);
         String htmlType = SafeEncode.forHtmlContent(type);
-        String jsType = SafeEncode.forJavaScript(type);
+        String jsType = SafeEncode.forJavaScriptAttribute(type);
         String jsFieldKey = SafeEncode.forJavaScript(fieldKey);
         List<CriteriaTypeOption> options = criteriaTypeOptionDAO.getCriteriaTypeOptionByTypeId(typeId);
 

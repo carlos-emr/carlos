@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -112,6 +113,10 @@ class BillingCorrectionReviewPreparationServiceUnitTest extends CarlosUnitTestBa
         ServiceCodeLoader serviceCodeLoader = Mockito.mock(ServiceCodeLoader.class);
         BillingCorrectionReviewPreparationService service =
                 new BillingCorrectionReviewPreparationService(serviceCodeLoader);
+        Map<String, String> xmlParameters = new LinkedHashMap<>();
+        xmlParameters.put("xml_safe", "A&B <C>");
+        xmlParameters.put("xml_empty", null);
+        xmlParameters.put("xml_bad<tag", "should not render");
 
         BillingCorrectionValidationCommand command = new BillingCorrectionValidationCommand(
                 "250|Diabetes",
@@ -123,9 +128,7 @@ class BillingCorrectionReviewPreparationServiceUnitTest extends CarlosUnitTestBa
                 "O<N",
                 "F",
                 "00",
-                Map.of(
-                        "xml_safe", "A&B <C>",
-                        "xml_bad<tag", "should not render"),
+                xmlParameters,
                 List.of(),
                 "42",
                 "1234567890",
@@ -152,10 +155,13 @@ class BillingCorrectionReviewPreparationServiceUnitTest extends CarlosUnitTestBa
         assertThat(draft.content()).contains("<rd>Dr &lt;Referral&gt;</rd>");
         assertThat(draft.content()).contains("<xml_roster>ROSTERED &amp; ACTIVE</xml_roster>");
         assertThat(draft.content()).contains("<xml_safe>A&amp;B &lt;C&gt;</xml_safe>");
+        assertThat(draft.content()).contains("<xml_empty></xml_empty>");
         assertThat(SxmlMisc.getXmlContent(draft.content(), "rdohip")).isEmpty();
         assertThat(SxmlMisc.getXmlContent(draft.content(), "hctype")).isEmpty();
+        assertThat(SxmlMisc.getXmlContent(draft.content(), "xml_empty")).isEmpty();
         assertThat(draft.content()).doesNotContain("123&lt;456");
         assertThat(draft.content()).doesNotContain("O&lt;N");
+        assertThat(draft.content()).doesNotContain("<xml_empty>null</xml_empty>");
         assertThat(draft.content()).doesNotContain("xml_bad<tag");
         assertThat(draft.content()).doesNotContain("should not render");
     }

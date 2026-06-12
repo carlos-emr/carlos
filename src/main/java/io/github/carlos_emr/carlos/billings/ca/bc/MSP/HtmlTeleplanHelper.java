@@ -129,7 +129,7 @@ public class HtmlTeleplanHelper {
         htmlContent.append("<tr> \n");
         htmlContent.append("<td class='bodytext'> \n");
         htmlContent.append("<a href='#' onClick=\"openBrWindow('adjustBill.jsp?billingmaster_no=");
-        htmlContent.append(SafeEncode.forJavaScriptAttribute(Misc.forwardZero(billingMasterNo, 7)));
+        htmlContent.append(SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(Misc.forwardZero(billingMasterNo, 7))));
         htmlContent.append("','','resizable=yes,scrollbars=yes,top=0,left=0,width=900,height=600'); return false;\">");
         htmlContent.append(SafeEncode.forHtmlContent(invNo));
         htmlContent.append("</a>");

@@ -19,42 +19,33 @@
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
-package io.github.carlos_emr.carlos.utility;
+package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.springframework.mock.web.MockHttpSession;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@DisplayName("WebUtils")
+@DisplayName("HtmlTeleplanHelper")
 @Tag("unit")
-class WebUtilsUnitTest {
+class HtmlTeleplanHelperUnitTest {
 
     @Test
-    void shouldEscapeMessages_whenRenderedAsHtml() {
-        MockHttpSession session = new MockHttpSession();
-        WebUtils.addErrorMessage(session, "<script>alert(1)</script>");
+    void shouldEncodeBillingMasterNumber_whenRenderingAdjustmentLink() {
+        String html = HtmlTeleplanHelper.htmlLine(
+                "1&2=3#4",
+                "INV-1",
+                "Patient",
+                "123",
+                "2026-06-12",
+                "A001A",
+                "10.00",
+                "250",
+                "",
+                "");
 
-        String html = WebUtils.popErrorMessagesAsHtml(session);
-
-        assertThat(html).contains("&lt;script&gt;alert(1)&lt;/script&gt;");
-        assertThat(html).doesNotContain("<script>");
-        assertThat(html).contains("</li>");
-        assertThat(html).doesNotContain("</il>");
+        assertThat(html).contains("adjustBill.jsp?billingmaster_no=1%262%3D3%234");
+        assertThat(html).doesNotContain("adjustBill.jsp?billingmaster_no=1&2=3#4");
     }
-    @Test
-    void shouldEscapeInfoMessages_whenRenderedAsHtml() {
-        MockHttpSession session = new MockHttpSession();
-        WebUtils.addInfoMessage(session, "saved <b>file</b>");
-
-        String html = WebUtils.popInfoMessagesAsHtml(session);
-
-        assertThat(html).contains("saved &lt;b&gt;file&lt;/b&gt;");
-        assertThat(html).doesNotContain("<b>file</b>");
-        assertThat(html).contains("</li>");
-        assertThat(html).doesNotContain("</il>");
-    }
-
 }

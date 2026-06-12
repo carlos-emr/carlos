@@ -31,11 +31,13 @@ import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.text.MessageFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -56,6 +58,7 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.WebUtils;
 import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
@@ -161,7 +164,7 @@ public class MoveMohFiles2Action extends ActionSupport {
         boolean isValid = true;
         String folderParam = request.getParameter("folder");
         if (folderParam == null || folderParam.isEmpty()) {
-            errors.add("A folder must be selected.");
+            errors.add(localizedMessage("billing.moveMohFiles.error.folderRequired"));
             isValid = false;
             // return "Unable to get folderParam";
         }
@@ -171,7 +174,7 @@ public class MoveMohFiles2Action extends ActionSupport {
         String[] fileNames = selectedMutationFiles;
         if ((fileNames == null || fileNames.length == 0)
                 && (unzipFile == null || unzipFile.isBlank())) {
-            errors.add("Please select file(s) to archive.");
+            errors.add(localizedMessage("billing.moveMohFiles.error.fileRequired"));
             isValid = false;
             // return "Unable to get file names";
         }
@@ -179,14 +182,14 @@ public class MoveMohFiles2Action extends ActionSupport {
         if (isValid && hasMohFileMutationIntent) {
             String folderPath = getFolderPath(folderParam);
             if (folderPath == null || folderPath.isEmpty()) {
-                errors.add("Invalid folder selection.");
+                errors.add(localizedMessage("billing.moveMohFiles.error.invalidFolder"));
             } else {
                 for (String fileName : fileNames) {
                     File file = getFile(folderPath, fileName);
                     if (file == null) {
                         logger.warn("Unable to get file {}{}{}", LogSafe.sanitize(folderPath), File.separator, LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
 
-                        errors.add("Unable to find file " + fileName + ".");
+                        errors.add(localizedMessage("billing.moveMohFiles.error.fileMissing", fileName));
                         continue;
                     }
 
@@ -194,16 +197,16 @@ public class MoveMohFiles2Action extends ActionSupport {
                     if (!isValidFileLocation) {
                         logger.warn("Invalid file location {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
 
-                        errors.add("File is not in a valid location: " + fileName + ".");
+                        errors.add(localizedMessage("billing.moveMohFiles.error.invalidFileLocation", fileName));
                         continue;
                     }
 
                     if (file.exists()) {
                         boolean isMoved = moveFile(file);
                         if (isMoved) {
-                            messages.add("Archived file " + file.getName() + " successfully.");
+                            messages.add(localizedMessage("billing.moveMohFiles.info.archived", file.getName()));
                         } else {
-                            errors.add("Unable to archive " + file.getName() + ".");
+                            errors.add(localizedMessage("billing.moveMohFiles.error.archiveFailed", file.getName()));
                         }
                     }
                 }
@@ -225,6 +228,11 @@ public class MoveMohFiles2Action extends ActionSupport {
         request.setAttribute("__roleName", buildRoleName(request));
 
         return SUCCESS;
+    }
+
+    private String localizedMessage(String key, Object... args) {
+        Locale locale = request == null || request.getLocale() == null ? Locale.getDefault() : request.getLocale();
+        return new MessageFormat(LocaleUtils.getMessage(locale, key), locale).format(args);
     }
 
     /** Builds the {@code roleName} string the {@code <security:oscarSec>} tag wants. */

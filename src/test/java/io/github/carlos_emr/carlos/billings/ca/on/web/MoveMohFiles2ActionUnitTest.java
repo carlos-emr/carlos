@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.WebUtils;
 
@@ -86,12 +87,15 @@ class MoveMohFiles2ActionUnitTest extends CarlosUnitTestBase {
     @Mock
     private LoggedInInfo mockLoggedInInfo;
 
+    private String originalLocaleBaseName;
     private MockHttpServletRequest mockRequest;
     private MockHttpServletResponse mockResponse;
 
     @BeforeEach
     void setUp() {
         mockitoCloseable = MockitoAnnotations.openMocks(this);
+        originalLocaleBaseName = LocaleUtils.BASE_NAME;
+        LocaleUtils.BASE_NAME = "oscarResources";
 
         mockRequest = new MockHttpServletRequest();
         mockResponse = new MockHttpServletResponse();
@@ -116,6 +120,7 @@ class MoveMohFiles2ActionUnitTest extends CarlosUnitTestBase {
 
     @AfterEach
     void tearDown() throws Exception {
+        if (originalLocaleBaseName != null) LocaleUtils.BASE_NAME = originalLocaleBaseName;
         if (loggedInInfoMock != null) loggedInInfoMock.close();
         if (servletActionContextMock != null) servletActionContextMock.close();
         if (mockitoCloseable != null) mockitoCloseable.close();
