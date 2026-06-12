@@ -36,6 +36,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -88,7 +89,7 @@ class ManageTeleplan2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldHighlightEligibilityFailure_whenTeleplanResponseFileContainsDeniedDos() throws Exception {
+    void shouldStoreEligibilityLines_whenTeleplanResponseFileContainsDeniedDos() throws Exception {
         Path documentDir = Files.createTempDirectory("teleplan-docs");
         Path responseFile = Files.writeString(documentDir.resolve("elig-response.txt"),
                 "claim <unsafe>\nELIG_ON_DOS: no\n");
@@ -128,10 +129,10 @@ class ManageTeleplan2ActionUnitTest extends CarlosUnitTestBase {
         }
 
         assertThat(request.getAttribute("Result")).isEqualTo("Failure");
-        assertThat((String) request.getAttribute("Msgs"))
-                .contains("claim &lt;unsafe&gt;<br>")
-                .contains("<span style=\"color:red; font-weight:bold;\">ELIG_ON_DOS: no</span><br>")
-                .doesNotContain("claim <unsafe>");
+        @SuppressWarnings("unchecked")
+        List<String> msgLines = (List<String>) request.getAttribute("MsgsLines");
+        assertThat(msgLines).containsExactly("claim <unsafe>", "ELIG_ON_DOS: no");
+        assertThat(request.getAttribute("Msgs")).isNull();
     }
 
     @ParameterizedTest

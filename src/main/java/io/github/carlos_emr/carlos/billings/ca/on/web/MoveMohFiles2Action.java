@@ -158,70 +158,71 @@ public class MoveMohFiles2Action extends ActionSupport {
             return NONE;
         }
 
-        List<String> messages = new ArrayList<>();
-        List<String> errors = new ArrayList<>();
-
-        boolean isValid = true;
         String folderParam = request.getParameter("folder");
-        if (folderParam == null || folderParam.isEmpty()) {
-            errors.add(localizedMessage("billing.moveMohFiles.error.folderRequired"));
-            isValid = false;
-            // return "Unable to get folderParam";
-        }
+        boolean shouldValidateSubmission = hasMutationIntent || "POST".equalsIgnoreCase(request.getMethod());
+        if (shouldValidateSubmission) {
+            List<String> messages = new ArrayList<>();
+            List<String> errors = new ArrayList<>();
+            boolean isValid = true;
 
-        // Reuse the array fetched above for the mutation-intent gate so the
-        // request parameter is read once instead of twice.
-        String[] fileNames = selectedMutationFiles;
-        if ((fileNames == null || fileNames.length == 0)
-                && (unzipFile == null || unzipFile.isBlank())) {
-            errors.add(localizedMessage("billing.moveMohFiles.error.fileRequired"));
-            isValid = false;
-            // return "Unable to get file names";
-        }
+            if (folderParam == null || folderParam.isEmpty()) {
+                errors.add(localizedMessage("billing.moveMohFiles.error.folderRequired"));
+                isValid = false;
+            }
 
-        if (isValid && hasMohFileMutationIntent) {
-            String folderPath = getFolderPath(folderParam);
-            if (folderPath == null || folderPath.isEmpty()) {
-                errors.add(localizedMessage("billing.moveMohFiles.error.invalidFolder"));
-            } else {
-                for (String fileName : fileNames) {
-                    File file = getFile(folderPath, fileName);
-                    if (file == null) {
-                        logger.warn("Unable to get file {}{}{}", LogSafe.sanitize(folderPath), File.separator, LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            // Reuse the array fetched above for the mutation-intent gate so the
+            // request parameter is read once instead of twice.
+            String[] fileNames = selectedMutationFiles;
+            if ((fileNames == null || fileNames.length == 0)
+                    && (unzipFile == null || unzipFile.isBlank())) {
+                errors.add(localizedMessage("billing.moveMohFiles.error.fileRequired"));
+                isValid = false;
+            }
 
-                        errors.add(localizedMessage("billing.moveMohFiles.error.fileMissing", fileName));
-                        continue;
-                    }
+            if (isValid && hasMohFileMutationIntent) {
+                String folderPath = getFolderPath(folderParam);
+                if (folderPath == null || folderPath.isEmpty()) {
+                    errors.add(localizedMessage("billing.moveMohFiles.error.invalidFolder"));
+                } else {
+                    for (String fileName : fileNames) {
+                        File file = getFile(folderPath, fileName);
+                        if (file == null) {
+                            logger.warn("Unable to get file {}{}{}", LogSafe.sanitize(folderPath), File.separator, LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
 
-                    boolean isValidFileLocation = validateFileLocation(file);
-                    if (!isValidFileLocation) {
-                        logger.warn("Invalid file location {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-
-                        errors.add(localizedMessage("billing.moveMohFiles.error.invalidFileLocation", fileName));
-                        continue;
-                    }
-
-                    if (file.exists()) {
-                        boolean isMoved = moveFile(file);
-                        if (isMoved) {
-                            messages.add(localizedMessage("billing.moveMohFiles.info.archived", file.getName()));
-                        } else {
-                            errors.add(localizedMessage("billing.moveMohFiles.error.archiveFailed", file.getName()));
+                            errors.add(localizedMessage("billing.moveMohFiles.error.fileMissing", fileName));
+                            continue;
                         }
-                    } else {
-                        logger.warn("Selected MOH file disappeared before archive {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                        errors.add(localizedMessage("billing.moveMohFiles.error.fileMissing", fileName));
+
+                        boolean isValidFileLocation = validateFileLocation(file);
+                        if (!isValidFileLocation) {
+                            logger.warn("Invalid file location {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+
+                            errors.add(localizedMessage("billing.moveMohFiles.error.invalidFileLocation", fileName));
+                            continue;
+                        }
+
+                        if (file.exists()) {
+                            boolean isMoved = moveFile(file);
+                            if (isMoved) {
+                                messages.add(localizedMessage("billing.moveMohFiles.info.archived", file.getName()));
+                            } else {
+                                errors.add(localizedMessage("billing.moveMohFiles.error.archiveFailed", file.getName()));
+                            }
+                        } else {
+                            logger.warn("Selected MOH file disappeared before archive {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                            errors.add(localizedMessage("billing.moveMohFiles.error.fileMissing", fileName));
+                        }
                     }
                 }
             }
-        }
-        
-        HttpSession session = request.getSession();
-        for (String error : errors) {
-            WebUtils.addErrorMessage(session, error);
-        }
-        for (String message : messages) {
-            WebUtils.addInfoMessage(session, message);
+
+            HttpSession session = request.getSession();
+            for (String error : errors) {
+                WebUtils.addErrorMessage(session, error);
+            }
+            for (String message : messages) {
+                WebUtils.addInfoMessage(session, message);
+            }
         }
 
         // Build the view model for the rendering JSP. The page is rendered both

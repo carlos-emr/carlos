@@ -211,6 +211,8 @@ class MoveMohFiles2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
         assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        assertThat(mockRequest.getSession().getAttribute(WebUtils.ERROR_MESSAGE_SESSION_KEY)).isNull();
+        assertThat(mockRequest.getSession().getAttribute(WebUtils.INFO_MESSAGE_SESSION_KEY)).isNull();
     }
 
     /**

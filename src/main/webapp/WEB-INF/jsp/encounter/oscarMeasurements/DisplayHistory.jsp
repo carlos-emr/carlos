@@ -211,10 +211,10 @@
                                     </td>
 
                                     <!-- Data Field -->
-                                    <td title="data">${carlos:forHtml(data.dataField)}</td>
+                                    <td title="data">${carlos:forHtmlContent(data.dataField)}</td>
 
                                     <!-- Comments -->
-                                    <td title="comments">${carlos:forHtml(data.comments)}</td>
+                                    <td title="comments">${carlos:forHtmlContent(data.comments)}</td>
 
                                     <!-- Observation Date -->
                                     <td title="observed date">

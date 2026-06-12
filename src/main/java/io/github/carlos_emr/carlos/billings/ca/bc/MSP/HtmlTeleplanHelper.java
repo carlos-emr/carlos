@@ -64,11 +64,7 @@ public class HtmlTeleplanHelper {
         htmlContentHeader.append("<head><script type='text/javascript'>function openBrWindow(theURL,winName,features) { window.open(theURL,winName,features);}</script> </head>");
         htmlContentHeader.append("<body><style type='text/css'><!-- .bodytext{  font-family: Tahoma, Arial, Helvetica, sans-serif;  font-size: 12px; font-style: normal;  line-height: normal;  font-weight: normal;  font-variant: normal;  text-transform: none;  color: #003366;  text-decoration: none; --></style>\n");
         htmlContentHeader.append("<table width='100%' border='0' cellspacing='0' cellpadding='0'> \n");
-        htmlContentHeader.append("<tr> \n");
-        htmlContentHeader.append("<td colspan='11' class='bodytext'>");
         appendTrustedTeleplanValidationRows(htmlContentHeader, errorMsg);
-        htmlContentHeader.append("</td> \n");
-        htmlContentHeader.append("</tr> \n");
         return htmlContentHeader.toString();
     }
 

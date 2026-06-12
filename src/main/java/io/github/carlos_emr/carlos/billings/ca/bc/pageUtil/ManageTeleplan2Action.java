@@ -33,6 +33,7 @@ package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.List;
@@ -51,7 +52,6 @@ import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -586,31 +586,21 @@ public class ManageTeleplan2Action extends ActionSupport {
                 }
             }
 
-            StringBuilder sb = new StringBuilder();
+            List<String> msgLines = new ArrayList<>();
             String line = null;
 
             try (BufferedReader buff = new BufferedReader(new FileReader(file))) { // codeql[java/path-injection] — validated by PathValidationUtils.validateExistingPath + isInAllowedTempDirectory guard
                 while ((line = buff.readLine()) != null) {
-
-                    boolean eligibilityFailure = false;
                     if (line.startsWith("ELIG_ON_DOS:")) {
                         String el = line.substring(12).trim();
                         if (el.equalsIgnoreCase("no")) {
                             request.setAttribute("Result", "Failure");
-                            eligibilityFailure = true;
                         }
                     }
-                    if (eligibilityFailure) {
-                        sb.append("<span style=\"color:red; font-weight:bold;\">");
-                        sb.append(SafeEncode.forHtmlContent(line));
-                        sb.append("</span>");
-                    } else {
-                        sb.append(SafeEncode.forHtmlContent(line));
-                    }
-                    sb.append("<br>");
+                    msgLines.add(line);
                 }
             }
-            request.setAttribute("Msgs", sb.toString()); //tr.getMsgs());
+            request.setAttribute("MsgsLines", msgLines);
 
         } else {
             request.setAttribute("Msgs", tr.getMsgs());

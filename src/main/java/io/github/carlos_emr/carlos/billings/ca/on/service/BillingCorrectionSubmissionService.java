@@ -63,14 +63,16 @@ public class BillingCorrectionSubmissionService {
     /**
      * Persists the reviewed correction.
      *
+     * @param loggedInInfo the authenticated provider context used for recycle-bin ownership
+     * @param command the reviewed correction payload, including the hidden stored-content blob
      * @throws BillingValidationException if the billing number is malformed, the
-     *         billing record is missing, or the content blob carries a coded MOH
-     *         token that fails its allowlist (the blob round-trips through a
-     *         browser hidden field, so review-time validation alone is bypassable)
+     *         billing record is missing, or the content blob structure/tokens fail
+     *         validation (the blob round-trips through a browser hidden field, so
+     *         review-time validation alone is bypassable)
      */
     public void submit(LoggedInInfo loggedInInfo, BillingCorrectionSubmitCommand command) {
-        // Re-check the coded tokens exactly as the OHIP extractor will read
-        // them; a tampered hidden 'content' field must not reach persistence.
+        // Re-check the hidden stored content before persistence; a tampered
+        // browser field must not bypass review-time XML and coded-token guards.
         BillingCorrectionCodedTokenValidator.validateStoredContent(command.content());
         int billingNo = parseBillingNo(command.billingNo());
         Billing billing = billingDao.find(billingNo);

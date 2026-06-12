@@ -21,12 +21,13 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.validator;
 
-import io.github.carlos_emr.SxmlMisc;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 
 import java.util.Map;
+import java.util.Set;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -46,6 +47,8 @@ import java.util.regex.Pattern;
 public final class BillingCorrectionCodedTokenValidator {
 
     private static final Logger LOGGER = MiscUtils.getLogger();
+    private static final Pattern STORED_CONTENT_ELEMENT =
+            Pattern.compile("\\G<([A-Za-z_][A-Za-z0-9_.-]*)>([^<>]*)</\\1>");
 
     private record CodedToken(Pattern allowedValue, String validationMessage) {
     }
@@ -57,6 +60,15 @@ public final class BillingCorrectionCodedTokenValidator {
                     "Health card type contains unsupported characters."),
             "demosex", new CodedToken(Pattern.compile("^[A-Za-z0-9]{0,2}$"),
                     "Demographic sex code contains unsupported characters."));
+    private static final Set<String> FIXED_CONTENT_ELEMENTS = Set.of(
+            "rdohip",
+            "rd",
+            "xml_referral",
+            "mreview",
+            "hctype",
+            "demosex",
+            "specialty",
+            "xml_roster");
 
     private BillingCorrectionCodedTokenValidator() {
     }
@@ -84,22 +96,38 @@ public final class BillingCorrectionCodedTokenValidator {
     }
 
     /**
-     * Re-validates the coded tokens inside an assembled content blob. Used at
-     * final submission, where the blob arrives from a browser hidden field and
-     * must be checked exactly as the OHIP extractor will later read it.
+     * Re-validates the assembled content blob. Used at final submission, where
+     * the blob arrives from a browser hidden field and must be checked exactly
+     * as the OHIP extractor will later read it.
      *
      * @param content the correction content blob; {@code null} validates trivially (nothing stored)
-     * @throws BillingValidationException if any coded token fails its allowlist
+     * @throws BillingValidationException if the blob structure is unsupported or any coded token fails its allowlist
      */
     public static void validateStoredContent(String content) {
         if (content == null) {
             return;
         }
-        for (String elementName : CODED_TOKENS.keySet()) {
-            // getXmlContent mirrors the extractor's read: raw substring between
-            // the tags, empty when the element is absent. Absent elements pass
-            // because every allowlist accepts empty.
-            validate(elementName, SxmlMisc.getXmlContent(content, elementName));
+        Matcher matcher = STORED_CONTENT_ELEMENT.matcher(content);
+        int position = 0;
+        while (position < content.length()) {
+            matcher.region(position, content.length());
+            if (!matcher.lookingAt()) {
+                LOGGER.warn("Rejecting billing correction content with unsupported structure at offset {}", position);
+                throw new BillingValidationException("Billing correction content contains unsupported structure.");
+            }
+            String elementName = matcher.group(1);
+            if (!isAllowedStoredElement(elementName)) {
+                LOGGER.warn("Rejecting unsupported billing correction XML element name {}", LogSafe.sanitize(elementName));
+                throw new BillingValidationException("Billing correction content contains an unsupported element.");
+            }
+            if (CODED_TOKENS.containsKey(elementName)) {
+                validate(elementName, matcher.group(2));
+            }
+            position = matcher.end();
         }
+    }
+
+    private static boolean isAllowedStoredElement(String elementName) {
+        return FIXED_CONTENT_ELEMENTS.contains(elementName) || elementName.startsWith("xml_");
     }
 }

@@ -80,13 +80,41 @@ class BillingCorrectionCodedTokenValidatorUnitTest {
     }
 
     @Test
-    void shouldAcceptStoredContent_whenCodedElementsAreValidOrAbsent() {
+    void shouldAcceptStoredContent_whenElementsAreAllowedAndValuesAreEscaped() {
         assertThatCode(() -> BillingCorrectionCodedTokenValidator
-                .validateStoredContent("<rdohip>123456</rdohip><rd>Dr &lt;Ref&gt;</rd>"))
+                .validateStoredContent("<rdohip>123456</rdohip><rd>Dr &lt;Ref&gt;</rd><xml_custom>safe &amp; sound</xml_custom>"))
                 .doesNotThrowAnyException();
         assertThatCode(() -> BillingCorrectionCodedTokenValidator.validateStoredContent(null))
                 .doesNotThrowAnyException();
         assertThatCode(() -> BillingCorrectionCodedTokenValidator.validateStoredContent(""))
                 .doesNotThrowAnyException();
+    }
+
+    @Test
+    void shouldRejectStoredContent_whenRawMarkupAppearsInsideValue() {
+        assertThatThrownBy(() -> BillingCorrectionCodedTokenValidator.validateStoredContent("<rd>Dr <Ref></rd>"))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("unsupported structure");
+    }
+
+    @Test
+    void shouldRejectStoredContent_whenElementHasAttributes() {
+        assertThatThrownBy(() -> BillingCorrectionCodedTokenValidator.validateStoredContent("<rd class=\"x\">Ref</rd>"))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("unsupported structure");
+    }
+
+    @Test
+    void shouldRejectStoredContent_whenElementNamesDoNotMatch() {
+        assertThatThrownBy(() -> BillingCorrectionCodedTokenValidator.validateStoredContent("<rd>Ref</hctype>"))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("unsupported structure");
+    }
+
+    @Test
+    void shouldRejectStoredContent_whenElementNameIsNotAllowed() {
+        assertThatThrownBy(() -> BillingCorrectionCodedTokenValidator.validateStoredContent("<evil>Ref</evil>"))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("unsupported element");
     }
 }

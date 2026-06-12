@@ -70,5 +70,11 @@ class HtmlTeleplanHelperUnitTest {
         assertThat(warningHtml)
                 .contains(SafeEncode.forHtmlContent("warn <b>"))
                 .doesNotContain("warn <b>");
+
+        String headerHtml = HtmlTeleplanHelper.htmlHeaderGen(errorHtml + warningHtml);
+        assertThat(headerHtml)
+                .contains(errorHtml)
+                .contains(warningHtml)
+                .doesNotContain("<td colspan='11' class='bodytext'><tr");
     }
 }

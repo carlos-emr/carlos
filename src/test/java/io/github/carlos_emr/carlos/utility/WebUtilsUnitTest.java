@@ -68,6 +68,7 @@ class WebUtilsUnitTest {
         assertThat(html).contains("id=\"err\"");
         assertThat(html).contains("name=\"errName\"");
         assertThat(html).contains("class=\"alert\"");
+        assertThat(html).contains("style=\"color:red\"");
         assertThat(html).contains("failed &lt;b&gt;claim&lt;/b&gt;");
         assertThat(html).doesNotContain("<b>claim</b>");
         assertThat(html).contains("</li>");

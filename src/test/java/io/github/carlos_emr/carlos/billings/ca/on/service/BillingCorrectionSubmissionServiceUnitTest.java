@@ -159,7 +159,7 @@ class BillingCorrectionSubmissionServiceUnitTest extends CarlosUnitTestBase {
         // tampered POST must not reach the recycle bin or the billing row.
         BillingCorrectionSubmitCommand command = new BillingCorrectionSubmitCommand(
                 "42",
-                "<rdohip>123<456</rdohip><hctype>ON</hctype><demosex>1</demosex>",
+                "<rdohip>1234567</rdohip><hctype>ON</hctype><demosex>1</demosex>",
                 "3000",
                 "1234567890",
                 "1980-01-01",
@@ -181,17 +181,20 @@ class BillingCorrectionSubmissionServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldAcceptContentWithoutCodedTokens_whenElementsAreAbsent() {
-        // Legacy corrections may carry content with no coded elements at all;
-        // absence validates trivially (every allowlist accepts empty).
-        Billing existing = new Billing();
-        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
-        when(billingDetailDao.findAllIncludingDeletedByBillingNo(42)).thenReturn(List.of());
-        when(billingDao.find(42)).thenReturn(existing);
+    void shouldRejectTamperedContent_whenStoredContentHasUnsupportedElement() {
+        BillingCorrectionSubmitCommand command = commandWithContent(
+                "42",
+                "<rd>Ref Doctor</rd><script>alert</script>",
+                List.of());
 
-        service.submit(loggedInInfo, command("42", List.of()));
+        assertThatThrownBy(() -> service.submit(loggedInInfo, command))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("unsupported element");
 
-        verify(billingDao).merge(existing);
+        verify(billingDao, never()).find(any());
+        verify(recycleBinDao, never()).persist(any(RecycleBin.class));
+        verify(billingDao, never()).merge(any(Billing.class));
+        verify(billingDetailDao, never()).persist(any(BillingDetail.class));
     }
 
     @Test
@@ -211,9 +214,14 @@ class BillingCorrectionSubmissionServiceUnitTest extends CarlosUnitTestBase {
             String billingNo, List<BillingCorrectionSubmitItemCommand> items) {
         // Keep one canonical command fixture so behavior-focused tests vary
         // only the field under discussion (billing number or item list).
+        return commandWithContent(billingNo, "<rd>Ref Doctor</rd>", items);
+    }
+
+    private static BillingCorrectionSubmitCommand commandWithContent(
+            String billingNo, String content, List<BillingCorrectionSubmitItemCommand> items) {
         return new BillingCorrectionSubmitCommand(
                 billingNo,
-                "<rd>Ref Doctor</rd>",
+                content,
                 "3000",
                 "1234567890",
                 "1980-01-01",

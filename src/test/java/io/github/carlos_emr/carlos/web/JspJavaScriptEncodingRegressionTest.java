@@ -217,15 +217,33 @@ class JspJavaScriptEncodingRegressionTest {
     }
 
     @Test
-    @DisplayName("should encode measurement comments in HTML body context")
+    @DisplayName("should encode measurement data cells in HTML body context")
     @Tag("security")
-    void shouldEncodeMeasurementComments_onDisplayHistoryPage() throws Exception {
+    void shouldEncodeMeasurementData_onDisplayHistoryPage() throws Exception {
         String jsp = readJsp("encounter/oscarMeasurements/DisplayHistory.jsp");
 
         assertThat(jsp)
                 .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
-                .contains("${carlos:forHtml(data.comments)}")
-                .doesNotContain("${data.comments}</td>");
+                .contains("${carlos:forHtmlContent(data.dataField)}")
+                .contains("${carlos:forHtmlContent(data.comments)}")
+                .doesNotContain("${data.dataField}</td>")
+                .doesNotContain("${data.comments}</td>")
+                .doesNotContain("${carlos:forHtml(data.dataField)}")
+                .doesNotContain("${carlos:forHtml(data.comments)}");
+    }
+
+    @Test
+    @DisplayName("should render Teleplan eligibility lines without storing HTML in Msgs")
+    @Tag("security")
+    void shouldRenderTeleplanEligibilityLines_onCheckEligibilityPage() throws Exception {
+        String jsp = readJsp("billing/CA/BC/checkEligibility.jsp");
+
+        assertThat(jsp)
+                .contains("List<String> msgLines")
+                .contains("request.getAttribute(\"MsgsLines\")")
+                .contains("<span style=\"color:red; font-weight:bold;\">")
+                .contains("<carlos:encode value='<%= safeLine %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= msgs %>' context=\"html\"/>");
     }
 
     private static String readJsp(String relativePath) throws Exception {

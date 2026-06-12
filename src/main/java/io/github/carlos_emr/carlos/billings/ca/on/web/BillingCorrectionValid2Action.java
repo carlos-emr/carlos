@@ -82,7 +82,8 @@ public class BillingCorrectionValid2Action extends ActionSupport {
             request.setAttribute("reviewModel", model);
             return REVIEW;
         } catch (BillingValidationException e) {
-            MiscUtils.getLogger().warn("Billing correction review rejected: {}", e.getMessage(), e);
+            MiscUtils.getLogger().warn("Billing correction review rejected by validation: {}",
+                    e.getClass().getSimpleName());
             request.setAttribute("correctionError", Boolean.TRUE);
             request.setAttribute("correctionErrorMessage", e.getMessage());
             return ERROR;
