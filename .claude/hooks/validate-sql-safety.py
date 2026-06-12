@@ -141,6 +141,29 @@ def has_class_name_insertion(match_text: str, line: str) -> bool:
     return False
 
 
+def is_stringbuilder_entity_name_query(line: str, content: str) -> bool:
+    """Allow StringBuilder queries whose dynamic FROM target is model metadata."""
+    start_match = re.search(
+        r'(\w+)\.append\s*\(\s*["\']\s*select\s+\w+\s+from\s*["\']\s*\)',
+        line,
+        re.IGNORECASE,
+    )
+    if not start_match:
+        return False
+
+    builder = re.escape(start_match.group(1))
+    has_entity_metadata_append = re.search(
+        rf'{builder}\.append\s*\(\s*(?:modelClass\.getSimpleName\(\)|\w+\.class\.getSimpleName\(\))\s*\)',  # nosemgrep: skills.code-injection.skill-ldap-injection.skill-ldap-injection -- SQL safety hook regex, not an LDAP filter; builder is escaped with re.escape().
+        content,
+    )
+    has_query_creation = re.search(
+        rf'(?:createQuery|createNativeQuery|createSQLQuery)\s*\(\s*{builder}\.toString\(\)\s*\)',  # nosemgrep: skills.code-injection.skill-ldap-injection.skill-ldap-injection -- SQL safety hook regex, not an LDAP filter; builder is escaped with re.escape().
+        content,
+        re.IGNORECASE,
+    )
+    return bool(has_entity_metadata_append and has_query_creation and has_parameterized_usage(content))
+
+
 def is_query_builder_variable(match_text: str) -> bool:
     """Check if the concatenated variable is a known query-builder variable name.
     
@@ -206,21 +229,26 @@ def is_safe_pattern(match_text: str, line: str, content: str) -> bool:
     if has_class_name_insertion(match_text, line):
         return True
 
-    # 4. Check if concatenated variable is a query-builder variable AND the line
+    # 4. Check for StringBuilder query construction where the only dynamic FROM
+    # target is model metadata and parameterized usage is present elsewhere.
+    if is_stringbuilder_entity_name_query(line, content):
+        return True
+
+    # 5. Check if concatenated variable is a query-builder variable AND the line
     # also has parameter placeholder evidence (prevents variable-name-only bypasses).
     # A variable named 'sql' or 'providerQuery' is only considered safe when the
     # same line also contains a named or positional parameter placeholder.
     if is_query_builder_variable(match_text) and is_in_string_literal_context(line):
         return True
 
-    # 5. Check if the line has parameter placeholders inside string literals AND
+    # 6. Check if the line has parameter placeholders inside string literals AND
     # the overall content uses parameterized queries.
     # Note: is_in_string_literal_context strips comments first, so a trailing
     # // :id comment cannot bypass this check.
     if is_in_string_literal_context(line) and has_parameterized_usage(content):
         return True
 
-    # 6. Check for string literal + string literal concatenation (no variables)
+    # 7. Check for string literal + string literal concatenation (no variables)
     # "SELECT ..." + " WHERE ..." is just splitting a long string, which is safe.
     if re.search(r'["\']\s*\+\s*["\']', match_text):
         # Pure string-to-string concat with no variable in between
@@ -343,7 +371,7 @@ def check_sql_injection_patterns(content: str) -> list[str]:
     # Additional check: Look for dangerous patterns in query construction
     raw_query_patterns = [
         # "SELECT ... WHERE id = '" + id + "'"
-        (rf'["\'][^"\']*{sql_keywords}[^"\']*=\s*(["\'])\s*\+\s*\w+\s*\+\s*\1',
+        (rf'["\'][^"\']*{sql_keywords}[^"\']*=\s*(["\'])\s*\+\s*\w+\s*\+\s*\1',  # nosemgrep: skills.code-injection.skill-sql-string-formatting.skill-sql-string-formatting -- detector regex for SQL safety hook, not SQL execution
          "String concatenation with quotes in SQL"),
         # query = "SELECT ... " + variable;
         (rf'\w+\s*=\s*["\'][^"\']*{sql_keywords}[^"\']*["\']\s*\+',
