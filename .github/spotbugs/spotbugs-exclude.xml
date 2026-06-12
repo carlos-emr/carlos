@@ -898,4 +898,73 @@
         <Bug pattern="CRLF_INJECTION_LOGS"/>
     </Match>
 
+
+    <!-- ================================================================
+         HARD_CODE_PASSWORD FALSE POSITIVES
+         SpotBugs HARD_CODE_PASSWORD fires whenever a String literal is
+         passed to (or compared with) a method whose name contains
+         "password". Three structural patterns recur in this codebase
+         that are never real credentials:
+
+           1. Field-clear pattern: setPassword("") clears an email/form
+              field before sending. The empty literal is not a credential.
+
+           2. WS-Security protocol-type constant: the string "PasswordText"
+              (aliased as WSS4JConstants.PW_TEXT / WSConstants.PW_TEXT) is
+              a WS-Security UsernameToken mechanism URI, not a password value.
+              Any method that configures a WS-Security interceptor property
+              map will trigger this detector.
+
+           3. UI mask sentinel: PASSWORD_MASK_SENTINEL = "**********" is
+              compared against a submitted form field to detect "unchanged"
+              password submissions. It is not a stored or usable credential.
+
+         Each entry below is method-scoped. If you encounter the same
+         pattern in a new method, add a method-scoped entry here rather
+         than annotating the call site.
+         ================================================================ -->
+
+    <!-- setPassword("") calls inside sanitizeEmailFields clear the email
+         DTO's credential fields when encryption is not being used. -->
+    <Match>
+        <Bug pattern="HARD_CODE_PASSWORD"/>
+        <Class name="io.github.carlos_emr.carlos.managers.EmailManager"/>
+        <Method name="sanitizeEmailFields"/>
+    </Match>
+
+    <!-- properties.put(WSHandlerConstants.PASSWORD_TYPE, WSS4JConstants.PW_TEXT)
+         configures the WS-Security UsernameToken mechanism. PW_TEXT is a
+         protocol-type URI string, not a password value. -->
+    <Match>
+        <Bug pattern="HARD_CODE_PASSWORD"/>
+        <Class name="io.github.carlos_emr.carlos.webserv.AuthenticationInWSS4JInterceptor"/>
+        <Method name="initialize"/>
+    </Match>
+
+    <!-- Same WS-Security protocol-type constant set in the outbound interceptor
+         constructor. SpotBugs uses &lt;init&gt; (bytecode name) for constructors. -->
+    <Match>
+        <Bug pattern="HARD_CODE_PASSWORD"/>
+        <Class name="io.github.carlos_emr.carlos.utility.AuthenticationOutWSS4JInterceptor"/>
+        <Method name="&lt;init&gt;"/>
+    </Match>
+
+    <!-- Same WS-Security protocol-type constant in the EDT billing client
+         WS-Security outbound property map builder. -->
+    <Match>
+        <Bug pattern="HARD_CODE_PASSWORD"/>
+        <Class name="io.github.carlos_emr.carlos.integration.ebs.client.ng.EdtClientBuilder"/>
+        <Method name="newWSSOutInterceptorConfiguration"/>
+    </Match>
+
+    <!-- PASSWORD_MASK_SENTINEL = "**********" is the UI placeholder shown
+         in password fields when a credential is already stored. This method
+         checks whether a submitted value equals the sentinel (meaning the
+         admin left the field blank/unchanged). It is not a credential comparison. -->
+    <Match>
+        <Bug pattern="HARD_CODE_PASSWORD"/>
+        <Class name="io.github.carlos_emr.carlos.fax.admin.ConfigureFax2Action"/>
+        <Method name="isPasswordUnchanged"/>
+    </Match>
+
 </FindBugsFilter>
