@@ -37,6 +37,10 @@ public interface SmsProviderClient {
      * may crash after the provider accepts a send but before the provider message id is persisted.
      */
     default SmsProviderMessageStatusDto lookupMessageStatus(String clientReferenceId, String providerMessageId) {
+        String safeClientReferenceId = Objects.requireNonNull(clientReferenceId, "clientReferenceId is required");
+        if (safeClientReferenceId.isBlank() && (providerMessageId == null || providerMessageId.isBlank())) {
+            throw new IllegalArgumentException("clientReferenceId or providerMessageId is required");
+        }
         return SmsProviderMessageStatusDto.unavailable(
                 "PROVIDER_STATUS_LOOKUP_UNSUPPORTED",
                 "SMS provider message status lookup is not implemented."
