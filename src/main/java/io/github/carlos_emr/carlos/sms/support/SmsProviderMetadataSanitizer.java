@@ -1,5 +1,7 @@
 package io.github.carlos_emr.carlos.sms.support;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 import java.text.Normalizer;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -47,6 +49,8 @@ public final class SmsProviderMetadataSanitizer {
         return trimmed.isBlank() ? null : trimmed;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: Unicode normalization is intentional before ASCII sensitive-key matching; this is redaction defense-in-depth, not authorization.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Unicode normalization is intentional before ASCII sensitive-key matching; this is redaction defense-in-depth, not authorization")
     private static boolean isSensitiveKey(String key) {
         String normalized = Normalizer.normalize(key, Normalizer.Form.NFKD)
                 .toLowerCase(Locale.ROOT)

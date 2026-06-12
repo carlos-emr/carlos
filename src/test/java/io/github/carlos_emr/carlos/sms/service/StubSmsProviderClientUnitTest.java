@@ -2,6 +2,7 @@ package io.github.carlos_emr.carlos.sms.service;
 
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
+import io.github.carlos_emr.carlos.sms.dto.SmsProviderMessageStatusDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsProviderSendResultDto;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -10,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Tag("unit")
 @Tag("service")
@@ -56,5 +58,22 @@ class StubSmsProviderClientUnitTest {
         assertThat(client.parseInboundWebhook("{}", Map.of())).isEmpty();
         assertThat(client.parseDeliveryWebhook(null, null)).isEmpty();
         assertThat(client.parseDeliveryWebhook("{}", Map.of())).isEmpty();
+    }
+
+    @Test
+    @DisplayName("default provider status lookup consumes client and provider references")
+    void shouldReturnUnavailableStatus_whenDefaultStatusLookupIsUsed() {
+        StubSmsProviderClient client = new StubSmsProviderClient();
+
+        assertThat(client.lookupMessageStatus("sms-transaction-1", null).status())
+                .isEqualTo(SmsProviderMessageStatusDto.Status.UNAVAILABLE);
+        assertThat(client.lookupMessageStatus(" ", "provider-1").status())
+                .isEqualTo(SmsProviderMessageStatusDto.Status.UNAVAILABLE);
+        assertThatThrownBy(() -> client.lookupMessageStatus(null, "provider-1"))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("clientReferenceId");
+        assertThatThrownBy(() -> client.lookupMessageStatus(" ", null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("clientReferenceId or providerMessageId");
     }
 }
