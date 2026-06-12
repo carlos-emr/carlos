@@ -72,6 +72,9 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicExt" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.PharmacyInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.PathValidationUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="java.io.File" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
@@ -545,14 +548,23 @@
 
                                     // Check for provider signature stamp (may differ from session user on reprints)
                                     UserProperty rxSigProp = userPropertyDAO.getProp(signingProvider, UserProperty.PROVIDER_CONSULT_SIGNATURE);
-                                    boolean hasRxStampSignature = (rxSigProp != null && rxSigProp.getValue() != null && !rxSigProp.getValue().trim().isEmpty());
+                                    boolean hasRxStampSignature = false;
+                                    if (rxSigProp != null && rxSigProp.getValue() != null && !rxSigProp.getValue().trim().isEmpty()) {
+                                        try {
+                                            File imageFolder = new File(CarlosProperties.getInstance().getEformImageDirectory());
+                                            File rxStampFile = PathValidationUtils.validatePath(UserProperty.CONSULT_SIGNATURE_PREFIX + signingProvider + ".png", imageFolder);
+                                            hasRxStampSignature = rxStampFile.exists();
+                                        } catch (SecurityException e) {
+                                            MiscUtils.getLogger().warn("Blocked unexpected Rx signature stamp path for provider {}", signingProvider, e);
+                                        }
+                                    }
 
                                     if (bean.getStashSize() > 0 && Objects.nonNull(bean.getStashItem(0).getDigitalSignatureId())) {
                                         startimageUrl = request.getContextPath() + "/imageRenderingServlet?source=" + ImageRenderingServlet.Source.signature_stored.name() + "&digitalSignatureId=" + bean.getStashItem(0).getDigitalSignatureId();
                                     } else if (!"true".equalsIgnoreCase(rePrint) && hasRxStampSignature) {
                                         // Only apply the stamp on new prescriptions; reprints use the stored digital signature only.
-                                        // Note: this displays the live stamp file, not an immutable DigitalSignature copy (unlike consultations).
-                                        startimageUrl = request.getContextPath() + "/provider/providerSignatureImage";
+                                        // When the signing provider differs from the session user, request the actual signing provider's stamp.
+                                        startimageUrl = request.getContextPath() + "/provider/providerSignatureImage?providerNo=" + Encode.forUriComponent(signingProvider);
                                     }
                                 %>
 

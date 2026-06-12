@@ -194,6 +194,22 @@ class DisplayImage2ActionTest extends CarlosUnitTestBase {
             assertThat(mockResponse.getContentAsString()).isEqualTo("{\"ok\":true}");
         }
 
+
+        @Test
+        @DisplayName("should return 404 when requested asset file is missing")
+        void shouldReturn404_whenRequestedAssetFileIsMissing() throws Exception {
+            mockRequest.setParameter("imagefile", "consult_sig_999998.png");
+
+            when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_eform"), eq("r"), isNull()))
+                    .thenReturn(true);
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_NOT_FOUND);
+            assertThat(mockResponse.getContentAsByteArray()).isEmpty();
+        }
+
         @Test
         @DisplayName("should write HTML assets through writer when eform read privilege is granted")
         void shouldWriteHtmlAssetsThroughWriter_whenEformReadPrivilegeGranted() throws Exception {

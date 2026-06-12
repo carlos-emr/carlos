@@ -66,6 +66,8 @@ import java.io.OutputStream;
 public class ProviderSignatureImage2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private static final String READ = "r";
+    private static final String WRITE = "w";
 
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
@@ -80,15 +82,30 @@ public class ProviderSignatureImage2Action extends ActionSupport {
             return NONE;
         }
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pref", "r", null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pref", READ, null)) {
             throw new SecurityException("missing required sec object (_pref)");
         }
 
-        String providerNo = loggedInInfo.getLoggedInProviderNo();
-        if (providerNo == null || !providerNo.matches("[0-9]+")) {
+        String loggedInProviderNo = loggedInInfo.getLoggedInProviderNo();
+        if (loggedInProviderNo == null || !loggedInProviderNo.matches("\\d+")) {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }
+
+        String requestedProviderNo = request.getParameter("providerNo");
+        String providerNo = (requestedProviderNo == null || requestedProviderNo.isBlank())
+                ? loggedInProviderNo
+                : requestedProviderNo.trim();
+        if (!providerNo.matches("\\d+")) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+
+        if (!providerNo.equals(loggedInProviderNo) && !canViewOtherProviderStamp(loggedInInfo)) {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            return NONE;
+        }
+
         String signatureName = UserProperty.CONSULT_SIGNATURE_PREFIX + providerNo + ".png";
 
         File imageFolder = new File(CarlosProperties.getInstance().getEformImageDirectory());
@@ -129,5 +146,12 @@ public class ProviderSignatureImage2Action extends ActionSupport {
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
         return NONE;
+    }
+
+    private boolean canViewOtherProviderStamp(LoggedInInfo loggedInInfo) {
+        return securityInfoManager.hasPrivilege(loggedInInfo, "_rx", READ, null)
+                || securityInfoManager.hasPrivilege(loggedInInfo, "_con", READ, null)
+                || securityInfoManager.hasPrivilege(loggedInInfo, "_con", WRITE, null)
+                || securityInfoManager.hasPrivilege(loggedInInfo, "_eform", READ, null);
     }
 }

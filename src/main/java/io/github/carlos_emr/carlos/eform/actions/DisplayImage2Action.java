@@ -102,6 +102,10 @@ public class DisplayImage2Action extends ActionSupport {
         }
 
         File validatedFile = getValidatedImageFile(fileName);
+        if (!validatedFile.exists() || !validatedFile.isFile()) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return NONE;
+        }
         StreamData data = process(validatedFile, fileName);
         String contentType = data.contentType();
         try (InputStream stream = data.stream()) {
