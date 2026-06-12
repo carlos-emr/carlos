@@ -160,9 +160,9 @@ public class zip {
 
                     try (BufferedOutputStream dest = new BufferedOutputStream(new FileOutputStream(z), BUFFER)) {
                         while ((count = is.read(data, 0, BUFFER)) != -1) {
-                            dest.write(data, 0, count);
+                            dest.write(data, 0, count); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- writes ZIP entry bytes to a validated file target, not HTTP response HTML
                         }
-                        dest.flush();
+                        dest.flush(); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- flushes file output stream, not HTTP response HTML
                     }
                 }
             }

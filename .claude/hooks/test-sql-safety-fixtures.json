@@ -1,0 +1,313 @@
+[
+  {
+    "section": "False Positives (should be ALLOWED, exit 0)",
+    "description": "FP-1: Positional param building (TicklerDaoImpl)",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Edit",
+      "tool_input": {
+        "file_path": "/path/to/TicklerDaoImpl.java",
+        "new_string": "query = query + \" and t.serviceDate >= ?\" + paramIndex++;\nparamList.add(filter.getStartDate());\nquery.setParameter(paramIndex, value);"
+      }
+    }
+  },
+  {
+    "section": "False Positives (should be ALLOWED, exit 0)",
+    "description": "FP-2: IN clause param building (TicklerDaoImpl)",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Edit",
+      "tool_input": {
+        "file_path": "/path/to/TicklerDaoImpl.java",
+        "new_string": "query = query + \" and t.creator IN (\";\nfor (int x = 0; x < providers.length; x++) {\n    if (x > 0) { query += \",\"; }\n    query += \"?\" + paramIndex++;\n    paramList.add(providers[x].getProviderNo());\n}\nquery += \")\";\nquery.setParameter(1, val);"
+      }
+    }
+  },
+  {
+    "section": "False Positives (should be ALLOWED, exit 0)",
+    "description": "FP-3: Status clause with param (TicklerDaoImpl)",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Edit",
+      "tool_input": {
+        "file_path": "/path/to/TicklerDaoImpl.java",
+        "new_string": "query = query + \" and t.status = ?\" + paramIndex++;\nparamList.add(convertStatus(filter.getStatus()));\nquery.setParameter(paramIndex, value);"
+      }
+    }
+  },
+  {
+    "section": "False Positives (should be ALLOWED, exit 0)",
+    "description": "FP-4: Named param building (BillingDaoImpl)",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Edit",
+      "tool_input": {
+        "file_path": "/path/to/BillingDaoImpl.java",
+        "new_string": "serviceCodeValues.append(\"bd.serviceCode = :\").append(param);\nparams.put(param, serviceCodes.get(i));\nquery.setParameter(e.getKey(), e.getValue());"
+      }
+    }
+  },
+  {
+    "section": "False Positives (should be ALLOWED, exit 0)",
+    "description": "FP-5: Query fragment concat (BillingDaoImpl)",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Edit",
+      "tool_input": {
+        "file_path": "/path/to/BillingDaoImpl.java",
+        "new_string": "String queryString = \"FROM Billing b WHERE b.status like :status \" + providerQuery + startDateQuery + endDateQuery + demoQuery;\nparams.put(\"status\", statusType);\nquery.setParameter(param.getKey(), param.getValue());"
+      }
+    }
+  },
+  {
+    "section": "False Positives (should be ALLOWED, exit 0)",
+    "description": "FP-6: Conditional named param clauses (BillingDaoImpl)",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Edit",
+      "tool_input": {
+        "file_path": "/path/to/BillingDaoImpl.java",
+        "new_string": "if (providerNo != null) {\n    providerQuery = \" and b.apptProviderNo = :providerNo\";\n    params.put(\"providerNo\", providerNo);\n}\nif (startDate != null) {\n    startDateQuery = \" and ( b.billingDate >= :startDate ) \";\n    params.put(\"startDate\", startDate);\n}\nquery.setParameter(key, value);"
+      }
+    }
+  },
+  {
+    "section": "False Positives (should be ALLOWED, exit 0)",
+    "description": "FP-7: Entity name from getSimpleName (EFormDaoImpl)",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Edit",
+      "tool_input": {
+        "file_path": "/path/to/EFormDaoImpl.java",
+        "new_string": "StringBuilder buf = new StringBuilder(\"FROM \" + modelClass.getSimpleName() + \" ef WHERE ef.current = ?1\");\nQuery query = entityManager.createQuery(buf.toString());\nquery.setParameter(1, status);"
+      }
+    }
+  },
+  {
+    "section": "False Positives (should be ALLOWED, exit 0)",
+    "description": "FP-8: StringBuilder SELECT with positional params",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Edit",
+      "tool_input": {
+        "file_path": "/path/to/SomeDaoImpl.java",
+        "new_string": "StringBuilder sqlCommand = new StringBuilder(\"select h from \").append(BillingONCHeader1.class.getSimpleName()).append(\" h WHERE \");\nsqlCommand.append(\"h.providerNo = ?\").append(counter++).append(\" AND h.status IN (?\").append(counter++).append(\") \");\nquery.setParameter(counter, val);"
+      }
+    }
+  },
+  {
+    "section": "False Positives (should be ALLOWED, exit 0)",
+    "description": "FP-9: Query var assignment with WHERE",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Edit",
+      "tool_input": {
+        "file_path": "/path/to/SomeDaoImpl.java",
+        "new_string": "query = selectQuery + \" FROM Tickler t, Demographic d where d.DemographicNo = t.demographicNo and d.ProviderNo = ?\" + paramIndex++;\nparamList.add(filter.getMrp());\nquery.setParameter(1, val);"
+      }
+    }
+  },
+  {
+    "section": "False Positives (should be ALLOWED, exit 0)",
+    "description": "FP-10: SQL in comments (should be ignored)",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Edit",
+      "tool_input": {
+        "file_path": "/path/to/SomeDaoImpl.java",
+        "new_string": "// query = \"SELECT * FROM users WHERE id = \" + userId;\n// This old pattern used string concatenation\nquery.setParameter(1, val);"
+      }
+    }
+  },
+  {
+    "section": "False Positives (should be ALLOWED, exit 0)",
+    "description": "FP-11: Keyword LIKE search with params (DxDaoImpl)",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Edit",
+      "tool_input": {
+        "file_path": "/path/to/DxDaoImpl.java",
+        "new_string": "conditions.add(\"(\" + codingSystem + \" like ?\" + paramIndex + \" or description like ?\" + (paramIndex + 1) + \")\");\nquery.setParameter(paramIndex++, likePattern);\nquery.setParameter(paramIndex++, likePattern);"
+      }
+    }
+  },
+  {
+    "section": "False Positives (should be ALLOWED, exit 0)",
+    "description": "FP-12: String literal split across lines",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Edit",
+      "tool_input": {
+        "file_path": "/path/to/SomeDaoImpl.java",
+        "new_string": "String hql = \"SELECT t FROM Tickler t \" + \"WHERE t.status = :status\";\nquery.setParameter(\"status\", status);"
+      }
+    }
+  },
+  {
+    "section": "False Positives (should be ALLOWED, exit 0)",
+    "description": "FP-13: StringBuilder findAll with optional WHERE",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SomeDaoImpl.java",
+        "content": "StringBuilder sb = new StringBuilder();\nsb.append(\"select x from \");\nsb.append(modelClass.getSimpleName());\nsb.append(\" x\");\nif (current != null) {\n    sb.append(\" where x.current=?1\");\n}\nQuery query = entityManager.createQuery(sb.toString());\nif (current != null) {\n    query.setParameter(1, current);\n}"
+      }
+    }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-1: Direct value injection (userId)",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Edit",
+      "tool_input": {
+        "file_path": "/path/to/UnsafeDao.java",
+        "new_string": "String sql = \"SELECT * FROM users WHERE id = \" + userId;\nstatement.executeQuery(sql);"
+      }
+    }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-2: String.format SQL injection",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Edit",
+      "tool_input": {
+        "file_path": "/path/to/UnsafeDao.java",
+        "new_string": "String query = String.format(\"SELECT * FROM users WHERE name = %s\", userName);"
+      }
+    }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-3: Quoted value injection",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Edit",
+      "tool_input": {
+        "file_path": "/path/to/UnsafeDao.java",
+        "new_string": "String sql = \"SELECT * FROM patients WHERE name = '\" + patientName + \"'\";"
+      }
+    }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-4: executeQuery with direct concat",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Edit",
+      "tool_input": {
+        "file_path": "/path/to/UnsafeDao.java",
+        "new_string": "rs = statement.executeQuery(\"SELECT * FROM users WHERE id = \" + userId);"
+      }
+    }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-5: createQuery with user value concat",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Edit",
+      "tool_input": {
+        "file_path": "/path/to/UnsafeDao.java",
+        "new_string": "Query q = entityManager.createQuery(\"SELECT u FROM User u WHERE u.name = \" + userName);"
+      }
+    }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-6: WHERE clause direct value injection",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Edit",
+      "tool_input": {
+        "file_path": "/path/to/UnsafeDao.java",
+        "new_string": "String condition = \"WHERE status = \" + userStatus;\nString sql = \"SELECT * FROM orders \" + condition;"
+      }
+    }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-7: Mixed safe setParameter and unsafe concat should be blocked",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Edit",
+      "tool_input": {
+        "file_path": "/path/to/MixedDao.java",
+        "new_string": "Query q = entityManager.createQuery(\"SELECT u FROM User u WHERE u.id = :id\");\nq.setParameter(\"id\", userId);\nString sql = \"SELECT * FROM users WHERE name = '\" + userName + \"'\";"
+      }
+    }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-8: StringBuilder raw dynamic entity should be blocked",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/UnsafeDao.java",
+        "content": "StringBuilder sb = new StringBuilder();\nsb.append(\"select x from \");\nsb.append(userTable);\nsb.append(\" x where x.id = ?1\");\nQuery q = entityManager.createQuery(sb.toString());\nq.setParameter(1, id);"
+      }
+    }
+  },
+  {
+    "section": "Edge Cases",
+    "description": "EC-1: Non-Java file (XML) passes",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/config.xml",
+        "content": "SELECT * FROM users WHERE id = "
+      }
+    }
+  },
+  {
+    "section": "Edge Cases",
+    "description": "EC-2: Read tool passes regardless",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Read",
+      "tool_input": {
+        "file_path": "/path/to/UnsafeDao.java"
+      }
+    }
+  },
+  {
+    "section": "Edge Cases",
+    "description": "EC-3: Empty content passes",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Edit",
+      "tool_input": {
+        "file_path": "/path/to/SomeDaoImpl.java",
+        "new_string": ""
+      }
+    }
+  },
+  {
+    "section": "Edge Cases",
+    "description": "EC-4: Static parameterized query",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Edit",
+      "tool_input": {
+        "file_path": "/path/to/SafeDao.java",
+        "new_string": "Query q = entityManager.createQuery(\"SELECT u FROM User u WHERE u.id = :id\");\nq.setParameter(\"id\", userId);"
+      }
+    }
+  },
+  {
+    "section": "Edge Cases",
+    "description": "EC-5: Criteria API (always safe)",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Edit",
+      "tool_input": {
+        "file_path": "/path/to/SafeDao.java",
+        "new_string": "CriteriaBuilder cb = entityManager.getCriteriaBuilder();\nCriteriaQuery<User> cq = cb.createQuery(User.class);\nRoot<User> root = cq.from(User.class);\ncq.select(root).where(cb.equal(root.get(\"id\"), userId));"
+      }
+    }
+  }
+]

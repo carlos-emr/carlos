@@ -194,6 +194,17 @@ class JspJavaScriptEncodingRegressionTest {
         }
     }
 
+    @Test
+    @DisplayName("should encode billing settings custom clinic info textarea in HTML body context")
+    @Tag("security")
+    void shouldEncodeBillingSettingsCustomClinicInfoTextarea_inHtmlBodyContext() throws Exception {
+        String billingSettingsJsp = readJsp("admin/billingSettings.jsp");
+
+        assertThat(billingSettingsJsp)
+                .contains("${carlos:forHtmlContent(\"on\" eq dataBean[\"invoice_use_custom_clinic_info\"] ? dataBean[\"invoice_custom_clinic_info\"] : clinicData.label)}")
+                .doesNotContain("${\"on\" eq dataBean[\"invoice_use_custom_clinic_info\"] ? dataBean[\"invoice_custom_clinic_info\"] : clinicData.label }");
+    }
+
     private static String readJsp(String relativePath) throws Exception {
         return Files.readString(JSP_ROOT.resolve(relativePath));
     }

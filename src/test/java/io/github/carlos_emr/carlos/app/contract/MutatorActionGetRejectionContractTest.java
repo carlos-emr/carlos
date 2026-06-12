@@ -21,7 +21,9 @@
  */
 package io.github.carlos_emr.carlos.app.contract;
 
+import io.github.carlos_emr.carlos.admin.web.SecurityAddSecurity2Action;
 import io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action;
+import io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action;
 import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -157,7 +159,11 @@ class MutatorActionGetRejectionContractTest {
             // --- admin ---
             Arguments.of("io.github.carlos_emr.carlos.admin.web.ClinicNbrManage2Action",
                     "_admin", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.admin.web.SecurityAddSecurity2Action",
+                    "_admin", "w"),
             Arguments.of("io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action",
+                    "_admin", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action",
                     "_admin", "w"),
             // --- clinical measurements / flowsheets ---
             Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action",
@@ -300,7 +306,9 @@ class MutatorActionGetRejectionContractTest {
     private static final Set<String> IN_SCOPE_EXPLICIT_CLASSES = Set.of(
         "io.github.carlos_emr.carlos.admin.web.ClientManage2Action",
         "io.github.carlos_emr.carlos.admin.web.ClinicNbrManage2Action",
+        "io.github.carlos_emr.carlos.admin.web.SecurityAddSecurity2Action",
         "io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action",
+        "io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSaveBilling2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingUpdateBilling2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ManageTeleplan2Action",
@@ -466,6 +474,16 @@ class MutatorActionGetRejectionContractTest {
             when(methodSecurity.hasAdminWrite()).thenReturn(true);
             SecurityDao securityDao = (SecurityDao) autoMocks.computeIfAbsent(SecurityDao.class, Mockito::mock);
             return new SecurityDelete2Action(securityDao, methodSecurity);
+        }
+        if (actionClass.equals(SecurityAddSecurity2Action.class)) {
+            CarlosMethodSecurity methodSecurity = mock(CarlosMethodSecurity.class);
+            when(methodSecurity.hasAdminWrite()).thenReturn(true);
+            return new SecurityAddSecurity2Action(methodSecurity);
+        }
+        if (actionClass.equals(SecurityUpdate2Action.class)) {
+            CarlosMethodSecurity methodSecurity = mock(CarlosMethodSecurity.class);
+            when(methodSecurity.hasAdminWrite()).thenReturn(true);
+            return new SecurityUpdate2Action(methodSecurity);
         }
         return actionClass.getDeclaredConstructor().newInstance();
     }
