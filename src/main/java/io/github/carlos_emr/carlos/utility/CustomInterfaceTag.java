@@ -32,7 +32,7 @@ package io.github.carlos_emr.carlos.utility;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Random;
+import java.util.UUID;
 
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.http.HttpServletRequest;
@@ -110,8 +110,8 @@ public class CustomInterfaceTag extends TagSupport {
                         customTag = "ocean-host=" + Encode.forUriComponent(props.getProperty("ocean_host"));
                     }
 
-                    int randomNo = new Random().nextInt();
-                    out.println("<script id=\"mainScript\" src=\"" + contextPath + scriptPath + "?no-cache=" + randomNo + "&autoRefresh=true\" hide_ConReport=\"" + hide_ConReport + "\" cardswipe=\"" + cardswipe + "\" " + customTag + " ></script>");
+                    String cacheBuster = UUID.randomUUID().toString();
+                    out.println("<script id=\"mainScript\" src=\"" + contextPath + scriptPath + "?no-cache=" + cacheBuster + "&autoRefresh=true\" hide_ConReport=\"" + hide_ConReport + "\" cardswipe=\"" + cardswipe + "\" " + customTag + " ></script>");
                 }
             } catch (IOException e) {
                 logger.error("Error", e);

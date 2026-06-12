@@ -231,6 +231,7 @@ public final class MiscUtils {
     // to java.lang/util/io/math + the project's own namespace. No project class defines
     // a side-effecting readObject/readResolve (verified via grep). Filter set BEFORE
     // readObject is called. Callers pass internally-serialized Integrator payloads.
+    @SuppressFBWarnings(value = "OBJECT_DESERIALIZATION", justification = "ObjectInputFilter is installed before readObject and limits classes/resources; callers pass internally serialized payloads")
     public static Serializable deserialize(byte[] b) throws IOException, ClassNotFoundException { // lgtm[java/unsafe-deserialization]
         try (ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(b))) {
             ois.setObjectInputFilter(DESERIALIZATION_FILTER);
@@ -256,8 +257,9 @@ public final class MiscUtils {
     }
 
     // FP for deserialization scanners: same DESERIALIZATION_FILTER as deserialize(byte[])
-    // above; callers pass filenames that resolve to internal classpath resources or files
-    // written by the application itself (not user-uploaded bytes).
+    // above; callers pass filenames that resolve to internal classpath resources or
+    // validated configured files written by the application itself (not user-uploaded bytes).
+    @SuppressFBWarnings(value = "OBJECT_DESERIALIZATION", justification = "ObjectInputFilter is installed before readObject; inputs are internal classpath resources or validated configured files")
     public static Serializable deserializeFromFile(String filename) throws IOException, ClassNotFoundException { // lgtm[java/unsafe-deserialization]
         InputStream rawIs = MiscUtils.class.getResourceAsStream(filename);
         if (rawIs == null) {
