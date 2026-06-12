@@ -118,7 +118,8 @@ public class WorkFlowState {
             "1", "No Appt made",
             "2", "Appt Booked",
             "3", "Injection 28",
-            "4", "Missed Appt",
+            "4", "Requires Another Injection",
+            "5", "Missed Appt",
             "C", "Closed"
     );
 

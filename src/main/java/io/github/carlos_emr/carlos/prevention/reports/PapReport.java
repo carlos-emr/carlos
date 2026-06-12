@@ -71,7 +71,7 @@ public class PapReport implements PreventionReport {
 
         /////
         for (int i = 0; i < list.size(); i++) {//for each  element in arraylist
-            ArrayList<String> fieldList = (ArrayList<String>) list.get(i);
+            ArrayList<String> fieldList = list.get(i);
             Integer demo = Integer.valueOf(fieldList.get(0));
             //search   prevention_date prevention_type  deleted   refused
             ArrayList<Map<String, Object>> prevs = PreventionData.getPreventionData(loggedInInfo, "PAP", demo);
