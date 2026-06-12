@@ -141,16 +141,18 @@
 
     </form>
 
+    <fmt:message key="eform.uploadhtml.msgFileMissing" var="fileMissingMsg"/>
+    <fmt:message key="eform.uploadimages.processing" var="processingMsg"/>
     <div style="font-size:0; line-height:0">&nbsp;</div>
 
     <script>
         function checkFormAndDisable() {
             if (document.forms[0].formHtml.value === "") {
-                alert('<fmt:message key="eform.uploadhtml.msgFileMissing"/>');
+                alert("${carlos:forJavaScript(fileMissingMsg)}");
                 return false;
             }
 
-            document.forms[0].subm.value = '<fmt:message key="eform.uploadimages.processing"/>';
+            document.forms[0].subm.value = "${carlos:forJavaScript(processingMsg)}";
             document.forms[0].subm.disabled = true;
             return true;
         }

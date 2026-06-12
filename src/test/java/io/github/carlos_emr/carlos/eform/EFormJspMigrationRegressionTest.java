@@ -171,18 +171,23 @@ class EFormJspMigrationRegressionTest {
     }
 
     @Test
-    @DisplayName("upload partial JS strings containing fmt:message should use single quotes so translated messages with double quotes don't break JavaScript")
-    void shouldUseSingleQuotedJsStrings_aroundFmtMessageInCheckFormAndDisable() throws IOException {
-        // The Polish locale for eform.uploadhtml.msgFileMissing contains double quotes:
-        //   kliknąć przycisk "Prześlij"
-        // If wrapped in a double-quoted JS string (alert("...")), Tomcat produces broken JS.
-        // Single-quoted JS strings are safe regardless of the translated text.
+    @DisplayName("upload partial JS strings containing localized messages should use carlos:forJavaScript so neither apostrophes nor double quotes in any locale break JavaScript")
+    void shouldUseJavaScriptEncoding_forLocalizedMessagesInCheckFormAndDisable() throws IOException {
+        // Two locales expose two different failure modes if messages are placed raw in JS strings:
+        //   Polish (msgFileMissing): kliknąć przycisk "Prześlij" — double quotes break a double-quoted string
+        //   French (msgFileMissing): Veuillez d'abord... — apostrophe breaks a single-quoted string
+        // The safe solution for both is to capture the message into a JSTL var and encode it with
+        // ${carlos:forJavaScript(var)}, which escapes backslashes, quotes, and control characters.
         String jsp = Files.readString(UPLOAD_PARTIAL_JSP, StandardCharsets.UTF_8);
 
         assertThat(jsp)
             .doesNotContain("alert(\"<fmt:message")
+            .doesNotContain("alert('<fmt:message")
             .doesNotContain(".subm.value = \"<fmt:message")
-            .contains("alert('<fmt:message key=\"eform.uploadhtml.msgFileMissing\"/>')")
-            .contains(".subm.value = '<fmt:message key=\"eform.uploadimages.processing\"/>'");
+            .doesNotContain(".subm.value = '<fmt:message")
+            .contains("<fmt:message key=\"eform.uploadhtml.msgFileMissing\" var=")
+            .contains("<fmt:message key=\"eform.uploadimages.processing\" var=")
+            .containsPattern("alert\\(\"\\$\\{carlos:forJavaScript\\([^)]+\\)\\}\"\\)")
+            .containsPattern("\\.subm\\.value = \"\\$\\{carlos:forJavaScript\\([^)]+\\)\\}\"");
     }
 }
