@@ -51,8 +51,15 @@
     return;
   }
   String appointmentNoParam = request.getParameter("appointment_no");
+  String status = request.getParameter("status");
+  String statusch = request.getParameter("statusch");
+
+  if (status == null || statusch == null) {
+    response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+    return;
+  }
   String[] param = new String[3];
-  param[0] = request.getParameter("status") + request.getParameter("statusch");
+  param[0] = status + statusch;
   param[1] = curUser_no;
   param[2] = appointmentNoParam;
 
@@ -70,7 +77,7 @@
 
   if (appt != null) {
     appointmentArchiveDao.archiveAppointment(appt);
-    appt.setStatus(request.getParameter("status") + request.getParameter("statusch"));
+    appt.setStatus(status + statusch);
     appt.setLastUpdateUser(curUser_no);
     appointmentDao.merge(appt);
     rowsAffected = 1;
