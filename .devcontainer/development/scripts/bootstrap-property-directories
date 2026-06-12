@@ -26,6 +26,14 @@ for property_name in "$@"; do
                 if (name == key) {
                     value=substr($0, index($0, "=") + 1)
                     sub(/^[[:space:]]+/, "", value)
+                    while (sub(/\\$/, "", value)) {
+                        if ((getline cont) > 0) {
+                            sub(/^[[:space:]]+/, "", cont)
+                            value = value cont
+                        } else {
+                            break
+                        }
+                    }
                     sub(/[[:space:]]+$/, "", value)
                     last=value
                     found=1

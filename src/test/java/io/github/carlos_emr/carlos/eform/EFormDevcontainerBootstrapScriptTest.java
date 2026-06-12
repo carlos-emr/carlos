@@ -54,7 +54,7 @@ class EFormDevcontainerBootstrapScriptTest {
 
     @Test
     @DisplayName("should create each requested absolute property directory")
-    void shouldCreateEveryRequestedPropertyDirectory() throws Exception {
+    void shouldCreateDirectory_forEveryRequestedProperty() throws Exception {
         Path images = tempDir.resolve("images");
         Path documents = tempDir.resolve("documents");
         Path properties = writeProperties("""
@@ -71,7 +71,7 @@ class EFormDevcontainerBootstrapScriptTest {
 
     @Test
     @DisplayName("should reject relative property paths")
-    void shouldRejectRelativePropertyPath() throws Exception {
+    void shouldReject_whenPropertyPathIsRelative() throws Exception {
         Path properties = writeProperties("EFORM_IMAGES_DIR=relative/eform/images\n");
 
         CommandResult result = runBootstrap(properties, "EFORM_IMAGES_DIR");
@@ -83,13 +83,30 @@ class EFormDevcontainerBootstrapScriptTest {
 
     @Test
     @DisplayName("should fail when a requested property is absent")
-    void shouldFailWhenRequestedPropertyIsAbsent() throws Exception {
+    void shouldFail_whenRequestedPropertyIsAbsent() throws Exception {
         Path properties = writeProperties("DOCUMENT_DIR=" + tempDir.resolve("documents") + "\n");
 
         CommandResult result = runBootstrap(properties, "EFORM_IMAGES_DIR");
 
         assertThat(result.exitCode()).isEqualTo(1);
         assertThat(result.stderr()).contains("Property EFORM_IMAGES_DIR is not set");
+    }
+
+    @Test
+    @DisplayName("should assemble backslash-continued property values to match Java Properties semantics")
+    void shouldAssembleValue_whenPropertyHasBackslashContinuation() throws Exception {
+        // Java Properties allows splitting long values across lines with a trailing backslash.
+        // The leading whitespace on the continuation line is stripped before joining.
+        // carlos.properties documents this format in its own header comments.
+        Path target = tempDir.resolve("eform").resolve("images");
+        Path properties = writeProperties(
+            "EFORM_IMAGES_DIR=" + tempDir.toAbsolutePath() + "/\\\n" +
+            "    eform/images\n");
+
+        CommandResult result = runBootstrap(properties, "EFORM_IMAGES_DIR");
+
+        assertThat(result.exitCode()).isZero();
+        assertThat(target).isDirectory();
     }
 
     private Path writeProperties(String content) throws IOException {
