@@ -52,7 +52,6 @@
 <%@page import="io.github.carlos_emr.carlos.utility.DigitalSignatureUtils" %>
 <%@page import="io.github.carlos_emr.carlos.ui.servlet.ImageRenderingServlet" %>
 <!-- end -->
-<%@ page import="org.owasp.encoder.Encode" %>
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -547,9 +546,8 @@
                                     statusUrl = request.getContextPath() + "/PMmodule/ClientManager/check_signature_status.jsp?" + DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY + "=" + signatureRequestId;
 
                                     // Check for provider signature stamp (may differ from session user on reprints)
-                                    UserProperty rxSigProp = userPropertyDAO.getProp(signingProvider, UserProperty.PROVIDER_CONSULT_SIGNATURE);
                                     boolean hasRxStampSignature = false;
-                                    if (rxSigProp != null && rxSigProp.getValue() != null && !rxSigProp.getValue().trim().isEmpty()) {
+                                    if (signingProvider != null && !signingProvider.trim().isEmpty()) {
                                         try {
                                             File imageFolder = new File(CarlosProperties.getInstance().getEformImageDirectory());
                                             File rxStampFile = PathValidationUtils.validatePath(UserProperty.CONSULT_SIGNATURE_PREFIX + signingProvider + ".png", imageFolder);
@@ -564,7 +562,7 @@
                                     } else if (!"true".equalsIgnoreCase(rePrint) && hasRxStampSignature) {
                                         // Only apply the stamp on new prescriptions; reprints use the stored digital signature only.
                                         // When the signing provider differs from the session user, request the actual signing provider's stamp.
-                                        startimageUrl = request.getContextPath() + "/provider/providerSignatureImage?providerNo=" + Encode.forUriComponent(signingProvider);
+                                        startimageUrl = request.getContextPath() + "/provider/providerSignatureImage?providerNo=" + SafeEncode.forUriComponent(signingProvider);
                                     }
                                 %>
 

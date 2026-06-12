@@ -26,24 +26,34 @@ class SignatureStampJspRegressionTest {
 
     @Test
     @DisplayName("Rx preview should request the signing provider's stamp and verify the file exists")
-    void rxPreviewShouldUseProviderSpecificStampRoute() throws Exception {
+    void shouldUseProviderSpecificStampRoute_inRxPreview() throws Exception {
         String jsp = Files.readString(RX_PREVIEW_JSP, StandardCharsets.UTF_8);
+        String normalizedJsp = normalizeWhitespace(jsp);
 
-        assertThat(jsp)
-                .contains("PathValidationUtils.validatePath(UserProperty.CONSULT_SIGNATURE_PREFIX + signingProvider + \".png\"")
+        assertThat(normalizedJsp)
+                .contains("boolean hasRxStampSignature = false;")
+                .contains("if (signingProvider != null && !signingProvider.trim().isEmpty())")
+                .contains("PathValidationUtils.validatePath(UserProperty.CONSULT_SIGNATURE_PREFIX + signingProvider + \".png\", imageFolder);")
                 .contains("/provider/providerSignatureImage?providerNo=")
+                .contains("SafeEncode.forUriComponent(signingProvider)")
+                .doesNotContain("UserProperty rxSigProp =")
                 .doesNotContain("startimageUrl = request.getContextPath() + \"/provider/providerSignatureImage\";");
     }
 
     @Test
     @DisplayName("Consultation request should only enable stamp mode when the file exists")
-    void consultationRequestShouldRequireUsableStampFile() throws Exception {
+    void shouldRequireUsableStampFile_inConsultationRequest() throws Exception {
         String jsp = Files.readString(CONSULT_JSP, StandardCharsets.UTF_8);
+        String normalizedJsp = normalizeWhitespace(jsp);
 
-        assertThat(jsp)
+        assertThat(normalizedJsp)
                 .contains("boolean hasStampSignature = false;")
                 .contains("consultSigFile.exists()")
                 .contains("/provider/providerSignatureImage?providerNo=<%=SafeEncode.forUriComponent(providerNo)%>")
                 .doesNotContain("boolean hasStampSignature = (consultSigProp != null && consultSigProp.getValue() != null && !consultSigProp.getValue().trim().isEmpty());");
+    }
+
+    private static String normalizeWhitespace(String value) {
+        return value.replaceAll("\\s+", " ").trim();
     }
 }

@@ -115,7 +115,7 @@ class ProviderSignatureImage2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should serve the logged-in provider's own stamp with preference read access")
-    void shouldServeOwnStamp() throws Exception {
+    void shouldServeOwnStamp_whenPreferenceReadGranted() throws Exception {
         Files.write(tempDir.resolve("consult_sig_999998.png"), new byte[] {1, 2, 3});
 
         String result = action.execute();
@@ -127,8 +127,25 @@ class ProviderSignatureImage2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should serve the logged-in provider's own stamp in clinical flows without preference access")
+    void shouldServeOwnStamp_whenRxReadGrantedForExplicitProviderRequest() throws Exception {
+        mockRequest.setParameter("providerNo", "999998");
+        Files.write(tempDir.resolve("consult_sig_999998.png"), new byte[] {4, 5, 6});
+        when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_pref"), eq("r"), isNull()))
+                .thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_rx"), eq("r"), isNull()))
+                .thenReturn(true);
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        assertThat(mockResponse.getContentAsByteArray()).containsExactly(4, 5, 6);
+    }
+
+    @Test
     @DisplayName("should serve another provider's stamp when Rx read access is granted")
-    void shouldServeOtherProviderStampWhenRxReadGranted() throws Exception {
+    void shouldServeOtherProviderStamp_whenRxReadGranted() throws Exception {
         mockRequest.setParameter("providerNo", "123456");
         Files.write(tempDir.resolve("consult_sig_123456.png"), new byte[] {7, 8, 9});
         when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_rx"), eq("r"), isNull()))
@@ -143,7 +160,7 @@ class ProviderSignatureImage2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should serve another provider's stamp when eForm read access is granted")
-    void shouldServeOtherProviderStampWhenEformReadGranted() throws Exception {
+    void shouldServeOtherProviderStamp_whenEformReadGranted() throws Exception {
         mockRequest.setParameter("providerNo", "123456");
         Files.write(tempDir.resolve("consult_sig_123456.png"), new byte[] {4, 5, 6});
         when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_rx"), eq("r"), isNull()))
@@ -164,7 +181,7 @@ class ProviderSignatureImage2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should forbid another provider's stamp without clinical read access")
-    void shouldForbidOtherProviderStampWithoutClinicalAccess() {
+    void shouldForbidOtherProviderStamp_withoutClinicalAccess() {
         mockRequest.setParameter("providerNo", "123456");
         when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_rx"), eq("r"), isNull()))
                 .thenReturn(false);
@@ -184,7 +201,7 @@ class ProviderSignatureImage2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should return 404 when the requested provider stamp file is missing")
-    void shouldReturn404WhenRequestedProviderStampIsMissing() {
+    void shouldReturn404_whenRequestedProviderStampIsMissing() {
         mockRequest.setParameter("providerNo", "123456");
         when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_rx"), eq("r"), isNull()))
                 .thenReturn(true);
@@ -198,7 +215,7 @@ class ProviderSignatureImage2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should return bad request when the logged-in provider number is invalid")
-    void shouldReturnBadRequestWhenLoggedInProviderNoIsInvalid() {
+    void shouldReturnBadRequest_whenLoggedInProviderNoIsInvalid() {
         when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("provider-x");
 
         String result = action.execute();
@@ -210,7 +227,7 @@ class ProviderSignatureImage2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should return bad request when requested provider number is not numeric")
-    void shouldReturnBadRequestWhenRequestedProviderNoIsNotNumeric() {
+    void shouldReturnBadRequest_whenRequestedProviderNoIsNotNumeric() {
         mockRequest.setParameter("providerNo", "abc123");
 
         String result = action.execute();

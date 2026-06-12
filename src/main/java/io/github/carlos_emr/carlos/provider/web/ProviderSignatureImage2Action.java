@@ -49,12 +49,12 @@ import java.io.IOException;
 import java.io.OutputStream;
 
 /**
- * Serves the logged-in provider's own signature image with per-provider authorization.
+ * Serves provider signature stamp images with per-provider authorization.
  *
- * <p>Unlike {@code DisplayImage2Action} (which serves any eForm image to any authenticated user),
- * this endpoint derives the provider number from the session — no {@code providerNo} parameter
- * is accepted. This prevents cross-provider signature access when only the requester's own
- * signature is needed.</p>
+ * <p>Preference pages can request the logged-in provider's own stamp without a
+ * {@code providerNo} parameter. Clinical callers may request a specific provider's
+ * stamp by supplying {@code providerNo}, but only when they have the relevant
+ * clinical privileges.</p>
  *
  * <p>Returns HTTP 401 if not authenticated, 404 if the signature file does not exist,
  * or 500 on internal error. On success, streams the PNG image inline.</p>
@@ -82,9 +82,7 @@ public class ProviderSignatureImage2Action extends ActionSupport {
             return NONE;
         }
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pref", READ, null)) {
-            throw new SecurityException("missing required sec object (_pref)");
-        }
+        boolean hasPreferenceAccess = securityInfoManager.hasPrivilege(loggedInInfo, "_pref", READ, null);
 
         String loggedInProviderNo = loggedInInfo.getLoggedInProviderNo();
         if (loggedInProviderNo == null || !loggedInProviderNo.matches("\\d+")) {
@@ -93,17 +91,22 @@ public class ProviderSignatureImage2Action extends ActionSupport {
         }
 
         String requestedProviderNo = request.getParameter("providerNo");
-        String providerNo = (requestedProviderNo == null || requestedProviderNo.isBlank())
-                ? loggedInProviderNo
-                : requestedProviderNo.trim();
+        boolean hasExplicitProviderRequest = requestedProviderNo != null && !requestedProviderNo.isBlank();
+        String providerNo = hasExplicitProviderRequest
+                ? requestedProviderNo.trim()
+                : loggedInProviderNo;
         if (!providerNo.matches("\\d+")) {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }
 
-        if (!providerNo.equals(loggedInProviderNo) && !canViewOtherProviderStamp(loggedInInfo)) {
+        boolean hasClinicalStampAccess = hasExplicitProviderRequest && canViewProviderStampFromClinicalFlow(loggedInInfo);
+        if (!providerNo.equals(loggedInProviderNo) && !hasClinicalStampAccess) {
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
             return NONE;
+        }
+        if (providerNo.equals(loggedInProviderNo) && !hasPreferenceAccess && !hasClinicalStampAccess) {
+            throw new SecurityException("missing required sec object (_pref, _rx, _con, or _eform)");
         }
 
         String signatureName = UserProperty.CONSULT_SIGNATURE_PREFIX + providerNo + ".png";
@@ -148,7 +151,7 @@ public class ProviderSignatureImage2Action extends ActionSupport {
         return NONE;
     }
 
-    private boolean canViewOtherProviderStamp(LoggedInInfo loggedInInfo) {
+    private boolean canViewProviderStampFromClinicalFlow(LoggedInInfo loggedInInfo) {
         return securityInfoManager.hasPrivilege(loggedInInfo, "_rx", READ, null)
                 || securityInfoManager.hasPrivilege(loggedInInfo, "_con", READ, null)
                 || securityInfoManager.hasPrivilege(loggedInInfo, "_con", WRITE, null)
