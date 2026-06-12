@@ -48,6 +48,8 @@ class EFormJspMigrationRegressionTest {
 
     private static final Path PATIENT_FORM_LIST_JSP =
             Path.of("src/main/webapp/WEB-INF/jsp/eform/efmpatientformlist.jsp");
+    private static final Path UPLOAD_PARTIAL_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/eform/partials/upload.jsp");
     private static final Path IMPORT_PARTIAL_JSP =
             Path.of("src/main/webapp/WEB-INF/jsp/eform/partials/import.jsp");
     private static final Path EFM_TOP_NAV_JSPF =
@@ -166,5 +168,21 @@ class EFormJspMigrationRegressionTest {
         assertThat(jsp).contains("<carlos:encode value='<%= importError %>' context=\"html\"/>");
         assertThat(jsp).doesNotContain("<li><%= error %></li>");
         assertThat(jsp).doesNotContain("<%=importError%>");
+    }
+
+    @Test
+    @DisplayName("upload partial JS strings containing fmt:message should use single quotes so translated messages with double quotes don't break JavaScript")
+    void shouldUseSingleQuotedJsStrings_aroundFmtMessageInCheckFormAndDisable() throws IOException {
+        // The Polish locale for eform.uploadhtml.msgFileMissing contains double quotes:
+        //   kliknąć przycisk "Prześlij"
+        // If wrapped in a double-quoted JS string (alert("...")), Tomcat produces broken JS.
+        // Single-quoted JS strings are safe regardless of the translated text.
+        String jsp = Files.readString(UPLOAD_PARTIAL_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+            .doesNotContain("alert(\"<fmt:message")
+            .doesNotContain(".subm.value = \"<fmt:message")
+            .contains("alert('<fmt:message key=\"eform.uploadhtml.msgFileMissing\"/>')")
+            .contains(".subm.value = '<fmt:message key=\"eform.uploadimages.processing\"/>'");
     }
 }
