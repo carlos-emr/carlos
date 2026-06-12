@@ -1069,8 +1069,9 @@
         <Method name="toDocument"/>
     </Match>
 
-    <!-- Redirect target is a same-origin application path, not an attacker-controlled
-         external URL. -->
+    <!-- Redirect host is a hardcoded external constant (resource.oscarmcmaster.org);
+         only a URL-encoded query parameter is appended, so the destination is not
+         attacker-controllable. -->
     <Match>
         <Bug pattern="UNVALIDATED_REDIRECT"/>
         <Class name="io.github.carlos_emr.carlos.prescript.pageUtil.RxDrugInfo2Action"/>

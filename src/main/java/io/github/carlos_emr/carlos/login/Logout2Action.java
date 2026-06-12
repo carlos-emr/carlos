@@ -203,7 +203,7 @@ public class Logout2Action extends ActionSupport {
      */
     // FindSecBugs INSECURE_COOKIE/COOKIE_USAGE: logout writes empty maxAge(0) deletion cookies only.
     // Do not add persistent or sensitive cookie writes under this suppression.
-    @SuppressFBWarnings(value = {"INSECURE_COOKIE", "COOKIE_USAGE"}, justification = "logout only creates empty maxAge(0) deletion cookies with Secure, HttpOnly, and SameSite; it does not store sensitive cookie data")
+    @SuppressFBWarnings(value = {"INSECURE_COOKIE", "COOKIE_USAGE"}, justification = "logout only creates empty maxAge(0) deletion cookies with HttpOnly and SameSite=Strict, and Secure when the request is over HTTPS; it does not store sensitive cookie data")
     public String logout() {
 
         // Retrieve existing session without creating new one

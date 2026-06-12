@@ -242,11 +242,12 @@
         }
 
         function popupEditWlNamePage() {
-            document.forms[0].waitingListId.value =
+            var waitingListId =
                 document.forms[0].selectedWL.options[document.forms[0].selectedWL.selectedIndex].value;
+            document.forms[0].waitingListId.value = waitingListId;
 
             var redirectPage = "<%=request.getContextPath()%>/waitinglist/WLEditWaitingListNameAction?waitingListId=" +
-                document.forms[0].selectedWL.options[document.forms[0].selectedWL.selectedIndex].value;
+                encodeURIComponent(waitingListId);
             popupDemographicPage(redirectPage);
         }
 

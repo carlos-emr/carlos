@@ -58,6 +58,8 @@ echo ""
 FIXTURES="$(cd "$(dirname "$0")" && pwd)/test-sql-safety-fixtures.json"
 current_section=""
 
+# The Python fixture emitter below uses tab-delimited fields for Bash.
+# Keep emitted section, description, expected_exit, and JSON payload fields single-line and tab-free.
 while IFS=$'	' read -r section description expected_exit json_payload; do
     if [ "$section" != "$current_section" ]; then
         if [ -n "$current_section" ]; then

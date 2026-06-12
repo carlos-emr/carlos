@@ -240,6 +240,18 @@
     }
   },
   {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-8: StringBuilder raw dynamic entity should be blocked",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/UnsafeDao.java",
+        "content": "StringBuilder sb = new StringBuilder();\nsb.append(\"select x from \");\nsb.append(userTable);\nsb.append(\" x where x.id = ?1\");\nQuery q = entityManager.createQuery(sb.toString());\nq.setParameter(1, id);"
+      }
+    }
+  },
+  {
     "section": "Edge Cases",
     "description": "EC-1: Non-Java file (XML) passes",
     "expected_exit": 0,
