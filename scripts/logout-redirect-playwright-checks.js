@@ -1,5 +1,27 @@
 #!/usr/bin/env node
 /*
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+
+/*
  * Browser smoke checks for PR #2722 logout-redirect surfaces.
  *
  * This script verifies the affected CARLOS routes behave safely from the
@@ -45,7 +67,7 @@ const graphMeasurementType = process.env.GRAPH_MEASUREMENT_TYPE || 'ALT';
 const graphPath = process.env.GRAPH_PATH
   || `/encounter/GraphMeasurements?demographic_no=${encodeURIComponent(graphDemographicNo)}&type=${encodeURIComponent(graphMeasurementType)}`;
 const carlosLogFile = process.env.CARLOS_LOG_FILE || '';
-const timeout = Number(process.env.PLAYWRIGHT_TIMEOUT || 30000);
+const timeout = parseTimeout(process.env.PLAYWRIGHT_TIMEOUT, 30000);
 
 const findings = [];
 const visited = [];
@@ -77,6 +99,34 @@ function validateBaseUrl(rawBaseUrl) {
   return parsed;
 }
 
+function parseTimeout(rawTimeout, fallback) {
+  if (rawTimeout === undefined || rawTimeout === '') {
+    return fallback;
+  }
+  const parsed = Number(rawTimeout);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error(`PLAYWRIGHT_TIMEOUT must be a positive number, got ${rawTimeout}`);
+  }
+  return parsed;
+}
+
+function safeUrl(rawUrl) {
+  try {
+    const parsed = new URL(rawUrl);
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return rawUrl;
+    }
+    const queryKeys = [...parsed.searchParams.keys()];
+    parsed.search = '';
+    if (!queryKeys.length) {
+      return parsed.toString();
+    }
+    return `${parsed.toString()}?${queryKeys.map((key) => `${encodeURIComponent(key)}=<redacted>`).join('&')}`;
+  } catch {
+    return '<unparseable-url>';
+  }
+}
+
 function appUrl(appPath) {
   if (!appPath.startsWith('/') || appPath.startsWith('//')) {
     throw new Error(`Application path must be root-relative, got ${appPath}`);
@@ -92,7 +142,7 @@ function safeGoto(page, label, appPath, options = {}) {
   const targetUrl = appUrl(appPath);
   // nosemgrep -- appUrl rejects non-root-relative paths and validateBaseUrl rejects non-local hosts unless explicitly allowed.
   return page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout, ...options }).then((response) => {
-    visited.push({ label, status: response ? response.status() : null, url: page.url(), targetUrl });
+    visited.push({ label, status: response ? response.status() : null, url: safeUrl(page.url()), targetUrl: safeUrl(targetUrl) });
     return response;
   });
 }
@@ -124,19 +174,24 @@ function wirePage(page, label) {
     const responseUrl = response.url();
     const status = response.status();
     if (status >= 400 && !isExpectedMissingAsset(status, responseUrl)) {
-      findings.push({ label, type: 'http', status, url: responseUrl });
+      findings.push({ label, type: 'http', status, url: safeUrl(responseUrl) });
     }
   });
   page.on('console', (message) => {
     if (isSevereConsoleMessage(message)) {
-      findings.push({ label, type: `console:${message.type()}`, text: message.text(), location: message.location() });
+      findings.push({
+        label,
+        type: `console:${message.type()}`,
+        ...summarizeText(message.text()),
+        location: safeLocation(message.location()),
+      });
     }
   });
   page.on('pageerror', (error) => {
-    findings.push({ label, type: 'pageerror', text: error.stack || error.message });
+    findings.push({ label, type: 'pageerror', errorName: error.name, ...summarizeText(error.stack || error.message) });
   });
   page.on('dialog', async (dialog) => {
-    findings.push({ label, type: 'dialog', text: dialog.message() });
+    findings.push({ label, type: 'dialog', ...summarizeText(dialog.message()) });
     await dialog.accept();
   });
 }
@@ -154,13 +209,29 @@ function isLoginOrLogoutPage(text, url) {
     || /\/(logoutPage|index|loginfailed|login)(?:$|[?#])/.test(url);
 }
 
+function summarizeText(text = '') {
+  const raw = String(text);
+  return {
+    textLength: raw.length,
+    normalizedTextLength: raw.replace(/\s+/g, ' ').trim().length,
+  };
+}
+
+function safeLocation(location = {}) {
+  return {
+    url: location.url ? safeUrl(location.url) : '',
+    lineNumber: location.lineNumber,
+    columnNumber: location.columnNumber,
+  };
+}
+
 async function assertNoErrorPage(page, label, options = {}) {
   const text = await bodyText(page);
   if (isErrorPageText(text)) {
-    findings.push({ label, type: 'error-page', url: page.url(), body: text.replace(/\s+/g, ' ').slice(0, 500) });
+    findings.push({ label, type: 'error-page', url: safeUrl(page.url()), ...summarizeText(text) });
   }
   if (!options.allowBlank && !text.trim()) {
-    findings.push({ label, type: 'blank-page', url: page.url() });
+    findings.push({ label, type: 'blank-page', url: safeUrl(page.url()) });
   }
   return text;
 }
@@ -179,10 +250,10 @@ async function login(context) {
     page.locator('input[type="submit"], button[type="submit"]').first().click(),
   ]);
   await page.waitForLoadState('networkidle', { timeout }).catch(() => {});
-  visited.push({ label: 'post-login', url: page.url() });
+  visited.push({ label: 'post-login', url: safeUrl(page.url()) });
   const text = await assertNoErrorPage(page, 'post-login');
   if (/login=failed|Login failed|form name="loginForm"/i.test(page.url() + text)) {
-    findings.push({ label: 'post-login', type: 'login-failed', url: page.url(), body: text.slice(0, 500) });
+    findings.push({ label: 'post-login', type: 'login-failed', url: safeUrl(page.url()), ...summarizeText(text) });
   }
   return page;
 }
@@ -197,12 +268,12 @@ async function checkAuthenticatedPageRoute(context, route) {
       label: `authenticated:${route.label}`,
       type: 'bad-navigation-status',
       status: response ? response.status() : null,
-      url: page.url(),
+      url: safeUrl(page.url()),
     });
   }
   const text = await assertNoErrorPage(page, `authenticated:${route.label}`);
   if (isLoginOrLogoutPage(text, page.url())) {
-    findings.push({ label: `authenticated:${route.label}`, type: 'unexpected-auth-redirect', url: page.url(), body: text.slice(0, 500) });
+    findings.push({ label: `authenticated:${route.label}`, type: 'unexpected-auth-redirect', url: safeUrl(page.url()), ...summarizeText(text) });
   }
   await page.close();
 }
@@ -217,14 +288,14 @@ async function checkUnauthenticatedRoute(browser, route) {
   const contentType = response ? response.headers()['content-type'] || '' : '';
 
   if (route.graph && /^image\//i.test(contentType)) {
-    findings.push({ label, type: 'protected-image-rendered', contentType, url: page.url() });
+    findings.push({ label, type: 'protected-image-rendered', contentType, url: safeUrl(page.url()) });
     await context.close();
     return;
   }
 
   const text = await assertNoErrorPage(page, label, { allowBlank: isLoginOrLogoutPage('', page.url()) });
   if (!isLoginOrLogoutPage(text, page.url())) {
-    findings.push({ label, type: 'missing-auth-redirect', url: page.url(), body: text.slice(0, 500) });
+    findings.push({ label, type: 'missing-auth-redirect', url: safeUrl(page.url()), ...summarizeText(text) });
   }
   await context.close();
 }
@@ -276,12 +347,20 @@ function checkLogDelta(snapshot) {
 
   const responseCommitFailure = /(Cannot call sendRedirect|Cannot redirect after response has been committed|response[^.\n]{0,80}committed|IllegalStateException:[^\n]*committed)/i;
   const affectedActionStacktrace = /(?:Exception|Error)[\s\S]{0,1200}(DmsInboxManage2Action|MeasurementGraphAction22Action)|(DmsInboxManage2Action|MeasurementGraphAction22Action)[\s\S]{0,1200}(?:Exception|Error)/i;
-  if (responseCommitFailure.test(delta) || affectedActionStacktrace.test(delta)) {
+  const signals = [];
+  if (responseCommitFailure.test(delta)) {
+    signals.push('response-commit-failure');
+  }
+  if (affectedActionStacktrace.test(delta)) {
+    signals.push('affected-action-stacktrace');
+  }
+  if (signals.length) {
     findings.push({
       label: 'log-scan',
       type: 'affected-route-log-failure',
       file: snapshot.file,
-      excerpt: delta.replace(/\s+/g, ' ').slice(0, 1000),
+      signals,
+      ...summarizeText(delta),
     });
   }
 }
