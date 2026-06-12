@@ -37,7 +37,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class AppointmentUtil {
 
-    private static final String NONE = "(none)";
+    static final String NONE = "(none)";
 
     private AppointmentUtil() {
     }
@@ -45,17 +45,18 @@ public class AppointmentUtil {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static String getNextAppointment(String demographicNo) {
-        if (demographicNo == null || demographicNo.equalsIgnoreCase("") || demographicNo.equalsIgnoreCase("null")) {
+        String normalizedDemographicNo = demographicNo == null ? "" : demographicNo.trim();
+        if (normalizedDemographicNo.equalsIgnoreCase("") || normalizedDemographicNo.equalsIgnoreCase("null") || !normalizedDemographicNo.matches("\\d+")) {
             return NONE;
         }
 
         OscarAppointmentDao dao = SpringUtils.getBean(OscarAppointmentDao.class);
-        Appointment appt = dao.findNextAppointment(ConversionUtils.fromIntString(demographicNo));
+        Appointment appt = dao.findNextAppointment(ConversionUtils.fromIntString(normalizedDemographicNo));
         if (appt == null) {
             return NONE;
         }
 
-        return ConversionUtils.toDateString(appt.getAppointmentDate());
+        return appt.getAppointmentDate() != null ? ConversionUtils.toDateString(appt.getAppointmentDate()) : NONE;
     }
 
 }

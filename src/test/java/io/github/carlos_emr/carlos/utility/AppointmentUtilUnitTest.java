@@ -29,9 +29,11 @@ class AppointmentUtilUnitTest extends CarlosUnitTestBase {
         OscarAppointmentDao appointmentDao = mock(OscarAppointmentDao.class);
         registerMock(OscarAppointmentDao.class, appointmentDao);
 
-        assertEquals("(none)", AppointmentUtil.getNextAppointment(null));
-        assertEquals("(none)", AppointmentUtil.getNextAppointment(""));
-        assertEquals("(none)", AppointmentUtil.getNextAppointment("null"));
+        assertEquals(AppointmentUtil.NONE, AppointmentUtil.getNextAppointment(null));
+        assertEquals(AppointmentUtil.NONE, AppointmentUtil.getNextAppointment(""));
+        assertEquals(AppointmentUtil.NONE, AppointmentUtil.getNextAppointment("null"));
+        assertEquals(AppointmentUtil.NONE, AppointmentUtil.getNextAppointment("   "));
+        assertEquals(AppointmentUtil.NONE, AppointmentUtil.getNextAppointment("abc"));
 
         verifyNoInteractions(appointmentDao);
     }
@@ -46,7 +48,7 @@ class AppointmentUtilUnitTest extends CarlosUnitTestBase {
         appointment.setAppointmentDate(date(2026, Calendar.JULY, 15));
         when(appointmentDao.findNextAppointment(123)).thenReturn(appointment);
 
-        assertEquals("2026-07-15", AppointmentUtil.getNextAppointment("123"));
+        assertEquals("2026-07-15", AppointmentUtil.getNextAppointment(" 123 "));
         verify(appointmentDao).findNextAppointment(123);
     }
 
@@ -57,7 +59,20 @@ class AppointmentUtilUnitTest extends CarlosUnitTestBase {
         registerMock(OscarAppointmentDao.class, appointmentDao);
         when(appointmentDao.findNextAppointment(123)).thenReturn(null);
 
-        assertEquals("(none)", AppointmentUtil.getNextAppointment("123"));
+        assertEquals(AppointmentUtil.NONE, AppointmentUtil.getNextAppointment("123"));
+        verify(appointmentDao).findNextAppointment(123);
+    }
+
+    @Test
+    @DisplayName("getNextAppointment returns none when the next appointment date is missing")
+    void getNextAppointmentReturnsNoneWhenAppointmentDateIsMissing() {
+        OscarAppointmentDao appointmentDao = mock(OscarAppointmentDao.class);
+        registerMock(OscarAppointmentDao.class, appointmentDao);
+
+        Appointment appointment = new Appointment();
+        when(appointmentDao.findNextAppointment(123)).thenReturn(appointment);
+
+        assertEquals(AppointmentUtil.NONE, AppointmentUtil.getNextAppointment("123"));
         verify(appointmentDao).findNextAppointment(123);
     }
 
