@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.Reader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Properties;
@@ -51,7 +52,7 @@ class CsrfGuardConfigurationRegressionTest {
     @DisplayName("should use native PRNG without provider constraint")
     void shouldUseNativePrngWithoutProviderConstraint_whenCsrfGuardConfigLoaded() throws IOException {
         Properties properties = new Properties();
-        try (Reader reader = Files.newBufferedReader(CSRF_GUARD_PROPERTIES)) {
+        try (Reader reader = Files.newBufferedReader(CSRF_GUARD_PROPERTIES, StandardCharsets.UTF_8)) {
             properties.load(reader);
         }
 
