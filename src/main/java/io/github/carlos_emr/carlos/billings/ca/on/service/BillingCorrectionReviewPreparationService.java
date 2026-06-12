@@ -21,12 +21,15 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.SxmlMisc;
 import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
 import io.github.carlos_emr.carlos.billings.ca.on.command.BillingCorrectionLineCommand;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingCorrectionReviewDraft;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingCorrectionReviewItemDraft;
 import io.github.carlos_emr.carlos.billings.ca.on.command.BillingCorrectionValidationCommand;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,6 +38,7 @@ import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /**
  * Builds the typed ON correction review payload from submitted form data.
@@ -42,6 +46,12 @@ import java.util.Map;
 @Service
 @Transactional(readOnly = true)
 public class BillingCorrectionReviewPreparationService {
+
+    private static final Logger LOGGER = MiscUtils.getLogger();
+    private static final Pattern XML_ELEMENT_NAME = Pattern.compile("^[A-Za-z_][A-Za-z0-9_.-]*$");
+    private static final Pattern REFERRAL_OHIP_TOKEN = Pattern.compile("^[A-Za-z0-9]{0,6}$");
+    private static final Pattern HEALTH_CARD_TYPE_TOKEN = Pattern.compile("^[A-Za-z]{0,2}$");
+    private static final Pattern DEMOGRAPHIC_SEX_TOKEN = Pattern.compile("^[A-Za-z0-9]{0,2}$");
 
     private final ServiceCodeLoader serviceCodeLoader;
 
@@ -209,21 +219,41 @@ public class BillingCorrectionReviewPreparationService {
 
     private String buildContent(BillingCorrectionValidationCommand command) {
         StringBuilder content = new StringBuilder();
-        content.append("<rdohip>").append(command.referralDoctorOhip()).append("</rdohip>")
-                .append("<rd>").append(command.referralDoctor()).append("</rd>");
-        content.append("<xml_referral>").append(command.referralChecked() ? "checked" : "").append("</xml_referral>")
-                .append("<mreview>").append(command.manualReview() ? "checked" : "").append("</mreview>");
-        content.append("<hctype>").append(command.hcType()).append("</hctype>")
-                .append("<demosex>").append(command.hcSex()).append("</demosex>");
-        content.append("<specialty>").append(command.specialty()).append("</specialty>");
-        content.append("<xml_roster>").append(command.rosterStatus()).append("</xml_roster>");
+        appendCodedXmlElement(content, "rdohip", command.referralDoctorOhip(), REFERRAL_OHIP_TOKEN);
+        appendEscapedXmlElement(content, "rd", command.referralDoctor());
+        appendEscapedXmlElement(content, "xml_referral", command.referralChecked() ? "checked" : "");
+        appendEscapedXmlElement(content, "mreview", command.manualReview() ? "checked" : "");
+        appendCodedXmlElement(content, "hctype", command.hcType(), HEALTH_CARD_TYPE_TOKEN);
+        appendCodedXmlElement(content, "demosex", command.hcSex(), DEMOGRAPHIC_SEX_TOKEN);
+        appendEscapedXmlElement(content, "specialty", command.specialty());
+        appendEscapedXmlElement(content, "xml_roster", command.rosterStatus());
 
         for (Map.Entry<String, String> entry : command.xmlParameters().entrySet()) {
-            content.append("<").append(entry.getKey()).append(">")
-                    .append(SxmlMisc.replaceHTMLContent(entry.getValue()))
-                    .append("</").append(entry.getKey()).append(">");
+            appendEscapedXmlElement(content, entry.getKey(), entry.getValue());
         }
         return content.toString();
+    }
+
+    private static void appendEscapedXmlElement(StringBuilder content, String elementName, String value) {
+        if (elementName == null || !XML_ELEMENT_NAME.matcher(elementName).matches()) {
+            LOGGER.warn("Skipping invalid billing correction XML element name");
+            return;
+        }
+        content.append("<").append(elementName).append(">")
+                .append(SxmlMisc.replaceHTMLContent(String.valueOf(value)))
+                .append("</").append(elementName).append(">");
+    }
+
+    @SuppressFBWarnings(value = "POTENTIAL_XML_INJECTION", justification = "OHIP extract fields are fixed element names and regex-validated coded values; entity escaping corrupts fixed-width MOH output because the extractor does not unescape")
+    private static void appendCodedXmlElement(StringBuilder content, String elementName, String value, Pattern allowedValue) {
+        String safeValue = String.valueOf(value);
+        if (!allowedValue.matcher(safeValue).matches()) {
+            LOGGER.warn("Skipping invalid billing correction coded XML value");
+            safeValue = "";
+        }
+        content.append("<").append(elementName).append(">")
+                .append(safeValue)
+                .append("</").append(elementName).append(">");
     }
 
     private io.github.carlos_emr.carlos.billings.ca.on.dto.BillingCodeAttribute loadServiceCode(String serviceCode) {

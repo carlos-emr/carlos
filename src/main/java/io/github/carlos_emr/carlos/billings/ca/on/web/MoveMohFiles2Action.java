@@ -56,7 +56,6 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.WebUtils;
 import io.github.carlos_emr.carlos.utility.LogSafe;
-import io.github.carlos_emr.carlos.utility.SafeEncode;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
@@ -156,13 +155,13 @@ public class MoveMohFiles2Action extends ActionSupport {
             return NONE;
         }
 
-        StringBuilder messages = new StringBuilder();
-        StringBuilder errors = new StringBuilder();
+        List<String> messages = new ArrayList<>();
+        List<String> errors = new ArrayList<>();
 
         boolean isValid = true;
         String folderParam = request.getParameter("folder");
         if (folderParam == null || folderParam.isEmpty()) {
-            errors.append("A folder must be selected.<br/>");
+            errors.add("A folder must be selected.");
             isValid = false;
             // return "Unable to get folderParam";
         }
@@ -172,7 +171,7 @@ public class MoveMohFiles2Action extends ActionSupport {
         String[] fileNames = selectedMutationFiles;
         if ((fileNames == null || fileNames.length == 0)
                 && (unzipFile == null || unzipFile.isBlank())) {
-            errors.append("Please select file(s) to archive.<br/>");
+            errors.add("Please select file(s) to archive.");
             isValid = false;
             // return "Unable to get file names";
         }
@@ -180,14 +179,14 @@ public class MoveMohFiles2Action extends ActionSupport {
         if (isValid && hasMohFileMutationIntent) {
             String folderPath = getFolderPath(folderParam);
             if (folderPath == null || folderPath.isEmpty()) {
-                errors.append("Invalid folder selection.<br/>");
+                errors.add("Invalid folder selection.");
             } else {
                 for (String fileName : fileNames) {
                     File file = getFile(folderPath, fileName);
                     if (file == null) {
                         logger.warn("Unable to get file {}{}{}", LogSafe.sanitize(folderPath), File.separator, LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
 
-                        errors.append("Unable to find file ").append(SafeEncode.forHtml(fileName)).append(".<br/>");
+                        errors.add("Unable to find file " + fileName + ".");
                         continue;
                     }
 
@@ -195,24 +194,29 @@ public class MoveMohFiles2Action extends ActionSupport {
                     if (!isValidFileLocation) {
                         logger.warn("Invalid file location {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
 
-                        errors.append("File is not in a valid location: ").append(SafeEncode.forHtml(fileName)).append(".<br/>");
+                        errors.add("File is not in a valid location: " + fileName + ".");
                         continue;
                     }
 
                     if (file.exists()) {
                         boolean isMoved = moveFile(file);
                         if (isMoved) {
-                            messages.append("Archived file ").append(SafeEncode.forHtml(file.getName())).append(" successfully.<br/>");
+                            messages.add("Archived file " + file.getName() + " successfully.");
                         } else {
-                            errors.append("Unable to archive ").append(SafeEncode.forHtml(file.getName())).append(".<br/>");
+                            errors.add("Unable to archive " + file.getName() + ".");
                         }
                     }
                 }
             }
         }
         
-        WebUtils.addErrorMessage(request.getSession(), errors.toString());
-        WebUtils.addInfoMessage(request.getSession(), messages.toString());
+        HttpSession session = request.getSession();
+        for (String error : errors) {
+            WebUtils.addErrorMessage(session, error);
+        }
+        for (String message : messages) {
+            WebUtils.addInfoMessage(session, message);
+        }
 
         // Build the view model for the rendering JSP. The page is rendered both
         // on direct GET (folder listing) and after the POST that archives files,

@@ -47,6 +47,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -138,6 +139,22 @@ class MoveMohFiles2ActionUnitTest extends CarlosUnitTestBase {
                 .as("must equal ActionSupport.SUCCESS so the struts mapping resolves")
                 .isEqualTo(ActionSupport.SUCCESS)
                 .isEqualTo("success");
+    }
+
+
+    @Test
+    void shouldStorePlainTextMessages_whenValidationFails() throws Exception {
+        MoveMohFiles2Action action = new MoveMohFiles2Action();
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        @SuppressWarnings("unchecked")
+        List<String> errors = (List<String>) mockRequest.getSession()
+                .getAttribute(WebUtils.ERROR_MESSAGE_SESSION_KEY);
+        assertThat(errors)
+                .contains("A folder must be selected.", "Please select file(s) to archive.");
+        assertThat(errors.toString()).doesNotContain("<br/>");
+        assertThat(mockRequest.getSession().getAttribute(WebUtils.INFO_MESSAGE_SESSION_KEY)).isNull();
     }
 
     @Test

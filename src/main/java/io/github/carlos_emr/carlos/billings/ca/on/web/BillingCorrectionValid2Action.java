@@ -116,7 +116,7 @@ public class BillingCorrectionValid2Action extends ActionSupport {
         Enumeration<String> names = request.getParameterNames();
         while (names.hasMoreElements()) {
             String name = names.nextElement();
-            if (name.contains("xml_")) {
+            if (name.startsWith("xml_")) {
                 values.put(name, request.getParameter(name));
             }
         }

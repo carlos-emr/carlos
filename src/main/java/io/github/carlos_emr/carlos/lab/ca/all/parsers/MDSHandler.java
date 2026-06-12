@@ -600,6 +600,7 @@ public class MDSHandler implements MessageHandler {
         }
     }
 
+    @SuppressFBWarnings(value = "POTENTIAL_XML_INJECTION", justification = "MDS parser returns raw HL7 comment text; JSP sinks HTML-encode and PDF output writes plain text, so parser-layer escaping double-encodes clinical comments")
     public String getOBXComment(int i, int j, int k) {
         try {
             // For MDS messages with RESPONSE group structure

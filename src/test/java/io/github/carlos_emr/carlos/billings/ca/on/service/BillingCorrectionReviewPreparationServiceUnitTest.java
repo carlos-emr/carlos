@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
+import io.github.carlos_emr.SxmlMisc;
 import io.github.carlos_emr.carlos.billings.ca.on.command.BillingCorrectionLineCommand;
 import io.github.carlos_emr.carlos.billings.ca.on.command.BillingCorrectionValidationCommand;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingCorrectionReviewDraft;
@@ -97,6 +98,7 @@ class BillingCorrectionReviewPreparationServiceUnitTest extends CarlosUnitTestBa
         assertThat(draft.billingNo()).isEqualTo("42");
         assertThat(draft.total()).isEqualTo("3000");
         assertThat(draft.content()).contains("<rdohip>123456</rdohip>");
+        assertThat(SxmlMisc.getXmlContent(draft.content(), "rdohip")).isEqualTo("123456");
         assertThat(draft.items())
                 .extracting(BillingCorrectionReviewItemDraft::serviceCode,
                         BillingCorrectionReviewItemDraft::storedFee)
@@ -104,4 +106,58 @@ class BillingCorrectionReviewPreparationServiceUnitTest extends CarlosUnitTestBa
                         org.assertj.core.groups.Tuple.tuple("A001A", "2000"),
                         org.assertj.core.groups.Tuple.tuple("E411A", "1000"));
     }
+
+    @Test
+    void shouldEscapeContent_whenValuesContainMarkup() {
+        ServiceCodeLoader serviceCodeLoader = Mockito.mock(ServiceCodeLoader.class);
+        BillingCorrectionReviewPreparationService service =
+                new BillingCorrectionReviewPreparationService(serviceCodeLoader);
+
+        BillingCorrectionValidationCommand command = new BillingCorrectionValidationCommand(
+                "250|Diabetes",
+                "Dr <Referral>",
+                "ROSTERED & ACTIVE",
+                false,
+                "123<456",
+                false,
+                "O<N",
+                "F",
+                "00",
+                Map.of(
+                        "xml_safe", "A&B <C>",
+                        "xml_bad<tag", "should not render"),
+                List.of(),
+                "42",
+                "1234567890",
+                "1980-01-01",
+                "00",
+                "2026-04-28",
+                "O",
+                "0000",
+                "999998",
+                "2026-04-28",
+                "2026-04-29",
+                "Doe,Jane",
+                "123 Main",
+                "ON",
+                "Toronto",
+                "M1M1M1",
+                "F");
+
+        BillingCorrectionReviewDraft draft = service.prepareReviewDraft(command);
+
+        assertThat(draft.content()).contains("<rdohip></rdohip>");
+        assertThat(draft.content()).contains("<hctype></hctype>");
+        assertThat(draft.content()).contains("<demosex>F</demosex>");
+        assertThat(draft.content()).contains("<rd>Dr &lt;Referral&gt;</rd>");
+        assertThat(draft.content()).contains("<xml_roster>ROSTERED &amp; ACTIVE</xml_roster>");
+        assertThat(draft.content()).contains("<xml_safe>A&amp;B &lt;C&gt;</xml_safe>");
+        assertThat(SxmlMisc.getXmlContent(draft.content(), "rdohip")).isEmpty();
+        assertThat(SxmlMisc.getXmlContent(draft.content(), "hctype")).isEmpty();
+        assertThat(draft.content()).doesNotContain("123&lt;456");
+        assertThat(draft.content()).doesNotContain("O&lt;N");
+        assertThat(draft.content()).doesNotContain("xml_bad<tag");
+        assertThat(draft.content()).doesNotContain("should not render");
+    }
+
 }

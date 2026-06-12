@@ -43,7 +43,6 @@ import jakarta.servlet.jsp.tagext.TagSupport;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.provider.web.CppPreferencesUIBean;
 
-import org.owasp.encoder.Encode;
 import io.github.carlos_emr.CarlosProperties;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
@@ -107,7 +106,7 @@ public class CustomInterfaceTag extends TagSupport {
                     boolean cardswipe = props.getBooleanProperty("cardswipe", "false");
                     String customTag = "";
                     if (customJs.equalsIgnoreCase("ocean")) {
-                        customTag = "ocean-host=" + Encode.forUriComponent(props.getProperty("ocean_host"));
+                        customTag = "ocean-host=" + SafeEncode.forUriComponent(props.getProperty("ocean_host"));
                     }
 
                     String cacheBuster = UUID.randomUUID().toString();
@@ -167,6 +166,15 @@ public class CustomInterfaceTag extends TagSupport {
     }
 
 
+    private void appendIssueNoteUrl(StringBuilder sb, String position, String issueCode, String titleVariable) {
+        String jsPosition = SafeEncode.forJavaScript(position);
+        sb.append("\"div").append(jsPosition)
+                .append("\":    ctx + \"/CaseManagementView?hc=996633&method=listNotes&providerNo=\" + providerNo + \"&demographicNo=\" + demographicNo + \"&issue_code=")
+                .append(issueCode)
+                .append("&title=\" + ").append(titleVariable)
+                .append(" + \"&cmd=div").append(jsPosition).append("\"");
+    }
+
     private String getPreferenceBasedEChart(CppPreferencesUIBean bean) {
         StringBuilder sb = new StringBuilder();
         sb.append("<script>");
@@ -174,7 +182,7 @@ public class CustomInterfaceTag extends TagSupport {
         sb.append("issueNoteUrls = {");
         boolean flag = false, row1 = false, row2 = false;
         if (!bean.getSocialHxPosition().equals("")) {
-            sb.append("div" + bean.getSocialHxPosition() + ":    ctx + \"/CaseManagementView?hc=996633&method=listNotes&providerNo=\" + providerNo + \"&demographicNo=\" + demographicNo + \"&issue_code=SocHistory&title=\" + socHistoryLabel + \"&cmd=div" + bean.getSocialHxPosition() + "\"");
+            appendIssueNoteUrl(sb, bean.getSocialHxPosition(), "SocHistory", "socHistoryLabel");
             flag = true;
             if (bean.getSocialHxPosition().startsWith("R1")) {
                 row1 = true;
@@ -187,7 +195,7 @@ public class CustomInterfaceTag extends TagSupport {
             if (flag) {
                 sb.append(",");
             }
-            sb.append("div" + bean.getMedicalHxPosition() + ":    ctx + \"/CaseManagementView?hc=996633&method=listNotes&providerNo=\" + providerNo + \"&demographicNo=\" + demographicNo + \"&issue_code=MedHistory&title=\" + medHistoryLabel + \"&cmd=div" + bean.getMedicalHxPosition() + "\"");
+            appendIssueNoteUrl(sb, bean.getMedicalHxPosition(), "MedHistory", "medHistoryLabel");
             flag = true;
             if (bean.getMedicalHxPosition().startsWith("R1")) {
                 row1 = true;
@@ -200,7 +208,7 @@ public class CustomInterfaceTag extends TagSupport {
             if (flag) {
                 sb.append(",");
             }
-            sb.append("div" + bean.getOngoingConcernsPosition() + ":    ctx + \"/CaseManagementView?hc=996633&method=listNotes&providerNo=\" + providerNo + \"&demographicNo=\" + demographicNo + \"&issue_code=Concerns&title=\" + onGoingLabel + \"&cmd=div" + bean.getOngoingConcernsPosition() + "\"");
+            appendIssueNoteUrl(sb, bean.getOngoingConcernsPosition(), "Concerns", "onGoingLabel");
             flag = true;
             if (bean.getOngoingConcernsPosition().startsWith("R1")) {
                 row1 = true;
@@ -213,7 +221,7 @@ public class CustomInterfaceTag extends TagSupport {
             if (flag) {
                 sb.append(",");
             }
-            sb.append("div" + bean.getRemindersPosition() + ":    ctx + \"/CaseManagementView?hc=996633&method=listNotes&providerNo=\" + providerNo + \"&demographicNo=\" + demographicNo + \"&issue_code=Reminders&title=\" + remindersLabel + \"&cmd=div" + bean.getRemindersPosition() + "\"");
+            appendIssueNoteUrl(sb, bean.getRemindersPosition(), "Reminders", "remindersLabel");
             flag = true;
             if (bean.getRemindersPosition().startsWith("R1")) {
                 row1 = true;
