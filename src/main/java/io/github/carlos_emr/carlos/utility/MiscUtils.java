@@ -257,9 +257,9 @@ public final class MiscUtils {
     }
 
     // FP for deserialization scanners: same DESERIALIZATION_FILTER as deserialize(byte[])
-    // above; callers pass filenames that resolve to internal classpath resources or files
-    // written by the application itself (not user-uploaded bytes).
-    @SuppressFBWarnings(value = "OBJECT_DESERIALIZATION", justification = "ObjectInputFilter is installed before readObject, and file inputs are validated before ObjectInputStream construction")
+    // above; callers pass filenames that resolve to internal classpath resources or
+    // validated configured files written by the application itself (not user-uploaded bytes).
+    @SuppressFBWarnings(value = "OBJECT_DESERIALIZATION", justification = "ObjectInputFilter is installed before readObject; inputs are internal classpath resources or validated configured files")
     public static Serializable deserializeFromFile(String filename) throws IOException, ClassNotFoundException { // lgtm[java/unsafe-deserialization]
         InputStream rawIs = MiscUtils.class.getResourceAsStream(filename);
         if (rawIs == null) {
