@@ -74,6 +74,18 @@
 
   Appointment appt = appointmentDao.find(appointmentNo);
   int rowsAffected = 0;
+  int view = 0;
+
+  String viewParam = request.getParameter("view");
+
+  if (viewParam != null) {
+    if (!"0".equals(viewParam) && !"1".equals(viewParam)) {
+      response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+      return;
+    }
+
+    view = "1".equals(viewParam) ? 1 : 0;
+  }
 
   if (appt != null) {
     appointmentArchiveDao.archiveAppointment(appt);
@@ -86,18 +98,6 @@
   if (rowsAffected == 1) {//add_record
     EventService eventService = SpringUtils.getBean(EventService.class);//This is when the icon is clicked in the appt screen
     eventService.appointmentStatusChanged(this, String.valueOf(appointmentNo), request.getParameter("provider_no"), request.getParameter("statusch"));
-    int view = 0;
-
-    String viewParam = request.getParameter("view");
-
-    if (viewParam != null) {
-      try {
-        view = Integer.parseInt(viewParam);
-      } catch (NumberFormatException e) {
-        response.sendError(HttpServletResponse.SC_BAD_REQUEST);
-        return;
-      }
-    } //0-multiple views, 1-single view
     String strView = (view == 0) ? "0"
       : ("1&curProvider=" + SafeEncode.forUriComponent(request.getParameter("curProvider"))
       + "&curProviderName=" + SafeEncode.forUriComponent(request.getParameter("curProviderName")));
@@ -117,12 +117,10 @@
       displaypage += "&provider_no="
         + SafeEncode.forUriComponent(request.getParameter("provider_no"));
     }
-    if (true) {
-      out.clear();
-      response.sendRedirect(displaypage);
-      //pageContext.forward(displaypage); //forward request&response to the target page
-      return;
-    }
+    out.clear();
+    response.sendRedirect(displaypage);
+    //pageContext.forward(displaypage); //forward request&response to the target page
+    return;
   } else {
 %>
 <p>
