@@ -9,7 +9,7 @@ public record SmsSendCommand(
         SmsRecipientPhoneType recipientPhoneType,
         String body,
         SmsTransactionType transactionType,
-        String requestedByProviderNo,
+        String requestedByHealthcareProviderNo,
         Integer requestedBySecurityNo,
         Integer appointmentNo
 ) {
@@ -23,16 +23,16 @@ public record SmsSendCommand(
             Integer demographicNo,
             String recipientPhoneNumber,
             String body,
-            String requestedByProviderNo
+            String requestedByHealthcareProviderNo
     ) {
-        return direct(demographicNo, recipientPhoneNumber, body, requestedByProviderNo, null);
+        return direct(demographicNo, recipientPhoneNumber, body, requestedByHealthcareProviderNo, null);
     }
 
     public static SmsSendCommand direct(
             Integer demographicNo,
             String recipientPhoneNumber,
             String body,
-            String requestedByProviderNo,
+            String requestedByHealthcareProviderNo,
             Integer requestedBySecurityNo
     ) {
         return direct(
@@ -40,7 +40,7 @@ public record SmsSendCommand(
                 recipientPhoneNumber,
                 SmsRecipientPhoneType.CELL,
                 body,
-                requestedByProviderNo,
+                requestedByHealthcareProviderNo,
                 requestedBySecurityNo
         );
     }
@@ -50,14 +50,14 @@ public record SmsSendCommand(
             String recipientPhoneNumber,
             SmsRecipientPhoneType recipientPhoneType,
             String body,
-            String requestedByProviderNo
+            String requestedByHealthcareProviderNo
     ) {
         return direct(
                 demographicNo,
                 recipientPhoneNumber,
                 recipientPhoneType,
                 body,
-                requestedByProviderNo,
+                requestedByHealthcareProviderNo,
                 null
         );
     }
@@ -67,7 +67,7 @@ public record SmsSendCommand(
             String recipientPhoneNumber,
             SmsRecipientPhoneType recipientPhoneType,
             String body,
-            String requestedByProviderNo,
+            String requestedByHealthcareProviderNo,
             Integer requestedBySecurityNo
     ) {
         return new SmsSendCommand(
@@ -76,7 +76,7 @@ public record SmsSendCommand(
                 recipientPhoneType,
                 body,
                 SmsTransactionType.DIRECT,
-                requestedByProviderNo,
+                requestedByHealthcareProviderNo,
                 requestedBySecurityNo,
                 null
         );

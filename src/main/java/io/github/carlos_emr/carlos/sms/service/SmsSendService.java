@@ -16,7 +16,7 @@ public class SmsSendService {
     private static final SmsProviderType DEFAULT_PROVIDER_TYPE = SmsProviderType.STUB;
     private static final String DIRECT_PROVIDER_EXCEPTION_CODE = "DIRECT_PROVIDER_EXCEPTION";
     private static final String DIRECT_PROVIDER_EXCEPTION_MESSAGE =
-            "SMS direct send failed because the provider client threw an exception.";
+            "SMS direct send failed because the SMS provider client threw an exception.";
 
     private final SmsSendValidator validator;
     private final SmsConsentService consentService;
@@ -65,7 +65,7 @@ public class SmsSendService {
     private String clientReferenceId(SmsTransaction transaction) {
         Long transactionId = Objects.requireNonNull(
                 transaction.getId(),
-                "sms_transaction id is required before provider send"
+                "sms_transaction id is required before SMS provider send"
         );
         return "sms-transaction-" + transactionId;
     }

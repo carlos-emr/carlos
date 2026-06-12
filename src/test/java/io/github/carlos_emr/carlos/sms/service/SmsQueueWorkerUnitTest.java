@@ -73,7 +73,7 @@ class SmsQueueWorkerUnitTest {
     }
 
     @Test
-    @DisplayName("processDueMessages schedules retry for failed provider attempts")
+    @DisplayName("processDueMessages schedules retry for failed SMS provider attempts")
     void shouldScheduleRetry_whenProviderFailsBeforeMaxAttempts() {
         SmsTransaction transaction = queuedTransaction();
         RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder(List.of(transaction));
@@ -129,7 +129,7 @@ class SmsQueueWorkerUnitTest {
     }
 
     @Test
-    @DisplayName("processDueMessages records queue provider exceptions distinctly")
+    @DisplayName("processDueMessages records queue SMS provider exceptions distinctly")
     void shouldScheduleRetry_whenQueuedProviderThrows() {
         SmsTransaction transaction = queuedTransaction();
         RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder(List.of(transaction));
@@ -151,7 +151,7 @@ class SmsQueueWorkerUnitTest {
     }
 
     @Test
-    @DisplayName("processDueMessages records provider resolution exceptions distinctly")
+    @DisplayName("processDueMessages records SMS provider resolution exceptions distinctly")
     void shouldScheduleRetry_whenQueuedProviderResolutionThrows() {
         SmsTransaction transaction = queuedTransaction();
         RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder(List.of(transaction));
@@ -173,7 +173,7 @@ class SmsQueueWorkerUnitTest {
     }
 
     @Test
-    @DisplayName("processDueMessages marks final queue provider exceptions distinctly")
+    @DisplayName("processDueMessages marks final queue SMS provider exceptions distinctly")
     void shouldMarkFailed_whenQueuedProviderThrowsAtRetryLimit() {
         SmsTransaction transaction = queuedTransaction();
         scheduleTwoFailedAttempts(transaction);
@@ -206,7 +206,7 @@ class SmsQueueWorkerUnitTest {
     }
 
     @Test
-    @DisplayName("processDueMessages reconciles stale sending rows when provider status is found")
+    @DisplayName("processDueMessages reconciles stale sending rows when SMS provider status is found")
     void shouldMarkSent_whenStaleProviderStatusIsFound() {
         SmsTransaction transaction = queuedTransaction();
         transaction.markSending(new Date(0));
@@ -228,7 +228,7 @@ class SmsQueueWorkerUnitTest {
     }
 
     @Test
-    @DisplayName("processDueMessages retries stale sending rows when provider status is not found")
+    @DisplayName("processDueMessages retries stale sending rows when SMS provider status is not found")
     void shouldScheduleRetry_whenStaleProviderStatusIsNotFound() {
         SmsTransaction transaction = queuedTransaction();
         transaction.markSending(new Date(0));
@@ -250,7 +250,7 @@ class SmsQueueWorkerUnitTest {
     }
 
     @Test
-    @DisplayName("processDueMessages fails stale sending rows when provider status is not found at retry limit")
+    @DisplayName("processDueMessages fails stale sending rows when SMS provider status is not found at retry limit")
     void shouldMarkFailed_whenStaleProviderStatusIsNotFoundAtRetryLimit() {
         SmsTransaction transaction = queuedTransaction();
         scheduleTwoFailedAttempts(transaction);
@@ -272,7 +272,7 @@ class SmsQueueWorkerUnitTest {
     }
 
     @Test
-    @DisplayName("processDueMessages fails stale sending rows when provider status lookup is unavailable")
+    @DisplayName("processDueMessages fails stale sending rows when SMS provider status lookup is unavailable")
     void shouldMarkFailed_whenStaleProviderStatusLookupIsUnavailable() {
         SmsTransaction transaction = queuedTransaction();
         transaction.markSending(new Date(0));
@@ -293,7 +293,7 @@ class SmsQueueWorkerUnitTest {
     }
 
     @Test
-    @DisplayName("processDueMessages fails stale sending rows when provider resolution fails")
+    @DisplayName("processDueMessages fails stale sending rows when SMS provider resolution fails")
     void shouldMarkFailed_whenStaleProviderResolutionThrows() {
         SmsTransaction transaction = queuedTransaction();
         transaction.markSending(new Date(0));

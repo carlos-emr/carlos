@@ -45,7 +45,7 @@ class SmsDtoUnitTest {
     }
 
     @Test
-    @DisplayName("accepted provider results require provider id and send-success status")
+    @DisplayName("accepted SMS provider results require SMS provider id and send-success status")
     void shouldRejectAcceptedProviderResult_whenRequiredFieldsAreInvalid() {
         assertThatThrownBy(() -> SmsProviderSendResultDto.accepted(null, SmsStatus.SENT))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -70,7 +70,7 @@ class SmsDtoUnitTest {
     }
 
     @Test
-    @DisplayName("inbound webhook metadata allows nullable provider values and remains immutable")
+    @DisplayName("inbound webhook metadata allows nullable SMS provider values and remains immutable")
     void shouldPreserveInboundMetadata_whenProviderValueIsNull() {
         Map<String, String> metadata = new HashMap<>();
         metadata.put("nullable", null);
@@ -92,7 +92,7 @@ class SmsDtoUnitTest {
     }
 
     @Test
-    @DisplayName("delivery webhook metadata allows nullable provider values and remains immutable")
+    @DisplayName("delivery webhook metadata allows nullable SMS provider values and remains immutable")
     void shouldPreserveDeliveryMetadata_whenProviderValueIsNull() {
         Map<String, String> metadata = new HashMap<>();
         metadata.put("nullable", null);

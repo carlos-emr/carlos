@@ -43,7 +43,7 @@ class SmsProviderRateLimitDaoImplUnitTest {
     private Query nativeQuery;
 
     @Test
-    @DisplayName("insertIfMissing skips insert when provider is missing")
+    @DisplayName("insertIfMissing skips insert when SMS provider is missing")
     void shouldSkipInsert_whenProviderIsMissing() {
         SmsProviderRateLimitDaoImpl dao = newDao();
 
@@ -53,7 +53,7 @@ class SmsProviderRateLimitDaoImplUnitTest {
     }
 
     @Test
-    @DisplayName("insertIfMissing uses insert-ignore for provider limiter rows")
+    @DisplayName("insertIfMissing uses insert-ignore for SMS provider limiter rows")
     void shouldInsertIgnore_whenProviderLimiterIsMissing() {
         SmsProviderRateLimitDaoImpl dao = newDao();
         Date now = fixedDate();
@@ -75,7 +75,7 @@ class SmsProviderRateLimitDaoImplUnitTest {
     }
 
     @Test
-    @DisplayName("findByProviderTypeForUpdate skips querying when provider is missing")
+    @DisplayName("findByProviderTypeForUpdate skips querying when SMS provider is missing")
     void shouldReturnEmptyOptional_whenProviderIsMissing() {
         SmsProviderRateLimitDaoImpl dao = newDao();
 
@@ -86,7 +86,7 @@ class SmsProviderRateLimitDaoImplUnitTest {
     }
 
     @Test
-    @DisplayName("findByProviderTypeForUpdate binds provider and locks the limiter row")
+    @DisplayName("findByProviderTypeForUpdate binds SMS provider and locks the limiter row")
     void shouldBindProviderAndLockRow_whenFindingProviderLimiter() {
         SmsProviderRateLimitDaoImpl dao = newDao();
         SmsProviderRateLimit expected = SmsProviderRateLimit.forProvider(SmsProviderType.STUB, fixedDate());

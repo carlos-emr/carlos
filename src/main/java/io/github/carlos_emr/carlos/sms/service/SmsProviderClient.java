@@ -15,11 +15,11 @@ public interface SmsProviderClient {
     SmsProviderType providerType();
 
     /**
-     * Send an outbound SMS through this provider.
+     * Send an outbound SMS through this SMS provider.
      * <p>
-     * Provider adapters should include {@code clientReferenceId} in the provider request when the
-     * provider supports client references/idempotency keys. Expected provider rejections, timeouts,
-     * validation failures, and other provider-classified send failures should return a failed
+     * Provider adapters should include {@code clientReferenceId} in the SMS provider request when the
+     * SMS provider supports client references/idempotency keys. Expected SMS provider rejections, timeouts,
+     * validation failures, and other SMS provider-classified send failures should return a failed
      * {@link SmsProviderSendResultDto}. Throwing a runtime exception should be reserved for unexpected
      * adapter defects or infrastructure failures the adapter cannot safely classify.
      */
@@ -31,10 +31,10 @@ public interface SmsProviderClient {
     }
 
     /**
-     * Look up provider state for a previously attempted send.
+     * Look up SMS provider state for a previously attempted send.
      * <p>
-     * Real providers should prefer lookup by {@code clientReferenceId} when supported, because CARLOS
-     * may crash after the provider accepts a send but before the provider message id is persisted.
+     * Real SMS providers should prefer lookup by {@code clientReferenceId} when supported, because CARLOS
+     * may crash after the SMS provider accepts a send but before the SMS provider message id is persisted.
      */
     default SmsProviderMessageStatusDto lookupMessageStatus(String clientReferenceId, String providerMessageId) {
         String safeClientReferenceId = Objects.requireNonNull(clientReferenceId, "clientReferenceId is required");

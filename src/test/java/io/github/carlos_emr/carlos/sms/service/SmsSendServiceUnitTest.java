@@ -50,7 +50,7 @@ class SmsSendServiceUnitTest {
     }
 
     @Test
-    @DisplayName("send uses the provider once validation and consent pass")
+    @DisplayName("send uses the SMS provider once validation and consent pass")
     void shouldUseProvider_whenConsentAllows() {
         AtomicReference<SmsSendCommand> consentCommand = new AtomicReference<>();
         SmsConsentService allowConsent = command -> {
@@ -104,7 +104,7 @@ class SmsSendServiceUnitTest {
     }
 
     @Test
-    @DisplayName("send records provider exceptions as failed SMS transactions")
+    @DisplayName("send records SMS provider exceptions as failed SMS transactions")
     void shouldMarkTransactionFailed_whenProviderThrows() {
         SmsConsentService allowConsent = command -> SmsConsentDecisionDto.permit();
         RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder();
@@ -120,18 +120,18 @@ class SmsSendServiceUnitTest {
         assertThat(result.accepted()).isFalse();
         assertThat(result.status()).isEqualTo(SmsStatus.FAILED);
         assertThat(result.messages())
-                .containsExactly("SMS direct send failed because the provider client threw an exception.");
+                .containsExactly("SMS direct send failed because the SMS provider client threw an exception.");
         assertThat(recorder.transactions()).singleElement()
                 .extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode, SmsTransaction::getErrorMessage)
                 .containsExactly(
                         SmsStatus.FAILED,
                         "DIRECT_PROVIDER_EXCEPTION",
-                        "SMS direct send failed because the provider client threw an exception."
+                        "SMS direct send failed because the SMS provider client threw an exception."
                 );
     }
 
     @Test
-    @DisplayName("send records provider resolution exceptions as failed SMS transactions")
+    @DisplayName("send records SMS provider resolution exceptions as failed SMS transactions")
     void shouldMarkTransactionFailed_whenProviderResolutionThrows() {
         SmsConsentService allowConsent = command -> SmsConsentDecisionDto.permit();
         RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder();
@@ -151,7 +151,7 @@ class SmsSendServiceUnitTest {
                 .containsExactly(
                         SmsStatus.FAILED,
                         "DIRECT_PROVIDER_EXCEPTION",
-                        "SMS direct send failed because the provider client threw an exception."
+                        "SMS direct send failed because the SMS provider client threw an exception."
                 );
     }
 

@@ -48,7 +48,7 @@ class SmsTransactionUnitTest {
     }
 
     @Test
-    @DisplayName("outbound transaction captures normalized send metadata")
+    @DisplayName("outbound transaction captures SMS provider and healthcare requester metadata")
     void shouldCreateOutboundTransaction_whenCommandIsValid() {
         SmsSendCommand command = SmsSendCommand.direct(
                 123,
@@ -67,7 +67,7 @@ class SmsTransactionUnitTest {
                         SmsTransaction::getProviderType,
                         SmsTransaction::getStatus,
                         SmsTransaction::getDemographicNo,
-                        SmsTransaction::getRequestedByProviderNo,
+                        SmsTransaction::getRequestedByHealthcareProviderNo,
                         SmsTransaction::getRequestedBySecurityNo,
                         SmsTransaction::getToPhoneNumber,
                         SmsTransaction::getRecipientPhoneType,
@@ -117,7 +117,7 @@ class SmsTransactionUnitTest {
     }
 
     @Test
-    @DisplayName("provider result updates status, provider id, and sent timestamp")
+    @DisplayName("SMS provider result updates status, SMS provider id, and sent timestamp")
     void shouldMarkProviderResult_whenSendIsAccepted() {
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
                 SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
@@ -139,7 +139,7 @@ class SmsTransactionUnitTest {
     }
 
     @Test
-    @DisplayName("retry scheduling preserves failed provider details")
+    @DisplayName("retry scheduling preserves failed SMS provider details")
     void shouldScheduleRetry_whenProviderSendFails() {
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
                 SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
@@ -190,7 +190,7 @@ class SmsTransactionUnitTest {
                         SmsSendCommand::recipientPhoneNumber,
                         SmsSendCommand::body,
                         SmsSendCommand::recipientPhoneType,
-                        SmsSendCommand::requestedByProviderNo,
+                        SmsSendCommand::requestedByHealthcareProviderNo,
                         SmsSendCommand::requestedBySecurityNo,
                         SmsSendCommand::appointmentNo
                 )
@@ -206,7 +206,7 @@ class SmsTransactionUnitTest {
     }
 
     @Test
-    @DisplayName("inbound webhook transaction tolerates missing provider timestamp")
+    @DisplayName("inbound webhook transaction tolerates missing SMS provider timestamp")
     void shouldCreateInboundTransaction_whenWebhookTimestampIsMissing() {
         SmsInboundWebhookDto webhook = new SmsInboundWebhookDto(
                 SmsProviderType.VOIPMS,
@@ -271,7 +271,7 @@ class SmsTransactionUnitTest {
     }
 
     @Test
-    @DisplayName("delivery webhook rejects missing provider message id")
+    @DisplayName("delivery webhook rejects missing SMS provider message id")
     void shouldRejectDeliveryEvent_whenProviderMessageIdIsBlank() {
         SmsDeliveryWebhookDto webhook = new SmsDeliveryWebhookDto(
                 SmsProviderType.STUB,
@@ -289,7 +289,7 @@ class SmsTransactionUnitTest {
     }
 
     @Test
-    @DisplayName("delivery webhook ignores older provider events")
+    @DisplayName("delivery webhook ignores older SMS provider events")
     void shouldIgnoreDeliveryEvent_whenProviderEventIsOlderThanRecordedEvent() {
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
                 SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),

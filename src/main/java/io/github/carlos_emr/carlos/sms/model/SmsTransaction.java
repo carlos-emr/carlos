@@ -40,7 +40,7 @@ import java.util.TreeMap;
 public class SmsTransaction extends AbstractModel<Long> {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final int MAX_PHONE_LENGTH = 32;
-    private static final int MAX_REQUESTED_BY_PROVIDER_NO_LENGTH = 16;
+    private static final int MAX_REQUESTED_BY_HEALTHCARE_PROVIDER_NO_LENGTH = 16;
     private static final int MAX_PROVIDER_MESSAGE_ID_LENGTH = 128;
     private static final int MAX_REASON_CODE_LENGTH = 64;
     private static final int MAX_ERROR_MESSAGE_LENGTH = 1024;
@@ -71,8 +71,8 @@ public class SmsTransaction extends AbstractModel<Long> {
     @Column(name = "demographic_no")
     private Integer demographicNo;
 
-    @Column(name = "requested_by_provider_no", length = MAX_REQUESTED_BY_PROVIDER_NO_LENGTH)
-    private String requestedByProviderNo;
+    @Column(name = "requested_by_healthcare_provider_no", length = MAX_REQUESTED_BY_HEALTHCARE_PROVIDER_NO_LENGTH)
+    private String requestedByHealthcareProviderNo;
 
     @Column(name = "requested_by_security_no")
     private Integer requestedBySecurityNo;
@@ -164,9 +164,9 @@ public class SmsTransaction extends AbstractModel<Long> {
         transaction.providerType = providerType == null ? SmsProviderType.STUB : providerType;
         transaction.status = SmsStatus.QUEUED;
         transaction.demographicNo = command.demographicNo();
-        transaction.requestedByProviderNo = trimTo(
-                command.requestedByProviderNo(),
-                MAX_REQUESTED_BY_PROVIDER_NO_LENGTH
+        transaction.requestedByHealthcareProviderNo = trimTo(
+                command.requestedByHealthcareProviderNo(),
+                MAX_REQUESTED_BY_HEALTHCARE_PROVIDER_NO_LENGTH
         );
         transaction.requestedBySecurityNo = command.requestedBySecurityNo();
         transaction.appointmentNo = command.appointmentNo();
@@ -375,7 +375,7 @@ public class SmsTransaction extends AbstractModel<Long> {
                 recipientPhoneType,
                 messageBody,
                 transactionType,
-                requestedByProviderNo,
+                requestedByHealthcareProviderNo,
                 requestedBySecurityNo,
                 appointmentNo
         );
@@ -406,8 +406,8 @@ public class SmsTransaction extends AbstractModel<Long> {
         return demographicNo;
     }
 
-    public String getRequestedByProviderNo() {
-        return requestedByProviderNo;
+    public String getRequestedByHealthcareProviderNo() {
+        return requestedByHealthcareProviderNo;
     }
 
     public Integer getRequestedBySecurityNo() {
