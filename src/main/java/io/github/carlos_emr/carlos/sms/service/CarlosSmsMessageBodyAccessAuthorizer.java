@@ -10,7 +10,7 @@ import java.util.Objects;
 
 @Service
 public class CarlosSmsMessageBodyAccessAuthorizer implements SmsMessageBodyAccessAuthorizer {
-    static final String MESSAGE_SECURITY_OBJECT = "_msg";
+    static final String SMS_MESSAGE_SECURITY_OBJECT = "_msgSMS";
     static final String DEMOGRAPHIC_SECURITY_OBJECT = "_demographic";
 
     private final SecurityInfoManager securityInfoManager;
@@ -24,8 +24,8 @@ public class CarlosSmsMessageBodyAccessAuthorizer implements SmsMessageBodyAcces
         Objects.requireNonNull(transaction, "transaction is required");
         Integer demographicNo = transaction.getDemographicNo();
 
-        if (!hasReadPrivilege(loggedInInfo, MESSAGE_SECURITY_OBJECT, demographicNo)) {
-            throw accessDenied(MESSAGE_SECURITY_OBJECT, demographicNo);
+        if (!hasReadPrivilege(loggedInInfo, SMS_MESSAGE_SECURITY_OBJECT, demographicNo)) {
+            throw accessDenied(SMS_MESSAGE_SECURITY_OBJECT, demographicNo);
         }
         if (demographicNo != null && !hasReadPrivilege(loggedInInfo, DEMOGRAPHIC_SECURITY_OBJECT, demographicNo)) {
             throw accessDenied(DEMOGRAPHIC_SECURITY_OBJECT, demographicNo);

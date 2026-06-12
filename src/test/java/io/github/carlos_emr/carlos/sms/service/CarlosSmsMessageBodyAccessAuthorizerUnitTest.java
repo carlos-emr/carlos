@@ -37,7 +37,7 @@ class CarlosSmsMessageBodyAccessAuthorizerUnitTest {
         SmsTransaction transaction = outboundTransaction();
         CarlosSmsMessageBodyAccessAuthorizer authorizer =
                 new CarlosSmsMessageBodyAccessAuthorizer(securityInfoManager);
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, 123))
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_msgSMS", SecurityInfoManager.READ, 123))
                 .thenReturn(true);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", SecurityInfoManager.READ, 123))
                 .thenReturn(true);
@@ -45,7 +45,7 @@ class CarlosSmsMessageBodyAccessAuthorizerUnitTest {
         assertThatCode(() -> authorizer.assertCanReadFullBody(transaction, loggedInInfo))
                 .doesNotThrowAnyException();
 
-        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, 123);
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_msgSMS", SecurityInfoManager.READ, 123);
         verify(securityInfoManager).hasPrivilege(loggedInInfo, "_demographic", SecurityInfoManager.READ, 123);
     }
 
@@ -55,17 +55,17 @@ class CarlosSmsMessageBodyAccessAuthorizerUnitTest {
         SmsTransaction transaction = outboundTransaction();
         CarlosSmsMessageBodyAccessAuthorizer authorizer =
                 new CarlosSmsMessageBodyAccessAuthorizer(securityInfoManager);
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, 123))
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_msgSMS", SecurityInfoManager.READ, 123))
                 .thenReturn(false);
 
         assertThatThrownBy(() -> authorizer.assertCanReadFullBody(transaction, loggedInInfo))
                 .isInstanceOfSatisfying(AccessDeniedException.class, exception -> {
-                    org.assertj.core.api.Assertions.assertThat(exception.getPermission()).isEqualTo("_msg");
+                    org.assertj.core.api.Assertions.assertThat(exception.getPermission()).isEqualTo("_msgSMS");
                     org.assertj.core.api.Assertions.assertThat(exception.getAction()).isEqualTo(SecurityInfoManager.READ);
                     org.assertj.core.api.Assertions.assertThat(exception.getSubject()).isEqualTo("123");
                 });
 
-        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, 123);
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_msgSMS", SecurityInfoManager.READ, 123);
         verify(securityInfoManager, never())
                 .hasPrivilege(loggedInInfo, "_demographic", SecurityInfoManager.READ, 123);
     }
@@ -76,7 +76,7 @@ class CarlosSmsMessageBodyAccessAuthorizerUnitTest {
         SmsTransaction transaction = outboundTransaction();
         CarlosSmsMessageBodyAccessAuthorizer authorizer =
                 new CarlosSmsMessageBodyAccessAuthorizer(securityInfoManager);
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, 123))
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_msgSMS", SecurityInfoManager.READ, 123))
                 .thenReturn(true);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", SecurityInfoManager.READ, 123))
                 .thenReturn(false);
@@ -103,13 +103,13 @@ class CarlosSmsMessageBodyAccessAuthorizerUnitTest {
         ));
         CarlosSmsMessageBodyAccessAuthorizer authorizer =
                 new CarlosSmsMessageBodyAccessAuthorizer(securityInfoManager);
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, (String) null))
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_msgSMS", SecurityInfoManager.READ, (String) null))
                 .thenReturn(true);
 
         assertThatCode(() -> authorizer.assertCanReadFullBody(transaction, loggedInInfo))
                 .doesNotThrowAnyException();
 
-        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, (String) null);
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_msgSMS", SecurityInfoManager.READ, (String) null);
         verify(securityInfoManager, never())
                 .hasPrivilege(loggedInInfo, "_demographic", SecurityInfoManager.READ, (String) null);
     }
@@ -123,7 +123,7 @@ class CarlosSmsMessageBodyAccessAuthorizerUnitTest {
 
         assertThatThrownBy(() -> authorizer.assertCanReadFullBody(transaction, null))
                 .isInstanceOfSatisfying(AccessDeniedException.class, exception -> {
-                    org.assertj.core.api.Assertions.assertThat(exception.getPermission()).isEqualTo("_msg");
+                    org.assertj.core.api.Assertions.assertThat(exception.getPermission()).isEqualTo("_msgSMS");
                     org.assertj.core.api.Assertions.assertThat(exception.getAction()).isEqualTo(SecurityInfoManager.READ);
                     org.assertj.core.api.Assertions.assertThat(exception.getSubject()).isEqualTo("123");
                 });

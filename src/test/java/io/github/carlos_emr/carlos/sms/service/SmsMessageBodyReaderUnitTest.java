@@ -94,7 +94,7 @@ class SmsMessageBodyReaderUnitTest {
         RecordingAuditor auditor = new RecordingAuditor();
         SmsMessageBodyReader reader = new SmsMessageBodyReader(
                 (transaction, loggedInInfo) -> {
-                    throw new AccessDeniedException("_msg", "r", transaction.getDemographicNo());
+                    throw new AccessDeniedException("_msgSMS", "r", transaction.getDemographicNo());
                 },
                 auditor
         );
