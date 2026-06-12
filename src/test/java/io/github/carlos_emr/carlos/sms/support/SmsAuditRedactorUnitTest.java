@@ -31,7 +31,7 @@ class SmsAuditRedactorUnitTest {
     }
 
     @Test
-    @DisplayName("provider payload previews do not include provider payload text")
+    @DisplayName("SMS provider payload previews do not include SMS provider payload text")
     void shouldRedactProviderPayloadPreview_whenPayloadContainsSensitiveValues() {
         String preview = SmsAuditRedactor.safeProviderPayloadPreview(
                 "{\"to\":\"+14165551212\",\"body\":\"Patient appointment is tomorrow\"}"

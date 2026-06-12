@@ -31,7 +31,7 @@ class JpaSmsSendRateLimiterUnitTest {
     private SmsProviderRateLimitDao rateLimitDao;
 
     @Test
-    @DisplayName("tryAcquire rejects sends after the provider DB window is full")
+    @DisplayName("tryAcquire rejects sends after the SMS provider DB window is full")
     void shouldRejectSend_whenWindowLimitIsReached() {
         MutableClock clock = new MutableClock(Instant.parse("2026-06-08T12:00:00Z"));
         SmsProviderRateLimit rateLimit = SmsProviderRateLimit.forProvider(
@@ -55,7 +55,7 @@ class JpaSmsSendRateLimiterUnitTest {
     }
 
     @Test
-    @DisplayName("tryAcquire resets the provider DB window after duration elapses")
+    @DisplayName("tryAcquire resets the SMS provider DB window after duration elapses")
     void shouldAllowSend_whenWindowResets() {
         MutableClock clock = new MutableClock(Instant.parse("2026-06-08T12:00:00Z"));
         SmsProviderRateLimit rateLimit = SmsProviderRateLimit.forProvider(
@@ -79,7 +79,7 @@ class JpaSmsSendRateLimiterUnitTest {
     }
 
     @Test
-    @DisplayName("tryAcquire resets the provider DB window when the clock moves backward")
+    @DisplayName("tryAcquire resets the SMS provider DB window when the clock moves backward")
     void shouldAllowSend_whenClockMovesBackward() {
         MutableClock clock = new MutableClock(Instant.parse("2026-06-08T12:00:00Z"));
         SmsProviderRateLimit rateLimit = SmsProviderRateLimit.forProvider(
@@ -126,7 +126,7 @@ class JpaSmsSendRateLimiterUnitTest {
     }
 
     @Test
-    @DisplayName("tryAcquire inserts provider limiter row before locking")
+    @DisplayName("tryAcquire inserts SMS provider limiter row before locking")
     void shouldInsertRateLimitRowBeforeLock_whenProviderIsUsed() {
         MutableClock clock = new MutableClock(Instant.parse("2026-06-08T12:00:00Z"));
         SmsProviderRateLimit rateLimit = SmsProviderRateLimit.forProvider(
@@ -150,7 +150,7 @@ class JpaSmsSendRateLimiterUnitTest {
     }
 
     @Test
-    @DisplayName("tryAcquire fails closed when provider limiter row is still missing after insert")
+    @DisplayName("tryAcquire fails closed when SMS provider limiter row is still missing after insert")
     void shouldFailClosed_whenProviderLimiterRowCannotBeLocked() {
         MutableClock clock = new MutableClock(Instant.parse("2026-06-08T12:00:00Z"));
         JpaSmsSendRateLimiter limiter = new JpaSmsSendRateLimiter(

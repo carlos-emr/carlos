@@ -86,7 +86,7 @@ class SmsTransactionDaoImplUnitTest {
     }
 
     @Test
-    @DisplayName("findByProviderMessageId skips blank provider ids")
+    @DisplayName("findByProviderMessageId skips blank SMS provider ids")
     void shouldReturnEmptyOptional_whenProviderMessageIdIsBlank() {
         SmsTransactionDaoImpl dao = newDao();
 
@@ -97,7 +97,7 @@ class SmsTransactionDaoImplUnitTest {
     }
 
     @Test
-    @DisplayName("findByProviderMessageId binds provider lookup parameters")
+    @DisplayName("findByProviderMessageId binds SMS provider lookup parameters")
     void shouldBindParameters_whenFindingProviderMessage() {
         SmsTransactionDaoImpl dao = newDao();
         SmsTransaction expected = new SmsTransaction();
@@ -116,7 +116,7 @@ class SmsTransactionDaoImplUnitTest {
     }
 
     @Test
-    @DisplayName("claimDueOutboundQueue skips querying when provider is missing")
+    @DisplayName("claimDueOutboundQueue skips querying when SMS provider is missing")
     void shouldReturnEmptyList_whenQueueProviderIsMissing() {
         SmsTransactionDaoImpl dao = newDao();
 

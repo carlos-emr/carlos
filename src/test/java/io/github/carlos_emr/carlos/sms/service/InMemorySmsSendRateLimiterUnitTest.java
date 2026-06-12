@@ -16,7 +16,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("service")
 class InMemorySmsSendRateLimiterUnitTest {
     @Test
-    @DisplayName("tryAcquire rejects sends after the provider window is full")
+    @DisplayName("tryAcquire rejects sends after the SMS provider window is full")
     void shouldRejectSend_whenWindowLimitIsReached() {
         MutableClock clock = new MutableClock(Instant.parse("2026-06-08T12:00:00Z"));
         InMemorySmsSendRateLimiter limiter = new InMemorySmsSendRateLimiter(2, Duration.ofMinutes(1), clock);
@@ -27,7 +27,7 @@ class InMemorySmsSendRateLimiterUnitTest {
     }
 
     @Test
-    @DisplayName("tryAcquire resets the provider window after duration elapses")
+    @DisplayName("tryAcquire resets the SMS provider window after duration elapses")
     void shouldAllowSend_whenWindowResets() {
         MutableClock clock = new MutableClock(Instant.parse("2026-06-08T12:00:00Z"));
         InMemorySmsSendRateLimiter limiter = new InMemorySmsSendRateLimiter(1, Duration.ofMinutes(1), clock);
@@ -40,7 +40,7 @@ class InMemorySmsSendRateLimiterUnitTest {
     }
 
     @Test
-    @DisplayName("tryAcquire resets the provider window when the clock moves backward")
+    @DisplayName("tryAcquire resets the SMS provider window when the clock moves backward")
     void shouldAllowSend_whenClockMovesBackward() {
         MutableClock clock = new MutableClock(Instant.parse("2026-06-08T12:00:00Z"));
         InMemorySmsSendRateLimiter limiter = new InMemorySmsSendRateLimiter(1, Duration.ofMinutes(1), clock);

@@ -119,7 +119,7 @@ class SmsWebhookProcessorUnitTest {
     }
 
     @Test
-    @DisplayName("processInboundWebhook returns empty when provider parser does not produce a DTO")
+    @DisplayName("processInboundWebhook returns empty when SMS provider parser does not produce a DTO")
     void shouldReturnEmpty_whenInboundParserDoesNotProduceWebhookDto() {
         Map<String, String> headers = Map.of("X-Test", "value");
         String payload = "{\"message\":\"reply\"}";

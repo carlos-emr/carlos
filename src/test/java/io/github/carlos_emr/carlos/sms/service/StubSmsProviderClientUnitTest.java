@@ -17,7 +17,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Tag("service")
 class StubSmsProviderClientUnitTest {
     @Test
-    @DisplayName("stub provider returns stable non-blank provider ids")
+    @DisplayName("stub SMS provider returns stable non-blank SMS provider ids")
     void shouldReturnStableProviderId_whenCommandRepeats() {
         StubSmsProviderClient client = new StubSmsProviderClient();
         SmsSendCommand command = SmsSendCommand.direct(123, "(416) 555-1212", "Appointment reminder", "999998");
@@ -61,7 +61,7 @@ class StubSmsProviderClientUnitTest {
     }
 
     @Test
-    @DisplayName("default provider status lookup consumes client and provider references")
+    @DisplayName("default SMS provider status lookup consumes client and SMS provider references")
     void shouldReturnUnavailableStatus_whenDefaultStatusLookupIsUsed() {
         StubSmsProviderClient client = new StubSmsProviderClient();
 

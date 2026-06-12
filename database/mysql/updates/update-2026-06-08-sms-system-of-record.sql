@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS sms_transaction (
   transaction_type VARCHAR(32) NOT NULL,
   status VARCHAR(32) NOT NULL,
   demographic_no INT NULL,
-  requested_by_provider_no VARCHAR(16) NULL,
+  requested_by_healthcare_provider_no VARCHAR(16) NULL,
   requested_by_security_no INT NULL,
   appointment_no INT NULL,
   from_phone_number VARCHAR(32) NULL,
@@ -54,7 +54,7 @@ VALUES
   ('admin', '_msgSMS', 'x', 0, '999998'),
   ('doctor', '_msgSMS', 'x', 0, '999998');
 
--- Default send limit is enforced in JpaSmsSendRateLimiter at 5 SMS/5 seconds until provider limits are confirmed.
+-- Default send limit is enforced in JpaSmsSendRateLimiter at 5 SMS/5 seconds until SMS provider limits are confirmed.
 INSERT IGNORE INTO sms_provider_rate_limit (
   provider_type,
   send_count,

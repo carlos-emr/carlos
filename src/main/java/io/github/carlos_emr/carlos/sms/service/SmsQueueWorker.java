@@ -14,7 +14,7 @@ import java.util.Objects;
 @Service
 public class SmsQueueWorker {
     private static final SmsProviderType DEFAULT_PROVIDER_TYPE = SmsProviderType.STUB;
-    // Per-run cap for worker calls without an explicit limit; tune with provider throughput and queue volume.
+    // Per-run cap for worker calls without an explicit limit; tune with SMS provider throughput and queue volume.
     private static final int DEFAULT_BATCH_SIZE = 60;
     private static final Duration DEFAULT_STALE_SENDING_TIMEOUT = Duration.ofMinutes(5);
     private static final String QUEUE_PROVIDER_EXCEPTION_CODE = "QUEUE_PROVIDER_EXCEPTION";
@@ -47,9 +47,9 @@ public class SmsQueueWorker {
     private static final String QUEUE_STALE_STATUS_LOOKUP_UNAVAILABLE_MESSAGE =
             "SMS stale send status lookup was unavailable; marked failed for manual review.";
     private static final String QUEUE_STALE_STATUS_NOT_FOUND_RETRY_SCHEDULED_MESSAGE =
-            "SMS stale send was not found by provider status lookup; retry scheduled.";
+            "SMS stale send was not found by SMS provider status lookup; retry scheduled.";
     private static final String QUEUE_STALE_STATUS_NOT_FOUND_RETRY_EXHAUSTED_MESSAGE =
-            "SMS stale send was not found by provider status lookup and retry limit was reached.";
+            "SMS stale send was not found by SMS provider status lookup and retry limit was reached.";
 
     private final SmsTransactionRecorder transactionRecorder;
     private final SmsProviderResolver providerResolver;
@@ -226,7 +226,7 @@ public class SmsQueueWorker {
     private String clientReferenceId(SmsTransaction transaction) {
         Long transactionId = Objects.requireNonNull(
                 transaction.getId(),
-                "sms_transaction id is required before provider send"
+                "sms_transaction id is required before SMS provider send"
         );
         return "sms-transaction-" + transactionId;
     }

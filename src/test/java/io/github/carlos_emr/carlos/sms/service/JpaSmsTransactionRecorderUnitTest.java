@@ -98,7 +98,7 @@ class JpaSmsTransactionRecorderUnitTest {
     }
 
     @Test
-    @DisplayName("markProviderResult merges the provider transaction state")
+    @DisplayName("markProviderResult merges the SMS provider transaction state")
     void shouldMergeTransaction_whenProviderResultIsRecorded() {
         JpaSmsTransactionRecorder recorder = new JpaSmsTransactionRecorder(smsTransactionDao);
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
@@ -115,7 +115,7 @@ class JpaSmsTransactionRecorderUnitTest {
     }
 
     @Test
-    @DisplayName("markRetryScheduled re-queues a failed provider attempt")
+    @DisplayName("markRetryScheduled re-queues a failed SMS provider attempt")
     void shouldMergeTransaction_whenRetryIsScheduled() {
         JpaSmsTransactionRecorder recorder = new JpaSmsTransactionRecorder(smsTransactionDao);
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
@@ -159,7 +159,7 @@ class JpaSmsTransactionRecorderUnitTest {
     }
 
     @Test
-    @DisplayName("recordDeliveryEvent updates an existing provider transaction")
+    @DisplayName("recordDeliveryEvent updates an existing SMS provider transaction")
     void shouldMergeTransaction_whenDeliveryEventMatchesExistingRecord() {
         JpaSmsTransactionRecorder recorder = new JpaSmsTransactionRecorder(smsTransactionDao);
         SmsTransaction existing = SmsTransaction.outboundAttempt(
@@ -187,7 +187,7 @@ class JpaSmsTransactionRecorderUnitTest {
     }
 
     @Test
-    @DisplayName("recordDeliveryEvent defaults missing provider type before lookup")
+    @DisplayName("recordDeliveryEvent defaults missing SMS provider type before lookup")
     void shouldMergeTransaction_whenDeliveryProviderTypeIsMissing() {
         JpaSmsTransactionRecorder recorder = new JpaSmsTransactionRecorder(smsTransactionDao);
         SmsTransaction existing = SmsTransaction.outboundAttempt(
@@ -213,7 +213,7 @@ class JpaSmsTransactionRecorderUnitTest {
     }
 
     @Test
-    @DisplayName("recordDeliveryEvent rejects blank provider message ids")
+    @DisplayName("recordDeliveryEvent rejects blank SMS provider message ids")
     void shouldRejectDeliveryEvent_whenProviderMessageIdIsBlank() {
         JpaSmsTransactionRecorder recorder = new JpaSmsTransactionRecorder(smsTransactionDao);
         SmsDeliveryWebhookDto webhook = new SmsDeliveryWebhookDto(
@@ -233,7 +233,7 @@ class JpaSmsTransactionRecorderUnitTest {
     }
 
     @Test
-    @DisplayName("recordDeliveryEvent creates a record when no provider transaction exists")
+    @DisplayName("recordDeliveryEvent creates a record when no SMS provider transaction exists")
     void shouldPersistTransaction_whenDeliveryEventIsUnmatched() {
         JpaSmsTransactionRecorder recorder = new JpaSmsTransactionRecorder(smsTransactionDao);
         when(smsTransactionDao.findByProviderMessageId(SmsProviderType.STUB, "provider-1"))
