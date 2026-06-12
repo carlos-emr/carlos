@@ -50,11 +50,11 @@
     response.sendRedirect(request.getContextPath() + "/logout.htm");
     return;
   }
+  String appointmentNoParam = request.getParameter("appointment_no");
   String[] param = new String[3];
   param[0] = request.getParameter("status") + request.getParameter("statusch");
   param[1] = curUser_no;
-  param[2] = request.getParameter("appointment_no");
-  String appointmentNoParam = request.getParameter("appointment_no");
+  param[2] = appointmentNoParam;
 
   int appointmentNo;
 
@@ -76,11 +76,9 @@
     rowsAffected = 1;
   }
 
-
-
   if (rowsAffected == 1) {//add_record
     EventService eventService = SpringUtils.getBean(EventService.class);//This is when the icon is clicked in the appt screen
-    eventService.appointmentStatusChanged(this, request.getParameter("appointment_no"), request.getParameter("provider_no"), request.getParameter("statusch"));
+    eventService.appointmentStatusChanged(this, String.valueOf(appointmentNo), request.getParameter("provider_no"), request.getParameter("statusch"));
     int view = 0;
 
     String viewParam = request.getParameter("view");
