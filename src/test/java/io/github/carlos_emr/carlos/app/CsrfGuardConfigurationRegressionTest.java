@@ -29,9 +29,11 @@ import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.SecureRandom;
 import java.util.Properties;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
 /**
  * Regression coverage for the CSRFGuard properties file.
@@ -49,14 +51,28 @@ class CsrfGuardConfigurationRegressionTest {
     private static final String PRNG_PROVIDER_PROPERTY = "org.owasp.csrfguard.PRNG.Provider";
 
     @Test
-    @DisplayName("should use native PRNG without provider constraint")
-    void shouldUseNativePrngWithoutProviderConstraint_whenCsrfGuardConfigLoaded() throws IOException {
+    @DisplayName("should use DRBG without provider constraint")
+    void shouldUseDrbgWithoutProviderConstraint_whenCsrfGuardConfigLoaded() throws IOException {
+        Properties properties = loadCsrfGuardProperties();
+
+        assertThat(properties.getProperty(PRNG_PROPERTY)).isEqualTo("DRBG");
+        assertThat(properties).doesNotContainKey(PRNG_PROVIDER_PROPERTY);
+    }
+
+    @Test
+    @DisplayName("should resolve configured PRNG without provider constraint")
+    void shouldResolveConfiguredPrng_withoutProviderConstraint() throws IOException {
+        Properties properties = loadCsrfGuardProperties();
+
+        assertThatCode(() -> SecureRandom.getInstance(properties.getProperty(PRNG_PROPERTY)))
+                .doesNotThrowAnyException();
+    }
+
+    private static Properties loadCsrfGuardProperties() throws IOException {
         Properties properties = new Properties();
         try (Reader reader = Files.newBufferedReader(CSRF_GUARD_PROPERTIES, StandardCharsets.UTF_8)) {
             properties.load(reader);
         }
-
-        assertThat(properties.getProperty(PRNG_PROPERTY)).isEqualTo("NativePRNG");
-        assertThat(properties).doesNotContainKey(PRNG_PROVIDER_PROPERTY);
+        return properties;
     }
 }
