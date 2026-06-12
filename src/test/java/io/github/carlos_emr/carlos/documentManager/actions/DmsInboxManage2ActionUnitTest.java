@@ -28,6 +28,7 @@ import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
 import io.github.carlos_emr.carlos.daos.security.SecObjectNameDao;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -48,10 +49,14 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import java.io.IOException;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for {@link DmsInboxManage2Action} logout redirect short-circuiting.
@@ -116,6 +121,21 @@ class DmsInboxManage2ActionUnitTest extends CarlosUnitTestBase {
         DmsInboxManage2Action action = new DmsInboxManage2Action();
 
         String result = action.prepareForIndexPage();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/logoutPage");
+        verifyNoInteractions(secUserRoleDao, queueDocumentLinkDao, queueDao);
+    }
+
+    @Test
+    @DisplayName("should return NONE when execute dispatches index with missing user role")
+    void shouldReturnNone_whenExecuteDispatchesIndexWithMissingUserRole() {
+        request.setParameter("method", "prepareForIndexPage");
+        when(securityInfoManager.hasPrivilege(nullable(LoggedInInfo.class), eq("_edoc"), eq("r"), isNull()))
+                .thenReturn(true);
+        DmsInboxManage2Action action = new DmsInboxManage2Action();
+
+        String result = action.execute();
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/logoutPage");
