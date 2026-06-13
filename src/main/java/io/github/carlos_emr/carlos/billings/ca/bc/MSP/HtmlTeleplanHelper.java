@@ -69,11 +69,7 @@ public class HtmlTeleplanHelper {
     }
 
     public static String htmlNewProviderSection(String providerNo, Date date) {
-        String dateStr = "";
-        try {
-            dateStr = new SimpleDateFormat("yyyyMMdd").format(new Date());
-        } catch (Exception e) {
-        }
+        String dateStr = new SimpleDateFormat("yyyyMMdd").format(new Date());
         StringBuilder htmlContentHeader = new StringBuilder();
         htmlContentHeader.append("<tr> \n");
         htmlContentHeader.append("<td colspan='4' class='bodytext'>Billing Invoice for Billing No.").append(SafeEncode.forHtmlContent(providerNo)).append("</td> \n");
