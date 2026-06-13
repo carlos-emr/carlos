@@ -53,16 +53,24 @@
   String appointmentNoParam = request.getParameter("appointment_no");
   String status = request.getParameter("status");
   String statusch = request.getParameter("statusch");
+  String providerNoParam = request.getParameter("provider_no");
 
-  if (status == null || statusch == null) {
+  if (status == null || statusch == null || providerNoParam == null) {
     response.sendError(HttpServletResponse.SC_BAD_REQUEST);
     return;
   }
 
   int appointmentNo;
+  int providerNo;
 
   try {
     appointmentNo = Integer.parseInt(appointmentNoParam);
+  } catch (NumberFormatException e) {
+    response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+    return;
+  }
+  try {
+    providerNo = Integer.parseInt(providerNoParam);
   } catch (NumberFormatException e) {
     response.sendError(HttpServletResponse.SC_BAD_REQUEST);
     return;
@@ -93,7 +101,12 @@
 
   if (rowsAffected == 1) {//add_record
     EventService eventService = SpringUtils.getBean(EventService.class);//This is when the icon is clicked in the appt screen
-    eventService.appointmentStatusChanged(this, String.valueOf(appointmentNo), request.getParameter("provider_no"), request.getParameter("statusch"));
+    eventService.appointmentStatusChanged(
+      this,
+      String.valueOf(appointmentNo),
+      String.valueOf(providerNo),
+      statusch
+    );
     String strView = (view == 0) ? "0"
       : ("1&curProvider=" + SafeEncode.forUriComponent(request.getParameter("curProvider"))
       + "&curProviderName=" + SafeEncode.forUriComponent(request.getParameter("curProviderName")));
