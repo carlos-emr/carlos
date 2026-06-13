@@ -11,10 +11,10 @@ This directory contains technical documentation for CARLOS EMR (Clinical Assisti
 | Category | Documents | Description |
 |----------|-----------|-------------|
 | **Testing** | [📂 test/](test/) | Comprehensive modern test framework documentation (JUnit 5) |
-| **Architecture** | [Struts Actions Summary](struts-actions-summary.md)<br>[Struts Actions Detailed](struts-actions-detailed.md)<br>[Struts Web Endpoints](struts-web-endpoints.md)<br>[Integrator System Architecture](integrator-system-architecture.md) | System architecture, action mappings, and current endpoint/JSP routing rules |
+| **Architecture** | [Struts Actions Summary](struts-actions-summary.md)<br />[Struts Actions Detailed](struts-actions-detailed.md)<br />[Struts Web Endpoints](struts-web-endpoints.md)<br />[Integrator System Architecture](integrator-system-architecture.md) | System architecture, action mappings, and current endpoint/JSP routing rules |
 | **Security** | [Password System](Password_System.md) | Authentication and security architecture |
 | **APIs** | [API Collections Index](api-collections-index.md) | REST API documentation and collections |
-| **Development** | [DS Guideline](dsGuideline.md)<br>[Copyright Header (Magenta)](copyright-header-magenta.md) | Development standards and guidelines |
+| **Development** | [DS Guideline](dsGuideline.md)<br />[Copyright Header (Magenta)](copyright-header-magenta.md) | Development standards and guidelines |
 
 ### 🧪 Testing Documentation
 

@@ -1,6 +1,6 @@
 # Technical Specification for the Outside Use Report (Patients with Signed Consent)
 
-> **Source**: http://www.health.gov.on.ca/en/pro/publications/ohip/docs/techspec_outside_use_en.pdf
+> **Source**: [http://www.health.gov.on.ca/en/pro/publications/ohip/docs/techspec_outside_use_en.pdf]
 > **Fetched**: 2026-04-29  
 > **Format**: extracted text from PDF via pypdfium2; tables may be space-aligned rather than GFM.  
 > **Authoritative source**: the PDF at the URL above. If this MD and the PDF disagree, the PDF wins.
@@ -8,6 +8,8 @@
 Page count: 26
 
 ---
+
+```xml
 <!-- page 1 -->
 
 Technical Specification
@@ -705,3 +707,4 @@ Outside Use
 
 Catalogue # CIB-XXXXXXX Month/Year © Queen’s Printer for Ontario
 
+```
