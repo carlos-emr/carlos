@@ -220,7 +220,7 @@ public class MoveMohFiles2Action extends ActionSupport {
                     }
                 }
             }
-            allowUnzip = isValid && resolvedFolder != null && unzipFile != null && !unzipFile.isBlank();
+            allowUnzip = isValid && unzipFile != null && !unzipFile.isBlank();
 
             HttpSession session = request.getSession();
             for (String error : errors) {
