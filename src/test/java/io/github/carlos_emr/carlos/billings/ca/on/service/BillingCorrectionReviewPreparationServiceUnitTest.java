@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.service;
 import io.github.carlos_emr.SxmlMisc;
 import io.github.carlos_emr.carlos.billings.ca.on.command.BillingCorrectionLineCommand;
 import io.github.carlos_emr.carlos.billings.ca.on.command.BillingCorrectionValidationCommand;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingCorrectionCodedTokenValidator;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingCorrectionReviewDraft;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingCorrectionReviewItemDraft;
@@ -40,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
@@ -166,6 +168,54 @@ class BillingCorrectionReviewPreparationServiceUnitTest extends CarlosUnitTestBa
         assertThat(draft.content()).doesNotContain("<xml_empty>null</xml_empty>");
         assertThat(draft.content()).doesNotContain("xml_bad<tag");
         assertThat(draft.content()).doesNotContain("should not render");
+    }
+
+    @Test
+    void shouldValidateStoredContent_whenReviewDraftRoundTripsToSubmission() {
+        ServiceCodeLoader serviceCodeLoader = Mockito.mock(ServiceCodeLoader.class);
+        BillingCorrectionReviewPreparationService service =
+                new BillingCorrectionReviewPreparationService(serviceCodeLoader);
+        Map<String, String> xmlParameters = new LinkedHashMap<>();
+        xmlParameters.put("xml_safe", "A&B <C>");
+        xmlParameters.put("xml_empty", null);
+
+        BillingCorrectionValidationCommand command = new BillingCorrectionValidationCommand(
+                "250|Diabetes",
+                "Dr <Referral>",
+                "ROSTERED & ACTIVE",
+                false,
+                "123456",
+                false,
+                "ON",
+                "F",
+                "A&B",
+                xmlParameters,
+                List.of(),
+                "42",
+                "1234567890",
+                "1980-01-01",
+                "00",
+                "2026-04-28",
+                "O",
+                "0000",
+                "999998",
+                "2026-04-28",
+                "2026-04-29",
+                "Doe,Jane",
+                "123 Main",
+                "ON",
+                "Toronto",
+                "M1M1M1",
+                "F");
+
+        BillingCorrectionReviewDraft draft = service.prepareReviewDraft(command);
+
+        assertThat(draft.content()).contains("<xml_referral></xml_referral>");
+        assertThat(draft.content()).contains("<mreview></mreview>");
+        assertThat(draft.content()).contains("<specialty>A&amp;B</specialty>");
+        assertThat(draft.content()).contains("<xml_empty></xml_empty>");
+        assertThatCode(() -> BillingCorrectionCodedTokenValidator.validateStoredContent(draft.content()))
+                .doesNotThrowAnyException();
     }
 
     @ParameterizedTest

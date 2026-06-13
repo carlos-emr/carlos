@@ -159,7 +159,9 @@ public class MoveMohFiles2Action extends ActionSupport {
         }
 
         String folderParam = request.getParameter("folder");
+        EDTFolder resolvedFolder = resolveEdtFolder(folderParam);
         boolean shouldValidateSubmission = hasMutationIntent || "POST".equalsIgnoreCase(request.getMethod());
+        boolean allowUnzip = false;
         if (shouldValidateSubmission) {
             List<String> messages = new ArrayList<>();
             List<String> errors = new ArrayList<>();
@@ -168,22 +170,22 @@ public class MoveMohFiles2Action extends ActionSupport {
             if (folderParam == null || folderParam.isBlank()) {
                 errors.add(localizedMessage("billing.moveMohFiles.error.folderRequired"));
                 isValid = false;
-            } else if (resolveEdtFolder(folderParam) == null) {
+            } else if (resolvedFolder == null) {
                 errors.add(localizedMessage("billing.moveMohFiles.error.invalidFolder"));
                 isValid = false;
             }
 
             // Reuse the array fetched above for the mutation-intent gate so the
             // request parameter is read once instead of twice.
-            String[] fileNames = selectedMutationFiles;
-            if ((fileNames == null || fileNames.length == 0)
+            String[] fileNames = selectedMutationFiles == null ? new String[0] : selectedMutationFiles;
+            if ((fileNames.length == 0)
                     && (unzipFile == null || unzipFile.isBlank())) {
                 errors.add(localizedMessage("billing.moveMohFiles.error.fileRequired"));
                 isValid = false;
             }
 
             if (isValid && hasMohFileMutationIntent) {
-                String folderPath = getFolderPath(folderParam);
+                String folderPath = getFolderPath(resolvedFolder);
                 if (folderPath == null || folderPath.isEmpty()) {
                     errors.add(localizedMessage("billing.moveMohFiles.error.invalidFolder"));
                 } else {
@@ -218,6 +220,7 @@ public class MoveMohFiles2Action extends ActionSupport {
                     }
                 }
             }
+            allowUnzip = isValid && resolvedFolder != null && unzipFile != null && !unzipFile.isBlank();
 
             HttpSession session = request.getSession();
             for (String error : errors) {
@@ -231,7 +234,7 @@ public class MoveMohFiles2Action extends ActionSupport {
         // Build the view model for the rendering JSP. The page is rendered both
         // on direct GET (folder listing) and after the POST that archives files,
         // so the assembler runs unconditionally before we forward.
-        request.setAttribute("mohModel", buildViewModel(request, folderParam));
+        request.setAttribute("mohModel", buildViewModel(request, resolvedFolder, allowUnzip));
         request.setAttribute("__roleName", buildRoleName(request));
 
         return SUCCESS;
@@ -239,12 +242,24 @@ public class MoveMohFiles2Action extends ActionSupport {
 
     private String localizedMessage(String key, Object... args) {
         Locale locale = request == null || request.getLocale() == null ? Locale.getDefault() : request.getLocale();
-        // Apostrophe is MessageFormat's quoting character: an unescaped one in a
-        // translation ("Impossible d'archiver {0}.") silently disables the {0}
-        // placeholder. Doubling it here means bundle values stay natural prose;
-        // the trade-off is these keys can never use MessageFormat quote syntax.
-        String pattern = LocaleUtils.getMessage(locale, key).replace("'", "''");
+        String pattern = escapeMessageFormatApostrophes(LocaleUtils.getMessage(locale, key));
         return new MessageFormat(pattern, locale).format(args);
+    }
+
+    private static String escapeMessageFormatApostrophes(String pattern) {
+        StringBuilder escaped = new StringBuilder(pattern.length());
+        for (int i = 0; i < pattern.length(); i++) {
+            char current = pattern.charAt(i);
+            if (current == '\'') {
+                escaped.append("''");
+                if (i + 1 < pattern.length() && pattern.charAt(i + 1) == '\'') {
+                    i++;
+                }
+            } else {
+                escaped.append(current);
+            }
+        }
+        return escaped.toString();
     }
 
     /** Builds the {@code roleName} string the {@code <security:oscarSec>} tag wants. */
@@ -273,7 +288,7 @@ public class MoveMohFiles2Action extends ActionSupport {
      */
     public ViewMohFilesViewModel assembleViewModelForFallback(HttpServletRequest req) {
         String folderParam = req.getParameter("folder");
-        return buildViewModel(req, folderParam);
+        return buildViewModel(req, resolveEdtFolder(folderParam), false);
     }
 
     /**
@@ -282,16 +297,14 @@ public class MoveMohFiles2Action extends ActionSupport {
      * (folder resolution, optional unzip, file enumeration, date sorting,
      * URL-encoded link composition) so the JSP body becomes pure EL/JSTL.
      *
-     * @param folderParam folder name from the request ({@code "inbox"}, {@code "outbox"}, etc.)
+     * @param resolvedFolder validated folder from the request, or {@code null} to render the safe default
+     * @param allowUnzip whether the request passed mutation validation and may unzip the selected file
      * @return populated view model (never null)
      */
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
-    private ViewMohFilesViewModel buildViewModel(HttpServletRequest req, String folderParam) {
-        // EDTFolder.getFolder never returns null — invalid input falls back
-        // to INBOX. Keeps the previous "if (folder == null)" branch out of
-        // scope; that branch was always dead.
-        EDTFolder folder = EDTFolder.getFolder(folderParam);
+    private ViewMohFilesViewModel buildViewModel(HttpServletRequest req, EDTFolder resolvedFolder, boolean allowUnzip) {
+        EDTFolder folder = resolvedFolder == null ? EDTFolder.INBOX : resolvedFolder;
         String folderPath = folder.getPath();
 
         if (folderPath == null || folderPath.isEmpty()) {
@@ -316,7 +329,7 @@ public class MoveMohFiles2Action extends ActionSupport {
         String unzipMSG = "";
         String zname = req.getParameter("unzipfile");
         try {
-            if (zname != null && !zname.isEmpty()) {
+            if (allowUnzip && zname != null && !zname.isEmpty()) {
                 String safeZipName = FilenameUtils.getName(zname);
                 File safeZipFile = PathValidationUtils.validatePath(safeZipName, new File(folderPath));
                 Boolean unzipDone = zip.unzipXML(folderPath, safeZipFile.getName());
@@ -496,18 +509,18 @@ public class MoveMohFiles2Action extends ActionSupport {
      * <p>The folder name parameter typically comes from a web form selection and identifies
      * which EDT folder category (e.g., inbox, outbox, error) the user is working with.</p>
      *
-     * @param folderName String identifier for the EDT folder (e.g., "INBOX", "OUTBOX", "ERROR")
+     * @param folder resolved EDT folder selected for the request
      * @return String representing the absolute filesystem path for the specified EDT folder
      */
-    private String getFolderPath(String folderName) {
-        EDTFolder folder = resolveEdtFolder(folderName);
+    private String getFolderPath(EDTFolder folder) {
         if (folder == null) {
-            logger.warn("moveMOHFiles: invalid folder parameter '{}'", LogSafe.sanitize(folderName)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
             return null;
         }
         return folder.getPath();
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of closed EDT folder enum names; invalid values are rejected before mutation.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of closed EDT folder enum names; invalid values are rejected before mutation")
     private static EDTFolder resolveEdtFolder(String folderName) {
         if (folderName == null || folderName.isBlank()) {
             return null;

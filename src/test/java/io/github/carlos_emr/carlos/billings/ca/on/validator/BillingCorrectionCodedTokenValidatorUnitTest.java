@@ -117,4 +117,20 @@ class BillingCorrectionCodedTokenValidatorUnitTest {
                 .isInstanceOf(BillingValidationException.class)
                 .hasMessageContaining("unsupported element");
     }
+
+    @ParameterizedTest
+    @CsvSource(value = {
+            "<rd>Ref</rd> <xml_custom>safe</xml_custom>|unsupported structure",
+            "<rd>Ref</rd>garbage|unsupported structure",
+            "<rd>Ref|unsupported structure",
+            "<rd><xml_custom>safe</xml_custom></rd>|unsupported structure",
+            "<RDOHIP>123456</RDOHIP>|unsupported element",
+            "<xml>safe</xml>|unsupported element"
+    }, delimiter = '|')
+    void shouldRejectStoredContent_whenStructureOrElementBoundaryIsUnsupported(
+            String content, String messageFragment) {
+        assertThatThrownBy(() -> BillingCorrectionCodedTokenValidator.validateStoredContent(content))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining(messageFragment);
+    }
 }

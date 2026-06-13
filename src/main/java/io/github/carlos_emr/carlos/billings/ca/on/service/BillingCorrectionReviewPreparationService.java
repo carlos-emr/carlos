@@ -228,6 +228,7 @@ public class BillingCorrectionReviewPreparationService {
 
     private String buildContent(BillingCorrectionValidationCommand command) {
         StringBuilder content = new StringBuilder();
+        // Keep this fixed element list in sync with BillingCorrectionCodedTokenValidator.FIXED_CONTENT_ELEMENTS.
         appendCodedXmlElement(content, "rdohip", command.referralDoctorOhip());
         appendEscapedXmlElement(content, "rd", command.referralDoctor());
         appendEscapedXmlElement(content, "xml_referral", command.referralChecked() ? "checked" : "");

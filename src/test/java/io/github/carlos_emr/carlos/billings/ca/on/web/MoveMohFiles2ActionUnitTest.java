@@ -211,9 +211,78 @@ class MoveMohFiles2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldRejectUnknownFolder_withoutUnzippingIntoInbox() throws Exception {
+        Path inbox = Files.createTempDirectory("moh-inbox");
+        Object originalInboxPath = ReflectionTestUtils.getField(EDTFolder.INBOX, "path");
+        ReflectionTestUtils.setField(EDTFolder.INBOX, "path", inbox.toString());
+        mockRequest.addParameter("folder", "bogus");
+        mockRequest.addParameter("unzipfile", "claim.zip");
+
+        try (MockedStatic<zip> zipMock = mockStatic(zip.class)) {
+            MoveMohFiles2Action action = new MoveMohFiles2Action();
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+            zipMock.verifyNoInteractions();
+        } finally {
+            ReflectionTestUtils.setField(EDTFolder.INBOX, "path", originalInboxPath);
+        }
+
+        @SuppressWarnings("unchecked")
+        List<String> errors = (List<String>) mockRequest.getSession()
+                .getAttribute(WebUtils.ERROR_MESSAGE_SESSION_KEY);
+        assertThat(errors).contains("Invalid folder selection.");
+        assertThat(mockRequest.getSession().getAttribute(WebUtils.INFO_MESSAGE_SESSION_KEY)).isNull();
+    }
+
+    @Test
+    void shouldArchiveSelectedFile_whenPostSubmissionIsValid() throws Exception {
+        Path inbox = Files.createTempDirectory("moh-inbox");
+        Path archive = Files.createTempDirectory("moh-archive");
+        Path claim = Files.writeString(inbox.resolve("claim.000"), "claim");
+        Object originalInboxPath = ReflectionTestUtils.getField(EDTFolder.INBOX, "path");
+        Object originalArchivePath = ReflectionTestUtils.getField(EDTFolder.ARCHIVE, "path");
+        ReflectionTestUtils.setField(EDTFolder.INBOX, "path", inbox.toString());
+        ReflectionTestUtils.setField(EDTFolder.ARCHIVE, "path", archive.toString());
+        mockRequest.addParameter("folder", "inbox");
+        mockRequest.addParameter("mohFile", "claim.000");
+
+        try {
+            MoveMohFiles2Action action = new MoveMohFiles2Action();
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        } finally {
+            ReflectionTestUtils.setField(EDTFolder.INBOX, "path", originalInboxPath);
+            ReflectionTestUtils.setField(EDTFolder.ARCHIVE, "path", originalArchivePath);
+        }
+
+        assertThat(Files.exists(claim)).isFalse();
+        assertThat(Files.exists(archive.resolve("claim.000"))).isTrue();
+        @SuppressWarnings("unchecked")
+        List<String> messages = (List<String>) mockRequest.getSession()
+                .getAttribute(WebUtils.INFO_MESSAGE_SESSION_KEY);
+        assertThat(messages).contains("Archived file claim.000 successfully.");
+        assertThat(mockRequest.getSession().getAttribute(WebUtils.ERROR_MESSAGE_SESSION_KEY)).isNull();
+    }
+
+    @Test
     void shouldSubstitutePlaceholder_whenLocalizedPatternContainsApostrophe() throws Exception {
         localeUtilsMock.when(() -> LocaleUtils.getMessage(any(Locale.class), eq("billing.moveMohFiles.error.fileMissing")))
                 .thenReturn("Impossible d'archiver {0}.");
+        MoveMohFiles2Action action = new MoveMohFiles2Action();
+
+        Method method = MoveMohFiles2Action.class
+                .getDeclaredMethod("localizedMessage", String.class, Object[].class);
+        method.setAccessible(true);
+        String message = (String) method.invoke(
+                action, "billing.moveMohFiles.error.fileMissing", new Object[]{"claim.000"});
+
+        assertThat(message).isEqualTo("Impossible d'archiver claim.000.");
+    }
+
+    @Test
+    void shouldPreserveEscapedApostrophe_whenLocalizedPatternAlreadyEscapesMessageFormatQuote() throws Exception {
+        localeUtilsMock.when(() -> LocaleUtils.getMessage(any(Locale.class), eq("billing.moveMohFiles.error.fileMissing")))
+                .thenReturn("Impossible d''archiver {0}.");
         MoveMohFiles2Action action = new MoveMohFiles2Action();
 
         Method method = MoveMohFiles2Action.class

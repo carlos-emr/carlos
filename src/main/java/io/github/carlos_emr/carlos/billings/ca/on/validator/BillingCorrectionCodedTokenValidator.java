@@ -31,11 +31,10 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Validates the regex-constrained coded MOH tokens ({@code rdohip},
- * {@code hctype}, {@code demosex}) that are stored raw — never
- * entity-escaped — in the persisted billing correction content blob,
- * because the fixed-width OHIP claim extractor reads them back without
- * unescaping.
+ * Validates the persisted billing correction content blob grammar and
+ * the regex-constrained coded MOH tokens ({@code rdohip}, {@code hctype},
+ * {@code demosex}) that are stored raw — never entity-escaped — because
+ * the fixed-width OHIP claim extractor reads them back without unescaping.
  *
  * <p>The same allowlists must hold at both write paths: review
  * preparation (form fields) and final submission (the {@code content}
@@ -60,6 +59,7 @@ public final class BillingCorrectionCodedTokenValidator {
                     "Health card type contains unsupported characters."),
             "demosex", new CodedToken(Pattern.compile("^[A-Za-z0-9]{0,2}$"),
                     "Demographic sex code contains unsupported characters."));
+    // Keep this fixed element list in sync with BillingCorrectionReviewPreparationService.buildContent().
     private static final Set<String> FIXED_CONTENT_ELEMENTS = Set.of(
             "rdohip",
             "rd",
