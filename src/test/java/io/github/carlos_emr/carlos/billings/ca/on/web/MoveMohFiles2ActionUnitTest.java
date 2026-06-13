@@ -170,6 +170,47 @@ class MoveMohFiles2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldRejectBlankFolder_whenArchivingSelectedFiles() throws Exception {
+        mockRequest.addParameter("folder", " ");
+        mockRequest.addParameter("mohFile", "claim.000");
+        MoveMohFiles2Action action = new MoveMohFiles2Action();
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        @SuppressWarnings("unchecked")
+        List<String> errors = (List<String>) mockRequest.getSession()
+                .getAttribute(WebUtils.ERROR_MESSAGE_SESSION_KEY);
+        assertThat(errors).contains("A folder must be selected.");
+        assertThat(errors.toString()).doesNotContain("Unable to find file claim.000.");
+        assertThat(mockRequest.getSession().getAttribute(WebUtils.INFO_MESSAGE_SESSION_KEY)).isNull();
+    }
+
+    @Test
+    void shouldRejectUnknownFolder_withoutFallingBackToInbox() throws Exception {
+        Path inbox = Files.createTempDirectory("moh-inbox");
+        Path claim = Files.writeString(inbox.resolve("claim.000"), "claim");
+        Object originalInboxPath = ReflectionTestUtils.getField(EDTFolder.INBOX, "path");
+        ReflectionTestUtils.setField(EDTFolder.INBOX, "path", inbox.toString());
+        mockRequest.addParameter("folder", "bogus");
+        mockRequest.addParameter("mohFile", "claim.000");
+
+        try {
+            MoveMohFiles2Action action = new MoveMohFiles2Action();
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        } finally {
+            ReflectionTestUtils.setField(EDTFolder.INBOX, "path", originalInboxPath);
+        }
+
+        @SuppressWarnings("unchecked")
+        List<String> errors = (List<String>) mockRequest.getSession()
+                .getAttribute(WebUtils.ERROR_MESSAGE_SESSION_KEY);
+        assertThat(errors).contains("Invalid folder selection.");
+        assertThat(Files.exists(claim)).isTrue();
+        assertThat(mockRequest.getSession().getAttribute(WebUtils.INFO_MESSAGE_SESSION_KEY)).isNull();
+    }
+
+    @Test
     void shouldSubstitutePlaceholder_whenLocalizedPatternContainsApostrophe() throws Exception {
         localeUtilsMock.when(() -> LocaleUtils.getMessage(any(Locale.class), eq("billing.moveMohFiles.error.fileMissing")))
                 .thenReturn("Impossible d'archiver {0}.");

@@ -165,8 +165,11 @@ public class MoveMohFiles2Action extends ActionSupport {
             List<String> errors = new ArrayList<>();
             boolean isValid = true;
 
-            if (folderParam == null || folderParam.isEmpty()) {
+            if (folderParam == null || folderParam.isBlank()) {
                 errors.add(localizedMessage("billing.moveMohFiles.error.folderRequired"));
+                isValid = false;
+            } else if (resolveEdtFolder(folderParam) == null) {
+                errors.add(localizedMessage("billing.moveMohFiles.error.invalidFolder"));
                 isValid = false;
             }
 
@@ -497,11 +500,24 @@ public class MoveMohFiles2Action extends ActionSupport {
      * @return String representing the absolute filesystem path for the specified EDT folder
      */
     private String getFolderPath(String folderName) {
-    EDTFolder folder = EDTFolder.getFolder(folderName);
-    if (folder == null) {
-        logger.warn("moveMOHFiles: invalid folder parameter '{}'", LogSafe.sanitize(folderName)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
-        return null;
+        EDTFolder folder = resolveEdtFolder(folderName);
+        if (folder == null) {
+            logger.warn("moveMOHFiles: invalid folder parameter '{}'", LogSafe.sanitize(folderName)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
+            return null;
+        }
+        return folder.getPath();
     }
-    return folder.getPath();
+
+    private static EDTFolder resolveEdtFolder(String folderName) {
+        if (folderName == null || folderName.isBlank()) {
+            return null;
+        }
+        String normalizedFolderName = folderName.trim();
+        for (EDTFolder folder : EDTFolder.values()) {
+            if (folder.name().equalsIgnoreCase(normalizedFolderName)) {
+                return folder;
+            }
+        }
+        return null;
     }
 }
