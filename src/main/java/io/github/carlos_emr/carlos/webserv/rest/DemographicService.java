@@ -29,8 +29,8 @@
 package io.github.carlos_emr.carlos.webserv.rest;
 
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Collections;
+import java.util.Calendar;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -190,6 +190,30 @@ public class DemographicService extends AbstractServiceImpl {
     private ProviderConverter providerConverter = new ProviderConverter();
     private ProfessionalSpecialistConverter specialistConverter = new ProfessionalSpecialistConverter();
 
+    /** Object-level privilege check — no patient-specific restriction. */
+    private LoggedInInfo requireDemographicPrivilege(String action) {
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        if (loggedInInfo == null) {
+            throw new WebApplicationException(Response.status(Response.Status.UNAUTHORIZED).entity("Unauthorized").build());
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", action, null)) {
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).entity("Access Denied").build());
+        }
+        return loggedInInfo;
+    }
+
+    /** Record-level privilege check — enforces patient-specific access control. */
+    private LoggedInInfo requireDemographicPrivilege(String action, int demographicNo) {
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        if (loggedInInfo == null) {
+            throw new WebApplicationException(Response.status(Response.Status.UNAUTHORIZED).entity("Unauthorized").build());
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", action, demographicNo)) {
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).entity("Access Denied").build());
+        }
+        return loggedInInfo;
+    }
+
 
     /**
      * Finds all demographics.
@@ -202,13 +226,7 @@ public class DemographicService extends AbstractServiceImpl {
      */
     @GET
     public OscarSearchResponse<DemographicTo1> getAllDemographics(@QueryParam("offset") Integer offset, @QueryParam("limit") Integer limit) {
-        LoggedInInfo loggedInInfo = getLoggedInInfo();
-        if (loggedInInfo == null) {
-            throw new WebApplicationException(Response.status(Response.Status.UNAUTHORIZED).entity("Unauthorized").build());
-        }
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
-            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).entity("Access Denied").build());
-        }
+        LoggedInInfo loggedInInfo = requireDemographicPrivilege("r");
         OscarSearchResponse<DemographicTo1> result = new OscarSearchResponse<DemographicTo1>();
 
         if (offset == null) {
@@ -239,16 +257,13 @@ public class DemographicService extends AbstractServiceImpl {
     @Path("/{dataId}")
     @Produces({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
     public DemographicTo1 getDemographicData(@PathParam("dataId") Integer id, @QueryParam("includes[]") List<String> include) throws PatientDirectiveException {
-        LoggedInInfo loggedInInfo = getLoggedInInfo();
-        if (loggedInInfo == null) {
-            throw new WebApplicationException(Response.status(Response.Status.UNAUTHORIZED).entity("Unauthorized").build());
-        }
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
-            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).entity("Access Denied").build());
-        }
+        LoggedInInfo loggedInInfo = requireDemographicPrivilege("r", id);
         Demographic demo = demographicManager.getDemographic(loggedInInfo, id);
         if (demo == null) return null;
+        return buildDemographicTo1(loggedInInfo, demo, id, include);
+    }
 
+    private DemographicTo1 buildDemographicTo1(LoggedInInfo loggedInInfo, Demographic demo, Integer id, List<String> include) {
         List<DemographicExt> demoExts = demographicManager.getDemographicExts(loggedInInfo, id);
         if (demoExts != null && !demoExts.isEmpty()) {
             DemographicExt[] demoExtArray = demoExts.toArray(new DemographicExt[demoExts.size()]);
@@ -388,7 +403,7 @@ public class DemographicService extends AbstractServiceImpl {
         }
 
         if (include.contains(IncludeType.ALLERGIES.getValue())) {
-            result.setAllergies(new AllergyConverter().getAllAsTransferObjects(loggedInInfo, allergyManager.getActiveAllergies(getLoggedInInfo(), demo.getDemographicNo())));
+            result.setAllergies(new AllergyConverter().getAllAsTransferObjects(loggedInInfo, allergyManager.getActiveAllergies(loggedInInfo, demo.getDemographicNo())));
         }
 
         if (include.contains(IncludeType.MEASUREMENTS.getValue())) {
@@ -439,13 +454,7 @@ public class DemographicService extends AbstractServiceImpl {
     @Path("/basic/{dataId}")
     @Produces({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
     public DemographicTo1 getBasicDemographicData(@PathParam("dataId") Integer id, @QueryParam("includes[]") List<String> includes) throws PatientDirectiveException {
-        LoggedInInfo loggedInInfo = getLoggedInInfo();
-        if (loggedInInfo == null) {
-            throw new WebApplicationException(Response.status(Response.Status.UNAUTHORIZED).entity("Unauthorized").build());
-        }
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
-            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).entity("Access Denied").build());
-        }
+        LoggedInInfo loggedInInfo = requireDemographicPrivilege("r", id);
         Demographic demo = demographicManager.getDemographic(loggedInInfo, id);
         if (demo == null) return null;
 
@@ -549,13 +558,7 @@ public class DemographicService extends AbstractServiceImpl {
     @Path("/summary/{demographicNo}")
     @Produces({MediaType.APPLICATION_JSON})
     public DemographicTo1 getDemographicSummary(@PathParam("demographicNo") Integer demographicNo) {
-        LoggedInInfo loggedInInfo = getLoggedInInfo();
-        if (loggedInInfo == null) {
-            throw new WebApplicationException(Response.status(Response.Status.UNAUTHORIZED).entity("Unauthorized").build());
-        }
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
-            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).entity("Access Denied").build());
-        }
+        LoggedInInfo loggedInInfo = requireDemographicPrivilege("r", demographicNo);
         Demographic demographic = demographicManager.getDemographic(loggedInInfo, demographicNo);
         DemographicExt demographicExt = demographicManager.getDemographicExt(loggedInInfo, demographicNo, DemographicProperty.demo_cell);
         DemographicTo1 result = demoConverter.getAsTransferObject(loggedInInfo, demographic);
@@ -576,13 +579,7 @@ public class DemographicService extends AbstractServiceImpl {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
     public DemographicTo1 createDemographicData(DemographicTo1 data) {
-        LoggedInInfo loggedInInfo = getLoggedInInfo();
-        if (loggedInInfo == null) {
-            throw new WebApplicationException(Response.status(Response.Status.UNAUTHORIZED).entity("Unauthorized").build());
-        }
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
-            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).entity("Access Denied").build());
-        }
+        LoggedInInfo loggedInInfo = requireDemographicPrivilege("w");
         Demographic demographic = demoConverter.getAsDomainObject(loggedInInfo, data);
         demographicManager.createDemographic(loggedInInfo, demographic, data.getAdmissionProgramId());
         return demoConverter.getAsTransferObject(loggedInInfo, demographic);
@@ -598,13 +595,7 @@ public class DemographicService extends AbstractServiceImpl {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
     public DemographicTo1 updateDemographicData(DemographicTo1 data) {
-        LoggedInInfo loggedInInfo = getLoggedInInfo();
-        if (loggedInInfo == null) {
-            throw new WebApplicationException(Response.status(Response.Status.UNAUTHORIZED).entity("Unauthorized").build());
-        }
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
-            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).entity("Access Denied").build());
-        }
+        LoggedInInfo loggedInInfo = requireDemographicPrivilege("w", data.getDemographicNo());
         //update demographiccust
         if (data.getNurse() != null || data.getResident() != null || data.getAlert() != null || data.getMidwife() != null || data.getNotes() != null) {
             DemographicCust demoCust = demographicManager.getDemographicCust(loggedInInfo, data.getDemographicNo());
@@ -640,19 +631,12 @@ public class DemographicService extends AbstractServiceImpl {
     @DELETE
     @Path("/{dataId}")
     public DemographicTo1 deleteDemographicData(@PathParam("dataId") Integer id) {
-        LoggedInInfo loggedInInfo = getLoggedInInfo();
-        if (loggedInInfo == null) {
-            throw new WebApplicationException(Response.status(Response.Status.UNAUTHORIZED).entity("Unauthorized").build());
-        }
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "d", null)) {
-            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).entity("Access Denied").build());
-        }
+        LoggedInInfo loggedInInfo = requireDemographicPrivilege("d", id);
         Demographic demo = demographicManager.getDemographic(loggedInInfo, id);
-        DemographicTo1 result = getDemographicData(id, Collections.emptyList());
         if (demo == null) {
-            throw new IllegalArgumentException("Unable to find demographic record with ID " + id);
+            throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).entity("Demographic record not found: " + id).build());
         }
-
+        DemographicTo1 result = buildDemographicTo1(loggedInInfo, demo, id, Collections.emptyList());
         demographicManager.deleteDemographic(loggedInInfo, demo);
         return result;
     }
@@ -669,13 +653,7 @@ public class DemographicService extends AbstractServiceImpl {
     @Path("/quickSearch")
     @Produces("application/json")
     public AbstractSearchResponse<DemographicSearchResult> search(@QueryParam("query") String query) {
-        LoggedInInfo loggedInInfo = getLoggedInInfo();
-        if (loggedInInfo == null) {
-            throw new WebApplicationException(Response.status(Response.Status.UNAUTHORIZED).entity("Unauthorized").build());
-        }
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
-            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).entity("Access Denied").build());
-        }
+        LoggedInInfo loggedInInfo = requireDemographicPrivilege("r");
 
         AbstractSearchResponse<DemographicSearchResult> response = new AbstractSearchResponse<DemographicSearchResult>();
 
@@ -726,13 +704,7 @@ public class DemographicService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public AbstractSearchResponse<DemographicSearchResult> search(ObjectNode json, @QueryParam("startIndex") Integer startIndex, @QueryParam("itemsToReturn") Integer itemsToReturn) {
-        LoggedInInfo loggedInInfo = getLoggedInInfo();
-        if (loggedInInfo == null) {
-            throw new WebApplicationException(Response.status(Response.Status.UNAUTHORIZED).entity("Unauthorized").build());
-        }
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
-            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).entity("Access Denied").build());
-        }
+        LoggedInInfo loggedInInfo = requireDemographicPrivilege("r");
 
         AbstractSearchResponse<DemographicSearchResult> response = new AbstractSearchResponse<DemographicSearchResult>();
 
