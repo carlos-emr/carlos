@@ -37,8 +37,12 @@ import java.io.FileWriter;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+
 /**
- * @author jay
+ * Service component responsible for orchestrating Teleplan business workflows.
+ *
+ * <p>This class implements the business logic, state management, or data access required
+ * for handling TeleplanService instances according to the project's architectural guidelines.</p>
  */
 public class TeleplanService {
     static Logger log = MiscUtils.getLogger();

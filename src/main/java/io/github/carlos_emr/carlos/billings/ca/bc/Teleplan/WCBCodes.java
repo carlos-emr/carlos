@@ -38,8 +38,12 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 
+
 /**
- * @author jaygallagher
+ * Domain component representing a WCBCodes within the io.github.carlos_emr.carlos.billings.ca.bc.Teleplan module.
+ *
+ * <p>This class implements the business logic, state management, or data access required
+ * for handling WCBCodes instances according to the project's architectural guidelines.</p>
  */
 public class WCBCodes {
 

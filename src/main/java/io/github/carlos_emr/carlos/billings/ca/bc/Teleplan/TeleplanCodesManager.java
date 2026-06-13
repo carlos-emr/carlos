@@ -44,8 +44,12 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.CarlosProperties;
 
 
+
 /**
- * @author jay
+ * Service component responsible for orchestrating TeleplanCodes business workflows.
+ *
+ * <p>This class implements the business logic, state management, or data access required
+ * for handling TeleplanCodesManager instances according to the project's architectural guidelines.</p>
  */
 public class TeleplanCodesManager {
 

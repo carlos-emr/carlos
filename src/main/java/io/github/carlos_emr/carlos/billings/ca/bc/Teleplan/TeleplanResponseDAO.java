@@ -34,8 +34,12 @@ import io.github.carlos_emr.carlos.billing.CA.BC.dao.TeleplanResponseLogDao;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanResponseLog;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+
 /**
- * @author jay
+ * Data Access Object for managing TeleplanResponse persistence and retrieval.
+ *
+ * <p>This class implements the business logic, state management, or data access required
+ * for handling TeleplanResponseDAO instances according to the project's architectural guidelines.</p>
  */
 public class TeleplanResponseDAO {
 

@@ -50,8 +50,12 @@ import io.github.carlos_emr.carlos.entities.WCB;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+
 /**
- * @author jay
+ * Data Access Object for managing Billingmaster persistence and retrieval.
+ *
+ * <p>This class implements the business logic, state management, or data access required
+ * for handling BillingmasterDAO instances according to the project's architectural guidelines.</p>
  */
 @Repository
 @SuppressWarnings("unchecked")

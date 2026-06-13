@@ -45,8 +45,12 @@ import java.text.Format;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
+
 /**
- * @author jaygallagher
+ * Domain component representing a WCBTeleplanSubmission within the io.github.carlos_emr.carlos.billings.ca.bc.Teleplan module.
+ *
+ * <p>This class implements the business logic, state management, or data access required
+ * for handling WCBTeleplanSubmission instances according to the project's architectural guidelines.</p>
  */
 public class WCBTeleplanSubmission {
     private static Logger log = MiscUtils.getLogger();

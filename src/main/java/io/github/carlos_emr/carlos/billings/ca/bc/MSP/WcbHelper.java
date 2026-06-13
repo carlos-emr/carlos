@@ -37,8 +37,12 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.Wcb;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+
 /**
- * @author Jay Gallagher
+ * Domain component representing a WcbHelper within the io.github.carlos_emr.carlos.billings.ca.bc.MSP module.
+ *
+ * <p>This class implements the business logic, state management, or data access required
+ * for handling WcbHelper instances according to the project's architectural guidelines.</p>
  */
 public class WcbHelper {
 

@@ -46,8 +46,12 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 
+
 /**
- * @author jay
+ * Domain component representing a TeleplanResponse within the io.github.carlos_emr.carlos.billings.ca.bc.Teleplan module.
+ *
+ * <p>This class implements the business logic, state management, or data access required
+ * for handling TeleplanResponse instances according to the project's architectural guidelines.</p>
  */
 public class TeleplanResponse {
     static Logger log = MiscUtils.getLogger();

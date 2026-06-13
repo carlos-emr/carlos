@@ -39,8 +39,12 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.SqlUtils;
 
+
 /**
- * @author root
+ * Data transfer object encapsulating BillingCodeData state for UI and business layer communication.
+ *
+ * <p>This class implements the business logic, state management, or data access required
+ * for handling BillingCodeData instances according to the project's architectural guidelines.</p>
  */
 public final class BillingCodeData implements Comparable {
     /**

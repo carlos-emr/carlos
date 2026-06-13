@@ -51,8 +51,12 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
+
 /**
- * @author jay
+ * Domain component representing a DxReference within the io.github.carlos_emr.carlos.billings.ca.bc.data module.
+ *
+ * <p>This class implements the business logic, state management, or data access required
+ * for handling DxReference instances according to the project's architectural guidelines.</p>
  */
 public class DxReference {
     private static final Logger _log = MiscUtils.getLogger();

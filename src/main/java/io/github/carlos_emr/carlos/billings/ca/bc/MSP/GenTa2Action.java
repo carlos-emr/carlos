@@ -63,12 +63,16 @@ import io.github.carlos_emr.CarlosProperties;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
-/**
- * @author jay
- */
+
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts 2 action handler for GenTa operations in the CARLOS EMR system.
+ *
+ * <p>This class implements the business logic, state management, or data access required
+ * for handling GenTa2Action instances according to the project's architectural guidelines.</p>
+ */
 public class GenTa2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 

@@ -45,8 +45,12 @@ import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 
 import io.github.carlos_emr.carlos.util.StringUtils;
 
+
 /**
- * @author jaygallagher
+ * Domain component representing a WCB within the io.github.carlos_emr.carlos.entities module.
+ *
+ * <p>This class implements the business logic, state management, or data access required
+ * for handling WCB instances according to the project's architectural guidelines.</p>
  */
 @Entity
 @Table(name = "wcb")

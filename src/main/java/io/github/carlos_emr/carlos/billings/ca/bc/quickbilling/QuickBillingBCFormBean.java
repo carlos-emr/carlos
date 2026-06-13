@@ -38,10 +38,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 
+/**
+ * Data transfer object encapsulating QuickBillingBCFormBean state for UI and business layer communication.
+ *
+ * <p>This class implements the business logic, state management, or data access required
+ * for handling QuickBillingBCFormBean instances according to the project's architectural guidelines.</p>
+ */
 public class QuickBillingBCFormBean {
 
     /**
-     * @author Dennis Warren
      * Company Colcamex Resources
      * Date Jun 4, 2012
      */

@@ -41,7 +41,6 @@ import java.util.Date;
 /**
  * Used to consolidate the teleplan submission html into one place.
  *
- * @author jay
  */
 public class HtmlTeleplanHelper {
 
