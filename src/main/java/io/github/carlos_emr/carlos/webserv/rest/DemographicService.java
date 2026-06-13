@@ -44,7 +44,9 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
@@ -200,6 +202,9 @@ public class DemographicService extends AbstractServiceImpl {
      */
     @GET
     public OscarSearchResponse<DemographicTo1> getAllDemographics(@QueryParam("offset") Integer offset, @QueryParam("limit") Integer limit) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_demographic", "r", null)) {
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).entity("Access Denied").build());
+        }
         OscarSearchResponse<DemographicTo1> result = new OscarSearchResponse<DemographicTo1>();
 
         if (offset == null) {
@@ -230,6 +235,9 @@ public class DemographicService extends AbstractServiceImpl {
     @Path("/{dataId}")
     @Produces({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
     public DemographicTo1 getDemographicData(@PathParam("dataId") Integer id, @QueryParam("includes[]") List<String> include) throws PatientDirectiveException {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_demographic", "r", null)) {
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).entity("Access Denied").build());
+        }
         LoggedInInfo loggedInInfo = getLoggedInInfo();
         Demographic demo = demographicManager.getDemographic(getLoggedInInfo(), id);
         if (demo == null) return null;
@@ -424,6 +432,9 @@ public class DemographicService extends AbstractServiceImpl {
     @Path("/basic/{dataId}")
     @Produces({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
     public DemographicTo1 getBasicDemographicData(@PathParam("dataId") Integer id, @QueryParam("includes[]") List<String> includes) throws PatientDirectiveException {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_demographic", "r", null)) {
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).entity("Access Denied").build());
+        }
         Demographic demo = demographicManager.getDemographic(getLoggedInInfo(), id);
         if (demo == null) return null;
 
@@ -527,6 +538,9 @@ public class DemographicService extends AbstractServiceImpl {
     @Path("/summary/{demographicNo}")
     @Produces({MediaType.APPLICATION_JSON})
     public DemographicTo1 getDemographicSummary(@PathParam("demographicNo") Integer demographicNo) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_demographic", "r", null)) {
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).entity("Access Denied").build());
+        }
         Demographic demographic = demographicManager.getDemographic(getLoggedInInfo(), demographicNo);
         DemographicExt demographicExt = demographicManager.getDemographicExt(getLoggedInInfo(), demographicNo, DemographicProperty.demo_cell);
         DemographicTo1 result = demoConverter.getAsTransferObject(getLoggedInInfo(), demographic);
@@ -547,6 +561,9 @@ public class DemographicService extends AbstractServiceImpl {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
     public DemographicTo1 createDemographicData(DemographicTo1 data) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_demographic", "w", null)) {
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).entity("Access Denied").build());
+        }
         Demographic demographic = demoConverter.getAsDomainObject(getLoggedInInfo(), data);
         demographicManager.createDemographic(getLoggedInInfo(), demographic, data.getAdmissionProgramId());
         return demoConverter.getAsTransferObject(getLoggedInInfo(), demographic);
@@ -560,7 +577,11 @@ public class DemographicService extends AbstractServiceImpl {
      */
     @PUT
     @Consumes(MediaType.APPLICATION_JSON)
+    @Produces({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
     public DemographicTo1 updateDemographicData(DemographicTo1 data) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_demographic", "w", null)) {
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).entity("Access Denied").build());
+        }
         //update demographiccust
         if (data.getNurse() != null || data.getResident() != null || data.getAlert() != null || data.getMidwife() != null || data.getNotes() != null) {
             DemographicCust demoCust = demographicManager.getDemographicCust(getLoggedInInfo(), data.getDemographicNo());
@@ -596,6 +617,9 @@ public class DemographicService extends AbstractServiceImpl {
     @DELETE
     @Path("/{dataId}")
     public DemographicTo1 deleteDemographicData(@PathParam("dataId") Integer id) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_demographic", "d", null)) {
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).entity("Access Denied").build());
+        }
         Demographic demo = demographicManager.getDemographic(getLoggedInInfo(), id);
         DemographicTo1 result = getDemographicData(id, Collections.EMPTY_LIST);
         if (demo == null) {
@@ -618,9 +642,8 @@ public class DemographicService extends AbstractServiceImpl {
     @Path("/quickSearch")
     @Produces("application/json")
     public AbstractSearchResponse<DemographicSearchResult> search(@QueryParam("query") String query) {
-
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_demographic", "r", null)) {
-            throw new RuntimeException("Access Denied");
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).entity("Access Denied").build());
         }
 
         AbstractSearchResponse<DemographicSearchResult> response = new AbstractSearchResponse<DemographicSearchResult>();
@@ -672,11 +695,11 @@ public class DemographicService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public AbstractSearchResponse<DemographicSearchResult> search(ObjectNode json, @QueryParam("startIndex") Integer startIndex, @QueryParam("itemsToReturn") Integer itemsToReturn) {
-        AbstractSearchResponse<DemographicSearchResult> response = new AbstractSearchResponse<DemographicSearchResult>();
-
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_demographic", "r", null)) {
-            throw new RuntimeException("Access Denied");
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).entity("Access Denied").build());
         }
+
+        AbstractSearchResponse<DemographicSearchResult> response = new AbstractSearchResponse<DemographicSearchResult>();
 
         DemographicSearchRequest req = convertFromJSON(json);
         //caisi
