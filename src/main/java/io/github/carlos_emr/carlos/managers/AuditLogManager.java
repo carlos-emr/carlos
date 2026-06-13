@@ -38,6 +38,8 @@ import java.time.temporal.ChronoUnit;
 import java.util.Calendar;
 import java.util.Date;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -63,6 +65,9 @@ public class AuditLogManager {
     String dbName = CarlosProperties.getInstance().getProperty("db_name").substring(0, CarlosProperties.getInstance().getProperty("db_name").indexOf("?"));
 
 
+    // FindSecBugs COMMAND_INJECTION: Runtime.exec receives an argv array from trusted config and server-formatted date.
+    // Do not add request-controlled command arguments under this suppression.
+    @SuppressFBWarnings(value = "COMMAND_INJECTION", justification = "Runtime.exec uses an argv array built from trusted deployment config and a server-formatted date; no shell expansion or request-controlled command")
     public int purgeAuditLog(LoggedInInfo loggedInInfo, Date endDateToPurge) throws Exception {
 
         if (outputDirectory == null || outputDirectory.isEmpty()) {

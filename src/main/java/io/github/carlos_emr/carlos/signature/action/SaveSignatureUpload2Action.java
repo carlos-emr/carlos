@@ -121,7 +121,7 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
         // Reject signatureKey values containing anything other than alphanumeric characters
         // to prevent path traversal (e.g. "../" sequences) from escaping the temp directory.
         if (signatureKey != null && !signatureKey.matches("[a-zA-Z0-9]+")) {
-            MiscUtils.getLogger().warn("Invalid signatureKey rejected: {}", LogSafe.sanitize(signatureKey));
+            MiscUtils.getLogger().warn("Invalid signatureKey rejected: {}", LogSafe.sanitize(signatureKey)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid signature key");
             return NONE;
         }
@@ -140,7 +140,7 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
             File tmpDir = new File(System.getProperty("java.io.tmpdir"));
             safeTarget = PathValidationUtils.validateExistingPath(new File(filename), tmpDir);
         } catch (SecurityException e) {
-            MiscUtils.getLogger().warn("Path traversal attempt blocked for signatureKey: {}", LogSafe.sanitize(signatureKey));
+            MiscUtils.getLogger().warn("Path traversal attempt blocked for signatureKey: {}", LogSafe.sanitize(signatureKey)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid signature key");
             return NONE;
         }
@@ -165,7 +165,7 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
             try {
                 imageData = new Base64().decode(encoded.getBytes(StandardCharsets.US_ASCII));
             } catch (IllegalArgumentException e) {
-                MiscUtils.getLogger().warn("Invalid Base64 signatureImage for key {}", LogSafe.sanitize(signatureKey));
+                MiscUtils.getLogger().warn("Invalid Base64 signatureImage for key {}", LogSafe.sanitize(signatureKey)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid image data");
                 return NONE;
             }
@@ -176,15 +176,15 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
             // Belt-and-suspenders: Base64 decoders that strip non-alphabet chars
             // can still produce more than MAX_UPLOAD_BYTES on pathological input.
             if (imageData.length > MAX_UPLOAD_BYTES) {
-                MiscUtils.getLogger().warn("IPAD signature decoded to {} bytes; rejecting", imageData.length);
+                MiscUtils.getLogger().warn("IPAD signature decoded to {} bytes; rejecting", imageData.length); // NOSONAR javasecurity:S5145 - logs numeric/non-request metadata only
                 response.sendError(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE, "Upload too large");
                 return NONE;
             }
             try (FileOutputStream fos = new FileOutputStream(safeTarget)) {
-                fos.write(imageData);
-                MiscUtils.getLogger().debug("Signature uploaded: {}, size={}", LogSafe.sanitize(filename), imageData.length);
+                fos.write(imageData); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- writes decoded image bytes to validated file target, not HTTP response HTML
+                MiscUtils.getLogger().debug("Signature uploaded: {}, size={}", LogSafe.sanitize(filename), imageData.length); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
             } catch (IOException e) {
-                MiscUtils.getLogger().error("Error uploading signature from IPAD: {}", LogSafe.sanitize(filename), e);
+                MiscUtils.getLogger().error("Error uploading signature from IPAD: {}", LogSafe.sanitize(filename), e); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                 deleteQuietly(safeTarget);
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Upload failed");
                 return NONE;
@@ -206,9 +206,9 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
                     fos.write(buffer, 0, bytesRead);
                 }
                 writeOk = true;
-                MiscUtils.getLogger().debug("Signature uploaded: {}, size={}", LogSafe.sanitize(filename), counter);
+                MiscUtils.getLogger().debug("Signature uploaded: {}, size={}", LogSafe.sanitize(filename), counter); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
             } catch (IOException e) {
-                MiscUtils.getLogger().error("Error uploading signature: {}", LogSafe.sanitize(filename), e);
+                MiscUtils.getLogger().error("Error uploading signature: {}", LogSafe.sanitize(filename), e); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Upload failed");
                 return NONE;
             } finally {
@@ -217,7 +217,7 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
                 }
             }
         } else {
-            MiscUtils.getLogger().warn("Unknown signature upload source: {}", LogSafe.sanitize(uploadSource));
+            MiscUtils.getLogger().warn("Unknown signature upload source: {}", LogSafe.sanitize(uploadSource)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Unknown source");
             return NONE;
         }
@@ -228,7 +228,7 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
                 try {
                     demographicNo = Integer.parseInt(demographic);
                 } catch (NumberFormatException e) {
-                    MiscUtils.getLogger().warn("Invalid demographicNo: {}", LogSafe.sanitize(demographic));
+                    MiscUtils.getLogger().warn("Invalid demographicNo: {}", LogSafe.sanitize(demographic)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid demographicNo");
                     return NONE;
                 }
@@ -245,7 +245,7 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
                 // Manager documents null-return on expected failures; any propagated
                 // RuntimeException is an unexpected failure mode (e.g. encryption,
                 // DB connectivity). Delete the orphan temp file before surfacing 500.
-                MiscUtils.getLogger().error("Digital signature persist failed for key {}",
+                MiscUtils.getLogger().error("Digital signature persist failed for key {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                         LogSafe.sanitize(signatureKey), e);
                 deleteQuietly(safeTarget);
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Save failed");
@@ -257,7 +257,7 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
                 // exception. The file upload succeeded but persistence did not —
                 // surface 500 rather than returning an empty signatureId that the
                 // caller has no way to distinguish from a successful save.
-                MiscUtils.getLogger().warn("Digital signature persist returned null for key {}",
+                MiscUtils.getLogger().warn("Digital signature persist returned null for key {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                         LogSafe.sanitize(signatureKey));
                 deleteQuietly(safeTarget);
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Save failed");
@@ -285,7 +285,7 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
         try {
             Files.deleteIfExists(f.toPath());
         } catch (IOException ignored) {
-            MiscUtils.getLogger().warn("Failed to clean up partial upload: {}", LogSafe.sanitize(f.getName()));
+            MiscUtils.getLogger().warn("Failed to clean up partial upload: {}", LogSafe.sanitize(f.getName())); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
         }
     }
 

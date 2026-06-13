@@ -90,8 +90,10 @@ public class SubmitLabByForm2Action extends ActionSupport {
      * @throws SecurityException if the current user lacks the required "_lab" write privilege
      * @throws Exception for parse, I/O, or handler invocation errors that are propagated to the caller
      */
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use.
+    // FindSecBugs PREDICTABLE_RANDOM: Math.random only adds a local HL7 filename suffix.
+    // Do not use this suppression for secrets, tokens, authorization, or request-controlled random values.
+    @SuppressFBWarnings(value = {"PATH_TRAVERSAL_IN", "PREDICTABLE_RANDOM"}, justification = "PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use. PREDICTABLE_RANDOM: Math.random only creates a local HL7 filename suffix, not a secret, token, or authorization decision")
     public String saveManage() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();

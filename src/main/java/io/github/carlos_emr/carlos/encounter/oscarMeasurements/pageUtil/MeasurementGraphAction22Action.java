@@ -114,6 +114,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         String userrole = (String) request.getSession().getAttribute("userrole");
         if (userrole == null) {
             response.sendRedirect(request.getContextPath() + "/logoutPage");
+            return NONE;
         }
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_measurement", "r", null)) {

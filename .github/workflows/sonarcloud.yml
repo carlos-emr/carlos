@@ -48,7 +48,27 @@ jobs:
   build:
     name: Build and analyze
     runs-on: ubuntu-latest
+    if: >
+      github.actor != 'dependabot[bot]' &&
+      (
+        github.event_name != 'pull_request' ||
+        (
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          github.event.pull_request.user.login != 'dependabot[bot]'
+        )
+      )
     steps:
+      - name: Verify SonarCloud configuration
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          if [ -z "$SONAR_TOKEN" ]; then
+            echo "::error::SONAR_TOKEN is not available in this workflow run."
+            echo "::error::Configure the SONAR_TOKEN secret with access to the SonarCloud project used by this workflow."
+            echo "::error::For events where GitHub does not expose repository secrets, keep SonarCloud analysis skipped or run it through a trusted manual process."
+            exit 1
+          fi
+
       - name: Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
