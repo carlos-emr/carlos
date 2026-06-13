@@ -68,6 +68,8 @@ class JsonResponseHeaderRegressionTest extends CarlosUnitTestBase {
             "src/main/java/io/github/carlos_emr/carlos/mds/pageUtil/ReportMacro2Action.java");
     private static final Path MEASUREMENT_DATA_ACTION = PROJECT_ROOT.resolve(
             "src/main/java/io/github/carlos_emr/carlos/measurements/web/MeasurementData2Action.java");
+    private static final Path FLOWSHEET2_ACTION = PROJECT_ROOT.resolve(
+            "src/main/java/io/github/carlos_emr/carlos/flowsheet/Flowsheet2Action.java");
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
 
@@ -121,6 +123,27 @@ class JsonResponseHeaderRegressionTest extends CarlosUnitTestBase {
         assertThat(helperJsonContentTypeIndex).isNotNegative();
         assertThat(helperJsonWriteIndex).isNotNegative();
         assertThat(helperJsonContentTypeIndex).isLessThan(helperJsonWriteIndex);
+    }
+
+
+    @Test
+    @DisplayName("should set JSON content type before flowsheet action writes")
+    void shouldSetJsonContentType_beforeFlowsheetActionWrites() throws IOException {
+        String source = Files.readString(FLOWSHEET2_ACTION, StandardCharsets.UTF_8);
+
+        int helperIndex = source.indexOf("private void writeJsonResponse(String json) throws IOException");
+        int helperContentTypeIndex = source.indexOf("response.setContentType(\"application/json\");", helperIndex);
+        int helperEncodingIndex = source.indexOf("response.setCharacterEncoding(\"UTF-8\");", helperIndex);
+        int helperWriteIndex = source.indexOf("response.getWriter().write(json);", helperIndex);
+
+        assertThat(source).doesNotContain("response.getWriter().write(resp.toString())");
+        assertThat(source).doesNotContain("response.getWriter().write(obj.toString())");
+        assertThat(helperIndex).isNotNegative();
+        assertThat(helperContentTypeIndex).isNotNegative();
+        assertThat(helperEncodingIndex).isNotNegative();
+        assertThat(helperWriteIndex).isNotNegative();
+        assertThat(helperContentTypeIndex).isLessThan(helperWriteIndex);
+        assertThat(helperEncodingIndex).isLessThan(helperWriteIndex);
     }
 
     @Test
