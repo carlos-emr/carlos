@@ -28,6 +28,8 @@ import io.github.carlos_emr.carlos.PMmodule.dao.CriteriaTypeOptionDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.VacancyDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.VacancyTemplateDao;
+import io.github.carlos_emr.carlos.PMmodule.model.Criteria;
+import io.github.carlos_emr.carlos.PMmodule.model.CriteriaType;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -35,9 +37,12 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Locale;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.when;
 
 @DisplayName("VacancyTemplateManager")
 @Tag("unit")
@@ -76,5 +81,31 @@ class VacancyTemplateManagerUnitTest extends CarlosUnitTestBase {
         assertThat("targetOf" + key).isEqualTo("targetOfreferral_source");
         assertThat(key + "Minimum").isEqualTo("referral_sourceMinimum");
         assertThat(key + "Maximum").isEqualTo("referral_sourceMaximum");
+    }
+
+    @Test
+    void shouldPreserveNumberValue_whenRenderingCriteriaInput() {
+        Criteria criteria = new Criteria();
+        criteria.setId(17);
+        criteria.setCriteriaValue("15");
+        criteria.setCanBeAdhoc(2);
+
+        CriteriaType criteriaType = new CriteriaType();
+        criteriaType.setFieldName("Minimum Age");
+        criteriaType.setFieldType("number");
+
+        reset(VacancyTemplateManager.criteriaDAO, VacancyTemplateManager.criteriaTypeDAO,
+                VacancyTemplateManager.criteriaTypeOptionDAO, VacancyTemplateManager.criteriaSelectionOptionDAO);
+        when(VacancyTemplateManager.criteriaDAO.getCriteriaByTemplateIdVacancyIdTypeId(99, null, 5))
+                .thenReturn(criteria);
+        when(VacancyTemplateManager.criteriaTypeDAO.find((Object) 5)).thenReturn(criteriaType);
+        when(VacancyTemplateManager.criteriaTypeOptionDAO.getCriteriaTypeOptionByTypeId(5)).thenReturn(List.of());
+        when(VacancyTemplateManager.criteriaSelectionOptionDAO.getCriteriaSelectedOptionsByCriteriaId(17))
+                .thenReturn(List.of());
+
+        String html = VacancyTemplateManager.renderAllSelectOptions(99, null, 5);
+
+        assertThat(html).contains("value=\"15\" name=\"minimum_ageNumber\"");
+        assertThat(html).doesNotContain("value=\" 15\"");
     }
 }

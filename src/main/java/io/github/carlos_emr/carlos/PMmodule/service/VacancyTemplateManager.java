@@ -249,7 +249,7 @@ public interface VacancyTemplateManager {
             sb.append("<td class=\"beright\">");
             sb.append(htmlType);
             sb.append(" Value:</td>");
-            sb.append("<td><input type=\"text\" size=\"50\" maxlength=\"50\" value=\" ");
+            sb.append("<td><input type=\"text\" size=\"50\" maxlength=\"50\" value=\"");
             sb.append(SafeEncode.forHtmlAttribute(value));
             sb.append("\" name=\"");
             sb.append(attrFieldKey);
