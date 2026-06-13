@@ -164,8 +164,6 @@
                 } else {
                     doctorName = (rxprovider.getFirstName() + ' ' + rxprovider.getSurname());
                 }
-                doctorName = doctorName.replaceAll("\\d{6}", "");
-                doctorName = doctorName.replaceAll("\\-", "");
 
                 vecAddressName = new Vector();
                 vecAddress = new Vector();
