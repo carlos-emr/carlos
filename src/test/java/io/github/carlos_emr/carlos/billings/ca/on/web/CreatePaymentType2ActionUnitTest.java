@@ -112,7 +112,7 @@ class CreatePaymentType2ActionUnitTest extends CarlosUnitTestBase {
         when(mockDao.getPaymentTypeByName("CRYPTO")).thenReturn(null);
 
         CreatePaymentType2Action action = new CreatePaymentType2Action(mockSecurityInfoManager, mockDao);
-        assertThat(action.execute()).isNull(); // null = bypass result rendering, JSON body already on wire
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
 
         verify(mockDao, times(1)).persist(any(BillingPaymentType.class));
         assertThat(mockResponse.getContentAsString()).contains("\"ret\":\"0\"");
@@ -134,14 +134,15 @@ class CreatePaymentType2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldNoOp_whenPaymentTypeParamMissing() throws Exception {
+    void shouldReturnRet1_whenPaymentTypeParamMissing() throws Exception {
         // No paymentType param.
         CreatePaymentType2Action action = new CreatePaymentType2Action(mockSecurityInfoManager, mockDao);
-        action.execute();
+        String result = action.execute();
 
+        assertThat(result).isEqualTo(ActionSupport.NONE);
         verify(mockDao, never()).persist(any(BillingPaymentType.class));
-        // No JSON body written.
-        assertThat(mockResponse.getContentAsString()).isEmpty();
+        assertThat(mockResponse.getContentAsString()).contains("\"ret\":\"1\"");
+        assertThat(mockResponse.getContentAsString()).contains("Missing payment type");
     }
 
     @Test

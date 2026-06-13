@@ -115,7 +115,7 @@ class UpdatePaymentType2ActionUnitTest extends CarlosUnitTestBase {
         when(mockDao.getPaymentTypeByName("BANK_TRANSFER")).thenReturn(null);
 
         UpdatePaymentType2Action action = new UpdatePaymentType2Action(mockSecurityInfoManager, mockDao);
-        assertThat(action.execute()).isNull();
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
 
         verify(mockDao, times(1)).merge(any(BillingPaymentType.class));
         assertThat(existing.getPaymentType()).isEqualTo("BANK_TRANSFER");
@@ -157,13 +157,17 @@ class UpdatePaymentType2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldNoOp_whenEitherParamMissing() throws Exception {
-        // Only one of the two required params -> no-op (returns null without writing JSON).
+    void shouldReturnRet1_whenEitherParamMissing() throws Exception {
+        // Only one of the two required params.
         mockRequest.setParameter("oldPaymentType", "CHEQUE");
         // paymentType missing
         UpdatePaymentType2Action action = new UpdatePaymentType2Action(mockSecurityInfoManager, mockDao);
-        action.execute();
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
         verify(mockDao, never()).merge(any(BillingPaymentType.class));
+        assertThat(mockResponse.getContentAsString()).contains("\"ret\":\"1\"");
+        assertThat(mockResponse.getContentAsString()).contains("Missing payment type");
     }
 
     @Test
