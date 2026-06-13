@@ -229,6 +229,8 @@ public class MoveMohFiles2Action extends ActionSupport {
             for (String message : messages) {
                 WebUtils.addInfoMessage(session, message);
             }
+        } else if (folderParam != null && !folderParam.isBlank() && resolvedFolder == null) {
+            WebUtils.addErrorMessage(request.getSession(), localizedMessage("billing.moveMohFiles.error.invalidFolder"));
         }
 
         // Build the view model for the rendering JSP. The page is rendered both
@@ -335,6 +337,9 @@ public class MoveMohFiles2Action extends ActionSupport {
                 Boolean unzipDone = zip.unzipXML(folderPath, safeZipFile.getName());
                 if (!unzipDone) {
                     unzipMSG = "(Cannot unzip)";
+                } else {
+                    WebUtils.addInfoMessage(req.getSession(),
+                            localizedMessage("billing.moveMohFiles.info.unzipped", safeZipFile.getName()));
                 }
             }
         } catch (SecurityException e) {

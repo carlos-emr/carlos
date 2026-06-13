@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import io.github.carlos_emr.carlos.billing.CA.ON.util.EDTFolder;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.ViewMohFilesViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.util.zip;
@@ -325,6 +326,32 @@ class MoveMohFiles2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(mockRequest.getSession().getAttribute(WebUtils.INFO_MESSAGE_SESSION_KEY)).isNull();
     }
 
+    @Test
+    void shouldWarnOnUnknownFolder_whenRenderingGetFallback() throws Exception {
+        Path inbox = Files.createTempDirectory("moh-inbox");
+        Object originalInboxPath = ReflectionTestUtils.getField(EDTFolder.INBOX, "path");
+        ReflectionTestUtils.setField(EDTFolder.INBOX, "path", inbox.toString());
+        mockRequest.setMethod("GET");
+        mockRequest.addParameter("folder", "bogus");
+
+        try {
+            MoveMohFiles2Action action = new MoveMohFiles2Action();
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        } finally {
+            ReflectionTestUtils.setField(EDTFolder.INBOX, "path", originalInboxPath);
+        }
+
+        @SuppressWarnings("unchecked")
+        List<String> errors = (List<String>) mockRequest.getSession()
+                .getAttribute(WebUtils.ERROR_MESSAGE_SESSION_KEY);
+        assertThat(errors).contains("Invalid folder selection.");
+        assertThat(mockRequest.getSession().getAttribute(WebUtils.INFO_MESSAGE_SESSION_KEY)).isNull();
+        ViewMohFilesViewModel model = (ViewMohFilesViewModel) mockRequest.getAttribute("mohModel");
+        assertThat(model.isInbox()).isTrue();
+        assertThat(mockRequest.getSession().getAttribute("backupfilepath")).isEqualTo(inbox.toString());
+    }
+
     /**
      * GET with mohFile = mutation intent on the wrong method. Action must 405
      * with an Allow header rather than silently archiving via GET.
@@ -371,6 +398,10 @@ class MoveMohFiles2ActionUnitTest extends CarlosUnitTestBase {
         Object errors = mockRequest.getSession().getAttribute(WebUtils.ERROR_MESSAGE_SESSION_KEY);
         assertThat(errors == null ? "" : errors.toString())
                 .doesNotContain("Please select file(s) to archive.<br/>");
+        @SuppressWarnings("unchecked")
+        List<String> messages = (List<String>) mockRequest.getSession()
+                .getAttribute(WebUtils.INFO_MESSAGE_SESSION_KEY);
+        assertThat(messages).contains("Extracted file claim.zip successfully.");
     }
 
     @Test
@@ -453,6 +484,7 @@ class MoveMohFiles2ActionUnitTest extends CarlosUnitTestBase {
             case "billing.moveMohFiles.error.fileMissing" -> "Unable to find file {0}.";
             case "billing.moveMohFiles.error.invalidFileLocation" -> "File is not in a valid location: {0}.";
             case "billing.moveMohFiles.info.archived" -> "Archived file {0} successfully.";
+            case "billing.moveMohFiles.info.unzipped" -> "Extracted file {0} successfully.";
             case "billing.moveMohFiles.error.archiveFailed" -> "Unable to archive {0}.";
             default -> key;
         };
