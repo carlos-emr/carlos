@@ -32,7 +32,7 @@ Oscar
 3. Compiles List of Measurement records added/modified since last sent to MyOscar
 4. For each pair of height and weight measurements:
 	4.1 Calls toXML(), which converts the Measurement object to an XML representation.
-	4.2 Creates an object of type MedicalDataTransfter4, a wrapper for the XML
+	4.2 Creates an object of type MedicalDataTransfer4, a wrapper for the XML
 	```java
 		MedicalDataTransfer4 medicalDataTransfer = toHeightWeightMedicalDataTransfer(myOscarLoggedInInfo, hw);
 	```

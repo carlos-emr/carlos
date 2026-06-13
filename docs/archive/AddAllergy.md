@@ -35,7 +35,7 @@ Oscar
 3. Compiles List of Allergy records added/modified since last sent to MyOscar
 4. For each changed Allergy, 
 	4.1 Calls toXML(), which converts the Allergy object to an XML representation.
-	4.2 Creates an object of type MedicalDataTransfter4, a wrapper for the XML
+	4.2 Creates an object of type MedicalDataTransfer4, a wrapper for the XML
 	4.3 calls addMedicalData() on the MyOscarMedicalDataManagerUtils class, passing medicalDataTransfer object
 
 		```java
