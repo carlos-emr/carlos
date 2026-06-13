@@ -63,6 +63,10 @@ class ScheduleNavigationAssetRegressionTest {
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "tickler", "ticklerMain.jsp");
     private static final Path MAIN_MENU_JSP =
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "provider", "mainMenu.jsp");
+    private static final Path TICKLER_MAIN_JSP =
+            Path.of("src", "main", "webapp", "WEB-INF", "jsp", "tickler", "ticklerMain.jsp");
+    private static final Path REPORT_INDEX_JSP =
+            Path.of("src", "main", "webapp", "WEB-INF", "jsp", "report", "reportindex.jsp");
     private static final Path APPOINTMENT_PROVIDER_DAY_JSP =
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "provider", "appointmentprovideradminday.jsp");
     private static final Path TOPNAV_CSS =
@@ -117,6 +121,8 @@ class ScheduleNavigationAssetRegressionTest {
         String ticklerMain = Files.readString(TICKLER_MAIN_JSP, StandardCharsets.UTF_8);
         String normalizedTicklerMain = normalizeWhitespace(ticklerMain);
         String mainMenu = Files.readString(MAIN_MENU_JSP, StandardCharsets.UTF_8);
+        String ticklerMain = Files.readString(TICKLER_MAIN_JSP, StandardCharsets.UTF_8);
+        String reportIndex = Files.readString(REPORT_INDEX_JSP, StandardCharsets.UTF_8);
         String appointmentProviderDay = Files.readString(APPOINTMENT_PROVIDER_DAY_JSP, StandardCharsets.UTF_8);
         String scheduleScript = Files.readString(SCHEDULE_PAGE_SCRIPT, StandardCharsets.UTF_8);
         String topnavCss = Files.readString(TOPNAV_CSS, StandardCharsets.UTF_8);
@@ -183,6 +189,12 @@ class ScheduleNavigationAssetRegressionTest {
                 .contains("<% if (showScheduleNav) { %> <link rel=\"stylesheet\" href=\"<%=request.getContextPath()%>/css/topnav.css\"> <% } %>")
                 .contains("<% if (showScheduleNav) { %> <jsp:include page=\"/WEB-INF/jsp/provider/mainMenu.jsp\"/> <% } %>");
         assertThat(mainMenu)
+                .contains("<oscar:newLab providerNo=\"<%=curUser_no%>\">")
+                .contains("</oscar:newLab>")
+                .contains("<oscar:newTickler providerNo=\"<%=curUser_no%>\">")
+                .contains("</oscar:newTickler>")
+                .contains("<oscar:newMessage providerNo=\"<%=curUser_no%>\">")
+                .contains("</oscar:newMessage>")
                 .contains("NavPath.requestPathMatches")
                 .doesNotContain("private boolean requestPathMatches")
                 .doesNotContain("private boolean pathMatches")
@@ -212,6 +224,15 @@ class ScheduleNavigationAssetRegressionTest {
                 .contains("scheduleNavActiveClass = NavPath.requestPathMatches(request,")
                 .contains("/provider/appointmentprovideradminday")
                 .contains("<li class=\"<%= scheduleNavActiveClass %>\">")
+                .contains("<td class=\"icon-container\">")
+                .contains("<oscar:newLab providerNo=\"<%=loggedInInfo1.getLoggedInProviderNo()%>\">")
+                .contains("</oscar:newLab>")
+                .contains("<oscar:newTickler providerNo=\"<%=loggedInInfo1.getLoggedInProviderNo()%>\">")
+                .contains("</oscar:newTickler>")
+                .contains("<oscar:newMessage providerNo=\"<%=loggedInInfo1.getLoggedInProviderNo()%>\">")
+                .contains("</oscar:newMessage>")
+                .contains("id=\"helpLink\"")
+                .contains("${carlos:forJavaScriptAttribute(scheduleResourceBaseUrl)}")
                 .contains("HREF=\"<%= \"1\".equals(request.getParameter(\"scheduleNav\")) ? request.getContextPath() + \"/web/inboxhub/Inboxhub?method=displayInboxForm&scheduleNav=1\" : \"#\" %>\" id=\"inboxLink\"")
                 .contains("HREF=\"<%= \"1\".equals(request.getParameter(\"scheduleNav\")) ? request.getContextPath() + \"/web/inboxhub/Inboxhub?method=displayInboxForm&unclaimed=1&scheduleNav=1\" : \"javascript:void(0)\" %>\"")
                 .contains("const inboxUrl = contextPath + \"/web/inboxhub/Inboxhub?method=displayInboxForm\";")
@@ -219,6 +240,19 @@ class ScheduleNavigationAssetRegressionTest {
                 .doesNotContain("openScheduleMenuSection")
                 .doesNotContain("popupInboxManager('\" + contextPath + \"/web/inboxhub/Inboxhub?method=displayInboxForm', 800);return false;")
                 .doesNotContain("encounter.Index.clinicalResources");
+        assertThat(documentReport)
+                .contains("<div class=\"container-fluid carlos-content-shell\" style=\"margin-bottom: 25px\">")
+                .doesNotContain("<div class=\"container\" style=\"margin-bottom: 25px\">");
+        assertThat(ticklerMain)
+                .contains("<div class=\"container-fluid carlos-content-shell\">")
+                .doesNotContain("<div class=\"container\">");
+        assertThat(reportIndex)
+                .contains("<div class=\"container-fluid carlos-content-shell\">")
+                .doesNotContain("<div class=\"container\">");
+        assertThat(topnavCss)
+                .contains(".carlos-content-shell")
+                .contains("padding-left: 0;")
+                .contains("padding-right: 0;");
         assertThat(scheduleScript)
                 .contains("var usesScheduleShell = scheduleNavigationMode === 'focused'"
                         + " || scheduleNavigationMode === 'tab';")
