@@ -202,7 +202,11 @@ public class DemographicService extends AbstractServiceImpl {
      */
     @GET
     public OscarSearchResponse<DemographicTo1> getAllDemographics(@QueryParam("offset") Integer offset, @QueryParam("limit") Integer limit) {
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_demographic", "r", null)) {
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        if (loggedInInfo == null) {
+            throw new WebApplicationException(Response.status(Response.Status.UNAUTHORIZED).entity("Unauthorized").build());
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
             throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).entity("Access Denied").build());
         }
         OscarSearchResponse<DemographicTo1> result = new OscarSearchResponse<DemographicTo1>();
@@ -216,10 +220,10 @@ public class DemographicService extends AbstractServiceImpl {
 
         result.setLimit(limit);
         result.setOffset(offset);
-        result.setTotal(demographicManager.getActiveDemographicCount(getLoggedInInfo()).intValue());
+        result.setTotal(demographicManager.getActiveDemographicCount(loggedInInfo).intValue());
 
-        for (Demographic demo : demographicManager.getActiveDemographics(getLoggedInInfo(), offset, limit)) {
-            result.getContent().add(demoConverter.getAsTransferObject(getLoggedInInfo(), demo));
+        for (Demographic demo : demographicManager.getActiveDemographics(loggedInInfo, offset, limit)) {
+            result.getContent().add(demoConverter.getAsTransferObject(loggedInInfo, demo));
         }
 
         return result;
@@ -235,22 +239,25 @@ public class DemographicService extends AbstractServiceImpl {
     @Path("/{dataId}")
     @Produces({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
     public DemographicTo1 getDemographicData(@PathParam("dataId") Integer id, @QueryParam("includes[]") List<String> include) throws PatientDirectiveException {
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_demographic", "r", null)) {
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        if (loggedInInfo == null) {
+            throw new WebApplicationException(Response.status(Response.Status.UNAUTHORIZED).entity("Unauthorized").build());
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
             throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).entity("Access Denied").build());
         }
-        LoggedInInfo loggedInInfo = getLoggedInInfo();
-        Demographic demo = demographicManager.getDemographic(getLoggedInInfo(), id);
+        Demographic demo = demographicManager.getDemographic(loggedInInfo, id);
         if (demo == null) return null;
 
-        List<DemographicExt> demoExts = demographicManager.getDemographicExts(getLoggedInInfo(), id);
+        List<DemographicExt> demoExts = demographicManager.getDemographicExts(loggedInInfo, id);
         if (demoExts != null && !demoExts.isEmpty()) {
             DemographicExt[] demoExtArray = demoExts.toArray(new DemographicExt[demoExts.size()]);
             demo.setExtras(demoExtArray);
         }
 
-        DemographicTo1 result = demoConverter.getAsTransferObject(getLoggedInInfo(), demo);
+        DemographicTo1 result = demoConverter.getAsTransferObject(loggedInInfo, demo);
 
-        DemographicCust demoCust = demographicManager.getDemographicCust(getLoggedInInfo(), id);
+        DemographicCust demoCust = demographicManager.getDemographicCust(loggedInInfo, id);
         if (demoCust != null) {
             result.setNurse(demoCust.getNurse());
             result.setResident(demoCust.getResident());
@@ -272,7 +279,7 @@ public class DemographicService extends AbstractServiceImpl {
             for (WaitingListName waitingListName : waitingListNames) {
                 if (waitingListName.getIsHistory().equals("Y")) continue;
 
-                waitingListNameTo1s.add(waitingListNameConverter.getAsTransferObject(getLoggedInInfo(), waitingListName));
+                waitingListNameTo1s.add(waitingListNameConverter.getAsTransferObject(loggedInInfo, waitingListName));
             }
             result.setWaitingListNames(waitingListNameTo1s);
         }
@@ -282,7 +289,7 @@ public class DemographicService extends AbstractServiceImpl {
             List<ProfessionalSpecialistTo1> professionalSpecialistTo1s = new ArrayList<>();
             for (ProfessionalSpecialist referralDoc : referralDocs) {
                 if (referralDoc != null) {
-                    professionalSpecialistTo1s.add(specialistConverter.getAsTransferObject(getLoggedInInfo(), referralDoc));
+                    professionalSpecialistTo1s.add(specialistConverter.getAsTransferObject(loggedInInfo, referralDoc));
                 }
             }
             result.setReferralDoctors(professionalSpecialistTo1s);
@@ -294,7 +301,7 @@ public class DemographicService extends AbstractServiceImpl {
             for (SecUserRole doctor : doctorRoles) {
                 Provider provider = providerDao.getProvider(doctor.getProviderNo());
                 if (provider != null) {
-                    providerTo1s.add(providerConverter.getAsTransferObject(getLoggedInInfo(), provider));
+                    providerTo1s.add(providerConverter.getAsTransferObject(loggedInInfo, provider));
                 }
             }
             result.setDoctors(providerTo1s);
@@ -306,7 +313,7 @@ public class DemographicService extends AbstractServiceImpl {
             for (SecUserRole nurse : nurseRoles) {
                 Provider provider = providerDao.getProvider(nurse.getProviderNo());
                 if (provider != null) {
-                    providerTo1s.add(providerConverter.getAsTransferObject(getLoggedInInfo(), provider));
+                    providerTo1s.add(providerConverter.getAsTransferObject(loggedInInfo, provider));
                 }
             }
             result.setNurses(providerTo1s);
@@ -318,13 +325,13 @@ public class DemographicService extends AbstractServiceImpl {
             for (SecUserRole midwife : midwifeRoles) {
                 Provider provider = providerDao.getProvider(midwife.getProviderNo());
                 if (provider != null) {
-                    providerTo1s.add(providerConverter.getAsTransferObject(getLoggedInInfo(), provider));
+                    providerTo1s.add(providerConverter.getAsTransferObject(loggedInInfo, provider));
                 }
             }
             result.setMidwives(providerTo1s);
         }
 
-        List<DemographicContact> demoContacts = demographicManager.getDemographicContacts(getLoggedInInfo(), id);
+        List<DemographicContact> demoContacts = demographicManager.getDemographicContacts(loggedInInfo, id);
         if (demoContacts != null) {
             List<DemographicContactFewTo1> demographicContactFewTo1s = new ArrayList<>();
             List<DemographicContactFewTo1> demographicContactFewTo1Pros = new ArrayList<>();
@@ -334,10 +341,10 @@ public class DemographicService extends AbstractServiceImpl {
 
                 if (demoContact.getCategory().equals(DemographicContact.CATEGORY_PERSONAL)) {
                     if (demoContact.getType() == DemographicContact.TYPE_DEMOGRAPHIC) {
-                        Demographic contactD = demographicManager.getDemographic(getLoggedInInfo(), contactId);
+                        Demographic contactD = demographicManager.getDemographic(loggedInInfo, contactId);
                         demoContactTo1 = demoContactFewConverter.getAsTransferObject(demoContact, contactD);
                         if (demoContactTo1.getPhone() == null || demoContactTo1.getPhone().equals("")) {
-                            DemographicExt ext = demographicManager.getDemographicExt(getLoggedInInfo(), id, "demo_cell");
+                            DemographicExt ext = demographicManager.getDemographicExt(loggedInInfo, id, "demo_cell");
                             if (ext != null) demoContactTo1.setPhone(ext.getValue());
                         }
                     } else if (demoContact.getType() == DemographicContact.TYPE_CONTACT) {
@@ -432,21 +439,25 @@ public class DemographicService extends AbstractServiceImpl {
     @Path("/basic/{dataId}")
     @Produces({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
     public DemographicTo1 getBasicDemographicData(@PathParam("dataId") Integer id, @QueryParam("includes[]") List<String> includes) throws PatientDirectiveException {
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_demographic", "r", null)) {
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        if (loggedInInfo == null) {
+            throw new WebApplicationException(Response.status(Response.Status.UNAUTHORIZED).entity("Unauthorized").build());
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
             throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).entity("Access Denied").build());
         }
-        Demographic demo = demographicManager.getDemographic(getLoggedInInfo(), id);
+        Demographic demo = demographicManager.getDemographic(loggedInInfo, id);
         if (demo == null) return null;
 
-        List<DemographicExt> demoExts = demographicManager.getDemographicExts(getLoggedInInfo(), id);
+        List<DemographicExt> demoExts = demographicManager.getDemographicExts(loggedInInfo, id);
         if (demoExts != null && !demoExts.isEmpty()) {
             DemographicExt[] demoExtArray = demoExts.toArray(new DemographicExt[demoExts.size()]);
             demo.setExtras(demoExtArray);
         }
 
-        DemographicTo1 result = demoConverter.getAsTransferObject(getLoggedInInfo(), demo);
+        DemographicTo1 result = demoConverter.getAsTransferObject(loggedInInfo, demo);
 
-        DemographicCust demoCust = demographicManager.getDemographicCust(getLoggedInInfo(), id);
+        DemographicCust demoCust = demographicManager.getDemographicCust(loggedInInfo, id);
         if (demoCust != null) {
             result.setNurse(demoCust.getNurse());
             result.setResident(demoCust.getResident());
@@ -485,7 +496,7 @@ public class DemographicService extends AbstractServiceImpl {
 
         // If the contacts are included add Demographic Contacts to the basic results (relationships/healthcareteam/etc)
         if (includes.contains(IncludeType.CONTACTS.getValue())) {
-            List<DemographicContact> demoContacts = demographicManager.getDemographicContacts(getLoggedInInfo(), id);
+            List<DemographicContact> demoContacts = demographicManager.getDemographicContacts(loggedInInfo, id);
             if (demoContacts != null) {
                 List<DemographicContactFewTo1> demographicContactFewTo1s = new ArrayList<>();
                 List<DemographicContactFewTo1> demographicContactFewTo1Pros = new ArrayList<>();
@@ -501,10 +512,10 @@ public class DemographicService extends AbstractServiceImpl {
 
                     if (demoContact.getCategory().equals(DemographicContact.CATEGORY_PERSONAL)) {
                         if (demoContact.getType() == DemographicContact.TYPE_DEMOGRAPHIC) {
-                            Demographic contactD = demographicManager.getDemographic(getLoggedInInfo(), contactId);
+                            Demographic contactD = demographicManager.getDemographic(loggedInInfo, contactId);
                             demoContactTo1 = demoContactFewConverter.getAsTransferObject(demoContact, contactD);
                             if (demoContactTo1.getPhone() == null || demoContactTo1.getPhone().equals("")) {
-                                DemographicExt ext = demographicManager.getDemographicExt(getLoggedInInfo(), id, "demo_cell");
+                                DemographicExt ext = demographicManager.getDemographicExt(loggedInInfo, id, "demo_cell");
                                 if (ext != null) demoContactTo1.setPhone(ext.getValue());
                             }
                         } else if (demoContact.getType() == DemographicContact.TYPE_CONTACT) {
@@ -538,12 +549,16 @@ public class DemographicService extends AbstractServiceImpl {
     @Path("/summary/{demographicNo}")
     @Produces({MediaType.APPLICATION_JSON})
     public DemographicTo1 getDemographicSummary(@PathParam("demographicNo") Integer demographicNo) {
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_demographic", "r", null)) {
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        if (loggedInInfo == null) {
+            throw new WebApplicationException(Response.status(Response.Status.UNAUTHORIZED).entity("Unauthorized").build());
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
             throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).entity("Access Denied").build());
         }
-        Demographic demographic = demographicManager.getDemographic(getLoggedInInfo(), demographicNo);
-        DemographicExt demographicExt = demographicManager.getDemographicExt(getLoggedInInfo(), demographicNo, DemographicProperty.demo_cell);
-        DemographicTo1 result = demoConverter.getAsTransferObject(getLoggedInInfo(), demographic);
+        Demographic demographic = demographicManager.getDemographic(loggedInInfo, demographicNo);
+        DemographicExt demographicExt = demographicManager.getDemographicExt(loggedInInfo, demographicNo, DemographicProperty.demo_cell);
+        DemographicTo1 result = demoConverter.getAsTransferObject(loggedInInfo, demographic);
         if (demographicExt != null) {
             result.setAlternativePhone(demographicExt.getValue());
         }
@@ -561,12 +576,16 @@ public class DemographicService extends AbstractServiceImpl {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
     public DemographicTo1 createDemographicData(DemographicTo1 data) {
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_demographic", "w", null)) {
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        if (loggedInInfo == null) {
+            throw new WebApplicationException(Response.status(Response.Status.UNAUTHORIZED).entity("Unauthorized").build());
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
             throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).entity("Access Denied").build());
         }
-        Demographic demographic = demoConverter.getAsDomainObject(getLoggedInInfo(), data);
-        demographicManager.createDemographic(getLoggedInInfo(), demographic, data.getAdmissionProgramId());
-        return demoConverter.getAsTransferObject(getLoggedInInfo(), demographic);
+        Demographic demographic = demoConverter.getAsDomainObject(loggedInInfo, data);
+        demographicManager.createDemographic(loggedInInfo, demographic, data.getAdmissionProgramId());
+        return demoConverter.getAsTransferObject(loggedInInfo, demographic);
     }
 
     /**
@@ -579,12 +598,16 @@ public class DemographicService extends AbstractServiceImpl {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
     public DemographicTo1 updateDemographicData(DemographicTo1 data) {
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_demographic", "w", null)) {
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        if (loggedInInfo == null) {
+            throw new WebApplicationException(Response.status(Response.Status.UNAUTHORIZED).entity("Unauthorized").build());
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
             throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).entity("Access Denied").build());
         }
         //update demographiccust
         if (data.getNurse() != null || data.getResident() != null || data.getAlert() != null || data.getMidwife() != null || data.getNotes() != null) {
-            DemographicCust demoCust = demographicManager.getDemographicCust(getLoggedInInfo(), data.getDemographicNo());
+            DemographicCust demoCust = demographicManager.getDemographicCust(loggedInInfo, data.getDemographicNo());
             if (demoCust == null) {
                 demoCust = new DemographicCust();
                 demoCust.setId(data.getDemographicNo());
@@ -594,7 +617,7 @@ public class DemographicService extends AbstractServiceImpl {
             demoCust.setAlert(data.getAlert());
             demoCust.setMidwife(data.getMidwife());
             demoCust.setNotes(data.getNotes());
-            demographicManager.createUpdateDemographicCust(getLoggedInInfo(), demoCust);
+            demographicManager.createUpdateDemographicCust(loggedInInfo, demoCust);
         }
 
         //update waitingList
@@ -602,10 +625,10 @@ public class DemographicService extends AbstractServiceImpl {
             WLWaitingListUtil.updateWaitingListRecord(data.getWaitingListID().toString(), data.getWaitingListNote(), data.getDemographicNo().toString(), null);
         }
 
-        Demographic demographic = demoConverter.getAsDomainObject(getLoggedInInfo(), data);
-        demographicManager.updateDemographic(getLoggedInInfo(), demographic);
+        Demographic demographic = demoConverter.getAsDomainObject(loggedInInfo, data);
+        demographicManager.updateDemographic(loggedInInfo, demographic);
 
-        return demoConverter.getAsTransferObject(getLoggedInInfo(), demographic);
+        return demoConverter.getAsTransferObject(loggedInInfo, demographic);
     }
 
     /**
@@ -617,16 +640,20 @@ public class DemographicService extends AbstractServiceImpl {
     @DELETE
     @Path("/{dataId}")
     public DemographicTo1 deleteDemographicData(@PathParam("dataId") Integer id) {
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_demographic", "d", null)) {
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        if (loggedInInfo == null) {
+            throw new WebApplicationException(Response.status(Response.Status.UNAUTHORIZED).entity("Unauthorized").build());
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "d", null)) {
             throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).entity("Access Denied").build());
         }
-        Demographic demo = demographicManager.getDemographic(getLoggedInInfo(), id);
-        DemographicTo1 result = getDemographicData(id, Collections.EMPTY_LIST);
+        Demographic demo = demographicManager.getDemographic(loggedInInfo, id);
+        DemographicTo1 result = getDemographicData(id, Collections.emptyList());
         if (demo == null) {
             throw new IllegalArgumentException("Unable to find demographic record with ID " + id);
         }
 
-        demographicManager.deleteDemographic(getLoggedInInfo(), demo);
+        demographicManager.deleteDemographic(loggedInInfo, demo);
         return result;
     }
 
@@ -642,7 +669,11 @@ public class DemographicService extends AbstractServiceImpl {
     @Path("/quickSearch")
     @Produces("application/json")
     public AbstractSearchResponse<DemographicSearchResult> search(@QueryParam("query") String query) {
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_demographic", "r", null)) {
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        if (loggedInInfo == null) {
+            throw new WebApplicationException(Response.status(Response.Status.UNAUTHORIZED).entity("Unauthorized").build());
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
             throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).entity("Access Denied").build());
         }
 
@@ -676,10 +707,10 @@ public class DemographicService extends AbstractServiceImpl {
         }
 
 
-        int count = demographicManager.searchPatientsCount(getLoggedInInfo(), req);
+        int count = demographicManager.searchPatientsCount(loggedInInfo, req);
 
         if (count > 0) {
-            results = demographicManager.searchPatients(getLoggedInInfo(), req, 0, 10);
+            results = demographicManager.searchPatients(loggedInInfo, req, 0, 10);
             response.setContent(results);
             response.setTotal(count);
             response.setQuery(query);
@@ -695,7 +726,11 @@ public class DemographicService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public AbstractSearchResponse<DemographicSearchResult> search(ObjectNode json, @QueryParam("startIndex") Integer startIndex, @QueryParam("itemsToReturn") Integer itemsToReturn) {
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_demographic", "r", null)) {
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        if (loggedInInfo == null) {
+            throw new WebApplicationException(Response.status(Response.Status.UNAUTHORIZED).entity("Unauthorized").build());
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
             throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).entity("Access Denied").build());
         }
 
@@ -714,10 +749,10 @@ public class DemographicService extends AbstractServiceImpl {
 
         if (json.get("term") != null && json.get("term").asText().length() >= 1) {
 
-            int count = demographicManager.searchPatientsCount(getLoggedInInfo(), req);
+            int count = demographicManager.searchPatientsCount(loggedInInfo, req);
 
             if (count > 0) {
-                results = demographicManager.searchPatients(getLoggedInInfo(), req, startIndex, itemsToReturn);
+                results = demographicManager.searchPatients(loggedInInfo, req, startIndex, itemsToReturn);
                 response.setContent(results);
                 response.setTotal(count);
             }
