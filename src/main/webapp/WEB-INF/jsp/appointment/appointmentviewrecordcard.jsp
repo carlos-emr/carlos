@@ -215,7 +215,7 @@
                                     }
 
                                 %>
-                                <b style="font-size:14pt"><%=firstLine %>
+                                <b style="font-size:14pt"><carlos:encode value='<%= firstLine %>' context="html"/>
                                 </b><br/>
                                 <carlos:encode value='<%= provider.getSpecialty() %>' context="html"/><br/>
                                 <br/>
