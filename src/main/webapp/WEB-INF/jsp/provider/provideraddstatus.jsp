@@ -58,10 +58,6 @@
     response.sendError(HttpServletResponse.SC_BAD_REQUEST);
     return;
   }
-  String[] param = new String[3];
-  param[0] = status + statusch;
-  param[1] = curUser_no;
-  param[2] = appointmentNoParam;
 
   int appointmentNo;
 
