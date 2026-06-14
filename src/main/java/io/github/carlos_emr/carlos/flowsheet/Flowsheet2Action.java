@@ -93,6 +93,7 @@ public class Flowsheet2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+    private static final String JSON_CONTENT_TYPE = "application/json; charset=UTF-8";
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     private FlowSheetUserCreatedDao flowsheetUserCreatedDao = SpringUtils.getBean(FlowSheetUserCreatedDao.class);
@@ -162,7 +163,7 @@ public class Flowsheet2Action extends ActionSupport {
     }
 
     private void writeJsonResponse(String json) throws IOException {
-        response.setContentType("application/json");
+        response.setContentType(JSON_CONTENT_TYPE);
         response.setCharacterEncoding("UTF-8");
         response.getWriter().write(json);
     }
@@ -683,7 +684,7 @@ public class Flowsheet2Action extends ActionSupport {
         obj.put("success", true);
         obj.put("id", id);
 
-        response.setContentType("application/json");
+        response.setContentType(JSON_CONTENT_TYPE);
         response.setCharacterEncoding("UTF-8");
 
         objectMapper.writeValue(response.getWriter(), obj);
