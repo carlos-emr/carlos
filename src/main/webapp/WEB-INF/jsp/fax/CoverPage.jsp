@@ -66,6 +66,7 @@
     <script type="text/javascript" src="${ctx}/library/jquery/jquery.validate-1.21.0.min.js"></script>
     <script type="text/javascript" src="${ctx}/library/jquery/jquery-ui-1.14.2.min.js"></script>
     <script type="text/javascript" src="${ctx}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
+    <script type="text/javascript" src="${ctx}/js/faxRecipientAutocomplete.js"></script>
 
     <script type="text/javascript">
 
@@ -285,11 +286,12 @@
 				  	<div class="card-body">
 						<div class="container">
 						  	<div class="row" id="fax-recipients">	
-								<div class="col-sm-6 mb-3">
+								<div class="col-sm-6 mb-3" style="position:relative;">
 									<label for="searchProfessionalSpecialist_name">Name</label>
-								 	<input class="autocomplete form-control" type="text" name="recipient" value="<carlos:encode value='${ professionalSpecialistName }' context="htmlAttribute"/>"
-								 		id="searchProfessionalSpecialist_name" placeholder="Search: last, first" required/>
-								 </div>	
+								 	<input class="form-control" type="text" name="recipient" value="<carlos:encode value='${ professionalSpecialistName }' context="htmlAttribute"/>"
+								 		id="searchProfessionalSpecialist_name" placeholder="Search: last, first" required autocomplete="off"/>
+								 	<div id="faxRecipientDropdown" class="fax-ac-dropdown"></div>
+								 </div>
 								 <div class="col-sm-6 mb-3">
 									<label for="searchProfessionalSpecialist_fax">Fax</label>
 									<input class="form-control" type="text" name="recipientFaxNumber" value="<carlos:encode value='${ not empty fax ? fax : param.fax }' context="htmlAttribute"/>"
@@ -308,10 +310,11 @@
 				  		<div class="container" id="fax-additional-recipients" >
 	
 				  			<div class="row" id="additionalRecipientControlPanel">			  			
-				  				<div class="col-sm-5 mb-3">
+				  				<div class="col-sm-5 mb-3" style="position:relative;">
 						  			<label for="additionalRecipient_name" >Name</label>
-								 	<input class="autocomplete form-control" type="text" value=""  
-								 		id="additionalRecipient_name" name="additionalRecipient_name" placeholder="Search: last, first"  />
+								 	<input class="form-control" type="text" value=""
+								 		id="additionalRecipient_name" name="additionalRecipient_name" placeholder="Search: last, first" autocomplete="off"/>
+								 	<div id="faxCcDropdown" class="fax-ac-dropdown"></div>
 								</div>
 									<div class="col-sm-5 mb-3">	
 								 	<label for="additionalRecipient_fax">Fax</label>
@@ -477,44 +480,23 @@
     $(document).ready(function () {
 
         /*
-        * Auto complete methods.
+        * Fax recipient autocomplete (pharmacy + specialist) for the primary To field.
         */
-        $("#fax-additional-recipients .autocomplete, #fax-recipients .autocomplete").autocomplete({
-            source: function (request, response) {
-                var url = ctx + "/demographic/Contact?method=searchAllContacts&searchMode=search_name&orderBy=c.lastName,c.firstName";
-                jQuery.ajax({
-                    url: url,
-                    type: "GET",
-                    dataType: "json",
-                    data: {
-                        term: request.term
-                    },
-                    contentType: "application/json",
-                    success: function (data) {
-                        response(jQuery.map(data, function (item) {
-                            return {
-                                label: item.lastName + ", "
-                                    + item.firstName + " :: "
-                                    + item.residencePhone
-                                    + " :: " + item.address
-                                    + " " + item.city,
-                                value: item.id,
-                                contact: item
-                            }
-                        }));
-                    }
-                });
-            },
-            minLength: 2,
-            focus: function (event, ui) {
-                event.preventDefault();
-                return false;
-            },
-            select: function (event, ui) {
-                event.preventDefault();
-                $("#" + this.id).val(ui.item.contact.lastName + ", " + ui.item.contact.firstName);
-                $("#" + this.id.split("_")[0] + "_fax").val(ui.item.contact.fax);
-            }
+        setupFaxRecipientAutocomplete({
+            contextPath: ctx,
+            nameInputId: 'searchProfessionalSpecialist_name',
+            faxInputId:  'searchProfessionalSpecialist_fax',
+            dropdownId:  'faxRecipientDropdown'
+        });
+
+        /*
+        * Fax recipient autocomplete for the CC field.
+        */
+        setupFaxRecipientAutocomplete({
+            contextPath: ctx,
+            nameInputId: 'additionalRecipient_name',
+            faxInputId:  'additionalRecipient_fax',
+            dropdownId:  'faxCcDropdown'
         });
 
         /*

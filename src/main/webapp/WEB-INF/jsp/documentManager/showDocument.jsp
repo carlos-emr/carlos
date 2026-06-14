@@ -130,6 +130,7 @@
 <%@ page import="io.github.carlos_emr.carlos.documentManager.IncomingDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.*" %>
 <%@ page import="io.github.carlos_emr.carlos.log.*" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.FaxManager" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
 <%@ page import="io.github.carlos_emr.carlos.mds.data.*" %>
@@ -244,6 +245,11 @@
     String url = cp + "/documentManager/ManageDocument?method=viewDocPage&doc_no=" + docId + "&curPage=1";
     String url2 = cp + "/documentManager/ManageDocument?method=display&doc_no=" + docId;
     String currentDate = new SimpleDateFormat("yyyy-MM-dd").format(new Date());
+
+    boolean faxEnabled = FaxManager.isEnabled()
+        && securityInfoManager.hasPrivilege(loggedInInfo, "_fax", "r", null);
+    boolean docIsPdf = curdoc.getContentType() != null
+        && curdoc.getContentType().toLowerCase().contains("pdf");
 
     Integer docCurrentFiledQueue = null;
 
@@ -488,6 +494,12 @@
                onClick="window.close()">
         <input type="button" class="btn btn-outline-secondary btn-sm" id="printBtn_<%=docId%>" value=" <fmt:message key="global.btnPrint"/> "
                onClick="popup(700,960,'<%=url2%>','file download')">
+        <%if (faxEnabled) {%>
+        <input type="button" class="btn btn-outline-secondary btn-sm" id="faxBtn_<%=docId%>"
+               value=" <fmt:message key="showDocument.btnFax"/> "
+               <%if (!docIsPdf) {%>title="<fmt:message key="showDocument.faxPdfOnlyTooltip"/>" disabled<%}%>
+               <%if (docIsPdf) {%>onClick="popup(800,850,'${pageContext.servletContext.contextPath}/documentManager/FaxDocument?docId=<carlos:encode value='<%= docId %>' context="uriComponent"/>','faxDoc')"<%}%>>
+        <%}%>
         <%
             String btnDisabled = "disabled";
             if (demographicID != null && !demographicID.equals("") && !demographicID.equalsIgnoreCase("null") && !demographicID.equals("-1")) {

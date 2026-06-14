@@ -38,6 +38,7 @@ import io.github.carlos_emr.carlos.commn.model.FaxClientLog;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
 import io.github.carlos_emr.carlos.commn.model.FaxJob.STATUS;
+import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.fax.core.FaxAccount;
 import io.github.carlos_emr.carlos.fax.core.FaxRecipient;
@@ -159,7 +160,27 @@ public class FaxManagerImpl implements FaxManager {
         }
 
         logger.info("Rendering document number " + documentNo + " for fax preview.");
-        return null;
+
+        EDoc doc = EDocUtil.getDoc(String.valueOf(documentNo));
+        if (doc == null) {
+            logger.error("renderDocument: document not found for documentNo={}", documentNo);
+            return null;
+        }
+
+        String filePath = doc.getFilePath();
+        if (filePath == null) {
+            logger.error("renderDocument: no file path for documentNo={}", documentNo);
+            return null;
+        }
+
+        Path path = Paths.get(filePath);
+        if (!Files.exists(path) || !Files.isRegularFile(path)) {
+            logger.error("renderDocument: file not found on disk for documentNo={}: {}", documentNo,
+                    LogSafe.sanitize(filePath, 1024));
+            return null;
+        }
+
+        return path;
     }
 
     @Override
