@@ -193,12 +193,12 @@ public class EformDataManagerImpl implements EformDataManager {
             throw new PDFGenerationException("Error Details: EForm [" + eformData.getFormName() + "] could not be converted into a PDF", e);
         }
 
-        if (Files.isReadable(path)) {
-            LogAction.addLogSynchronous(loggedInInfo, "EformDataManager.saveEformDataAsPDF", "Document saved at " + path.toString());
-        } else {
+        if (path == null || !Files.isReadable(path)) {
             LogAction.addLogSynchronous(loggedInInfo, "EformDataManager.saveEformDataAsPDF", "Document failed to save for eform id " + fdid);
+            throw new PDFGenerationException("Error Details: EForm [" + eformData.getFormName() + "] could not be converted into a readable PDF");
         }
 
+        LogAction.addLogSynchronous(loggedInInfo, "EformDataManager.saveEformDataAsPDF", "Document saved at " + path);
         return path;
     }
 
