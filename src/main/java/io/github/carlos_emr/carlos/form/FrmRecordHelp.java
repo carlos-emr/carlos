@@ -59,6 +59,7 @@ import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.JDBCUtil;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.CachedDateFormats;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class FrmRecordHelp {
     private static final Pattern INSERT_ROW_ID_FILTER = Pattern.compile("(?i)\\bID\\s*=\\s*0\\b");
@@ -107,6 +108,8 @@ public class FrmRecordHelp {
      * @return Properties containing the column name/value pairs from the first result row
      * @throws SQLException if a database access error occurs
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public Properties getFormRecord(String sql, Object... params)
             throws SQLException {
         Properties props = new Properties();
@@ -155,6 +158,8 @@ public class FrmRecordHelp {
      * @return the auto-generated ID of the inserted record
      * @throws SQLException if a database access error occurs
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public synchronized int saveFormRecord(Properties props, String sql, Object... params) throws SQLException {
 
         try (Connection connection = LegacyJdbcQuery.getConnection()) {
@@ -277,6 +282,8 @@ public class FrmRecordHelp {
         throw new SQLException("ERROR: Database " + dbType + " unrecognized.");
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public ResultSet updateResultSet(Properties props, ResultSet rs, boolean bInsert) throws SQLException {
         ResultSetMetaData md = rs.getMetaData();
 
@@ -429,6 +436,8 @@ public class FrmRecordHelp {
         return results;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private Properties getResultsAsProperties(ResultSet rs) throws SQLException {
         Properties p = new Properties();
         ResultSetMetaData md = rs.getMetaData();
@@ -485,6 +494,8 @@ public class FrmRecordHelp {
         return VALID_ACTION_VALUES.contains(submit) ? submit : "failure";
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String createActionURL(String where, String action, String demoId, String formId) {
         String temp = null;
 
@@ -513,6 +524,8 @@ public class FrmRecordHelp {
         return temp;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private boolean isOpenHealthCustomForm(String action) {
         return "formEpistaxisLetter".equalsIgnoreCase(action)
                 || "formOtologicLetter".equalsIgnoreCase(action)

@@ -69,6 +69,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.prescript.data.RxPharmacyData;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Servlet that generates customized prescription PDF documents with support for faxing.
@@ -110,16 +111,20 @@ public class FrmCustomedPDFServlet extends HttpServlet {
      * @throws java.io.IOException if an I/O error occurs during PDF generation
      */
     @Override
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    // FindSecBugs XSS_SERVLET: fax branch writes fixed status HTML and encodes dynamic values; PDF branch writes binary content
+    @SuppressFBWarnings(value = {"XSS_SERVLET", "PATH_TRAVERSAL_IN"}, justification = "XSS_SERVLET: fax branch writes fixed status HTML and encodes dynamic values; PDF branch writes binary content. PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use")
     public void service(HttpServletRequest req, HttpServletResponse res) throws jakarta.servlet.ServletException, java.io.IOException {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(req);
         boolean isFax = "oscarRxFax".equals(req.getParameter("__method"));
-        try (ByteArrayOutputStream baosPDF = generatePDFDocumentBytes(req, this.getServletContext());
-             PrintWriter writer = res.getWriter()) {
+        boolean responseOutputStreamOpened = false;
+        try (ByteArrayOutputStream baosPDF = generatePDFDocumentBytes(req, this.getServletContext())) {
 
             if (isFax) {
                 // this fax method shouldn't be here and will be removed in future edits.
                 res.setContentType("text/html");
+                PrintWriter writer = res.getWriter();
                 String faxNo = req.getParameter("pharmaFax");
                 if (faxNo != null) {
                     faxNo = faxNo.trim().replaceAll("\\D", "");
@@ -216,6 +221,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
 						writer.println("<div id='fax-success' style='color:green;'><h3>Fax successfully generated</h3><p>" + Encode.forHtml(pharmaName) + " (" + Encode.forHtml(faxNo) + ")</p><br><p>This window will close in <b>3</b> seconds...</p></div><script>setTimeout(() => window.top.close(), 3000);</script>");
                     }
                 }
+                writer.flush();
             } else {
                 StringBuilder sbFilename = new StringBuilder();
                 sbFilename.append("filename_");
@@ -240,11 +246,15 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                 res.setHeader("Content-disposition", sbContentDispValue.toString());
                 res.setContentLength(baosPDF.size());
                 ServletOutputStream sos = res.getOutputStream();
+                responseOutputStreamOpened = true;
                 baosPDF.writeTo(sos);
 
                 sos.flush();
             }
         } catch (DocumentException dex) {
+            if (responseOutputStreamOpened) {
+                throw new IOException("PDF response failed after output stream was opened", dex);
+            }
             // Log the detailed error for debugging
             logger.error("PDF generation error in FrmCustomedPDFServlet", dex);
             
@@ -256,6 +266,9 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             writer.println("<p>Please try again or contact support if the problem persists.</p>");
             writer.println("</body></html>");
         } catch (java.io.FileNotFoundException dex) {
+            if (responseOutputStreamOpened) {
+                throw dex;
+            }
             // Log the error
             logger.debug("Signature file not found", dex);
             
@@ -645,6 +658,8 @@ public class FrmCustomedPDFServlet extends HttpServlet {
      * @throws DocumentException if an OpenPDF document error occurs during PDF generation
      * @throws IOException if an I/O error occurs during PDF generation
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private ByteArrayOutputStream generatePDFDocumentBytes(final HttpServletRequest req, final ServletContext ctx) throws DocumentException, IOException {
         logger.debug("***in generatePDFDocumentBytes2 FrmCustomedPDFServlet.java***");
 

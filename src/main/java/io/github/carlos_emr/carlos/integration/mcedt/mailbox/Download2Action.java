@@ -32,10 +32,6 @@ import static io.github.carlos_emr.carlos.integration.mcedt.McedtConstants.REQUE
 
 import java.io.File;
 import java.math.BigInteger;
-import java.nio.file.Files;
-import java.nio.file.LinkOption;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 
@@ -68,6 +64,7 @@ import ca.ontario.health.edt.TypeListResult;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class Download2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -210,6 +207,8 @@ public class Download2Action extends ActionSupport {
         return result;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String getTypeDescription(String typeCode) {
         String typeDesc = "";
         for (TypeListData typeListData : this.getTypeListResult().getData()) {
@@ -221,9 +220,15 @@ public class Download2Action extends ActionSupport {
         return typeDesc;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public String download() throws Exception {
         List<BigInteger> ids = getResourceIds(request);
         Collections.sort(ids);
+        if (ids.isEmpty()) {
+            addActionError(getText("resourceAction.getResourceList.fault", new String[]{"No resource selected for download."}));
+            return SUCCESS;
+        }
 
         List<DetailDataCustom> resourceList = ActionUtils.getResourceList(request);
         String serviceId = new String();
@@ -242,9 +247,9 @@ public class Download2Action extends ActionSupport {
             downloadResult = delegate.download(ids);
 
             //----------start to save file
+            File inboxDir = PathValidationUtils.validateConfiguredDirectory(
+                    CarlosProperties.getInstance().getProperty("ONEDT_INBOX"), "ONEDT_INBOX");
             for (DownloadData d : downloadResult.getData()) {
-                String inboxFolder = CarlosProperties.getInstance().getProperty("ONEDT_INBOX");
-                File inboxDir = new File(inboxFolder);
                 File document = PathValidationUtils.validatePath(d.getDescription(), inboxDir);
                 byte[] inputBytes = d.getContent();
 
@@ -298,18 +303,14 @@ public class Download2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: configured inbox directory and generated state filename are validated before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "configured inbox directory and generated state filename are validated before use")
     private String getLastDownloadedID() {
         String resourceID = "0";
-        String inboxFolder = CarlosProperties.getInstance().getProperty("ONEDT_INBOX");
-        String lastDownloadedFile = CarlosProperties.getInstance().getProperty("mcedt.last.downloadedID.file");
-        Path path = Paths.get(inboxFolder, lastDownloadedFile);
         try {
-            File document;
-
-            if (Files.exists(path, LinkOption.NOFOLLOW_LINKS)) {
-                document = path.toFile();
-            } else {
-                document = Files.createFile(path).toFile();
+            File document = resolveLastDownloadedIdFile();
+            if (!document.exists()) {
+                FileUtils.touch(document);
             }
 
             List<String> lastId = FileUtils.readLines(document);
@@ -324,20 +325,24 @@ public class Download2Action extends ActionSupport {
         return resourceID;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: configured inbox directory and generated state filename are validated before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "configured inbox directory and generated state filename are validated before use")
     private void updateLastDownloadedID(String lastID) {
-        boolean writeResult = false;
-        String inboxFolder = CarlosProperties.getInstance().getProperty("ONEDT_INBOX");
-        String lastDownloadedFile = CarlosProperties.getInstance().getProperty("mcedt.last.downloadedID.file");
-
-
         try {
-            File document = new File(inboxFolder + File.separator + lastDownloadedFile);
+            File document = resolveLastDownloadedIdFile();
             FileUtils.write(document, lastID, false);
 
         } catch (Exception e) {
             logger.error("Unable to update Last Download ID ", e);
         }
 
+    }
+
+    private File resolveLastDownloadedIdFile() {
+        File inboxDir = PathValidationUtils.validateConfiguredDirectory(
+                CarlosProperties.getInstance().getProperty("ONEDT_INBOX"), "ONEDT_INBOX");
+        String lastDownloadedFile = CarlosProperties.getInstance().getProperty("mcedt.last.downloadedID.file");
+        return PathValidationUtils.validateGeneratedChildPath(lastDownloadedFile, inboxDir);
     }
 
     static List<BigInteger> getResourceIds(HttpServletRequest request) {
@@ -364,9 +369,15 @@ public class Download2Action extends ActionSupport {
         return "cancel";
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public String userDownload() throws Exception {
         List<BigInteger> ids = getResourceIds(request);
         Collections.sort(ids);
+        if (ids.isEmpty()) {
+            addActionError(getText("resourceAction.getResourceList.fault", new String[]{"No resource selected for download."}));
+            return "error";
+        }
         DownloadResult downloadResult = null;
 
         try {
@@ -375,9 +386,9 @@ public class Download2Action extends ActionSupport {
             downloadResult = delegate.download(ids);
 
             //----------start to save file
+            File inboxDir = PathValidationUtils.validateConfiguredDirectory(
+                    CarlosProperties.getInstance().getProperty("ONEDT_INBOX"), "ONEDT_INBOX");
             for (DownloadData d : downloadResult.getData()) {
-                String inboxFolder = CarlosProperties.getInstance().getProperty("ONEDT_INBOX");
-                File inboxDir = new File(inboxFolder);
                 File document = PathValidationUtils.validatePath(d.getDescription(), inboxDir);
                 byte[] inputBytes = d.getContent();
 
@@ -529,6 +540,8 @@ public class Download2Action extends ActionSupport {
         return result;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public ResourceStatus getStatusAsResourceStatus() {
         if (getStatus() == null) {
             return null;

@@ -190,10 +190,13 @@ Reference implementations: `src/main/webapp/WEB-INF/jsp/lab/CA/ALL/labDisplay.js
 
 **Key Methods:**
 ```java
-// For user-provided filenames (sanitizes and validates)
+// For user-provided filenames where basename stripping is acceptable
 File safeFile = PathValidationUtils.validatePath(userFilename, allowedDir);
 
-// For validating existing file paths
+// For one directory or filename segment that must be preserved exactly
+String safeComponent = PathValidationUtils.validatePathComponent(rawComponent, "componentName");
+
+// For validating existing or assembled file paths
 PathValidationUtils.validateExistingPath(file, allowedDir);
 
 // For validating uploaded files from Struts2/Tomcat
@@ -216,6 +219,12 @@ if (!file.getCanonicalPath().startsWith(baseDir.getCanonicalPath() + File.separa
 // NEW (consistent, robust)
 PathValidationUtils.validateExistingPath(file, baseDir);
 ```
+
+**Component validation rule:** use `validatePathComponent()` when request data becomes a directory
+or filename segment that must not be normalized (queue ids, existing server filenames, document
+subdirectories). Do not use `validatePath()` as a boolean guard and then build the real `File` from
+the original request value; validate the component, use the returned value, then call
+`validateExistingPath()` or `validatePath()` on the final filesystem target.
 
 **Full documentation**: `docs/path-validation-utils.md`
 
@@ -490,6 +499,23 @@ DAO method names can be misleading. For example, `getProviders(boolean active)` 
 - Parameterized SQL queries (never concatenation)
 - File upload filename validation
 - CodeQL security scanning must pass
+
+**Static analysis (Semgrep, SpotBugs + Find Security Bugs)**: these scanners run alongside
+CodeQL/PMD and upload SARIF to the Security tab (see `docs/static-analysis-workflows.md`).
+Keep real-defect detectors on and fix real flows first. Known false positives should be handled
+with the scanner's narrowest supported suppression: SpotBugs uses `.github/spotbugs/spotbugs-exclude.xml`
+or per-site `@SuppressFBWarnings`; Semgrep uses CARLOS sanitizer-aware rules in `.semgrep/` and
+rule-specific `nosemgrep` comments only when the code is already encoded/sanitized and the rule
+cannot model that sanitizer. Semgrep CI filters suppressed SARIF results before GitHub Code Scanning
+upload, so `nosemgrep` suppressions must remain specific and justified; do not blanket-disable
+Semgrep Pro or broad rule groups to clear PR noise. The `IMPROPER_UNICODE` detector is
+*informational* — it flags `equalsIgnoreCase`/`toLowerCase`/`Normalizer` case folding **regardless
+of `Locale`** (so it cannot be cleared by adding `Locale.ROOT`), and almost all hits are intended
+case-insensitive domain comparisons. It is suppressed **per-site** with
+`@SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = ...)` **plus a mandatory adjacent
+`//` comment** stating the same reason. New `@SuppressFBWarnings` of any pattern must follow this
+annotation-plus-inline-comment convention. Genuinely trust-path case folds are tracked for
+locale-safe hardening in issue #2496 (CVE-2024-38827 class).
 
 **Spring Integration Pattern**:
 ```java
