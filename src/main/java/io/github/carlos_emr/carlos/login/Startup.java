@@ -140,7 +140,6 @@ public class Startup implements ServletContextListener {
 				try {
 					secretKey = EncryptionUtils.generateSecretKey();
 					p.saveProperty(propFileName, EncryptionUtils.SECRET_KEY_ENV_VAR, secretKey);
-					EncryptionUtils.prepareSecretKeySpec();
 					logger.info("New Secret Key generated...");
 				} catch (IOException | NoSuchAlgorithmException e) {
 					logger.error("Error generating new Secret Key - ", e);
@@ -148,6 +147,14 @@ public class Startup implements ServletContextListener {
 			} else {
 				logger.info("Using existing Secret Key...");
 			}
+
+			/*
+			 * EncryptionUtils may be loaded before the application properties are read,
+			 * leaving its cached SecretKeySpec unset even when a key already exists in
+			 * the properties file. Always prepare the key after startup has ensured a
+			 * key exists so credential saves can encrypt passwords reliably.
+			 */
+			EncryptionUtils.prepareSecretKeySpec();
 
 			// CHECK FOR DEFAULT PROPERTIES
 			String baseDocumentDir = p.getProperty("BASE_DOCUMENT_DIR");
