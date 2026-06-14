@@ -65,6 +65,13 @@ import org.apache.struts2.ServletActionContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class EctSaveEncounter2Action extends ActionSupport {
+
+    static final int DEFAULT_ROW_ONE_SIZE = 60;
+    static final int DEFAULT_ROW_TWO_SIZE = 60;
+    static final int DEFAULT_ROW_THREE_SIZE = 378;
+    static final int DEFAULT_PRES_BOX_SIZE = 30;
+    private static final int MIN_LAYOUT_SIZE = 10;
+
     HttpServletRequest httpservletrequest = ServletActionContext.getRequest();
     HttpServletResponse httpservletresponse = ServletActionContext.getResponse();
 
@@ -73,6 +80,11 @@ public class EctSaveEncounter2Action extends ActionSupport {
     OscarAppointmentDao appointmentDao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+
+    static int parseLayoutSize(String param, int defaultValue) {
+        int value = ConversionUtils.fromIntString(param);
+        return value >= MIN_LAYOUT_SIZE ? value : defaultValue;
+    }
 
     private String getLatestID(String demoNo) {
         EChartDao dao = SpringUtils.getBean(EChartDao.class);
@@ -277,10 +289,10 @@ public class EctSaveEncounter2Action extends ActionSupport {
 
         EncounterWindow ew = new EncounterWindow();
         ew.setProviderNo(sessionbean.providerNo);
-        ew.setRowOneSize(Integer.parseInt(httpservletrequest.getParameter("rowOneSize")));
-        ew.setRowTwoSize(Integer.parseInt(httpservletrequest.getParameter("rowTwoSize")));
-        ew.setRowThreeSize(Integer.parseInt(httpservletrequest.getParameter("rowThreeSize")));
-        ew.setPresBoxSize(Integer.parseInt(httpservletrequest.getParameter("presBoxSize")));
+        ew.setRowOneSize(parseLayoutSize(httpservletrequest.getParameter("rowOneSize"), DEFAULT_ROW_ONE_SIZE));
+        ew.setRowTwoSize(parseLayoutSize(httpservletrequest.getParameter("rowTwoSize"), DEFAULT_ROW_TWO_SIZE));
+        ew.setRowThreeSize(parseLayoutSize(httpservletrequest.getParameter("rowThreeSize"), DEFAULT_ROW_THREE_SIZE));
+        ew.setPresBoxSize(parseLayoutSize(httpservletrequest.getParameter("presBoxSize"), DEFAULT_PRES_BOX_SIZE));
         encounterWindowDao.persist(ew);
 
         String forward = null;
