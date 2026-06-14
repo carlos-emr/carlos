@@ -57,16 +57,15 @@ import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBeanHandler;
 import io.github.carlos_emr.carlos.util.StringBuilderUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
-
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class EForm extends EFormBase {
-    private static EFormDataDao eFormDataDao = (EFormDataDao) SpringUtils.getBean(EFormDataDao.class);
+    // Resolve the DAO lazily (per call) rather than in a static-final initializer, so merely
+    // loading EForm (e.g. Mockito.mockStatic in a unit test) no longer fetches a Spring bean.
+    private static EFormDataDao eFormDataDao() { return SpringUtils.getBean(EFormDataDao.class); }
     private static Logger log = MiscUtils.getLogger();
 
     private String appointment_no = "-1";
@@ -105,7 +104,7 @@ public class EForm extends EFormBase {
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public EForm(String fdid) {
         if (!StringUtils.isBlank(fdid) && !"null".equalsIgnoreCase(fdid)) {
-            EFormData eFormData = eFormDataDao.find(Integer.valueOf(fdid));
+            EFormData eFormData = eFormDataDao().find(Integer.valueOf(fdid));
             if (eFormData != null) {
                 this.fdid = fdid;
                 this.fid = eFormData.getFormId().toString();
@@ -374,8 +373,13 @@ public class EForm extends EFormBase {
 
     public void setContextPath(String contextPath) {
         if (StringUtils.isBlank(contextPath)) return;
-        Path oscarJs = Paths.get(contextPath, "library");
-        this.formHtml = this.formHtml.replace(jsMarker, oscarJs + "/");
+        // contextPath is a servlet URL prefix (e.g. "/carlos") that is injected into browser-facing
+        // HTML, NOT a filesystem path - build the library URL directly rather than running filesystem
+        // path validation on it (which would inject OS separators and reject some valid context paths).
+        String normalizedContextPath = contextPath.endsWith("/")
+                ? contextPath.substring(0, contextPath.length() - 1)
+                : contextPath;
+        this.formHtml = this.formHtml.replace(jsMarker, normalizedContextPath + "/library/");
     }
 
     public void setFdid(String fdid) {

@@ -419,7 +419,7 @@
                             <input type="submit" name="submit" value="<fmt:message key="colcamex.formBPMH.print"/>" />
 
                             <c:if test="${bpmh.formId == 0}">
-                            <input type="submit" name="submit" value=“<fmt:message key="colcamex.formBPMH.save"/>" />
+                            <input type="submit" name="submit" value="<fmt:message key="colcamex.formBPMH.save"/>" />
                             </c:if>
 
                         </c:if>
