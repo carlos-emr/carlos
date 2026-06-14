@@ -1255,19 +1255,35 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         this.appointmentNo = appointment;
     }
 
+    /**
+     * Gets the current user.
+     * @return String the current user identifier
+     */
     public String getCurUser() {
         return curUser;
     }
 
+    /**
+     * Sets the current user.
+     * @param curUser String the current user identifier to set
+     */
     @StrutsParameter
     public void setCurUser(String curUser) {
         this.curUser = curUser;
     }
 
+    /**
+     * Gets the parent AJAX ID.
+     * @return String the parent AJAX ID
+     */
     public String getParentAjaxId() {
         return parentAjaxId;
     }
 
+    /**
+     * Sets the parent AJAX ID.
+     * @param parentAjaxId String the parent AJAX ID to set
+     */
     @StrutsParameter
     public void setParentAjaxId(String parentAjaxId) {
         this.parentAjaxId = parentAjaxId;
