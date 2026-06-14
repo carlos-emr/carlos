@@ -41,11 +41,10 @@
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypeBeanHandler" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBean" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.ExportMeasurementType" %>
-<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
-    String mstring = StringUtils.noNull(request.getParameter("mType")).trim();
+    String mstring = StringUtils.trimToEmpty(request.getParameter("mType"));
     String export = "<ERROR/>";
     if (!mstring.isEmpty()) {
         EctMeasurementTypeBeanHandler mType = new EctMeasurementTypeBeanHandler();

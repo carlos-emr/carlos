@@ -431,6 +431,11 @@ public class BpmhForm2Handler {
      *
      * @param bpmhDrugBeans
      */
+    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
+    // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
+    @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
+            justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
+                    "known CARLOS types; no user-controlled property name reaches the sink")
     public void setFormBeanDrugList(List<BpmhDrug> bpmhDrugBeans) {
 
         Iterator<Drug> drugListIterator = null;

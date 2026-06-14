@@ -24,9 +24,10 @@ package io.github.carlos_emr.carlos.report.reportByTemplate.actions;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.report.reportByTemplate.SQLReporter;
-import io.github.carlos_emr.carlos.services.security.SecurityManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -42,7 +43,6 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import jakarta.servlet.http.HttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -58,32 +58,32 @@ import static org.mockito.Mockito.when;
 class GenerateOutFiles2ActionTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
-    private MockedStatic<SecurityManager> securityManagerMock;
+    private SecurityInfoManager securityInfoManager;
+    private LoggedInInfo loggedInInfo;
 
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
 
     @BeforeEach
     void setUp() {
+        securityInfoManager = mock(SecurityInfoManager.class);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
+        loggedInInfo = mock(LoggedInInfo.class);
+
         request = new MockHttpServletRequest();
         response = new MockHttpServletResponse();
-        request.getSession().setAttribute("userrole", "doctor");
-        request.getSession().setAttribute("user", "999998");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
         servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
 
-        securityManagerMock = mockStatic(SecurityManager.class);
-        securityManagerMock.when(() -> SecurityManager.hasPrivilege(eq("_admin"), anyString())).thenReturn(false);
-        securityManagerMock.when(() -> SecurityManager.hasPrivilege(eq("_report"), anyString())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null)).thenReturn(false);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.READ, null)).thenReturn(true);
     }
 
     @AfterEach
     void tearDown() {
-        if (securityManagerMock != null) {
-            securityManagerMock.close();
-        }
         if (servletActionContextMock != null) {
             servletActionContextMock.close();
         }

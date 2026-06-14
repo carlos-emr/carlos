@@ -355,7 +355,7 @@
                     <label class="col-sm-3 col-form-label"><fmt:message key="appointment.appointmenteditrepeatbooking.endon"/></label>
                     <div class="col-sm-9">
                         <input type="date" id="endDate" name="endDate" class="form-control form-control-sm" style="width: 170px;"
-                               value="<%=request.getParameter("appointment_date") != null ? SafeEncode.forHtmlAttribute(request.getParameter("appointment_date")) : UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd")%>">
+                               value="<%=request.getParameter("appointment_date") != null ? SafeEncode.forHtmlAttribute(request.getParameter("appointment_date")) : UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd")%>"><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                     </div>
                 </div>
             </div>

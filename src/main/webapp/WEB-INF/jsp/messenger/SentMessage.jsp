@@ -72,6 +72,8 @@
     String user = (String) session.getAttribute("user");
     String roleName$ = (userrole != null ? userrole : "") + "," + (user != null ? user : "");
     boolean authed = true;
+    boolean showScheduleNav = "1".equals(request.getParameter("scheduleNav"));
+    String scheduleNavFirstQuerySuffix = showScheduleNav ? "?scheduleNav=1" : "";
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_msg" rights="r" reverse="<%=true%>">
     <%authed = false; %>
@@ -91,6 +93,9 @@
 <%-- global.css: CARLOS color overrides for Bootstrap (messenger pages don't use global-head.jspf) --%>
 <link rel="stylesheet" href="<%=request.getContextPath() %>/share/css/global.css">
 <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+<% if (showScheduleNav) { %>
+<link rel="stylesheet" href="<%=request.getContextPath()%>/css/topnav.css">
+<% } %>
 
         <c:if test="${empty msgSessionBean}">
             <c:redirect url="/index"/>
@@ -114,6 +119,9 @@
     </head>
 
  <body class="BodyStyle" >
+<% if (showScheduleNav) { %>
+<jsp:include page="/WEB-INF/jsp/provider/mainMenu.jsp"/>
+<% } %>
 <table class="MainTable" id="scrollNumber1" style="width:100%; margin-top: 10px;">
 	<tr class="MainTableTopRow">
 		<td class="MainTableTopRowLeftColumn"><h4>&nbsp;<i class="fa-solid fa-envelope" title='<fmt:message key="messenger.DisplayMessages.msgMessenger"/>'></i>&nbsp;<fmt:message
@@ -138,9 +146,9 @@
 					key="messenger.SentMessage.msgMessageSentTo" /> <carlos:encode value='<%= request.getAttribute("SentMessageProvs") != null ? request.getAttribute("SentMessageProvs").toString() : "" %>' context="html"/>
 </div>
 <div style="width:100%; margin-left:10px; margin-top: 50px;">
-<a class="btn btn-outline-secondary" href="${pageContext.request.contextPath}/messenger/ViewCreateMessage">
+<a class="btn btn-outline-secondary" href="${pageContext.request.contextPath}/messenger/ViewCreateMessage<%=scheduleNavFirstQuerySuffix%>">
     <i class="fa-solid fa-pencil"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.btnCompose"/></a>
-<a class="btn btn-primary" href="${pageContext.request.contextPath}/messenger/DisplayMessages">
+<a class="btn btn-primary" href="${pageContext.request.contextPath}/messenger/DisplayMessages<%=scheduleNavFirstQuerySuffix%>">
     <i class="fa-solid fa-inbox"></i>&nbsp;<fmt:message key="messenger.SentMessagebtnBack" /></a>
 <a class="btn btn-outline-secondary" href="javascript:BackToCarlos()">
     <i class="fa-solid fa-right-from-bracket"></i>&nbsp;<fmt:message key="messenger.SentMessage.btnExit" /></a>

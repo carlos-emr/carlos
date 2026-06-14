@@ -180,7 +180,9 @@
                                     <li class="<%= inboxTabActive ? "nav-active" : "" %>">
                                         <a HREF="<%= scheduleNavActive ? request.getContextPath() + "/web/inboxhub/Inboxhub?method=displayInboxForm&scheduleNav=1" : "#" %>" id="inboxLink"
                                            TITLE='<fmt:message key="provider.appointmentProviderAdminDay.viewLabReports"/>'>
-                                            <span id="oscar_new_lab"><fmt:message key="global.lab"/></span>
+                                            <span id="oscar_new_lab">
+                                                <oscar:newLab providerNo="<%=curUser_no%>"><fmt:message key="global.lab"/></oscar:newLab>
+                                            </span>
                                         </a>
                                         <oscar:newUnclaimedLab>
                                             <a id="unclaimedLabLink" class="tabalert" HREF="<%= scheduleNavActive ? request.getContextPath() + "/web/inboxhub/Inboxhub?method=displayInboxForm&unclaimed=1&scheduleNav=1" : "javascript:void(0)" %>"
@@ -196,7 +198,9 @@
                                 <a HREF="#"
                                    ONCLICK="return openScheduleMenuSection('<%=SafeEncode.forJavaScriptAttribute(ticklerUrl)%>', function(u){ popupPage2(u,'ticklerPage'); }, event);"
                                    TITLE='<fmt:message key="global.tickler"/>'>
-                                    <span id="oscar_new_tickler"><fmt:message key="global.btntickler"/></span></a>
+                                    <span id="oscar_new_tickler">
+                                        <oscar:newTickler providerNo="<%=curUser_no%>"><fmt:message key="global.btntickler"/></oscar:newTickler>
+                                    </span></a>
                             </li>
                         </security:oscarSec>
 
@@ -206,7 +210,9 @@
                                     <a HREF="#"
                                        ONCLICK="return openScheduleMenuSection('<%=SafeEncode.forJavaScriptAttribute(messengerUrl)%>', function(u){ popupOscarRx(600,1024,u); }, event);"
                                        title="<fmt:message key="global.messenger"/>">
-                                        <span id="oscar_new_msg"><fmt:message key="global.msg"/></span></a>
+                                        <span id="oscar_new_msg">
+                                            <oscar:newMessage providerNo="<%=curUser_no%>"><fmt:message key="global.msg"/></oscar:newMessage>
+                                        </span></a>
                                 </li>
                             </security:oscarSec>
                         </caisi:isModuleLoad>
