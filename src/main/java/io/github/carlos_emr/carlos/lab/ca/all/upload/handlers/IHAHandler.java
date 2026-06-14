@@ -55,6 +55,7 @@ import org.w3c.dom.Node;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.DefaultGenericHandler;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
 import io.github.carlos_emr.CarlosProperties;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Deprecated
 /**
@@ -186,6 +187,8 @@ public class IHAHandler extends DefaultGenericHandler implements MessageHandler 
     /*
      *  Return the message as an xml document if it is in the xml format
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private Document getXML(String fileName) {
         try {
             // Validate the file path using PathValidationUtils
@@ -194,10 +197,12 @@ public class IHAHandler extends DefaultGenericHandler implements MessageHandler 
             // Validate the file is within the expected document directory
             CarlosProperties props = CarlosProperties.getInstance();
             String documentDir = props.getProperty("DOCUMENT_DIR");
-            if (documentDir != null && !documentDir.isEmpty()) {
-                File docDir = new File(documentDir).getCanonicalFile();
-                file = PathValidationUtils.validateExistingPath(file, docDir);
+            if (documentDir == null || documentDir.trim().isEmpty()) {
+                logger.error("DOCUMENT_DIR is not configured while parsing XML file: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                return null;
             }
+            File docDir = PathValidationUtils.validateConfiguredDirectory(documentDir, "DOCUMENT_DIR");
+            file = PathValidationUtils.validateExistingPath(file, docDir);
 
             // Ensure the file exists and is a regular file
             if (!file.exists() || !file.isFile()) {

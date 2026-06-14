@@ -342,6 +342,7 @@
     if (rbu != null) {
         resourcebaseurl = rbu.getValue();
     }
+    pageContext.setAttribute("scheduleResourceBaseUrl", resourcebaseurl);
 
     boolean isWeekView = false;
     String provNum = request.getParameter("provider_no");
@@ -493,6 +494,8 @@
         <%
             }
         %>
+        <link rel="stylesheet" href="${pageContext.servletContext.contextPath}/css/topnav.css?v=${rand}"
+              type="text/css">
 
         <c:if test="${empty sessionScope.archiveView or sessionScope.archiveView != true}">
             <%!String refresh = io.github.carlos_emr.CarlosProperties.getInstance().getProperty("refresh.appointmentprovideradminday.jsp", "-1");%>
@@ -904,17 +907,17 @@
     <%-- Provider numbers visible on this schedule view, comma-separated, for the quick-search slot finder --%>
     <input type="hidden" id="scheduleVisibleProviderNos" value="<carlos:encode value='<%= java.util.Arrays.stream(curProvider_no).filter(p -> p != null && !p.isEmpty()).collect(java.util.stream.Collectors.joining(",")) %>' context="htmlAttribute"/>"/>
     <%-- Current schedule view parameters needed to rebuild the navigation URL after finding a slot --%>
-    <input type="hidden" id="scheduleViewAll" value="<carlos:encode value='<%= request.getParameter("viewall") != null ? request.getParameter("viewall") : "1" %>' context="htmlAttribute"/>"/>
-    <input type="hidden" id="scheduleView" value="<carlos:encode value='<%= request.getParameter("view") != null ? request.getParameter("view") : "0" %>' context="htmlAttribute"/>"/>
+    <input type="hidden" id="scheduleViewAll" value="<carlos:encode value='<%= request.getParameter("viewall") != null ? request.getParameter("viewall") : "1" %>' context="htmlAttribute"/>"/><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
+    <input type="hidden" id="scheduleView" value="<carlos:encode value='<%= request.getParameter("view") != null ? request.getParameter("view") : "0" %>' context="htmlAttribute"/>"/><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
 
     <div id="fixedHeaderWrapper">
     <table id="firstTable" class="noprint">
         <tr>
 
+            <td class="icon-container">
+                <img alt="CARLOS EMR" src="<%=request.getContextPath()%>/images/oscar_logo_small.png" width="19">
+            </td>
             <td id="firstMenu">
-                <div class="icon-container">
-                    <img alt="CARLOS EMR" src="<%=request.getContextPath()%>/images/oscar_logo_small.png" width="19px">
-                </div>
                 <ul id="navlist">
                     <c:if test="${infirmaryView_isOscar != 'false'}">
                         <% String scheduleNavActiveClass = NavPath.requestPathMatches(request,
@@ -974,7 +977,9 @@
                                     <c:if test="${doctorLinkRights}">
                                         <li>
                                        <a HREF="<%= "1".equals(request.getParameter("scheduleNav")) ? request.getContextPath() + "/web/inboxhub/Inboxhub?method=displayInboxForm&scheduleNav=1" : "#" %>" id="inboxLink">
-                                                <span id="oscar_new_lab" title="<fmt:message key="provider.appointmentProviderAdminDay.viewLabReports"/>"><fmt:message key="global.lab"/></span>
+                                                <span id="oscar_new_lab" title="<fmt:message key="provider.appointmentProviderAdminDay.viewLabReports"/>">
+                                                    <oscar:newLab providerNo="<%=loggedInInfo1.getLoggedInProviderNo()%>"><fmt:message key="global.lab"/></oscar:newLab>
+                                                </span>
                                             </a>
                                             <oscar:newUnclaimedLab>
                                                 <a id="unclaimedLabLink" class="tabalert" HREF="<%= "1".equals(request.getParameter("scheduleNav")) ? request.getContextPath() + "/web/inboxhub/Inboxhub?method=displayInboxForm&unclaimed=1&scheduleNav=1" : "javascript:void(0)" %>"
@@ -1014,7 +1019,9 @@
                                     <a HREF="#"
                                        ONCLICK="return openScheduleSection('<%=scheduleTicklerUrlForJsAttribute%>', function(u){ popupPage2(u,'${carlos:forJavaScript(ticklerTitle)}'); }, event);"
                                        TITLE='${carlos:forHtmlAttribute(ticklerTitle)}'>
-                                        <span id="oscar_new_tickler"><fmt:message key="global.btntickler"/></span></a>
+                                        <span id="oscar_new_tickler">
+                                            <oscar:newTickler providerNo="<%=loggedInInfo1.getLoggedInProviderNo()%>"><fmt:message key="global.btntickler"/></oscar:newTickler>
+                                        </span></a>
                                 </li>
                             </security:oscarSec>
 
@@ -1024,7 +1031,9 @@
                                         <a HREF="#"
                                            ONCLICK="return openScheduleSection('<%=scheduleMessengerUrlForJsAttribute%>', function(u){ popupOscarRx(600,1024,u); }, event);"
                                            title="<fmt:message key="global.messenger"/>">
-                                              <span id="oscar_new_msg"><fmt:message key="global.msg"/></span></a>
+                                              <span id="oscar_new_msg">
+                                                  <oscar:newMessage providerNo="<%=loggedInInfo1.getLoggedInProviderNo()%>"><fmt:message key="global.msg"/></oscar:newMessage>
+                                              </span></a>
                                     </li>
                                 </security:oscarSec>
                             </caisi:isModuleLoad>
@@ -1053,7 +1062,7 @@
                                 <security:oscarSec roleName="<%=roleName$%>" objectName="_edoc" rights="r">
                                     <li>
                                         <a HREF="#"
-                                           onclick="return openScheduleSection('<%=scheduleDocumentReportUrlForJsAttribute%>', function(u){ popup('700', '1024', u, 'edocView'); }, event);"
+                                           onclick="return openScheduleSection('<%=scheduleDocumentReportUrlForJsAttribute%>', function(u){ popup('800', '1200', u, 'edocView'); }, event);"
                                            TITLE='<fmt:message key="provider.appointmentProviderAdminDay.viewEdoc"/>'><fmt:message key="global.edoc"/></a>
                                     </li>
                                 </security:oscarSec>
@@ -1081,7 +1090,7 @@
                             <fmt:message var="workflowTitle" key="global.workflow"/>
                             <oscar:oscarPropertiesCheck property="WORKFLOW" value="yes">
                                 <li><a href="javascript:void(0)"
-                                       onClick="popup(700,1024,'<%= request.getContextPath() %>/oscarWorkflow/WorkFlowList','${carlos:forJavaScript(workflowTitle)}')"><fmt:message key="global.btnworkflow"/>
+                                       onClick="popup(800,1200,'<%= request.getContextPath() %>/oscarWorkflow/WorkFlowList','${carlos:forJavaScript(workflowTitle)}')"><fmt:message key="global.btnworkflow"/>
                                 </a></li>
                             </oscar:oscarPropertiesCheck>
 
@@ -1137,6 +1146,11 @@
 
                             </security:oscarSec>
 
+                            <li id="helpLink">
+                                <a href="javascript:void(0)"
+                                   onClick="popupPage(600,750,'${carlos:forJavaScriptAttribute(scheduleResourceBaseUrl)}');return false;"><fmt:message key="global.help"/></a>
+                            </li>
+
                             <% if (isMobileOptimized) { %>
                         </ul>
                     </li> <!-- end menu list for mobile-->
@@ -1150,7 +1164,7 @@
                 <ul id="userSettingsMenu" style="display: flex; gap:5px;">
                     <li>
                         <a title="<fmt:message key="ScratchPad.title"/>" href="javascript: function myFunction() {return false; }"
-                           onClick="popup(700,1024,'<%= request.getContextPath() %>/Scratch','scratch')">
+                           onClick="popup(800,1200,'<%= request.getContextPath() %>/Scratch','scratch')">
                             		<span>
 							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
                                  class="bi bi-card-list" viewBox="0 0 16 16">
@@ -2088,7 +2102,7 @@
 
                                                         <% if (tickler_no.compareTo("") != 0) {%>
                                                             <a href="#"
-                                                               onClick="popupPage(700,1024, '<%= request.getContextPath() %>/tickler/ViewTicklerMain?demoview=0');return false;"
+                                                               onClick="popupPage(800,1200, '<%= request.getContextPath() %>/tickler/ViewTicklerMain?demoview=0');return false;"
                                                                title="<fmt:message key="provider.appointmentProviderAdminDay.ticklerMsg"/>: <carlos:encode value='<%= tickler_note %>' context="html"/>">
                                                                 <span color="red">!</span></a>
                                                         <%} %>
@@ -2143,7 +2157,7 @@
                                                         } else {
                                                         %> <% if (tickler_no.compareTo("") != 0) {%>
                                                             <a href="#"
-                                                               onClick="popupPage(700,1024, '<%= request.getContextPath() %>/tickler/ViewTicklerMain?demoview=<%=demographic_no%>');return false;"
+                                                               onClick="popupPage(800,1200, '<%= request.getContextPath() %>/tickler/ViewTicklerMain?demoview=<%=demographic_no%>');return false;"
                                                                title="<fmt:message key="provider.appointmentProviderAdminDay.ticklerMsg"/>: <%=UtilMisc.htmlEscape(tickler_note)%>"><span
                                                                     color="red">!</span></a>
                                                         <%} %>
@@ -2264,7 +2278,7 @@
 
                                                         <% if (showOldEchartLink) { %>
                                                         &#124; <a href="javascript:void(0)" class="encounterBtn"
-                                                                  onClick="popupWithApptNo(710, 1024,'<%=eURL%>','encounter',<%=appointment.getId()%>);return false;"
+                                                                  onClick="popupWithApptNo(800,1200,'<%=eURL%>','encounter',<%=appointment.getId()%>);return false;"
                                                                   title="<fmt:message key="global.encounter"/>">
                                                         <fmt:message key="provider.appointmentProviderAdminDay.btnE"/></a>
                                                         <% }
@@ -2277,7 +2291,7 @@
                                                                 if (status.indexOf('B') == -1) {
                                                             %>
                                                             &#124; <a href=#
-                                                                      onClick='popupPage(755,1200, "<%=request.getContextPath()%>/billing?billRegion=<%=URLEncoder.encode(prov, StandardCharsets.UTF_8)%>&billForm=<%=URLEncoder.encode(oscarVariables.getProperty("default_view"), StandardCharsets.UTF_8)%>&hotclick=<%=URLEncoder.encode("", StandardCharsets.UTF_8)%>&appointment_no=<%=appointment.getId()%>&demographic_name=<%=URLEncoder.encode(name, StandardCharsets.UTF_8)%>&status=<%=status%>&demographic_no=<%=demographic_no%>&providerview=<%=curProvider_no[nProvider]%>&user_no=<%=loggedInInfo1.getLoggedInProviderNo()%>&apptProvider_no=<%=curProvider_no[nProvider]%>&xml_provider=<%=curProvider_no[nProvider]%>&appointment_date=<%=year+"-"+month+"-"+day%>&start_time=<%=start_time%>&bNewForm=1");return false;'
+                                                                      onClick='popupPage(800,1200, "<%=request.getContextPath()%>/billing?billRegion=<%=URLEncoder.encode(prov, StandardCharsets.UTF_8)%>&billForm=<%=URLEncoder.encode(oscarVariables.getProperty("default_view"), StandardCharsets.UTF_8)%>&hotclick=<%=URLEncoder.encode("", StandardCharsets.UTF_8)%>&appointment_no=<%=appointment.getId()%>&demographic_name=<%=URLEncoder.encode(name, StandardCharsets.UTF_8)%>&status=<%=status%>&demographic_no=<%=demographic_no%>&providerview=<%=curProvider_no[nProvider]%>&user_no=<%=loggedInInfo1.getLoggedInProviderNo()%>&apptProvider_no=<%=curProvider_no[nProvider]%>&xml_provider=<%=curProvider_no[nProvider]%>&appointment_date=<%=year+"-"+month+"-"+day%>&start_time=<%=start_time%>&bNewForm=1");return false;'
                                                                       title="<fmt:message key="global.billingtag"/>"><fmt:message key="provider.appointmentProviderAdminDay.btnB"/></a>
                                                             <%
                                                             } else {
@@ -2303,7 +2317,7 @@
 
                                                             &#124; <a class="masterBtn"
                                                                       href="javascript:void(0)"
-                                                                      onClick="popupWithApptNo(700,1024, '<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<%=demographic_no%>&apptProvider=<%=curProvider_no[nProvider]%>&appointment=<%=appointment.getId()%>','master',<%=appointment.getId()%>)"
+                                                                      onClick="popupWithApptNo(800,1200, '<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<%=demographic_no%>&apptProvider=<%=curProvider_no[nProvider]%>&appointment=<%=appointment.getId()%>','master',<%=appointment.getId()%>)"
                                                                       title="<fmt:message key="provider.appointmentProviderAdminDay.msgMasterFile"/>"><fmt:message key="provider.appointmentProviderAdminDay.btnM"/></a>
 
                                                         </c:if>
@@ -2313,7 +2327,7 @@
 
                                                         <c:if test="${doctorLinkRights}">
                                                             &#124; <a href=#
-                                                                      onClick="popupWithApptNo(700,1027,'<%=request.getContextPath()%>/rx/choosePatient?providerNo=<%=loggedInInfo1.getLoggedInProviderNo()%>&demographicNo=<%=demographic_no%>','rx',<%=appointment.getId()%>)"
+                                                                      onClick="popupWithApptNo(800,1200,'<%=request.getContextPath()%>/rx/choosePatient?providerNo=<%=loggedInInfo1.getLoggedInProviderNo()%>&demographicNo=<%=demographic_no%>','rx',<%=appointment.getId()%>)"
                                                                       title="<fmt:message key="global.prescriptions"/>"><fmt:message key="global.rx"/>
                                                         </a>
 
@@ -2461,7 +2475,7 @@
                         popupOscarRx(425, 430, '<%= request.getContextPath() %>/share/CalendarPopup?urlfrom=<%= request.getContextPath() %>/provider/providercontrol&year=<%=strYear%>&month=<%=strMonth%>&param=<%=URLEncoder.encode("&view=0&displaymode=day&dboperation=searchappointmentday","UTF-8")%>');
                         return false;  //run code for 'C'alendar
                     case <fmt:message key="global.edocShortcut"/> :
-                        popupOscarRx('700', '1024', '<%= request.getContextPath() %>/documentManager/ViewDocumentReport?function=providers&functionid=<%=loggedInInfo1.getLoggedInProviderNo()%>&curUser=<%=loggedInInfo1.getLoggedInProviderNo()%>', 'edocView');
+                        popupOscarRx('800', '1200', '<%= request.getContextPath() %>/documentManager/ViewDocumentReport?function=providers&functionid=<%=loggedInInfo1.getLoggedInProviderNo()%>&curUser=<%=loggedInInfo1.getLoggedInProviderNo()%>', 'edocView');
                         return false;  //run code for e'D'oc
                     case <fmt:message key="global.resourcesShortcut"/> :
                         popupOscarRx(550, 687, '<%=resourcebaseurl%>');
@@ -2470,23 +2484,23 @@
                         popupOscarRx(600, 750, '<%=resourcebaseurl%>');
                         return false;  //run code for 'H'elp
                     case <fmt:message key="global.ticklerShortcut"/> : {
-                        popupOscarRx(700, 1024, '<%= request.getContextPath() %>/tickler/ViewTicklerMain', '${carlos:forJavaScript(ticklerTitle)}'); //run code for t'I'ckler
+                        popupOscarRx(800, 1200, '<%= request.getContextPath() %>/tickler/ViewTicklerMain', '${carlos:forJavaScript(ticklerTitle)}'); //run code for t'I'ckler
                         return false;
                     }
                     case <fmt:message key="global.labShortcut"/> :
-                        popupOscarRx(600, 1024, '<%=request.getContextPath()%>/web/inboxhub/Inboxhub?method=displayInboxForm', '${carlos:forJavaScript(labTitle)}');
+                        popupOscarRx(800, 1200, '<%=request.getContextPath()%>/web/inboxhub/Inboxhub?method=displayInboxForm', '${carlos:forJavaScript(labTitle)}');
                         return false;  //run code for 'L'ab
                     case <fmt:message key="global.msgShortcut"/> :
-                        popupOscarRx(600, 1024, '<%=request.getContextPath()%>/messenger/DisplayMessages?providerNo=<%=loggedInInfo1.getLoggedInProviderNo()%>&userName=<%=URLEncoder.encode(userfirstname+" "+userlastname, StandardCharsets.UTF_8)%>');
+                        popupOscarRx(800, 1200, '<%=request.getContextPath()%>/messenger/DisplayMessages?providerNo=<%=loggedInInfo1.getLoggedInProviderNo()%>&userName=<%=URLEncoder.encode(userfirstname+" "+userlastname, StandardCharsets.UTF_8)%>');
                         return false;  //run code for 'M'essage
                     case <fmt:message key="global.monthShortcut"/> :
                         window.open("<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=month%>&day=1<%=viewString%>&displaymode=month&dboperation=searchappointmentmonth", "_self");
                         return false;  //run code for Mo'n'th
                     case <fmt:message key="global.conShortcut"/> :
-                        popupOscarRx(625, 1024, '<%=request.getContextPath()%>/encounter/IncomingConsultation?providerNo=<%=loggedInInfo1.getLoggedInProviderNo()%>&userName=<%=URLEncoder.encode(userfirstname+" "+userlastname, StandardCharsets.UTF_8)%>');
+                        popupOscarRx(800, 1200, '<%=request.getContextPath()%>/encounter/IncomingConsultation?providerNo=<%=loggedInInfo1.getLoggedInProviderNo()%>&userName=<%=URLEncoder.encode(userfirstname+" "+userlastname, StandardCharsets.UTF_8)%>');
                         return false;  //run code for c'O'nsultation
                     case <fmt:message key="global.reportShortcut"/> :
-                        popupOscarRx(650, 1024, '<%= request.getContextPath() %>/report/ViewReportindex', 'reportPage');
+                        popupOscarRx(800, 1200, '<%= request.getContextPath() %>/report/ViewReportindex', 'reportPage');
                         return false;  //run code for 'R'eports
                     case <fmt:message key="global.prefShortcut"/> : {
                         popupOscarRx(715, 680, '<%= request.getContextPath() %>/provider/ViewProviderPreference?provider_no=<%=loggedInInfo1.getLoggedInProviderNo()%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&mygroup_no=<carlos:encode value='${__enc_21}' context="javaScript"/>'); //run code for 'P'references
@@ -2508,7 +2522,7 @@
                         <% } %>
                     }
                     case <fmt:message key="global.workflowShortcut"/> :
-                        popupOscarRx(700, 1024, '<%= request.getContextPath() %>/oscarWorkflow/WorkFlowList', '${carlos:forJavaScript(workflowTitle)}');
+                        popupOscarRx(800, 1200, '<%= request.getContextPath() %>/oscarWorkflow/WorkFlowList', '${carlos:forJavaScript(workflowTitle)}');
                         return false; //code for 'W'orkflow
                     default :
                         return;
@@ -2729,7 +2743,7 @@
             row.addEventListener('click', function(e) {
                 if (e.target.closest && e.target.closest('.qs-badge')) return;
                 if (item.demographicNo) {
-                    popupPage(710, 1024, ctx + '/encounter/IncomingEncounter'
+                    popupPage(800, 1200, ctx + '/encounter/IncomingEncounter'
                         + '?demographicNo='  + encodeURIComponent(item.demographicNo)
                         + '&providerNo='     + encodeURIComponent(scheduleProviderNo)
                         + '&curProviderNo='  + encodeURIComponent(scheduleProviderNo)
@@ -2758,13 +2772,13 @@
             badgesDiv.className = 'qs-badges';
             badgesDiv.appendChild(makeBadge('M', 'qs-badge-m', msgs.badgeMasterFile, function(e) {
                 e.stopPropagation();
-                popupPage(700, 1024, ctx + '/demographic/DemographicEdit?demographic_no='
+                popupPage(800, 1200, ctx + '/demographic/DemographicEdit?demographic_no='
                     + encodeURIComponent(item.demographicNo));
                 hideDropdown();
             }));
             badgesDiv.appendChild(makeBadge('E', 'qs-badge-e', msgs.badgeEChart, function(e) {
                 e.stopPropagation();
-                popupPage(710, 1024, ctx + '/encounter/IncomingEncounter'
+                popupPage(800, 1200, ctx + '/encounter/IncomingEncounter'
                     + '?demographicNo=' + encodeURIComponent(item.demographicNo)
                     + '&providerNo=' + encodeURIComponent(scheduleProviderNo)
                     + '&curProviderNo=' + encodeURIComponent(scheduleProviderNo)
@@ -2774,7 +2788,7 @@
             }));
             badgesDiv.appendChild(makeBadge('Rx', 'qs-badge-rx', msgs.badgePrescriptions, function(e) {
                 e.stopPropagation();
-                popupPage(700, 1027, ctx + '/rx/choosePatient'
+                popupPage(800, 1200, ctx + '/rx/choosePatient'
                     + '?providerNo=' + encodeURIComponent(scheduleProviderNo)
                     + '&demographicNo=' + encodeURIComponent(item.demographicNo));
                 hideDropdown();

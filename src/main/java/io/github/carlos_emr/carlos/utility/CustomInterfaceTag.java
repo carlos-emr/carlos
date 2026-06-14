@@ -32,7 +32,7 @@ package io.github.carlos_emr.carlos.utility;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Random;
+import java.util.UUID;
 
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.http.HttpServletRequest;
@@ -43,7 +43,6 @@ import jakarta.servlet.jsp.tagext.TagSupport;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.provider.web.CppPreferencesUIBean;
 
-import org.owasp.encoder.Encode;
 import io.github.carlos_emr.CarlosProperties;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
@@ -107,11 +106,11 @@ public class CustomInterfaceTag extends TagSupport {
                     boolean cardswipe = props.getBooleanProperty("cardswipe", "false");
                     String customTag = "";
                     if (customJs.equalsIgnoreCase("ocean")) {
-                        customTag = "ocean-host=" + Encode.forUriComponent(props.getProperty("ocean_host"));
+                        customTag = "ocean-host=" + SafeEncode.forUriComponent(props.getProperty("ocean_host"));
                     }
 
-                    int randomNo = new Random().nextInt();
-                    out.println("<script id=\"mainScript\" src=\"" + contextPath + scriptPath + "?no-cache=" + randomNo + "&autoRefresh=true\" hide_ConReport=\"" + hide_ConReport + "\" cardswipe=\"" + cardswipe + "\" " + customTag + " ></script>");
+                    String cacheBuster = UUID.randomUUID().toString();
+                    out.println("<script id=\"mainScript\" src=\"" + contextPath + scriptPath + "?no-cache=" + cacheBuster + "&autoRefresh=true\" hide_ConReport=\"" + hide_ConReport + "\" cardswipe=\"" + cardswipe + "\" " + customTag + " ></script>");
                 }
             } catch (IOException e) {
                 logger.error("Error", e);
@@ -130,6 +129,8 @@ public class CustomInterfaceTag extends TagSupport {
      * @param path the webapp-relative resource path (e.g. {@code /js/custom/default/main.js})
      * @return {@code true} if the resource exists; {@code false} otherwise
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     private boolean scriptResourceExists(ServletContext servletContext, String path) {
         try {
             if (servletContext.getResource(path) != null) {
@@ -140,7 +141,7 @@ public class CustomInterfaceTag extends TagSupport {
             return false;
         }
         String realPath = servletContext.getRealPath(path);
-        return realPath != null && new File(realPath).isFile();
+        return realPath != null && PathValidationUtils.resolveTrustedPath(new File(realPath)).isFile();
     }
 
     @Override
@@ -165,6 +166,17 @@ public class CustomInterfaceTag extends TagSupport {
     }
 
 
+    private void appendIssueNoteUrl(StringBuilder sb, String position, String issueCode, String titleVariable) {
+        String rawPosition = position == null ? "" : position;
+        String jsPosition = SafeEncode.forJavaScript(rawPosition);
+        String jsCommand = SafeEncode.forJavaScript(SafeEncode.forUriComponent("div" + rawPosition));
+        sb.append("\"div").append(jsPosition)
+                .append("\":    ctx + \"/CaseManagementView?hc=996633&method=listNotes&providerNo=\" + providerNo + \"&demographicNo=\" + demographicNo + \"&issue_code=")
+                .append(issueCode)
+                .append("&title=\" + ").append(titleVariable)
+                .append(" + \"&cmd=").append(jsCommand).append("\"");
+    }
+
     private String getPreferenceBasedEChart(CppPreferencesUIBean bean) {
         StringBuilder sb = new StringBuilder();
         sb.append("<script>");
@@ -172,7 +184,7 @@ public class CustomInterfaceTag extends TagSupport {
         sb.append("issueNoteUrls = {");
         boolean flag = false, row1 = false, row2 = false;
         if (!bean.getSocialHxPosition().equals("")) {
-            sb.append("div" + bean.getSocialHxPosition() + ":    ctx + \"/CaseManagementView?hc=996633&method=listNotes&providerNo=\" + providerNo + \"&demographicNo=\" + demographicNo + \"&issue_code=SocHistory&title=\" + socHistoryLabel + \"&cmd=div" + bean.getSocialHxPosition() + "\"");
+            appendIssueNoteUrl(sb, bean.getSocialHxPosition(), "SocHistory", "socHistoryLabel");
             flag = true;
             if (bean.getSocialHxPosition().startsWith("R1")) {
                 row1 = true;
@@ -185,7 +197,7 @@ public class CustomInterfaceTag extends TagSupport {
             if (flag) {
                 sb.append(",");
             }
-            sb.append("div" + bean.getMedicalHxPosition() + ":    ctx + \"/CaseManagementView?hc=996633&method=listNotes&providerNo=\" + providerNo + \"&demographicNo=\" + demographicNo + \"&issue_code=MedHistory&title=\" + medHistoryLabel + \"&cmd=div" + bean.getMedicalHxPosition() + "\"");
+            appendIssueNoteUrl(sb, bean.getMedicalHxPosition(), "MedHistory", "medHistoryLabel");
             flag = true;
             if (bean.getMedicalHxPosition().startsWith("R1")) {
                 row1 = true;
@@ -198,7 +210,7 @@ public class CustomInterfaceTag extends TagSupport {
             if (flag) {
                 sb.append(",");
             }
-            sb.append("div" + bean.getOngoingConcernsPosition() + ":    ctx + \"/CaseManagementView?hc=996633&method=listNotes&providerNo=\" + providerNo + \"&demographicNo=\" + demographicNo + \"&issue_code=Concerns&title=\" + onGoingLabel + \"&cmd=div" + bean.getOngoingConcernsPosition() + "\"");
+            appendIssueNoteUrl(sb, bean.getOngoingConcernsPosition(), "Concerns", "onGoingLabel");
             flag = true;
             if (bean.getOngoingConcernsPosition().startsWith("R1")) {
                 row1 = true;
@@ -211,7 +223,7 @@ public class CustomInterfaceTag extends TagSupport {
             if (flag) {
                 sb.append(",");
             }
-            sb.append("div" + bean.getRemindersPosition() + ":    ctx + \"/CaseManagementView?hc=996633&method=listNotes&providerNo=\" + providerNo + \"&demographicNo=\" + demographicNo + \"&issue_code=Reminders&title=\" + remindersLabel + \"&cmd=div" + bean.getRemindersPosition() + "\"");
+            appendIssueNoteUrl(sb, bean.getRemindersPosition(), "Reminders", "remindersLabel");
             flag = true;
             if (bean.getRemindersPosition().startsWith("R1")) {
                 row1 = true;

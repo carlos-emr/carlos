@@ -31,6 +31,7 @@ package io.github.carlos_emr.carlos.prescript.util;
 
 import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -47,10 +48,12 @@ import org.jdom2.input.SAXBuilder;
 import io.github.carlos_emr.carlos.commn.dao.ResourceStorageDao;
 import io.github.carlos_emr.carlos.commn.model.ResourceStorage;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
 
 import io.github.carlos_emr.CarlosProperties;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 
 /**
@@ -100,6 +103,8 @@ public class LimitedUseLookup {
         loadLULookupInformation();
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     static private void loadLULookupInformation() {
         log.debug("current LU lookup size " + luLookup.size());
         if (!loaded) {
@@ -110,7 +115,7 @@ public class LimitedUseLookup {
 
                 String fileName = CarlosProperties.getInstance().getProperty("odb_formulary_file");
                 if (fileName != null && !fileName.isEmpty()) {
-                    is = new BufferedInputStream(new FileInputStream(fileName));
+                    is = new BufferedInputStream(new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(fileName))));
                     log.info("loading odb file from property " + fileName);
 
                 } else {
