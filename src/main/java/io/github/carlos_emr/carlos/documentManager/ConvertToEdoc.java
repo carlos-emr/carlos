@@ -34,8 +34,10 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Comment;
 import org.jsoup.nodes.Element;
 import org.jsoup.nodes.Entities;
+import org.jsoup.nodes.Node;
 import org.jsoup.select.Elements;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.email.core.EmailData;
@@ -428,6 +430,9 @@ public final class ConvertToEdoc {
         
         // Remove scripts (Flying Saucer can't execute them)
         doc.select("script").remove();
+
+        // XML comments cannot contain double hyphens; remove comments before Flying Saucer parses XHTML.
+        removeComments(doc);
         
         // Ensure img tags have alt attributes (XHTML requirement)
         doc.select("img:not([alt])").attr("alt", "");
@@ -436,6 +441,22 @@ public final class ConvertToEdoc {
         doc.select("input:not([type])").attr("type", "text");
         
         return doc;
+    }
+
+    /**
+     * Removes HTML comments before serializing as XHTML. Jsoup preserves comments as-is, but
+     * XML parsers reject comments containing double hyphens, which prevents Flying Saucer from
+     * rendering otherwise valid eForms. Comments are not visible PDF content, so dropping them is
+     * safer than attempting to rewrite author-provided markup.
+     */
+    private static void removeComments(Node node) {
+        for (Node child : new ArrayList<>(node.childNodes())) {
+            if (child instanceof Comment) {
+                child.remove();
+            } else {
+                removeComments(child);
+            }
+        }
     }
 
     /**
