@@ -63,8 +63,6 @@ class ScheduleNavigationAssetRegressionTest {
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "tickler", "ticklerMain.jsp");
     private static final Path MAIN_MENU_JSP =
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "provider", "mainMenu.jsp");
-    private static final Path TICKLER_MAIN_JSP =
-            Path.of("src", "main", "webapp", "WEB-INF", "jsp", "tickler", "ticklerMain.jsp");
     private static final Path REPORT_INDEX_JSP =
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "report", "reportindex.jsp");
     private static final Path APPOINTMENT_PROVIDER_DAY_JSP =
@@ -121,7 +119,6 @@ class ScheduleNavigationAssetRegressionTest {
         String ticklerMain = Files.readString(TICKLER_MAIN_JSP, StandardCharsets.UTF_8);
         String normalizedTicklerMain = normalizeWhitespace(ticklerMain);
         String mainMenu = Files.readString(MAIN_MENU_JSP, StandardCharsets.UTF_8);
-        String ticklerMain = Files.readString(TICKLER_MAIN_JSP, StandardCharsets.UTF_8);
         String reportIndex = Files.readString(REPORT_INDEX_JSP, StandardCharsets.UTF_8);
         String appointmentProviderDay = Files.readString(APPOINTMENT_PROVIDER_DAY_JSP, StandardCharsets.UTF_8);
         String scheduleScript = Files.readString(SCHEDULE_PAGE_SCRIPT, StandardCharsets.UTF_8);
