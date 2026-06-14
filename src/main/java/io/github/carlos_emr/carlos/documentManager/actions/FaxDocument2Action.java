@@ -152,12 +152,21 @@ public class FaxDocument2Action extends ActionSupport {
             }
         }
 
-        request.setAttribute("faxFilePath", filePath);
+        // faxReady=true means annotations have already been saved; go directly to fax composition.
+        // Otherwise, open the annotation viewer so the provider can review and annotate first.
+        boolean faxReady = "true".equalsIgnoreCase(request.getParameter("faxReady"));
+
         request.setAttribute("transactionType", FaxManager.TransactionType.DOCUMENT.name());
         request.setAttribute("transactionId", docId);
         request.setAttribute("demographicNo", demographicNo);
         request.setAttribute("accounts", accounts);
 
-        return "preview";
+        if (faxReady) {
+            request.setAttribute("faxFilePath", filePath);
+            return "preview";
+        }
+
+        request.setAttribute("docId", docId);
+        return "annotate";
     }
 }

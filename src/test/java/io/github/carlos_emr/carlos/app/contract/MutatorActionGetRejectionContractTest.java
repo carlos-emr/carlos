@@ -195,6 +195,15 @@ class MutatorActionGetRejectionContractTest {
             // --- schedule ---
             Arguments.of("io.github.carlos_emr.carlos.schedule.web.ScheduleDateSave2Action",
                     "_appointment", "w"),
+            // --- document manager ---
+            Arguments.of("io.github.carlos_emr.carlos.documentManager.actions.SaveAnnotatedDocument2Action",
+                    "_edoc", "w"),
+            // --- fax ---
+            // SaveProviderSignature2Action is in io.github.carlos_emr.carlos.fax.action,
+            // which is not yet in IN_SCOPE_PACKAGE_PREFIXES. Registered explicitly here
+            // because it is an unconditional mutator (writes the provider's signature PNG on every POST).
+            Arguments.of("io.github.carlos_emr.carlos.fax.action.SaveProviderSignature2Action",
+                    "_fax", "w"),
             // --- waitinglist ---
             Arguments.of("io.github.carlos_emr.carlos.waitinglist.pageUtil.WLAdd2WaitingList2Action",
                     "_demographic", "w"),

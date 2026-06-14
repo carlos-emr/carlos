@@ -49,6 +49,13 @@
         </action>
         <action name="fax/SearchFaxRecipient" class="io.github.carlos_emr.carlos.fax.action.FaxRecipientSearch2Action">
         </action>
+        <!-- Provider signature image for fax annotation stamp (GET = retrieve, POST = save) -->
+        <action name="fax/ProviderSignature" class="io.github.carlos_emr.carlos.fax.action.GetProviderSignature2Action"/>
+        <action name="fax/SaveProviderSignature" class="io.github.carlos_emr.carlos.fax.action.SaveProviderSignature2Action">
+            <result name="methodNotAllowed" type="httpheader">
+                <param name="status">405</param>
+            </result>
+        </action>
         <action name="admin/ManageEmails" class="io.github.carlos_emr.carlos.email.admin.ManageEmails2Action">
             <result name="show">/WEB-INF/jsp/admin/manageEmails.jsp</result>
             <result name="emailstatus">/WEB-INF/jsp/admin/emailStatusResults.jspf</result>
