@@ -44,7 +44,7 @@ public class FullPathReWrite extends TagSupport {
 
 
     /**
-     * The server name to use instead of request.getServerName().
+     * Legacy server attribute retained for tag compatibility.
      */
     protected String server = null;
 
@@ -69,12 +69,7 @@ public class FullPathReWrite extends TagSupport {
     public int doStartTag() throws JspException {
         HttpServletRequest request = (HttpServletRequest) pageContext.getRequest();
 
-        String temp = request.getRequestURI();
-        int last = temp.lastIndexOf('/');
-        String path = temp.substring(0, last);
-
-
-        String returnTag = request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + path + "/" + getJspPage();
+        String returnTag = buildRelativeUrl(request, getJspPage());
 
         JspWriter out = pageContext.getOut();
         try {
@@ -85,6 +80,14 @@ public class FullPathReWrite extends TagSupport {
         }
 
         return EVAL_BODY_INCLUDE;
+    }
+
+    static String buildRelativeUrl(HttpServletRequest request, String jspPage) {
+        String temp = request.getRequestURI();
+        int last = temp.lastIndexOf('/');
+        String path = temp.substring(0, last);
+
+        return path + "/" + jspPage;
     }
 
 
