@@ -26,6 +26,13 @@ public final class ProviderAddStatusValidator {
     private ProviderAddStatusValidator() {
     }
 
+    /**
+     * Builds a validated appointment status value from the submitted status fragments.
+     *
+     * @param status existing status prefix, which may be empty but must combine with statusch into one or two letters
+     * @param statusch submitted status change value, which must be one or two letters
+     * @return combined appointment status, or {@code null} when either fragment is null or invalid
+     */
     public static String buildValidatedAppointmentStatus(String status, String statusch) {
         if (status == null || statusch == null || !APPOINTMENT_STATUS.matcher(statusch).matches()) {
             return null;
