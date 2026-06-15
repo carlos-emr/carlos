@@ -165,6 +165,8 @@ class MutatorActionGetRejectionContractTest {
                     "_admin", "w"),
             Arguments.of("io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action",
                     "_admin", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.form.pageUtil.FrmXmlUpload2Action",
+                    "_admin.eform", "w"),
             // --- clinical measurements / flowsheets ---
             Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action",
                     "_measurement", "w"),
