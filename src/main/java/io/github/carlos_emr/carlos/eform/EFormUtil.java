@@ -196,9 +196,40 @@ public class EFormUtil {
             curht.put("formDateAsDate", eform.getFormDate());
             curht.put("formTime", ConversionUtils.toTimeString(eform.getFormTime()));
             curht.put("roleType", eform.getRoleType());
+            curht.put("formCreator", eform.getCreator());
             results.add(curht);
         }
         return (results);
+    }
+
+    /**
+     * Returns the subset of current eForms visible to a given provider.
+     *
+     * <p>Admins (those with the {@code _eform} delete privilege) see all forms.
+     * Non-admin providers see only forms they personally created plus shared
+     * templates — eForms whose {@code form_creator} is null or blank — which
+     * are org-wide assets available to everyone but deletable only by admins.
+     *
+     * @param sortBy     sort field constant ({@link #NAME}, {@link #SUBJECT}, etc.)
+     * @param deleted    visibility filter ({@link #CURRENT}, {@link #DELETED}, etc.)
+     * @param providerNo the logged-in provider number
+     * @param isAdmin    true when the caller holds the {@code _eform} delete privilege
+     */
+    public static ArrayList<HashMap<String, ? extends Object>> listEFormsForProvider(
+            String sortBy, String deleted, String providerNo, boolean isAdmin) {
+        ArrayList<HashMap<String, ? extends Object>> all = listEForms(sortBy, deleted);
+        if (isAdmin) {
+            return all;
+        }
+        ArrayList<HashMap<String, ? extends Object>> results = new ArrayList<>();
+        for (HashMap<String, ? extends Object> form : all) {
+            String creator = (String) form.get("formCreator");
+            // Include shared templates (no creator) and forms owned by this provider
+            if (org.apache.commons.lang3.StringUtils.isBlank(creator) || providerNo.equals(creator)) {
+                results.add(form);
+            }
+        }
+        return results;
     }
 
     public static ArrayList<HashMap<String, ? extends Object>> listEForms(String sortBy, String deleted, String userRoles) {

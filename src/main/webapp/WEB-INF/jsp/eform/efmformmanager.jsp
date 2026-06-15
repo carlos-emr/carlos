@@ -28,6 +28,9 @@
 <!DOCTYPE html>
 <%@ page import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -195,9 +198,16 @@
 
             <tbody>
             <%
-                ArrayList<HashMap<String, ? extends Object>> eForms = EFormUtil.listEForms(orderBy, EFormUtil.CURRENT);
+                LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+                SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+                boolean isEFormAdmin = securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.DELETE, null);
+                String currentProviderNo = loggedInInfo.getLoggedInProviderNo();
+
+                ArrayList<HashMap<String, ? extends Object>> eForms = EFormUtil.listEFormsForProvider(orderBy, EFormUtil.CURRENT, currentProviderNo, isEFormAdmin);
                 for (int i = 0; i < eForms.size(); i++) {
                     HashMap<String, ? extends Object> curForm = eForms.get(i);
+                    String formCreator = (String) curForm.get("formCreator");
+                    boolean canDelete = isEFormAdmin || currentProviderNo.equals(formCreator);
             %>
             <tr>
                 <td><%if (curForm.get("formFileName") != null && curForm.get("formFileName").toString().length() != 0) {%><i
@@ -230,10 +240,12 @@
                                 class="fa-solid fa-download" title="<fmt:message key="eform.uploadhtml.btnExport"/>"></i></a>
 
 
+                        <% if (canDelete) { %>
                         <a class="btn btn-link contentLink"
                            href='javascript:void(0);' onclick='confirmNDelete("<%=curForm.get("fid")%>")'
                            title='<fmt:message key="eform.uploadhtml.btnDelete"/> <%=curForm.get("formName")%>'><i
                                 class="fa-solid fa-trash" title="<fmt:message key="eform.uploadhtml.btnDelete"/>"></i></a>
+                        <% } %>
                     </div>
                 </td>
 
