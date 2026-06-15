@@ -37,7 +37,6 @@ import java.io.Serializable;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
-import java.util.Random;
 
 import org.apache.commons.codec.EncoderException;
 import org.apache.commons.codec.language.RefinedSoundex;
@@ -294,21 +293,6 @@ public final class MiscUtils {
 
     public static String readFileAsString(String url) throws IOException {
         return new String(readFileAsByteArray(url));
-    }
-
-    public static String getRandomString(int length) {
-        StringBuilder sb = new StringBuilder();
-        Random random = new Random();
-
-        while (sb.length() < length) {
-            int ch = random.nextInt(89);
-            ch += 33;
-            if (ch != 39 && ch != 96 && ch != 34 && ch != 49 && ch != 73 && ch != 108 && ch != 48 && ch != 111 && ch != 79 && ch != 44 && ch != 61) {
-                sb.append((char) ch);
-            }
-        }
-
-        return sb.toString();
     }
 
     public static String escapeCsv(String s) {

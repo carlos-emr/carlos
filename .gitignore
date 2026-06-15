@@ -55,3 +55,4 @@ __pycache__/
 local_repo/**/_remote.repositories
 local_repo/**/*.lastUpdated
 local_repo/**/m2e-lastUpdated.properties
+.antigravitycli/
