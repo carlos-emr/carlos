@@ -32,6 +32,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -180,6 +181,42 @@ class ProviderSignatureImage2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should serve another provider's stamp when consultation read access is granted")
+    void shouldServeOtherProviderStamp_whenConsultationReadGranted() throws Exception {
+        mockRequest.setParameter("providerNo", "123456");
+        Files.write(tempDir.resolve("consult_sig_123456.png"), new byte[] {9, 8, 7});
+        when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_rx"), eq("r"), isNull()))
+                .thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_con"), eq("r"), isNull()))
+                .thenReturn(true);
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        assertThat(mockResponse.getContentAsByteArray()).containsExactly(9, 8, 7);
+    }
+
+    @Test
+    @DisplayName("should serve another provider's stamp when consultation write access is granted")
+    void shouldServeOtherProviderStamp_whenConsultationWriteGranted() throws Exception {
+        mockRequest.setParameter("providerNo", "123456");
+        Files.write(tempDir.resolve("consult_sig_123456.png"), new byte[] {6, 5, 4});
+        when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_rx"), eq("r"), isNull()))
+                .thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_con"), eq("r"), isNull()))
+                .thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_con"), eq("w"), isNull()))
+                .thenReturn(true);
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        assertThat(mockResponse.getContentAsByteArray()).containsExactly(6, 5, 4);
+    }
+
+    @Test
     @DisplayName("should forbid another provider's stamp without clinical read access")
     void shouldForbidOtherProviderStamp_withoutClinicalAccess() {
         mockRequest.setParameter("providerNo", "123456");
@@ -197,6 +234,25 @@ class ProviderSignatureImage2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
         assertThat(mockResponse.getContentAsByteArray()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should throw security exception when self stamp is requested without preference or clinical access")
+    void shouldThrowSecurityException_whenSelfStampRequestedWithoutPreferenceOrClinicalAccess() {
+        when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_pref"), eq("r"), isNull()))
+                .thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_rx"), eq("r"), isNull()))
+                .thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_con"), eq("r"), isNull()))
+                .thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_con"), eq("w"), isNull()))
+                .thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_eform"), eq("r"), isNull()))
+                .thenReturn(false);
+
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_pref, _rx, _con, or _eform)");
     }
 
     @Test

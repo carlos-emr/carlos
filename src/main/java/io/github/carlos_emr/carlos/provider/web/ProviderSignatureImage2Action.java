@@ -44,8 +44,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.InputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 
 /**
@@ -82,39 +82,74 @@ public class ProviderSignatureImage2Action extends ActionSupport {
             return NONE;
         }
 
-        boolean hasPreferenceAccess = securityInfoManager.hasPrivilege(loggedInInfo, "_pref", READ, null);
-
-        String loggedInProviderNo = loggedInInfo.getLoggedInProviderNo();
-        if (loggedInProviderNo == null || !loggedInProviderNo.matches("\\d+")) {
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        String loggedInProviderNo = getNumericProviderNo(loggedInInfo.getLoggedInProviderNo(), response);
+        if (loggedInProviderNo == null) {
             return NONE;
         }
 
-        String requestedProviderNo = request.getParameter("providerNo");
-        boolean hasExplicitProviderRequest = requestedProviderNo != null && !requestedProviderNo.isBlank();
-        String providerNo = hasExplicitProviderRequest
-                ? requestedProviderNo.trim()
-                : loggedInProviderNo;
-        if (!providerNo.matches("\\d+")) {
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        String providerNo = getRequestedProviderNo(request, loggedInProviderNo, response);
+        if (providerNo == null) {
             return NONE;
         }
 
-        boolean hasClinicalStampAccess = hasExplicitProviderRequest && canViewProviderStampFromClinicalFlow(loggedInInfo);
-        if (!providerNo.equals(loggedInProviderNo) && !hasClinicalStampAccess) {
-            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+        if (!canAccessRequestedProvider(loggedInInfo, request, loggedInProviderNo, providerNo, response)) {
             return NONE;
-        }
-        if (providerNo.equals(loggedInProviderNo) && !hasPreferenceAccess && !hasClinicalStampAccess) {
-            throw new SecurityException("missing required sec object (_pref, _rx, _con, or _eform)");
         }
 
         String signatureName = UserProperty.CONSULT_SIGNATURE_PREFIX + providerNo + ".png";
+        File sigFile = getValidatedSignatureFile(signatureName, response);
+        if (sigFile == null) {
+            return NONE;
+        }
 
+        streamSignature(response, sigFile, signatureName);
+        return NONE;
+    }
+
+    private String getNumericProviderNo(String providerNo, HttpServletResponse response) {
+        if (providerNo == null || !providerNo.matches("\\d+")) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return null;
+        }
+        return providerNo;
+    }
+
+    private String getRequestedProviderNo(HttpServletRequest request, String loggedInProviderNo, HttpServletResponse response) {
+        String requestedProviderNo = request.getParameter("providerNo");
+        String providerNo = (requestedProviderNo == null || requestedProviderNo.isBlank())
+                ? loggedInProviderNo
+                : requestedProviderNo.trim();
+        return getNumericProviderNo(providerNo, response);
+    }
+
+    private boolean canAccessRequestedProvider(LoggedInInfo loggedInInfo, HttpServletRequest request, String loggedInProviderNo,
+                                               String providerNo, HttpServletResponse response) {
+        boolean hasExplicitProviderRequest = hasExplicitProviderRequest(request);
+        boolean hasClinicalStampAccess = hasExplicitProviderRequest && canViewProviderStampFromClinicalFlow(loggedInInfo);
+        if (!providerNo.equals(loggedInProviderNo) && !hasClinicalStampAccess) {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            return false;
+        }
+        if (providerNo.equals(loggedInProviderNo) && !hasPreferenceAccess(loggedInInfo) && !hasClinicalStampAccess) {
+            throw new SecurityException("missing required sec object (_pref, _rx, _con, or _eform)");
+        }
+        return true;
+    }
+
+    private boolean hasExplicitProviderRequest(HttpServletRequest request) {
+        String requestedProviderNo = request.getParameter("providerNo");
+        return requestedProviderNo != null && !requestedProviderNo.isBlank();
+    }
+
+    private boolean hasPreferenceAccess(LoggedInInfo loggedInInfo) {
+        return securityInfoManager.hasPrivilege(loggedInInfo, "_pref", READ, null);
+    }
+
+    private File getValidatedSignatureFile(String signatureName, HttpServletResponse response) {
         File imageFolder = new File(CarlosProperties.getInstance().getEformImageDirectory());
         if (!imageFolder.exists()) {
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);
-            return NONE;
+            return null;
         }
 
         File sigFile;
@@ -123,14 +158,17 @@ public class ProviderSignatureImage2Action extends ActionSupport {
         } catch (SecurityException e) {
             MiscUtils.getLogger().warn("Blocked path traversal attempt for signature image", e);
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-            return NONE;
+            return null;
         }
 
         if (!sigFile.exists()) {
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);
-            return NONE;
+            return null;
         }
+        return sigFile;
+    }
 
+    private void streamSignature(HttpServletResponse response, File sigFile, String signatureName) {
         response.setContentType("image/png");
         response.setHeader("X-Content-Type-Options", "nosniff");
         response.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
@@ -148,7 +186,6 @@ public class ProviderSignatureImage2Action extends ActionSupport {
             MiscUtils.getLogger().error("Error serving provider signature image", e);
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
-        return NONE;
     }
 
     private boolean canViewProviderStampFromClinicalFlow(LoggedInInfo loggedInInfo) {
