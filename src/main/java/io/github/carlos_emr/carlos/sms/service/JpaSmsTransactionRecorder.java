@@ -2,15 +2,18 @@ package io.github.carlos_emr.carlos.sms.service;
 
 import io.github.carlos_emr.carlos.sms.SmsDirection;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
+import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
 import io.github.carlos_emr.carlos.sms.dao.SmsTransactionDao;
 import io.github.carlos_emr.carlos.sms.dto.SmsConsentDecisionDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsDeliveryWebhookDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsInboundWebhookDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsProviderSendResultDto;
+import io.github.carlos_emr.carlos.sms.event.SmsSendFailedEvent;
 import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,9 +29,11 @@ public class JpaSmsTransactionRecorder implements SmsTransactionRecorder {
     private static final String WEBHOOK_REQUIRED_MESSAGE = "webhook is required";
 
     private final SmsTransactionDao smsTransactionDao;
+    private final ApplicationEventPublisher eventPublisher;
 
-    public JpaSmsTransactionRecorder(SmsTransactionDao smsTransactionDao) {
+    public JpaSmsTransactionRecorder(SmsTransactionDao smsTransactionDao, ApplicationEventPublisher eventPublisher) {
         this.smsTransactionDao = smsTransactionDao;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -65,7 +70,14 @@ public class JpaSmsTransactionRecorder implements SmsTransactionRecorder {
     public SmsTransaction markProviderResult(SmsTransaction transaction, SmsProviderSendResultDto providerResult) {
         Objects.requireNonNull(transaction, TRANSACTION_REQUIRED_MESSAGE);
         Objects.requireNonNull(providerResult, "providerResult is required");
-        return applyLastWriterWins(transaction, "markProviderResult", row -> row.markProviderResult(providerResult));
+        // Only fire when this call actually applies the write (applyLastWriterWins drops it on a
+        // concurrent-modification conflict) and the row lands terminal FAILED.
+        return applyLastWriterWins(
+                transaction,
+                "markProviderResult",
+                row -> row.markProviderResult(providerResult),
+                this::publishIfTerminalFailure
+        );
     }
 
     @Override
@@ -179,11 +191,26 @@ public class JpaSmsTransactionRecorder implements SmsTransactionRecorder {
             String context,
             Consumer<SmsTransaction> mutation
     ) {
+        return applyLastWriterWins(claimed, context, mutation, row -> { });
+    }
+
+    /**
+     * @param onApplied invoked with the written row only when the mutation is actually applied (not when
+     *                  a concurrent-modification conflict drops it), so side effects such as event
+     *                  publication fire exactly once and only for writes that will be committed.
+     */
+    private SmsTransaction applyLastWriterWins(
+            SmsTransaction claimed,
+            String context,
+            Consumer<SmsTransaction> mutation,
+            Consumer<SmsTransaction> onApplied
+    ) {
         Long id = claimed.getId();
         if (id == null) {
             // Not yet persisted: apply directly and merge (defensive; production rows always carry an id).
             mutation.accept(claimed);
             smsTransactionDao.merge(claimed);
+            onApplied.accept(claimed);
             return claimed;
         }
         SmsTransaction current = smsTransactionDao.find(id);
@@ -199,6 +226,13 @@ public class JpaSmsTransactionRecorder implements SmsTransactionRecorder {
             return current;
         }
         mutation.accept(current);
+        onApplied.accept(current);
         return current;
+    }
+
+    private void publishIfTerminalFailure(SmsTransaction transaction) {
+        if (transaction.getStatus() == SmsStatus.FAILED) {
+            eventPublisher.publishEvent(SmsSendFailedEvent.from(transaction));
+        }
     }
 }

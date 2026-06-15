@@ -48,7 +48,7 @@ class SmsTransactionPersistenceIntegrationTest extends CarlosTestBase {
 
     @BeforeEach
     void setUp() {
-        recorder = new JpaSmsTransactionRecorder(smsTransactionDao);
+        recorder = new JpaSmsTransactionRecorder(smsTransactionDao, event -> { });
     }
 
     @Test
