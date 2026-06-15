@@ -59,8 +59,10 @@ import org.apache.struts2.ServletActionContext;
  */
 public class DelEForm2Action extends ActionSupport {
 
-    private final SecurityInfoManager securityInfoManager;
-    private final EFormDao eFormDao;
+    // transient: ActionSupport implements Serializable; Spring-managed beans are not serializable.
+    // Actions are prototype-scoped and never actually serialized, but transient satisfies the contract.
+    private final transient SecurityInfoManager securityInfoManager;
+    private final transient EFormDao eFormDao;
 
     public DelEForm2Action(SecurityInfoManager securityInfoManager, EFormDao eFormDao) {
         this.securityInfoManager = securityInfoManager;

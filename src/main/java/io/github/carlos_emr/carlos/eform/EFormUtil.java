@@ -99,6 +99,8 @@ public class EFormUtil {
 
     private static final Set<String> ALLOWED_SORT_COLUMNS = Set.of(NAME, SUBJECT, DATE, FILE_NAME, PROVIDER);
 
+    static final String FORM_CREATOR_KEY = "formCreator";
+
     // Collaborator beans are resolved lazily (per call) instead of in static-final field
     // initializers. SpringUtils.getBean returns the cached singleton, so the per-call cost is a
     // map lookup, but - critically - the Spring context is no longer touched when the class is
@@ -196,7 +198,7 @@ public class EFormUtil {
             curht.put("formDateAsDate", eform.getFormDate());
             curht.put("formTime", ConversionUtils.toTimeString(eform.getFormTime()));
             curht.put("roleType", eform.getRoleType());
-            curht.put("formCreator", eform.getCreator());
+            curht.put(FORM_CREATOR_KEY, eform.getCreator());
             results.add(curht);
         }
         return (results);
@@ -215,17 +217,17 @@ public class EFormUtil {
      * @param providerNo the logged-in provider number
      * @param isAdmin    true when the caller holds the {@code _eform} delete privilege
      */
-    public static ArrayList<HashMap<String, ? extends Object>> listEFormsForProvider(
+    public static List<HashMap<String, ? extends Object>> listEFormsForProvider(
             String sortBy, String deleted, String providerNo, boolean isAdmin) {
         ArrayList<HashMap<String, ? extends Object>> all = listEForms(sortBy, deleted);
         if (isAdmin) {
             return all;
         }
-        ArrayList<HashMap<String, ? extends Object>> results = new ArrayList<>();
+        List<HashMap<String, ? extends Object>> results = new ArrayList<>();
         for (HashMap<String, ? extends Object> form : all) {
-            String creator = (String) form.get("formCreator");
+            String creator = (String) form.get(FORM_CREATOR_KEY);
             // Include shared templates (no creator) and forms owned by this provider
-            if (org.apache.commons.lang3.StringUtils.isBlank(creator) || providerNo.equals(creator)) {
+            if (StringUtils.isBlank(creator) || providerNo.equals(creator)) {
                 results.add(form);
             }
         }
@@ -506,7 +508,7 @@ public class EFormUtil {
         curht.put("formFileName", eform.getFileName());
         curht.put("formDate", eform.getFormDate().toString());
         curht.put("formTime", eform.getFormTime().toString());
-        curht.put("formCreator", eform.getCreator());
+        curht.put(FORM_CREATOR_KEY, eform.getCreator());
         curht.put("formHtml", eform.getFormHtml());
         curht.put("showLatestFormOnly", eform.isShowLatestFormOnly());
         curht.put("patientIndependent", eform.isPatientIndependent());

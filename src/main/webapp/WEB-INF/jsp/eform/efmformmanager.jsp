@@ -203,7 +203,7 @@
                 boolean isEFormAdmin = securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.DELETE, null);
                 String currentProviderNo = loggedInInfo.getLoggedInProviderNo();
 
-                ArrayList<HashMap<String, ? extends Object>> eForms = EFormUtil.listEFormsForProvider(orderBy, EFormUtil.CURRENT, currentProviderNo, isEFormAdmin);
+                List<HashMap<String, ? extends Object>> eForms = EFormUtil.listEFormsForProvider(orderBy, EFormUtil.CURRENT, currentProviderNo, isEFormAdmin);
                 for (int i = 0; i < eForms.size(); i++) {
                     HashMap<String, ? extends Object> curForm = eForms.get(i);
                     String formCreator = (String) curForm.get("formCreator");
