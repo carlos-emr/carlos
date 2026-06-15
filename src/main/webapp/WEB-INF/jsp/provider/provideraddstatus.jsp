@@ -29,6 +29,30 @@
 
 --%>
 
+<%--
+  Purpose: Updates an appointment status from the provider schedule and redirects
+  back to the provider control day view.
+
+  Features:
+  - Requires an authenticated provider session before processing.
+  - Validates appointment and provider identifiers before applying updates.
+  - Archives the appointment before merging the new status.
+  - Publishes the appointment status-change event only after a successful update.
+  - URI-encodes provider-control redirect parameters.
+
+  Expected parameters:
+  - appointment_no: numeric appointment identifier.
+  - provider_no: numeric provider identifier.
+  - status/statusch: status fragments combined for the new appointment status.
+  - view: optional provider view flag, either 0 or 1.
+  - year/month/day/viewall/x/y/viewWeek/curProvider/curProviderName: redirect context.
+
+  Expected session attributes:
+  - user: authenticated provider number.
+
+  @since 2026-06-11
+--%>
+
 <%@ page
   import="java.sql.*, java.util.*, io.github.carlos_emr.MyDateFormat,io.github.carlos_emr.carlos.event.EventService" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -124,7 +148,7 @@
       + "&y=" + SafeEncode.forUriComponent(request.getParameter("y"));
     if (request.getParameter("viewWeek") != null) {
       displaypage += "&provider_no="
-        + SafeEncode.forUriComponent(request.getParameter("provider_no"));
+        + SafeEncode.forUriComponent(String.valueOf(providerNo));
     }
     out.clear();
     response.sendRedirect(displaypage);
