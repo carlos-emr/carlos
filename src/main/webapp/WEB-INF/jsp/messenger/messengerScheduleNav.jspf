@@ -20,8 +20,9 @@
     String messengerScheduleNavigationMode = UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP;
 
     if (showScheduleNav) {
-        String messengerProviderNo = (String) session.getAttribute("user");
-        if (messengerProviderNo != null) {
+        Object messengerProvider = session.getAttribute("user");
+        if (messengerProvider instanceof String) {
+            String messengerProviderNo = (String) messengerProvider;
             UserPropertyDAO messengerUserPropertyDao = SpringUtils.getBean(UserPropertyDAO.class);
             UserProperty messengerNavProp = messengerUserPropertyDao.getProp(
                     messengerProviderNo,

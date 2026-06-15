@@ -139,9 +139,12 @@ class MessengerJspRouteMigrationTest {
 
         assertThat(helper)
                 .contains("boolean showScheduleNav = \"1\".equals(request.getParameter(\"scheduleNav\"));")
+                .contains("Object messengerProvider = session.getAttribute(\"user\");")
+                .contains("if (messengerProvider instanceof String)")
                 .contains("UserProperty.resolveScheduleNavigationMode")
                 .contains("UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED")
                 .contains("boolean showMessengerExitButton = !showScheduleNav")
+                .doesNotContain("(String) session.getAttribute(\"user\")")
                 .doesNotContain("UserProperty.SCHEDULE_NAVIGATION_MODE_TAB.equals(messengerScheduleNavigationMode)");
 
         for (Path page : MESSENGER_EXIT_PAGES) {
