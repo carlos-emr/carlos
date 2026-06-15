@@ -1,15 +1,16 @@
 package io.github.carlos_emr.carlos.sms.dao;
 
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
+import io.github.carlos_emr.carlos.sms.SmsStatus;
+import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
 import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
 import jakarta.persistence.EntityManager;
-import jakarta.persistence.Query;
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.TypedQuery;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -20,6 +21,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -37,12 +40,6 @@ class SmsTransactionDaoImplUnitTest {
 
     @Mock
     private TypedQuery<SmsTransaction> query;
-
-    @Mock
-    private Query updateQuery;
-
-    @Mock
-    private Query selectQuery;
 
     @Test
     @DisplayName("findByDemographicNo skips querying when demographic is missing")
@@ -123,77 +120,44 @@ class SmsTransactionDaoImplUnitTest {
         List<SmsTransaction> transactions = dao.claimDueOutboundQueue(null, copyOfFixedNow(), 100);
 
         assertThat(transactions).isEmpty();
+        verify(entityManager, never()).createQuery(anyString(), eq(SmsTransaction.class));
+    }
+
+    @Test
+    @DisplayName("claimDueOutboundQueue locks due rows and marks them sending with a claim token")
+    void shouldLockAndMarkSending_whenClaimingDueQueue() {
+        SmsTransactionDaoImpl dao = newDao();
+        Date now = copyOfFixedNow();
+        SmsTransaction due = SmsTransaction.outboundAttempt(
+                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsProviderType.STUB
+        );
+        stubTypedQuery(List.of(due));
+
+        List<SmsTransaction> transactions = dao.claimDueOutboundQueue(SmsProviderType.STUB, now, 5_000);
+
+        assertThat(transactions).singleElement().isSameAs(due);
+        assertThat(due.getStatus()).isEqualTo(SmsStatus.SENDING);
+        assertThat(due.getAttemptCount()).isEqualTo(1);
+        assertThat(due.getClaimToken()).isNotBlank();
+        verify(query).setLockMode(LockModeType.PESSIMISTIC_WRITE);
+        verify(query).setMaxResults(500); // limit capped at MAX_LIMIT
+        verify(query).setParameter("status", SmsStatus.QUEUED);
         verify(entityManager, never()).createNativeQuery(anyString());
     }
 
     @Test
-    @DisplayName("claimDueOutboundQueue atomically updates due rows and reads them back by token")
-    void shouldBindParameters_whenFindingDueQueue() {
-        SmsTransactionDaoImpl dao = newDao();
-        Date now = copyOfFixedNow();
-        SmsTransaction expected = new SmsTransaction();
-        when(entityManager.createNativeQuery(anyString())).thenReturn(updateQuery);
-        when(entityManager.createNativeQuery(anyString(), eq(SmsTransaction.class))).thenReturn(selectQuery);
-        when(updateQuery.setParameter(1, "SENDING")).thenReturn(updateQuery);
-        when(updateQuery.setParameter(2, now)).thenReturn(updateQuery);
-        when(updateQuery.setParameter(3, now)).thenReturn(updateQuery);
-        when(updateQuery.setParameter(eq(4), anyString())).thenReturn(updateQuery);
-        when(updateQuery.setParameter(5, "OUTBOUND")).thenReturn(updateQuery);
-        when(updateQuery.setParameter(6, "STUB")).thenReturn(updateQuery);
-        when(updateQuery.setParameter(7, "QUEUED")).thenReturn(updateQuery);
-        when(updateQuery.setParameter(8, now)).thenReturn(updateQuery);
-        when(updateQuery.setParameter(9, 500)).thenReturn(updateQuery);
-        when(updateQuery.executeUpdate()).thenReturn(1);
-        when(selectQuery.setParameter(eq(1), anyString())).thenReturn(selectQuery);
-        when(selectQuery.getResultList()).thenReturn(List.of(expected));
-
-        List<SmsTransaction> transactions = dao.claimDueOutboundQueue(SmsProviderType.STUB, now, 5_000);
-
-        assertThat(transactions).singleElement().isSameAs(expected);
-        ArgumentCaptor<String> updateSqlCaptor = ArgumentCaptor.forClass(String.class);
-        verify(entityManager).createNativeQuery(updateSqlCaptor.capture());
-        assertThat(updateSqlCaptor.getValue())
-                .contains("UPDATE sms_transaction")
-                .contains("SET status = ?1")
-                .contains("attempt_count = attempt_count + 1")
-                .contains("claim_token = ?4")
-                .contains("ORDER BY created_at ASC")
-                .contains("LIMIT ?9");
-        ArgumentCaptor<String> selectSqlCaptor = ArgumentCaptor.forClass(String.class);
-        verify(entityManager).createNativeQuery(selectSqlCaptor.capture(), eq(SmsTransaction.class));
-        assertThat(selectSqlCaptor.getValue())
-                .contains("WHERE claim_token = ?1")
-                .contains("ORDER BY created_at ASC");
-        ArgumentCaptor<String> tokenCaptor = ArgumentCaptor.forClass(String.class);
-        verify(updateQuery).setParameter(eq(4), tokenCaptor.capture());
-        verify(selectQuery).setParameter(1, tokenCaptor.getValue());
-        verify(updateQuery).setParameter(1, "SENDING");
-        verify(updateQuery).setParameter(5, "OUTBOUND");
-        verify(updateQuery).setParameter(6, "STUB");
-        verify(updateQuery).setParameter(7, "QUEUED");
-        verify(updateQuery).setParameter(9, 500);
-    }
-
-    @Test
-    @DisplayName("claimStaleOutboundSendingForRecovery atomically updates stale rows and reads them back by token")
-    void shouldBindParameters_whenFindingStaleSending() {
+    @DisplayName("claimStaleOutboundSendingForRecovery locks stale sending rows and tags them with a claim token")
+    void shouldLockAndTagStaleSending_whenRecovering() {
         SmsTransactionDaoImpl dao = newDao();
         Date staleBefore = Date.from(Instant.parse("2026-06-08T12:00:00Z"));
         Date recoveryAt = Date.from(Instant.parse("2026-06-08T12:05:00Z"));
-        SmsTransaction expected = new SmsTransaction();
-        when(entityManager.createNativeQuery(anyString())).thenReturn(updateQuery);
-        when(entityManager.createNativeQuery(anyString(), eq(SmsTransaction.class))).thenReturn(selectQuery);
-        when(updateQuery.setParameter(1, recoveryAt)).thenReturn(updateQuery);
-        when(updateQuery.setParameter(2, recoveryAt)).thenReturn(updateQuery);
-        when(updateQuery.setParameter(eq(3), anyString())).thenReturn(updateQuery);
-        when(updateQuery.setParameter(4, "OUTBOUND")).thenReturn(updateQuery);
-        when(updateQuery.setParameter(5, "STUB")).thenReturn(updateQuery);
-        when(updateQuery.setParameter(6, "SENDING")).thenReturn(updateQuery);
-        when(updateQuery.setParameter(7, staleBefore)).thenReturn(updateQuery);
-        when(updateQuery.setParameter(8, 10)).thenReturn(updateQuery);
-        when(updateQuery.executeUpdate()).thenReturn(1);
-        when(selectQuery.setParameter(eq(1), anyString())).thenReturn(selectQuery);
-        when(selectQuery.getResultList()).thenReturn(List.of(expected));
+        SmsTransaction stale = SmsTransaction.outboundAttempt(
+                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsProviderType.STUB
+        );
+        stale.markSending(Date.from(Instant.parse("2026-06-08T11:00:00Z")));
+        stubTypedQuery(List.of(stale));
 
         List<SmsTransaction> transactions = dao.claimStaleOutboundSendingForRecovery(
                 SmsProviderType.STUB,
@@ -202,30 +166,22 @@ class SmsTransactionDaoImplUnitTest {
                 10
         );
 
-        assertThat(transactions).singleElement().isSameAs(expected);
-        ArgumentCaptor<String> updateSqlCaptor = ArgumentCaptor.forClass(String.class);
-        verify(entityManager).createNativeQuery(updateSqlCaptor.capture());
-        assertThat(updateSqlCaptor.getValue())
-                .contains("UPDATE sms_transaction")
-                .contains("last_attempt_at = ?1")
-                .contains("claim_token = ?3")
-                .contains("last_attempt_at IS NOT NULL")
-                .contains("ORDER BY last_attempt_at ASC")
-                .contains("LIMIT ?8");
-        ArgumentCaptor<String> selectSqlCaptor = ArgumentCaptor.forClass(String.class);
-        verify(entityManager).createNativeQuery(selectSqlCaptor.capture(), eq(SmsTransaction.class));
-        assertThat(selectSqlCaptor.getValue())
-                .contains("WHERE claim_token = ?1")
-                .contains("ORDER BY id ASC");
-        ArgumentCaptor<String> tokenCaptor = ArgumentCaptor.forClass(String.class);
-        verify(updateQuery).setParameter(eq(3), tokenCaptor.capture());
-        verify(selectQuery).setParameter(1, tokenCaptor.getValue());
-        verify(updateQuery).setParameter(1, recoveryAt);
-        verify(updateQuery).setParameter(4, "OUTBOUND");
-        verify(updateQuery).setParameter(5, "STUB");
-        verify(updateQuery).setParameter(6, "SENDING");
-        verify(updateQuery).setParameter(7, staleBefore);
-        verify(updateQuery).setParameter(8, 10);
+        assertThat(transactions).singleElement().isSameAs(stale);
+        assertThat(stale.getStatus()).isEqualTo(SmsStatus.SENDING);
+        assertThat(stale.getLastAttemptAt()).isEqualTo(recoveryAt);
+        assertThat(stale.getClaimToken()).isNotBlank();
+        verify(query).setLockMode(LockModeType.PESSIMISTIC_WRITE);
+        verify(query).setMaxResults(10);
+        verify(query).setParameter("status", SmsStatus.SENDING);
+        verify(entityManager, never()).createNativeQuery(anyString());
+    }
+
+    private void stubTypedQuery(List<SmsTransaction> results) {
+        when(entityManager.createQuery(anyString(), eq(SmsTransaction.class))).thenReturn(query);
+        when(query.setParameter(anyString(), any())).thenReturn(query);
+        when(query.setMaxResults(anyInt())).thenReturn(query);
+        when(query.setLockMode(any(LockModeType.class))).thenReturn(query);
+        when(query.getResultList()).thenReturn(results);
     }
 
     private SmsTransactionDaoImpl newDao() {

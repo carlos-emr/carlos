@@ -250,6 +250,15 @@ public class SmsTransaction extends AbstractModel<Long> {
     }
 
     /**
+     * Tags the row with the worker-run claim token for traceability. Set after {@link #markSending}
+     * or {@link #markStaleRecoveryStarted} when a worker claims the row.
+     */
+    public void assignClaimToken(String claimToken) {
+        this.claimToken = trimTo(claimToken, MAX_CLAIM_TOKEN_LENGTH);
+        touch();
+    }
+
+    /**
      * Reverts a claim that was taken but never sent (e.g. the SMS-provider rate limiter denied the
      * token after the row was already claimed). The row returns to {@link SmsStatus#QUEUED}, the
      * attempt increment from the claim is rolled back, and the row is made due again so the worker
