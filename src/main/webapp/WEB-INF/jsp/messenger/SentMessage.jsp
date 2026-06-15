@@ -72,8 +72,6 @@
     String user = (String) session.getAttribute("user");
     String roleName$ = (userrole != null ? userrole : "") + "," + (user != null ? user : "");
     boolean authed = true;
-    boolean showScheduleNav = "1".equals(request.getParameter("scheduleNav"));
-    String scheduleNavFirstQuerySuffix = showScheduleNav ? "?scheduleNav=1" : "";
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_msg" rights="r" reverse="<%=true%>">
     <%authed = false; %>
@@ -84,6 +82,7 @@
         return;
     }
 %>
+<%@ include file="messengerScheduleNav.jspf" %>
 <!DOCTYPE html>
 <html>
     <head>
@@ -150,8 +149,10 @@
     <i class="fa-solid fa-pencil"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.btnCompose"/></a>
 <a class="btn btn-primary" href="${pageContext.request.contextPath}/messenger/DisplayMessages<%=scheduleNavFirstQuerySuffix%>">
     <i class="fa-solid fa-inbox"></i>&nbsp;<fmt:message key="messenger.SentMessagebtnBack" /></a>
+<% if (showMessengerExitButton) { %>
 <a class="btn btn-outline-secondary" href="javascript:BackToCarlos()">
     <i class="fa-solid fa-right-from-bracket"></i>&nbsp;<fmt:message key="messenger.SentMessage.btnExit" /></a>
+<% } %>
 </div>
 </body>
 </html>
