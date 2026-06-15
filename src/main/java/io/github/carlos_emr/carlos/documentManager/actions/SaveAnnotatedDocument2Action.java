@@ -40,6 +40,7 @@ import org.owasp.encoder.Encode.forHtml;
 import java.io.File;
 import java.io.PrintWriter;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
@@ -125,7 +126,13 @@ public class SaveAnnotatedDocument2Action extends ActionSupport {
         try {
             PathValidationUtils.validateUpload(pdfFile);
             uploadPath = pdfFile.toPath().toAbsolutePath().normalize();
-            if (!Files.isRegularFile(uploadPath) || !Files.isReadable(uploadPath)) {
+            Path trustedUploadDir = Paths.get(System.getProperty("java.io.tmpdir"))
+                     .toAbsolutePath()
+                     .normalize();
+             if (!uploadPath.startsWith(trustedUploadDir)) {
+                 throw new SecurityException("Uploaded file path is outside trusted upload directory");
+             }
+             if (!Files.isRegularFile(uploadPath, LinkOption.NOFOLLOW_LINKS) || !Files.isReadable(uploadPath)) {
                 throw new SecurityException("Uploaded file path is not a readable regular file");
             }
         } catch (SecurityException e) {
@@ -134,14 +141,20 @@ public class SaveAnnotatedDocument2Action extends ActionSupport {
             return NONE;
         }
         
-        if (!pdfFile.exists() || pdfFile.length() == 0) {
+        try {
+             if (!Files.exists(uploadPath) || Files.size(uploadPath) == 0L) {
+                 sendJsonError(response, "No PDF data received");
+                 return NONE;
+             }
+         } catch (Exception e) {
+             logger.error("Failed checking uploaded PDF file size/existence", e);
             sendJsonError(response, "No PDF data received");
             return NONE;
         }
         
         // Reject if the uploaded bytes are not a PDF
         byte[] header = new byte[4];
-        try (var is = Files.newInputStream(uploadPath)) {
+        try (var is = Files.newInputStream(uploadPath, LinkOption.NOFOLLOW_LINKS)) {
             if (is.read(header) < 4 || !Arrays.equals(header, PDF_MAGIC)) {
                 logger.warn("SaveAnnotatedDocument: upload for docId={} failed PDF magic check", docId);
                 sendJsonError(response, "Uploaded file is not a valid PDF");
