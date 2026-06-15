@@ -34,9 +34,17 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%
     String ctx = request.getContextPath();
-    int    docId        = (Integer) request.getAttribute("docId");
+    int    docId         = (Integer) request.getAttribute("docId");
     int    demographicNo = (Integer) request.getAttribute("demographicNo");
-    String pdfjsBase    = ctx + "/webjars/pdfjs-dist/4.4.168";
+
+    // Keep PDF.js version in sync with Maven/web.xml via a single-sourced context-param
+    String pdfjsVersion = application.getInitParameter("pdfjs.version");
+    if (pdfjsVersion == null || pdfjsVersion.isEmpty()) {
+        // Fallback for misconfiguration; consider removing once all environments define pdfjs.version
+        pdfjsVersion = "4.4.168";
+    }
+
+    String pdfjsBase = ctx + "/webjars/pdfjs-dist/" + pdfjsVersion;
 %>
 <!DOCTYPE html>
 <html lang="${pageContext.request.locale.language}">
@@ -255,7 +263,7 @@
 const CTX       = '<%=ctx%>';
 const PDFJS     = '<%=pdfjsBase%>';
 const DOC_ID    = <%=docId%>;
-const DEMO_NO   = <%=demographicNo%>;
+
 const CSRF_TOKEN = document.querySelector('input[name="CSRF-TOKEN"]')?.value ?? '';
 
 // ── Dynamic imports (paths computed at runtime to avoid JSP/template-literal conflicts) ──
