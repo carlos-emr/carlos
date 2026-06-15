@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.fax.action;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -132,6 +133,7 @@ public class SaveProviderSignature2Action extends ActionSupport {
         } catch (Exception e) {
             // ATOMIC_MOVE fails across file systems; fall back to plain replace
             Files.write(sigFile.toPath(), pngBytes);
+        } finally {
             Files.deleteIfExists(tmpPath);
         }
 
@@ -148,33 +150,16 @@ public class SaveProviderSignature2Action extends ActionSupport {
     private static String extractSignatureData(HttpServletRequest request) throws Exception {
         String contentType = StringUtils.defaultString(request.getContentType()).toLowerCase();
         if (contentType.contains("application/json")) {
-            // Read JSON body up to limit
-            StringBuilder sb = new StringBuilder();
+            byte[] bytes;
             try (InputStream is = request.getInputStream()) {
-                byte[] buf = new byte[4096];
-                int read;
-                int total = 0;
-                while ((read = is.read(buf)) != -1) {
-                    total += read;
-                    if (total > MAX_SIGNATURE_BYTES * 2) break;
-                    sb.append(new String(buf, 0, read, "UTF-8"));
-                }
+                bytes = is.readNBytes(MAX_SIGNATURE_BYTES * 2);
             }
-            String json = sb.toString();
-            // Simple extraction: find "signatureData":"<value>"
-            int keyIdx = json.indexOf("\"signatureData\"");
-            if (keyIdx < 0) return null;
-            int colonIdx = json.indexOf(':', keyIdx);
-            if (colonIdx < 0) return null;
-            int startQuote = json.indexOf('"', colonIdx + 1);
-            if (startQuote < 0) return null;
-            int endQuote = json.indexOf('"', startQuote + 1);
-            // Handle escaped quotes inside the value (unlikely for base64 but safe)
-            while (endQuote > 0 && json.charAt(endQuote - 1) == '\\') {
-                endQuote = json.indexOf('"', endQuote + 1);
+            com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            com.fasterxml.jackson.databind.JsonNode node = objectMapper.readTree(bytes);
+            if (node != null && node.has("signatureData")) {
+                return node.get("signatureData").asText();
             }
-            if (endQuote < 0) return null;
-            return json.substring(startQuote + 1, endQuote);
+            return null;
         }
         // Form field (multipart or URL-encoded)
         return request.getParameter("signatureData");
