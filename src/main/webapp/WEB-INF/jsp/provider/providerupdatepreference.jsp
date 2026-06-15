@@ -145,11 +145,8 @@
 
                     String submittedScheduleNavigationMode = request.getParameter(UserProperty.SCHEDULE_NAVIGATION_MODE);
                     if (submittedScheduleNavigationMode != null) {
-                        savedScheduleNavigationMode = submittedScheduleNavigationMode.trim();
-                        if (!UserProperty.SCHEDULE_NAVIGATION_MODE_TAB.equals(savedScheduleNavigationMode)
-                                && !UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED.equals(savedScheduleNavigationMode)) {
-                            savedScheduleNavigationMode = UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP;
-                        }
+                        savedScheduleNavigationMode = UserProperty.resolveScheduleNavigationMode(
+                                submittedScheduleNavigationMode, false);
                     }
 
                     // Save tickler provider number after other preferences succeed

@@ -405,9 +405,14 @@
         scheduleNavActive = normalizedMode === 'tab' || normalizedMode === 'focused';
     }
 
-    if (typeof window.applyScheduleNavigationPreference !== 'function') {
-        window.applyScheduleNavigationPreference = applyScheduleMenuNavigationPreference;
-    }
+    var existingApplyScheduleNavigationPreference = window.applyScheduleNavigationPreference;
+    window.applyScheduleNavigationPreference = function(mode) {
+        applyScheduleMenuNavigationPreference(mode);
+        if (typeof existingApplyScheduleNavigationPreference === 'function'
+                && existingApplyScheduleNavigationPreference !== applyScheduleMenuNavigationPreference) {
+            existingApplyScheduleNavigationPreference(mode);
+        }
+    };
 
     function handleScheduleMenuNavigationPreferenceMessage(message) {
         if (message && message.mode) {
