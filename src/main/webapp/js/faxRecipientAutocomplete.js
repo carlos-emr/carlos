@@ -182,9 +182,21 @@
                 credentials: 'same-origin',
                 signal: abortCtrl.signal
             })
-                .then(function (r) { return r.json(); })
+                .then(function (response) {
+                    if (!response.ok) {
+                        throw new Error(
+                            'HTTP ' + response.status + ' ' + response.statusText
+                        );
+                    }
+                    return response.json();
+                })
                 .then(renderResults)
-                .catch(function () { /* aborted or network error — ignore */ });
+                .catch(function (err) {
+                    if (err.name === 'AbortError') {
+                        return; // request was intentionally aborted
+                    }           
+                    console.error('Error searching fax recipients:', err);
+                });
         });
 
         nameEl.addEventListener('keydown', function (e) {
