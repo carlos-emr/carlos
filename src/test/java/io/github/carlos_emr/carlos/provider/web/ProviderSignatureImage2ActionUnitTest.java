@@ -256,6 +256,32 @@ class ProviderSignatureImage2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should serve the logged-in provider's own stamp in the visual editor without preference access")
+    void shouldServeOwnStamp_whenAdminEformWriteGranted() throws Exception {
+        Files.write(tempDir.resolve("consult_sig_999998.png"), new byte[] {3, 2, 1});
+        when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_pref"), eq("r"), isNull()))
+                .thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_rx"), eq("r"), isNull()))
+                .thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_con"), eq("r"), isNull()))
+                .thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_con"), eq("w"), isNull()))
+                .thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_eform"), eq("r"), isNull()))
+                .thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_admin.eform"), eq("r"), isNull()))
+                .thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_admin.eform"), eq("w"), isNull()))
+                .thenReturn(true);
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        assertThat(mockResponse.getContentAsByteArray()).containsExactly(3, 2, 1);
+    }
+
+    @Test
     @DisplayName("should return 404 when the requested provider stamp file is missing")
     void shouldReturn404_whenRequestedProviderStampIsMissing() {
         mockRequest.setParameter("providerNo", "123456");

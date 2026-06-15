@@ -130,7 +130,10 @@ public class ProviderSignatureImage2Action extends ActionSupport {
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
             return false;
         }
-        if (providerNo.equals(loggedInProviderNo) && !hasPreferenceAccess(loggedInInfo) && !hasClinicalStampAccess) {
+        if (providerNo.equals(loggedInProviderNo)
+                && !hasPreferenceAccess(loggedInInfo)
+                && !hasClinicalStampAccess
+                && !hasVisualEditorAccess(loggedInInfo)) {
             throw new SecurityException("missing required sec object (_pref, _rx, _con, or _eform)");
         }
         return true;
@@ -143,6 +146,11 @@ public class ProviderSignatureImage2Action extends ActionSupport {
 
     private boolean hasPreferenceAccess(LoggedInInfo loggedInInfo) {
         return securityInfoManager.hasPrivilege(loggedInInfo, "_pref", READ, null);
+    }
+
+    private boolean hasVisualEditorAccess(LoggedInInfo loggedInInfo) {
+        return securityInfoManager.hasPrivilege(loggedInInfo, "_admin.eform", READ, null)
+                || securityInfoManager.hasPrivilege(loggedInInfo, "_admin.eform", WRITE, null);
     }
 
     private File getValidatedSignatureFile(String signatureName, HttpServletResponse response) {

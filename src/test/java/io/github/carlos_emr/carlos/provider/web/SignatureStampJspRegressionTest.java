@@ -23,6 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class SignatureStampJspRegressionTest {
     private static final Path RX_PREVIEW_JSP = Path.of("src", "main", "webapp", "WEB-INF", "jsp", "rx", "Preview2.jsp");
     private static final Path CONSULT_JSP = Path.of("src", "main", "webapp", "WEB-INF", "jsp", "encounter", "oscarConsultationRequest", "ConsultationFormRequest.jsp");
+    private static final Path VISUAL_EDITOR_JSP = Path.of("src", "main", "webapp", "WEB-INF", "jsp", "eform", "visualEformEditor.jsp");
 
     @Test
     @DisplayName("Rx preview should request the signing provider's stamp and verify the file exists")
@@ -51,6 +52,21 @@ class SignatureStampJspRegressionTest {
                 .contains("consultSigFile.exists()")
                 .contains("/provider/providerSignatureImage?providerNo=<%=SafeEncode.forUriComponent(providerNo)%>")
                 .doesNotContain("boolean hasStampSignature = (consultSigProp != null && consultSigProp.getValue() != null && !consultSigProp.getValue().trim().isEmpty());");
+    }
+
+    @Test
+    @DisplayName("Visual editor should preview signature stamps through the secured provider route")
+    void shouldUseProviderSignaturePreview_inVisualEditor() throws Exception {
+        String jsp = Files.readString(VISUAL_EDITOR_JSP, StandardCharsets.UTF_8);
+        String normalizedJsp = normalizeWhitespace(jsp);
+
+        assertThat(normalizedJsp)
+                .contains("var OSCAR_PROVIDER_SIGNATURE_IMG_SRC = \"../provider/providerSignatureImage\";")
+                .contains("var src = getSignatureStampPreviewSrc();")
+                .contains("$img.on(\"error\", function() {")
+                .contains("function getSignatureStampPreviewSrc(){")
+                .contains("this.src = getBlankSignatureStampSrc();")
+                .doesNotContain("error: function() {");
     }
 
     private static String normalizeWhitespace(String value) {
