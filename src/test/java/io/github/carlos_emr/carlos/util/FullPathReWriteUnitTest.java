@@ -8,12 +8,16 @@
  */
 package io.github.carlos_emr.carlos.util;
 
+import jakarta.servlet.http.HttpServletRequest;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 @Tag("unit")
 @Tag("security")
@@ -31,8 +35,8 @@ class FullPathReWriteUnitTest {
 
         String url = FullPathReWrite.buildRelativeUrl(request, "combinePDFs");
 
-        assertThat(url).isEqualTo("/carlos/documentManager/combinePDFs");
         assertThat(url)
+                .isEqualTo("/carlos/documentManager/combinePDFs")
                 .doesNotContain("attacker.example")
                 .doesNotContain("https://")
                 .doesNotContain(":4443");
@@ -48,5 +52,42 @@ class FullPathReWriteUnitTest {
                 "/billing/CA/BC/ViewBillingCodeNewSearch");
 
         assertThat(url).isEqualTo("/carlos/billing/CA/BC//billing/CA/BC/ViewBillingCodeNewSearch");
+    }
+
+    @Test
+    @DisplayName("should return jspPage when request is unavailable")
+    void shouldReturnJspPage_whenRequestIsUnavailable() {
+        assertThat(FullPathReWrite.buildRelativeUrl(null, "combinePDFs"))
+                .isEqualTo("combinePDFs");
+    }
+
+    @Test
+    @DisplayName("should return jspPage when request URI is unavailable")
+    void shouldReturnJspPage_whenRequestUriIsUnavailable() {
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getRequestURI()).thenReturn(null);
+
+        assertThat(FullPathReWrite.buildRelativeUrl(request, "combinePDFs"))
+                .isEqualTo("combinePDFs");
+    }
+
+    @Test
+    @DisplayName("should use root path when request URI has no slash")
+    void shouldUseRootPath_whenRequestUriHasNoSlash() {
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getRequestURI()).thenReturn("documentReport.jsp");
+
+        assertThat(FullPathReWrite.buildRelativeUrl(request, "combinePDFs"))
+                .isEqualTo("/combinePDFs");
+    }
+
+    @Test
+    @DisplayName("should treat null jspPage as empty")
+    void shouldTreatJspPage_whenValueIsNull() {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET",
+                "/carlos/documentManager/documentReport.jsp");
+
+        assertThat(FullPathReWrite.buildRelativeUrl(request, null))
+                .isEqualTo("/carlos/documentManager/");
     }
 }

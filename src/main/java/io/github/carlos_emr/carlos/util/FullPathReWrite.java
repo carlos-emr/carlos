@@ -83,11 +83,18 @@ public class FullPathReWrite extends TagSupport {
     }
 
     static String buildRelativeUrl(HttpServletRequest request, String jspPage) {
+        String safeJspPage = jspPage == null ? "" : jspPage;
+        if (request == null) {
+            return safeJspPage;
+        }
         String temp = request.getRequestURI();
+        if (temp == null) {
+            return safeJspPage;
+        }
         int last = temp.lastIndexOf('/');
-        String path = temp.substring(0, last);
+        String path = last >= 0 ? temp.substring(0, last) : "";
 
-        return path + "/" + jspPage;
+        return path + "/" + safeJspPage;
     }
 
 
