@@ -246,6 +246,7 @@
     String url2 = cp + "/documentManager/ManageDocument?method=display&doc_no=" + docId;
     String currentDate = new SimpleDateFormat("yyyy-MM-dd").format(new Date());
 
+    SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     boolean faxEnabled = FaxManager.isEnabled()
         && securityInfoManager.hasPrivilege(loggedInInfo, "_fax", "r", null);
     boolean docIsPdf = curdoc.getContentType() != null
@@ -275,7 +276,6 @@
     DateTimeFormatter dtFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     String strDate = nearFuture.format(dtFormatter);
 
-    SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
 
     if (securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && isLinkedToDemographic) {
