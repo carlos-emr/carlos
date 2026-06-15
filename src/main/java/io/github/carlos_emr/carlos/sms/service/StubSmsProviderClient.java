@@ -10,6 +10,8 @@ import io.github.carlos_emr.carlos.sms.support.SmsAuditRedactor;
 import io.github.carlos_emr.carlos.sms.support.SmsPhoneNumbers;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.Map;
 import java.util.Optional;
 
@@ -30,12 +32,24 @@ public class StubSmsProviderClient implements SmsProviderClient {
 
     @Override
     public boolean validateCallback(String payload, Map<String, String> headers, String secret) {
+        // Fail closed: with no configured secret a callback cannot be authenticated, so it must be
+        // rejected rather than trusted. Recording inbound/delivery callbacks persists rows, so an
+        // unauthenticated callback would otherwise let an unauthenticated caller inject SMS records.
         if (secret == null || secret.isBlank()) {
-            return true;
+            return false;
         }
-        return payload != null
-                && headers != null
-                && secret.equals(headers.get("X-Carlos-Sms-Stub-Secret"));
+        if (payload == null || headers == null) {
+            return false;
+        }
+        String provided = headers.get("X-Carlos-Sms-Stub-Secret");
+        return provided != null && constantTimeEquals(secret, provided);
+    }
+
+    private static boolean constantTimeEquals(String expected, String actual) {
+        return MessageDigest.isEqual(
+                expected.getBytes(StandardCharsets.UTF_8),
+                actual.getBytes(StandardCharsets.UTF_8)
+        );
     }
 
     @Override

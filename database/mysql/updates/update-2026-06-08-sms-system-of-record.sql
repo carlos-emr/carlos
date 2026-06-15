@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS sms_transaction (
   error_message VARCHAR(1024) NULL,
   provider_metadata TEXT NULL,
   attempt_count INT NOT NULL DEFAULT 0,
+  version BIGINT NOT NULL DEFAULT 0,
   created_at DATETIME NOT NULL,
   updated_at DATETIME NOT NULL,
   next_attempt_at DATETIME NULL,

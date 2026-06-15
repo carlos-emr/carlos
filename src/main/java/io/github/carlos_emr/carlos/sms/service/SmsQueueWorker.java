@@ -78,18 +78,23 @@ public class SmsQueueWorker {
         recoverStaleSending(safeLimit);
         boolean shouldContinue = true;
         while (processed < safeLimit && shouldContinue) {
-            if (!rateLimiter.tryAcquire(DEFAULT_PROVIDER_TYPE)) {
+            // Claim before acquiring the rate-limit token so an empty queue never burns budget. If the
+            // limiter then denies, release the claim back to QUEUED so the row is retried without losing
+            // the rolled-back attempt.
+            List<SmsTransaction> transactions = transactionRecorder.claimDueOutboundQueue(
+                    DEFAULT_PROVIDER_TYPE,
+                    new Date(),
+                    1
+            );
+            if (transactions.isEmpty()) {
                 shouldContinue = false;
             } else {
-                List<SmsTransaction> transactions = transactionRecorder.claimDueOutboundQueue(
-                        DEFAULT_PROVIDER_TYPE,
-                        new Date(),
-                        1
-                );
-                if (transactions.isEmpty()) {
+                SmsTransaction claimed = transactions.get(0);
+                if (!rateLimiter.tryAcquire(DEFAULT_PROVIDER_TYPE)) {
+                    transactionRecorder.releaseClaim(claimed, new Date());
                     shouldContinue = false;
                 } else {
-                    processTransaction(transactions.get(0));
+                    processTransaction(claimed);
                     processed++;
                 }
             }

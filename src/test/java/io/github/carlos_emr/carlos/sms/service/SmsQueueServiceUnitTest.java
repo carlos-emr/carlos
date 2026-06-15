@@ -250,6 +250,12 @@ class SmsQueueServiceUnitTest {
         }
 
         @Override
+        public SmsTransaction releaseClaim(SmsTransaction transaction, Date dueAt) {
+            transaction.markClaimReleased(dueAt);
+            return transaction;
+        }
+
+        @Override
         public SmsTransaction recordInboundMessage(SmsInboundWebhookDto webhook) {
             SmsTransaction transaction = SmsTransaction.inboundMessage(webhook);
             transactions.add(transaction);

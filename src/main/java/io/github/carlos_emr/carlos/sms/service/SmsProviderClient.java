@@ -47,6 +47,14 @@ public interface SmsProviderClient {
         );
     }
 
+    /**
+     * Authenticate an inbound SMS-provider callback before it is recorded.
+     * <p>
+     * Implementations MUST fail closed: if no secret/signing material is configured, or the payload or
+     * headers are missing, return {@code false} rather than trusting the callback. Recording callbacks
+     * persists rows, so a permissive default would let an unauthenticated caller inject SMS records.
+     * Secret/signature comparisons should be constant-time (e.g. {@link java.security.MessageDigest#isEqual}).
+     */
     boolean validateCallback(String payload, Map<String, String> headers, String secret);
 
     Optional<SmsInboundWebhookDto> parseInboundWebhook(String payload, Map<String, String> headers);

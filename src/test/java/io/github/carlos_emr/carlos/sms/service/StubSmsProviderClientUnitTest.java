@@ -32,11 +32,12 @@ class StubSmsProviderClientUnitTest {
     }
 
     @Test
-    @DisplayName("stub callback validation accepts empty secret")
-    void shouldAcceptCallback_whenSecretIsBlank() {
+    @DisplayName("stub callback validation fails closed when no secret is configured")
+    void shouldRejectCallback_whenSecretIsBlank() {
         StubSmsProviderClient client = new StubSmsProviderClient();
 
-        assertThat(client.validateCallback(null, null, " ")).isTrue();
+        assertThat(client.validateCallback("{}", Map.of("X-Carlos-Sms-Stub-Secret", "anything"), " ")).isFalse();
+        assertThat(client.validateCallback("{}", Map.of(), null)).isFalse();
     }
 
     @Test
