@@ -45,7 +45,7 @@ import io.github.carlos_emr.CarlosProperties;
 
 
 /**
- * @author jay
+ * @since 2026-06-14
  */
 public class TeleplanCodesManager {
 

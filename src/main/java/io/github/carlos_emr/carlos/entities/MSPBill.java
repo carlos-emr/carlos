@@ -39,12 +39,12 @@ import java.util.Enumeration;
 /**
  * Represents a Bill in the BC Billing module
  *
- * @author not attributable
  * @version 1.0
  * @todo This class should be renamed since it represents any type of bill(ICBC,WCB,Private)
  * Furthermore, it is based on the MSPReconcile.Bill inner class which wasn't written to the Java Bean standard
  * (public accessors/modifiers and private members). Therefore, for backwards compatibility the members of this class are public.
  * This class needs to be refactored
+ * @since 2026-06-14
  */
 public class MSPBill {
     public String serviceDateRange = "";

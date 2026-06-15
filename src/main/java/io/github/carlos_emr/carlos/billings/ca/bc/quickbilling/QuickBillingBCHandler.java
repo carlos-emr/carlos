@@ -21,11 +21,9 @@
  * Hamilton
  * Ontario, Canada
  *
- * @author Dennis Warren
  * Company Colcamex Resources
  * Date Jun 4, 2012
  * Filename QuickBillingBCHandler.java
- * @author Dennis Warren
  * Company Colcamex Resources
  * Date Jun 4, 2012
  * Filename QuickBillingBCHandler.java
@@ -37,7 +35,6 @@
  */
 
 /**
- * @author Dennis Warren
  * Company Colcamex Resources
  * Date Jun 4, 2012
  * Filename QuickBillingBCHandler.java
@@ -74,10 +71,10 @@ import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
 
 
 /**
- * @author Dennis Warren
  * @Revised Jun 4, 2012
  * @Comment
  *
+ * @since 2026-06-14
  */
 public class QuickBillingBCHandler {
 

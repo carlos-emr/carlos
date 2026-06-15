@@ -64,11 +64,14 @@ import io.github.carlos_emr.CarlosProperties;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
- * @author jay
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Handles Medical Services Plan (MSP) requirements and business logic for GenTa2Action, maintaining billing accuracy and provincial compliance.
+ * @since 2026-06-14
+ */
 public class GenTa2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 

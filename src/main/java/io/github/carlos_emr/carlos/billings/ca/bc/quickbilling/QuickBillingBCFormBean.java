@@ -38,10 +38,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 
+/**
+ * Supports rapid billing entry workflows for BC through the QuickBillingBCFormBean component, optimizing user efficiency.
+ * @since 2026-06-14
+ */
 public class QuickBillingBCFormBean {
 
     /**
-     * @author Dennis Warren
      * Company Colcamex Resources
      * Date Jun 4, 2012
      */

@@ -40,7 +40,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.SqlUtils;
 
 /**
- * @author root
+ * Represents data models or data access objects for BillingCodeData within the BC billing module, facilitating persistent storage and retrieval.
+ * @since 2026-06-14
  */
 public final class BillingCodeData implements Comparable {
     /**

@@ -44,10 +44,10 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
- * @author Jef King
  * For The Oscar McMaster Project
  * Developed By Andromedia
  * www.andromedia.ca
+ * @since 2026-06-14
  */
 public class WcbSb {
     private static Logger logger = MiscUtils.getLogger();

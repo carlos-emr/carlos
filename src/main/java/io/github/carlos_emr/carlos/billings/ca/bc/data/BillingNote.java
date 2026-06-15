@@ -59,7 +59,7 @@ import io.github.carlos_emr.carlos.util.UtilMisc;
  * | note_type        | int(2)     | YES  |     | NULL    |                |
  * +------------------+------------+------+-----+---------+----------------+
  *
- * @author root
+ * @since 2026-06-14
  */
 public class BillingNote {
 

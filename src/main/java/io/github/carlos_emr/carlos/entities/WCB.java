@@ -46,7 +46,7 @@ import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
 /**
- * @author jaygallagher
+ * @since 2026-06-14
  */
 @Entity
 @Table(name = "wcb")

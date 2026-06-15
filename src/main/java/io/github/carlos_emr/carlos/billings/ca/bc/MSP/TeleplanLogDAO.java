@@ -38,9 +38,9 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
- * @author jay
+ * Handles Medical Services Plan (MSP) requirements and business logic for TeleplanLogDAO, maintaining billing accuracy and provincial compliance.
+ * @since 2026-06-14
  */
-
 public class TeleplanLogDAO {
 
     private LogTeleplanTxDao dao = SpringUtils.getBean(LogTeleplanTxDao.class);

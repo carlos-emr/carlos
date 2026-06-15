@@ -47,8 +47,8 @@ import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile;
  *
  * <p>Company: </p>
  *
- * @author not attributable
  * @version 1.0
+ * @since 2026-06-14
  */
 public class PayRefSummary {
     private double cash = 0.0;

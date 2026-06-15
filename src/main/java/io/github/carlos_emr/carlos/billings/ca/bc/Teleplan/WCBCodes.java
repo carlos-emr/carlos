@@ -39,7 +39,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.CarlosProperties;
 
 /**
- * @author jaygallagher
+ * @since 2026-06-14
  */
 public class WCBCodes {
 

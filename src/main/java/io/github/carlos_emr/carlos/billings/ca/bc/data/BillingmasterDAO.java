@@ -51,7 +51,7 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
- * @author jay
+ * @since 2026-06-14
  */
 @Repository
 @SuppressWarnings("unchecked")
