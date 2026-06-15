@@ -120,9 +120,6 @@
         <action name="documentManager/ServeDocument" class="io.github.carlos_emr.carlos.documentManager.actions.ServeDocument2Action"/>
         <!-- Receives PDF.js-annotated PDF, overwrites file on disk (POST, _edoc w) -->
         <action name="documentManager/SaveAnnotatedDocument" class="io.github.carlos_emr.carlos.documentManager.actions.SaveAnnotatedDocument2Action">
-            <result name="methodNotAllowed" type="httpheader">
-                <param name="status">405</param>
-            </result>
         </action>
         <action name="documentManager/SplitDocument" class="io.github.carlos_emr.carlos.documentManager.actions.SplitDocument2Action">
             <result name="success">/WEB-INF/jsp/oscarMDS/Splitclose.jsp</result>
