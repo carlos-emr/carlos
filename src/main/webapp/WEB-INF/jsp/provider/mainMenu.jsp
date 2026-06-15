@@ -393,6 +393,46 @@
     var scheduleNavActive = <%=scheduleNavActive%>;
     var contextPath = document.getElementById("contextPath").value;
 
+    function normalizeScheduleMenuNavigationMode(mode) {
+        if (mode === 'tab' || mode === 'focused') {
+            return mode;
+        }
+        return 'popup';
+    }
+
+    function applyScheduleMenuNavigationPreference(mode) {
+        var normalizedMode = normalizeScheduleMenuNavigationMode(mode);
+        scheduleNavActive = normalizedMode === 'tab' || normalizedMode === 'focused';
+    }
+
+    if (typeof window.applyScheduleNavigationPreference !== 'function') {
+        window.applyScheduleNavigationPreference = applyScheduleMenuNavigationPreference;
+    }
+
+    function handleScheduleMenuNavigationPreferenceMessage(message) {
+        if (message && message.mode) {
+            applyScheduleMenuNavigationPreference(message.mode);
+        }
+    }
+
+    try {
+        var scheduleNavigationPreferenceChannel = new BroadcastChannel('carlos_schedule_navigation_mode');
+        scheduleNavigationPreferenceChannel.onmessage = function(event) {
+            handleScheduleMenuNavigationPreferenceMessage(event.data);
+        };
+    } catch(e) { /* BroadcastChannel not supported */ }
+
+    try {
+        window.addEventListener('storage', function(event) {
+            if (event.key !== 'carlos_schedule_navigation_mode' || !event.newValue) {
+                return;
+            }
+            try {
+                handleScheduleMenuNavigationPreferenceMessage(JSON.parse(event.newValue));
+            } catch(e) {}
+        });
+    } catch(e) {}
+
     function appendScheduleMenuQueryParam(url, key, value) {
         var parts = String(url).split('#');
         var base = parts[0];
