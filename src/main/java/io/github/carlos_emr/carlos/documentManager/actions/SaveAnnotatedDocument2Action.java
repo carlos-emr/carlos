@@ -35,6 +35,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.owasp.encoder.Encode.forHtml;
 
 import java.io.File;
 import java.io.PrintWriter;
@@ -55,7 +56,7 @@ import java.util.stream.Collectors;
  *
  * <p>Security requirements:
  * <ul>
- *   <li>POST only — GET and HEAD are rejected with 405.</li>
+ *   <li>/li>
  *   <li>Requires {@code _edoc w} privilege.</li>
  *   <li>The uploaded bytes must start with the {@code %PDF} magic header.</li>
  *   <li>The resolved file path must lie within the document's own directory
@@ -119,6 +120,14 @@ public class SaveAnnotatedDocument2Action extends ActionSupport {
             sendJsonError(response, "No PDF data received");
             return NONE;
         }
+        
+        try {
+            PathValidationUtils.validateUpload(pdfFile);
+        } catch (SecurityException e) {
+            logger.error("Uploaded file validation failed", e);
+            sendJsonError(response, "Invalid uploaded file");
+            return NONE;
+        }
 
         // Reject if the uploaded bytes are not a PDF
         byte[] header = new byte[4];
@@ -136,20 +145,22 @@ public class SaveAnnotatedDocument2Action extends ActionSupport {
             return NONE;
         }
 
-        String filePath = doc.getFilePath();
-        Path targetPath = Paths.get(filePath);
-
+        // Validate uploaded temp-file path before any path-based file operation
+        Path uploadedPath = pdfFile.toPath().toAbsolutePath().normalize();
+        Path tempBase = Paths.get(System.getProperty("java.io.tmpdir")).toAbsolutePath().normalize();
         try {
-            PathValidationUtils.validateExistingPath(targetPath.toFile(), targetPath.getParent().toFile());
+             if (!uploadedPath.startsWith(tempBase)) {
+                 throw new SecurityException("Uploaded file path is outside temp directory");
+             }
+             PathValidationUtils.validateExistingPath(uploadedPath.toFile(), tempBase.toFile());
         } catch (SecurityException e) {
-            logger.error("Path validation failed for docId={}: {}", docId, filePath);
-            sendJsonError(response, "Invalid document path");
-            return NONE;
+             logger.error("Uploaded file path validation failed for docId={}: {}", docId, uploadedPath);
+             sendJsonError(response, "Invalid uploaded file path");
+             return NONE;
         }
-
         // Overwrite the document file with the annotated version
-        Files.copy(pdfFile.toPath(), targetPath, StandardCopyOption.REPLACE_EXISTING);
-
+        Files.copy(uploadedPath, targetPath, StandardCopyOption.REPLACE_EXISTING);
+        
         // Parse and sanitise annotation type labels before logging
         String annotationTypesCsv = StringUtils.trimToEmpty(request.getParameter("annotationTypes"));
         List<String> usedTypes = buildSafeAnnotationList(annotationTypesCsv);
@@ -183,7 +194,7 @@ public class SaveAnnotatedDocument2Action extends ActionSupport {
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
         try (PrintWriter w = response.getWriter()) {
-            w.write("{\"success\":true,\"docId\":" + docId + "}");
+            w.write("{\"success\":true,\"docId\":" + Encode.forHtml(docId) + "}");
         }
         return NONE;
     }
