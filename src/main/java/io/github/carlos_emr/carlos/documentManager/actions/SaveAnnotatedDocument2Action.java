@@ -116,22 +116,32 @@ public class SaveAnnotatedDocument2Action extends ActionSupport {
             return NONE;
         }
 
-        if (pdfFile == null || !pdfFile.exists() || pdfFile.length() == 0) {
+        if (pdfFile == null) {
             sendJsonError(response, "No PDF data received");
             return NONE;
         }
         
+        final Path uploadPath;       
         try {
             PathValidationUtils.validateUpload(pdfFile);
+            uploadPath = pdfFile.toPath().toAbsolutePath().normalize();
+            if (!Files.isRegularFile(uploadPath) || !Files.isReadable(uploadPath)) {
+                throw new SecurityException("Uploaded file path is not a readable regular file");
+            }
         } catch (SecurityException e) {
             logger.error("Uploaded file validation failed", e);
             sendJsonError(response, "Invalid uploaded file");
             return NONE;
         }
-
+        
+        if (!pdfFile.exists() || pdfFile.length() == 0) {
+            sendJsonError(response, "No PDF data received");
+            return NONE;
+        }
+        
         // Reject if the uploaded bytes are not a PDF
         byte[] header = new byte[4];
-        try (var is = Files.newInputStream(pdfFile.toPath())) {
+        try (var is = Files.newInputStream(uploadPath)) {
             if (is.read(header) < 4 || !Arrays.equals(header, PDF_MAGIC)) {
                 logger.warn("SaveAnnotatedDocument: upload for docId={} failed PDF magic check", docId);
                 sendJsonError(response, "Uploaded file is not a valid PDF");
