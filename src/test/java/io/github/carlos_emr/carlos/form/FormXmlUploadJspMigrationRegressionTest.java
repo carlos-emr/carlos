@@ -67,6 +67,7 @@ class FormXmlUploadJspMigrationRegressionTest {
 
         assertThat(jsp).doesNotContain("/form/formXmlUpload.jsp");
         assertThat(jsp).contains("/form/formXmlUpload");
+        assertThat(jsp).contains("objectName=\"_admin,_admin.eform\" rights=\"w\"");
     }
 
     @Test
@@ -76,6 +77,7 @@ class FormXmlUploadJspMigrationRegressionTest {
 
         assertThat(jsp).doesNotContain("/form/formXmlUpload.jsp");
         assertThat(jsp).contains("/form/formXmlUpload");
+        assertThat(jsp).contains("objectName=\"_admin,_admin.eform\" rights=\"w\"");
     }
 
     @Test

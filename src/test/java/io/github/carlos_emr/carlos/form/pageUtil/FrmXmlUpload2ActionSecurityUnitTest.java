@@ -46,6 +46,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -59,7 +61,7 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 @Tag("unit")
 @Tag("form")
 @Tag("security")
-class FrmXmlUpload2ActionSecurityTest extends CarlosUnitTestBase {
+class FrmXmlUpload2ActionSecurityUnitTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockHttpServletRequest request;
@@ -90,10 +92,11 @@ class FrmXmlUpload2ActionSecurityTest extends CarlosUnitTestBase {
         }
     }
 
-    @Test
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD", "post"})
     @DisplayName("should reject non-POST requests before privilege or upload processing")
-    void shouldRejectNonPostRequests() throws Exception {
-        request.setMethod("GET");
+    void shouldRejectRequest_whenMethodIsNotPost(String httpMethod) throws Exception {
+        request.setMethod(httpMethod);
 
         String result = new FrmXmlUpload2Action().execute();
 
@@ -106,7 +109,7 @@ class FrmXmlUpload2ActionSecurityTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should reject direct form XML import for users with only _form read")
-    void shouldRejectFormReadOnlyUsers() {
+    void shouldRejectImport_whenUserIsFormReadOnly() {
         request.setMethod("POST");
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_form"), eq("r"), isNull()))
                 .thenReturn(true);
@@ -124,7 +127,7 @@ class FrmXmlUpload2ActionSecurityTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should allow admin eForm writers to reach upload validation")
-    void shouldAllowAdminEformWriters() throws Exception {
+    void shouldAllowValidation_whenUserIsAdminEformWriter() throws Exception {
         request.setMethod("POST");
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.eform"), eq("w"), isNull()))
                 .thenReturn(true);
@@ -138,6 +141,26 @@ class FrmXmlUpload2ActionSecurityTest extends CarlosUnitTestBase {
         assertThat(action.getActionErrors()).contains(PathValidationUtils.INVALID_FILENAME_MESSAGE);
         verify(securityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_admin.eform"), eq("w"), isNull());
         verify(securityInfoManager, never()).hasPrivilege(any(LoggedInInfo.class), eq("_admin"), eq("w"), isNull());
+    }
+
+    @Test
+    @DisplayName("should allow admin writers to reach upload validation")
+    void shouldAllowValidation_whenUserIsAdminWriter() throws Exception {
+        request.setMethod("POST");
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.eform"), eq("w"), isNull()))
+                .thenReturn(false);
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin"), eq("w"), isNull()))
+                .thenReturn(true);
+        Path upload = Files.createTempFile(tempDir, "forms", ".zip");
+        UploadedFile uploadedFile = uploadedFile(upload, ".hidden.zip", "application/zip");
+
+        FrmXmlUpload2Action action = new FrmXmlUpload2Action();
+        action.withUploadedFiles(List.of(uploadedFile));
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.ERROR);
+        assertThat(action.getActionErrors()).contains(PathValidationUtils.INVALID_FILENAME_MESSAGE);
+        verify(securityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_admin.eform"), eq("w"), isNull());
+        verify(securityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_admin"), eq("w"), isNull());
     }
 
     private static UploadedFile uploadedFile(Path content, String originalName, String contentType) {
