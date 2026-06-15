@@ -60,6 +60,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
+<%@page import="io.github.carlos_emr.carlos.providers.gate.ProviderAddStatusValidator" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
@@ -78,8 +79,9 @@
   String status = request.getParameter("status");
   String statusch = request.getParameter("statusch");
   String providerNoParam = request.getParameter("provider_no");
+  String appointmentStatus = ProviderAddStatusValidator.buildValidatedAppointmentStatus(status, statusch);
 
-  if (status == null || statusch == null || providerNoParam == null) {
+  if (appointmentStatus == null || providerNoParam == null) {
     response.sendError(HttpServletResponse.SC_BAD_REQUEST);
     return;
   }
@@ -117,7 +119,7 @@
 
   if (appt != null) {
     appointmentArchiveDao.archiveAppointment(appt);
-    appt.setStatus(status + statusch);
+    appt.setStatus(appointmentStatus);
     appt.setLastUpdateUser(curUser_no);
     appointmentDao.merge(appt);
     rowsAffected = 1;
