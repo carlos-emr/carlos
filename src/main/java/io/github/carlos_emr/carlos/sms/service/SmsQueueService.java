@@ -42,7 +42,7 @@ public class SmsQueueService {
             return SmsSendResultDto.validationFailed(validation.messages());
         }
 
-        SmsProviderType providerType = providerSelector.selectForOutbound(command);
+        SmsProviderType providerType = providerSelector.configuredDefault();
         SmsTransaction transaction = transactionRecorder.recordOutboundAttempt(command, providerType);
         SmsConsentDecisionDto consentDecision = consentService.evaluate(command);
         if (!consentDecision.allowed()) {
