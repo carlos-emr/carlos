@@ -93,6 +93,20 @@ class JspJavaScriptEncodingRegressionTest {
     }
 
     @Test
+    void shouldDeriveDocumentReportCurrentUserFromSessionAndGuardOpenerRefresh() throws Exception {
+        String addDocumentJsp = readJsp("documentManager/addDocument.jsp");
+        String documentReportJsp = readJsp("documentManager/documentReport.jsp");
+
+        assertThat(addDocumentJsp)
+                .contains("String curUser = user_no != null ? user_no : \"\";")
+                .doesNotContain("request.getParameter(\"curUser\")");
+        assertThat(documentReportJsp)
+                .contains("String curUser = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();")
+                .contains("Object.prototype.hasOwnProperty.call(window.opener.URLs, parentId)")
+                .doesNotContain("var Url = window.opener.URLs;");
+    }
+
+    @Test
     void shouldUseGuardedIpAddressVariable_forChartNotesAjax() throws Exception {
         String chartNotesJsp = readJsp("casemgmt/ChartNotesAjax.jsp");
         int declarationStart = chartNotesJsp.indexOf("String noteLockIpAddress");

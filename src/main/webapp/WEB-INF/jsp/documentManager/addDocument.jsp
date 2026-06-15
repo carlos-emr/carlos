@@ -69,12 +69,7 @@
         moduleid = (String) request.getAttribute("functionid");
     }
 
-    String curUser = "";
-    if (request.getParameter("curUser") != null) {
-        curUser = request.getParameter("curUser");
-    } else if (request.getAttribute("curUser") != null) {
-        curUser = (String) request.getAttribute("curUser");
-    }
+    String curUser = user_no != null ? user_no : "";
 
     CarlosProperties props = CarlosProperties.getInstance();
 

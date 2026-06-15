@@ -80,7 +80,8 @@ public class EctDisplayDocs2Action extends EctDisplayAction {
                 Dao.setLeftPopup(600, 1024, winName, leftPath);
                 Dao.setLeftHeading(getText("encounter.Index.inboxManager"));
             } else {
-                leftPath = request.getContextPath() + "/documentManager/ViewDocumentReport?" + "function=demographic&doctype=lab&functionid=" + bean.demographicNo + "&curUser=" + bean.providerNo;
+                leftPath = request.getContextPath() + "/documentManager/ViewDocumentReport?"
+                        + "function=demographic&doctype=lab&functionid=" + Encode.forUriComponent(bean.demographicNo);
                 Dao.setLeftPopup(500, 1115, winName, leftPath);
             }
 
@@ -90,7 +91,9 @@ public class EctDisplayDocs2Action extends EctDisplayAction {
             if (inboxflag) {
                 Dao.setRightPopup(300, 600, winName, request.getContextPath() + "/mod/docmgmtComp/FileUpload?method=newupload&demographic_no=" + bean.demographicNo);
             } else {
-                Dao.setRightPopup(500, 1115, winName, request.getContextPath() + "/documentManager/ViewDocumentReport?" + "function=demographic&doctype=lab&functionid=" + bean.demographicNo + "&curUser=" + bean.providerNo + "&mode=add" + "&parentAjaxId=" + cmd);
+                Dao.setRightPopup(500, 1115, winName, request.getContextPath() + "/documentManager/ViewDocumentReport?"
+                        + "function=demographic&doctype=lab&functionid=" + Encode.forUriComponent(bean.demographicNo)
+                        + "&mode=add&parentAjaxId=" + Encode.forUriComponent(cmd));
             }
             Dao.setRightHeadingID(cmd); // no menu so set div id to unique id for this action
 

@@ -331,7 +331,6 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
                 redirect.append("?docerrors=docerrors"); // Allows the JSP to check if the document was just submitted
                 appendQueryParameter(redirect, PARAM_FUNCTION, this.getFunction());
                 appendQueryParameter(redirect, PARAM_FUNCTION_ID, this.getFunctionId());
-                appendQueryParameter(redirect, PARAM_CUR_USER, this.getCurUser());
                 appendQueryParameter(redirect, PARAM_APPOINTMENT_NO, this.getAppointmentNo());
                 // if we're called with parent ajax id inform jsp that parent needs to be updated
                 if (filled(this.getParentAjaxId())) {

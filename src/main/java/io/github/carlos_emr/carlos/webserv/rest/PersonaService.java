@@ -38,6 +38,8 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
+
+import org.owasp.encoder.Encode;
 import jakarta.ws.rs.FormParam;
 import jakarta.ws.rs.QueryParam;
 
@@ -254,7 +256,7 @@ public class PersonaService extends AbstractServiceImpl {
 
         MenuTo1 moreMenuList = new MenuTo1()
                 .addWithState(idCounter++, bundle.getString("navbar.menu.reports"), null, "reports")
-                .add(idCounter++, bundle.getString("navbar.menu.documents"), null, "../documentManager/ViewDocumentReport?function=providers&functionid=" + provider.getPractitionerNo(), "edocView");
+                .add(idCounter++, bundle.getString("navbar.menu.documents"), null, "../documentManager/ViewDocumentReport?function=providers&functionid=" + Encode.forUriComponent(String.valueOf(provider.getPractitionerNo())), "edocView");
 
 
         List<Dashboard> dashboards = dashboardManager.getDashboards(getLoggedInInfo());

@@ -340,10 +340,13 @@
             function setup() {
                 var update = "<carlos:encode value='<%= updateParent %>' context="javaScriptBlock"/>";
                 var parentId = "<carlos:encode value='<%= parentAjaxId %>' context="javaScriptBlock"/>";
-                var Url = window.opener.URLs;
 
-                if (update === "true" && !window.opener.closed) {
-                    window.opener.popLeftColumn(Url[parentId], parentId, parentId);
+                if (update === "true"
+                        && window.opener
+                        && !window.opener.closed
+                        && window.opener.URLs
+                        && Object.prototype.hasOwnProperty.call(window.opener.URLs, parentId)) {
+                    window.opener.popLeftColumn(window.opener.URLs[parentId], parentId, parentId);
                 }
             }
 
