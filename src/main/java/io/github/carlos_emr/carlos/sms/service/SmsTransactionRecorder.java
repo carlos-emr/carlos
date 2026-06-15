@@ -22,6 +22,12 @@ public interface SmsTransactionRecorder {
 
     SmsTransaction markRetryScheduled(SmsTransaction transaction, SmsProviderSendResultDto providerResult, Date nextAttemptAt);
 
+    /**
+     * Returns a claimed-but-unsent row to the queue, rolling back the claim's attempt increment.
+     * Used when the SMS-provider rate limiter denies a token after the row was already claimed.
+     */
+    SmsTransaction releaseClaim(SmsTransaction transaction, Date dueAt);
+
     SmsTransaction recordInboundMessage(SmsInboundWebhookDto webhook);
 
     SmsTransaction recordDeliveryEvent(SmsDeliveryWebhookDto webhook);

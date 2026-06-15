@@ -36,7 +36,8 @@ class SmsSendServiceUnitTest {
                 new SmsSendValidator(),
                 new DeferredSmsConsentService(),
                 new SmsProviderResolver(List.of(new StubSmsProviderClient())),
-                recorder
+                recorder,
+                providerType -> true
         );
 
         SmsSendResultDto result = service.send(SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"));
@@ -62,7 +63,8 @@ class SmsSendServiceUnitTest {
                 new SmsSendValidator(),
                 allowConsent,
                 new SmsProviderResolver(List.of(new StubSmsProviderClient())),
-                recorder
+                recorder,
+                providerType -> true
         );
 
         SmsSendResultDto result = service.send(SmsSendCommand.direct(
@@ -86,6 +88,28 @@ class SmsSendServiceUnitTest {
     }
 
     @Test
+    @DisplayName("send leaves the message queued and skips the SMS provider when rate limited")
+    void shouldLeaveQueued_whenRateLimited() {
+        RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder();
+        SmsSendService service = new SmsSendService(
+                new SmsSendValidator(),
+                command -> SmsConsentDecisionDto.permit(),
+                new SmsProviderResolver(List.of(new StubSmsProviderClient())),
+                recorder,
+                providerType -> false
+        );
+
+        SmsSendResultDto result = service.send(SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"));
+
+        assertThat(result.accepted()).isTrue();
+        assertThat(result.status()).isEqualTo(SmsStatus.QUEUED);
+        assertThat(result.providerMessageId()).isNull();
+        assertThat(recorder.transactions()).singleElement()
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getProviderMessageId)
+                .containsExactly(SmsStatus.QUEUED, null);
+    }
+
+    @Test
     @DisplayName("send does not create a transaction for validation failures")
     void shouldSkipTransactionRecord_whenValidationFails() {
         RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder();
@@ -93,7 +117,8 @@ class SmsSendServiceUnitTest {
                 new SmsSendValidator(),
                 command -> SmsConsentDecisionDto.permit(),
                 new SmsProviderResolver(List.of(new StubSmsProviderClient())),
-                recorder
+                recorder,
+                providerType -> true
         );
 
         SmsSendResultDto result = service.send(SmsSendCommand.direct(0, "not-a-phone", " ", "999998"));
@@ -112,7 +137,8 @@ class SmsSendServiceUnitTest {
                 new SmsSendValidator(),
                 allowConsent,
                 new SmsProviderResolver(List.of(new ThrowingSmsProviderClient())),
-                recorder
+                recorder,
+                providerType -> true
         );
 
         SmsSendResultDto result = service.send(SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"));
@@ -139,7 +165,8 @@ class SmsSendServiceUnitTest {
                 new SmsSendValidator(),
                 allowConsent,
                 new SmsProviderResolver(List.of()),
-                recorder
+                recorder,
+                providerType -> true
         );
 
         SmsSendResultDto result = service.send(SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"));
@@ -192,6 +219,12 @@ class SmsSendServiceUnitTest {
                 Date nextAttemptAt
         ) {
             transaction.markRetryScheduled(providerResult, nextAttemptAt);
+            return transaction;
+        }
+
+        @Override
+        public SmsTransaction releaseClaim(SmsTransaction transaction, Date dueAt) {
+            transaction.markClaimReleased(dueAt);
             return transaction;
         }
 

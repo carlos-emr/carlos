@@ -22,17 +22,20 @@ public class SmsSendService {
     private final SmsConsentService consentService;
     private final SmsProviderResolver providerResolver;
     private final SmsTransactionRecorder transactionRecorder;
+    private final SmsSendRateLimiter rateLimiter;
 
     public SmsSendService(
             SmsSendValidator validator,
             SmsConsentService consentService,
             SmsProviderResolver providerResolver,
-            SmsTransactionRecorder transactionRecorder
+            SmsTransactionRecorder transactionRecorder,
+            SmsSendRateLimiter rateLimiter
     ) {
         this.validator = validator;
         this.consentService = consentService;
         this.providerResolver = providerResolver;
         this.transactionRecorder = transactionRecorder;
+        this.rateLimiter = rateLimiter;
     }
 
     public SmsSendResultDto send(SmsSendCommand command) {
@@ -46,6 +49,12 @@ public class SmsSendService {
         if (!consentDecision.allowed()) {
             transactionRecorder.markConsentBlocked(transaction, consentDecision);
             return SmsSendResultDto.consentBlocked(consentDecision);
+        }
+
+        if (!rateLimiter.tryAcquire(DEFAULT_PROVIDER_TYPE)) {
+            // The row is already persisted as QUEUED (due now), so leave it for the queue
+            // scheduler/worker to drain rather than exceeding the SMS provider rate limit here.
+            return SmsSendResultDto.queued();
         }
 
         SmsProviderSendResultDto providerResult;

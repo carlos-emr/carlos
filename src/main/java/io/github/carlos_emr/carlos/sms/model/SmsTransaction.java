@@ -28,6 +28,7 @@ import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
+import jakarta.persistence.Version;
 
 import java.util.Date;
 import java.util.Map;
@@ -153,6 +154,14 @@ public class SmsTransaction extends AbstractModel<Long> {
     @Column(name = "claim_token", length = MAX_CLAIM_TOKEN_LENGTH)
     private String claimToken;
 
+    // Optimistic-lock guard. The queue worker claims a row, calls the SMS provider, then writes the
+    // result in a separate transaction; that detached write can race a delivery/inbound webhook updating
+    // the same row. @Version turns a silent lost update into a detectable conflict so the recorder can
+    // drop the stale worker write and let the most recent authoritative write stand.
+    @Version
+    @Column(name = "version", nullable = false)
+    private long version;
+
     public SmsTransaction() {
         // Required by JPA.
     }
@@ -228,6 +237,26 @@ public class SmsTransaction extends AbstractModel<Long> {
         attemptCount++;
         lastAttemptAt = safeAttemptAt;
         nextAttemptAt = null;
+        touch();
+    }
+
+    /**
+     * Reverts a claim that was taken but never sent (e.g. the SMS-provider rate limiter denied the
+     * token after the row was already claimed). The row returns to {@link SmsStatus#QUEUED}, the
+     * attempt increment from the claim is rolled back, and the row is made due again so the worker
+     * or scheduler retries it without burning a real attempt.
+     */
+    public void markClaimReleased(Date dueAt) {
+        Date safeDueAt = copyOf(dueAt);
+        if (safeDueAt == null) {
+            safeDueAt = new Date();
+        }
+        status = SmsStatus.QUEUED;
+        if (attemptCount > 0) {
+            attemptCount--;
+        }
+        nextAttemptAt = safeDueAt;
+        clearClaim();
         touch();
     }
 
@@ -505,6 +534,10 @@ public class SmsTransaction extends AbstractModel<Long> {
 
     public String getClaimToken() {
         return claimToken;
+    }
+
+    public long getVersion() {
+        return version;
     }
 
     private static Date copyOf(Date date) {
