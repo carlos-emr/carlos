@@ -40,6 +40,12 @@ public class SmsSendService {
         this.providerSelector = providerSelector;
     }
 
+    /**
+     * Sends directly through the SMS provider. If the SMS-provider rate limiter denies the attempt, the
+     * row is left {@code QUEUED} (due now) and returned as queued; draining it then depends on the queue
+     * scheduler ({@code sms.queue.scheduler.enabled}) or an explicit worker run, so that scheduler must
+     * be enabled wherever this path is used.
+     */
     public SmsSendResultDto send(SmsSendCommand command) {
         SmsSendValidator.Result validation = validator.validate(command);
         if (!validation.valid()) {

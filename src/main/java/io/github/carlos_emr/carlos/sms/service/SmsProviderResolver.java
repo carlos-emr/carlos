@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 public class SmsProviderResolver {
@@ -20,6 +21,14 @@ public class SmsProviderResolver {
             }
         }
         this.clientsByType = Map.copyOf(resolved);
+    }
+
+    /**
+     * The SMS provider types that have a registered {@link SmsProviderClient}. Used to validate the
+     * configured default provider at startup and to drive the queue worker per provider.
+     */
+    public Set<SmsProviderType> registeredProviderTypes() {
+        return clientsByType.keySet();
     }
 
     public SmsProviderClient resolve(SmsProviderType providerType) {
