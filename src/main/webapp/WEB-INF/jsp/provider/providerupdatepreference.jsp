@@ -193,7 +193,7 @@
         <script LANGUAGE="JavaScript">
             <% if (savedScheduleNavigationMode != null) { %>
             var scheduleNavigationPreferencePayload = {
-                mode: '<%= org.owasp.encoder.Encode.forJavaScript(savedScheduleNavigationMode) %>',
+                mode: '<%= SafeEncode.forJavaScript(savedScheduleNavigationMode) %>',
                 source: 'provider-preference',
                 timestamp: Date.now()
             };
