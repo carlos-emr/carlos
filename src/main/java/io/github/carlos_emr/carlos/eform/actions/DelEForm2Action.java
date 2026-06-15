@@ -86,7 +86,14 @@ public class DelEForm2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing or invalid fid");
             return NONE;
         }
-        int formId = Integer.parseInt(fid);
+        int formId;
+        try {
+            formId = Integer.parseInt(fid);
+        } catch (NumberFormatException e) {
+            // Catches overflow values that pass isNumeric (e.g. > Integer.MAX_VALUE)
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing or invalid fid");
+            return NONE;
+        }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         boolean isAdmin = securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.DELETE, null);

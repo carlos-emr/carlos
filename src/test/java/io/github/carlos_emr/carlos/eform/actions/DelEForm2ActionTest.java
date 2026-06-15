@@ -161,6 +161,18 @@ class DelEForm2ActionTest extends CarlosWebTestBase {
     }
 
     @Test
+    @DisplayName("should return 400 when fid overflows Integer range")
+    void shouldReturn400_whenFidOverflowsInt() throws Exception {
+        mockRequest.setParameter("fid", "99999999999999");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(jakarta.servlet.http.HttpServletResponse.SC_BAD_REQUEST);
+        org.mockito.Mockito.verifyNoInteractions(mockEFormDao);
+    }
+
+    @Test
     @DisplayName("should reject GET with 405 and no mutation side-effects")
     void shouldReturn405_whenMethodIsGet() throws Exception {
         mockRequest.setMethod("GET");
