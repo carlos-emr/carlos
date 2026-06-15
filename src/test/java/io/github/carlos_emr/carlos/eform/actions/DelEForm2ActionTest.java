@@ -137,6 +137,30 @@ class DelEForm2ActionTest extends CarlosWebTestBase {
     }
 
     @Test
+    @DisplayName("should return 400 when fid parameter is missing")
+    void shouldReturn400_whenFidIsMissing() throws Exception {
+        mockRequest.removeParameter("fid");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(jakarta.servlet.http.HttpServletResponse.SC_BAD_REQUEST);
+        org.mockito.Mockito.verifyNoInteractions(mockEFormDao);
+    }
+
+    @Test
+    @DisplayName("should return 400 when fid parameter is non-numeric")
+    void shouldReturn400_whenFidIsNonNumeric() throws Exception {
+        mockRequest.setParameter("fid", "not-a-number");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(jakarta.servlet.http.HttpServletResponse.SC_BAD_REQUEST);
+        org.mockito.Mockito.verifyNoInteractions(mockEFormDao);
+    }
+
+    @Test
     @DisplayName("should reject GET with 405 and no mutation side-effects")
     void shouldReturn405_whenMethodIsGet() throws Exception {
         mockRequest.setMethod("GET");

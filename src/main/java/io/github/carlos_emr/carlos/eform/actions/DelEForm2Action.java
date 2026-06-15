@@ -69,6 +69,7 @@ public class DelEForm2Action extends ActionSupport {
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an HTTP method constant; not a security or authorization decision.
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an HTTP method constant; not a security or authorization decision")
+    @Override
     public String execute() throws java.io.IOException {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
@@ -78,23 +79,28 @@ public class DelEForm2Action extends ActionSupport {
             return NONE;
         }
 
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String fid = request.getParameter("fid");
+        if (StringUtils.isBlank(fid) || !StringUtils.isNumeric(fid)) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing or invalid fid");
+            return NONE;
+        }
+        int formId = Integer.parseInt(fid);
 
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         boolean isAdmin = securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.DELETE, null);
 
         if (!isAdmin) {
             if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.WRITE, null)) {
                 throw new SecurityException("missing required sec object (_eform)");
             }
-            EForm eform = eFormDao.findById(Integer.parseInt(fid));
+            EForm eform = eFormDao.findById(formId);
             if (eform == null) {
                 throw new SecurityException("missing required sec object (_eform)");
             }
             String creator = eform.getCreator();
             String providerNo = loggedInInfo.getLoggedInProviderNo();
             // Shared templates (no creator) and other providers' forms are admin-only
-            if (StringUtils.isBlank(creator) || !providerNo.equals(creator)) {
+            if (StringUtils.isBlank(creator) || !creator.equals(providerNo)) {
                 throw new SecurityException("missing required sec object (_eform)");
             }
         }
