@@ -134,7 +134,7 @@ class MessengerJspRouteMigrationTest {
 
     @Test
     @DisplayName("messenger exit controls should be hidden only in same-tab schedule navigation")
-    void messengerExitControlsShouldHideOnlyInSameTabScheduleNavigation() throws Exception {
+    void shouldHideExitControls_whenSameTabScheduleNavigation() throws Exception {
         String helper = Files.readString(MESSENGER_SCHEDULE_NAV);
 
         assertThat(helper)

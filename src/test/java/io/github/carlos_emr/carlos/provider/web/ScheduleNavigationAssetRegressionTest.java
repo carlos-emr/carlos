@@ -117,6 +117,7 @@ class ScheduleNavigationAssetRegressionTest {
         String createMessage = Files.readString(CREATE_MESSAGE_JSP, StandardCharsets.UTF_8);
         String sentMessage = Files.readString(SENT_MESSAGE_JSP, StandardCharsets.UTF_8);
         String messengerScheduleNav = Files.readString(MESSENGER_SCHEDULE_NAV_JSPF, StandardCharsets.UTF_8);
+        String normalizedMessengerScheduleNav = normalizeWhitespace(messengerScheduleNav);
         String normalizedSentMessage = normalizeWhitespace(sentMessage);
         String inboxhub = Files.readString(INBOXHUB_JSP, StandardCharsets.UTF_8);
         String ticklerMain = Files.readString(TICKLER_MAIN_JSP, StandardCharsets.UTF_8);
@@ -161,8 +162,11 @@ class ScheduleNavigationAssetRegressionTest {
         assertThat(messengerScheduleNav)
                 .contains("boolean showScheduleNav = \"1\".equals(request.getParameter(\"scheduleNav\"));")
                 .contains("String scheduleNavQuerySuffix = showScheduleNav ? \"&scheduleNav=1\" : \"\";")
-                .contains("String scheduleNavFirstQuerySuffix = showScheduleNav ? \"?scheduleNav=1\" : \"\";")
-                .contains("boolean showMessengerExitButton = !showScheduleNav");
+                .contains("String scheduleNavFirstQuerySuffix = showScheduleNav ? \"?scheduleNav=1\" : \"\";");
+        assertThat(normalizedMessengerScheduleNav)
+                .contains("boolean showMessengerExitButton = !showScheduleNav "
+                        + "|| !UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED.equals(messengerScheduleNavigationMode);")
+                .doesNotContain("UserProperty.SCHEDULE_NAVIGATION_MODE_TAB.equals(messengerScheduleNavigationMode)");
         assertThat(viewMessage)
                 .contains("<%@ include file=\"messengerScheduleNav.jspf\" %>")
                 .contains("<jsp:include page=\"/WEB-INF/jsp/provider/mainMenu.jsp\"/>")
