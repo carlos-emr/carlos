@@ -24,6 +24,8 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -156,6 +158,30 @@ class JpaSmsTransactionRecorderUnitTest {
         assertThat(transaction)
                 .extracting(SmsTransaction::getStatus, SmsTransaction::getProviderType)
                 .containsExactly(SmsStatus.RECEIVED, SmsProviderType.VOIPMS);
+    }
+
+    @Test
+    @DisplayName("recordInboundMessage returns the existing row for a redelivered inbound webhook")
+    void shouldReturnExistingRow_whenInboundWebhookIsRedelivered() {
+        JpaSmsTransactionRecorder recorder = new JpaSmsTransactionRecorder(smsTransactionDao);
+        SmsInboundWebhookDto webhook = new SmsInboundWebhookDto(
+                SmsProviderType.VOIPMS,
+                "provider-1",
+                "416-555-1212",
+                "647-555-1000",
+                "Reply text",
+                Instant.EPOCH,
+                null
+        );
+        SmsTransaction existing = SmsTransaction.inboundMessage(webhook);
+        when(smsTransactionDao.findByProviderMessageId(SmsProviderType.VOIPMS, "provider-1"))
+                .thenReturn(Optional.of(existing));
+
+        SmsTransaction result = recorder.recordInboundMessage(webhook);
+
+        assertThat(result).isSameAs(existing);
+        verify(smsTransactionDao, never()).persist(any());
+        verify(smsTransactionDao, never()).flush();
     }
 
     @Test

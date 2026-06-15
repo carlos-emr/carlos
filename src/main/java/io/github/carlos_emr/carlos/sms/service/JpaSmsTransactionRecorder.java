@@ -1,5 +1,6 @@
 package io.github.carlos_emr.carlos.sms.service;
 
+import io.github.carlos_emr.carlos.sms.SmsDirection;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
 import io.github.carlos_emr.carlos.sms.dao.SmsTransactionDao;
@@ -9,15 +10,14 @@ import io.github.carlos_emr.carlos.sms.dto.SmsInboundWebhookDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsProviderSendResultDto;
 import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import jakarta.persistence.OptimisticLockException;
 import org.apache.logging.log4j.Logger;
-import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Date;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Consumer;
 
 @Service
 public class JpaSmsTransactionRecorder implements SmsTransactionRecorder {
@@ -65,8 +65,7 @@ public class JpaSmsTransactionRecorder implements SmsTransactionRecorder {
     public SmsTransaction markProviderResult(SmsTransaction transaction, SmsProviderSendResultDto providerResult) {
         Objects.requireNonNull(transaction, TRANSACTION_REQUIRED_MESSAGE);
         Objects.requireNonNull(providerResult, "providerResult is required");
-        transaction.markProviderResult(providerResult);
-        return mergeLastWriterWins(transaction, "markProviderResult");
+        return applyLastWriterWins(transaction, "markProviderResult", row -> row.markProviderResult(providerResult));
     }
 
     @Override
@@ -78,22 +77,39 @@ public class JpaSmsTransactionRecorder implements SmsTransactionRecorder {
     ) {
         Objects.requireNonNull(transaction, TRANSACTION_REQUIRED_MESSAGE);
         Objects.requireNonNull(providerResult, "providerResult is required");
-        transaction.markRetryScheduled(providerResult, nextAttemptAt);
-        return mergeLastWriterWins(transaction, "markRetryScheduled");
+        return applyLastWriterWins(
+                transaction,
+                "markRetryScheduled",
+                row -> row.markRetryScheduled(providerResult, nextAttemptAt)
+        );
     }
 
     @Override
     @Transactional
     public SmsTransaction releaseClaim(SmsTransaction transaction, Date dueAt) {
         Objects.requireNonNull(transaction, TRANSACTION_REQUIRED_MESSAGE);
-        transaction.markClaimReleased(dueAt);
-        return mergeLastWriterWins(transaction, "releaseClaim");
+        return applyLastWriterWins(transaction, "releaseClaim", row -> row.markClaimReleased(dueAt));
     }
 
     @Override
     @Transactional
     public SmsTransaction recordInboundMessage(SmsInboundWebhookDto webhook) {
         Objects.requireNonNull(webhook, WEBHOOK_REQUIRED_MESSAGE);
+        // SMS providers deliver webhooks at least once, so a redelivered inbound message must be
+        // idempotent. An existing inbound row for the same (provider, providerMessageId) is returned
+        // unchanged instead of persisting a duplicate, which would otherwise violate the
+        // (provider_type, provider_message_id) unique key and fail the retried callback.
+        SmsProviderType providerType = webhook.providerType() == null ? SmsProviderType.STUB : webhook.providerType();
+        String providerMessageId = webhook.providerMessageId();
+        if (providerMessageId != null && !providerMessageId.isBlank()) {
+            SmsTransaction existing = smsTransactionDao
+                    .findByProviderMessageId(providerType, providerMessageId)
+                    .filter(found -> found.getDirection() == SmsDirection.INBOUND)
+                    .orElse(null);
+            if (existing != null) {
+                return existing;
+            }
+        }
         SmsTransaction transaction = SmsTransaction.inboundMessage(webhook);
         smsTransactionDao.persist(transaction);
         smsTransactionDao.flush();
@@ -148,27 +164,41 @@ public class JpaSmsTransactionRecorder implements SmsTransactionRecorder {
     }
 
     /**
-     * Merges and flushes a detached row, treating an optimistic-lock conflict as "last writer wins":
-     * a concurrent webhook/worker write already moved this row, so the current (stale) write is dropped
-     * with a warning and the freshly-persisted state is returned. Flushing inside the transaction forces
-     * the version check to surface here rather than at commit time, so it can be handled.
+     * Applies a worker-origin mutation under "last writer wins" semantics.
+     * <p>
+     * The worker claims a row, calls the SMS provider, then writes the result in a separate transaction,
+     * which can race a delivery/inbound webhook updating the same row. Rather than merging the stale
+     * detached row (which would raise an optimistic-lock failure at commit and poison the transaction),
+     * the current row is re-loaded and its {@code @Version} is compared with the version the worker
+     * observed at claim time. If the row advanced, a webhook (or another worker) already wrote it, so the
+     * stale write is dropped with a warning and the current row is returned. Otherwise the mutation is
+     * applied to the managed row and flushed at commit (bumping the version).
      */
-    private SmsTransaction mergeLastWriterWins(SmsTransaction transaction, String context) {
-        try {
-            smsTransactionDao.merge(transaction);
-            smsTransactionDao.flush();
-            return transaction;
-        } catch (OptimisticLockException | OptimisticLockingFailureException e) {
-            Long id = transaction.getId();
-            LOGGER.warn(
-                    "SMS transaction {} {} skipped due to concurrent modification; last writer wins. "
-                            + "exceptionClass={}",
-                    id,
-                    context,
-                    e.getClass().getName()
-            );
-            SmsTransaction current = id == null ? null : smsTransactionDao.find(id);
-            return current == null ? transaction : current;
+    private SmsTransaction applyLastWriterWins(
+            SmsTransaction claimed,
+            String context,
+            Consumer<SmsTransaction> mutation
+    ) {
+        Long id = claimed.getId();
+        if (id == null) {
+            // Not yet persisted: apply directly and merge (defensive; production rows always carry an id).
+            mutation.accept(claimed);
+            smsTransactionDao.merge(claimed);
+            return claimed;
         }
+        SmsTransaction current = smsTransactionDao.find(id);
+        if (current == null) {
+            return claimed;
+        }
+        if (current.getVersion() != claimed.getVersion()) {
+            LOGGER.warn(
+                    "SMS transaction {} {} skipped due to concurrent modification; last writer wins.",
+                    id,
+                    context
+            );
+            return current;
+        }
+        mutation.accept(current);
+        return current;
     }
 }

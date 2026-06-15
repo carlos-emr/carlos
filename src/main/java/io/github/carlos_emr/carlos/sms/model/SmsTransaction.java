@@ -28,6 +28,7 @@ import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
+import jakarta.persistence.UniqueConstraint;
 import jakarta.persistence.Version;
 
 import java.util.Date;
@@ -37,7 +38,15 @@ import java.util.Optional;
 import java.util.TreeMap;
 
 @Entity
-@Table(name = "sms_transaction")
+@Table(
+        name = "sms_transaction",
+        // Mirrors sms_transaction_provider_message_uidx in the migration: one row per SMS-provider message id
+        // so retried/redelivered webhooks reconcile onto the existing row instead of duplicating it.
+        uniqueConstraints = @UniqueConstraint(
+                name = "sms_transaction_provider_message_uidx",
+                columnNames = {"provider_type", "provider_message_id"}
+        )
+)
 public class SmsTransaction extends AbstractModel<Long> {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final int MAX_PHONE_LENGTH = 32;
