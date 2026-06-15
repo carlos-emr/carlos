@@ -19,6 +19,9 @@ import java.util.UUID;
 public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> implements SmsTransactionDao {
     private static final int DEFAULT_LIMIT = 100;
     private static final int MAX_LIMIT = 500;
+    private static final String PARAM_DIRECTION = "direction";
+    private static final String PARAM_PROVIDER_TYPE = "providerType";
+    private static final String PARAM_STATUS = "status";
 
     public SmsTransactionDaoImpl() {
         super(SmsTransaction.class);
@@ -50,7 +53,7 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
                         + "AND t.providerMessageId = :providerMessageId ORDER BY t.createdAt DESC",
                 SmsTransaction.class
         );
-        query.setParameter("providerType", providerType);
+        query.setParameter(PARAM_PROVIDER_TYPE, providerType);
         query.setParameter("providerMessageId", providerMessageId);
         query.setMaxResults(1);
         return query.getResultList().stream().findFirst();
@@ -75,9 +78,9 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
                         + "ORDER BY t.createdAt ASC",
                 SmsTransaction.class
         );
-        query.setParameter("direction", SmsDirection.OUTBOUND);
-        query.setParameter("providerType", providerType);
-        query.setParameter("status", SmsStatus.QUEUED);
+        query.setParameter(PARAM_DIRECTION, SmsDirection.OUTBOUND);
+        query.setParameter(PARAM_PROVIDER_TYPE, providerType);
+        query.setParameter(PARAM_STATUS, SmsStatus.QUEUED);
         query.setParameter("claimAt", claimAt);
         query.setMaxResults(safeLimit(limit));
         query.setLockMode(LockModeType.PESSIMISTIC_WRITE);
@@ -112,9 +115,9 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
                         + "ORDER BY t.lastAttemptAt ASC",
                 SmsTransaction.class
         );
-        query.setParameter("direction", SmsDirection.OUTBOUND);
-        query.setParameter("providerType", providerType);
-        query.setParameter("status", SmsStatus.SENDING);
+        query.setParameter(PARAM_DIRECTION, SmsDirection.OUTBOUND);
+        query.setParameter(PARAM_PROVIDER_TYPE, providerType);
+        query.setParameter(PARAM_STATUS, SmsStatus.SENDING);
         query.setParameter("staleBefore", staleBefore);
         query.setMaxResults(safeLimit(limit));
         query.setLockMode(LockModeType.PESSIMISTIC_WRITE);

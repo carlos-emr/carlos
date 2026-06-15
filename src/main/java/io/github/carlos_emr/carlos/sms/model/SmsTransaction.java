@@ -336,10 +336,8 @@ public class SmsTransaction extends AbstractModel<Long> {
         if (webhookEventAt != null || providerEventAt == null) {
             providerEventAt = appliedEventAt;
         }
-        if (status == SmsStatus.DELIVERED) {
-            if (deliveredAt == null || webhookEventAt != null) {
-                deliveredAt = appliedEventAt;
-            }
+        if (status == SmsStatus.DELIVERED && (deliveredAt == null || webhookEventAt != null)) {
+            deliveredAt = appliedEventAt;
         }
         clearClaim();
         touch();

@@ -35,11 +35,11 @@ class SmsMessageBodyReaderUnitTest {
 
         assertThat(messageBody).contains("Appointment reminder");
         assertThat(authorizer.records()).singleElement()
-                .satisfies(record -> assertThat(record.transaction()).isSameAs(transaction));
+                .satisfies(captured -> assertThat(captured.transaction()).isSameAs(transaction));
         assertThat(auditor.records()).singleElement()
-                .satisfies(record -> {
-                    assertThat(record.transaction()).isSameAs(transaction);
-                    assertThat(record.reasonCode()).isEqualTo("CARE_REVIEW");
+                .satisfies(captured -> {
+                    assertThat(captured.transaction()).isSameAs(transaction);
+                    assertThat(captured.reasonCode()).isEqualTo("CARE_REVIEW");
                 });
     }
 
@@ -63,9 +63,9 @@ class SmsMessageBodyReaderUnitTest {
 
         assertThat(messageBody).isEmpty();
         assertThat(auditor.records()).singleElement()
-                .satisfies(record -> {
-                    assertThat(record.transaction()).isSameAs(transaction);
-                    assertThat(record.reasonCode()).isEqualTo("DELIVERY_REVIEW");
+                .satisfies(captured -> {
+                    assertThat(captured.transaction()).isSameAs(transaction);
+                    assertThat(captured.reasonCode()).isEqualTo("DELIVERY_REVIEW");
                 });
     }
 

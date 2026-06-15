@@ -1,7 +1,6 @@
 package io.github.carlos_emr.carlos.sms.service;
 
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
-import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -11,15 +10,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("unit")
 @Tag("service")
 class SmsProviderSelectorUnitTest {
-    private static final SmsSendCommand COMMAND =
-            SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998");
 
     @Test
     @DisplayName("selects the configured provider for outbound sends")
     void shouldSelectConfiguredProvider_whenPropertyIsSet() {
         SmsProviderSelector selector = new SmsProviderSelector(() -> "VOIPMS");
 
-        assertThat(selector.selectForOutbound(COMMAND)).isEqualTo(SmsProviderType.VOIPMS);
+        assertThat(selector.configuredDefault()).isEqualTo(SmsProviderType.VOIPMS);
     }
 
     @Test
