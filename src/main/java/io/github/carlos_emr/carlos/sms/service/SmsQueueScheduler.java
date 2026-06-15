@@ -32,8 +32,20 @@ public class SmsQueueScheduler {
     @PostConstruct
     public void start() {
         if (!schedulerEnabled()) {
+            // Make the dependency visible: queued work (including direct sends deferred by the rate
+            // limiter and scheduled retries) is only drained by this scheduler or by enqueueAndProcessNow.
+            LOGGER.info(
+                    "SMS queue scheduler is disabled ({}=false); queued and rate-limited SMS will not be "
+                            + "drained automatically. Enable it before relying on queued/retried delivery.",
+                    ENABLED_PROPERTY
+            );
             return;
         }
+        LOGGER.info(
+                "SMS queue scheduler enabled; polling every {}s with batch size {}.",
+                intervalSeconds(),
+                batchSize()
+        );
         executorService = Executors.newSingleThreadScheduledExecutor(
                 new DeamonThreadFactory(SmsQueueScheduler.class.getSimpleName(), Thread.NORM_PRIORITY)
         );
