@@ -32,6 +32,22 @@ class StubSmsProviderClientUnitTest {
     }
 
     @Test
+    @DisplayName("stub SMS provider derives a per-transaction-unique id from the client reference")
+    void shouldReturnUniqueProviderId_whenClientReferenceDiffers() {
+        StubSmsProviderClient client = new StubSmsProviderClient();
+        SmsSendCommand command = SmsSendCommand.direct(123, "(416) 555-1212", "Appointment reminder", "999998");
+
+        // Same body+number, different sms_transaction rows: ids must differ so the second send does not
+        // collide on the (provider_type, provider_message_id) unique key.
+        SmsProviderSendResultDto first = client.send(command, "sms-transaction-1");
+        SmsProviderSendResultDto second = client.send(command, "sms-transaction-2");
+
+        assertThat(first.providerMessageId()).startsWith("stub-");
+        assertThat(second.providerMessageId()).startsWith("stub-");
+        assertThat(first.providerMessageId()).isNotEqualTo(second.providerMessageId());
+    }
+
+    @Test
     @DisplayName("stub callback validation fails closed when no secret is configured")
     void shouldRejectCallback_whenSecretIsBlank() {
         StubSmsProviderClient client = new StubSmsProviderClient();
