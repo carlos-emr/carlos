@@ -14,24 +14,26 @@ import org.springframework.stereotype.Service;
 @Service
 public class SmsQueueService {
     private static final Logger LOGGER = MiscUtils.getLogger();
-    private static final SmsProviderType DEFAULT_PROVIDER_TYPE = SmsProviderType.STUB;
     private static final int IMMEDIATE_WAKE_BATCH_SIZE = 1;
 
     private final SmsSendValidator validator;
     private final SmsConsentService consentService;
     private final SmsTransactionRecorder transactionRecorder;
     private final SmsQueueWorker smsQueueWorker;
+    private final SmsProviderSelector providerSelector;
 
     public SmsQueueService(
             SmsSendValidator validator,
             SmsConsentService consentService,
             SmsTransactionRecorder transactionRecorder,
-            SmsQueueWorker smsQueueWorker
+            SmsQueueWorker smsQueueWorker,
+            SmsProviderSelector providerSelector
     ) {
         this.validator = validator;
         this.consentService = consentService;
         this.transactionRecorder = transactionRecorder;
         this.smsQueueWorker = smsQueueWorker;
+        this.providerSelector = providerSelector;
     }
 
     public SmsSendResultDto enqueue(SmsSendCommand command) {
@@ -40,7 +42,8 @@ public class SmsQueueService {
             return SmsSendResultDto.validationFailed(validation.messages());
         }
 
-        SmsTransaction transaction = transactionRecorder.recordOutboundAttempt(command, DEFAULT_PROVIDER_TYPE);
+        SmsProviderType providerType = providerSelector.selectForOutbound(command);
+        SmsTransaction transaction = transactionRecorder.recordOutboundAttempt(command, providerType);
         SmsConsentDecisionDto consentDecision = consentService.evaluate(command);
         if (!consentDecision.allowed()) {
             transactionRecorder.markConsentBlocked(transaction, consentDecision);

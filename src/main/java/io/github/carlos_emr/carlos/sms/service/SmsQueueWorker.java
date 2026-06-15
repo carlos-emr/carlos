@@ -13,7 +13,6 @@ import java.util.Objects;
 
 @Service
 public class SmsQueueWorker {
-    private static final SmsProviderType DEFAULT_PROVIDER_TYPE = SmsProviderType.STUB;
     // Per-run cap for worker calls without an explicit limit; tune with SMS provider throughput and queue volume.
     private static final int DEFAULT_BATCH_SIZE = 60;
     private static final Duration DEFAULT_STALE_SENDING_TIMEOUT = Duration.ofMinutes(5);
@@ -73,16 +72,33 @@ public class SmsQueueWorker {
     }
 
     public int processDueMessages(int limit) {
-        int processed = 0;
         int safeLimit = Math.max(1, limit);
-        recoverStaleSending(safeLimit);
+        // Drive every provider type, not a hardcoded default, so a row's queue is drained and rate-limited
+        // under its own provider. Adding a provider to SmsProviderType is then enough for the worker to
+        // pick up its queued rows; an unconfigured provider's rows fail resolution and follow the retry
+        // path rather than sitting in the queue forever.
+        for (SmsProviderType providerType : SmsProviderType.values()) {
+            recoverStaleSending(providerType, safeLimit);
+        }
+        int processed = 0;
+        for (SmsProviderType providerType : SmsProviderType.values()) {
+            if (processed >= safeLimit) {
+                break;
+            }
+            processed += drainProvider(providerType, safeLimit - processed);
+        }
+        return processed;
+    }
+
+    private int drainProvider(SmsProviderType providerType, int remaining) {
+        int processed = 0;
         boolean shouldContinue = true;
-        while (processed < safeLimit && shouldContinue) {
+        while (processed < remaining && shouldContinue) {
             // Claim before acquiring the rate-limit token so an empty queue never burns budget. If the
             // limiter then denies, release the claim back to QUEUED so the row is retried without losing
-            // the rolled-back attempt.
+            // the rolled-back attempt, and move on to the next provider.
             List<SmsTransaction> transactions = transactionRecorder.claimDueOutboundQueue(
-                    DEFAULT_PROVIDER_TYPE,
+                    providerType,
                     new Date(),
                     1
             );
@@ -90,7 +106,7 @@ public class SmsQueueWorker {
                 shouldContinue = false;
             } else {
                 SmsTransaction claimed = transactions.get(0);
-                if (!rateLimiter.tryAcquire(DEFAULT_PROVIDER_TYPE)) {
+                if (!rateLimiter.tryAcquire(providerType)) {
                     transactionRecorder.releaseClaim(claimed, new Date());
                     shouldContinue = false;
                 } else {
@@ -102,11 +118,11 @@ public class SmsQueueWorker {
         return processed;
     }
 
-    private void recoverStaleSending(int limit) {
+    private void recoverStaleSending(SmsProviderType providerType, int limit) {
         Date recoveryAt = new Date();
         Date staleBefore = new Date(recoveryAt.getTime() - DEFAULT_STALE_SENDING_TIMEOUT.toMillis());
         List<SmsTransaction> transactions = transactionRecorder.claimStaleSendingForRecovery(
-                DEFAULT_PROVIDER_TYPE,
+                providerType,
                 staleBefore,
                 recoveryAt,
                 limit
