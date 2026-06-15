@@ -31,6 +31,7 @@
 package io.github.carlos_emr.carlos.eform.actions;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -106,7 +107,13 @@ public class DisplayImage2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_NOT_FOUND);
             return NONE;
         }
-        StreamData data = process(validatedFile, fileName);
+        final StreamData data;
+        try {
+            data = process(validatedFile, fileName);
+        } catch (FileNotFoundException e) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return NONE;
+        }
         String contentType = data.contentType();
         try (InputStream stream = data.stream()) {
             if (RequestNegotiation.isHtmlContentType(contentType)) {
@@ -155,7 +162,7 @@ public class DisplayImage2Action extends ActionSupport {
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    private StreamData process(File file, String fileName) throws Exception {
+    StreamData process(File file, String fileName) throws Exception {
         // Gets content type from image extension
         String contentType = new MimetypesFileTypeMap().getContentType(file);
         

@@ -2355,8 +2355,9 @@ var EFORM_I18N = {
                 onclick: "toggleMe(this);"
             });
             $img.on("error", function() {
-                this.onerror = null;
-                this.src = getBlankSignatureStampSrc();
+                if (this.src.indexOf("BNK.png") === -1) {
+                    this.src = getBlankSignatureStampSrc();
+                }
             });
             $widget.append($img);
             $parent.append($widget);
@@ -2824,8 +2825,9 @@ var EFORM_I18N = {
 					if ($(this).is('#Stamp')){
                         $(this).attr("src", getSignatureStampPreviewSrc());
                         $(this).on("error", function() {
-                            this.onerror = null;
-                            this.src = getBlankSignatureStampSrc();
+                            if (this.src.indexOf("BNK.png") === -1) {
+                                this.src = getBlankSignatureStampSrc();
+                            }
                         });
 						$(this).attr("onclick", "toggleMe(this);");
 						$(this).attr("alt", "stamp");

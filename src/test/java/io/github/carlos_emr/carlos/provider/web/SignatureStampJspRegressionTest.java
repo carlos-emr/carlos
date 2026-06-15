@@ -49,9 +49,12 @@ class SignatureStampJspRegressionTest {
 
         assertThat(normalizedJsp)
                 .contains("boolean hasStampSignature = false;")
-                .contains("consultSigFile.exists()")
-                .contains("/provider/providerSignatureImage?providerNo=<%=SafeEncode.forUriComponent(providerNo)%>")
-                .doesNotContain("boolean hasStampSignature = (consultSigProp != null && consultSigProp.getValue() != null && !consultSigProp.getValue().trim().isEmpty());");
+                .contains("String signatureProviderNo = providerNo;")
+                .contains("signatureProviderNo = consultUtil.providerNo.trim();")
+                .contains("signatureProviderNo = referringProviderDefault.trim();")
+                .contains("consultSigFile.isFile()")
+                .contains("/provider/providerSignatureImage?providerNo=<%=SafeEncode.forUriComponent(signatureProviderNo)%>")
+                .doesNotContain("UserProperty consultSigProp = userPropertyDAO.getProp(providerNo, UserProperty.PROVIDER_CONSULT_SIGNATURE);");
     }
 
     @Test
@@ -66,6 +69,7 @@ class SignatureStampJspRegressionTest {
                 .contains("$img.on(\"error\", function() {")
                 .contains("function getSignatureStampPreviewSrc(){")
                 .contains("this.src = getBlankSignatureStampSrc();")
+                .contains("if (this.src.indexOf(\"BNK.png\") === -1)")
                 .doesNotContain("error: function() {");
     }
 

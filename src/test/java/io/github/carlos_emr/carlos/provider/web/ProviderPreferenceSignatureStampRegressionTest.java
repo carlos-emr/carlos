@@ -51,8 +51,9 @@ class ProviderPreferenceSignatureStampRegressionTest {
 
         assertThat(jsp)
                 .contains("boolean hasConsultSignature = false;")
-                .contains("consultSigFile.exists()")
+                .contains("consultSigFile.isFile()")
+                .contains("if (providerNo != null && !providerNo.trim().isEmpty())")
                 .contains("id=\"sigPlaceholder\"")
-                .doesNotContain("boolean hasConsultSignature = !consultSigValue.isEmpty();");
+                .doesNotContain("consultSigValue");
     }
 }

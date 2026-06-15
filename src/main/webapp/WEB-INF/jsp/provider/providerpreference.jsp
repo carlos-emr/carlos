@@ -200,14 +200,13 @@
     String apptCardFax = props.getOrDefault("appointmentCardFax", "");
 
     // Signature stamp
-    String consultSigValue = props.getOrDefault(UserProperty.PROVIDER_CONSULT_SIGNATURE, "");
     boolean hasConsultSignature = false;
-    if (!consultSigValue.isEmpty()) {
+    if (providerNo != null && !providerNo.trim().isEmpty()) {
         String expectedSignatureName = UserProperty.CONSULT_SIGNATURE_PREFIX + providerNo + ".png";
         try {
             File imageFolder = new File(CarlosProperties.getInstance().getEformImageDirectory());
             File consultSigFile = PathValidationUtils.validatePath(expectedSignatureName, imageFolder);
-            hasConsultSignature = consultSigFile.exists();
+            hasConsultSignature = consultSigFile.isFile();
         } catch (SecurityException e) {
             MiscUtils.getLogger().warn("Blocked suspicious consult signature path for provider {}", providerNo, e);
         }
