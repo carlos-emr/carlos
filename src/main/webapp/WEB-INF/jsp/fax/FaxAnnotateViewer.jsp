@@ -264,7 +264,7 @@ const CTX       = '<%=ctx%>';
 const PDFJS     = '<%=pdfjsBase%>';
 const DOC_ID    = <%=docId%>;
 
-const CSRF_TOKEN = document.querySelector('input[name="CSRF-TOKEN"]')?.value ?? '';
+let CSRF_TOKEN = document.querySelector('input[name="CSRF-TOKEN"]')?.value ?? '';
 
 // ── Dynamic imports (paths computed at runtime to avoid JSP/template-literal conflicts) ──
 const pdfjsLib  = await import(PDFJS + '/build/pdf.mjs');
@@ -445,7 +445,7 @@ window.useExistingSignature = async function() {
 window.applySignature = async function() {
     const canvas = document.getElementById('signatureCanvas');
     const dataUrl = canvas.toDataURL('image/png');
-
+    CSRF_TOKEN = document.querySelector('input[name="CSRF-TOKEN"]')?.value ?? '';
     // Save signature for future use
     try {
         await fetch(CTX + '/fax/SaveProviderSignature', {
@@ -522,6 +522,7 @@ window.saveAndFax = async function() {
         formData.append('pdfFile',         blob, 'annotated.pdf');
         formData.append('annotationTypes', [...usedAnnotationTypes].join(','));
 
+        CSRF_TOKEN = document.querySelector('input[name="CSRF-TOKEN"]')?.value ?? '';
         const res = await fetch(CTX + '/documentManager/SaveAnnotatedDocument', {
             method:  'POST',
             headers: { 'CSRF-TOKEN': CSRF_TOKEN },
