@@ -37,7 +37,8 @@ class SmsSendServiceUnitTest {
                 new DeferredSmsConsentService(),
                 new SmsProviderResolver(List.of(new StubSmsProviderClient())),
                 recorder,
-                providerType -> true
+                providerType -> true,
+                new SmsProviderSelector(() -> "STUB")
         );
 
         SmsSendResultDto result = service.send(SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"));
@@ -64,7 +65,8 @@ class SmsSendServiceUnitTest {
                 allowConsent,
                 new SmsProviderResolver(List.of(new StubSmsProviderClient())),
                 recorder,
-                providerType -> true
+                providerType -> true,
+                new SmsProviderSelector(() -> "STUB")
         );
 
         SmsSendResultDto result = service.send(SmsSendCommand.direct(
@@ -96,7 +98,8 @@ class SmsSendServiceUnitTest {
                 command -> SmsConsentDecisionDto.permit(),
                 new SmsProviderResolver(List.of(new StubSmsProviderClient())),
                 recorder,
-                providerType -> false
+                providerType -> false,
+                new SmsProviderSelector(() -> "STUB")
         );
 
         SmsSendResultDto result = service.send(SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"));
@@ -118,7 +121,8 @@ class SmsSendServiceUnitTest {
                 command -> SmsConsentDecisionDto.permit(),
                 new SmsProviderResolver(List.of(new StubSmsProviderClient())),
                 recorder,
-                providerType -> true
+                providerType -> true,
+                new SmsProviderSelector(() -> "STUB")
         );
 
         SmsSendResultDto result = service.send(SmsSendCommand.direct(0, "not-a-phone", " ", "999998"));
@@ -138,7 +142,8 @@ class SmsSendServiceUnitTest {
                 allowConsent,
                 new SmsProviderResolver(List.of(new ThrowingSmsProviderClient())),
                 recorder,
-                providerType -> true
+                providerType -> true,
+                new SmsProviderSelector(() -> "STUB")
         );
 
         SmsSendResultDto result = service.send(SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"));
@@ -166,7 +171,8 @@ class SmsSendServiceUnitTest {
                 allowConsent,
                 new SmsProviderResolver(List.of()),
                 recorder,
-                providerType -> true
+                providerType -> true,
+                new SmsProviderSelector(() -> "STUB")
         );
 
         SmsSendResultDto result = service.send(SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"));

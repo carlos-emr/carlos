@@ -53,6 +53,31 @@ class SmsQueueWorkerUnitTest {
     }
 
     @Test
+    @DisplayName("processDueMessages drains queued rows for a non-STUB provider")
+    void shouldSendMessage_whenQueueItemIsForNonStubProvider() {
+        SmsTransaction transaction = SmsTransaction.outboundAttempt(
+                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsProviderType.VOIPMS
+        );
+        assignId(transaction, 1L);
+        RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder(List.of(transaction));
+        SmsQueueWorker worker = new SmsQueueWorker(
+                recorder,
+                new SmsProviderResolver(List.of(new VoipMsAcceptingProviderClient())),
+                new SmsRetryPolicy(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
+                providerType -> true
+        );
+
+        int processed = worker.processDueMessages(25);
+
+        assertThat(processed).isEqualTo(1);
+        assertThat(transaction)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getProviderType)
+                .containsExactly(SmsStatus.SENT, SmsProviderType.VOIPMS);
+        assertThat(transaction.getProviderMessageId()).isEqualTo("provider-voipms-1");
+    }
+
+    @Test
     @DisplayName("processDueMessages leaves queued messages untouched when rate limited")
     void shouldSkipMessage_whenRateLimitIsExceeded() {
         SmsTransaction transaction = queuedTransaction();
@@ -405,6 +430,7 @@ class SmsQueueWorkerUnitTest {
         @Override
         public List<SmsTransaction> claimDueOutboundQueue(SmsProviderType providerType, Date now, int limit) {
             return transactions.stream()
+                    .filter(transaction -> transaction.getProviderType() == providerType)
                     .filter(transaction -> transaction.getStatus() == SmsStatus.QUEUED)
                     .filter(transaction ->
                             transaction.getNextAttemptAt() == null || !transaction.getNextAttemptAt().after(now)
@@ -467,6 +493,18 @@ class SmsQueueWorkerUnitTest {
         @Override
         public Optional<SmsDeliveryWebhookDto> parseDeliveryWebhook(String payload, Map<String, String> headers) {
             return Optional.empty();
+        }
+    }
+
+    private static class VoipMsAcceptingProviderClient extends AcceptingProviderClient {
+        @Override
+        public SmsProviderType providerType() {
+            return SmsProviderType.VOIPMS;
+        }
+
+        @Override
+        public SmsProviderSendResultDto send(SmsSendCommand command) {
+            return SmsProviderSendResultDto.accepted("provider-voipms-1", SmsStatus.SENT);
         }
     }
 

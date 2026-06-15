@@ -38,7 +38,8 @@ class SmsQueueServiceUnitTest {
                 new SmsSendValidator(),
                 command -> SmsConsentDecisionDto.permit(),
                 recorder,
-                worker
+                worker,
+                new SmsProviderSelector(() -> "STUB")
         );
 
         SmsSendResultDto result = service.enqueue(
@@ -74,7 +75,8 @@ class SmsQueueServiceUnitTest {
                 new SmsSendValidator(),
                 command -> SmsConsentDecisionDto.permit(),
                 recorder,
-                worker
+                worker,
+                new SmsProviderSelector(() -> "STUB")
         );
 
         SmsSendResultDto result = service.enqueueAndProcessNow(
@@ -100,7 +102,8 @@ class SmsQueueServiceUnitTest {
                 new SmsSendValidator(),
                 command -> SmsConsentDecisionDto.permit(),
                 recorder,
-                worker
+                worker,
+                new SmsProviderSelector(() -> "STUB")
         );
 
         SmsSendResultDto result = service.enqueueAndProcessNow(
@@ -129,7 +132,8 @@ class SmsQueueServiceUnitTest {
                         "SMS consent integration is pending"
                 ),
                 recorder,
-                worker
+                worker,
+                new SmsProviderSelector(() -> "STUB")
         );
 
         SmsSendResultDto result = service.enqueue(
@@ -157,7 +161,8 @@ class SmsQueueServiceUnitTest {
                         "SMS consent integration is pending"
                 ),
                 recorder,
-                worker
+                worker,
+                new SmsProviderSelector(() -> "STUB")
         );
 
         SmsSendResultDto result = service.enqueueAndProcessNow(
@@ -178,7 +183,8 @@ class SmsQueueServiceUnitTest {
                 new SmsSendValidator(),
                 command -> SmsConsentDecisionDto.permit(),
                 recorder,
-                worker
+                worker,
+                new SmsProviderSelector(() -> "STUB")
         );
 
         SmsSendResultDto result = service.enqueue(SmsSendCommand.direct(0, "not-a-phone", " ", "999998"));
@@ -198,7 +204,8 @@ class SmsQueueServiceUnitTest {
                 new SmsSendValidator(),
                 command -> SmsConsentDecisionDto.permit(),
                 recorder,
-                worker
+                worker,
+                new SmsProviderSelector(() -> "STUB")
         );
 
         SmsSendResultDto result = service.enqueueAndProcessNow(

@@ -13,7 +13,6 @@ import java.util.Objects;
 
 @Service
 public class SmsSendService {
-    private static final SmsProviderType DEFAULT_PROVIDER_TYPE = SmsProviderType.STUB;
     private static final String DIRECT_PROVIDER_EXCEPTION_CODE = "DIRECT_PROVIDER_EXCEPTION";
     private static final String DIRECT_PROVIDER_EXCEPTION_MESSAGE =
             "SMS direct send failed because the SMS provider client threw an exception.";
@@ -23,19 +22,22 @@ public class SmsSendService {
     private final SmsProviderResolver providerResolver;
     private final SmsTransactionRecorder transactionRecorder;
     private final SmsSendRateLimiter rateLimiter;
+    private final SmsProviderSelector providerSelector;
 
     public SmsSendService(
             SmsSendValidator validator,
             SmsConsentService consentService,
             SmsProviderResolver providerResolver,
             SmsTransactionRecorder transactionRecorder,
-            SmsSendRateLimiter rateLimiter
+            SmsSendRateLimiter rateLimiter,
+            SmsProviderSelector providerSelector
     ) {
         this.validator = validator;
         this.consentService = consentService;
         this.providerResolver = providerResolver;
         this.transactionRecorder = transactionRecorder;
         this.rateLimiter = rateLimiter;
+        this.providerSelector = providerSelector;
     }
 
     public SmsSendResultDto send(SmsSendCommand command) {
@@ -44,14 +46,15 @@ public class SmsSendService {
             return SmsSendResultDto.validationFailed(validation.messages());
         }
 
-        SmsTransaction transaction = transactionRecorder.recordOutboundAttempt(command, DEFAULT_PROVIDER_TYPE);
+        SmsProviderType providerType = providerSelector.selectForOutbound(command);
+        SmsTransaction transaction = transactionRecorder.recordOutboundAttempt(command, providerType);
         SmsConsentDecisionDto consentDecision = consentService.evaluate(command);
         if (!consentDecision.allowed()) {
             transactionRecorder.markConsentBlocked(transaction, consentDecision);
             return SmsSendResultDto.consentBlocked(consentDecision);
         }
 
-        if (!rateLimiter.tryAcquire(DEFAULT_PROVIDER_TYPE)) {
+        if (!rateLimiter.tryAcquire(providerType)) {
             // The row is already persisted as QUEUED (due now), so leave it for the queue
             // scheduler/worker to drain rather than exceeding the SMS provider rate limit here.
             return SmsSendResultDto.queued();
@@ -59,7 +62,7 @@ public class SmsSendService {
 
         SmsProviderSendResultDto providerResult;
         try {
-            SmsProviderClient providerClient = providerResolver.resolve(DEFAULT_PROVIDER_TYPE);
+            SmsProviderClient providerClient = providerResolver.resolve(providerType);
             providerResult = providerClient.send(command, clientReferenceId(transaction));
         } catch (RuntimeException e) {
             providerResult = SmsProviderSendResultDto.failed(
