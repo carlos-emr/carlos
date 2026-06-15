@@ -77,11 +77,13 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  */
 public class DisplayImage2Action extends ActionSupport {
     static final String VACCINE_BRANDS_FILE = "vaccine-brands.json";
+    private static final String IMAGE_JPEG = "image/jpeg";
+    private static final String TEXT_HTML = "text/html";
     private static final Map<String, String> OVERRIDDEN_CONTENT_TYPES = Map.ofEntries(
             Map.entry("png", "image/png"),
-            Map.entry("jpeg", "image/jpeg"),
-            Map.entry("jpe", "image/jpeg"),
-            Map.entry("jpg", "image/jpeg"),
+            Map.entry("jpeg", IMAGE_JPEG),
+            Map.entry("jpe", IMAGE_JPEG),
+            Map.entry("jpg", IMAGE_JPEG),
             Map.entry("bmp", "image/bmp"),
             Map.entry("cod", "image/cis-cod"),
             Map.entry("ief", "image/ief"),
@@ -104,9 +106,9 @@ public class DisplayImage2Action extends ActionSupport {
             Map.entry("js", "text/javascript"),
             Map.entry("css", "text/css"),
             Map.entry("json", "application/json"),
-            Map.entry("rtl", "text/html"),
-            Map.entry("html", "text/html"),
-            Map.entry("htm", "text/html")
+            Map.entry("rtl", TEXT_HTML),
+            Map.entry("html", TEXT_HTML),
+            Map.entry("htm", TEXT_HTML)
     );
     private HttpServletRequest request = ServletActionContext.getRequest();
     private HttpServletResponse response = ServletActionContext.getResponse();
