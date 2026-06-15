@@ -12,6 +12,8 @@
       classpath:net/bull/javamelody/monitoring-spring.xml
       classpath:applicationContext*.xml
     </param-value>
+    <param-name>pdfjs.version</param-name>
+    <param-value>${pdfjs.version}</param-value>
   </context-param>
 
     <!-- ResponseSanitizationFilter MUST be the outermost filter (first filter-mapping) so it
