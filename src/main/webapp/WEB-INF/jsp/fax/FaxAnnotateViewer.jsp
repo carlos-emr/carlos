@@ -32,7 +32,6 @@
     @since 2026-06
 --%>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
-<%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String ctx = request.getContextPath();
     int    docId        = (Integer) request.getAttribute("docId");
@@ -40,7 +39,7 @@
     String pdfjsBase    = ctx + "/webjars/pdfjs-dist/4.4.168";
 %>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="${pageContext.request.locale.language}">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>

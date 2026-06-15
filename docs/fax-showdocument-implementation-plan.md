@@ -1,6 +1,7 @@
 # Fax from Show-Document — Implementation Plan
 
 ## Goal
+
 Enable providers to fax inbox documents directly from the **showDocument** viewer, with a
 combined pharmacy + specialist fax-recipient autocomplete that surfaces typed results with
 Bootstrap 5 badges indicating the recipient category.
@@ -108,10 +109,12 @@ the `.mjs` extension and the `^/webjars/.*` prefix.
 PDF.js 4.x is ES-module-only (`pdf.mjs`, `pdf.worker.mjs`, `pdf_viewer.mjs`). Because JSP
 EL `${}` and JS template literals both use `${}`, dynamic import paths are built with
 `<%= request.getContextPath() %>` scriptlets:
+
 ```javascript
 const pdfJsPath = '<%= request.getContextPath() %>/webjars/pdfjs-dist/4.4.168';
 const pdfjsLib  = await import(pdfJsPath + '/build/pdf.mjs');
 ```
+
 
 **Signature stamp injection.**
 PDF.js's STAMP mode normally opens an OS file picker (`<input type="file">`). To feed the
@@ -171,7 +174,7 @@ inbox viewer so providers know the outcome without leaving the context.
 
 ## Files changed in Phase 1
 
-```
+```text
 src/main/java/io/github/carlos_emr/carlos/commn/dao/
   ServiceSpecialistsDao.java                         (+searchSpecialistsWithService)
   ServiceSpecialistsDaoImpl.java                     (+searchSpecialistsWithService impl)
@@ -209,7 +212,7 @@ src/main/resources/
 
 ## Files changed in Phase 2
 
-```
+```text
 pom.xml
   +org.webjars.npm:pdfjs-dist:4.4.168 (runtime scope)
 

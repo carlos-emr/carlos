@@ -13,6 +13,8 @@
     faxNotAvailable.jsp
     Shown when a document cannot be faxed (no fax accounts, wrong content type, missing file, etc.).
     The "message" request attribute carries the human-readable reason set by FaxDocument2Action.
+
+    @since 2026-06
 --%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>

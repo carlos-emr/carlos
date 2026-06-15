@@ -180,6 +180,20 @@ public class FaxManagerImpl implements FaxManager {
             return null;
         }
 
+        // Validate path is within allowed directories
+        java.io.File documentDir = new java.io.File(
+                CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "/var/lib/OscarDocument/"));
+        try {
+            PathValidationUtils.validateExistingPath(path.toFile(), documentDir);
+        } catch (SecurityException e) {
+            // File not in document dir, check if it's in allowed temp directories
+            if (!PathValidationUtils.isInAllowedTempDirectory(path.toFile())) {
+                logger.error("renderDocument: path validation failed for documentNo={}: {}", documentNo,
+                        LogSafe.sanitize(filePath, 1024));
+                return null;
+            }
+        }
+
         return path;
     }
 

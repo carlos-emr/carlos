@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.fax.action;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -56,6 +57,7 @@ public class SaveProviderSignature2Action extends ActionSupport {
 
     private static final Logger logger = MiscUtils.getLogger();
     private static final int MAX_SIGNATURE_BYTES = 512 * 1024; // 512 KB
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -183,7 +185,10 @@ public class SaveProviderSignature2Action extends ActionSupport {
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
         try (PrintWriter w = response.getWriter()) {
-            w.write("{\"success\":false,\"error\":\"" + message + "\"}");
+            String json = objectMapper.writeValueAsString(
+                java.util.Map.of("success", false, "error", message)
+            );
+            w.write(json);
         }
     }
 }

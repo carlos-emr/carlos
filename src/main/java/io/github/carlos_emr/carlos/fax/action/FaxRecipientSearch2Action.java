@@ -139,8 +139,9 @@ public class FaxRecipientSearch2Action extends ActionSupport {
             // Passing "" for city means any city is accepted.
             List<PharmacyInfo> pharmacies = pharmacyInfoDao.searchPharmacyByNameAddressCity(term, "");
             for (PharmacyInfo ph : pharmacies) {
-                if (remaining-- <= 0) break;
+                if (remaining <= 0) break;
                 if (StringUtils.isBlank(ph.getFax())) continue;
+                remaining--;
 
                 String displayName = StringUtils.defaultIfBlank(ph.getName(), "Unknown Pharmacy");
                 String city = StringUtils.trimToEmpty(ph.getCity());

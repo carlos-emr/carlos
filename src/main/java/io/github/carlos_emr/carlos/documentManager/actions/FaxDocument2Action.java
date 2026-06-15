@@ -21,13 +21,16 @@
  */
 package io.github.carlos_emr.carlos.documentManager.actions;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -134,9 +137,19 @@ public class FaxDocument2Action extends ActionSupport {
             return "noFax";
         }
 
+        java.io.File documentDir = new java.io.File(
+                CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "/var/lib/OscarDocument/"));
         Path docPath = Paths.get(filePath);
+        try {
+            PathValidationUtils.validateExistingPath(docPath.toFile(), documentDir);
+        } catch (SecurityException e) {
+            logger.error("Path validation failed for docId={}: {}", docId, LogSafe.sanitize(filePath, 1024));
+            request.setAttribute("message", "Invalid document path.");
+            return "noFax";
+        }
+
         if (!Files.exists(docPath) || !Files.isRegularFile(docPath)) {
-            logger.error("Document file not found on disk for docId={}: {}", docId, filePath);
+            logger.error("Document file not found on disk for docId={}: {}", docId, LogSafe.sanitize(filePath, 1024));
             request.setAttribute("message", "Document file is not available on the server.");
             return "noFax";
         }
