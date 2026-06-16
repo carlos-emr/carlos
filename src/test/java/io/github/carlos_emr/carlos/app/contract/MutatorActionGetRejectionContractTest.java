@@ -97,7 +97,7 @@ import static org.mockito.Mockito.when;
  * <p><b>Adding a new mutator 2Action.</b> The {@link #discoveryCandidatesMustBeRegistered()}
  * test scans {@code src/main/java} for any {@code *2Action.java} in an audited
  * slice, or explicitly registered legacy class, containing both
- * {@code SC_METHOD_NOT_ALLOWED} and an {@code equalsIgnoreCase("POST")} check
+ * {@code SC_METHOD_NOT_ALLOWED} and a POST method check
  * and fails the build if the class is not listed here. New mutators must be
  * registered in one of:
  *
@@ -165,6 +165,8 @@ class MutatorActionGetRejectionContractTest {
                     "_admin", "w"),
             Arguments.of("io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action",
                     "_admin", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.form.pageUtil.FrmXmlUpload2Action",
+                    "_admin.eform", "w"),
             // --- clinical measurements / flowsheets ---
             Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action",
                     "_measurement", "w"),
@@ -327,6 +329,7 @@ class MutatorActionGetRejectionContractTest {
         "io.github.carlos_emr.carlos.billings.ca.on.web.ScheduleOfBenefitsUpload2Action",
         "io.github.carlos_emr.carlos.commn.web.FlowSheetCustom2Action",
         "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action",
+        "io.github.carlos_emr.carlos.form.pageUtil.FrmXmlUpload2Action",
         "io.github.carlos_emr.carlos.login.gate.SelectFacility2Action",
         "io.github.carlos_emr.carlos.provider.web.DocumentDescriptionTemplate2Action"
     );
@@ -524,8 +527,7 @@ class MutatorActionGetRejectionContractTest {
     /**
      * Walks {@code src/main/java} and fails if any {@code *2Action.java}
      * containing both a {@code SC_METHOD_NOT_ALLOWED} reference and a
-     * {@code "POST".equalsIgnoreCase(...)} (or {@code equalsIgnoreCase("POST")})
-     * check is not registered in one of
+     * literal POST method comparison is not registered in one of
      * {@link #unconditionalMutators()}, {@link #CONDITIONAL_MUTATORS}, or
      * {@link #NON_MUTATOR_GATES}.
      *
@@ -592,7 +594,8 @@ class MutatorActionGetRejectionContractTest {
                         + actionSource, e);
             }
             if (source.contains("SC_METHOD_NOT_ALLOWED")
-                    && (source.contains("\"POST\".equalsIgnoreCase(")
+                    && (source.contains("\"POST\".equals(")
+                        || source.contains("\"POST\".equalsIgnoreCase(")
                         || source.contains(".equalsIgnoreCase(\"POST\")"))) {
                 out.add(className);
             }

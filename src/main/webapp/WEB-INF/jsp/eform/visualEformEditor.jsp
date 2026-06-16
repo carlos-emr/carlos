@@ -1510,6 +1510,7 @@ var EFORM_I18N = {
         var GENDER_PRECHECK_CLASS_SELECTOR = "[class*=gender_precheck_]";
 
         var OSCAR_DISPLAY_IMG_SRC = "../eform/displayImage?imagefile=";
+        var OSCAR_PROVIDER_SIGNATURE_IMG_SRC = "../provider/providerSignatureImage";
         var OSCAR_EFORM_ENTITY_URL = "../ws/rs/eform/";
         var OSCAR_EFORM_SEARCH_URL = "../ws/rs/eforms/";
 
@@ -2345,14 +2346,20 @@ var EFORM_I18N = {
         function addDraggableStamp($parent, widgetId, width, height, src, customClasses) {  // May 1, 2024  TO DO buggy on resize/drag
             var $widget = createBasicDraggableDiv(widgetId, width, height, customClasses + " gen-layer3");
             var imgClass = "";
-            $widget.append($("<img>", {
+            var $img = $("<img>", {
                 src: src,
                 alt: "stamp",
                 width: "100%",
                 height: "100%",
                 class: "stamp",
                 onclick: "toggleMe(this);"
-            }));
+            });
+            $img.on("error", function() {
+                if (this.src.indexOf("BNK.png") === -1) {
+                    this.src = getBlankSignatureStampSrc();
+                }
+            });
+            $widget.append($img);
             $parent.append($widget);
             makeDraggable($widget, true, ".gen-layer1, .gen-layer2");
 			console.log("created widget "+widgetId);
@@ -2816,11 +2823,12 @@ var EFORM_I18N = {
 						$(this).removeClass("noborder");
 					}
 					if ($(this).is('#Stamp')){
-                        if (runStandaloneVersion){
-						    $(this).attr("src", "BNK.png");
-                        } else {
-						    $(this).attr("src", "../eform/displayImage?imagefile=BNK.png");
-                        }
+                        $(this).attr("src", getSignatureStampPreviewSrc());
+                        $(this).on("error", function() {
+                            if (this.src.indexOf("BNK.png") === -1) {
+                                this.src = getBlankSignatureStampSrc();
+                            }
+                        });
 						$(this).attr("onclick", "toggleMe(this);");
 						$(this).attr("alt", "stamp");
 						var wrap_width= $(this).attr("width");
@@ -4158,8 +4166,7 @@ var EFORM_I18N = {
 
 
             var $dragFrame51 = createStitchFrame();
-            var src = "BNK.png";
-            if (!runStandaloneVersion){ src = OSCAR_DISPLAY_IMG_SRC + src;}
+            var src = getSignatureStampPreviewSrc();
             addDraggableStamp($dragFrame51, "signatureStamp", 255, 50, src, "signatureStamp");
             $tab.append($dragFrame51);
             var $label = $("<label>").text('  Add Signature Stamp: ');
@@ -4818,12 +4825,20 @@ var EFORM_I18N = {
 	<script id="stamp_script" class="toSource">
     <!-- functions to support signature stamps -->
 
+        function getBlankSignatureStampSrc(){
+            return runStandaloneVersion ? "BNK.png" : OSCAR_DISPLAY_IMG_SRC + "BNK.png";
+        }
+
+        function getSignatureStampPreviewSrc(){
+            return runStandaloneVersion ? getBlankSignatureStampSrc() : OSCAR_PROVIDER_SIGNATURE_IMG_SRC;
+        }
+
         /** this function toggles visibility of the individual stamp. */
         function toggleMe(el){
 	        if (el.src.indexOf("BNK.png")>-1){
 		        sign(el);
 	        } else {
-		        el.src = "../eform/displayImage?imagefile=BNK.png";
+		        el.src = getBlankSignatureStampSrc();
 	        }
         }
         /** this function stamp by delegation model */
