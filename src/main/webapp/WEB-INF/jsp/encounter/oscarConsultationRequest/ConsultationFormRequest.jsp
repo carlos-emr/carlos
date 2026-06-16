@@ -111,6 +111,8 @@
 <%@ page import="io.github.carlos_emr.carlos.managers.ConsultationManager" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.data.EctFormData" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.PathValidationUtils" %>
+<%@ page import="java.io.File" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
@@ -3061,9 +3063,22 @@ if (userAgent != null) {
 
                         <%
                             if (props.isConsultationSignatureEnabled()) {
-                                // Check for provider signature stamp
-                                UserProperty consultSigProp = userPropertyDAO.getProp(providerNo, UserProperty.PROVIDER_CONSULT_SIGNATURE);
-                                boolean hasStampSignature = (consultSigProp != null && consultSigProp.getValue() != null && !consultSigProp.getValue().trim().isEmpty());
+                                String signatureProviderNo = providerNo;
+                                if (props.isConsultationFaxEnabled() && CarlosProperties.getInstance().isPropertyActive("consultation_dynamic_labelling_enabled")) {
+                                    if (consultUtil.providerNo != null && !consultUtil.providerNo.trim().isEmpty()) {
+                                        signatureProviderNo = consultUtil.providerNo.trim();
+                                    } else if (referringProviderDefault != null && !referringProviderDefault.trim().isEmpty()) {
+                                        signatureProviderNo = referringProviderDefault.trim();
+                                    }
+                                }
+                                boolean hasStampSignature = false;
+                                try {
+                                    File imageFolder = new File(CarlosProperties.getInstance().getEformImageDirectory());
+                                    File consultSigFile = PathValidationUtils.validatePath(UserProperty.CONSULT_SIGNATURE_PREFIX + signatureProviderNo + ".png", imageFolder);
+                                    hasStampSignature = consultSigFile.isFile();
+                                } catch (SecurityException e) {
+                                    MiscUtils.getLogger().warn("Blocked unexpected consultation signature stamp path for provider {}", signatureProviderNo, e);
+                                }
                         %>
                         <div class="consult-section-heading"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.formSignature"/></div>
                         <div>
@@ -3076,7 +3091,7 @@ if (userAgent != null) {
                                 <% if (hasStampSignature) { %>
                                 <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.altProviderSig" var="providerSigAlt"/>
                                 <div id="signatureShow" style="display: block;">
-                                    <img id="signatureImgTag" src="<%=request.getContextPath()%>/provider/providerSignatureImage"
+                                    <img id="signatureImgTag" src="<%=request.getContextPath()%>/provider/providerSignatureImage?providerNo=<%=SafeEncode.forUriComponent(signatureProviderNo)%>"
                                          alt="${carlos:forHtmlAttribute(providerSigAlt)}" style="max-height:120px;"/>
                                 </div>
                                 <div id="signatureFrame" style="display: none;">
