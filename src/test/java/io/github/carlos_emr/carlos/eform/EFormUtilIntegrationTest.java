@@ -145,6 +145,6 @@ class EFormUtilIntegrationTest extends CarlosTestBase {
         assertThat(forms)
                 .filteredOn(form -> fid.equals(form.get("fid")))
                 .singleElement()
-                .satisfies(form -> assertThat(form.get(EFormUtil.FORM_CREATOR_KEY)).isEqualTo(expectedCreator));
+                .satisfies(form -> assertThat((java.util.Map<String, Object>) form).containsEntry(EFormUtil.FORM_CREATOR_KEY, expectedCreator));
     }
 }
