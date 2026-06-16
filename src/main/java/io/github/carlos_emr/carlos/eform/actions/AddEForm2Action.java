@@ -473,6 +473,10 @@ public class AddEForm2Action extends ActionSupport {
 		DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
 		String demographicLastName = demographicManager.getDemographicFormattedName(loggedInInfo, demographicNo).split(", ")[0];
 
+        return buildPdfFileName(demographicLastName);
+    }
+
+    private String buildPdfFileName(String demographicLastName) {
         Date currentDate = new Date();
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy_MM_dd");
         String formattedDate = dateFormat.format(currentDate);
@@ -480,32 +484,47 @@ public class AddEForm2Action extends ActionSupport {
         return formattedDate + "_" + demographicLastName + ".pdf";
     }
 
+    private String getFallbackPdfFileName() {
+        return buildPdfFileName("eform");
+    }
+
+    private String generatePreviewFileName(LoggedInInfo loggedInInfo, String demographicNo) {
+        try {
+            return generateFileName(loggedInInfo, Integer.parseInt(demographicNo));
+        } catch (RuntimeException e) {
+            logger.warn("Falling back to generic PDF filename for demographic {}", LogSafe.sanitize(demographicNo), e);
+            return getFallbackPdfFileName();
+        }
+    }
+
     String closeWithPdfPreview(LoggedInInfo loggedInInfo, String demographicNo, String fdid) {
-        String pdfBase64;
+        String pdfBase64 = "";
         try {
             Path eFormPdfPath = documentAttachmentManager.renderEFormWithAttachments(request, response);
+            if (eFormPdfPath == null) {
+                throw new PDFGenerationException("eForm PDF preview path was not generated");
+            }
             pdfBase64 = documentAttachmentManager.convertPDFToBase64(eFormPdfPath);
-        } catch (PDFGenerationException e) {
+        } catch (Exception e) {
             setPdfWarning(PDF_PREVIEW_WARNING_MESSAGE, e);
-            pdfBase64 = "";
         }
 
         request.setAttribute("eFormPDF", pdfBase64);
-        request.setAttribute("eFormPDFName", generateFileName(loggedInInfo, Integer.parseInt(demographicNo)));
+        request.setAttribute("eFormPDFName", generatePreviewFileName(loggedInInfo, demographicNo));
         request.setAttribute("isSuccess_Autoclose", "true");
         request.setAttribute("fdid", fdid);
         request.setAttribute("parentAjaxId", "eforms");
         return "close";
     }
 
-    private void setPdfError(String message, PDFGenerationException e) {
-        logger.error(e.getMessage(), e);
-        request.setAttribute("errorMessage", message + " \n\n" + e.getMessage());
+    private void setPdfError(String message, Exception e) {
+        logger.error(message, e);
+        request.setAttribute("errorMessage", message);
     }
 
-    private void setPdfWarning(String message, PDFGenerationException e) {
-        logger.error(e.getMessage(), e);
-        request.setAttribute("warningMessage", message + " \n\n" + e.getMessage());
+    private void setPdfWarning(String message, Exception e) {
+        logger.error(message, e);
+        request.setAttribute("warningMessage", message);
     }
 
     private String getInvalidFilenameMessage() {

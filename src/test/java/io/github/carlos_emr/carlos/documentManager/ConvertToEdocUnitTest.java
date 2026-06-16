@@ -45,4 +45,18 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
 
         assertThat(tidied).contains(image.toAbsolutePath().toString());
     }
+    @Test
+    @DisplayName("should not translate inline background asset paths outside the allowed real path root")
+    void shouldNotTranslateInlineBackgroundAssetPathsOutsideAllowedRealPathRoot() throws Exception {
+        Path tempDir = Files.createTempDirectory("convert-edoc-root");
+        Path externalDir = Files.createTempDirectory("convert-edoc-external");
+        Path externalImage = Files.createFile(externalDir.resolve("outside-stamp.png"));
+
+        String html = "<html><body style=\"background-image:url('" + externalImage.toAbsolutePath() + "')\"><div>x</div></body></html>";
+
+        String tidied = ConvertToEdoc.tidyDocument(html, tempDir.toString());
+
+        assertThat(tidied).contains(externalImage.toAbsolutePath().toString());
+    }
+
 }
