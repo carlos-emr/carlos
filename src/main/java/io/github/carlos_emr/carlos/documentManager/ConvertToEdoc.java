@@ -33,9 +33,11 @@ import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import org.jsoup.Jsoup;
+import org.jsoup.nodes.Comment;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.nodes.Entities;
+import org.jsoup.nodes.Node;
 import org.jsoup.select.Elements;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.email.core.EmailData;
@@ -58,6 +60,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
@@ -103,6 +107,7 @@ public final class ConvertToEdoc {
     private static final String SYSTEM_ID = "-1";
     private static final String DEFAULT_WKHTMLTOPDF_COMMAND = "/usr/bin/wkhtmltopdf";
     private static final String DEFAULT_WKHTMLTOPDF_ARGS = "--enable-local-file-access --minimum-font-size 10 --print-media-type --encoding utf-8 -T 10mm -L 8mm -R 8mm --disable-javascript";
+    private static final Pattern CSS_URL_PATTERN = Pattern.compile("url\\((['\"]?)([^\\\"\")]+)\\1\\)", Pattern.CASE_INSENSITIVE);
     
     private static String realPath;
     private static final NioFileManager nioFileManager = SpringUtils.getBean(NioFileManager.class);
@@ -416,8 +421,9 @@ public final class ConvertToEdoc {
     /**
      * Prepare document for Flying Saucer which requires strict XHTML
      */
-    private static Document prepareDocumentForFlyingSaucer(String document) {
+    static Document prepareDocumentForFlyingSaucer(String document) {
         Document doc = Jsoup.parse(document);
+        normalizeHtmlCommentsForXml(doc);
         
         // Flying Saucer requires XML/XHTML syntax
         doc.outputSettings()
@@ -436,6 +442,19 @@ public final class ConvertToEdoc {
         doc.select("input:not([type])").attr("type", "text");
         
         return doc;
+    }
+
+    private static void normalizeHtmlCommentsForXml(Node root) {
+        for (Node child : root.childNodes()) {
+            if (child instanceof Comment comment) {
+                String normalized = comment.getData().replace("--", "- -");
+                if (normalized.endsWith("-")) {
+                    normalized += " ";
+                }
+                comment.setData(normalized);
+            }
+            normalizeHtmlCommentsForXml(child);
+        }
     }
 
     /**
@@ -551,6 +570,9 @@ public final class ConvertToEdoc {
         Map<List<String>, Element> pathTranslationMap = new HashMap<>();
         translateLinkPaths(document, pathTranslationMap);
         translateImagePaths(document, pathTranslationMap);
+        translateBackgroundAttributes(document);
+        translateInlineStylePaths(document);
+        translateEmbeddedStylesheetPaths(document);
 
         for (Map.Entry<List<String>, Element> pathSet : pathTranslationMap.entrySet()) {
             if (!pathSet.getKey().isEmpty()) {
@@ -592,6 +614,88 @@ public final class ConvertToEdoc {
         translatePaths(imageNodeList, ElementAttribute.src, pathTranslationMap);
     }
 
+    private static void translateBackgroundAttributes(Document document) {
+        for (Element element : document.select("[background]")) {
+            String translatedPath = translateSingleResourcePath(element.attr("background"));
+            if (translatedPath != null) {
+                element.attr("background", translatedPath);
+            }
+        }
+    }
+
+    private static void translateInlineStylePaths(Document document) {
+        for (Element element : document.select("[style]")) {
+            element.attr("style", rewriteCssResourceUrls(element.attr("style")));
+        }
+    }
+
+    private static void translateEmbeddedStylesheetPaths(Document document) {
+        for (Element styleElement : document.getElementsByTag("style")) {
+            styleElement.text(rewriteCssResourceUrls(styleElement.data()));
+        }
+    }
+
+    private static String rewriteCssResourceUrls(String cssText) {
+        if (StringUtils.isBlank(cssText)) {
+            return cssText;
+        }
+
+        Matcher matcher = CSS_URL_PATTERN.matcher(cssText);
+        StringBuffer rewrittenCss = new StringBuffer();
+        while (matcher.find()) {
+            String translatedPath = translateSingleResourcePath(matcher.group(2).trim());
+            String replacement = translatedPath == null
+                    ? matcher.group(0)
+                    : Matcher.quoteReplacement("url('" + translatedPath + "')");
+            matcher.appendReplacement(rewrittenCss, replacement);
+        }
+        matcher.appendTail(rewrittenCss);
+        return rewrittenCss.toString();
+    }
+
+    private static String translateSingleResourcePath(String path) {
+        return validateLink(collectPotentialFilePaths(path));
+    }
+
+    private static List<String> collectPotentialFilePaths(String path) {
+        String parameters = null;
+        String[] parameterList = null;
+        List<String> potentialFilePaths = new ArrayList<>();
+
+        if (StringUtils.isBlank(path)) {
+            return potentialFilePaths;
+        }
+
+        if (path.startsWith("http") || path.startsWith("HTTP")) {
+            return potentialFilePaths;
+        }
+
+        if (path.contains("?")) {
+            parameters = path.split("\\?", 2)[1];
+        } else {
+            String realPath = getRealPath(path);
+            if (!realPath.isEmpty()) {
+                potentialFilePaths.add(realPath);
+            }
+        }
+
+        if (parameters != null && parameters.contains("&")) {
+            parameterList = parameters.split("&");
+        }
+
+        if (parameterList != null) {
+            for (String parameter : parameterList) {
+                if (parameter.contains("=")) {
+                    potentialFilePaths.add(buildImageDirectoryPath(parameter.split("=", 2)[1]));
+                }
+            }
+        } else if (parameters != null && parameters.contains("=")) {
+            potentialFilePaths.add(buildImageDirectoryPath(parameters.split("=", 2)[1]));
+        }
+
+        return potentialFilePaths;
+    }
+
     /**
      * Translate any given Link or Image element resource path from
      * a Struts HTTP request parameter or HTTP relative context path.
@@ -611,9 +715,6 @@ public final class ConvertToEdoc {
             }
 
             String path = element.attributes().get(pathAttribute.name());
-            String parameters = null;
-            String[] parameterList = null;
-            List<String> potentialFilePaths = new ArrayList<>();
 
             /*
              * NO EXTERNAL LINKS. These are removed.
@@ -623,39 +724,10 @@ public final class ConvertToEdoc {
              */
             if (path.startsWith("http") || path.startsWith("HTTP")) {
                 element.remove();
+                continue;
             }
 
-            // internal GET links are validated.
-            else if (path.contains("?")) {
-                // image or link paths with parameters
-                parameters = path.split("\\?")[1];
-            } else if (!path.isEmpty()) {
-                // these are most likely relative context paths
-                path = getRealPath(path);
-                if (!path.isEmpty()) {
-                    potentialFilePaths.add(path);
-                }
-            }
-
-            /* parse the parameters and test if any are links to the eForm
-             * images library. Otherwise, these resources are no good.
-             */
-            if (parameters != null && parameters.contains("&")) {
-                parameterList = parameters.split("&");
-            }
-
-            if (parameterList != null) {
-                for (String parameter : parameterList) {
-                    if (parameter.contains("=")) {
-                        // these are file names that need a path.
-                        path = buildImageDirectoryPath(parameter.split("=")[1]);
-                        potentialFilePaths.add(path);
-                    }
-                }
-            } else if (parameters != null && parameters.contains("=")) {
-                path = buildImageDirectoryPath(parameters.split("=")[1]);
-                potentialFilePaths.add(path);
-            }
+            List<String> potentialFilePaths = collectPotentialFilePaths(path);
 
             if (!potentialFilePaths.isEmpty()) {
                 pathTranslationMap.put(potentialFilePaths, element);
@@ -839,7 +911,7 @@ public final class ConvertToEdoc {
      * Clean up any artifacts or poorly formed XHTML
      * and fetch the HTML template resources.
      */
-    private static String tidyDocument(final String documentString) {
+    static String tidyDocument(final String documentString) {
         Document document = getDocument(documentString);
 
         /*
@@ -856,6 +928,11 @@ public final class ConvertToEdoc {
          * for some strange reason.
          */
         return documentToString(document);
+    }
+
+    static String tidyDocument(final String documentString, String realPath) {
+        ConvertToEdoc.realPath = realPath;
+        return tidyDocument(documentString);
     }
 
     /**

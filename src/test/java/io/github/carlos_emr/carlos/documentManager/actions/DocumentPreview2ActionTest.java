@@ -336,4 +336,19 @@ class DocumentPreview2ActionTest extends CarlosUnitTestBase {
         assertThat(response.getContentAsString()).contains("Invalid eDocId");
         verify(mockDocumentAttachmentManager, never()).renderDocument(eq(mockLoggedInInfo), eq(DocumentType.DOC), any());
     }
+    @Test
+    @DisplayName("should return error json when render eform pdf generation fails")
+    void shouldReturnErrorJson_whenRenderEformPdfGenerationFails() throws Exception {
+        request.setParameter("method", "renderEFormPDF");
+        request.setParameter("eFormId", "42");
+
+        when(mockDocumentAttachmentManager.renderDocument(mockLoggedInInfo, DocumentType.EFORM, 42))
+                .thenThrow(new io.github.carlos_emr.carlos.utility.PDFGenerationException("render failed"));
+
+        String result = action.execute();
+
+        assertThat(result).isNull();
+        assertThat(response.getContentAsString()).contains("errorMessage").contains("render failed");
+    }
+
 }
