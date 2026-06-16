@@ -4,6 +4,7 @@ import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.documentManager.ConvertToEdoc;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
+import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
@@ -73,7 +74,7 @@ class EformDataManagerImplCreatePdfUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should throw PDFGenerationException when conversion returns null path")
-    void shouldThrowPdfGenerationException_whenConversionReturnsNullPath() {
+    void shouldThrowPdfGenerationExceptionWhenConversionReturnsNullPath() {
         convertToEdocMock.when(() -> ConvertToEdoc.saveAsTempPDF(any(EFormData.class))).thenReturn(null);
 
         assertThatThrownBy(() -> manager.createEformPDF(loggedInInfo, 77))

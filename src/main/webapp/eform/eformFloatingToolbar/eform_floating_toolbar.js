@@ -40,7 +40,7 @@ document.addEventListener("DOMContentLoaded", function(){
 		document.getElementById("isSuccess_Autoclose").value === 'true';
     const warningMessage = document.getElementById("warningMessage") ? document.getElementById("warningMessage").value : "";
     if (warningMessage) {
-        showWarningAlert(warningMessage.replaceAll(String.raw`\n`, "\n"), isSuccessAndAutoclose ? remoteClose : undefined);
+        showWarningAlert(warningMessage.replace(/\\n/g, "\n"), isSuccessAndAutoclose ? remoteClose : undefined);
     } else if (isSuccessAndAutoclose) {
 		showSuccessAlert(remoteClose);
 	}

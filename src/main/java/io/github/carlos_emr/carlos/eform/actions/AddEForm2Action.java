@@ -79,7 +79,6 @@ public class AddEForm2Action extends ActionSupport {
 
     private static final Logger logger = MiscUtils.getLogger();
     private static final String INVALID_FILENAME_MESSAGE_KEY = "dms.error.invalidFilename";
-    private static final String ERROR_ATTRIBUTE = "error";
     private static final String PDF_DOWNLOAD_FAILURE_MESSAGE = "This eForm (and attachments, if applicable) could not be downloaded.";
     private static final String PDF_PREVIEW_WARNING_MESSAGE = "This eForm was saved, but its PDF preview could not be generated.";
 
@@ -126,12 +125,6 @@ public class AddEForm2Action extends ActionSupport {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() {
-
-        String method = request.getMethod();
-        if ("GET".equalsIgnoreCase(method) || "HEAD".equalsIgnoreCase(method)) {
-            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-            return NONE;
-        }
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eform", "w", null)) {
             throw new SecurityException("missing required sec object (_eform)");
@@ -211,7 +204,6 @@ public class AddEForm2Action extends ActionSupport {
         try {
             validatedTemplateFileName = validateTemplateFileName(curForm.getFormFileName());
         } catch (FileValidationException e) {
-            request.setAttribute(ERROR_ATTRIBUTE, "true");
             request.setAttribute("errorMessage", getInvalidFilenameMessage());
             logger.warn("Rejected invalid eForm template filename");
             return ERROR;
@@ -297,10 +289,13 @@ public class AddEForm2Action extends ActionSupport {
             request.setAttribute("fdid", fdid);
             request.setAttribute("demographicId", demographic_no);
 
-            if (saveAsEdoc) {                try {
+            if (saveAsEdoc) {
+                try {
                     documentAttachmentManager.saveEFormAsEDoc(request, response);
                 } catch (PDFGenerationException e) {
-                    setPdfError("This eForm (and attachments, if applicable) could not be added to this patient’s documents.", e);
+                    logger.error(e.getMessage(), e);
+                    String errorMessage = "This eForm (and attachments, if applicable) could not be added to this patient’s documents. \\n\\n" + e.getMessage();
+                    request.setAttribute("errorMessage", errorMessage);
                     return "error";
                 }
             }
@@ -411,10 +406,13 @@ public class AddEForm2Action extends ActionSupport {
                 return NONE;
             }
 
-            if (saveAsEdoc) {                try {
+            if (saveAsEdoc) {
+                try {
                     documentAttachmentManager.saveEFormAsEDoc(request, response);
                 } catch (PDFGenerationException e) {
-                    setPdfError("This eForm (and attachments, if applicable) could not be added to this patient’s documents.", e);
+                    logger.error(e.getMessage(), e);
+                    String errorMessage = "This eForm (and attachments, if applicable) could not be added to this patient’s documents. \\n\\n" + e.getMessage();
+                    request.setAttribute("errorMessage", errorMessage);
                     return "error";
                 }
             }
@@ -475,10 +473,6 @@ public class AddEForm2Action extends ActionSupport {
 		DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
 		String demographicLastName = demographicManager.getDemographicFormattedName(loggedInInfo, demographicNo).split(", ")[0];
 
-        return buildPdfFileName(demographicLastName);
-    }
-
-    private String buildPdfFileName(String demographicLastName) {
         Date currentDate = new Date();
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy_MM_dd");
         String formattedDate = dateFormat.format(currentDate);
@@ -486,48 +480,32 @@ public class AddEForm2Action extends ActionSupport {
         return formattedDate + "_" + demographicLastName + ".pdf";
     }
 
-    private String getFallbackPdfFileName() {
-        return buildPdfFileName("eform");
-    }
-
-    private String generatePreviewFileName(LoggedInInfo loggedInInfo, String demographicNo) {
-        try {
-            return generateFileName(loggedInInfo, Integer.parseInt(demographicNo));
-        } catch (RuntimeException e) {
-            logger.warn("Falling back to generic PDF filename for demographic {}", LogSafe.sanitize(demographicNo), e);
-            return getFallbackPdfFileName();
-        }
-    }
-
     String closeWithPdfPreview(LoggedInInfo loggedInInfo, String demographicNo, String fdid) {
-        String pdfBase64 = "";
+        String pdfBase64;
         try {
             Path eFormPdfPath = documentAttachmentManager.renderEFormWithAttachments(request, response);
-            if (eFormPdfPath == null) {
-                throw new PDFGenerationException("eForm PDF preview path was not generated");
-            }
             pdfBase64 = documentAttachmentManager.convertPDFToBase64(eFormPdfPath);
-        } catch (Exception e) {
+        } catch (PDFGenerationException e) {
             setPdfWarning(PDF_PREVIEW_WARNING_MESSAGE, e);
+            pdfBase64 = "";
         }
 
         request.setAttribute("eFormPDF", pdfBase64);
-        request.setAttribute("eFormPDFName", generatePreviewFileName(loggedInInfo, demographicNo));
+        request.setAttribute("eFormPDFName", generateFileName(loggedInInfo, Integer.parseInt(demographicNo)));
         request.setAttribute("isSuccess_Autoclose", "true");
         request.setAttribute("fdid", fdid);
         request.setAttribute("parentAjaxId", "eforms");
         return "close";
     }
 
-    private void setPdfError(String message, Exception e) {
-        logger.error(message, e);
-        request.setAttribute(ERROR_ATTRIBUTE, "true");
-        request.setAttribute("errorMessage", message);
+    private void setPdfError(String message, PDFGenerationException e) {
+        logger.error(e.getMessage(), e);
+        request.setAttribute("errorMessage", message + " \n\n" + e.getMessage());
     }
 
-    private void setPdfWarning(String message, Exception e) {
-        logger.warn(message, e);
-        request.setAttribute("warningMessage", message);
+    private void setPdfWarning(String message, PDFGenerationException e) {
+        logger.error(e.getMessage(), e);
+        request.setAttribute("warningMessage", message + " \n\n" + e.getMessage());
     }
 
     private String getInvalidFilenameMessage() {
