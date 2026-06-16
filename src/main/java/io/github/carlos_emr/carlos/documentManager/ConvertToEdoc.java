@@ -452,12 +452,7 @@ public final class ConvertToEdoc {
 
         for (Node child : root.childNodes()) {
             if (child instanceof Comment comment) {
-                String commentData = comment.getData();
-                if (commentData == null) {
-                    continue;
-                }
-
-                String normalized = commentData.replace("--", "- -");
+                String normalized = comment.getData().replace("--", "- -");
                 if (normalized.endsWith("-")) {
                     normalized += " ";
                 }
@@ -640,7 +635,7 @@ public final class ConvertToEdoc {
     }
 
     private static void translateEmbeddedStylesheetPaths(Document document) {
-        for (Element styleElement : document.getElementsByTag("style")) {
+        for (Element styleElement : document.getElementsByTag(STYLE_ATTRIBUTE)) {
             styleElement.text(rewriteCssResourceUrls(styleElement.data()));
         }
     }

@@ -47,7 +47,7 @@ class AddEForm2ActionPdfWarningTest extends CarlosUnitTestBase {
     private MockHttpServletResponse response;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         mocks = MockitoAnnotations.openMocks(this);
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(EformDataManager.class, eformDataManager);
