@@ -75,9 +75,11 @@ public final class ViewDocumentReportRead2Action extends ViewDocumentRead2Action
             return validateOptionalNonNegativeInteger(request.getParameter("appointmentNo"), "appointmentNo", response);
         }
 
-        if (!"demographic".equalsIgnoreCase(function)
-                && !"provider".equalsIgnoreCase(function)
-                && !"providers".equalsIgnoreCase(function)) {
+        String fn = function.toLowerCase(Locale.ROOT);
+
+        if (!"demographic".equals(fn)
+                && !"provider".equals(fn) 
+                && !"providers".equals(fn)) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "invalid function");
             return false;
         }
@@ -92,7 +94,7 @@ public final class ViewDocumentReportRead2Action extends ViewDocumentRead2Action
             return false;
         }
 
-        if ("demographic".equalsIgnoreCase(function) && !sim.isAllowedAccessToPatientRecord(loggedInInfo, functionId)) {
+        if ("demographic".equals(fn) && !sim.isAllowedAccessToPatientRecord(loggedInInfo, functionId)) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN, "unauthorized access to patient record");
             return false;
         }
