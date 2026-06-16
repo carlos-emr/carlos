@@ -41,6 +41,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -83,12 +84,11 @@ class DelEForm2ActionTest extends CarlosWebTestBase {
     @DisplayName("should delete any eForm when admin has _eform delete privilege")
     void shouldDeleteAnyEForm_whenAdminHasDeletePrivilege() throws Exception {
         allowPrivilege("_eform", SecurityInfoManager.DELETE);
-        // form owned by someone else — admin should still be able to delete it
-        when(mockEFormDao.findById(42)).thenReturn(eformWithCreator(OTHER_PROVIDER));
 
         try (MockedStatic<EFormUtil> eformUtils = mockStatic(EFormUtil.class)) {
             String result = action.execute();
             assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+            verifyNoInteractions(mockEFormDao);
             eformUtils.verify(() -> EFormUtil.delEForm(FID));
         }
     }
@@ -129,6 +129,28 @@ class DelEForm2ActionTest extends CarlosWebTestBase {
     }
 
     @Test
+    @DisplayName("should reject delete when eForm creator is blank")
+    void shouldRejectDelete_whenFormCreatorIsBlank() {
+        allowPrivilege("_eform", SecurityInfoManager.WRITE);
+        when(mockEFormDao.findById(42)).thenReturn(eformWithCreator("   "));
+
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("missing required sec object (_eform)");
+    }
+
+    @Test
+    @DisplayName("should reject delete when provider can write but eForm does not exist")
+    void shouldRejectDelete_whenDoctorTargetsMissingEForm() {
+        allowPrivilege("_eform", SecurityInfoManager.WRITE);
+        when(mockEFormDao.findById(42)).thenReturn(null);
+
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("missing required sec object (_eform)");
+    }
+
+    @Test
     @DisplayName("should reject delete when provider has no eForm privilege at all")
     void shouldRejectDelete_whenProviderHasNoEFormPrivilege() {
         assertThatThrownBy(() -> action.execute())
@@ -145,7 +167,7 @@ class DelEForm2ActionTest extends CarlosWebTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(mockResponse.getStatus()).isEqualTo(jakarta.servlet.http.HttpServletResponse.SC_BAD_REQUEST);
-        org.mockito.Mockito.verifyNoInteractions(mockEFormDao);
+        verifyNoInteractions(mockEFormDao);
     }
 
     @Test
@@ -157,7 +179,7 @@ class DelEForm2ActionTest extends CarlosWebTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(mockResponse.getStatus()).isEqualTo(jakarta.servlet.http.HttpServletResponse.SC_BAD_REQUEST);
-        org.mockito.Mockito.verifyNoInteractions(mockEFormDao);
+        verifyNoInteractions(mockEFormDao);
     }
 
     @Test
@@ -169,7 +191,7 @@ class DelEForm2ActionTest extends CarlosWebTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(mockResponse.getStatus()).isEqualTo(jakarta.servlet.http.HttpServletResponse.SC_BAD_REQUEST);
-        org.mockito.Mockito.verifyNoInteractions(mockEFormDao);
+        verifyNoInteractions(mockEFormDao);
     }
 
     @Test
@@ -181,7 +203,19 @@ class DelEForm2ActionTest extends CarlosWebTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(mockResponse.getStatus()).isEqualTo(jakarta.servlet.http.HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-        org.mockito.Mockito.verifyNoInteractions(mockEFormDao);
+        verifyNoInteractions(mockEFormDao);
+    }
+
+    @Test
+    @DisplayName("should reject HEAD with 405 and no mutation side-effects")
+    void shouldReturn405_whenMethodIsHead() throws Exception {
+        mockRequest.setMethod("HEAD");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(jakarta.servlet.http.HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        verifyNoInteractions(mockEFormDao);
     }
 
     private EForm eformWithCreator(String creatorProviderNo) {
