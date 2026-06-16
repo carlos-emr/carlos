@@ -171,7 +171,8 @@ class ScheduleNavigationAssetRegressionTest {
                 .contains("<%@ include file=\"messengerScheduleNav.jspf\" %>")
                 .contains("<jsp:include page=\"/WEB-INF/jsp/provider/mainMenu.jsp\"/>")
                 .contains("DisplayMessages<%=scheduleNavFirstQuerySuffix%>")
-                .contains("DisplayMessages?boxType=1<%=scheduleNavQuerySuffix%>");
+                .contains("DisplayMessages?boxType=1<%=scheduleNavQuerySuffix%>")
+                .contains("ViewCreateMessage<%=scheduleNavFirstQuerySuffix%>");
         assertThat(createMessage)
                 .contains("<%@ include file=\"messengerScheduleNav.jspf\" %>")
                 .contains("<jsp:include page=\"/WEB-INF/jsp/provider/mainMenu.jsp\"/>")

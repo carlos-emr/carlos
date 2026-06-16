@@ -388,7 +388,7 @@ function fmtOscarMsg() {
 								<table class=messButtonsA>
 									<tr>
 										<td class="messengerButtonsA">
-                                            <a href="${pageContext.request.contextPath}/messenger/ViewCreateMessage"
+                                            <a href="${pageContext.request.contextPath}/messenger/ViewCreateMessage<%=scheduleNavFirstQuerySuffix%>"
                                                 class="btn btn-outline-secondary">
                                                 <fmt:message key="messenger.ViewMessage.btnCompose"/>
                                             </a>
