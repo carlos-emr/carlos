@@ -9,6 +9,8 @@
 package io.github.carlos_emr.carlos.util;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.jsp.JspWriter;
+import jakarta.servlet.jsp.PageContext;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -17,6 +19,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @Tag("unit")
@@ -89,5 +92,25 @@ class FullPathReWriteUnitTest {
 
         assertThat(FullPathReWrite.buildRelativeUrl(request, null))
                 .isEqualTo("/carlos/documentManager/");
+    }
+
+    @Test
+    @DisplayName("should encode relative URL when rendering tag")
+    void shouldEncodeUrl_whenRenderingTag() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET",
+                "/carlos/documentManager/documentReport.jsp");
+        PageContext pageContext = mock(PageContext.class);
+        JspWriter writer = mock(JspWriter.class);
+        when(pageContext.getRequest()).thenReturn(request);
+        when(pageContext.getOut()).thenReturn(writer);
+        FullPathReWrite tag = new FullPathReWrite();
+        tag.setPageContext(pageContext);
+        tag.setJspPage("combinePDFs?name=<script>");
+
+        int result = tag.doStartTag();
+
+        assertThat(result).isEqualTo(jakarta.servlet.jsp.tagext.Tag.EVAL_BODY_INCLUDE);
+        verify(writer).write("/carlos/documentManager/combinePDFs?name=&lt;script&gt;");
+        verify(writer).flush();
     }
 }
