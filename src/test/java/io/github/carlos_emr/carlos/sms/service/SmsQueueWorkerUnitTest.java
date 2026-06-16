@@ -464,6 +464,7 @@ class SmsQueueWorkerUnitTest {
             Field idField = SmsTransaction.class.getDeclaredField("id");
             idField.setAccessible(true);
             idField.set(transaction, id);
+            transaction.assignClientReferenceId(SmsTransaction.clientReferenceIdFor(id));
         } catch (ReflectiveOperationException e) {
             throw new AssertionError("Unable to assign SMS transaction id for test", e);
         }

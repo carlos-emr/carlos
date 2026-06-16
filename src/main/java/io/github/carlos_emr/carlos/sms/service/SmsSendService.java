@@ -81,10 +81,9 @@ public class SmsSendService {
     }
 
     private String clientReferenceId(SmsTransaction transaction) {
-        Long transactionId = Objects.requireNonNull(
-                transaction.getId(),
-                "sms_transaction id is required before SMS provider send"
+        return Objects.requireNonNull(
+                transaction.providerClientReferenceId(),
+                "sms_transaction client reference id is required before SMS provider send"
         );
-        return "sms-transaction-" + transactionId;
     }
 }

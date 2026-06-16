@@ -13,13 +13,19 @@ import io.github.carlos_emr.carlos.sms.event.SmsSendFailedEvent;
 import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Consumer;
 
 @Service
@@ -27,13 +33,28 @@ public class JpaSmsTransactionRecorder implements SmsTransactionRecorder {
     private static final Logger LOGGER = MiscUtils.getLogger();
     private static final String TRANSACTION_REQUIRED_MESSAGE = "transaction is required";
     private static final String WEBHOOK_REQUIRED_MESSAGE = "webhook is required";
+    private static final String PROVIDER_MESSAGE_UNIQUE_CONSTRAINT = "sms_transaction_provider_message_uidx";
 
     private final SmsTransactionDao smsTransactionDao;
     private final ApplicationEventPublisher eventPublisher;
+    private final TransactionTemplate inboundWriteTransaction;
 
-    public JpaSmsTransactionRecorder(SmsTransactionDao smsTransactionDao, ApplicationEventPublisher eventPublisher) {
+    @Autowired
+    public JpaSmsTransactionRecorder(
+            SmsTransactionDao smsTransactionDao,
+            ApplicationEventPublisher eventPublisher,
+            PlatformTransactionManager transactionManager
+    ) {
         this.smsTransactionDao = smsTransactionDao;
         this.eventPublisher = eventPublisher;
+        this.inboundWriteTransaction = new TransactionTemplate(transactionManager);
+        this.inboundWriteTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+    }
+
+    JpaSmsTransactionRecorder(SmsTransactionDao smsTransactionDao, ApplicationEventPublisher eventPublisher) {
+        this.smsTransactionDao = smsTransactionDao;
+        this.eventPublisher = eventPublisher;
+        this.inboundWriteTransaction = null;
     }
 
     @Override
@@ -43,6 +64,10 @@ public class JpaSmsTransactionRecorder implements SmsTransactionRecorder {
         SmsTransaction transaction = SmsTransaction.outboundAttempt(command, providerType);
         smsTransactionDao.persist(transaction);
         smsTransactionDao.flush();
+        if (transaction.getId() != null) {
+            transaction.assignClientReferenceId(SmsTransaction.clientReferenceIdFor(transaction.getId()));
+            smsTransactionDao.flush();
+        }
         return transaction;
     }
 
@@ -104,23 +129,39 @@ public class JpaSmsTransactionRecorder implements SmsTransactionRecorder {
     }
 
     @Override
-    @Transactional
     public SmsTransaction recordInboundMessage(SmsInboundWebhookDto webhook) {
         Objects.requireNonNull(webhook, WEBHOOK_REQUIRED_MESSAGE);
+        if (inboundWriteTransaction == null) {
+            return recordInboundMessageInCurrentTransaction(webhook);
+        }
+
+        SmsProviderType providerType = webhook.providerType() == null ? SmsProviderType.STUB : webhook.providerType();
+        String providerMessageId = requireProviderMessageId(webhook.providerMessageId(), "inbound webhooks");
+        try {
+            return Objects.requireNonNull(inboundWriteTransaction.execute(
+                    status -> recordInboundMessageInCurrentTransaction(webhook)
+            ));
+        } catch (RuntimeException e) {
+            if (!isProviderMessageDuplicate(e)) {
+                throw e;
+            }
+            return Objects.requireNonNull(inboundWriteTransaction.execute(status -> findInboundMessage(
+                    providerType,
+                    providerMessageId
+            ).orElseThrow(() -> e)));
+        }
+    }
+
+    private SmsTransaction recordInboundMessageInCurrentTransaction(SmsInboundWebhookDto webhook) {
         // SMS providers deliver webhooks at least once, so a redelivered inbound message must be
         // idempotent. An existing inbound row for the same (provider, providerMessageId) is returned
         // unchanged instead of persisting a duplicate, which would otherwise violate the
         // (provider_type, provider_message_id) unique key and fail the retried callback.
         SmsProviderType providerType = webhook.providerType() == null ? SmsProviderType.STUB : webhook.providerType();
-        String providerMessageId = webhook.providerMessageId();
-        if (providerMessageId != null && !providerMessageId.isBlank()) {
-            SmsTransaction existing = smsTransactionDao
-                    .findByProviderMessageId(providerType, providerMessageId)
-                    .filter(found -> found.getDirection() == SmsDirection.INBOUND)
-                    .orElse(null);
-            if (existing != null) {
-                return existing;
-            }
+        String providerMessageId = requireProviderMessageId(webhook.providerMessageId(), "inbound webhooks");
+        SmsTransaction existing = findInboundMessage(providerType, providerMessageId).orElse(null);
+        if (existing != null) {
+            return existing;
         }
         SmsTransaction transaction = SmsTransaction.inboundMessage(webhook);
         smsTransactionDao.persist(transaction);
@@ -132,13 +173,13 @@ public class JpaSmsTransactionRecorder implements SmsTransactionRecorder {
     @Transactional
     public SmsTransaction recordDeliveryEvent(SmsDeliveryWebhookDto webhook) {
         Objects.requireNonNull(webhook, WEBHOOK_REQUIRED_MESSAGE);
-        if (webhook.providerMessageId() == null || webhook.providerMessageId().isBlank()) {
-            throw new IllegalArgumentException("providerMessageId is required for delivery webhooks");
+        if (isBlank(webhook.providerMessageId()) && isBlank(webhook.clientReferenceId())) {
+            throw new IllegalArgumentException(
+                    "providerMessageId or clientReferenceId is required for delivery webhooks"
+            );
         }
         SmsProviderType providerType = webhook.providerType() == null ? SmsProviderType.STUB : webhook.providerType();
-        SmsTransaction transaction = smsTransactionDao
-                .findByProviderMessageId(providerType, webhook.providerMessageId())
-                .orElse(null);
+        SmsTransaction transaction = findDeliveryTarget(providerType, webhook).orElse(null);
         if (transaction == null) {
             transaction = SmsTransaction.deliveryEvent(webhook);
             smsTransactionDao.persist(transaction);
@@ -148,6 +189,28 @@ public class JpaSmsTransactionRecorder implements SmsTransactionRecorder {
             smsTransactionDao.merge(transaction);
         }
         return transaction;
+    }
+
+    private Optional<SmsTransaction> findInboundMessage(SmsProviderType providerType, String providerMessageId) {
+        return smsTransactionDao
+                .findByProviderMessageId(providerType, providerMessageId)
+                .filter(found -> found.getDirection() == SmsDirection.INBOUND);
+    }
+
+    private Optional<SmsTransaction> findDeliveryTarget(SmsProviderType providerType, SmsDeliveryWebhookDto webhook) {
+        if (!isBlank(webhook.clientReferenceId())) {
+            Optional<SmsTransaction> byClientReference = smsTransactionDao.findByClientReferenceId(
+                    providerType,
+                    webhook.clientReferenceId()
+            );
+            if (byClientReference.isPresent()) {
+                return byClientReference;
+            }
+        }
+        if (isBlank(webhook.providerMessageId())) {
+            return Optional.empty();
+        }
+        return smsTransactionDao.findByProviderMessageId(providerType, webhook.providerMessageId());
     }
 
     @Override
@@ -234,5 +297,28 @@ public class JpaSmsTransactionRecorder implements SmsTransactionRecorder {
         if (transaction.getStatus() == SmsStatus.FAILED) {
             eventPublisher.publishEvent(SmsSendFailedEvent.from(transaction));
         }
+    }
+
+    private static String requireProviderMessageId(String providerMessageId, String context) {
+        if (isBlank(providerMessageId)) {
+            throw new IllegalArgumentException("providerMessageId is required for " + context);
+        }
+        return providerMessageId;
+    }
+
+    private static boolean isProviderMessageDuplicate(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            String message = current.getMessage();
+            if (message != null && message.toLowerCase(Locale.ROOT).contains(PROVIDER_MESSAGE_UNIQUE_CONSTRAINT)) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 }

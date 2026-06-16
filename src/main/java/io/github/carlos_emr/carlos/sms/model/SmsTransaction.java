@@ -40,18 +40,27 @@ import java.util.TreeMap;
 @Entity
 @Table(
         name = "sms_transaction",
-        // Mirrors sms_transaction_provider_message_uidx in the migration: one row per SMS-provider message id
-        // so retried/redelivered webhooks reconcile onto the existing row instead of duplicating it.
-        uniqueConstraints = @UniqueConstraint(
-                name = "sms_transaction_provider_message_uidx",
-                columnNames = {"provider_type", "provider_message_id"}
-        )
+        uniqueConstraints = {
+                // Mirrors sms_transaction_provider_message_uidx in the migration: one row per SMS-provider message id
+                // so retried/redelivered webhooks reconcile onto the existing row instead of duplicating it.
+                @UniqueConstraint(
+                        name = "sms_transaction_provider_message_uidx",
+                        columnNames = {"provider_type", "provider_message_id"}
+                ),
+                // The CARLOS client reference is known before provider send, so early delivery webhooks can
+                // reconcile to the outbound row even before provider_message_id is written back.
+                @UniqueConstraint(
+                        name = "sms_transaction_client_reference_uidx",
+                        columnNames = {"provider_type", "client_reference_id"}
+                )
+        }
 )
 public class SmsTransaction extends AbstractModel<Long> {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final int MAX_PHONE_LENGTH = 32;
     private static final int MAX_REQUESTED_BY_HEALTHCARE_PROVIDER_NO_LENGTH = 16;
     private static final int MAX_PROVIDER_MESSAGE_ID_LENGTH = 128;
+    private static final int MAX_CLIENT_REFERENCE_ID_LENGTH = 64;
     private static final int MAX_REASON_CODE_LENGTH = 64;
     private static final int MAX_ERROR_MESSAGE_LENGTH = 1024;
     private static final int MAX_CLAIM_TOKEN_LENGTH = 64;
@@ -102,6 +111,9 @@ public class SmsTransaction extends AbstractModel<Long> {
 
     @Column(name = "provider_message_id", length = MAX_PROVIDER_MESSAGE_ID_LENGTH)
     private String providerMessageId;
+
+    @Column(name = "client_reference_id", length = MAX_CLIENT_REFERENCE_ID_LENGTH)
+    private String clientReferenceId;
 
     @Lob
     @Column(name = "message_body", columnDefinition = "TEXT")
@@ -216,14 +228,17 @@ public class SmsTransaction extends AbstractModel<Long> {
 
     public static SmsTransaction deliveryEvent(SmsDeliveryWebhookDto webhook) {
         Objects.requireNonNull(webhook, WEBHOOK_REQUIRED_MESSAGE);
-        if (isBlank(webhook.providerMessageId())) {
-            throw new IllegalArgumentException("providerMessageId is required for delivery webhooks");
+        if (isBlank(webhook.providerMessageId()) && isBlank(webhook.clientReferenceId())) {
+            throw new IllegalArgumentException(
+                    "providerMessageId or clientReferenceId is required for delivery webhooks"
+            );
         }
         SmsTransaction transaction = new SmsTransaction();
         transaction.direction = SmsDirection.OUTBOUND;
         transaction.providerType = webhook.providerType() == null ? SmsProviderType.STUB : webhook.providerType();
         transaction.transactionType = SmsTransactionType.DIRECT;
         transaction.providerMessageId = trimTo(webhook.providerMessageId(), MAX_PROVIDER_MESSAGE_ID_LENGTH);
+        transaction.clientReferenceId = trimTo(webhook.clientReferenceId(), MAX_CLIENT_REFERENCE_ID_LENGTH);
         transaction.markDeliveryEvent(webhook);
         return transaction;
     }
@@ -255,6 +270,11 @@ public class SmsTransaction extends AbstractModel<Long> {
      */
     public void assignClaimToken(String claimToken) {
         this.claimToken = trimTo(claimToken, MAX_CLAIM_TOKEN_LENGTH);
+        touch();
+    }
+
+    public void assignClientReferenceId(String clientReferenceId) {
+        this.clientReferenceId = trimTo(blankToNull(clientReferenceId), MAX_CLIENT_REFERENCE_ID_LENGTH);
         touch();
     }
 
@@ -292,7 +312,10 @@ public class SmsTransaction extends AbstractModel<Long> {
     public void markProviderResult(SmsProviderSendResultDto providerResult) {
         Objects.requireNonNull(providerResult, "providerResult is required");
         status = providerResult.status() == null ? SmsStatus.FAILED : providerResult.status();
-        providerMessageId = trimTo(providerResult.providerMessageId(), MAX_PROVIDER_MESSAGE_ID_LENGTH);
+        String resultProviderMessageId = trimTo(providerResult.providerMessageId(), MAX_PROVIDER_MESSAGE_ID_LENGTH);
+        if (!isBlank(resultProviderMessageId) || isBlank(providerMessageId)) {
+            providerMessageId = resultProviderMessageId;
+        }
         errorCode = trimTo(providerResult.errorCode(), MAX_REASON_CODE_LENGTH);
         errorMessage = trimTo(providerResult.errorMessage(), MAX_ERROR_MESSAGE_LENGTH);
         nextAttemptAt = null;
@@ -327,6 +350,12 @@ public class SmsTransaction extends AbstractModel<Long> {
 
         Date appliedEventAt = webhookEventAt == null ? new Date() : webhookEventAt;
         status = webhookStatus;
+        if (!isBlank(webhook.providerMessageId()) && isBlank(providerMessageId)) {
+            providerMessageId = trimTo(webhook.providerMessageId(), MAX_PROVIDER_MESSAGE_ID_LENGTH);
+        }
+        if (!isBlank(webhook.clientReferenceId()) && isBlank(clientReferenceId)) {
+            clientReferenceId = trimTo(webhook.clientReferenceId(), MAX_CLIENT_REFERENCE_ID_LENGTH);
+        }
         errorCode = trimTo(webhook.errorCode(), MAX_REASON_CODE_LENGTH);
         errorMessage = trimTo(webhook.errorMessage(), MAX_ERROR_MESSAGE_LENGTH);
         String providerMetadataJson = providerMetadataJson(webhook.providerMetadata());
@@ -393,6 +422,10 @@ public class SmsTransaction extends AbstractModel<Long> {
 
     private static boolean isBlank(String value) {
         return value == null || value.isBlank();
+    }
+
+    private static String blankToNull(String value) {
+        return isBlank(value) ? null : value;
     }
 
     private static String trimTo(String value, int maxLength) {
@@ -477,6 +510,25 @@ public class SmsTransaction extends AbstractModel<Long> {
 
     public String getProviderMessageId() {
         return providerMessageId;
+    }
+
+    public String getClientReferenceId() {
+        return clientReferenceId;
+    }
+
+    public String providerClientReferenceId() {
+        if (!isBlank(clientReferenceId)) {
+            return clientReferenceId;
+        }
+        if (id == null) {
+            return null;
+        }
+        return clientReferenceIdFor(id);
+    }
+
+    public static String clientReferenceIdFor(Long transactionId) {
+        Objects.requireNonNull(transactionId, "sms_transaction id is required before SMS provider send");
+        return "sms-transaction-" + transactionId;
     }
 
     /**

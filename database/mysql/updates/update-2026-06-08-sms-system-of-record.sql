@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS sms_transaction (
   to_phone_number VARCHAR(32) NULL,
   recipient_phone_type VARCHAR(16) NULL,
   provider_message_id VARCHAR(128) NULL,
+  client_reference_id VARCHAR(64) NULL,
   message_body TEXT NULL,
   message_body_sha256 CHAR(64) NOT NULL,
   message_body_length INT NOT NULL DEFAULT 0,
@@ -33,6 +34,7 @@ CREATE TABLE IF NOT EXISTS sms_transaction (
   PRIMARY KEY (id),
   KEY sms_transaction_demographic_created_idx (demographic_no, created_at),
   UNIQUE KEY sms_transaction_provider_message_uidx (provider_type, provider_message_id),
+  UNIQUE KEY sms_transaction_client_reference_uidx (provider_type, client_reference_id),
   KEY sms_transaction_queue_idx (direction, provider_type, status, next_attempt_at, created_at),
   KEY sms_transaction_status_updated_idx (status, updated_at),
   KEY sms_transaction_claim_token_idx (claim_token)

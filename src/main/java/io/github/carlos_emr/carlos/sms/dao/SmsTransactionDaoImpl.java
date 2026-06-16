@@ -60,6 +60,23 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public Optional<SmsTransaction> findByClientReferenceId(SmsProviderType providerType, String clientReferenceId) {
+        if (providerType == null || clientReferenceId == null || clientReferenceId.isBlank()) {
+            return Optional.empty();
+        }
+        TypedQuery<SmsTransaction> query = entityManager.createQuery(
+                "SELECT t FROM SmsTransaction t WHERE t.providerType = :providerType "
+                        + "AND t.clientReferenceId = :clientReferenceId ORDER BY t.createdAt DESC",
+                SmsTransaction.class
+        );
+        query.setParameter(PARAM_PROVIDER_TYPE, providerType);
+        query.setParameter("clientReferenceId", clientReferenceId);
+        query.setMaxResults(1);
+        return query.getResultList().stream().findFirst();
+    }
+
+    @Override
     @Transactional
     public List<SmsTransaction> claimDueOutboundQueue(SmsProviderType providerType, Date claimAt, int limit) {
         if (providerType == null || claimAt == null) {
@@ -88,6 +105,7 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
         List<SmsTransaction> due = query.getResultList();
         String claimToken = newClaimToken();
         for (SmsTransaction transaction : due) {
+            ensureClientReferenceId(transaction);
             transaction.markSending(claimAt);
             transaction.assignClaimToken(claimToken);
         }
@@ -125,10 +143,18 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
         List<SmsTransaction> stale = query.getResultList();
         String claimToken = newClaimToken();
         for (SmsTransaction transaction : stale) {
+            ensureClientReferenceId(transaction);
             transaction.markStaleRecoveryStarted(recoveryAt);
             transaction.assignClaimToken(claimToken);
         }
         return stale;
+    }
+
+    private void ensureClientReferenceId(SmsTransaction transaction) {
+        if (transaction.getId() == null || !isBlank(transaction.getClientReferenceId())) {
+            return;
+        }
+        transaction.assignClientReferenceId(SmsTransaction.clientReferenceIdFor(transaction.getId()));
     }
 
     private String newClaimToken() {
@@ -140,5 +166,9 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
             return DEFAULT_LIMIT;
         }
         return Math.min(limit, MAX_LIMIT);
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 }

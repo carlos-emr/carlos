@@ -94,6 +94,48 @@ class SmsTransactionPersistenceIntegrationTest extends CarlosTestBase {
     }
 
     @Test
+    @DisplayName("matches early delivery webhooks by client reference before provider id is recorded")
+    void shouldMatchOutboundRow_whenDeliveryWebhookArrivesBeforeProviderResultIsRecorded() {
+        SmsTransaction outbound = recorder.recordOutboundAttempt(
+                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsProviderType.STUB
+        );
+        String clientReferenceId = outbound.getClientReferenceId();
+        assertThat(clientReferenceId).isEqualTo(SmsTransaction.clientReferenceIdFor(outbound.getId()));
+        entityManager.detach(outbound);
+
+        SmsTransaction delivery = recorder.recordDeliveryEvent(new SmsDeliveryWebhookDto(
+                SmsProviderType.STUB,
+                "provider-early",
+                SmsStatus.DELIVERED,
+                Instant.parse("2026-06-08T12:00:00Z"),
+                null,
+                null,
+                clientReferenceId,
+                null
+        ));
+        entityManager.flush();
+
+        SmsTransaction staleProviderWrite = recorder.markProviderResult(
+                outbound,
+                SmsProviderSendResultDto.accepted("provider-early", SmsStatus.SENT)
+        );
+
+        assertThat(delivery.getId()).isEqualTo(outbound.getId());
+        assertThat(staleProviderWrite.getId()).isEqualTo(outbound.getId());
+        assertThat(staleProviderWrite.getStatus()).isEqualTo(SmsStatus.DELIVERED);
+        Long count = entityManager.createQuery(
+                        "SELECT COUNT(t) FROM SmsTransaction t WHERE t.providerType = :providerType "
+                                + "AND t.providerMessageId = :providerMessageId",
+                        Long.class
+                )
+                .setParameter("providerType", SmsProviderType.STUB)
+                .setParameter("providerMessageId", "provider-early")
+                .getSingleResult();
+        assertThat(count).isEqualTo(1L);
+    }
+
+    @Test
     @DisplayName("rejects a second row with the same SMS-provider message id (unique key)")
     void shouldRejectDuplicate_whenSameProviderMessageId() {
         entityManager.persist(SmsTransaction.deliveryEvent(new SmsDeliveryWebhookDto(
