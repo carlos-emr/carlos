@@ -26,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -104,7 +105,7 @@ class FrmXmlUpload2ActionSecurityUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         assertThat(response.getHeader("Allow")).isEqualTo("POST");
         verify(securityInfoManager, never()).hasPrivilege(
-                any(LoggedInInfo.class), any(String.class), any(String.class), any(String.class));
+                any(LoggedInInfo.class), any(String.class), any(String.class), nullable(String.class));
     }
 
     @Test
@@ -131,7 +132,7 @@ class FrmXmlUpload2ActionSecurityUnitTest extends CarlosUnitTestBase {
         request.setMethod("POST");
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.eform"), eq("w"), isNull()))
                 .thenReturn(true);
-        Path upload = Files.createTempFile(tempDir, "forms", ".zip");
+        Path upload = Files.createFile(tempDir.resolve("admin-eform-forms.zip"));
         UploadedFile uploadedFile = uploadedFile(upload, ".hidden.zip", "application/zip");
 
         FrmXmlUpload2Action action = new FrmXmlUpload2Action();
@@ -151,7 +152,7 @@ class FrmXmlUpload2ActionSecurityUnitTest extends CarlosUnitTestBase {
                 .thenReturn(false);
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin"), eq("w"), isNull()))
                 .thenReturn(true);
-        Path upload = Files.createTempFile(tempDir, "forms", ".zip");
+        Path upload = Files.createFile(tempDir.resolve("admin-forms.zip"));
         UploadedFile uploadedFile = uploadedFile(upload, ".hidden.zip", "application/zip");
 
         FrmXmlUpload2Action action = new FrmXmlUpload2Action();
