@@ -87,9 +87,13 @@ Annotations are saved back to the original file on disk and are embedded in the 
    - **pen** — Ink / freehand drawing
    - **highlighter** — Highlight
    - **fa-signature** — Provider signature stamp
-4. The provider optionally draws a signature in a Bootstrap modal (canvas pad); the PNG is
-   persisted per-provider at `{DOCUMENT_DIR}/signatures/provider_{providerNo}.png` and
-   re-used on subsequent faxes.
+4. The provider's signature stamp is the same one captured under **Provider Preferences**
+   (`ProviderSignatureStamp2Action` / `ProviderSignatureImage2Action`) — the same image already
+   used for consultations, prescriptions, and eForms. If a saved stamp exists, the viewer offers
+   "Use saved signature"; if not (or the provider chooses "Draw new signature"), a Bootstrap
+   modal canvas lets them draw one, which is saved back to Provider Preferences storage
+   (`UserProperty.PROVIDER_CONSULT_SIGNATURE`, file `consult_sig_<providerNo>.png` in the eForm
+   image directory) so it is available everywhere the stamp is used, not just in this viewer.
 5. Clicking **Save & Continue to Fax** POSTs the annotated PDF to `SaveAnnotatedDocument`.
 6. The server overwrites the document file and writes an audit log entry that lists the
    annotation types used (`signed`, `text`, `drawn`, `highlighted`) but **no content**.
@@ -121,6 +125,18 @@ PDF.js's STAMP mode normally opens an OS file picker (`<input type="file">`). To
 drawn canvas PNG instead, a capture-phase `click` listener intercepts the hidden file input,
 sets its `.files` property via `DataTransfer`, and dispatches a synthetic `change` event.
 
+**Signature storage reuses Provider Preferences — no duplicate storage.**
+The fax viewer does not maintain its own signature image or endpoints. It calls the existing
+`/provider/providerSignatureStamp?method=check` (returns `{exists, imageUrl}`) and
+`?method=saveDrawn` (persists a base64 PNG from a canvas) routes, and renders the image via the
+existing `/provider/providerSignatureImage` route — all gated by the existing `_pref r`/`_pref w`
+checks in `ProviderSignatureStamp2Action`/`ProviderSignatureImage2Action`. This keeps a single
+source of truth: a signature saved or updated from the fax viewer is immediately the same
+signature used for consultations, prescriptions, and eForms, and vice versa. (An earlier draft
+of this feature stored a separate copy at `{DOCUMENT_DIR}/signatures/provider_{providerNo}.png`
+via dedicated `GetProviderSignature2Action`/`SaveProviderSignature2Action` classes — that
+duplicate storage was removed in favor of the shared Provider Preferences signature.)
+
 **PHI-safe annotation logging.**
 The client sends only the set of tool-type labels used (`signed`, `text`, `drawn`,
 `highlighted`). `SaveAnnotatedDocument2Action` filters these against a fixed allowlist before
@@ -137,8 +153,14 @@ privilege checks.
 |-------|-------|------|------|
 | `GET  /documentManager/ServeDocument?docId=` | `ServeDocument2Action` | GET | `_edoc r` |
 | `POST /documentManager/SaveAnnotatedDocument` | `SaveAnnotatedDocument2Action` | POST | `_edoc w` |
-| `GET  /fax/ProviderSignature` | `GetProviderSignature2Action` | GET | `_fax r` |
-| `POST /fax/SaveProviderSignature` | `SaveProviderSignature2Action` | POST | `_fax w` |
+
+### Reused routes (pre-existing — Provider Preferences signature stamp)
+
+| Route | Class | HTTP | Auth |
+|-------|-------|------|------|
+| `GET  /provider/providerSignatureStamp?method=check` | `ProviderSignatureStamp2Action` | GET | `_pref r` |
+| `POST /provider/providerSignatureStamp?method=saveDrawn` | `ProviderSignatureStamp2Action` | POST | `_pref w` |
+| `GET  /provider/providerSignatureImage` | `ProviderSignatureImage2Action` | GET | `_pref r` |
 
 ### Updated result keys for FaxDocument2Action
 
@@ -221,22 +243,26 @@ src/main/webapp/WEB-INF/classes/
   struts-document.xml                                (+FaxDocument annotate result,
                                                       +documentManager/ServeDocument,
                                                       +documentManager/SaveAnnotatedDocument)
-  struts-provider.xml                                (+fax/ProviderSignature,
-                                                      +fax/SaveProviderSignature)
 
 src/main/java/io/github/carlos_emr/carlos/documentManager/actions/
   FaxDocument2Action.java                            (+faxReady branch → annotate vs preview)
   ServeDocument2Action.java                          (NEW — streams PDF for PDF.js)
   SaveAnnotatedDocument2Action.java                  (NEW — persists annotated PDF, audit log)
 
-src/main/java/io/github/carlos_emr/carlos/fax/action/
-  GetProviderSignature2Action.java                   (NEW — serves provider signature PNG)
-  SaveProviderSignature2Action.java                  (NEW — persists provider signature PNG)
-
 src/main/webapp/WEB-INF/jsp/fax/
-  FaxAnnotateViewer.jsp                              (NEW — PDF.js annotation viewer)
+  FaxAnnotateViewer.jsp                              (NEW — PDF.js annotation viewer; signature
+                                                      check/save/render calls the existing
+                                                      Provider Preferences signature-stamp routes,
+                                                      no new signature storage added)
 
 src/test/java/io/github/carlos_emr/carlos/app/contract/
-  MutatorActionGetRejectionContractTest.java         (+SaveAnnotatedDocument2Action,
-                                                      +SaveProviderSignature2Action)
+  MutatorActionGetRejectionContractTest.java         (+SaveAnnotatedDocument2Action)
 ```
+
+> **Note:** an earlier draft of Phase 2 added dedicated `fax/ProviderSignature` (GET) and
+> `fax/SaveProviderSignature` (POST) routes backed by `GetProviderSignature2Action`/
+> `SaveProviderSignature2Action`, storing a separate PNG at
+> `{DOCUMENT_DIR}/signatures/provider_{providerNo}.png`. That duplicate storage was removed —
+> the fax viewer now reads/writes the same signature stamp used by Provider Preferences
+> (`ProviderSignatureStamp2Action` / `ProviderSignatureImage2Action`,
+> `UserProperty.PROVIDER_CONSULT_SIGNATURE`).

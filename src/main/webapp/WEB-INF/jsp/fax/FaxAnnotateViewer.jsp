@@ -214,7 +214,7 @@
       </div>
       <div class="modal-body">
         <div id="sigExistingSection" style="display:none" class="mb-3">
-            <p class="small text-muted mb-1">Saved signature:</p>
+            <p class="small text-muted mb-1">Your saved signature (from Provider Preferences):</p>
             <img id="signaturePreview" alt="Saved signature" class="mb-2"/>
             <div class="d-flex gap-2">
                 <button class="btn btn-sm btn-outline-primary" onclick="useExistingSignature()">
@@ -226,7 +226,10 @@
             </div>
         </div>
         <div id="sigDrawSection">
-            <p class="small text-muted mb-1">Draw your signature below:</p>
+            <p class="small text-muted mb-1">
+                Draw your signature below. Saving here updates your signature in
+                Provider Preferences and will be used wherever your signature stamp appears.
+            </p>
             <canvas id="signatureCanvas" width="700" height="160"></canvas>
             <div class="mt-2 d-flex gap-2">
                 <button class="btn btn-sm btn-outline-secondary" onclick="clearSignaturePad()">
@@ -397,11 +400,15 @@ window.openSignatureModal = async function() {
         signatureModal = new bootstrap.Modal(document.getElementById('signatureModal'));
     }
 
-    // Check for an existing saved signature
+    // Check for the provider's existing signature stamp (Administration > Provider
+    // Preferences > Signature). This is the single source of truth for the provider's
+    // signature image — the fax viewer never maintains its own copy.
     try {
-        const res = await fetch(CTX + '/fax/ProviderSignature');
-        if (res.ok) {
-            const blob = await res.blob();
+        const checkRes  = await fetch(CTX + '/provider/providerSignatureStamp?method=check');
+        const checkJson = await checkRes.json();
+        if (checkRes.ok && checkJson.exists && checkJson.imageUrl) {
+            const imgRes = await fetch(checkJson.imageUrl);
+            const blob   = await imgRes.blob();
             existingSignatureDataUrl = URL.createObjectURL(blob);
             const preview = document.getElementById('signaturePreview');
             preview.src = existingSignatureDataUrl;
@@ -443,19 +450,28 @@ window.useExistingSignature = async function() {
 };
 
 window.applySignature = async function() {
-    const canvas = document.getElementById('signatureCanvas');
+    const canvas  = document.getElementById('signatureCanvas');
     const dataUrl = canvas.toDataURL('image/png');
     CSRF_TOKEN = document.querySelector('input[name="CSRF-TOKEN"]')?.value ?? '';
-    // Save signature for future use
+
+    // Persist as the provider's signature stamp (same storage used by Provider
+    // Preferences for consultations/prescriptions/eForms) so it's available
+    // everywhere, not just in this fax viewer.
     try {
-        await fetch(CTX + '/fax/SaveProviderSignature', {
-            method: 'POST',
+        const body = new URLSearchParams();
+        body.set('signatureData', dataUrl);
+        const res = await fetch(CTX + '/provider/providerSignatureStamp?method=saveDrawn', {
+            method:  'POST',
             headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/x-www-form-urlencoded',
                 'CSRF-TOKEN':   CSRF_TOKEN,
             },
-            body: JSON.stringify({ signatureData: dataUrl }),
+            body: body.toString(),
         });
+        const result = await res.json();
+        if (!result.success) {
+            console.warn('Could not persist signature:', result.error);
+        }
     } catch (e) {
         console.warn('Could not persist signature:', e);
     }
