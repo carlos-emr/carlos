@@ -3,6 +3,15 @@ package io.github.carlos_emr.carlos.sms.support;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
+/**
+ * Normalizes recipient phone numbers to {@code +E.164}.
+ * <p>
+ * NANP-biased: when no country code is given (no leading {@code +}), the default country code is
+ * {@code 1} and only 10-digit or {@code 1}-prefixed 11-digit numbers are accepted; other lengths are
+ * rejected rather than guessed. International numbers are only accepted when supplied in {@code +E.164}
+ * form (or with an explicit non-{@code 1} default country code). This matches the Canadian clinic
+ * deployment; revisit the default country code if international SMS is ever required.
+ */
 public final class SmsPhoneNumbers {
     private static final int MIN_E164_DIGITS = 8;
     private static final int MAX_E164_DIGITS = 15;
