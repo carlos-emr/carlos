@@ -35,10 +35,10 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import org.owasp.encoder.Encode.forHtml;
 
 import java.io.File;
 import java.io.PrintWriter;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -181,6 +181,17 @@ public class SaveAnnotatedDocument2Action extends ActionSupport {
              sendJsonError(response, "Invalid uploaded file path");
              return NONE;
         }
+
+        // Resolve and validate the existing document file before overwriting it
+        Path targetPath = Paths.get(doc.getFilePath());
+        try {
+            PathValidationUtils.validateExistingPath(targetPath.toFile(), targetPath.getParent().toFile());
+        } catch (SecurityException e) {
+            logger.error("Path traversal attempt for docId={}", docId);
+            sendJsonError(response, "Invalid document path");
+            return NONE;
+        }
+
         // Overwrite the document file with the annotated version
         try {
             Files.copy(uploadedPath, targetPath, StandardCopyOption.REPLACE_EXISTING);
@@ -223,7 +234,8 @@ public class SaveAnnotatedDocument2Action extends ActionSupport {
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
         try (PrintWriter w = response.getWriter()) {
-            w.write("{\"success\":true,\"docId\":" + Encode.forHtml(docId) + "}");
+            // docId was already parsed as an int above, so it is inherently safe to embed
+            w.write("{\"success\":true,\"docId\":" + docId + "}");
         }
         return NONE;
     }

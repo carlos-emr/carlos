@@ -89,7 +89,7 @@ public class FaxRecipientSearch2Action extends ActionSupport {
 
         String term = StringUtils.trimToEmpty(request.getParameter("term"));
         if (term.length() < 2) {
-            JSONUtil.jsonResponse(response, objectMapper.createArrayNode());
+            JSONUtil.jsonResponse(response, objectMapper.createArrayNode().toString());
             return NONE;
         }
 
@@ -97,7 +97,7 @@ public class FaxRecipientSearch2Action extends ActionSupport {
         addSpecialistResults(term, results);
         addPharmacyResults(term, results);
 
-        JSONUtil.jsonResponse(response, results);
+        JSONUtil.jsonResponse(response, results.toString());
         return NONE;
     }
 
