@@ -33,7 +33,6 @@
 
 <%@page import="java.nio.charset.StandardCharsets" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="org.owasp.encoder.Encode" %>
 <% long loadPage = System.currentTimeMillis(); %>
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
@@ -535,7 +534,7 @@
             <tr>
                 <td>
                     <a href="javascript:void(0)"
-                       onClick="popupPage('<%=bsurl%>/documentManager/ViewDocumentReport?function=demographic&doctype=lab&functionid=<%=Encode.forUriComponent(bean.demographicNo)%>');return false;">documents</a><br>
+                       onClick="popupPage('<%=bsurl%>/documentManager/ViewDocumentReport?function=demographic&doctype=lab&functionid=<carlos:encode value='<%= bean.demographicNo %>' context="uriComponent"/>');return false;">documents</a><br>
                 </td>
             </tr>
 

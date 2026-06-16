@@ -93,7 +93,7 @@ class JspJavaScriptEncodingRegressionTest {
     }
 
     @Test
-    void shouldDeriveDocumentReportCurrentUserFromSessionAndGuardOpenerRefresh() throws Exception {
+    void shouldDeriveDocumentReportCurrentUserFromSession_andGuardOpenerRefresh() throws Exception {
         String addDocumentJsp = readJsp("documentManager/addDocument.jsp");
         String documentReportJsp = readJsp("documentManager/documentReport.jsp");
 

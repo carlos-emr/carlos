@@ -38,7 +38,7 @@ import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil.EDocSort;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import org.owasp.encoder.Encode;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
@@ -81,7 +81,7 @@ public class EctDisplayDocs2Action extends EctDisplayAction {
                 Dao.setLeftHeading(getText("encounter.Index.inboxManager"));
             } else {
                 leftPath = request.getContextPath() + "/documentManager/ViewDocumentReport?"
-                        + "function=demographic&doctype=lab&functionid=" + Encode.forUriComponent(bean.demographicNo);
+                        + "function=demographic&doctype=lab&functionid=" + SafeEncode.forUriComponent(bean.demographicNo);
                 Dao.setLeftPopup(500, 1115, winName, leftPath);
             }
 
@@ -92,8 +92,8 @@ public class EctDisplayDocs2Action extends EctDisplayAction {
                 Dao.setRightPopup(300, 600, winName, request.getContextPath() + "/mod/docmgmtComp/FileUpload?method=newupload&demographic_no=" + bean.demographicNo);
             } else {
                 Dao.setRightPopup(500, 1115, winName, request.getContextPath() + "/documentManager/ViewDocumentReport?"
-                        + "function=demographic&doctype=lab&functionid=" + Encode.forUriComponent(bean.demographicNo)
-                        + "&mode=add&parentAjaxId=" + Encode.forUriComponent(cmd));
+                        + "function=demographic&doctype=lab&functionid=" + SafeEncode.forUriComponent(bean.demographicNo)
+                        + "&mode=add&parentAjaxId=" + SafeEncode.forUriComponent(cmd));
             }
             Dao.setRightHeadingID(cmd); // no menu so set div id to unique id for this action
 
