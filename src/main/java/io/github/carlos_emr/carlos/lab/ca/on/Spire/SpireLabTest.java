@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.commn.model.LabPatientPhysicianInfo;
 import io.github.carlos_emr.carlos.commn.model.LabReportInformation;
 import io.github.carlos_emr.carlos.commn.model.LabTestResults;
 import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -131,7 +132,9 @@ public class SpireLabTest {
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
         }
-        log.debug("going out " + this.demographicNo);
+        if (log.isDebugEnabled()) {
+            log.debug("going out {}", LogSafe.sanitize(this.demographicNo));
+        }
     }
 
     public void populateLab(String labid) {
@@ -263,7 +266,9 @@ public class SpireLabTest {
         ArrayList<LabResult> alist = new ArrayList<LabResult>();
         try {
             LabTestResultsDao dao = SpringUtils.getBean(LabTestResultsDao.class);
-            log.debug("select * from labTestResults where labPatientPhysicianInfo_id = '" + labid + "'");
+            if (log.isDebugEnabled()) {
+                log.debug("querying labTestResults for id {}", LogSafe.sanitize(labid));
+            }
             for (LabTestResults i : dao.findByLabPatientPhysicialInfoId(ConversionUtils.fromIntString(labid))) {
                 String lineType = i.getLineType();
                 log.debug("line " + lineType);
@@ -402,4 +407,3 @@ public class SpireLabTest {
         return !(s == null || s.trim().equals(""));
     }
 }//end
-
