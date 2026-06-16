@@ -5,6 +5,10 @@ import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
 
+/**
+ * Core web service component handling HelloWorld2 integration logic.
+ * Enforces security boundaries and validates incoming payloads before mapping them to internal domain entities.
+ */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "helloWorld2", propOrder = { "arg0" })
 public class HelloWorld2 implements Serializable

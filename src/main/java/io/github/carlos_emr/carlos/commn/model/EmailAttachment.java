@@ -5,6 +5,11 @@ import jakarta.persistence.*;
 
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 
+/**
+ * JPA entity representing the EmailAttachment domain model.
+ * Defines core application state and maps it to the database schema, keeping legacy fields private
+ * and relying on established accessors for compatibility with existing business logic.
+ */
 @Entity
 @Table(name = "emailAttachment")
 public class EmailAttachment extends AbstractModel<Integer> {

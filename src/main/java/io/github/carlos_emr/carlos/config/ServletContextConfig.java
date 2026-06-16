@@ -7,6 +7,10 @@ import jakarta.servlet.ServletContext;
 
 import org.springframework.web.context.ServletContextAware;
 
+/**
+ * Configuration bootstrap class for ServletContextConfig.
+ * Responsible for initializing core beans and setting up environment-specific properties during the Spring context startup phase.
+ */
 @Configuration
 public class ServletContextConfig implements ServletContextAware {
 

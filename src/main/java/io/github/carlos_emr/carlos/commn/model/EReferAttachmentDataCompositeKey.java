@@ -6,6 +6,10 @@ import jakarta.persistence.ManyToOne;
 import java.io.Serializable;
 import java.util.Objects;
 
+/**
+ * Composite primary key definition for EReferAttachmentData.
+ * Required by JPA to map legacy tables that lack a single surrogate key, ensuring correct identity resolution.
+ */
 public class EReferAttachmentDataCompositeKey implements Serializable {
     @ManyToOne
     @JoinColumn(name = "erefer_attachment_id", referencedColumnName = "id")

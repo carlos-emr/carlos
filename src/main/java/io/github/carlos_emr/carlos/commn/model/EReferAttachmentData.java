@@ -8,6 +8,11 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
+/**
+ * JPA entity representing the EReferAttachmentData domain model.
+ * Defines core application state and maps it to the database schema, keeping legacy fields private
+ * and relying on established accessors for compatibility with existing business logic.
+ */
 @Entity
 @IdClass(EReferAttachmentDataCompositeKey.class)
 @Table(name = "erefer_attachment_data")

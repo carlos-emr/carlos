@@ -18,6 +18,10 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import java.util.Properties;
 import java.util.Vector;
 
+/**
+ * Processing engine for generating the GstReport.
+ * Aggregates and formats billing or administrative data according to strict jurisdictional reporting requirements.
+ */
 public class GstReport {
 
     public Vector<Properties> getGST(LoggedInInfo loggedInInfo, String[] providerNos, String startDate, String endDate) {

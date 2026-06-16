@@ -5,6 +5,11 @@ import io.github.carlos_emr.carlos.commn.model.converter.EmailConfigTypeConverte
 import jakarta.persistence.*;
 import java.util.List;
 
+/**
+ * JPA entity representing the EmailConfig domain model.
+ * Defines core application state and maps it to the database schema, keeping legacy fields private
+ * and relying on established accessors for compatibility with existing business logic.
+ */
 @Entity
 @Table(name = "emailConfig")
 public class EmailConfig extends AbstractModel<Integer> {

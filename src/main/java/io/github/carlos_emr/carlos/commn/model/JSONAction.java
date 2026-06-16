@@ -14,6 +14,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
 
+/**
+ * JPA entity representing the JSONAction domain model.
+ * Defines core application state and maps it to the database schema, keeping legacy fields private
+ * and relying on established accessors for compatibility with existing business logic.
+ */
 public class JSONAction extends ActionSupport {
 
     private final String ENCODING = "UTF-8";

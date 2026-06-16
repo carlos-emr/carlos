@@ -12,6 +12,11 @@ import jakarta.persistence.Table;
 import java.util.Date;
 import java.util.List;
 
+/**
+ * JPA entity representing the EReferAttachment domain model.
+ * Defines core application state and maps it to the database schema, keeping legacy fields private
+ * and relying on established accessors for compatibility with existing business logic.
+ */
 @Entity
 @Table(name = "erefer_attachment")
 public class EReferAttachment extends AbstractModel<Integer> {

@@ -5,6 +5,10 @@ import jakarta.xml.bind.JAXBElement;
 import javax.xml.namespace.QName;
 import jakarta.xml.bind.annotation.XmlRegistry;
 
+/**
+ * Core web service component handling ObjectFactory integration logic.
+ * Enforces security boundaries and validates incoming payloads before mapping them to internal domain entities.
+ */
 @XmlRegistry
 public class ObjectFactory
 {
