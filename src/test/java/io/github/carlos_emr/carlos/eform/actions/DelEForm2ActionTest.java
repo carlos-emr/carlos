@@ -53,7 +53,7 @@ import static org.mockito.Mockito.when;
  * @since 2026-06-15
  */
 @DisplayName("DelEForm2Action — ownership and privilege checks")
-@Tag("unit")
+@Tag("integration")
 @Tag("eform")
 @Tag("security")
 @Tag("delete")

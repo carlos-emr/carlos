@@ -216,6 +216,8 @@ public class EFormUtil {
      * @param deleted    visibility filter ({@link #CURRENT}, {@link #DELETED}, etc.)
      * @param providerNo the logged-in provider number
      * @param isAdmin    true when the caller holds the {@code _eform} delete privilege
+     * @return visible eForm rows for the caller, preserving shared templates and
+     *         creator-owned forms for non-admin providers
      */
     public static List<HashMap<String, ? extends Object>> listEFormsForProvider(
             String sortBy, String deleted, String providerNo, boolean isAdmin) {
@@ -227,7 +229,7 @@ public class EFormUtil {
         for (HashMap<String, ? extends Object> form : all) {
             String creator = (String) form.get(FORM_CREATOR_KEY);
             // Include shared templates (no creator) and forms owned by this provider
-            if (StringUtils.isBlank(creator) || providerNo.equals(creator)) {
+            if (StringUtils.isBlank(creator) || StringUtils.equals(providerNo, creator)) {
                 results.add(form);
             }
         }
