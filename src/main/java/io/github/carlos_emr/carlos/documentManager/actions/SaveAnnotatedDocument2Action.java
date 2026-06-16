@@ -182,7 +182,13 @@ public class SaveAnnotatedDocument2Action extends ActionSupport {
              return NONE;
         }
         // Overwrite the document file with the annotated version
-        Files.copy(uploadedPath, targetPath, StandardCopyOption.REPLACE_EXISTING);
+        try {
+            Files.copy(uploadedPath, targetPath, StandardCopyOption.REPLACE_EXISTING);
+        } catch (AccessDeniedException e) {
+            logger.error("Unable to overwrite existing file docId={}: {}", docId, uploadedPath);
+            sendJsonError(response, "Unable to overwrite existing file");
+            return NONE;
+        }
         
         // Parse and sanitise annotation type labels before logging
         String annotationTypesCsv = StringUtils.trimToEmpty(request.getParameter("annotationTypes"));
