@@ -47,6 +47,8 @@ class ScheduleNavigationAssetRegressionTest {
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "provider", "schedulePage.js.jsp");
     private static final Path PROVIDER_PREFERENCE_JSP =
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "provider", "providerpreference.jsp");
+    private static final Path PROVIDER_UPDATE_PREFERENCE_JSP =
+            Path.of("src", "main", "webapp", "WEB-INF", "jsp", "provider", "providerupdatepreference.jsp");
     private static final Path DOCUMENT_REPORT_JSP =
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "documentManager", "documentReport.jsp");
     private static final Path DISPLAY_MESSAGES_JSP =
@@ -103,6 +105,42 @@ class ScheduleNavigationAssetRegressionTest {
                 .contains("String scheduleNavigationMode = UserProperty.resolveScheduleNavigationMode("
                         + " props.get(UserProperty.SCHEDULE_NAVIGATION_MODE), encOpenInTab);")
                 .doesNotContain("CARLOSDOC_PROVIDER_NO");
+    }
+
+    @Test
+    @DisplayName("should broadcast saved schedule navigation mode with shared resolver")
+    void shouldBroadcastScheduleNavigationMode_whenPreferenceSaved() throws IOException {
+        String providerUpdatePreference = Files.readString(PROVIDER_UPDATE_PREFERENCE_JSP, StandardCharsets.UTF_8);
+        String normalizedProviderUpdatePreference = normalizeWhitespace(providerUpdatePreference);
+
+        assertThat(normalizedProviderUpdatePreference)
+                .contains("savedScheduleNavigationMode = UserProperty.resolveScheduleNavigationMode("
+                        + " submittedScheduleNavigationMode, false);")
+                .contains("mode: '<%= SafeEncode.forJavaScript(savedScheduleNavigationMode) %>'")
+                .contains("self.opener.applyScheduleNavigationPreference(scheduleNavigationPreferencePayload.mode);")
+                .contains("new BroadcastChannel('carlos_schedule_navigation_mode')")
+                .contains("localStorage.setItem('carlos_schedule_navigation_mode',"
+                        + " JSON.stringify(scheduleNavigationPreferencePayload));")
+                .doesNotContain("!UserProperty.SCHEDULE_NAVIGATION_MODE_TAB.equals(savedScheduleNavigationMode)");
+    }
+
+    @Test
+    @DisplayName("should compose menu preference opener hook")
+    void shouldComposePreferenceHook_whenMenuIncluded() throws IOException {
+        String mainMenu = Files.readString(MAIN_MENU_JSP, StandardCharsets.UTF_8);
+        String normalizedMainMenu = normalizeWhitespace(mainMenu);
+
+        assertThat(normalizedMainMenu)
+                .contains("var existingApplyScheduleNavigationPreference ="
+                        + " window.applyScheduleNavigationPreference;")
+                .contains("window.applyScheduleNavigationPreference = function(mode) {"
+                        + " applyScheduleMenuNavigationPreference(mode);"
+                        + " if (typeof existingApplyScheduleNavigationPreference === 'function'"
+                        + " && existingApplyScheduleNavigationPreference !=="
+                        + " applyScheduleMenuNavigationPreference) {"
+                        + " existingApplyScheduleNavigationPreference(mode); } };")
+                .doesNotContain("if (typeof window.applyScheduleNavigationPreference !== 'function') {"
+                        + " window.applyScheduleNavigationPreference = applyScheduleMenuNavigationPreference; }");
     }
 
 
