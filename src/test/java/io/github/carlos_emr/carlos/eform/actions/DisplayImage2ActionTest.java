@@ -309,17 +309,19 @@ class DisplayImage2ActionTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should throw IllegalArgumentException when requested asset type is unsupported")
-        void shouldThrowIllegalArgumentException_whenRequestedAssetTypeIsUnsupported() throws Exception {
+        @DisplayName("should return bad request when requested asset type is unsupported")
+        void shouldReturnBadRequest_whenRequestedAssetTypeIsUnsupported() throws Exception {
             mockRequest.setParameter("imagefile", "custom.unsupported");
             Files.writeString(tempDir.resolve("custom.unsupported"), "data", StandardCharsets.UTF_8);
 
             when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_eform"), eq("r"), isNull()))
                     .thenReturn(true);
 
-            assertThatThrownBy(() -> action.execute())
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("Unsupported eform asset type");
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            assertThat(mockResponse.getErrorMessage()).isEqualTo("Unsupported eform asset type");
         }
 
         @Test

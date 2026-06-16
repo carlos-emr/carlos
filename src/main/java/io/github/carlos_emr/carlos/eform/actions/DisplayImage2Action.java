@@ -147,6 +147,9 @@ public class DisplayImage2Action extends ActionSupport {
         } catch (FileNotFoundException e) {
             response.sendError(HttpServletResponse.SC_NOT_FOUND);
             return NONE;
+        } catch (IllegalArgumentException e) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
+            return NONE;
         }
         String contentType = data.contentType();
         try (InputStream stream = data.stream()) {
@@ -212,8 +215,7 @@ public class DisplayImage2Action extends ActionSupport {
             return overriddenContentType;
         }
 
-        throw new IllegalArgumentException(
-                "Unsupported eform asset type '." + extension + "'; update mimetypes.default or OVERRIDDEN_CONTENT_TYPES");
+        throw new IllegalArgumentException("Unsupported eform asset type");
     }
 
     /**

@@ -60,10 +60,11 @@ class ProviderSignatureImage2ActionUnitTest extends CarlosUnitTestBase {
     private MockHttpServletResponse mockResponse;
     private ProviderSignatureImage2Action action;
     private Path tempDir;
+    private AutoCloseable mocks;
 
     @BeforeEach
     void setUp() throws Exception {
-        MockitoAnnotations.openMocks(this);
+        mocks = MockitoAnnotations.openMocks(this);
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
 
         mockRequest = new MockHttpServletRequest();
@@ -111,6 +112,9 @@ class ProviderSignatureImage2ActionUnitTest extends CarlosUnitTestBase {
                     }
                 });
             }
+        }
+        if (mocks != null) {
+            mocks.close();
         }
     }
 
