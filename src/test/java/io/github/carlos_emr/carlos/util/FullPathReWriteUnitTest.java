@@ -105,12 +105,12 @@ class FullPathReWriteUnitTest {
         when(pageContext.getOut()).thenReturn(writer);
         FullPathReWrite tag = new FullPathReWrite();
         tag.setPageContext(pageContext);
-        tag.setJspPage("combinePDFs?name=O'Brien&x=<script>");
+        tag.setJspPage("combinePDFs?name=\"O'Brien\"&x=<script>");
 
         int result = tag.doStartTag();
 
         assertThat(result).isEqualTo(jakarta.servlet.jsp.tagext.Tag.EVAL_BODY_INCLUDE);
-        verify(writer).write("/carlos/documentManager/combinePDFs?name=O'Brien&amp;x=&lt;script&gt;");
+        verify(writer).write("/carlos/documentManager/combinePDFs?name=&#34;O&#39;Brien&#34;&amp;x=&lt;script&gt;");
         verify(writer).flush();
     }
 }

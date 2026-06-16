@@ -73,7 +73,8 @@ public class FullPathReWrite extends TagSupport {
 
         JspWriter out = pageContext.getOut();
         try {
-            out.write(SafeEncode.forHtmlContent(returnTag));
+            // This tag is embedded in JavaScript strings and HTML attributes; keep quote encoding.
+            out.write(SafeEncode.forHtml(returnTag));
             out.flush();
         } catch (IOException e) {
             throw new JspException(e.toString());
