@@ -113,6 +113,36 @@ class SmsTransactionDaoImplUnitTest {
     }
 
     @Test
+    @DisplayName("findByClientReferenceId skips blank client references")
+    void shouldReturnEmptyOptional_whenClientReferenceIdIsBlank() {
+        SmsTransactionDaoImpl dao = newDao();
+
+        Optional<SmsTransaction> transaction = dao.findByClientReferenceId(SmsProviderType.STUB, " ");
+
+        assertThat(transaction).isEmpty();
+        verify(entityManager, never()).createQuery(anyString(), eq(SmsTransaction.class));
+    }
+
+    @Test
+    @DisplayName("findByClientReferenceId binds SMS provider and client reference lookup parameters")
+    void shouldBindParameters_whenFindingClientReference() {
+        SmsTransactionDaoImpl dao = newDao();
+        SmsTransaction expected = new SmsTransaction();
+        when(entityManager.createQuery(anyString(), eq(SmsTransaction.class))).thenReturn(query);
+        when(query.setParameter("providerType", SmsProviderType.STUB)).thenReturn(query);
+        when(query.setParameter("clientReferenceId", "sms-transaction-1")).thenReturn(query);
+        when(query.setMaxResults(1)).thenReturn(query);
+        when(query.getResultList()).thenReturn(List.of(expected));
+
+        Optional<SmsTransaction> transaction = dao.findByClientReferenceId(SmsProviderType.STUB, "sms-transaction-1");
+
+        assertThat(transaction).containsSame(expected);
+        verify(query).setParameter("providerType", SmsProviderType.STUB);
+        verify(query).setParameter("clientReferenceId", "sms-transaction-1");
+        verify(query).setMaxResults(1);
+    }
+
+    @Test
     @DisplayName("claimDueOutboundQueue skips querying when SMS provider is missing")
     void shouldReturnEmptyList_whenQueueProviderIsMissing() {
         SmsTransactionDaoImpl dao = newDao();
@@ -132,6 +162,7 @@ class SmsTransactionDaoImplUnitTest {
                 SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
         );
+        ReflectionTestUtils.setField(due, "id", 42L);
         stubTypedQuery(List.of(due));
 
         List<SmsTransaction> transactions = dao.claimDueOutboundQueue(SmsProviderType.STUB, now, 5_000);
@@ -140,6 +171,7 @@ class SmsTransactionDaoImplUnitTest {
         assertThat(due.getStatus()).isEqualTo(SmsStatus.SENDING);
         assertThat(due.getAttemptCount()).isEqualTo(1);
         assertThat(due.getClaimToken()).isNotBlank();
+        assertThat(due.getClientReferenceId()).isEqualTo("sms-transaction-42");
         verify(query).setLockMode(LockModeType.PESSIMISTIC_WRITE);
         verify(query).setMaxResults(500); // limit capped at MAX_LIMIT
         verify(query).setParameter("status", SmsStatus.QUEUED);
@@ -156,6 +188,7 @@ class SmsTransactionDaoImplUnitTest {
                 SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
         );
+        ReflectionTestUtils.setField(stale, "id", 42L);
         stale.markSending(Date.from(Instant.parse("2026-06-08T11:00:00Z")));
         stubTypedQuery(List.of(stale));
 
@@ -170,6 +203,7 @@ class SmsTransactionDaoImplUnitTest {
         assertThat(stale.getStatus()).isEqualTo(SmsStatus.SENDING);
         assertThat(stale.getLastAttemptAt()).isEqualTo(recoveryAt);
         assertThat(stale.getClaimToken()).isNotBlank();
+        assertThat(stale.getClientReferenceId()).isEqualTo("sms-transaction-42");
         verify(query).setLockMode(LockModeType.PESSIMISTIC_WRITE);
         verify(query).setMaxResults(10);
         verify(query).setParameter("status", SmsStatus.SENDING);

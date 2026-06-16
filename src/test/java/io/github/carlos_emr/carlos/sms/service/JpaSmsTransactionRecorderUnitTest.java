@@ -18,6 +18,10 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.SimpleTransactionStatus;
 
 import java.time.Instant;
 import java.util.Date;
@@ -27,6 +31,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -36,6 +41,23 @@ import static org.mockito.Mockito.when;
 @Tag("service")
 @ExtendWith(MockitoExtension.class)
 class JpaSmsTransactionRecorderUnitTest {
+    private static final PlatformTransactionManager NOOP_TRANSACTION_MANAGER = new PlatformTransactionManager() {
+        @Override
+        public TransactionStatus getTransaction(TransactionDefinition definition) {
+            return new SimpleTransactionStatus();
+        }
+
+        @Override
+        public void commit(TransactionStatus status) {
+            // No-op test transaction manager.
+        }
+
+        @Override
+        public void rollback(TransactionStatus status) {
+            // No-op test transaction manager.
+        }
+    };
+
     @Mock
     private SmsTransactionDao smsTransactionDao;
 
@@ -100,7 +122,11 @@ class JpaSmsTransactionRecorderUnitTest {
 
         verify(smsTransactionDao).merge(transaction);
         assertThat(transaction)
-                .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount, SmsTransaction::getLastAttemptAt)
+                .extracting(
+                        SmsTransaction::getStatus,
+                        SmsTransaction::getAttemptCount,
+                        SmsTransaction::getLastAttemptAt
+                )
                 .containsExactly(SmsStatus.SENDING, 1, attemptAt);
     }
 
@@ -213,6 +239,56 @@ class JpaSmsTransactionRecorderUnitTest {
     }
 
     @Test
+    @DisplayName("recordInboundMessage refetches when a concurrent redelivery wins the unique key")
+    void shouldReturnExistingRow_whenConcurrentInboundRedeliveryWinsInsertRace() {
+        JpaSmsTransactionRecorder recorder = new JpaSmsTransactionRecorder(
+                smsTransactionDao,
+                eventPublisher,
+                NOOP_TRANSACTION_MANAGER
+        );
+        SmsInboundWebhookDto webhook = new SmsInboundWebhookDto(
+                SmsProviderType.VOIPMS,
+                "provider-1",
+                "416-555-1212",
+                "647-555-1000",
+                "Reply text",
+                Instant.EPOCH,
+                null
+        );
+        SmsTransaction existing = SmsTransaction.inboundMessage(webhook);
+        when(smsTransactionDao.findByProviderMessageId(SmsProviderType.VOIPMS, "provider-1"))
+                .thenReturn(Optional.empty(), Optional.of(existing));
+        doThrow(new RuntimeException("sms_transaction_provider_message_uidx"))
+                .when(smsTransactionDao)
+                .flush();
+
+        SmsTransaction result = recorder.recordInboundMessage(webhook);
+
+        assertThat(result).isSameAs(existing);
+        verify(smsTransactionDao).persist(any(SmsTransaction.class));
+    }
+
+    @Test
+    @DisplayName("recordInboundMessage rejects blank SMS provider message ids")
+    void shouldRejectInboundMessage_whenProviderMessageIdIsBlank() {
+        JpaSmsTransactionRecorder recorder = new JpaSmsTransactionRecorder(smsTransactionDao, eventPublisher);
+        SmsInboundWebhookDto webhook = new SmsInboundWebhookDto(
+                SmsProviderType.VOIPMS,
+                " ",
+                "416-555-1212",
+                "647-555-1000",
+                "Reply text",
+                Instant.EPOCH,
+                null
+        );
+
+        assertThatThrownBy(() -> recorder.recordInboundMessage(webhook))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("providerMessageId");
+        verifyNoInteractions(smsTransactionDao);
+    }
+
+    @Test
     @DisplayName("recordDeliveryEvent updates an existing SMS provider transaction")
     void shouldMergeTransaction_whenDeliveryEventMatchesExistingRecord() {
         JpaSmsTransactionRecorder recorder = new JpaSmsTransactionRecorder(smsTransactionDao, eventPublisher);
@@ -235,6 +311,36 @@ class JpaSmsTransactionRecorderUnitTest {
         ));
 
         verify(smsTransactionDao).merge(existing);
+        assertThat(transaction)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getProviderMessageId)
+                .containsExactly(SmsStatus.DELIVERED, "provider-1");
+    }
+
+    @Test
+    @DisplayName("recordDeliveryEvent updates an outbound row matched by client reference")
+    void shouldMergeTransaction_whenDeliveryEventMatchesClientReference() {
+        JpaSmsTransactionRecorder recorder = new JpaSmsTransactionRecorder(smsTransactionDao, eventPublisher);
+        SmsTransaction existing = SmsTransaction.outboundAttempt(
+                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsProviderType.STUB
+        );
+        existing.assignClientReferenceId("sms-transaction-42");
+        when(smsTransactionDao.findByClientReferenceId(SmsProviderType.STUB, "sms-transaction-42"))
+                .thenReturn(Optional.of(existing));
+
+        SmsTransaction transaction = recorder.recordDeliveryEvent(new SmsDeliveryWebhookDto(
+                SmsProviderType.STUB,
+                "provider-1",
+                SmsStatus.DELIVERED,
+                Instant.EPOCH,
+                null,
+                null,
+                "sms-transaction-42",
+                null
+        ));
+
+        verify(smsTransactionDao).merge(existing);
+        verify(smsTransactionDao, never()).findByProviderMessageId(SmsProviderType.STUB, "provider-1");
         assertThat(transaction)
                 .extracting(SmsTransaction::getStatus, SmsTransaction::getProviderMessageId)
                 .containsExactly(SmsStatus.DELIVERED, "provider-1");
@@ -267,8 +373,8 @@ class JpaSmsTransactionRecorderUnitTest {
     }
 
     @Test
-    @DisplayName("recordDeliveryEvent rejects blank SMS provider message ids")
-    void shouldRejectDeliveryEvent_whenProviderMessageIdIsBlank() {
+    @DisplayName("recordDeliveryEvent rejects blank delivery correlation ids")
+    void shouldRejectDeliveryEvent_whenCorrelationIdsAreBlank() {
         JpaSmsTransactionRecorder recorder = new JpaSmsTransactionRecorder(smsTransactionDao, eventPublisher);
         SmsDeliveryWebhookDto webhook = new SmsDeliveryWebhookDto(
                 SmsProviderType.STUB,
@@ -282,7 +388,7 @@ class JpaSmsTransactionRecorderUnitTest {
 
         assertThatThrownBy(() -> recorder.recordDeliveryEvent(webhook))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("providerMessageId");
+                .hasMessageContaining("providerMessageId or clientReferenceId");
         verifyNoInteractions(smsTransactionDao);
     }
 
@@ -331,7 +437,11 @@ class JpaSmsTransactionRecorderUnitTest {
 
         assertThat(transactions).singleElement().isSameAs(transaction);
         assertThat(transaction)
-                .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount, SmsTransaction::getLastAttemptAt)
+                .extracting(
+                        SmsTransaction::getStatus,
+                        SmsTransaction::getAttemptCount,
+                        SmsTransaction::getLastAttemptAt
+                )
                 .containsExactly(SmsStatus.SENDING, 1, now);
         verify(smsTransactionDao).claimDueOutboundQueue(SmsProviderType.STUB, now, 25);
     }
@@ -348,7 +458,12 @@ class JpaSmsTransactionRecorderUnitTest {
         );
         transaction.markSending(Date.from(Instant.parse("2026-06-08T11:00:00Z")));
         transaction.markStaleRecoveryStarted(recoveryAt);
-        when(smsTransactionDao.claimStaleOutboundSendingForRecovery(SmsProviderType.STUB, staleBefore, recoveryAt, 25))
+        when(smsTransactionDao.claimStaleOutboundSendingForRecovery(
+                SmsProviderType.STUB,
+                staleBefore,
+                recoveryAt,
+                25
+        ))
                 .thenReturn(List.of(transaction));
 
         List<SmsTransaction> transactions = recorder.claimStaleSendingForRecovery(
@@ -360,8 +475,17 @@ class JpaSmsTransactionRecorderUnitTest {
 
         assertThat(transactions).singleElement().isSameAs(transaction);
         assertThat(transaction)
-                .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount, SmsTransaction::getLastAttemptAt)
+                .extracting(
+                        SmsTransaction::getStatus,
+                        SmsTransaction::getAttemptCount,
+                        SmsTransaction::getLastAttemptAt
+                )
                 .containsExactly(SmsStatus.SENDING, 1, recoveryAt);
-        verify(smsTransactionDao).claimStaleOutboundSendingForRecovery(SmsProviderType.STUB, staleBefore, recoveryAt, 25);
+        verify(smsTransactionDao).claimStaleOutboundSendingForRecovery(
+                SmsProviderType.STUB,
+                staleBefore,
+                recoveryAt,
+                25
+        );
     }
 }

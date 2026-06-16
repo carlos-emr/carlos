@@ -271,8 +271,33 @@ class SmsTransactionUnitTest {
     }
 
     @Test
-    @DisplayName("delivery webhook rejects missing SMS provider message id")
-    void shouldRejectDeliveryEvent_whenProviderMessageIdIsBlank() {
+    @DisplayName("delivery webhook accepts client reference without SMS provider message id")
+    void shouldCreateDeliveryEvent_whenClientReferenceIdIsPresent() {
+        SmsDeliveryWebhookDto webhook = new SmsDeliveryWebhookDto(
+                SmsProviderType.STUB,
+                null,
+                SmsStatus.DELIVERED,
+                Instant.EPOCH,
+                null,
+                null,
+                "sms-transaction-42",
+                null
+        );
+
+        SmsTransaction transaction = SmsTransaction.deliveryEvent(webhook);
+
+        assertThat(transaction)
+                .extracting(
+                        SmsTransaction::getStatus,
+                        SmsTransaction::getProviderMessageId,
+                        SmsTransaction::getClientReferenceId
+                )
+                .containsExactly(SmsStatus.DELIVERED, null, "sms-transaction-42");
+    }
+
+    @Test
+    @DisplayName("delivery webhook rejects missing correlation ids")
+    void shouldRejectDeliveryEvent_whenCorrelationIdsAreBlank() {
         SmsDeliveryWebhookDto webhook = new SmsDeliveryWebhookDto(
                 SmsProviderType.STUB,
                 " ",
@@ -285,7 +310,7 @@ class SmsTransactionUnitTest {
 
         assertThatThrownBy(() -> SmsTransaction.deliveryEvent(webhook))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("providerMessageId");
+                .hasMessageContaining("providerMessageId or clientReferenceId");
     }
 
     @Test
