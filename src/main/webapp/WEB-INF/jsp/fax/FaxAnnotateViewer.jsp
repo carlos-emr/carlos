@@ -37,12 +37,9 @@
     int    docId         = (Integer) request.getAttribute("docId");
     int    demographicNo = (Integer) request.getAttribute("demographicNo");
 
-    // Keep PDF.js version in sync with Maven/web.xml via a single-sourced context-param
-    String pdfjsVersion = application.getInitParameter("pdfjs.version");
-    if (pdfjsVersion == null || pdfjsVersion.isEmpty()) {
-        // Fallback for misconfiguration; consider removing once all environments define pdfjs.version
-        pdfjsVersion = "4.4.168";
-    }
+    // web.xml filtering is not enabled for WEB-INF/web.xml, so getInitParameter would return
+    // the raw Maven placeholder "${pdfjs.version}". Hardcode the version here to match pom.xml.
+    String pdfjsVersion = "4.4.168";
 
     String pdfjsBase = ctx + "/webjars/pdfjs-dist/" + pdfjsVersion;
 %>
