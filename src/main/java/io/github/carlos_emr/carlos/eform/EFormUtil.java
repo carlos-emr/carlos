@@ -229,7 +229,7 @@ public class EFormUtil {
         for (HashMap<String, ? extends Object> form : all) {
             String creator = (String) form.get(FORM_CREATOR_KEY);
             // Include shared templates (no creator) and forms owned by this provider
-            if (StringUtils.isBlank(creator) || StringUtils.equals(providerNo, creator)) {
+            if (StringUtils.isBlank(creator) || Objects.equals(providerNo, creator)) {
                 results.add(form);
             }
         }
