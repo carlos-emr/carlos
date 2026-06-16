@@ -85,7 +85,7 @@ public final class ViewDocumentReportRead2Action extends ViewDocumentRead2Action
         }
 
         Integer functionId = parsePositiveInteger(request.getParameter("functionid"));
-        if (functionId == null) {
+        if ("demographic".equals(fn) && functionId == null) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "invalid functionid");
             return false;
         }
