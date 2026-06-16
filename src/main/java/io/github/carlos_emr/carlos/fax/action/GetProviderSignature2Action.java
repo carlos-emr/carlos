@@ -33,9 +33,11 @@ import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+import java.io.IOException;
 import java.io.File;
 import java.io.OutputStream;
 import java.nio.file.Files;
+import java.nio.file.Path;
 
 /**
  * Returns the current provider's signature image (PNG) for use as a stamp in the
@@ -99,13 +101,17 @@ public class GetProviderSignature2Action extends ActionSupport {
     }
 
     static File resolveSignatureDir() throws Exception {
-        CarlosProperties props = CarlosProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();   
         File docDir = PathValidationUtils.resolveConfiguredDirectory(
                 props.getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
-        File sigDir = new File(docDir, "signatures");
-        if (!sigDir.exists()) {
-            sigDir.mkdirs();
-        }
-        return sigDir;
+        Path sigPath = docDir.toPath().resolve("signatures");
+        Files.createDirectories(sigPath);
+        if (!Files.isDirectory(sigPath)) {
+            throw new IOException("Signatures path is not a directory: " + sigPath);
+        }  
+        if (!Files.isWritable(sigPath)) {
+            throw new IOException("Signatures directory is not writable: " + sigPath);
+        }    
+        return sigPath.toFile();
     }
 }
