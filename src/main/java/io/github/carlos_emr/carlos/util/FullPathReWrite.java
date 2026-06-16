@@ -73,7 +73,7 @@ public class FullPathReWrite extends TagSupport {
 
         JspWriter out = pageContext.getOut();
         try {
-            out.write(SafeEncode.forHtml(returnTag));
+            out.write(SafeEncode.forHtmlContent(returnTag));
             out.flush();
         } catch (IOException e) {
             throw new JspException(e.toString());
