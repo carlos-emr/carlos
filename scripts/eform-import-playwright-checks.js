@@ -377,7 +377,7 @@ async function assertNotErrorPage(page, label) {
       await cleanupImportedEform(managerPage, importedFid).catch(() => {});
       await managerPage.close().catch(() => {});
     }
-    if (typeof importHtml !== 'undefined' && importHtml.tempDir) {
+    if (importHtml.tempDir) {
       fs.rmSync(importHtml.tempDir, { recursive: true, force: true });
     }
     await browser.close();
