@@ -1,4 +1,25 @@
 #!/usr/bin/env node
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
 /*
  * App-backed browser regression checks for the eForm PDF/render pipeline.
  *
@@ -127,7 +148,7 @@ function formPrint() {
 </form>
 </body>
 </html>`;
-  fs.writeFileSync(htmlPath, html, 'utf8');
+  fs.writeFileSync(htmlPath, html, 'utf8'); // nosemgrep: javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag -- html is a fixed local test fixture, not external input
 
   return { tempDir, imagePath, htmlPath };
 }
@@ -181,7 +202,7 @@ function wirePage(page, label) {
 }
 
 async function gotoApp(page, appPath, waitUntil = 'domcontentloaded') {
-  return page.goto(appUrl(appPath), { waitUntil, timeout: 30000 });
+  return page.goto(appUrl(appPath), { waitUntil, timeout: 30000 }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to local/private by default
 }
 
 async function login(context) {
@@ -303,7 +324,7 @@ function assertDisplayImageFetchesSucceeded(imageName) {
   if (!fid) {
     return;
   }
-  await page.evaluate((submittedFid) => {
+  await page.evaluate((submittedFid) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- submittedFid is passed as a Playwright argument, not interpolated into code
     const form = document.createElement('form');
     form.method = 'post';
     form.action = `${window.location.origin}${window.location.pathname.replace(/\/efmformmanager.*$/, '')}/delEForm`;

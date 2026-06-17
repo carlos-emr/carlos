@@ -126,6 +126,12 @@ public class AddEForm2Action extends ActionSupport {
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() {
 
+        String method = request.getMethod();
+        if ("GET".equalsIgnoreCase(method) || "HEAD".equalsIgnoreCase(method)) {
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eform", "w", null)) {
             throw new SecurityException("missing required sec object (_eform)");
         }
@@ -204,6 +210,7 @@ public class AddEForm2Action extends ActionSupport {
         try {
             validatedTemplateFileName = validateTemplateFileName(curForm.getFormFileName());
         } catch (FileValidationException e) {
+            request.setAttribute("error", "true");
             request.setAttribute("errorMessage", getInvalidFilenameMessage());
             logger.warn("Rejected invalid eForm template filename");
             return ERROR;
@@ -289,13 +296,10 @@ public class AddEForm2Action extends ActionSupport {
             request.setAttribute("fdid", fdid);
             request.setAttribute("demographicId", demographic_no);
 
-            if (saveAsEdoc) {
-                try {
+            if (saveAsEdoc) {                try {
                     documentAttachmentManager.saveEFormAsEDoc(request, response);
                 } catch (PDFGenerationException e) {
-                    logger.error(e.getMessage(), e);
-                    String errorMessage = "This eForm (and attachments, if applicable) could not be added to this patient’s documents. \\n\\n" + e.getMessage();
-                    request.setAttribute("errorMessage", errorMessage);
+                    setPdfError("This eForm (and attachments, if applicable) could not be added to this patient’s documents.", e);
                     return "error";
                 }
             }
@@ -406,13 +410,10 @@ public class AddEForm2Action extends ActionSupport {
                 return NONE;
             }
 
-            if (saveAsEdoc) {
-                try {
+            if (saveAsEdoc) {                try {
                     documentAttachmentManager.saveEFormAsEDoc(request, response);
                 } catch (PDFGenerationException e) {
-                    logger.error(e.getMessage(), e);
-                    String errorMessage = "This eForm (and attachments, if applicable) could not be added to this patient’s documents. \\n\\n" + e.getMessage();
-                    request.setAttribute("errorMessage", errorMessage);
+                    setPdfError("This eForm (and attachments, if applicable) could not be added to this patient’s documents.", e);
                     return "error";
                 }
             }
@@ -524,7 +525,7 @@ public class AddEForm2Action extends ActionSupport {
     }
 
     private void setPdfWarning(String message, Exception e) {
-        logger.error(message, e);
+        logger.warn(message, e);
         request.setAttribute("warningMessage", message);
     }
 

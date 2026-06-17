@@ -621,9 +621,12 @@ public final class ConvertToEdoc {
 
     private static void translateBackgroundAttributes(Document document) {
         for (Element element : document.select("[background]")) {
-            String translatedPath = translateSingleResourcePath(element.attr("background"));
+            String originalPath = element.attr("background");
+            String translatedPath = translateSingleResourcePath(originalPath);
             if (translatedPath != null) {
                 element.attr("background", translatedPath);
+            } else if (isDisallowedResourcePath(originalPath)) {
+                element.removeAttr("background");
             }
         }
     }
@@ -648,10 +651,16 @@ public final class ConvertToEdoc {
         Matcher matcher = CSS_URL_PATTERN.matcher(cssText);
         StringBuilder rewrittenCss = new StringBuilder();
         while (matcher.find()) {
-            String translatedPath = translateSingleResourcePath(matcher.group(2).trim());
-            String replacement = translatedPath == null
-                    ? matcher.group(0)
-                    : Matcher.quoteReplacement("url('" + translatedPath + "')");
+            String originalPath = matcher.group(2).trim();
+            String translatedPath = translateSingleResourcePath(originalPath);
+            String replacement;
+            if (translatedPath != null) {
+                replacement = Matcher.quoteReplacement("url('" + translatedPath + "')");
+            } else if (isDisallowedResourcePath(originalPath)) {
+                replacement = "url('')";
+            } else {
+                replacement = matcher.group(0);
+            }
             matcher.appendReplacement(rewrittenCss, replacement);
         }
         matcher.appendTail(rewrittenCss);
@@ -670,6 +679,8 @@ public final class ConvertToEdoc {
         }
 
         if (path.contains("?")) {
+            String basePath = path.split("\\?", 2)[0];
+            collectRealPathCandidates(basePath, potentialFilePaths);
             collectImageDirectoryCandidates(path, potentialFilePaths);
         } else {
             collectRealPathCandidates(path, potentialFilePaths);
@@ -679,9 +690,7 @@ public final class ConvertToEdoc {
     }
 
     private static boolean isTranslatableResourcePath(String path) {
-        return StringUtils.isNotBlank(path)
-                && !path.startsWith("http")
-                && !path.startsWith("HTTP");
+        return StringUtils.isNotBlank(path) && !isDisallowedResourcePath(path);
     }
 
     private static void collectRealPathCandidates(String path, List<String> potentialFilePaths) {
@@ -737,7 +746,21 @@ public final class ConvertToEdoc {
     }
 
     private static boolean isExternalResourcePath(String path) {
-        return path.startsWith("http") || path.startsWith("HTTP");
+        String normalized = StringUtils.trimToEmpty(path).toLowerCase(Locale.ROOT);
+        return normalized.startsWith("http://")
+                || normalized.startsWith("https://")
+                || normalized.startsWith("//")
+                || normalized.startsWith("ftp://")
+                || normalized.startsWith("file:");
+    }
+
+    private static boolean isDisallowedResourcePath(String path) {
+        if (isExternalResourcePath(path)) {
+            return true;
+        }
+
+        String normalized = StringUtils.trimToEmpty(path);
+        return !normalized.isEmpty() && Path.of(normalized).isAbsolute();
     }
 
     /**

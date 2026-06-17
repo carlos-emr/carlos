@@ -73,7 +73,7 @@ class EformDataManagerImplCreatePdfUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should throw PDFGenerationException when conversion returns null path")
-    void shouldThrowPdfGenerationExceptionWhenConversionReturnsNullPath() {
+    void shouldThrowPdfGenerationException_whenConversionReturnsNullPath() {
         convertToEdocMock.when(() -> ConvertToEdoc.saveAsTempPDF(any(EFormData.class))).thenReturn(null);
 
         assertThatThrownBy(() -> manager.createEformPDF(loggedInInfo, 77))

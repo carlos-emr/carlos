@@ -26,7 +26,7 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should normalize invalid HTML comments for Flying Saucer")
-    void shouldNormalizeInvalidHtmlCommentsForFlyingSaucer() {
+    void shouldNormalizeInvalidHtmlComments_whenPreparingForFlyingSaucer() {
         Document document = ConvertToEdoc.prepareDocumentForFlyingSaucer("<html><body><!-- bad -- comment--><div>ok</div></body></html>");
 
         assertThat(document.outerHtml()).contains("bad - - comment--");
@@ -35,7 +35,7 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should translate inline background asset paths during tidy")
-    void shouldTranslateInlineBackgroundAssetPathsDuringTidy() throws Exception {
+    void shouldTranslateInlineBackgroundAssetPaths_whenTidyingDocument() throws Exception {
         Path tempDir = Files.createTempDirectory("convert-edoc");
         Path image = Files.createFile(tempDir.resolve("stamp.png"));
 
@@ -47,7 +47,7 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
     }
     @Test
     @DisplayName("should not translate inline background asset paths outside the allowed real path root")
-    void shouldNotTranslateInlineBackgroundAssetPathsOutsideAllowedRealPathRoot() throws Exception {
+    void shouldNotTranslateInlineBackgroundAssetPaths_whenOutsideAllowedRealPathRoot() throws Exception {
         Path tempDir = Files.createTempDirectory("convert-edoc-root");
         Path externalDir = Files.createTempDirectory("convert-edoc-external");
         Path externalImage = Files.createFile(externalDir.resolve("outside-stamp.png"));
@@ -56,7 +56,20 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
 
         String tidied = ConvertToEdoc.tidyDocument(html, tempDir.toString());
 
-        assertThat(tidied).contains(externalImage.toAbsolutePath().toString());
+        assertThat(tidied).doesNotContain(externalImage.toAbsolutePath().toString());
+    }
+
+    @Test
+    @DisplayName("should translate cache-busted local asset paths during tidy")
+    void shouldTranslateCacheBustedLocalAssetPaths_whenTidyingDocument() throws Exception {
+        Path tempDir = Files.createTempDirectory("convert-edoc-cache");
+        Path image = Files.createFile(tempDir.resolve("stamp.png"));
+
+        String html = "<html><body style=\"background-image:url('stamp.png?v=1')\"><div>x</div></body></html>";
+
+        String tidied = ConvertToEdoc.tidyDocument(html, tempDir.toString());
+
+        assertThat(tidied).contains(image.toAbsolutePath().toString());
     }
 
 }

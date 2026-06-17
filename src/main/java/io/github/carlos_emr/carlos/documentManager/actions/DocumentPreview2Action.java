@@ -197,7 +197,7 @@ public class DocumentPreview2Action extends ActionSupport {
             generateResponse(response, eFormPDFPath);
         } catch (PDFGenerationException e) {
             logger.error("Error occurred while rendering eForm. " + e.getMessage(), e);
-            generateResponse(response, e.getMessage());
+            generateResponse(response, "Failed to render eForm PDF.");
         }
     }
 

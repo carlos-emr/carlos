@@ -82,7 +82,7 @@ class EFormJspMigrationRegressionTest {
 
     @Test
     @DisplayName("addEForm results should render the internal eForm JSP directly so POST save flows do not hit the GET-only gate")
-    void addEFormResultsShouldRenderInternalShowFormJsp() throws IOException {
+    void shouldRenderInternalShowFormJsp_whenAddEFormReturnsResults() throws IOException {
         String struts = Files.readString(STRUTS_EFORM_XML, StandardCharsets.UTF_8);
         String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/eform/efmshowform_data.jsp"), StandardCharsets.UTF_8);
 
@@ -96,11 +96,11 @@ class EFormJspMigrationRegressionTest {
 
     @Test
     @DisplayName("admin eForm preview should resolve image placeholders through the active request context")
-    void adminEFormPreviewShouldUseRequestContextForImagePath() throws IOException {
+    void shouldUseRequestContextForImagePath_whenAdminEFormPreviewRenders() throws IOException {
         String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/eform/efmshowform_data.jsp"), StandardCharsets.UTF_8);
 
-        assertThat(jsp).contains("eForm.setImagePath(request.getContextPath());");
-        assertThat(jsp).doesNotContain("eForm.setImagePath();");
+        assertThat(jsp).contains("eForm.setImagePath(request.getContextPath());")
+                .doesNotContain("eForm.setImagePath();");
     }
 
     @Test

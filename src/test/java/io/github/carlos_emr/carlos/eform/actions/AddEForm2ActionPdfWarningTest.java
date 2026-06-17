@@ -76,7 +76,7 @@ class AddEForm2ActionPdfWarningTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should close with warning when preview pdf generation fails")
-    void shouldCloseWithWarningWhenPreviewPdfGenerationFails() throws Exception {
+    void shouldCloseWithWarning_whenPreviewPdfGenerationFails() throws Exception {
         AddEForm2Action action = new AddEForm2Action();
         when(documentAttachmentManager.renderEFormWithAttachments(request, response))
                 .thenThrow(new PDFGenerationException("render failed"));
@@ -96,7 +96,7 @@ class AddEForm2ActionPdfWarningTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should close with warning when preview conversion throws runtime exception")
-    void shouldCloseWithWarningWhenPreviewConversionThrowsRuntimeException() throws Exception {
+    void shouldCloseWithWarning_whenPreviewConversionThrowsRuntimeException() throws Exception {
         AddEForm2Action action = new AddEForm2Action();
         Path pdfPath = Path.of("/tmp/eform-preview.pdf");
 
@@ -112,7 +112,7 @@ class AddEForm2ActionPdfWarningTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should fall back to generic filename when demographic number is invalid")
-    void shouldFallBackToGenericFilenameWhenDemographicNumberIsInvalid() throws Exception {
+    void shouldFallBackToGenericFilename_whenDemographicNumberIsInvalid() throws Exception {
         AddEForm2Action action = new AddEForm2Action();
         when(documentAttachmentManager.renderEFormWithAttachments(request, response))
                 .thenThrow(new PDFGenerationException("render failed"));
