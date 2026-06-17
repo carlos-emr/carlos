@@ -2078,11 +2078,12 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String chain = request.getParameter("chain");
 
         if (chain != null && !chain.equals("")) {
+            String redirectTarget = sanitizeInternalRedirect(chain);
             // Redirect guard: only slash-prefixed relative paths are allowed. The shared
             // validator rejects protocol-relative URLs, absolute schemes, backslashes,
             // encoded control characters, and traversal escapes.
-            if (isValidInternalRedirect(chain)) {
-                response.sendRedirect(chain); // nosemgrep: java.lang.security.audit.servlets.unvalidated-redirect.unvalidated-redirect-java -- gated by isValidInternalRedirect // lgtm[java/unvalidated-url-redirection]
+            if (redirectTarget != null) {
+                response.sendRedirect(redirectTarget); // nosemgrep: java.lang.security.audit.servlets.unvalidated-redirect.unvalidated-redirect-java -- gated by sanitizeInternalRedirect // lgtm[java/unvalidated-url-redirection]
             } else {
                 logger.warn("Attempted redirect to invalid URL: {}", LogSafe.sanitize(chain));
                 // Fall through to return "windowClose" without redirect
@@ -3920,6 +3921,20 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     }
 
     /**
+     * Returns a normalized internal redirect target, or {@code null} when unsafe.
+     *
+     * @param url The URL to validate
+     * @return trimmed safe redirect URL, or null when unsafe
+     */
+    static String sanitizeInternalRedirect(String url) {
+        String trimmedUrl = StringUtils.trimToNull(url);
+        if (trimmedUrl == null || !isValidInternalRedirect(trimmedUrl)) {
+            return null;
+        }
+        return trimmedUrl;
+    }
+
+    /**
      * Validates that a redirect URL is safe and points to an internal application URL.
      * This prevents open redirect vulnerabilities.
      * 
@@ -3927,12 +3942,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
      * @return true if the URL is safe for redirect, false otherwise
      */
     static boolean isValidInternalRedirect(String url) {
-        if (url == null || url.trim().isEmpty()) {
+        if (url == null || url.isEmpty()) {
             return false;
         }
-
-        // Remove any leading/trailing whitespace
-        url = url.trim();
 
         return url.startsWith("/") && RedirectValidationUtils.isValidRelativeRedirect(url);
     }
