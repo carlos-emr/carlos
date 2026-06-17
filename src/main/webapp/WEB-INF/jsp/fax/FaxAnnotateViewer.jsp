@@ -106,6 +106,12 @@
     .pdfViewer { padding: 12px 0; }
     .pdfViewer .page { margin: 0 auto 8px; box-shadow: 0 2px 8px rgba(0,0,0,.5); }
 
+    /* ── Stamp placement mode — crosshair on the whole viewer area ─ */
+    #viewerContainer.stamp-placement-mode,
+    #viewerContainer.stamp-placement-mode * {
+        cursor: crosshair !important;
+    }
+
     /* ── Signature modal canvas ──────────────────────────────────── */
     #signatureCanvas {
         border: 1px solid #dee2e6;
@@ -346,8 +352,10 @@ const modeButtons = {
 
 window.setMode = function(modeName) {
     currentMode = modeMap[modeName] ?? AnnotationEditorType.NONE;
-    // Direct setter is more reliable than the event bus in PDF.js 4.x
     pdfViewer.annotationEditorMode = { mode: currentMode };
+    // Show crosshair when awaiting a stamp click so the user knows to click on the PDF.
+    document.getElementById('viewerContainer')
+        .classList.toggle('stamp-placement-mode', modeName === 'stamp');
     Object.entries(modeButtons).forEach(([name, btn]) => {
         if (btn) btn.classList.toggle('active', name === modeName);
     });
@@ -377,12 +385,38 @@ let pendingSignatureFile = null;
 // Cache for the signature file picker intercept
 let interceptNextStampFilePicker = false;
 
-// Intercept PDF.js's stamp file input click in capture phase so we can feed
-// our pre-created signature instead of opening the OS file dialog.
+// PDF.js 6.x prefers window.showOpenFilePicker() over a hidden <input type="file">
+// click. Override it so that while we have a pending signature we return that file
+// as a mock FileSystemFileHandle, bypassing the OS file-picker dialog entirely.
+const _originalShowOpenFilePicker = window.showOpenFilePicker;
+window.showOpenFilePicker = async function(options, ...rest) {
+    if (interceptNextStampFilePicker && pendingSignatureFile) {
+        interceptNextStampFilePicker = false;
+        const file = pendingSignatureFile;
+        pendingSignatureFile = null;
+        return [{
+            kind:              'file',
+            name:              file.name,
+            getFile:           async () => file,
+            queryPermission:   async () => 'granted',
+            requestPermission: async () => 'granted',
+            isSameEntry:       async () => false,
+            createWritable:    () => Promise.reject(new Error('read-only mock')),
+        }];
+    }
+    if (_originalShowOpenFilePicker) {
+        return _originalShowOpenFilePicker.call(this, options, ...rest);
+    }
+    throw new DOMException('showOpenFilePicker not supported', 'NotSupportedError');
+};
+
+// Fallback: intercept the hidden <input type="file"> click that older PDF.js versions
+// (or browsers without showOpenFilePicker) use. Accept any file input — PDF.js may
+// change the accept attribute between versions.
 document.addEventListener('click', (e) => {
     if (!interceptNextStampFilePicker) return;
     const el = e.target;
-    if (el.tagName === 'INPUT' && el.type === 'file' && el.accept && el.accept.includes('image')) {
+    if (el.tagName === 'INPUT' && el.type === 'file') {
         e.stopImmediatePropagation();
         e.preventDefault();
         interceptNextStampFilePicker = false;
