@@ -41,7 +41,7 @@
             '  background: #fff;',
             '  border: 1px solid #ced4da;',
             '  border-radius: 0 0 .25rem .25rem;',
-            '  max-height: 260px;',
+            '  max-height: 300px;',
             '  overflow-y: auto;',
             '  width: 100%;',
             '  box-shadow: 0 4px 8px rgba(0,0,0,.12);',
@@ -50,9 +50,7 @@
             '.fax-ac-item {',
             '  padding: .45rem .75rem;',
             '  cursor: pointer;',
-            '  display: flex;',
-            '  align-items: center;',
-            '  gap: .5rem;',
+            '  display: block;',
             '  font-size: .875rem;',
             '  border-bottom: 1px solid #f0f0f0;',
             '}',
@@ -60,7 +58,8 @@
             '.fax-ac-item:hover, .fax-ac-item.fax-ac-active {',
             '  background-color: #e9ecef;',
             '}',
-            '.fax-ac-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }',
+            '.fax-ac-name { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }',
+            '.fax-ac-meta { display: flex; align-items: center; gap: .4rem; margin-top: .2rem; }',
             '.fax-ac-fax  { color: #6c757d; font-size: .8rem; white-space: nowrap; }'
         ].join('\n');
         document.head.appendChild(style);
@@ -144,17 +143,24 @@
                 var row = document.createElement('div');
                 row.className = 'fax-ac-item';
 
+                // First line: full-width name
                 var nameSpan = document.createElement('span');
                 nameSpan.className = 'fax-ac-name';
                 nameSpan.textContent = item.name;
+
+                // Second line: badge + fax number
+                var metaRow = document.createElement('div');
+                metaRow.className = 'fax-ac-meta';
 
                 var faxSpan = document.createElement('span');
                 faxSpan.className = 'fax-ac-fax';
                 faxSpan.textContent = item.fax;
 
-                row.appendChild(makeBadge(item.type, item.badge));
+                metaRow.appendChild(makeBadge(item.type, item.badge));
+                metaRow.appendChild(faxSpan);
+
                 row.appendChild(nameSpan);
-                row.appendChild(faxSpan);
+                row.appendChild(metaRow);
 
                 row.addEventListener('mousedown', function (e) {
                     e.preventDefault();

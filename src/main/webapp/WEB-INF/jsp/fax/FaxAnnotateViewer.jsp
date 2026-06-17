@@ -415,12 +415,19 @@ window.adjustZoom = function(delta) {
 // ── Signature modal ───────────────────────────────────────────────────────
 let signatureModal = null;
 
-// Places a signature stamp at the centre of the current page via PDF.js's
-// AnnotationEditorLayer.pasteEditor() API.  The synthetic-paste approach was
-// abandoned because Chrome returns an empty DataTransfer for synthetic
-// ClipboardEvents (clipboard security policy), so clipboardData.items is
-// always empty inside the PDF.js paste handler even when populated externally.
-// Calling pasteEditor() directly avoids that restriction entirely.
+// Places a signature stamp at the centre of the current page.
+//
+// pasteEditor() was replaced by createAndAddNewEditor() because:
+//   1. The synthetic ClipboardEvent paste approach was blocked by Chrome's
+//      clipboard security policy (clipboardData.items always empty).
+//   2. Passing width/height in pasteEditor() params has no effect — the
+//      AnnotationEditor base constructor (pdf.mjs line 4963) unconditionally
+//      sets this.width = this.height = null, wiping any constructor param.
+//
+// createAndAddNewEditor() returns the StampEditor synchronously, before the
+// async imageManager.getFromFile() callback fires.  We set editor.width/height
+// in that window so StampEditor.#createCanvas() sees truthy values and uses
+// them instead of falling through to the 75% MAX_RATIO default clamp.
 async function insertSignatureViaFastPath(file) {
     console.log('[sig] insertSignatureViaFastPath; file size=', file.size, 'type=', file.type);
 
@@ -444,14 +451,23 @@ async function insertSignatureViaFastPath(file) {
         return;
     }
 
-    console.log('[sig] calling layer.pasteEditor for page', pageIndex);
-    // width/height are fractions of page dimensions; 0.20 × 0.05 ≈ 150 × 50 pt
-    // on a typical letter/A4 page, matching the provider's stamp proportions.
-    await layer.pasteEditor(
-        { mode: AnnotationEditorType.STAMP },
-        { bitmapFile: file, width: 0.20, height: 0.05 }
+    console.log('[sig] creating stamp editor on layer for page', pageIndex);
+    const editor = layer.createAndAddNewEditor(
+        { offsetX: 0, offsetY: 0 },
+        true,               // isCentered — positions stamp at page centre
+        { bitmapFile: file }
     );
-    console.log('[sig] pasteEditor done');
+    if (!editor) {
+        console.error('[sig] createAndAddNewEditor returned null — mode may not be STAMP');
+        return;
+    }
+
+    // Set size BEFORE the async getFromFile() callback fires #createCanvas().
+    // Values are page-dimension fractions: 0.20 × 0.05 ≈ 150 × 50 pt on letter/A4.
+    editor.width  = 0.20;
+    editor.height = 0.05;
+
+    console.log('[sig] stamp editor created and sized');
     usedAnnotationTypes.add('signed');
 }
 

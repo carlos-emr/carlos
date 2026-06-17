@@ -70,7 +70,7 @@
 
     <script type="text/javascript">
 
-        top.window.resizeTo("800", "850");
+        top.window.resizeTo("1050", "850");
 
         // Action to remove additional recipients from the form.
         function removeRecipient(element) {
@@ -286,13 +286,13 @@
 				  	<div class="card-body">
 						<div class="container">
 						  	<div class="row" id="fax-recipients">	
-								<div class="col-sm-6 mb-3" style="position:relative;">
+								<div class="col-sm-8 mb-3" style="position:relative;">
 									<label for="searchProfessionalSpecialist_name">Name</label>
 								 	<input class="form-control" type="text" name="recipient" value="<carlos:encode value='${ professionalSpecialistName }' context="htmlAttribute"/>"
 								 		id="searchProfessionalSpecialist_name" placeholder="Search: last, first" required autocomplete="off"/>
 								 	<div id="faxRecipientDropdown" class="fax-ac-dropdown"></div>
 								 </div>
-								 <div class="col-sm-6 mb-3">
+								 <div class="col-sm-4 mb-3">
 									<label for="searchProfessionalSpecialist_fax">Fax</label>
 									<input class="form-control" type="text" name="recipientFaxNumber" value="<carlos:encode value='${ not empty fax ? fax : param.fax }' context="htmlAttribute"/>"
 										id="searchProfessionalSpecialist_fax" placeholder="xxx-xxx-xxxx"  required/>
@@ -310,15 +310,15 @@
 				  		<div class="container" id="fax-additional-recipients" >
 	
 				  			<div class="row" id="additionalRecipientControlPanel">			  			
-				  				<div class="col-sm-5 mb-3" style="position:relative;">
+				  				<div class="col-sm-7 mb-3" style="position:relative;">
 						  			<label for="additionalRecipient_name" >Name</label>
 								 	<input class="form-control" type="text" value=""
 								 		id="additionalRecipient_name" name="additionalRecipient_name" placeholder="Search: last, first" autocomplete="off"/>
 								 	<div id="faxCcDropdown" class="fax-ac-dropdown"></div>
 								</div>
-									<div class="col-sm-5 mb-3">	
+									<div class="col-sm-3 mb-3">
 								 	<label for="additionalRecipient_fax">Fax</label>
-								 	<input class="autocomplete form-control" name="additionalRecipient_fax" type="text" value=""  
+								 	<input class="autocomplete form-control" name="additionalRecipient_fax" type="text" value=""
 								 		id="additionalRecipient_fax" placeholder="xxx-xxx-xxxx"  />
 								</div>
 								<div class="col-sm-2 mb-3">
