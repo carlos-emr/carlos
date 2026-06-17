@@ -59,6 +59,8 @@ class ScheduleNavigationAssetRegressionTest {
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "messenger", "CreateMessage.jsp");
     private static final Path SENT_MESSAGE_JSP =
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "messenger", "SentMessage.jsp");
+    private static final Path MESSENGER_SCHEDULE_NAV_JSPF =
+            Path.of("src", "main", "webapp", "WEB-INF", "jsp", "messenger", "messengerScheduleNav.jspf");
     private static final Path INBOXHUB_JSP =
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "web", "inboxhub", "Inboxhub.jsp");
     private static final Path TICKLER_MAIN_JSP =
@@ -152,6 +154,8 @@ class ScheduleNavigationAssetRegressionTest {
         String viewMessage = Files.readString(VIEW_MESSAGE_JSP, StandardCharsets.UTF_8);
         String createMessage = Files.readString(CREATE_MESSAGE_JSP, StandardCharsets.UTF_8);
         String sentMessage = Files.readString(SENT_MESSAGE_JSP, StandardCharsets.UTF_8);
+        String messengerScheduleNav = Files.readString(MESSENGER_SCHEDULE_NAV_JSPF, StandardCharsets.UTF_8);
+        String normalizedMessengerScheduleNav = normalizeWhitespace(messengerScheduleNav);
         String normalizedSentMessage = normalizeWhitespace(sentMessage);
         String inboxhub = Files.readString(INBOXHUB_JSP, StandardCharsets.UTF_8);
         String ticklerMain = Files.readString(TICKLER_MAIN_JSP, StandardCharsets.UTF_8);
@@ -187,24 +191,34 @@ class ScheduleNavigationAssetRegressionTest {
                 .contains("li.nav-active > a.tabalert")
                 .contains("li.nav-active > a span");
         assertThat(displayMessages)
+                .contains("<%@ include file=\"messengerScheduleNav.jspf\" %>")
                 .contains("String boxTypeQuerySuffix = pageType > 0 ? \"&boxType=\" + pageType : \"\";")
                 .contains("String demographicQuerySuffix = pageType == 3 && demographic_no != null")
                 .contains("ViewCreateMessage<%=scheduleNavFirstQuerySuffix%>")
                 .contains(STATUS_SORT_LINK_PATTERN)
                 .contains(MESSAGE_LINK_PATTERN);
-        assertThat(viewMessage)
+        assertThat(messengerScheduleNav)
                 .contains("boolean showScheduleNav = \"1\".equals(request.getParameter(\"scheduleNav\"));")
+                .contains("String scheduleNavQuerySuffix = showScheduleNav ? \"&scheduleNav=1\" : \"\";")
+                .contains("String scheduleNavFirstQuerySuffix = showScheduleNav ? \"?scheduleNav=1\" : \"\";");
+        assertThat(normalizedMessengerScheduleNav)
+                .contains("boolean showMessengerExitButton = !showScheduleNav "
+                        + "|| !UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED.equals(messengerScheduleNavigationMode);")
+                .doesNotContain("UserProperty.SCHEDULE_NAVIGATION_MODE_TAB.equals(messengerScheduleNavigationMode)");
+        assertThat(viewMessage)
+                .contains("<%@ include file=\"messengerScheduleNav.jspf\" %>")
                 .contains("<jsp:include page=\"/WEB-INF/jsp/provider/mainMenu.jsp\"/>")
                 .contains("DisplayMessages<%=scheduleNavFirstQuerySuffix%>")
-                .contains("DisplayMessages?boxType=1<%=scheduleNavQuerySuffix%>");
+                .contains("DisplayMessages?boxType=1<%=scheduleNavQuerySuffix%>")
+                .contains("ViewCreateMessage<%=scheduleNavFirstQuerySuffix%>");
         assertThat(createMessage)
-                .contains("boolean showScheduleNav = \"1\".equals(request.getParameter(\"scheduleNav\"));")
+                .contains("<%@ include file=\"messengerScheduleNav.jspf\" %>")
                 .contains("<jsp:include page=\"/WEB-INF/jsp/provider/mainMenu.jsp\"/>")
                 .contains("<input type=\"hidden\" name=\"scheduleNav\" value=\"1\">")
                 .contains("ClearMessage<%=scheduleNavFirstQuerySuffix%>")
                 .contains("DisplayMessages<%=scheduleNavFirstQuerySuffix%>");
         assertThat(sentMessage)
-                .contains("boolean showScheduleNav = \"1\".equals(request.getParameter(\"scheduleNav\"));")
+                .contains("<%@ include file=\"messengerScheduleNav.jspf\" %>")
                 .contains("ViewCreateMessage<%=scheduleNavFirstQuerySuffix%>")
                 .contains("DisplayMessages<%=scheduleNavFirstQuerySuffix%>");
         assertThat(normalizedSentMessage)

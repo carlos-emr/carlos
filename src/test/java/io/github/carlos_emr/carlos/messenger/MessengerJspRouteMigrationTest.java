@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.messenger;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -47,8 +48,15 @@ class MessengerJspRouteMigrationTest {
             Path.of("src/main/webapp/WEB-INF/jsp/messenger/generatePreviewPDF.jsp");
     private static final Path SELF_CLOSE_AND_REFRESH_OPENER =
             Path.of("src/main/webapp/WEB-INF/jsp/messenger/selfCloseAndRefreshOpener.jsp");
+    private static final Path MESSENGER_SCHEDULE_NAV =
+            Path.of("src/main/webapp/WEB-INF/jsp/messenger/messengerScheduleNav.jspf");
     private static final Path LEGACY_ADJUST_ATTACHMENTS =
             Path.of("src/main/webapp/messenger/AdjustAttachments.jsp");
+    private static final List<Path> MESSENGER_EXIT_PAGES = List.of(
+            Path.of("src/main/webapp/WEB-INF/jsp/messenger/DisplayMessages.jsp"),
+            Path.of("src/main/webapp/WEB-INF/jsp/messenger/CreateMessage.jsp"),
+            Path.of("src/main/webapp/WEB-INF/jsp/messenger/ViewMessage.jsp"),
+            Path.of("src/main/webapp/WEB-INF/jsp/messenger/SentMessage.jsp"));
 
     @Test
     @DisplayName("attachment frameset should target the gated PreviewPDF action")
@@ -122,6 +130,31 @@ class MessengerJspRouteMigrationTest {
                 .contains("} finally {")
                 .contains("!top.opener.closed")
                 .contains("top.window.close();");
+    }
+
+    @Test
+    @DisplayName("messenger exit controls should be hidden only in same-tab schedule navigation")
+    void shouldHideExitControls_whenSameTabScheduleNavigation() throws Exception {
+        String helper = Files.readString(MESSENGER_SCHEDULE_NAV);
+
+        assertThat(helper)
+                .contains("boolean showScheduleNav = \"1\".equals(request.getParameter(\"scheduleNav\"));")
+                .contains("Object messengerProvider = session.getAttribute(\"user\");")
+                .contains("if (messengerProvider instanceof String)")
+                .contains("UserProperty.resolveScheduleNavigationMode")
+                .contains("UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED")
+                .contains("boolean showMessengerExitButton = !showScheduleNav")
+                .doesNotContain("(String) session.getAttribute(\"user\")")
+                .doesNotContain("UserProperty.SCHEDULE_NAVIGATION_MODE_TAB.equals(messengerScheduleNavigationMode)");
+
+        for (Path page : MESSENGER_EXIT_PAGES) {
+            String jsp = Files.readString(page);
+
+            assertThat(jsp)
+                    .contains("<%@ include file=\"messengerScheduleNav.jspf\" %>")
+                    .contains("showMessengerExitButton")
+                    .contains("BackToCarlos()");
+        }
     }
 
     @Test
