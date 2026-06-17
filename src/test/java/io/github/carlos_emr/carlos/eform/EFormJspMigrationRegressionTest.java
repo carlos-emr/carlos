@@ -87,8 +87,9 @@ class EFormJspMigrationRegressionTest {
     void savedEFormPreviewShouldUseRequestContextForImagePath() throws IOException {
         String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/eform/efmshowform_data.jsp"), StandardCharsets.UTF_8);
 
-        assertThat(jsp).contains("eForm = new EForm(fdid);");
-        assertThat(jsp).contains("eForm.setImagePath(request.getContextPath());");
+        assertThat(jsp)
+                .contains("eForm = new EForm(fdid);")
+                .contains("eForm.setImagePath(request.getContextPath());");
     }
 
     @Test
