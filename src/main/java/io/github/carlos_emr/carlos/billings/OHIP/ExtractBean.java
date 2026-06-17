@@ -54,6 +54,11 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+
+/**
+ * Data transfer object mapping ExtractBean attributes.
+ * Used to transport information across application tiers and facilitate UI rendering.
+ */
 public class ExtractBean extends Object implements Serializable {
 
     private static final long serialVersionUID = 1L;

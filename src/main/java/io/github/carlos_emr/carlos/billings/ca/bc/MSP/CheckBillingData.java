@@ -41,6 +41,11 @@ import java.sql.SQLException;
 import java.util.Iterator;
 import java.util.List;
 
+
+/**
+ * Data transfer object mapping CheckBillingData attributes.
+ * Used to transport information across application tiers and facilitate UI rendering.
+ */
 public class CheckBillingData {
 
     // check batchHeader VS1

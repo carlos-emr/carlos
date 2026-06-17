@@ -61,6 +61,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+
+/**
+ * Handles HTTP requests and business logic routing for BillingUpdateBilling2Action.
+ * Integrates with the service layer to process incoming data and return appropriate results.
+ */
 public final class BillingUpdateBilling2Action
         extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);

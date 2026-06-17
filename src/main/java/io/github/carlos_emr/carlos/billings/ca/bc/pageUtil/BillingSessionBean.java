@@ -34,6 +34,11 @@ import java.util.ArrayList;
 
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBillingManager.BillingItem;
 
+
+/**
+ * Data transfer object mapping BillingSessionBean attributes.
+ * Used to transport information across application tiers and facilitate UI rendering.
+ */
 public class BillingSessionBean implements java.io.Serializable {
     private String apptProviderNo = null;
     private String patientName = null;

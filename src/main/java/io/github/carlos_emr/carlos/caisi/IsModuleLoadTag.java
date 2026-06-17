@@ -33,6 +33,11 @@ import jakarta.servlet.jsp.tagext.TagSupport;
 import io.github.carlos_emr.CarlosProperties;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+
+/**
+ * Provides utility and processing functions for IsModuleLoadTag.
+ * Coordinates specific operations within the module workflow.
+ */
 public class IsModuleLoadTag extends TagSupport {
 
     private String moduleName;

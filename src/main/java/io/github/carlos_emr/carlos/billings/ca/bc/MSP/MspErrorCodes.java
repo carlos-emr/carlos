@@ -46,6 +46,11 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 
+
+/**
+ * Provides utility and processing functions for MspErrorCodes.
+ * Coordinates specific operations within the module workflow.
+ */
 public class MspErrorCodes extends Properties {
 
     /**

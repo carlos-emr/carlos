@@ -29,6 +29,11 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+
+/**
+ * Provides utility and processing functions for PaymentType.
+ * Coordinates specific operations within the module workflow.
+ */
 public class PaymentType {
     private String id;
     private String paymentType;

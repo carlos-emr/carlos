@@ -31,6 +31,11 @@ package io.github.carlos_emr.carlos.entities;
 
 // Class Condition
 //
+
+/**
+ * Represents the domain entity for Condition.
+ * Maintains state and core business rules associated with this record type.
+ */
 public class Condition
         extends ClinicalFactor {
     // Fields

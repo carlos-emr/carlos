@@ -30,6 +30,11 @@
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
 
+
+/**
+ * Encapsulates validation rules and business constraints for AgeValidator.
+ * Ensures data integrity before persistence or further processing.
+ */
 public class AgeValidator
         extends ServiceCodeValidator {
     private int maxAge = 150;

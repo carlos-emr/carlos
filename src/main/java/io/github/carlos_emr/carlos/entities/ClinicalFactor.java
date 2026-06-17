@@ -29,6 +29,11 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+
+/**
+ * Provides utility and processing functions for ClinicalFactor.
+ * Coordinates specific operations within the module workflow.
+ */
 public class ClinicalFactor {
     // Fields
     //

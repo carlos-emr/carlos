@@ -50,6 +50,11 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBillingManager.BillingItem;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+
+/**
+ * Data transfer object mapping BillingViewBean attributes.
+ * Used to transport information across application tiers and facilitate UI rendering.
+ */
 public class BillingViewBean {
 
     private String apptProviderNo = null;

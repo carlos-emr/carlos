@@ -24,6 +24,11 @@
 
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
+
+/**
+ * Encapsulates validation rules and business constraints for ServiceCodeValidator.
+ * Ensures data integrity before persistence or further processing.
+ */
 public class ServiceCodeValidator {
     protected boolean valid = true;
     protected String serviceCode = "";

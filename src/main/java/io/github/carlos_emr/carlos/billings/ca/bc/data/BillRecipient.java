@@ -36,6 +36,11 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+
+/**
+ * Provides utility and processing functions for BillRecipient.
+ * Coordinates specific operations within the module workflow.
+ */
 public class BillRecipient {
 
     private Integer id;

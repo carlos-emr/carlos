@@ -45,6 +45,11 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+
+/**
+ * Handles HTTP requests and business logic routing for BillingAddCode2Action.
+ * Integrates with the service layer to process incoming data and return appropriate results.
+ */
 public final class BillingAddCode2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 

@@ -38,6 +38,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 
+
+/**
+ * Data transfer object mapping QuickBillingBCFormBean attributes.
+ * Used to transport information across application tiers and facilitate UI rendering.
+ */
 public class QuickBillingBCFormBean {
 
     /**

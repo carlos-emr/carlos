@@ -32,6 +32,11 @@ package io.github.carlos_emr.carlos.entities;
 import java.math.BigDecimal;
 import java.util.Date;
 
+
+/**
+ * Provides utility and processing functions for PrivateBillTransaction.
+ * Coordinates specific operations within the module workflow.
+ */
 public class PrivateBillTransaction {
     private int id;
     private int billingmaster_no;

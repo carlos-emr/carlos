@@ -29,6 +29,11 @@
 
 package io.github.carlos_emr.carlos.billings.ca.bc.data;
 
+
+/**
+ * Provides utility and processing functions for InjuryLocation.
+ * Coordinates specific operations within the module workflow.
+ */
 public class InjuryLocation {
     private String sidetype;
     private String sidedesc;

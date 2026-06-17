@@ -53,6 +53,11 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+
+/**
+ * Handles HTTP requests and business logic routing for ReceivePayment2Action.
+ * Integrates with the service layer to process incoming data and return appropriate results.
+ */
 public class ReceivePayment2Action
         extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);

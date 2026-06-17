@@ -76,6 +76,11 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+
+/**
+ * Handles HTTP requests and business logic routing for ManageTeleplan2Action.
+ * Integrates with the service layer to process incoming data and return appropriate results.
+ */
 public class ManageTeleplan2Action extends ActionSupport {
     private static final Set<String> POST_ONLY_METHODS = Set.of(
             "setUserName",

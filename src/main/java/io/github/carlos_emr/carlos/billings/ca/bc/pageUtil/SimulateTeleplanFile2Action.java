@@ -53,6 +53,11 @@ import java.util.List;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+
+/**
+ * Handles HTTP requests and business logic routing for SimulateTeleplanFile2Action.
+ * Integrates with the service layer to process incoming data and return appropriate results.
+ */
 public class SimulateTeleplanFile2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 

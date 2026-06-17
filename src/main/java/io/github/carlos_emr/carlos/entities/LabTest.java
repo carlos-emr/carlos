@@ -30,6 +30,11 @@
 package io.github.carlos_emr.carlos.entities;
 
 //
+
+/**
+ * Provides utility and processing functions for LabTest.
+ * Coordinates specific operations within the module workflow.
+ */
 public class LabTest
         extends Test {
     private String observationDateTime = "";

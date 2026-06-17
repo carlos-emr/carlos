@@ -37,6 +37,11 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.tickler.TicklerCreator;
 import io.github.carlos_emr.carlos.util.SqlUtils;
 
+
+/**
+ * Provides utility and processing functions for CDMReminderHlp.
+ * Coordinates specific operations within the module workflow.
+ */
 public class CDMReminderHlp {
     public CDMReminderHlp() {
     }

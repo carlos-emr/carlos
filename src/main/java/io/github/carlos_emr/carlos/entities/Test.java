@@ -29,6 +29,11 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+
+/**
+ * Provides utility and processing functions for Test.
+ * Coordinates specific operations within the module workflow.
+ */
 public class Test {
     private String id;
     private String description;

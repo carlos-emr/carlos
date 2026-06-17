@@ -59,6 +59,11 @@ import java.text.SimpleDateFormat;
 import java.util.Arrays;
 
 
+
+/**
+ * Data transfer object mapping ExtractBean attributes.
+ * Used to transport information across application tiers and facilitate UI rendering.
+ */
 public class ExtractBean extends Object implements Serializable {
     private static Logger logger = MiscUtils.getLogger();
     private LogTeleplanTxDao logTeleplanTxDao = SpringUtils.getBean(LogTeleplanTxDao.class);

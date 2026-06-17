@@ -29,6 +29,11 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+
+/**
+ * Data transfer object mapping LabData attributes.
+ * Used to transport information across application tiers and facilitate UI rendering.
+ */
 public class LabData {
     private String a1c;
     private String ldl;

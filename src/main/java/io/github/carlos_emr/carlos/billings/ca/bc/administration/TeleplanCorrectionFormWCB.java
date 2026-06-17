@@ -43,6 +43,11 @@ import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+
+/**
+ * Provides utility and processing functions for TeleplanCorrectionFormWCB.
+ * Coordinates specific operations within the module workflow.
+ */
 public class TeleplanCorrectionFormWCB {
 
     private static Logger logger = MiscUtils.getLogger();

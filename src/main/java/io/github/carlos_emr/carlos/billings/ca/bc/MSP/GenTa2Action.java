@@ -69,6 +69,11 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+
+/**
+ * Handles HTTP requests and business logic routing for GenTa2Action.
+ * Integrates with the service layer to process incoming data and return appropriate results.
+ */
 public class GenTa2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 

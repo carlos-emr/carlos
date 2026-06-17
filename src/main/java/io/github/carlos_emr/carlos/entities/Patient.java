@@ -29,6 +29,11 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+
+/**
+ * Provides utility and processing functions for Patient.
+ * Coordinates specific operations within the module workflow.
+ */
 public class Patient {
     private String firstName;
     private String lastName;
