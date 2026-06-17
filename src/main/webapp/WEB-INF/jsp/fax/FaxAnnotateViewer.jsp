@@ -237,7 +237,7 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-        <button type="button" class="btn btn-primary" id="btnApplySignature" onclick="applySignature()">
+        <button type="button" class="btn btn-primary" id="btnApplySignature" onclick="placeSignature()">
             <i class="fas fa-stamp me-1"></i>Place Signature on Document
         </button>
       </div>
@@ -454,6 +454,25 @@ window.useExistingSignature = async function() {
     if (!existingSignatureDataUrl) return;
     signatureModal.hide();
     await insertSignatureAsStamp(existingSignatureDataUrl, false);
+};
+
+// Dispatches the footer "Place Signature on Document" button to the right handler
+// depending on which section of the modal is currently visible.
+window.placeSignature = async function() {
+    if (document.getElementById('sigExistingSection').style.display !== 'none') {
+        // Existing signature is shown — place it without touching saveDrawn
+        await window.useExistingSignature();
+        return;
+    }
+    // Draw pad is shown — ensure the user has actually drawn something
+    const canvas = document.getElementById('signatureCanvas');
+    const px = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+    const hasContent = Array.prototype.some.call(px, (v, i) => i % 4 === 3 && v > 10);
+    if (!hasContent) {
+        alert('Please draw your signature before placing it on the document.');
+        return;
+    }
+    await window.applySignature();
 };
 
 window.applySignature = async function() {
