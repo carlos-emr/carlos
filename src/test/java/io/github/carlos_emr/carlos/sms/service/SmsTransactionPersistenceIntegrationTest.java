@@ -16,11 +16,13 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
 
 /**
  * Integration tests for the {@code sms_transaction} system-of-record against the H2 (MySQL-mode) schema
@@ -48,7 +50,7 @@ class SmsTransactionPersistenceIntegrationTest extends CarlosTestBase {
 
     @BeforeEach
     void setUp() {
-        recorder = new JpaSmsTransactionRecorder(smsTransactionDao, event -> { });
+        recorder = new JpaSmsTransactionRecorder(smsTransactionDao, mock(ApplicationEventPublisher.class));
     }
 
     @Test

@@ -14,7 +14,7 @@ class LoggingSmsSendFailureListenerUnitTest {
     @DisplayName("handles a terminal failure event without error")
     void shouldHandleEvent_whenSendFailedTerminally() {
         LoggingSmsSendFailureListener listener = new LoggingSmsSendFailureListener();
-        SmsSendFailedEvent event = new SmsSendFailedEvent(42L, 123, "999998", 7, "PROVIDER_EXHAUSTED", "rejected");
+        SmsSendFailedEvent event = new SmsSendFailedEvent(42L, 123, "999998", 7, "PROVIDER_EXHAUSTED");
 
         assertThatCode(() -> listener.onSmsSendFailed(event)).doesNotThrowAnyException();
     }
