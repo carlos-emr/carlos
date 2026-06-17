@@ -98,6 +98,7 @@ class ViewDocumentReportRead2ActionTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
         verify(mockResponse, never()).sendError(any(Integer.class), any(String.class));
+        verify(mockRequest, never()).setAttribute(eq("normalizedFunction"), any());
     }
 
     @Test
@@ -132,6 +133,7 @@ class ViewDocumentReportRead2ActionTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         verify(mockResponse).sendError(HttpServletResponse.SC_BAD_REQUEST, "invalid function");
+        verify(mockRequest, never()).setAttribute(eq("normalizedFunction"), any());
     }
 
     @Test
@@ -158,6 +160,19 @@ class ViewDocumentReportRead2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldRejectReport_whenAppointmentNoHasNonAsciiDigits() throws Exception {
+        // function absent -> routes through the no-function appointmentNo branch; the ASCII-strict
+        // pre-scan must reject non-ASCII digits (the old Character.isDigit code did not).
+        when(mockRequest.getParameter("appointmentNo")).thenReturn("١٢٣"); // Arabic-Indic 123
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        verify(mockResponse).sendError(HttpServletResponse.SC_BAD_REQUEST, "invalid appointmentNo");
+        verify(mockRequest, never()).setAttribute(eq("normalizedFunction"), any());
+    }
+
+    @Test
     void shouldForbidDemographicReport_whenPatientAccessDenied() throws Exception {
         when(mockRequest.getParameter("function")).thenReturn("demographic");
         when(mockRequest.getParameter("functionid")).thenReturn("123");
@@ -167,6 +182,7 @@ class ViewDocumentReportRead2ActionTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         verify(mockResponse).sendError(HttpServletResponse.SC_FORBIDDEN, "unauthorized access to patient record");
+        verify(mockRequest, never()).setAttribute(eq("normalizedFunction"), any());
     }
 
     @Test
