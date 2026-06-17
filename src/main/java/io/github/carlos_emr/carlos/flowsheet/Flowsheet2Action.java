@@ -493,7 +493,7 @@ public class Flowsheet2Action extends ActionSupport {
         }
 
         writeJsonResponse(resp.toString());
-        return null;
+        return NONE;
     }
 
     public String addMeasurement() {
@@ -554,7 +554,7 @@ public class Flowsheet2Action extends ActionSupport {
 
         writeJsonResponse(resp.toString());
 
-        return null;
+        return NONE;
 
     }
 
@@ -583,7 +583,7 @@ public class Flowsheet2Action extends ActionSupport {
 
         writeJsonResponse(resp.toString());
 
-        return null;
+        return NONE;
     }
 
     public String getPreventionTypes() throws IOException {
@@ -604,7 +604,7 @@ public class Flowsheet2Action extends ActionSupport {
 
         writeJsonResponse(resp.toString());
 
-        return null;
+        return NONE;
     }
 
     public String addNewFlowsheet() throws IOException {
@@ -672,7 +672,7 @@ public class Flowsheet2Action extends ActionSupport {
 
         MeasurementTemplateFlowSheetConfig.getInstance().reloadFlowsheets();
 
-        return null;
+        return NONE;
     }
 
     public String deleteFlowsheet() throws IOException {
@@ -691,7 +691,7 @@ public class Flowsheet2Action extends ActionSupport {
 
         MeasurementTemplateFlowSheetConfig.getInstance().reloadFlowsheets();
 
-        return null;
+        return NONE;
     }
 
     public String removeItem() throws IOException {
@@ -756,7 +756,7 @@ public class Flowsheet2Action extends ActionSupport {
         ObjectNode obj = objectMapper.createObjectNode();
         obj.put("success", true);
         writeJsonResponse(obj.toString());
-        return null;
+        return NONE;
     }
 
     public String getWarnings() throws IOException {
@@ -810,7 +810,7 @@ public class Flowsheet2Action extends ActionSupport {
         }
 
         writeJsonResponse(obj.toString());
-        return null;
+        return NONE;
 
     }
 
@@ -879,7 +879,7 @@ public class Flowsheet2Action extends ActionSupport {
         ObjectNode obj = objectMapper.createObjectNode();
         obj.put("success", true);
         writeJsonResponse(obj.toString());
-        return null;
+        return NONE;
     }
 
     public String removeTarget() throws IOException {
@@ -954,7 +954,7 @@ public class Flowsheet2Action extends ActionSupport {
         ObjectNode obj = objectMapper.createObjectNode();
         obj.put("success", true);
         writeJsonResponse(obj.toString());
-        return null;
+        return NONE;
     }
 
     public String getIndicators() throws IOException {
@@ -993,7 +993,7 @@ public class Flowsheet2Action extends ActionSupport {
         obj.put("indicators", jIndicators);
 
         writeJsonResponse(obj.toString());
-        return null;
+        return NONE;
 
     }
 
@@ -1053,7 +1053,7 @@ public class Flowsheet2Action extends ActionSupport {
         }
 
         writeJsonResponse(obj.toString());
-        return null;
+        return NONE;
 
     }
 
@@ -1123,7 +1123,7 @@ public class Flowsheet2Action extends ActionSupport {
         ObjectNode obj = objectMapper.createObjectNode();
         obj.put("success", true);
         writeJsonResponse(obj.toString());
-        return null;
+        return NONE;
     }
 
     public String saveFlowsheetItemTarget() throws IOException {
@@ -1198,7 +1198,7 @@ public class Flowsheet2Action extends ActionSupport {
         ObjectNode obj = objectMapper.createObjectNode();
         obj.put("success", true);
         writeJsonResponse(obj.toString());
-        return null;
+        return NONE;
     }
 
     public Rule findRuleInRuleset(Ruleset ruleSet, String indicator) {
@@ -1273,7 +1273,7 @@ public class Flowsheet2Action extends ActionSupport {
         ObjectNode obj = objectMapper.createObjectNode();
         obj.put("success", true);
         writeJsonResponse(obj.toString());
-        return null;
+        return NONE;
     }
 
     public String getFlowsheetItem() throws IOException {
@@ -1317,7 +1317,7 @@ public class Flowsheet2Action extends ActionSupport {
         }
 
         writeJsonResponse(obj.toString());
-        return null;
+        return NONE;
     }
 
     // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
@@ -1396,7 +1396,7 @@ public class Flowsheet2Action extends ActionSupport {
         }
 
         writeJsonResponse(obj.toString());
-        return null;
+        return NONE;
     }
 
     private Measurement findMeasurement(Flowsheet flowsheet, String measurementType) {
@@ -1442,7 +1442,7 @@ public class Flowsheet2Action extends ActionSupport {
         resp.put("results", fsList);
         writeJsonResponse(resp.toString());
 
-        return null;
+        return NONE;
     }
 
     public String listSystem() throws IOException {
@@ -1488,7 +1488,7 @@ public class Flowsheet2Action extends ActionSupport {
         resp.put("results", fsList);
         writeJsonResponse(resp.toString());
 
-        return null;
+        return NONE;
     }
 
     public String list() throws IOException {
@@ -1548,7 +1548,7 @@ public class Flowsheet2Action extends ActionSupport {
         resp.put("results", fsList);
 
         writeJsonResponse(resp.toString());
-        return null;
+        return NONE;
     }
 
     public String reload() {
