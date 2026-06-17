@@ -405,7 +405,7 @@
         <jsp:include page="/WEB-INF/jsp/provider/mainMenu.jsp"/>
     <% } %>
 
-    <div class="container" style="margin-bottom: 25px">
+    <div class="container-fluid carlos-content-shell" style="margin-bottom: 25px">
         <h2>
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
                  class="bi bi-file-earmark" viewBox="0 0 16 16">
