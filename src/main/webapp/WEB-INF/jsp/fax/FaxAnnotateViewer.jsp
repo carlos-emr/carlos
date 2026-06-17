@@ -106,6 +106,29 @@
     .pdfViewer { padding: 12px 0; }
     .pdfViewer .page { margin: 0 auto 8px; box-shadow: 0 2px 8px rgba(0,0,0,.5); }
 
+    /* ── Annotation edit toolbar — appear ABOVE the annotation ─────
+       pdf_viewer.css 6.x default places the toolbar below (inset-block-start:
+       calc(100% + 6px)).  We restore the PDF.js 4.x convention of showing it
+       above the annotation so the toolbar doesn't hide surrounding content.
+       The override uses both the logical property and the physical property
+       (with !important on the physical one) to beat inline style.top values
+       that HighlightEditor sets via JavaScript. ───────────────────────── */
+    :root { --editor-toolbar-vert-offset: -4px; }
+
+    .annotationEditorLayer .editToolbar {
+        inset-block-start: calc(0% - var(--editor-toolbar-height, 28px) - 4px) !important;
+    }
+
+    /* Disable the JS-injected style.top on highlight toolbars by re-applying
+       the above override as a physical top rule at higher specificity. */
+    .annotationEditorLayer .highlightEditor > .editToolbar,
+    .annotationEditorLayer .freeTextEditor > .editToolbar,
+    .annotationEditorLayer .inkEditor > .editToolbar,
+    .annotationEditorLayer .stampEditor > .editToolbar {
+        top: calc(0% - var(--editor-toolbar-height, 28px) - 4px) !important;
+        inset-block-start: calc(0% - var(--editor-toolbar-height, 28px) - 4px) !important;
+    }
+
     /* ── Stamp placement mode — crosshair on the whole viewer area ─ */
     #viewerContainer.stamp-placement-mode,
     #viewerContainer.stamp-placement-mode * {
@@ -158,7 +181,7 @@
     <button class="tool-btn" id="btnHighlight" title="Highlight"             onclick="setMode('highlight')">
         <i class="fas fa-highlighter"></i>
     </button>
-    <button class="tool-btn" id="btnSign"      title="Add signature stamp"  onclick="openSignatureOrInsert()">
+    <button class="tool-btn" id="btnSign"      title="Add signature stamp"  onclick="console.log('[sig] button clicked; fn defined:', typeof openSignatureOrInsert); if (typeof openSignatureOrInsert === 'function') openSignatureOrInsert(); else console.error('[sig] openSignatureOrInsert not yet defined — module still loading')">
         <i class="fas fa-signature"></i>
     </button>
 
@@ -371,17 +394,20 @@ let signatureModal = null;
 // pasteEditor({mode:STAMP},{bitmapFile}) which places the stamp at the centre
 // of the current page with no OS file picker required.
 async function insertSignatureViaFastPath(file) {
+    console.log('[sig] insertSignatureViaFastPath; file size=', file.size, 'type=', file.type);
     // Enter stamp mode to ensure the paste listener is registered on document.
     pdfViewer.annotationEditorMode = { mode: AnnotationEditorType.STAMP };
     await new Promise(r => setTimeout(r, 0));   // let annotation layers initialise
 
     const dt = new DataTransfer();
     dt.items.add(file);
-    document.dispatchEvent(new ClipboardEvent('paste', {
+    console.log('[sig] dispatching synthetic paste; dt.items.length=', dt.items.length);
+    const handled = document.dispatchEvent(new ClipboardEvent('paste', {
         bubbles:       true,
         cancelable:    true,
         clipboardData: dt,
     }));
+    console.log('[sig] paste dispatched; event.defaultPrevented=', !handled);
     usedAnnotationTypes.add('signed');
 }
 
@@ -390,24 +416,36 @@ async function insertSignatureViaFastPath(file) {
 // centre of the visible page — no modal shown.  When no stamp exists the draw
 // modal opens so the provider can create one.
 window.openSignatureOrInsert = async function() {
+    console.log('[sig] openSignatureOrInsert start; CTX=', CTX);
     try {
-        const res  = await fetch(CTX + '/provider/providerSignatureStamp?method=check');
+        const checkUrl = CTX + '/provider/providerSignatureStamp?method=check';
+        console.log('[sig] fetching', checkUrl);
+        const res  = await fetch(checkUrl);
+        console.log('[sig] check response status:', res.status, res.ok);
         const json = await res.json();
+        console.log('[sig] check json:', json);
         if (res.ok && json.exists && json.imageUrl) {
+            console.log('[sig] existing stamp found, fetching image:', json.imageUrl);
             const imgRes = await fetch(json.imageUrl);
+            console.log('[sig] image response status:', imgRes.status);
             const blob   = await imgRes.blob();
+            console.log('[sig] image blob size:', blob.size, 'type:', blob.type);
             await insertSignatureViaFastPath(
                 new File([blob], 'signature.png', { type: 'image/png' })
             );
+            console.log('[sig] fast-path stamp dispatch done');
             return;
         }
-    } catch {
-        // fall through to draw modal
+        console.log('[sig] no existing stamp, opening draw modal');
+    } catch (e) {
+        console.warn('[sig] check/fetch error (opening draw modal instead):', e);
     }
     if (!signatureModal) {
+        console.log('[sig] creating bootstrap modal');
         signatureModal = new bootstrap.Modal(document.getElementById('signatureModal'));
     }
     clearSignaturePad();
+    console.log('[sig] calling signatureModal.show()');
     signatureModal.show();
 };
 
