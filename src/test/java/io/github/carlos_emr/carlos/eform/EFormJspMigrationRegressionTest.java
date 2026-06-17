@@ -48,6 +48,8 @@ class EFormJspMigrationRegressionTest {
 
     private static final Path PATIENT_FORM_LIST_JSP =
             Path.of("src/main/webapp/WEB-INF/jsp/eform/efmpatientformlist.jsp");
+    private static final Path CONSULTATION_FORM_REQUEST_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp");
     private static final Path IMPORT_PARTIAL_JSP =
             Path.of("src/main/webapp/WEB-INF/jsp/eform/partials/import.jsp");
     private static final Path STRUTS_EFORM_XML =
@@ -78,6 +80,23 @@ class EFormJspMigrationRegressionTest {
         assertThat(struts).doesNotContainPattern("/WEB-INF/jsp/eform/[^<\"]+\\.do");
         assertThat(struts).contains("<action name=\"eform/efmshowform_data\"");
         assertThat(struts).contains("<action name=\"eform/efmformadd_data\"");
+    }
+
+    @Test
+    @DisplayName("saved eForm previews should resolve image placeholders through the active request context")
+    void savedEFormPreviewShouldUseRequestContextForImagePath() throws IOException {
+        String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/eform/efmshowform_data.jsp"), StandardCharsets.UTF_8);
+
+        assertThat(jsp).contains("eForm = new EForm(fdid);");
+        assertThat(jsp).contains("eForm.setImagePath(request.getContextPath());");
+    }
+
+    @Test
+    @DisplayName("consultation request eForm links should keep using the shared saved-form route")
+    void consultationRequestShouldLinkSavedEformsThroughSharedShowFormRoute() throws IOException {
+        String jsp = Files.readString(CONSULTATION_FORM_REQUEST_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp).contains("/eform/efmshowform_data?fdid=");
     }
 
     @Test
