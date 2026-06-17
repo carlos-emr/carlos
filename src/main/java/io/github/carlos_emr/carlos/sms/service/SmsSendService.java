@@ -9,6 +9,7 @@ import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
 import io.github.carlos_emr.carlos.sms.validator.SmsSendValidator;
 import org.springframework.stereotype.Service;
 
+import java.util.Date;
 import java.util.Objects;
 
 @Service
@@ -63,6 +64,12 @@ public class SmsSendService {
         if (!rateLimiter.tryAcquire(providerType)) {
             // The row is already persisted as QUEUED (due now), so leave it for the queue
             // scheduler/worker to drain rather than exceeding the SMS provider rate limit here.
+            return SmsSendResultDto.queued();
+        }
+
+        try {
+            transaction = transactionRecorder.markSending(transaction, new Date());
+        } catch (SmsTransactionClaimConflictException e) {
             return SmsSendResultDto.queued();
         }
 

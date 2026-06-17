@@ -90,6 +90,70 @@ class SmsSendServiceUnitTest {
     }
 
     @Test
+    @DisplayName("send marks the transaction sending before calling the SMS provider")
+    void shouldMarkSendingBeforeProviderCall_whenConsentAllows() {
+        List<String> events = new ArrayList<>();
+        RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder(events);
+        SmsSendService service = new SmsSendService(
+                new SmsSendValidator(),
+                command -> SmsConsentDecisionDto.permit(),
+                new SmsProviderResolver(List.of(new EventRecordingStubSmsProviderClient(events))),
+                recorder,
+                providerType -> true,
+                new SmsProviderSelector(() -> "STUB")
+        );
+
+        SmsSendResultDto result = service.send(SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"));
+
+        assertThat(result.status()).isEqualTo(SmsStatus.SENT);
+        assertThat(events).containsExactly(
+                "recordOutboundAttempt",
+                "markSending",
+                "providerSend",
+                "markProviderResult"
+        );
+        assertThat(recorder.transactions()).singleElement()
+                .satisfies(transaction -> {
+                    assertThat(transaction.getStatus()).isEqualTo(SmsStatus.SENT);
+                    assertThat(transaction.getAttemptCount()).isEqualTo(1);
+                });
+    }
+
+    @Test
+    @DisplayName("send does not call the SMS provider when the queued row is already claimed")
+    void shouldSkipProviderSend_whenClaimConflictOccurs() {
+        List<String> events = new ArrayList<>();
+        RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder(events) {
+            @Override
+            public SmsTransaction markSending(SmsTransaction transaction, Date attemptAt) {
+                events.add("markSending");
+                throw new SmsTransactionClaimConflictException(transaction.getId());
+            }
+        };
+        SmsSendService service = new SmsSendService(
+                new SmsSendValidator(),
+                command -> SmsConsentDecisionDto.permit(),
+                new SmsProviderResolver(List.of(new EventRecordingStubSmsProviderClient(events))),
+                recorder,
+                providerType -> true,
+                new SmsProviderSelector(() -> "STUB")
+        );
+
+        SmsSendResultDto result = service.send(SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"));
+
+        assertThat(result.status()).isEqualTo(SmsStatus.QUEUED);
+        assertThat(events).containsExactly(
+                "recordOutboundAttempt",
+                "markSending"
+        );
+        assertThat(recorder.transactions()).singleElement()
+                .satisfies(transaction -> {
+                    assertThat(transaction.getStatus()).isEqualTo(SmsStatus.QUEUED);
+                    assertThat(transaction.getAttemptCount()).isZero();
+                });
+    }
+
+    @Test
     @DisplayName("send leaves the message queued and skips the SMS provider when rate limited")
     void shouldLeaveQueued_whenRateLimited() {
         RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder();
@@ -190,10 +254,20 @@ class SmsSendServiceUnitTest {
 
     private static class RecordingSmsTransactionRecorder implements SmsTransactionRecorder {
         private final List<SmsTransaction> transactions = new ArrayList<>();
+        private final List<String> events;
         private long nextTransactionId = 1L;
+
+        private RecordingSmsTransactionRecorder() {
+            this(new ArrayList<>());
+        }
+
+        private RecordingSmsTransactionRecorder(List<String> events) {
+            this.events = events;
+        }
 
         @Override
         public SmsTransaction recordOutboundAttempt(SmsSendCommand command, SmsProviderType providerType) {
+            events.add("recordOutboundAttempt");
             SmsTransaction transaction = SmsTransaction.outboundAttempt(command, providerType);
             assignId(transaction, nextTransactionId++);
             transactions.add(transaction);
@@ -202,18 +276,21 @@ class SmsSendServiceUnitTest {
 
         @Override
         public SmsTransaction markConsentBlocked(SmsTransaction transaction, SmsConsentDecisionDto decision) {
+            events.add("markConsentBlocked");
             transaction.markConsentBlocked(decision);
             return transaction;
         }
 
         @Override
         public SmsTransaction markSending(SmsTransaction transaction, Date attemptAt) {
+            events.add("markSending");
             transaction.markSending(attemptAt);
             return transaction;
         }
 
         @Override
         public SmsTransaction markProviderResult(SmsTransaction transaction, SmsProviderSendResultDto providerResult) {
+            events.add("markProviderResult");
             transaction.markProviderResult(providerResult);
             return transaction;
         }
@@ -224,18 +301,21 @@ class SmsSendServiceUnitTest {
                 SmsProviderSendResultDto providerResult,
                 Date nextAttemptAt
         ) {
+            events.add("markRetryScheduled");
             transaction.markRetryScheduled(providerResult, nextAttemptAt);
             return transaction;
         }
 
         @Override
         public SmsTransaction releaseClaim(SmsTransaction transaction, Date dueAt) {
+            events.add("releaseClaim");
             transaction.markClaimReleased(dueAt);
             return transaction;
         }
 
         @Override
         public SmsTransaction recordInboundMessage(SmsInboundWebhookDto webhook) {
+            events.add("recordInboundMessage");
             SmsTransaction transaction = SmsTransaction.inboundMessage(webhook);
             transactions.add(transaction);
             return transaction;
@@ -243,6 +323,7 @@ class SmsSendServiceUnitTest {
 
         @Override
         public SmsTransaction recordDeliveryEvent(SmsDeliveryWebhookDto webhook) {
+            events.add("recordDeliveryEvent");
             SmsTransaction transaction = SmsTransaction.deliveryEvent(webhook);
             transactions.add(transaction);
             return transaction;
@@ -250,6 +331,7 @@ class SmsSendServiceUnitTest {
 
         @Override
         public List<SmsTransaction> claimDueOutboundQueue(SmsProviderType providerType, Date now, int limit) {
+            events.add("claimDueOutboundQueue");
             return transactions.stream()
                     .filter(transaction -> transaction.getStatus() == SmsStatus.QUEUED)
                     .peek(transaction -> transaction.markSending(now))
@@ -280,6 +362,20 @@ class SmsSendServiceUnitTest {
             transaction.assignClientReferenceId(SmsTransaction.clientReferenceIdFor(id));
         } catch (ReflectiveOperationException e) {
             throw new AssertionError("Unable to assign SMS transaction id for test", e);
+        }
+    }
+
+    private static class EventRecordingStubSmsProviderClient extends StubSmsProviderClient {
+        private final List<String> events;
+
+        private EventRecordingStubSmsProviderClient(List<String> events) {
+            this.events = events;
+        }
+
+        @Override
+        public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId) {
+            events.add("providerSend");
+            return super.send(command, clientReferenceId);
         }
     }
 

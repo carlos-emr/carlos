@@ -136,6 +136,42 @@ class SmsTransactionPersistenceIntegrationTest extends CarlosTestBase {
     }
 
     @Test
+    @DisplayName("applies direct provider result after marking the row SENDING")
+    void shouldApplyDirectProviderResult_afterMarkingSending() {
+        SmsTransaction outbound = recorder.recordOutboundAttempt(
+                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsProviderType.STUB
+        );
+        Long id = outbound.getId();
+        long queuedVersion = outbound.getVersion();
+        entityManager.detach(outbound);
+
+        SmsTransaction sending = recorder.markSending(
+                outbound,
+                java.util.Date.from(Instant.parse("2026-06-08T12:00:00Z"))
+        );
+
+        assertThat(sending.getStatus()).isEqualTo(SmsStatus.SENDING);
+        assertThat(sending.getAttemptCount()).isEqualTo(1);
+        assertThat(sending.getVersion()).isGreaterThan(queuedVersion);
+        entityManager.detach(sending);
+
+        SmsTransaction result = recorder.markProviderResult(
+                sending,
+                SmsProviderSendResultDto.accepted("provider-direct", SmsStatus.SENT)
+        );
+
+        assertThat(result.getStatus()).isEqualTo(SmsStatus.SENT);
+        assertThat(result.getProviderMessageId()).isEqualTo("provider-direct");
+        entityManager.flush();
+        entityManager.clear();
+        SmsTransaction reloaded = entityManager.find(SmsTransaction.class, id);
+        assertThat(reloaded.getStatus()).isEqualTo(SmsStatus.SENT);
+        assertThat(reloaded.getProviderMessageId()).isEqualTo("provider-direct");
+        assertThat(reloaded.getAttemptCount()).isEqualTo(1);
+    }
+
+    @Test
     @DisplayName("rejects a second row with the same SMS-provider message id (unique key)")
     void shouldRejectDuplicate_whenSameProviderMessageId() {
         entityManager.persist(SmsTransaction.deliveryEvent(new SmsDeliveryWebhookDto(
