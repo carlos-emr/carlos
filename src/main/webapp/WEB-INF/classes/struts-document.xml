@@ -120,7 +120,7 @@
         <action name="documentManager/ViewDocumentBrowser" class="io.github.carlos_emr.carlos.documentManager.gate.ViewDocumentRead2Action">
             <result name="success">/WEB-INF/jsp/documentManager/documentBrowser.jsp</result>
         </action>
-        <action name="documentManager/ViewDocumentReport" class="io.github.carlos_emr.carlos.documentManager.gate.ViewDocumentRead2Action">
+        <action name="documentManager/ViewDocumentReport" class="io.github.carlos_emr.carlos.documentManager.gate.ViewDocumentReportRead2Action">
             <result name="success">/WEB-INF/jsp/documentManager/documentReport.jsp</result>
         </action>
         <action name="documentManager/ViewShowDocument" class="io.github.carlos_emr.carlos.documentManager.gate.ViewDocumentRead2Action">

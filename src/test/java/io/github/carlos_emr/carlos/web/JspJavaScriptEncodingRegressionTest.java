@@ -93,6 +93,26 @@ class JspJavaScriptEncodingRegressionTest {
     }
 
     @Test
+    void shouldDeriveDocumentReportCurrentUserFromSession_andGuardOpenerRefresh() throws Exception {
+        String addDocumentJsp = readJsp("documentManager/addDocument.jsp");
+        String documentReportJsp = readJsp("documentManager/documentReport.jsp");
+
+        // Assert intent (whitespace-tolerant patterns), not exact source formatting. The
+        // doesNotContain guards are the durable regression net: curUser must not be read from a
+        // request parameter, and the opener URL map must not be dereferenced unguarded.
+        assertThat(addDocumentJsp)
+                .containsPattern("curUser\\s*=\\s*user_no\\s*!=\\s*null")
+                .doesNotContain("request.getParameter(\"curUser\")");
+        assertThat(documentReportJsp)
+                .containsPattern("curUser\\s*=\\s*LoggedInInfo\\.getLoggedInInfoFromSession\\(request\\)\\.getLoggedInProviderNo\\(\\)")
+                .containsPattern("hasOwnProperty\\.call\\(\\s*window\\.opener\\.URLs")
+                // Gate forwards the validated lowercased function token; the JSP must prefer it so a
+                // mixed-case "function" param cannot skip the case-sensitive "demographic" branch.
+                .containsPattern("getAttribute\\(\\s*\"normalizedFunction\"\\s*\\)")
+                .doesNotContain("var Url = window.opener.URLs;");
+    }
+
+    @Test
     void shouldUseGuardedIpAddressVariable_forChartNotesAjax() throws Exception {
         String chartNotesJsp = readJsp("casemgmt/ChartNotesAjax.jsp");
         int declarationStart = chartNotesJsp.indexOf("String noteLockIpAddress");
