@@ -39,7 +39,7 @@
 
     // web.xml filtering is not enabled for WEB-INF/web.xml, so getInitParameter would return
     // the raw Maven placeholder "${pdfjs.version}". Hardcode the version here to match pom.xml.
-    String pdfjsVersion = "4.4.168";
+    String pdfjsVersion = "6.0.227";
 
     String pdfjsBase = ctx + "/webjars/pdfjs-dist/" + pdfjsVersion;
 %>
@@ -284,8 +284,11 @@ const pdfViewer = new PDFViewer({
     viewer:    document.getElementById('viewer'),
     eventBus,
     linkService,
-    // 4.x: enableAnnotationEditorLayer was removed; pass the initial mode instead to enable the editor
+    // Start with no active tool; the editor infrastructure is still fully initialised.
     annotationEditorMode: AnnotationEditorType.NONE,
+    // 6.x: highlight colours must be supplied at construction time; the old
+    // switchannotationeditorparams event-dispatch approach no longer works.
+    annotationEditorHighlightColors: 'yellow=#FFFF98,green=#53FFBC,blue=#80EBFF,pink=#FFCBE6,red=#FF4F5F',
 });
 
 linkService.setViewer(pdfViewer);
@@ -299,16 +302,6 @@ linkService.setDocument(pdfDocument);
 eventBus.on('pagesinit', () => {
     document.getElementById('pageCount').textContent = '/ ' + pdfViewer.pagesCount;
     document.getElementById('pageInput').max = pdfViewer.pagesCount;
-
-    // PDF.js 4.x highlight mode requires color names to be initialised before
-    // the highlight editor layer is first activated; without this, switching to
-    // HIGHLIGHT mode throws "_uiManager.highlightColorNames is null".
-    // Dispatch the colours through the event bus exactly as the full viewer app does.
-    eventBus.dispatch('switchannotationeditorparams', {
-        source: pdfViewer,
-        type:   pdfjsLib.AnnotationEditorParamsType?.HIGHLIGHT_DEFAULT_COLOR ?? 11,
-        value:  '#FFFF00',
-    });
 });
 
 eventBus.on('pagechanging', ({ pageNumber }) => {

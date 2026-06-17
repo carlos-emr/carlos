@@ -118,7 +118,7 @@
         <!-- PDFBox -->
         <pdfbox.version>3.0.7</pdfbox.version>
         <!-- PDF.js (client-side PDF rendering + annotation editors) -->
-        <pdfjs.version>4.4.168</pdfjs.version>
+        <pdfjs.version>6.0.227</pdfjs.version>
         <!-- TwelveMonkeys ImageIO -->
         <twelvemonkeys.version>3.13.1</twelvemonkeys.version>
         <!-- ZXing barcode -->
