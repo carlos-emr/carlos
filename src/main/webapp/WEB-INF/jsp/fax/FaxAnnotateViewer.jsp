@@ -294,7 +294,7 @@ const pdfViewer = new PDFViewer({
 linkService.setViewer(pdfViewer);
 
 // ── Load the PDF ──────────────────────────────────────────────────────────
-const pdfDocument = await getDocument(CTX + '/documentManager/ServeDocument?docId=' + DOC_ID).promise;
+const pdfDocument = await getDocument({ url: CTX + '/documentManager/ServeDocument?docId=' + DOC_ID }).promise;
 pdfViewer.setDocument(pdfDocument);
 linkService.setDocument(pdfDocument);
 
