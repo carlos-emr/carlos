@@ -62,6 +62,7 @@ import java.nio.file.Path;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action that handles creating, updating, printing, faxing, and electronically
@@ -117,6 +118,9 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
      * @throws ServletException when form rendering encounters a servlet error
      * @throws IOException      when an I/O error occurs during response writing or HL7 sending
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "UNVALIDATED_REDIRECT"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     @Override
     public String execute() throws ServletException, IOException {
 
@@ -629,12 +633,14 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
      * @param request  HttpServletRequest containing the PDF data and filename as attributes
      * @param response HttpServletResponse where the JSON is written
      */
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     private void generatePDFResponse(HttpServletRequest request, HttpServletResponse response) {
         ObjectNode json = objectMapper.createObjectNode();
         json.put("consultPDF", (String) request.getAttribute("consultPDF"));
         json.put("consultPDFName", (String) request.getAttribute("consultPDFName"));
         json.put("errorMessage", (String) request.getAttribute("errorMessage"));
-        response.setContentType("text/javascript");
+        response.setContentType("application/json;charset=UTF-8");
         try {
             response.getWriter().write(json.toString());
         } catch (IOException e) {

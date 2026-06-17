@@ -256,14 +256,14 @@
             function parseHINforVC(){
               if (!document.adddemographic || !document.adddemographic.hin) return;
               const hin = document.adddemographic.hin.value;
-            	if (checkHINforVC(hin)) {
-            		const firstTen = hin.substring(0, 10);
-            		const lastTwo = hin.substring(10);
-            		document.adddemographic.hin.value = firstTen;
+					if (checkHINforVC(hin)) {
+						const firstTen = hin.substring(0, 10);
+						const lastTwo = hin.substring(10);
+						document.adddemographic.hin.value = firstTen;
                     if (document.adddemographic.ver) {
                         document.adddemographic.ver.value = lastTwo;
                     }
-            	}
+				// Validate Alberta HIN (9 digits) if province is AB
             }
 
             function formatPhoneNum(el) {
@@ -293,7 +293,7 @@
                 var typeInOK = false;
                 if (document.adddemographic.last_name.value != "" && document.adddemographic.first_name.value != "" && document.adddemographic.last_name.value != " " && document.adddemographic.first_name.value != " ") {
                     typeInOK = true;
-                } 
+                }
                 return typeInOK;
             }
 
@@ -562,11 +562,11 @@
 
             function parseDateField(fieldId) {
                 const input = document.getElementById(fieldId).value;
-            
+
                 let year = "";
                 let month = "";
                 let day = "";
-            
+
                 if (input) {
                     const [y, m, d] = input.split("-");
                     year = y || "";

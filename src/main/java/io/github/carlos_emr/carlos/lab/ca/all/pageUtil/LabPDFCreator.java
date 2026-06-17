@@ -78,6 +78,7 @@ import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.PATHL7Handler;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 
 /**
@@ -313,6 +314,8 @@ public class LabPDFCreator extends PdfPageEventHelper {
         addLabCategory(header, null, specimenSource, specimenDescription);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private void addLabCategory(String header, MessageHandler extraHandler, String specimenSource, String specimenDescription) throws DocumentException {
         String currentLicenseNo = null, lastLicenseNo = null;
 
@@ -1183,6 +1186,8 @@ public class LabPDFCreator extends PdfPageEventHelper {
         }
     }
 
+	// FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+	@SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
 	private String getPageIdentifier() {
 		if (handler.getMsgType().equals("ExcellerisON")) {
 			if (!handler.getHealthNum().isEmpty()) {

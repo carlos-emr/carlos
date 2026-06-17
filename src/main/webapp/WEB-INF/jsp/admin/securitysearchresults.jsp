@@ -134,7 +134,7 @@
     <table style="width:100%">
         <tr>
             <td style="text-align:left"><i><fmt:message key="admin.search.keywords"/></i>:
-                <carlos:encode value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' context="html"/>
+                <carlos:encode value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' context="html"/><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
             </td>
         </tr>
     </table>

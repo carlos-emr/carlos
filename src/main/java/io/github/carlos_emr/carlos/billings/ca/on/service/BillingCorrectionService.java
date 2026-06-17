@@ -141,7 +141,7 @@ public class BillingCorrectionService {
         try {
             invoiceId = Integer.valueOf(invoiceNo);
         } catch (NumberFormatException nfe) {
-            MiscUtils.getLogger().error("3rd party payment: invalid billing_no '{}'",
+            MiscUtils.getLogger().error("3rd party payment: invalid billing_no '{}'", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(invoiceNo));
             throw new BillingValidationException(
                     "3rd party payment rejected: invalid billing_no ["
@@ -149,7 +149,7 @@ public class BillingCorrectionService {
         }
         BillingONCHeader1 bCh1 = bCh1Dao.findForUpdate(invoiceId);
         if (bCh1 == null) {
-            MiscUtils.getLogger().error("3rd party payment: billing_no '{}' not found",
+            MiscUtils.getLogger().error("3rd party payment: billing_no '{}' not found", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(invoiceNo));
             throw new BillingValidationException(
                     "3rd party payment rejected: bill not found ["
@@ -171,7 +171,7 @@ public class BillingCorrectionService {
         try {
             paidAmt = new BigDecimal(amtPaid);
         } catch (NumberFormatException e) {
-            MiscUtils.getLogger().error(
+            MiscUtils.getLogger().error( // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     "3rd party payment: amtPaid '{}' is not a valid number for bill {}",
                     LogSafe.sanitize(amtPaid), invoiceId, e);
             throw new BillingValidationException(
@@ -183,7 +183,7 @@ public class BillingCorrectionService {
         String payMethod = request.getParameter("payMethod");
         BillingPaymentType paymentType = billingPaymentTypeDao.find(payMethod);
         if (paymentType == null) {
-            MiscUtils.getLogger().error(
+            MiscUtils.getLogger().error( // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     "3rd party payment: payMethod '{}' not in billing_payment_type for bill {}",
                     LogSafe.sanitize(payMethod), invoiceId);
             throw new BillingValidationException(
@@ -196,7 +196,7 @@ public class BillingCorrectionService {
         if (payType == null
                 || (!payType.equals("P") /* Payment */
                         && !payType.equals("R") /* Refund */)) {
-            MiscUtils.getLogger().error(
+            MiscUtils.getLogger().error( // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     "3rd party payment: payType '{}' invalid for bill {} (must be P or R)",
                     LogSafe.sanitize(payType), invoiceId);
             throw new BillingValidationException(
@@ -233,7 +233,7 @@ public class BillingCorrectionService {
         try {
             billingNo = Integer.parseInt(rawBillingNo);
         } catch (NumberFormatException e) {
-            MiscUtils.getLogger().error("updateInvoice: invalid xml_billing_no '{}'",
+            MiscUtils.getLogger().error("updateInvoice: invalid xml_billing_no '{}'", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(rawBillingNo), e);
             throw new BillingValidationException(
                     "Bill change rejected: invalid bill identifier ("
@@ -245,7 +245,7 @@ public class BillingCorrectionService {
         // eager fetch keeps this read path independent of fetch-mode drift.
         BillingONCHeader1 bCh1 = bCh1Dao.findWithItems(billingNo);
         if (bCh1 == null) {
-            MiscUtils.getLogger().error("updateInvoice: bill {} not found",
+            MiscUtils.getLogger().error("updateInvoice: bill {} not found", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(rawBillingNo));
             throw new BillingValidationException(
                     "Bill change rejected: bill ("
@@ -394,7 +394,7 @@ public class BillingCorrectionService {
                 billingDate = DateUtils.parseDate(request.getParameter("xml_appointment_date"), locale);
             } catch (java.text.ParseException e) {
                 String rawAppt = request.getParameter("xml_appointment_date");
-                MiscUtils.getLogger().error("Invalid billing date: {}", LogSafe.sanitize(rawAppt), e);
+                MiscUtils.getLogger().error("Invalid billing date: {}", LogSafe.sanitize(rawAppt), e); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                 throw new BillingValidationException(
                         "Bill correction rejected: appointment date ["
                         + LogSafe.sanitizeForDisplay(rawAppt)
@@ -406,7 +406,7 @@ public class BillingCorrectionService {
                 visitDate = DateUtils.parseDate(request.getParameter("xml_vdate"), locale);
             } catch (java.text.ParseException e) {
                 String rawVisit = request.getParameter("xml_vdate");
-                MiscUtils.getLogger().error("Invalid visit date: {}", LogSafe.sanitize(rawVisit), e);
+                MiscUtils.getLogger().error("Invalid visit date: {}", LogSafe.sanitize(rawVisit), e); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                 throw new BillingValidationException(
                         "Bill correction rejected: visit date ["
                         + LogSafe.sanitizeForDisplay(rawVisit)
@@ -542,7 +542,7 @@ public class BillingCorrectionService {
         try {
             serviceDate = DateUtils.parseDate(serviceDateStr, request.getLocale());
         } catch (java.text.ParseException e) {
-            MiscUtils.getLogger().error(
+            MiscUtils.getLogger().error( // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     "Bill item save: unparseable xml_appointment_date={}; aborting",
                     LogSafe.sanitize(serviceDateStr), e);
             throw new BillingValidationException(
@@ -563,7 +563,7 @@ public class BillingCorrectionService {
                 MiscUtils.getLogger().info("({}) Unit Amount:{}",
                         LogSafe.sanitize(serviceCodeId), LogSafe.sanitize(unit)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 if (!unit.matches("\\d+")) {
-                    MiscUtils.getLogger().warn(
+                    MiscUtils.getLogger().warn( // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                             "Bill item {}: non-numeric unit '{}' rewritten to '1'; preserving submission",
                             LogSafe.sanitize(serviceCodeId), LogSafe.sanitize(unit));
                     unit = "1";
@@ -704,7 +704,7 @@ public class BillingCorrectionService {
     private static BillingValidationException newHeaderUpdateRejected(String rawBillingNo) {
         // Log with sanitized id for audit; user message is plain to avoid
         // round-tripping unsanitized data through the rendered error page.
-        MiscUtils.getLogger().error("updateInvoice header rejected for bill {}",
+        MiscUtils.getLogger().error("updateInvoice header rejected for bill {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                 LogSafe.sanitize(rawBillingNo));
         return new BillingValidationException(
                 "Bill change rejected: header update failed; please refresh and retry.");

@@ -27,6 +27,7 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 package io.github.carlos_emr.carlos.integration.mchcv;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class HCMagneticStripe {
 
@@ -44,6 +45,8 @@ public class HCMagneticStripe {
      *
      * @param stripe
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public HCMagneticStripe(String stripe) {
 
         if ((stripe == null) || (stripe.isEmpty())) {

@@ -31,13 +31,16 @@
 package io.github.carlos_emr;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Paths;
 import java.util.*;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Singleton class for managing OpenO EMR system properties and configuration.
@@ -199,7 +202,18 @@ public class CarlosProperties extends Properties {
 
     public void readFromFile(String url) throws IOException {
         InputStream is = getClass().getResourceAsStream(url);
-        if (is == null) is = new FileInputStream(url);
+        if (is == null) {
+            File propertyFile;
+            try {
+                propertyFile = PathValidationUtils.resolveConfiguredFile(url, "carlos properties file");
+            } catch (SecurityException e) {
+                // Honour the declared throws IOException: a blank or un-canonicalizable configured
+                // path surfaces as IOException rather than an unchecked SecurityException. (resolveConfiguredFile
+                // permits a merely missing path; that surfaces below as FileNotFoundException from the stream.)
+                throw new IOException("Unable to resolve carlos properties file", e);
+            }
+            is = new FileInputStream(propertyFile);
+        }
 
         try {
             load(is);
@@ -229,6 +243,8 @@ public class CarlosProperties extends Properties {
      * @param val value that will cause a true value to be returned
      * @return boolean
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public boolean getBooleanProperty(String key, String val) {
         key = key == null ? null : key.trim();
         val = val == null ? null : val.trim();
@@ -430,13 +446,16 @@ public class CarlosProperties extends Properties {
         return carlosProperties.getProperty("form_intake_program_cash_fid");
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public String getDocumentDirectory() {
        String documents = carlosProperties.getProperty("DOCUMENT_DIR");
 
         // String value will equal null if property is not found
         if (documents == null) {
             // Setting derived path for documents incase starting path is not found
-            documents = Paths.get(carlosProperties.getProperty("BASE_DOCUMENT_DIR"), "document").toString();
+            File baseDocumentDir = PathValidationUtils.resolveConfiguredDirectory(carlosProperties.getProperty("BASE_DOCUMENT_DIR"), "BASE_DOCUMENT_DIR");
+            documents = Paths.get(baseDocumentDir.getPath(), "document").toString();
         }
        return documents;
     }
@@ -445,13 +464,16 @@ public class CarlosProperties extends Properties {
         return carlosProperties.getProperty("DOCUMENT_CACHE_DIR");
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public String getEformImageDirectory() {
         String eform_images = carlosProperties.getProperty("EFORM_IMAGES_DIR");
 
         // String value will equal null if property is not found
         if (eform_images == null) {
             // Setting derived path for eform images incase starting path is not found
-            eform_images = Paths.get(carlosProperties.getProperty("BASE_DOCUMENT_DIR"), "eform", "images").toString();
+            File baseDocumentDir = PathValidationUtils.resolveConfiguredDirectory(carlosProperties.getProperty("BASE_DOCUMENT_DIR"), "BASE_DOCUMENT_DIR");
+            eform_images = Paths.get(baseDocumentDir.getPath(), "eform", "images").toString();
         }
         return eform_images;
     }
@@ -470,6 +492,8 @@ public class CarlosProperties extends Properties {
      *
      * @return String path to the fax incoming directory, never null
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public String getFaxIncomingDirectory() {
         String faxIncoming = carlosProperties.getProperty("FAX_INCOMING_DIR");
 
@@ -478,7 +502,8 @@ public class CarlosProperties extends Properties {
             // This directory is already configured, writable by the app server, and outside the webroot.
             String baseDocDir = carlosProperties.getProperty("BASE_DOCUMENT_DIR");
             if (baseDocDir != null && !baseDocDir.trim().isEmpty()) {
-                faxIncoming = Paths.get(baseDocDir.trim(), "fax-incoming").toString();
+                File baseDocumentDir = PathValidationUtils.resolveConfiguredDirectory(baseDocDir.trim(), "BASE_DOCUMENT_DIR");
+                faxIncoming = Paths.get(baseDocumentDir.getPath(), "fax-incoming").toString();
             } else {
                 // Fall back to catalina.base only if BASE_DOCUMENT_DIR is not set.
                 // NOTE: On Debian/Ubuntu package installs, catalina.base = /var/lib/tomcat9,
@@ -486,10 +511,12 @@ public class CarlosProperties extends Properties {
                 // Set FAX_INCOMING_DIR or BASE_DOCUMENT_DIR in carlos.properties to avoid this.
                 String catalinaBase = System.getProperty("catalina.base");
                 if (catalinaBase != null && !catalinaBase.trim().isEmpty()) {
-                    faxIncoming = Paths.get(catalinaBase.trim(), "fax-incoming").toString();
+                    File catalinaBaseDir = PathValidationUtils.resolveConfiguredDirectory(catalinaBase.trim(), "catalina.base");
+                    faxIncoming = Paths.get(catalinaBaseDir.getPath(), "fax-incoming").toString();
                 } else {
                     // Non-Tomcat environment (tests, standalone): use system temp
-                    faxIncoming = Paths.get(System.getProperty("java.io.tmpdir"), "carlos-fax-incoming").toString();
+                    File tempDir = PathValidationUtils.validateConfiguredDirectory(System.getProperty("java.io.tmpdir"), "java.io.tmpdir");
+                    faxIncoming = Paths.get(tempDir.getPath(), "carlos-fax-incoming").toString();
                 }
             }
         }
@@ -507,7 +534,15 @@ public class CarlosProperties extends Properties {
 	 * @throws IOException If an I/O error occurs while writing to the file.
 	 */
 	public void saveProperty(String propFilePath, String key, String value) throws IOException {
-		try (FileWriter writer = new FileWriter(propFilePath, true)) {
+		File propertyFile;
+		try {
+			propertyFile = PathValidationUtils.resolveConfiguredFile(propFilePath, "properties file");
+		} catch (SecurityException e) {
+			// Honour the declared throws IOException for a blank or un-canonicalizable path
+			// (resolveConfiguredFile permits a missing one - this append-mode write then creates it).
+			throw new IOException("Unable to resolve properties file for saving", e);
+		}
+		try (FileWriter writer = new FileWriter(propertyFile, true)) {
 			// Write the new key-value pair
 			writer.write("\n" + key + "=" + value + "\n");
 			carlosProperties.setProperty(key, value);

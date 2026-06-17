@@ -63,6 +63,7 @@ import io.github.carlos_emr.carlos.webserv.rest.to.TicklerResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.TicklerTextSuggestTo1;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Path("/tickler")
 @Component("ticklerWebService")
@@ -79,6 +80,8 @@ public class TicklerWebService extends AbstractServiceImpl {
     private ProgramManager2 programManager;
 
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @POST
     @Path("/search")
     @Produces("application/json")

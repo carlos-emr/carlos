@@ -36,6 +36,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import io.github.carlos_emr.CarlosProperties;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Validates prescription instruction text for prohibited abbreviations
@@ -197,6 +198,8 @@ public class RxInstructionPolicy {
      * @param instr the prescription instruction text to validate
      * @return a list of policy violation messages (empty if no violations)
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static List<String> checkInstructions(String instr) {
         List<String> errors = new ArrayList<>();
 
