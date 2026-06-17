@@ -158,7 +158,7 @@
     <button class="tool-btn" id="btnHighlight" title="Highlight"             onclick="setMode('highlight')">
         <i class="fas fa-highlighter"></i>
     </button>
-    <button class="tool-btn" id="btnSign"      title="Add signature stamp"  onclick="openSignatureModal()">
+    <button class="tool-btn" id="btnSign"      title="Add signature stamp"  onclick="openSignatureOrInsert()">
         <i class="fas fa-signature"></i>
     </button>
 
@@ -216,34 +216,20 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
-        <div id="sigExistingSection" style="display:none" class="mb-3">
-            <p class="small text-muted mb-1">Your saved signature (from Provider Preferences):</p>
-            <img id="signaturePreview" alt="Saved signature" class="mb-2"/>
-            <div class="d-flex gap-2">
-                <button class="btn btn-sm btn-outline-primary" onclick="useExistingSignature()">
-                    Use saved signature
-                </button>
-                <button class="btn btn-sm btn-outline-secondary" onclick="showSignaturePad()">
-                    Draw new signature
-                </button>
-            </div>
-        </div>
-        <div id="sigDrawSection">
-            <p class="small text-muted mb-1">
-                Draw your signature below. Saving here updates your signature in
-                Provider Preferences and will be used wherever your signature stamp appears.
-            </p>
-            <canvas id="signatureCanvas" width="700" height="160"></canvas>
-            <div class="mt-2 d-flex gap-2">
-                <button class="btn btn-sm btn-outline-secondary" onclick="clearSignaturePad()">
-                    <i class="fas fa-eraser me-1"></i>Clear
-                </button>
-            </div>
+        <p class="small text-muted mb-1">
+            Draw your signature below. Saving here updates your signature in
+            Provider Preferences and will be used wherever your signature stamp appears.
+        </p>
+        <canvas id="signatureCanvas" width="700" height="160"></canvas>
+        <div class="mt-2 d-flex gap-2">
+            <button class="btn btn-sm btn-outline-secondary" onclick="clearSignaturePad()">
+                <i class="fas fa-eraser me-1"></i>Clear
+            </button>
         </div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-        <button type="button" class="btn btn-primary" id="btnApplySignature" onclick="placeSignature()">
+        <button type="button" class="btn btn-primary" id="btnApplySignature" onclick="applySignature()">
             <i class="fas fa-stamp me-1"></i>Place Signature on Document
         </button>
       </div>
@@ -379,153 +365,78 @@ window.adjustZoom = function(delta) {
 
 // ── Signature modal ───────────────────────────────────────────────────────
 let signatureModal = null;
-let existingSignatureDataUrl = null;
-let pendingSignatureFile = null;
 
-// Cache for the signature file picker intercept
-let interceptNextStampFilePicker = false;
+// PDF.js 6.x listens for paste events on document while in editing state.
+// Dispatching a synthetic paste with an image File triggers StampEditor.paste →
+// pasteEditor({mode:STAMP},{bitmapFile}) which places the stamp at the centre
+// of the current page with no OS file picker required.
+async function insertSignatureViaFastPath(file) {
+    // Enter stamp mode to ensure the paste listener is registered on document.
+    pdfViewer.annotationEditorMode = { mode: AnnotationEditorType.STAMP };
+    await new Promise(r => setTimeout(r, 0));   // let annotation layers initialise
 
-// PDF.js 6.x prefers window.showOpenFilePicker() over a hidden <input type="file">
-// click. Override it so that while we have a pending signature we return that file
-// as a mock FileSystemFileHandle, bypassing the OS file-picker dialog entirely.
-const _originalShowOpenFilePicker = window.showOpenFilePicker;
-window.showOpenFilePicker = async function(options, ...rest) {
-    if (interceptNextStampFilePicker && pendingSignatureFile) {
-        interceptNextStampFilePicker = false;
-        const file = pendingSignatureFile;
-        pendingSignatureFile = null;
-        return [{
-            kind:              'file',
-            name:              file.name,
-            getFile:           async () => file,
-            queryPermission:   async () => 'granted',
-            requestPermission: async () => 'granted',
-            isSameEntry:       async () => false,
-            createWritable:    () => Promise.reject(new Error('read-only mock')),
-        }];
-    }
-    if (_originalShowOpenFilePicker) {
-        return _originalShowOpenFilePicker.call(this, options, ...rest);
-    }
-    throw new DOMException('showOpenFilePicker not supported', 'NotSupportedError');
-};
-
-// PDF.js 6.x creates a detached <input type="file"> (never appended to the DOM) and
-// calls .click() on it. Detached-element clicks do NOT propagate to the document, so
-// a capture listener on document never fires. Patching the prototype intercepts the
-// call regardless of DOM attachment. PDF.js registers its own "change" listener on
-// the input *before* the .click() call, so feeding the file through that same input
-// is the correct channel — it triggers the PDF.js handler naturally.
-const _inputClick = HTMLInputElement.prototype.click;
-HTMLInputElement.prototype.click = function() {
-    if (interceptNextStampFilePicker && this.type === 'file' && pendingSignatureFile) {
-        interceptNextStampFilePicker = false;
-        const file = pendingSignatureFile;
-        pendingSignatureFile = null;
-        feedFileToInput(this, file);
-        return;
-    }
-    _inputClick.call(this);
-};
-
-function feedFileToInput(input, file) {
     const dt = new DataTransfer();
     dt.items.add(file);
-    Object.defineProperty(input, 'files', {
-        value: dt.files, writable: true, configurable: true
-    });
-    input.dispatchEvent(new Event('change', { bubbles: true }));
+    document.dispatchEvent(new ClipboardEvent('paste', {
+        bubbles:       true,
+        cancelable:    true,
+        clipboardData: dt,
+    }));
+    usedAnnotationTypes.add('signed');
 }
 
-window.openSignatureModal = async function() {
+// Click handler for the signature toolbar button.
+// If the provider has a saved signature stamp it is inserted directly at the
+// centre of the visible page — no modal shown.  When no stamp exists the draw
+// modal opens so the provider can create one.
+window.openSignatureOrInsert = async function() {
+    try {
+        const res  = await fetch(CTX + '/provider/providerSignatureStamp?method=check');
+        const json = await res.json();
+        if (res.ok && json.exists && json.imageUrl) {
+            const imgRes = await fetch(json.imageUrl);
+            const blob   = await imgRes.blob();
+            await insertSignatureViaFastPath(
+                new File([blob], 'signature.png', { type: 'image/png' })
+            );
+            return;
+        }
+    } catch {
+        // fall through to draw modal
+    }
     if (!signatureModal) {
         signatureModal = new bootstrap.Modal(document.getElementById('signatureModal'));
     }
-
-    // Check for the provider's existing signature stamp (Administration > Provider
-    // Preferences > Signature). This is the single source of truth for the provider's
-    // signature image — the fax viewer never maintains its own copy.
-    try {
-        const checkRes  = await fetch(CTX + '/provider/providerSignatureStamp?method=check');
-        const checkJson = await checkRes.json();
-        if (checkRes.ok && checkJson.exists && checkJson.imageUrl) {
-            const imgRes = await fetch(checkJson.imageUrl);
-            const blob   = await imgRes.blob();
-            existingSignatureDataUrl = URL.createObjectURL(blob);
-            const preview = document.getElementById('signaturePreview');
-            preview.src = existingSignatureDataUrl;
-            preview.style.display = 'block';
-            document.getElementById('sigExistingSection').style.display = 'block';
-            document.getElementById('sigDrawSection').style.display = 'none';
-        } else {
-            existingSignatureDataUrl = null;
-            document.getElementById('sigExistingSection').style.display = 'none';
-            showSignaturePad();
-        }
-    } catch {
-        existingSignatureDataUrl = null;
-        document.getElementById('sigExistingSection').style.display = 'none';
-        showSignaturePad();
-    }
-
-    // Reset the canvas
     clearSignaturePad();
     signatureModal.show();
 };
 
-window.showSignaturePad = function() {
-    document.getElementById('sigExistingSection').style.display = 'none';
-    document.getElementById('sigDrawSection').style.display = 'block';
-    clearSignaturePad();
-};
-
 window.clearSignaturePad = function() {
     const canvas = document.getElementById('signatureCanvas');
-    const ctx2   = canvas.getContext('2d');
-    ctx2.clearRect(0, 0, canvas.width, canvas.height);
-};
-
-window.useExistingSignature = async function() {
-    if (!existingSignatureDataUrl) return;
-    signatureModal.hide();
-    await insertSignatureAsStamp(existingSignatureDataUrl, false);
-};
-
-// Dispatches the footer "Place Signature on Document" button to the right handler
-// depending on which section of the modal is currently visible.
-window.placeSignature = async function() {
-    if (document.getElementById('sigExistingSection').style.display !== 'none') {
-        // Existing signature is shown — place it without touching saveDrawn
-        await window.useExistingSignature();
-        return;
-    }
-    // Draw pad is shown — ensure the user has actually drawn something
-    const canvas = document.getElementById('signatureCanvas');
-    const px = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
-    const hasContent = Array.prototype.some.call(px, (v, i) => i % 4 === 3 && v > 10);
-    if (!hasContent) {
-        alert('Please draw your signature before placing it on the document.');
-        return;
-    }
-    await window.applySignature();
+    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
 };
 
 window.applySignature = async function() {
-    const canvas  = document.getElementById('signatureCanvas');
+    const canvas = document.getElementById('signatureCanvas');
+    const px     = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+    if (!Array.prototype.some.call(px, (v, i) => i % 4 === 3 && v > 10)) {
+        alert('Please draw your signature before placing it on the document.');
+        return;
+    }
+
     const dataUrl = canvas.toDataURL('image/png');
     CSRF_TOKEN = document.querySelector('input[name="CSRF-TOKEN"]')?.value ?? '';
 
-    // Persist as the provider's signature stamp (same storage used by Provider
-    // Preferences for consultations/prescriptions/eForms) so it's available
-    // everywhere, not just in this fax viewer.
+    // Persist as the provider's signature stamp (Administration > Provider
+    // Preferences > Signature) so it's available everywhere, not just here.
     try {
         const body = new URLSearchParams({ signatureData: dataUrl, 'CSRF-TOKEN': CSRF_TOKEN });
-        const res = await fetch(CTX + '/provider/providerSignatureStamp?method=saveDrawn', {
+        const saveRes = await fetch(CTX + '/provider/providerSignatureStamp?method=saveDrawn', {
             method:  'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: body.toString(),
+            body:    body.toString(),
         });
-        const result = await res.json();
+        const result = await saveRes.json();
         if (!result.success) {
             console.warn('Could not persist signature:', result.error);
         }
@@ -534,22 +445,13 @@ window.applySignature = async function() {
     }
 
     signatureModal.hide();
-    await insertSignatureAsStamp(dataUrl, true);
-};
 
-async function insertSignatureAsStamp(dataUrl, isNew) {
     const res  = await fetch(dataUrl);
     const blob = await res.blob();
-    const file = new File([blob], 'signature.png', { type: 'image/png' });
-
-    pendingSignatureFile = file;
-    interceptNextStampFilePicker = true;
-
-    // Switch to STAMP mode; PDF.js will show a click target and then try to open
-    // a file dialog when the user clicks the canvas — which we intercept above.
-    window.setMode('stamp');
-    usedAnnotationTypes.add('signed');
-}
+    await insertSignatureViaFastPath(
+        new File([blob], 'signature.png', { type: 'image/png' })
+    );
+};
 
 // ── Signature pad drawing ─────────────────────────────────────────────────
 {
