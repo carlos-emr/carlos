@@ -92,5 +92,5 @@
     <input type="hidden" name="procontact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.contactId" value="0"/>
     <input type="text" name="procontact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.contactName" id="procontact_<carlos:encode value='<%= id %>' context="htmlAttribute"/>.contactName" size="20"
            readonly="readonly"/>
-    <a href="#" onclick="doProfessionalSearch('<carlos:encode value='<%= id %>' context="javaScriptAttribute"/>');return false;"><carlos:encode value='<%= request.getParameter("search") != null ? request.getParameter("search") : "" %>' context="html"/></a>
+    <a href="#" onclick="doProfessionalSearch('<carlos:encode value='<%= id %>' context="javaScriptAttribute"/>');return false;"><carlos:encode value='<%= request.getParameter("search") != null ? request.getParameter("search") : "" %>' context="html"/></a><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
 </div>

@@ -685,7 +685,7 @@
                             <div class="col-sm-4" id="phoneCell">
                                 <div class="d-flex gap-1 align-items-center">
                                     <input type="text" id="phone" name="phone" class="form-control"
-                                           onBlur="formatPhoneNum()"
+                                           onBlur="formatPhoneNum(this)"
                                            value="<carlos:encode value='<%= prefillPhone.isEmpty() ? props.getProperty("phoneprefix", "905-") : prefillPhone %>' context="htmlAttribute"/>">
                                     <span class="text-nowrap"><fmt:message key="demographic.demographicaddrecordhtm.Ext"/>:</span>
                                     <input type="text" id="hPhoneExt" name="hPhoneExt" value="" class="form-control" style="width:4em"/>
@@ -696,7 +696,7 @@
                             </div>
                             <div class="col-sm-4" id="phoneWorkCell">
                                 <div class="d-flex gap-1 align-items-center">
-                                    <input type="text" name="phone2" class="form-control" onBlur="formatPhoneNum()" value="">
+                                    <input type="text" name="phone2" class="form-control" onBlur="formatPhoneNum(this)" value="">
                                     <span class="text-nowrap"><fmt:message key="demographic.demographicaddrecordhtm.Ext"/>:</span>
                                     <input type="text" name="wPhoneExt" value="" class="form-control" style="width:4em"/>
                                 </div>
@@ -708,7 +708,7 @@
                                 <label class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formPhoneCell"/>:</label>
                             </div>
                             <div class="col-sm-4" id="phoneCellCell">
-                                <input type="text" name="demo_cell" class="form-control" onBlur="formatPhoneNum()">
+                                <input type="text" name="demo_cell" class="form-control" onBlur="formatPhoneNum(this)">
                             </div>
                             <div class="col-sm-2 text-end">
                                 <label class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formPhoneComment"/>:</label>
@@ -822,7 +822,7 @@
                             </div>
                             <div class="col-sm-4" id="hinVer">
                                 <div class="d-flex gap-1 align-items-center">
-                                    <input type="text" name="hin" id="hin" class="form-control" onfocus="autoFillHin()" value="<carlos:encode value='<%= prefillHin %>' context="htmlAttribute"/>">
+                                    <input type="text" name="hin" id="hin" class="form-control" onfocus="autoFillHin()" onBlur="parseHINforVC()" value="<carlos:encode value='<%= prefillHin %>' context="htmlAttribute"/>">
                                     <span class="text-nowrap"><fmt:message key="demographic.demographicaddrecordhtm.formVer"/>:</span>
                                     <input type="text" id="ver" name="ver" class="form-control" style="width:4em" onBlur="upCaseCtrl(this)" value="<carlos:encode value='<%= prefillVer %>' context="htmlAttribute"/>">
                                 </div>

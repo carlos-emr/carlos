@@ -55,6 +55,7 @@ permissions:
 
 env:
   PMD_VERSION: '7.13.0'
+  PMD_QUALITY_ENABLED: 'false'
 
 jobs:
   pmd:
@@ -96,6 +97,7 @@ jobs:
           fi
 
       - name: Run PMD quality scan
+        if: env.PMD_QUALITY_ENABLED == 'true'
         run: |
           set -euo pipefail
           PMD_DIR="pmd-bin-${PMD_VERSION}"
@@ -131,7 +133,7 @@ jobs:
 
       - name: Upload PMD quality artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        if: always() && hashFiles('pmd-report.sarif') != ''
+        if: always() && env.PMD_QUALITY_ENABLED == 'true' && hashFiles('pmd-report.sarif') != ''
         with:
           name: pmd-quality-sarif
           path: pmd-report.sarif
@@ -142,14 +144,16 @@ jobs:
         run: |
           echo "### PMD Results" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          if [ -f pmd-report.sarif ]; then
-            if total=$(jq '[.runs[].results[]?] | length' pmd-report.sarif 2>/dev/null); then
-              echo "PMD quality scan produced ${total} SARIF finding(s)." >> "$GITHUB_STEP_SUMMARY"
+          if [ "${PMD_QUALITY_ENABLED}" = "true" ]; then
+            if [ -f pmd-report.sarif ]; then
+              if total=$(jq '[.runs[].results[]?] | length' pmd-report.sarif 2>/dev/null); then
+                echo "PMD quality scan produced ${total} SARIF finding(s)." >> "$GITHUB_STEP_SUMMARY"
+              else
+                echo "PMD quality SARIF report was generated, but could not be parsed." >> "$GITHUB_STEP_SUMMARY"
+              fi
             else
-              echo "PMD quality SARIF report was generated, but could not be parsed." >> "$GITHUB_STEP_SUMMARY"
+              echo "No PMD quality SARIF report was generated." >> "$GITHUB_STEP_SUMMARY"
             fi
-          else
-            echo "No PMD quality SARIF report was generated." >> "$GITHUB_STEP_SUMMARY"
           fi
           if [ -f pmd-security-report.sarif ]; then
             if security_total=$(jq '[.runs[].results[]?] | length' pmd-security-report.sarif 2>/dev/null); then

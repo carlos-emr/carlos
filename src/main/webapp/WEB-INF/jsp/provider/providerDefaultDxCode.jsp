@@ -95,7 +95,7 @@
 <form id="preference_form" name="preference_form" action="<%= request.getContextPath() %>/provider/ViewPreferenceAction" method="post">
     <input type="hidden" name="provider_no" id="provider_no" value="<carlos:encode value='<%= provider_no %>' context="htmlAttribute"/>"/>
     <input type="hidden" name="new_tickler_warning_window" id="new_tickler_warning_window"
-           value="<carlos:encode value='<%= request.getParameter("new_tickler_warning_window") != null ? request.getParameter("new_tickler_warning_window") : "" %>' context="htmlAttribute"/>"/>
+           value="<carlos:encode value='<%= request.getParameter("new_tickler_warning_window") != null ? request.getParameter("new_tickler_warning_window") : "" %>' context="htmlAttribute"/>"/><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
     <table style="margin-left:auto;margin-right:auto;background-color:#f0f0f0;border-collapse:collapse">
 
 

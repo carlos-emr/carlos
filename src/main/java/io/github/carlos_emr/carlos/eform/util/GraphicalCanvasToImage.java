@@ -30,6 +30,7 @@
 
 package io.github.carlos_emr.carlos.eform.util;
 
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Font;
@@ -165,8 +166,9 @@ public class GraphicalCanvasToImage {
     }
 
     public void convertToImage(String imageFile, String drawData, String outputFormat, OutputStream out) throws IOException {
-        FileInputStream istream = new FileInputStream(imageFile);
-        convertToImage(istream, drawData, outputFormat, out);
+        try (FileInputStream istream = new FileInputStream(PathValidationUtils.validateConfiguredFile(imageFile, "graphical canvas image"))) {
+            convertToImage(istream, drawData, outputFormat, out);
+        }
     }
 
 }

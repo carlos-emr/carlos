@@ -18,6 +18,7 @@ table#firstTable {
 table#firstTable tr {
     display: flex;
     align-items: center;
+    justify-content: space-between;
 }
 
 table#firstTable td {
@@ -28,18 +29,25 @@ table#firstTable td {
     font-size: 12px;
 }
 
-table#firstTable tr td.icon-container {
-    padding-left: 10px;
-}
-
 table#firstTable td#firstMenu {
     flex: 1 1 auto;
-    margin-left: 10px;
 }
 
 table#firstTable td#userSettings {
     flex: 0 0 auto;
+}
+
+#firstMenu {
+    margin-left: 10px;
+}
+
+#userSettings {
     margin-right: 15px;
+}
+
+table#firstTable td#firstMenu .icon-container {
+    display: inline-flex;
+    align-items: center;
 }
 
 table#firstTable td#firstMenu ul#navlist:not(.dashboardDropdown),
@@ -50,17 +58,24 @@ table#firstTable td#userSettings ul#userSettingsMenu:not(.dashboardDropdown) {
     list-style-type: none;
 }
 
-table#firstTable td#userSettings ul#userSettingsMenu li,
-/* Keep top-level menu layout from leaking into dashboard dropdown rows; the
-   dropdown marker is on a nested div, so scope these rules to direct children. */
-table#firstTable td#firstMenu ul#navlist > li {
-    line-height: 1;
+table#firstTable td#userSettings ul#userSettingsMenu li {
     display: inline-block;
 }
 
-table#firstTable td#firstMenu ul#navlist > li > a {
+table#firstTable td#firstMenu ul#navlist > li:not(.dashboardDropdown) {
+    line-height: 1;
+    display: inline-block;
+    padding: 0;
+}
+
+table#firstTable td#firstMenu ul#navlist > li:not(.dashboardDropdown) > a {
     display: inline-block;
     padding: 5px;
+}
+
+table#firstTable td#userSettings ul#userSettingsMenu {
+    display: flex;
+    gap: 5px;
 }
 
 table#firstTable a,
@@ -78,6 +93,43 @@ table#firstTable td#firstMenu #navlist li:hover,
 table#firstTable td#firstMenu #navlist li a:hover {
     color: #fff;
     background-color: #486ebd;
+}
+
+table#firstTable td#firstMenu ul#navlist li.nav-active,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:visited,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:active {
+    color: #00283c;
+    background-color: #d9d9d9;
+}
+
+table#firstTable td#firstMenu ul#navlist li.nav-active > a.tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a .tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a span {
+    color: #00283c !important;
+}
+
+table#firstTable td#firstMenu ul#navlist li.nav-active:hover,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:hover,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus-visible {
+    color: #fff;
+    background-color: #486ebd;
+}
+
+table#firstTable td#firstMenu ul#navlist li.nav-active:hover > a.tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active:hover > a .tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active:hover > a span,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:hover.tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:hover .tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:hover span,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus.tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus .tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus span,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus-visible.tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus-visible .tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus-visible span {
+    color: #fff !important;
 }
 
 table#firstTable #logoutButton span {
@@ -151,34 +203,82 @@ table.topnav td {
     white-space: nowrap;
 }
 
-#navlist > li {
-    padding-top: 0.5px;
-    padding-bottom: 0.5px;
-    padding-left: 2.5px;
-    padding-right: 2.5px;
-    display: inline;
-}
-
-#navlist > li:hover {
-    color: #fff;
-    background-color: #486ebd;
-}
-
-#navlist > li > a:hover {
-    color: #fff;
-    background-color: #486ebd;
-}
 
 /* Match the schedule bar alert affordance; these links need higher specificity
    than the general topnav anchor color rules above. */
+table#firstTable .tabalert,
 table#firstTable #unclaimedLabLink.tabalert,
-table#firstTable #oscar_new_tickler {
+table#firstTable #oscar_new_lab,
+table#firstTable #oscar_new_msg,
+table#firstTable #oscar_new_tickler,
+table#firstTable #demographicMessageCount,
+table#firstTable #totalMessageCount {
     color: red !important;
 }
 
+table#firstTable #oscar_new_lab .tabalert sup,
+table#firstTable #oscar_new_msg .tabalert sup,
+table#firstTable #oscar_new_tickler .tabalert sup {
+    color: red !important;
+    font-size: 9px !important;
+    line-height: 0;
+}
+
 table#firstTable #unclaimedLabLink.tabalert:hover,
-table#firstTable a:hover #oscar_new_tickler {
+table#firstTable a:hover .tabalert,
+table#firstTable a:hover #oscar_new_lab,
+table#firstTable a:hover #oscar_new_msg,
+table#firstTable a:hover #oscar_new_tickler,
+table#firstTable a:hover #demographicMessageCount,
+table#firstTable a:hover #totalMessageCount,
+table#firstTable #unclaimedLabLink.tabalert:focus,
+table#firstTable a:focus .tabalert,
+table#firstTable a:focus #oscar_new_lab,
+table#firstTable a:focus #oscar_new_msg,
+table#firstTable a:focus #oscar_new_tickler,
+table#firstTable a:focus #demographicMessageCount,
+table#firstTable a:focus #totalMessageCount,
+table#firstTable #unclaimedLabLink.tabalert:focus-visible,
+table#firstTable a:focus-visible .tabalert,
+table#firstTable a:focus-visible #oscar_new_lab,
+table#firstTable a:focus-visible #oscar_new_msg,
+table#firstTable a:focus-visible #oscar_new_tickler,
+table#firstTable a:focus-visible #demographicMessageCount,
+table#firstTable a:focus-visible #totalMessageCount {
+    color: #fff !important;
+}
+
+table#firstTable a:hover #oscar_new_lab .tabalert sup,
+table#firstTable a:hover #oscar_new_msg .tabalert sup,
+table#firstTable a:hover #oscar_new_tickler .tabalert sup,
+table#firstTable a:focus #oscar_new_lab .tabalert sup,
+table#firstTable a:focus #oscar_new_msg .tabalert sup,
+table#firstTable a:focus #oscar_new_tickler .tabalert sup,
+table#firstTable a:focus-visible #oscar_new_lab .tabalert sup,
+table#firstTable a:focus-visible #oscar_new_msg .tabalert sup,
+table#firstTable a:focus-visible #oscar_new_tickler .tabalert sup {
     color: #fff !important;
 }
 
 /*end of top navigation bar */
+
+.carlos-content-shell {
+    --bs-gutter-x: 0;
+    max-width: none;
+    width: 100%;
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.carlos-content-shell > .searchBox,
+.carlos-content-shell .doclist {
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.carlos-content-shell .doclist > .card-header > .container {
+    max-width: none;
+    width: 100%;
+    padding-left: 0;
+    padding-right: 0;
+}

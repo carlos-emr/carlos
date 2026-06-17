@@ -35,6 +35,13 @@ extensions:
       # flow source so that taint from it is cut off at the sanitizer boundary.
       - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", false, "validatePath", "(java.lang.String,java.io.File)", "", "Argument[1]", "ReturnValue", "taint", "manual"]
 
+      # validatePathComponent(String value, String label) -> String
+      # Validates that the user-provided value is exactly one safe path component
+      # and returns it unchanged. The checked value (Argument[0]) is intentionally
+      # NOT modelled as a flow source so request taint is cut off at this sanitizer
+      # boundary; the fixed diagnostic label (Argument[1]) is used as the source.
+      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", false, "validatePathComponent", "(java.lang.String,java.lang.String)", "", "Argument[1]", "ReturnValue", "taint", "manual"]
+
       # validateUserFilePath(String userFilename, File allowedDir) -> File
       # Applies legacy filename normalization and validates the resulting path is
       # within allowedDir. Like validatePath, the return value is bounded by
@@ -94,6 +101,14 @@ extensions:
       # PathValidationUtils.validateExistingPath. Returns validated File.
       - ["io.github.carlos_emr.carlos.managers", "NioFileManagerImpl", false, "getOscarDocument", "(java.lang.String)", "", "Argument[this]", "ReturnValue", "taint", "manual"]
 
+      # NioFileManagerImpl.validateTempDeletionTarget(String) -> File
+      # Validates path-derived delete requests against approved temp directories,
+      # returns null for missing approved temp files, and returns a canonical
+      # regular file from PathValidationUtils.validateUpload for existing files.
+      # The user-provided path (Argument[0]) is intentionally not modelled as a
+      # flow source because the return value is bounded by approved temp roots.
+      - ["io.github.carlos_emr.carlos.managers", "NioFileManagerImpl", false, "validateTempDeletionTarget", "(java.lang.String)", "", "Argument[this]", "ReturnValue", "taint", "manual"]
+
   # neutralModel entries suppress auto-generated/heuristic taint summaries for
   # guard methods and sanitizer wrappers where no relevant taint flow should be
   # inferred, including boolean, void, and reference-returning methods.
@@ -117,10 +132,6 @@ extensions:
       # Util.isPathWithinDirectory(File, String) -> boolean
       # Boolean guard that delegates to PathValidationUtils.validateExistingPath.
       - ["io.github.carlos_emr.carlos.demographic.pageUtil", "Util", "isPathWithinDirectory", "(java.io.File,java.lang.String)", "summary", "manual"]
-
-      # IncomingDocUtil.isValidPathComponent(String) -> boolean
-      # Boolean guard using PathValidationUtils.validatePath.
-      - ["io.github.carlos_emr.carlos.documentManager", "IncomingDocUtil", "isValidPathComponent", "(java.lang.String)", "summary", "manual"]
 
       # IncomingDocUtil.isPathWithinBounds(String, String) -> boolean
       # Boolean guard using PathValidationUtils.validateExistingPath.
