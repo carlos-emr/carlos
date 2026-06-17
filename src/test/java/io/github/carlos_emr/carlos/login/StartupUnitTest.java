@@ -1,16 +1,22 @@
 package io.github.carlos_emr.carlos.login;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 import io.github.carlos_emr.carlos.utility.WebappShutdownResources;
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletContextEvent;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.util.List;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
@@ -86,5 +92,74 @@ class StartupUnitTest extends CarlosUnitTestBase {
                 WebappShutdownResources.ShutdownReport.class.getDeclaredConstructor(List.class);
         constructor.setAccessible(true);
         return constructor.newInstance(List.of());
+    }
+
+    @Test
+    @Tag("create")
+    @DisplayName("should encrypt successfully after prepareSecretKeySpec reinitializes a null key")
+    void shouldEncryptSuccessfully_afterPrepareSecretKeySpecReinitializesNullKey() throws Exception {
+        // Simulate EncryptionUtils loaded before properties: null out SECRET_KEY_SPEC
+        Field keySpecField = EncryptionUtils.class.getDeclaredField("SECRET_KEY_SPEC");
+        keySpecField.setAccessible(true);
+        Object originalKeySpec = keySpecField.get(null);
+
+        try {
+            keySpecField.set(null, null);
+
+            // Verify encryption fails with null key
+            assertThatCode(() -> EncryptionUtils.encrypt("test"))
+                    .isInstanceOf(Exception.class)
+                    .hasMessageContaining("Secret key not found");
+
+            // Generate a valid key and set it in CarlosProperties
+            String validKey = EncryptionUtils.generateSecretKey();
+            CarlosProperties props = CarlosProperties.getInstance();
+            props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, validKey);
+
+            // Reinitialize - simulates what Startup does after ensuring key exists
+            EncryptionUtils.prepareSecretKeySpec();
+
+            // Verify encryption now succeeds
+            String encrypted = EncryptionUtils.encrypt("test-password");
+            assertThat(encrypted).startsWith("{ENC}");
+
+            // Verify round-trip works
+            String decrypted = EncryptionUtils.decrypt(encrypted);
+            assertThat(decrypted).isEqualTo("test-password");
+        } finally {
+            // Restore original key spec to avoid polluting other tests
+            keySpecField.set(null, originalKeySpec);
+        }
+    }
+
+    @Test
+    @Tag("create")
+    @DisplayName("should handle blank key as missing in prepareSecretKeySpec")
+    void shouldHandleBlankKey_asMissingInPrepareSecretKeySpec() throws Exception {
+        Field keySpecField = EncryptionUtils.class.getDeclaredField("SECRET_KEY_SPEC");
+        keySpecField.setAccessible(true);
+        Object originalKeySpec = keySpecField.get(null);
+
+        CarlosProperties props = CarlosProperties.getInstance();
+        String originalProp = props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR);
+
+        try {
+            keySpecField.set(null, null);
+
+            // Set a blank key - prepareSecretKeySpec reads from CarlosProperties and
+            // will attempt Base64 decode of empty string (producing 0-byte key)
+            props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, "   ");
+
+            // prepareSecretKeySpec should handle the blank key gracefully
+            // (either by treating it as null or by catching decode errors)
+            assertThatCode(() -> EncryptionUtils.prepareSecretKeySpec())
+                    .doesNotThrowAnyException();
+        } finally {
+            // Restore original state
+            if (originalProp != null) {
+                props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, originalProp);
+            }
+            keySpecField.set(null, originalKeySpec);
+        }
     }
 }

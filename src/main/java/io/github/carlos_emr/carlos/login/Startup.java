@@ -136,7 +136,7 @@ public class Startup implements ServletContextListener {
 			// 	Ensure that a secret key for encryption is available when OSCAR starts, either by retrieving a
 			// 	previously saved key or generating a new one and storing it for future use.
 			String secretKey = p.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR);
-			if (Objects.isNull(secretKey)) {
+			if (Objects.isNull(secretKey) || secretKey.isBlank()) {
 				try {
 					secretKey = EncryptionUtils.generateSecretKey();
 					p.saveProperty(propFileName, EncryptionUtils.SECRET_KEY_ENV_VAR, secretKey);
@@ -154,7 +154,19 @@ public class Startup implements ServletContextListener {
 			 * the properties file. Always prepare the key after startup has ensured a
 			 * key exists so credential saves can encrypt passwords reliably.
 			 */
-			EncryptionUtils.prepareSecretKeySpec();
+			try {
+				EncryptionUtils.prepareSecretKeySpec();
+			} catch (IllegalArgumentException e) {
+				logger.error("Configured encryption key is not valid Base64; generating a new key", e);
+				try {
+					secretKey = EncryptionUtils.generateSecretKey();
+					p.saveProperty(propFileName, EncryptionUtils.SECRET_KEY_ENV_VAR, secretKey);
+					EncryptionUtils.prepareSecretKeySpec();
+					logger.info("Replacement Secret Key generated after invalid key detected");
+				} catch (IOException | NoSuchAlgorithmException | IllegalArgumentException ex) {
+					logger.error("Error generating replacement Secret Key - ", ex);
+				}
+			}
 
 			// CHECK FOR DEFAULT PROPERTIES
 			String baseDocumentDir = p.getProperty("BASE_DOCUMENT_DIR");
