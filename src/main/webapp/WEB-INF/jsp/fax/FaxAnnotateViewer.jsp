@@ -32,6 +32,8 @@
     @since 2026-06
 --%>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String ctx = request.getContextPath();
     int    docId         = (Integer) request.getAttribute("docId");
@@ -48,7 +50,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Annotate Document for Fax</title>
+<title><fmt:message key="faxAnnotateViewer.title"/></title>
 
 <link rel="stylesheet" href="<%=ctx%>/library/bootstrap/5.3.8/css/bootstrap.min.css"/>
 <link rel="stylesheet" href="<%=ctx%>/css/fontawesome-all.min.css"/>
@@ -172,23 +174,23 @@
 <div id="faxToolbar">
 
     <%-- Annotation tool buttons --%>
-    <button class="tool-btn" id="btnText"      title="Add text (T)"         onclick="setMode('freetext')">
+    <button class="tool-btn" id="btnText"      title="<fmt:message key='faxAnnotateViewer.btn.addText'/>"    onclick="setMode('freetext')">
         <i class="fas fa-font"></i>
     </button>
-    <button class="tool-btn" id="btnDraw"      title="Draw freehand lines"  onclick="setMode('ink')">
+    <button class="tool-btn" id="btnDraw"      title="<fmt:message key='faxAnnotateViewer.btn.draw'/>"       onclick="setMode('ink')">
         <i class="fas fa-pen"></i>
     </button>
-    <button class="tool-btn" id="btnHighlight" title="Highlight"             onclick="setMode('highlight')">
+    <button class="tool-btn" id="btnHighlight" title="<fmt:message key='faxAnnotateViewer.btn.highlight'/>"  onclick="setMode('highlight')">
         <i class="fas fa-highlighter"></i>
     </button>
-    <button class="tool-btn" id="btnSign"      title="Add signature stamp"  onclick="console.log('[sig] button clicked; fn defined:', typeof openSignatureOrInsert); if (typeof openSignatureOrInsert === 'function') openSignatureOrInsert(); else console.error('[sig] openSignatureOrInsert not yet defined — module still loading')">
+    <button class="tool-btn" id="btnSign"      title="<fmt:message key='faxAnnotateViewer.btn.signature'/>"  onclick="console.log('[sig] button clicked; fn defined:', typeof openSignatureOrInsert); if (typeof openSignatureOrInsert === 'function') openSignatureOrInsert(); else console.error('[sig] openSignatureOrInsert not yet defined — module still loading')">
         <i class="fas fa-signature"></i>
     </button>
 
     <div class="tool-separator"></div>
 
     <%-- Cursor / selection mode --%>
-    <button class="tool-btn active" id="btnSelect" title="Select / cursor"  onclick="setMode('none')">
+    <button class="tool-btn active" id="btnSelect" title="<fmt:message key='faxAnnotateViewer.btn.select'/>"  onclick="setMode('none')">
         <i class="fas fa-mouse-pointer"></i>
     </button>
 
@@ -196,12 +198,12 @@
 
     <%-- Page navigation --%>
     <div id="pageNav">
-        <button class="tool-btn" id="btnPrev" title="Previous page" onclick="changePage(-1)">
+        <button class="tool-btn" id="btnPrev" title="<fmt:message key='faxAnnotateViewer.btn.prevPage'/>" onclick="changePage(-1)">
             <i class="fas fa-chevron-left"></i>
         </button>
         <input type="number" id="pageInput" value="1" min="1" onchange="goToPage(parseInt(this.value))"/>
         <span id="pageCount">/ 1</span>
-        <button class="tool-btn" id="btnNext" title="Next page" onclick="changePage(1)">
+        <button class="tool-btn" id="btnNext" title="<fmt:message key='faxAnnotateViewer.btn.nextPage'/>" onclick="changePage(1)">
             <i class="fas fa-chevron-right"></i>
         </button>
     </div>
@@ -209,17 +211,17 @@
     <div class="tool-separator"></div>
 
     <%-- Zoom --%>
-    <button class="tool-btn" title="Zoom out" onclick="adjustZoom(-0.25)">
+    <button class="tool-btn" title="<fmt:message key='faxAnnotateViewer.btn.zoomOut'/>" onclick="adjustZoom(-0.25)">
         <i class="fas fa-search-minus"></i>
     </button>
-    <button class="tool-btn" title="Zoom in"  onclick="adjustZoom(0.25)">
+    <button class="tool-btn" title="<fmt:message key='faxAnnotateViewer.btn.zoomIn'/>"  onclick="adjustZoom(0.25)">
         <i class="fas fa-search-plus"></i>
     </button>
 
     <div class="toolbar-spacer"></div>
 
     <button class="btn btn-primary btn-sm" id="btnSaveFax" onclick="saveAndFax()">
-        <i class="fas fa-fax me-1"></i>Save &amp; Continue to Fax
+        <i class="fas fa-fax me-1"></i><fmt:message key="faxAnnotateViewer.btn.saveAndFax"/>
     </button>
 </div>
 
@@ -234,26 +236,23 @@
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title" id="sigModalLabel">
-            <i class="fas fa-signature me-2"></i>Provider Signature
+            <i class="fas fa-signature me-2"></i><fmt:message key="faxAnnotateViewer.modal.sigTitle"/>
         </h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="<fmt:message key='faxAnnotateViewer.modal.close'/>"></button>
       </div>
       <div class="modal-body">
-        <p class="small text-muted mb-1">
-            Draw your signature below. Saving here updates your signature in
-            Provider Preferences and will be used wherever your signature stamp appears.
-        </p>
+        <p class="small text-muted mb-1"><fmt:message key="faxAnnotateViewer.modal.sigInstruction"/></p>
         <canvas id="signatureCanvas" width="700" height="160"></canvas>
         <div class="mt-2 d-flex gap-2">
             <button class="btn btn-sm btn-outline-secondary" onclick="clearSignaturePad()">
-                <i class="fas fa-eraser me-1"></i>Clear
+                <i class="fas fa-eraser me-1"></i><fmt:message key="faxAnnotateViewer.modal.clear"/>
             </button>
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><fmt:message key="faxAnnotateViewer.modal.cancel"/></button>
         <button type="button" class="btn btn-primary" id="btnApplySignature" onclick="applySignature()">
-            <i class="fas fa-stamp me-1"></i>Place Signature on Document
+            <i class="fas fa-stamp me-1"></i><fmt:message key="faxAnnotateViewer.modal.placeSignature"/>
         </button>
       </div>
     </div>
@@ -264,12 +263,23 @@
 <div id="statusOverlay">
     <div class="text-center text-white">
         <div class="spinner-border text-light mb-3" role="status"></div>
-        <div id="statusMsg" class="fw-semibold">Saving annotated document…</div>
+        <div id="statusMsg" class="fw-semibold"><fmt:message key="faxAnnotateViewer.status.saving"/></div>
     </div>
 </div>
 
 <%-- Bootstrap bundle --%>
 <script src="<%=ctx%>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
+
+<%-- ── i18n strings for JavaScript (resolved server-side by JSP) ──────── --%>
+<script>
+window.FAX_I18N = Object.freeze({
+    statusSaving:          "<fmt:message key='faxAnnotateViewer.status.saving'/>",
+    statusOpeningFax:      "<fmt:message key='faxAnnotateViewer.status.openingFax'/>",
+    alertNoSignature:      "<fmt:message key='faxAnnotateViewer.alert.noSignature'/>",
+    alertSaveFailed:       "<fmt:message key='faxAnnotateViewer.alert.saveFailed'/>",
+    alertSaveFailedDetail: "<fmt:message key='faxAnnotateViewer.alert.saveFailedDetail'/>"
+});
+</script>
 
 <%-- ── PDF.js + annotation logic (ES module) ──────────────────────────── --%>
 <script type="module">
@@ -458,7 +468,7 @@ window.applySignature = async function() {
     const canvas = document.getElementById('signatureCanvas');
     const px     = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
     if (!Array.prototype.some.call(px, (v, i) => i % 4 === 3 && v > 10)) {
-        alert('Please draw your signature before placing it on the document.');
+        alert(window.FAX_I18N.alertNoSignature);
         return;
     }
 
@@ -522,7 +532,7 @@ window.saveAndFax = async function() {
     const msg     = document.getElementById('statusMsg');
 
     btn.disabled = true;
-    msg.textContent = 'Saving annotated document…';
+    msg.textContent = window.FAX_I18N.statusSaving;
     overlay.classList.add('show');
 
     try {
@@ -553,14 +563,14 @@ window.saveAndFax = async function() {
             throw new Error(result.error ?? 'Save failed');
         }
 
-        msg.textContent = 'Opening fax composition…';
+        msg.textContent = window.FAX_I18N.statusOpeningFax;
         window.location.href = CTX + '/documentManager/FaxDocument?docId=' + DOC_ID + '&faxReady=true';
 
     } catch (e) {
         overlay.classList.remove('show');
         btn.disabled = false;
         console.error('Save & Fax failed:', e);
-        alert('Failed to save the annotated document. Please try again.\n\nDetail: ' + e.message);
+        alert(window.FAX_I18N.alertSaveFailed + '\n\n' + window.FAX_I18N.alertSaveFailedDetail + ' ' + e.message);
     }
 };
 </script>
