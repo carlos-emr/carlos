@@ -32,8 +32,6 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.commn.dao.EFormDao;
-import io.github.carlos_emr.carlos.commn.model.EForm;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -45,15 +43,8 @@ import org.apache.struts2.ServletActionContext;
 /**
  * Deletes an eForm template from the library.
  *
- * <p>Two privilege tiers govern deletion:
- * <ul>
- *   <li><b>Admin</b> — providers with the {@code _eform} delete privilege ("d") may delete
- *       any template, including shared templates with no recorded creator.</li>
- *   <li><b>Provider</b> — providers with the {@code _eform} write privilege ("w") may delete
- *       only templates they personally created (matched by {@code form_creator}).</li>
- * </ul>
- * Shared templates — those whose {@code form_creator} is null or blank — are org-wide
- * assets and are intentionally restricted to admin-level deletion.
+ * <p>Deletion requires the {@code _eform} delete privilege ("d"), which is held by
+ * admin-level providers. The doctor role carries only write ("w") and cannot delete.
  *
  * @since 2026-06-15
  */
@@ -62,11 +53,9 @@ public class DelEForm2Action extends ActionSupport {
     // transient: ActionSupport implements Serializable; Spring-managed beans are not serializable.
     // Actions are prototype-scoped and never actually serialized, but transient satisfies the contract.
     private final transient SecurityInfoManager securityInfoManager;
-    private final transient EFormDao eFormDao;
 
-    public DelEForm2Action(SecurityInfoManager securityInfoManager, EFormDao eFormDao) {
+    public DelEForm2Action(SecurityInfoManager securityInfoManager) {
         this.securityInfoManager = securityInfoManager;
-        this.eFormDao = eFormDao;
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an HTTP method constant; not a security or authorization decision.
@@ -86,32 +75,10 @@ public class DelEForm2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing or invalid fid");
             return NONE;
         }
-        int formId;
-        try {
-            formId = Integer.parseInt(fid);
-        } catch (NumberFormatException e) {
-            // Catches overflow values that pass isNumeric (e.g. > Integer.MAX_VALUE)
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing or invalid fid");
-            return NONE;
-        }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        boolean isAdmin = securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.DELETE, null);
-
-        if (!isAdmin) {
-            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.WRITE, null)) {
-                throw new SecurityException("missing required sec object (_eform)");
-            }
-            EForm eform = eFormDao.findById(formId);
-            if (eform == null) {
-                throw new SecurityException("missing required sec object (_eform)");
-            }
-            String creator = eform.getCreator();
-            String providerNo = loggedInInfo.getLoggedInProviderNo();
-            // Shared templates (no creator) and other providers' forms are admin-only
-            if (StringUtils.isBlank(creator) || !creator.equals(providerNo)) {
-                throw new SecurityException("missing required sec object (_eform)");
-            }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.DELETE, null)) {
+            throw new SecurityException("missing required sec object (_eform)");
         }
 
         EFormUtil.delEForm(fid);

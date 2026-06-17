@@ -201,14 +201,11 @@
                 LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
                 SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
                 boolean isEFormAdmin = securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.DELETE, null);
-                String currentProviderNo = loggedInInfo.getLoggedInProviderNo();
 
-                List<HashMap<String, ? extends Object>> eForms = EFormUtil.listEFormsForProvider(orderBy, EFormUtil.CURRENT, currentProviderNo, isEFormAdmin);
+                ArrayList<HashMap<String, ? extends Object>> eForms = EFormUtil.listEForms(orderBy, EFormUtil.CURRENT);
                 for (int i = 0; i < eForms.size(); i++) {
                     HashMap<String, ? extends Object> curForm = eForms.get(i);
-                    // Key must stay aligned with EFormUtil.FORM_CREATOR_KEY ("formCreator")
-                    String formCreator = (String) curForm.get("formCreator");
-                    boolean canDelete = isEFormAdmin || (currentProviderNo != null && currentProviderNo.equals(formCreator));
+                    boolean canDelete = isEFormAdmin;
             %>
             <tr>
                 <td><%if (curForm.get("formFileName") != null && curForm.get("formFileName").toString().length() != 0) {%><i
