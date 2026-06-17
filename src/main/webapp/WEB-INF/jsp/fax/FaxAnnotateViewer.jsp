@@ -559,11 +559,12 @@ window.insertTodayDate = async function() {
     const editor = layer.createAndAddNewEditor({ offsetX: 0, offsetY: 0 }, true, {});
     if (!editor) return;
 
-    // Allow the editor to attach to DOM (onceAdded enters edit mode synchronously,
-    // but a tick ensures any async internal setup is complete before we write).
-    await new Promise(r => setTimeout(r, 0));
-
-    // Pre-fill the editable div and commit so the text lands in the undo stack.
+    // Set text and commit SYNCHRONOUSLY — no yield between creation and commit.
+    // Yielding (even a setTimeout(0)) allows updateMode(FREETEXT)'s pending
+    // microtask chain to resume: it calls unselectAll() → commitOrRemove() on
+    // the (still empty) active editor → remove() → this.parent = null, causing
+    // "can't access property setEditingState, this.parent is null" in disableEditMode.
+    // editorDiv is created synchronously inside render() → no tick is needed.
     editor.editorDiv.innerText = _todayFormatted;
     editor.commit();
 
