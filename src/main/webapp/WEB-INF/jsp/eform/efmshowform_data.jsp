@@ -141,8 +141,9 @@
     eForm.addHiddenInputElement("fid", eForm.getFid());
 
     // Add EForm error message
-    eForm.addHiddenInputElement("error", request.getParameter("error"));
+    eForm.addHiddenInputElement("error", request.getParameter("error") != null ? request.getParameter("error") : (String) request.getAttribute("error"));
     eForm.addHiddenInputElement("errorMessage", (String) request.getAttribute("errorMessage"));
+    eForm.addHiddenInputElement("warningMessage", (String) request.getAttribute("warningMessage"));
 
     // Add EForm properties for handling download operation
     eForm.addHiddenInputElement("eFormPDFName", (String) request.getAttribute("eFormPDFName"));

@@ -103,7 +103,7 @@
     // Build menu destinations once so same-tab navigation and popup fallbacks cannot drift apart.
     String messengerUrl = request.getContextPath() + "/messenger/DisplayMessages?providerNo=" + curUser_no + "&userName=" + encodedUserName;
     String consultationUrl = request.getContextPath() + "/encounter/IncomingConsultation?providerNo=" + curUser_no + "&userName=" + encodedUserName;
-    String documentReportUrl = request.getContextPath() + "/documentManager/ViewDocumentReport?function=providers&functionid=" + curUser_no + "&curUser=" + curUser_no;
+    String documentReportUrl = request.getContextPath() + "/documentManager/ViewDocumentReport?function=providers&functionid=" + SafeEncode.forUriComponent(curUser_no);
     String reportIndexUrl = request.getContextPath() + "/report/ViewReportindex";
     String ticklerUrl = request.getContextPath() + "/tickler/ViewTicklerMain";
     String administrationUrl = request.getContextPath() + "/administration";
@@ -392,6 +392,51 @@
 <script>
     var scheduleNavActive = <%=scheduleNavActive%>;
     var contextPath = document.getElementById("contextPath").value;
+
+    function normalizeScheduleMenuNavigationMode(mode) {
+        if (mode === 'tab' || mode === 'focused') {
+            return mode;
+        }
+        return 'popup';
+    }
+
+    function applyScheduleMenuNavigationPreference(mode) {
+        var normalizedMode = normalizeScheduleMenuNavigationMode(mode);
+        scheduleNavActive = normalizedMode === 'tab' || normalizedMode === 'focused';
+    }
+
+    var existingApplyScheduleNavigationPreference = window.applyScheduleNavigationPreference;
+    window.applyScheduleNavigationPreference = function(mode) {
+        applyScheduleMenuNavigationPreference(mode);
+        if (typeof existingApplyScheduleNavigationPreference === 'function'
+                && existingApplyScheduleNavigationPreference !== applyScheduleMenuNavigationPreference) {
+            existingApplyScheduleNavigationPreference(mode);
+        }
+    };
+
+    function handleScheduleMenuNavigationPreferenceMessage(message) {
+        if (message && message.mode) {
+            applyScheduleMenuNavigationPreference(message.mode);
+        }
+    }
+
+    try {
+        var scheduleNavigationPreferenceChannel = new BroadcastChannel('carlos_schedule_navigation_mode');
+        scheduleNavigationPreferenceChannel.onmessage = function(event) {
+            handleScheduleMenuNavigationPreferenceMessage(event.data);
+        };
+    } catch(e) { /* BroadcastChannel not supported */ }
+
+    try {
+        window.addEventListener('storage', function(event) {
+            if (event.key !== 'carlos_schedule_navigation_mode' || !event.newValue) {
+                return;
+            }
+            try {
+                handleScheduleMenuNavigationPreferenceMessage(JSON.parse(event.newValue));
+            } catch(e) {}
+        });
+    } catch(e) {}
 
     function appendScheduleMenuQueryParam(url, key, value) {
         var parts = String(url).split('#');
