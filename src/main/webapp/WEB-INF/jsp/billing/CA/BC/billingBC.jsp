@@ -852,7 +852,7 @@
             t0 = escape(document.serviceform.xml_referral1.value);
             t1 = escape(document.serviceform.xml_referral2.value);
 
-            awnd = rs('att', '<%= request.getContextPath() %>/billing/CA/<rewrite:reWrite jspPage="billingReferralCodeSearch.jsp" context="javaScriptBlock"/>?name=' + t0 + '&name1=' + t1 + '&search=', 600, 600, 1);
+            awnd = rs('att', '<rewrite:reWrite jspPage="billingReferralCodeSearch.jsp" context="javaScriptBlock"/>?name=' + t0 + '&name1=' + t1 + '&search=', 600, 600, 1);
             awnd.focus();
         }
 

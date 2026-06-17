@@ -40,6 +40,17 @@ import jakarta.servlet.jsp.tagext.TagSupport;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 
 
+/**
+ * JSP tag handler that rewrites a target JSP page into a request-path-relative URL.
+ * <p>
+ * The tag deliberately avoids request scheme, server name, and server port values so
+ * untrusted Host header data cannot affect generated links. Use the optional
+ * {@code context} attribute to choose output encoding for the place where the URL is
+ * rendered: {@code html}, {@code htmlAttribute}, {@code javaScriptAttribute}, or
+ * {@code javaScriptBlock}.
+ *
+ * @since 2026-06-17
+ */
 public class FullPathReWrite extends TagSupport {
 
     private static final String DEFAULT_CONTEXT = "html";
@@ -108,6 +119,17 @@ public class FullPathReWrite extends TagSupport {
         super.release();
     }
 
+    /**
+     * Builds a relative URL from the request URI directory and the configured JSP page.
+     * <p>
+     * Null request or URI values return the JSP page unchanged. A null JSP page is
+     * treated as an empty string. The method intentionally preserves the historical
+     * path-joining shape used by legacy JSP call sites.
+     *
+     * @param request the current request, or {@code null}
+     * @param jspPage the JSP page value to append, or {@code null}
+     * @return a request-path-relative URL, never {@code null}
+     */
     static String buildRelativeUrl(HttpServletRequest request, String jspPage) {
         String safeJspPage = jspPage == null ? "" : jspPage;
         if (request == null) {
@@ -123,6 +145,18 @@ public class FullPathReWrite extends TagSupport {
         return path + "/" + safeJspPage;
     }
 
+    /**
+     * Encodes a generated URL for the requested JSP rendering context.
+     * <p>
+     * Supported contexts are {@code html}, {@code htmlAttribute},
+     * {@code javaScriptAttribute}, and {@code javaScriptBlock}. A null or blank context
+     * uses the default {@code html} encoding.
+     *
+     * @param value the URL value to encode
+     * @param context the encoding context, or {@code null} for the default
+     * @return the encoded URL string
+     * @throws JspException if the context value is unsupported
+     */
     static String encodeForContext(String value, String context) throws JspException {
         String normalizedContext = (context == null || context.isBlank())
                 ? DEFAULT_CONTEXT
