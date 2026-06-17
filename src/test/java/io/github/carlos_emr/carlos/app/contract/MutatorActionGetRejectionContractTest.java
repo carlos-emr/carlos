@@ -201,7 +201,12 @@ class MutatorActionGetRejectionContractTest {
             Arguments.of("io.github.carlos_emr.carlos.waitinglist.pageUtil.WLAdd2WaitingList2Action",
                     "_demographic", "w"),
             Arguments.of("io.github.carlos_emr.carlos.waitinglist.pageUtil.WLRemoveFromWaitingList2Action",
-                    "_demographic", "w")
+                    "_demographic", "w"),
+            // --- prescription ---
+            Arguments.of("io.github.carlos_emr.carlos.prescript.gate.ViewAddRxComment2Action",
+                    "_rx", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.prescript.gate.ViewCompleteMedRec2Action",
+                    "_measurement", "w")
         );
     }
 
@@ -322,6 +327,8 @@ class MutatorActionGetRejectionContractTest {
         "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action",
         "io.github.carlos_emr.carlos.form.pageUtil.FrmXmlUpload2Action",
         "io.github.carlos_emr.carlos.login.gate.SelectFacility2Action",
+        "io.github.carlos_emr.carlos.prescript.gate.ViewAddRxComment2Action",
+        "io.github.carlos_emr.carlos.prescript.gate.ViewCompleteMedRec2Action",
         "io.github.carlos_emr.carlos.provider.web.DocumentDescriptionTemplate2Action"
     );
 
