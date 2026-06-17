@@ -31,7 +31,6 @@
 package io.github.carlos_emr.carlos.util;
 
 import java.io.IOException;
-import java.util.Locale;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.jsp.JspException;
@@ -127,15 +126,15 @@ public class FullPathReWrite extends TagSupport {
     static String encodeForContext(String value, String context) throws JspException {
         String normalizedContext = (context == null || context.isBlank())
                 ? DEFAULT_CONTEXT
-                : context.toLowerCase(Locale.ROOT);
+                : context;
         switch (normalizedContext) {
             case "html":
                 return SafeEncode.forHtml(value);
-            case "htmlattribute":
+            case "htmlAttribute":
                 return SafeEncode.forHtmlAttribute(value);
-            case "javascriptattribute":
+            case "javaScriptAttribute":
                 return SafeEncode.forJavaScriptAttribute(value);
-            case "javascriptblock":
+            case "javaScriptBlock":
                 return SafeEncode.forJavaScriptBlock(value);
             default:
                 throw new JspException("Unsupported FullPathReWrite encoding context: " + context);
