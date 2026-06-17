@@ -284,7 +284,8 @@ const pdfViewer = new PDFViewer({
     viewer:    document.getElementById('viewer'),
     eventBus,
     linkService,
-    enableAnnotationEditorLayer: true,
+    // 4.x: enableAnnotationEditorLayer was removed; pass the initial mode instead to enable the editor
+    annotationEditorMode: AnnotationEditorType.NONE,
 });
 
 linkService.setViewer(pdfViewer);
@@ -337,7 +338,8 @@ const modeButtons = {
 
 window.setMode = function(modeName) {
     currentMode = modeMap[modeName] ?? AnnotationEditorType.NONE;
-    eventBus.dispatch('switchannotationeditormode', { source: null, mode: currentMode });
+    // Direct setter is more reliable than the event bus in PDF.js 4.x
+    pdfViewer.annotationEditorMode = { mode: currentMode };
     Object.entries(modeButtons).forEach(([name, btn]) => {
         if (btn) btn.classList.toggle('active', name === modeName);
     });
@@ -460,8 +462,9 @@ window.applySignature = async function() {
         const res = await fetch(CTX + '/provider/providerSignatureStamp?method=saveDrawn', {
             method:  'POST',
             headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'CSRF-TOKEN':   CSRF_TOKEN,
+                'Content-Type':   'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest',
+                'CSRF-TOKEN':     CSRF_TOKEN,
             },
             body: body.toString(),
         });
@@ -538,7 +541,7 @@ window.saveAndFax = async function() {
         CSRF_TOKEN = document.querySelector('input[name="CSRF-TOKEN"]')?.value ?? '';
         const res = await fetch(CTX + '/documentManager/SaveAnnotatedDocument', {
             method:  'POST',
-            headers: { 'CSRF-TOKEN': CSRF_TOKEN },
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': CSRF_TOKEN },
             body:    formData,
         });
 
