@@ -294,7 +294,12 @@ const pdfViewer = new PDFViewer({
 linkService.setViewer(pdfViewer);
 
 // ── Load the PDF ──────────────────────────────────────────────────────────
-const pdfDocument = await getDocument({ url: CTX + '/documentManager/ServeDocument?docId=' + DOC_ID }).promise;
+const pdfDocument = await getDocument({
+    url:     CTX + '/documentManager/ServeDocument?docId=' + DOC_ID,
+    // 6.x: WASM decoders (JBIG2, OpenJPEG, QCMS) live in wasm/; without this
+    // the worker tries a bare-specifier JS fallback that browsers can't resolve.
+    wasmUrl: PDFJS + '/wasm/',
+}).promise;
 pdfViewer.setDocument(pdfDocument);
 linkService.setDocument(pdfDocument);
 
