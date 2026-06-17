@@ -103,6 +103,9 @@ class StartupUnitTest extends CarlosUnitTestBase {
         keySpecField.setAccessible(true);
         Object originalKeySpec = keySpecField.get(null);
 
+        CarlosProperties props = CarlosProperties.getInstance();
+        String originalProp = props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR);
+
         try {
             keySpecField.set(null, null);
 
@@ -113,7 +116,6 @@ class StartupUnitTest extends CarlosUnitTestBase {
 
             // Generate a valid key and set it in CarlosProperties
             String validKey = EncryptionUtils.generateSecretKey();
-            CarlosProperties props = CarlosProperties.getInstance();
             props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, validKey);
 
             // Reinitialize - simulates what Startup does after ensuring key exists
@@ -127,7 +129,12 @@ class StartupUnitTest extends CarlosUnitTestBase {
             String decrypted = EncryptionUtils.decrypt(encrypted);
             assertThat(decrypted).isEqualTo("test-password");
         } finally {
-            // Restore original key spec to avoid polluting other tests
+            // Restore original property and key spec to avoid polluting other tests
+            if (originalProp != null) {
+                props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, originalProp);
+            } else {
+                props.remove(EncryptionUtils.SECRET_KEY_ENV_VAR);
+            }
             keySpecField.set(null, originalKeySpec);
         }
     }
@@ -156,9 +163,11 @@ class StartupUnitTest extends CarlosUnitTestBase {
             // SECRET_KEY_SPEC should remain null (blank treated as missing)
             assertThat(keySpecField.get(null)).isNull();
         } finally {
-            // Restore original state
+            // Restore original state, removing the property entirely if it was previously unset
             if (originalProp != null) {
                 props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, originalProp);
+            } else {
+                props.remove(EncryptionUtils.SECRET_KEY_ENV_VAR);
             }
             keySpecField.set(null, originalKeySpec);
         }

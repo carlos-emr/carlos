@@ -271,7 +271,8 @@ public final class EncryptionUtils {
     public static void prepareSecretKeySpec() {
         String key = CarlosProperties.getInstance().getProperty(SECRET_KEY_ENV_VAR);
         if (Objects.isNull(key) || key.isBlank()) {
-            logger.error("Secret key not found in environment variables.");
+            SECRET_KEY_SPEC = null;
+            logger.error("Secret key not found in CarlosProperties.");
             return;
         }
 
