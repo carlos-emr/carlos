@@ -56,6 +56,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
@@ -626,7 +627,7 @@ public final class ConvertToEdoc {
             String translatedPath = translateSingleResourcePath(originalPath);
             if (translatedPath != null) {
                 element.attr(BACKGROUND_ATTRIBUTE, translatedPath);
-            } else {
+            } else if (!isEmbeddedDataResourcePath(originalPath)) {
                 element.removeAttr(BACKGROUND_ATTRIBUTE);
             }
         }
@@ -657,6 +658,8 @@ public final class ConvertToEdoc {
             String replacement;
             if (translatedPath != null) {
                 replacement = Matcher.quoteReplacement("url('" + translatedPath + "')");
+            } else if (isEmbeddedDataResourcePath(originalPath)) {
+                replacement = Matcher.quoteReplacement(matcher.group(0));
             } else {
                 replacement = "url('')";
             }
@@ -667,6 +670,9 @@ public final class ConvertToEdoc {
     }
 
     private static String translateSingleResourcePath(String path) {
+        if (isEmbeddedDataResourcePath(path)) {
+            return path;
+        }
         return validateLink(collectPotentialFilePaths(path));
     }
 
@@ -734,7 +740,7 @@ public final class ConvertToEdoc {
                 String path = element.attributes().get(pathAttribute.name());
                 if (isExternalResourcePath(path)) {
                     element.remove();
-                } else {
+                } else if (!isEmbeddedDataResourcePath(path)) {
                     List<String> potentialFilePaths = collectPotentialFilePaths(path);
                     if (!potentialFilePaths.isEmpty()) {
                         pathTranslationMap.put(potentialFilePaths, element);
@@ -755,13 +761,30 @@ public final class ConvertToEdoc {
                 || normalized.startsWith("file:");
     }
 
+    private static boolean isEmbeddedDataResourcePath(String path) {
+        return StringUtils.trimToEmpty(path).toLowerCase(Locale.ROOT).startsWith("data:");
+    }
+
     private static boolean isDisallowedResourcePath(String path) {
         if (isExternalResourcePath(path)) {
             return true;
         }
 
+        if (isEmbeddedDataResourcePath(path)) {
+            return false;
+        }
+
         String normalized = StringUtils.trimToEmpty(path);
-        return !normalized.isEmpty() && Path.of(normalized).isAbsolute();
+        if (normalized.isEmpty()) {
+            return false;
+        }
+
+        try {
+            return Path.of(normalized).isAbsolute();
+        } catch (InvalidPathException e) {
+            logger.debug("Skipping malformed resource path", e);
+            return true;
+        }
     }
 
     /**

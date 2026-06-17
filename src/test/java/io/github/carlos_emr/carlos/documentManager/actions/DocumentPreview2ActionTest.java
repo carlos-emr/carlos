@@ -352,8 +352,8 @@ class DocumentPreview2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should return error json when render non eform pdf generation fails")
-    void shouldReturnErrorJson_whenRenderNonEformPdfGenerationFails() throws Exception {
+    @DisplayName("should return error json when render edoc pdf generation fails")
+    void shouldReturnErrorJson_whenRenderEdocPdfGenerationFails() throws Exception {
         request.setParameter("method", "renderEDocPDF");
         request.setParameter("eDocId", "42");
         when(mockDocumentAttachmentManager.renderDocument(mockLoggedInInfo, DocumentType.DOC, 42))
@@ -363,31 +363,31 @@ class DocumentPreview2ActionTest extends CarlosUnitTestBase {
 
         assertThat(result).isNull();
         assertThat(response.getContentAsString()).contains("errorMessage").doesNotContain("edoc failed");
+    }
 
-        response = new MockHttpServletResponse();
-        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
-        action.response = response;
+    @Test
+    @DisplayName("should return error json when render hrm pdf generation fails")
+    void shouldReturnErrorJson_whenRenderHrmPdfGenerationFails() throws Exception {
         request.setParameter("method", "renderHrmPDF");
-        request.removeParameter("eDocId");
         request.setParameter("hrmId", "43");
         when(mockDocumentAttachmentManager.renderDocument(mockLoggedInInfo, DocumentType.HRM, 43))
                 .thenThrow(new io.github.carlos_emr.carlos.utility.PDFGenerationException("hrm failed"));
 
-        result = action.execute();
+        String result = action.execute();
 
         assertThat(result).isNull();
         assertThat(response.getContentAsString()).contains("errorMessage").doesNotContain("hrm failed");
+    }
 
-        response = new MockHttpServletResponse();
-        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
-        action.response = response;
+    @Test
+    @DisplayName("should return error json when render lab pdf generation fails")
+    void shouldReturnErrorJson_whenRenderLabPdfGenerationFails() throws Exception {
         request.setParameter("method", "renderLabPDF");
-        request.removeParameter("hrmId");
         request.setParameter("segmentId", "44");
         when(mockDocumentAttachmentManager.renderDocument(mockLoggedInInfo, DocumentType.LAB, 44))
                 .thenThrow(new io.github.carlos_emr.carlos.utility.PDFGenerationException("lab failed"));
 
-        result = action.execute();
+        String result = action.execute();
 
         assertThat(result).isNull();
         assertThat(response.getContentAsString()).contains("errorMessage").doesNotContain("lab failed");
