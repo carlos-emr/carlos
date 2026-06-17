@@ -136,7 +136,7 @@ public class DocumentPreview2Action extends ActionSupport {
                 requirePrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE);
                 return fetchConsultDocuments();
             default:
-                logger.warn("Unsupported previewDocs method requested: {}", LogSafe.sanitize(method));
+                logger.warn("Unsupported previewDocs method requested.");
                 response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                 return NONE;
         }

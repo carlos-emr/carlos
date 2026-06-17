@@ -108,6 +108,7 @@ public final class ConvertToEdoc {
     private static final String DEFAULT_WKHTMLTOPDF_COMMAND = "/usr/bin/wkhtmltopdf";
     private static final String DEFAULT_WKHTMLTOPDF_ARGS = "--enable-local-file-access --minimum-font-size 10 --print-media-type --encoding utf-8 -T 10mm -L 8mm -R 8mm --disable-javascript";
     private static final String STYLE_ATTRIBUTE = "style";
+    private static final String BACKGROUND_ATTRIBUTE = "background";
     private static final Pattern CSS_URL_PATTERN = Pattern.compile("url\\((['\"]?)([^\"')]+)\\1\\)", Pattern.CASE_INSENSITIVE);
     
     private static String realPath;
@@ -620,13 +621,13 @@ public final class ConvertToEdoc {
     }
 
     private static void translateBackgroundAttributes(Document document) {
-        for (Element element : document.select("[background]")) {
-            String originalPath = element.attr("background");
+        for (Element element : document.select("[" + BACKGROUND_ATTRIBUTE + "]")) {
+            String originalPath = element.attr(BACKGROUND_ATTRIBUTE);
             String translatedPath = translateSingleResourcePath(originalPath);
             if (translatedPath != null) {
-                element.attr("background", translatedPath);
+                element.attr(BACKGROUND_ATTRIBUTE, translatedPath);
             } else {
-                element.removeAttr("background");
+                element.removeAttr(BACKGROUND_ATTRIBUTE);
             }
         }
     }

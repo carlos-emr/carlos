@@ -79,6 +79,7 @@ public class AddEForm2Action extends ActionSupport {
 
     private static final Logger logger = MiscUtils.getLogger();
     private static final String INVALID_FILENAME_MESSAGE_KEY = "dms.error.invalidFilename";
+    private static final String ERROR_ATTRIBUTE = "error";
     private static final String PDF_DOWNLOAD_FAILURE_MESSAGE = "This eForm (and attachments, if applicable) could not be downloaded.";
     private static final String PDF_PREVIEW_WARNING_MESSAGE = "This eForm was saved, but its PDF preview could not be generated.";
 
@@ -210,7 +211,7 @@ public class AddEForm2Action extends ActionSupport {
         try {
             validatedTemplateFileName = validateTemplateFileName(curForm.getFormFileName());
         } catch (FileValidationException e) {
-            request.setAttribute("error", "true");
+            request.setAttribute(ERROR_ATTRIBUTE, "true");
             request.setAttribute("errorMessage", getInvalidFilenameMessage());
             logger.warn("Rejected invalid eForm template filename");
             return ERROR;
@@ -520,7 +521,7 @@ public class AddEForm2Action extends ActionSupport {
 
     private void setPdfError(String message, Exception e) {
         logger.error(message, e);
-        request.setAttribute("error", "true");
+        request.setAttribute(ERROR_ATTRIBUTE, "true");
         request.setAttribute("errorMessage", message);
     }
 
