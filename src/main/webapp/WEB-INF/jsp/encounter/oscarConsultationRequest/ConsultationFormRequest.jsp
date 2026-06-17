@@ -1118,36 +1118,55 @@
             });
         }
 
+        function appendAutoImportedClinicalSection(target, label, note) {
+            if (!note || note.trim().length === 0) return;
+            var section = "**" + label + ":** " + note.trim();
+            var current = jQuery(target).val();
+            if (current && current.trim().length > 0) {
+                jQuery(target).val(current + "\n" + section);
+            } else {
+                jQuery(target).val(section);
+            }
+        }
+
         /**
-         * Auto-pulls Medical, Social, and Family History into the clinical
+         * Auto-pulls configured CPP history sections into the clinical
          * information textarea for new consultations.
          */
         function autoImportClinicalHistory(demographicNo) {
             var target = "#clinicalInformation";
-            var issueTypes = ["MedHistory", "SocHistory", "FamHistory"];
+            var issueTypes = [];
+            <% if ("true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_PAST_MEDICAL_HISTORY", "false"))) { %>
+            issueTypes.push({issueType: "MedHistory", label: "Past Medical History"});
+            <% } %>
+            <% if ("true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_SOCIAL_HISTORY", "false"))) { %>
+            issueTypes.push({issueType: "SocHistory", label: "Social History"});
+            <% } %>
+            <% if ("true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_FAMILY_HISTORY", "false"))) { %>
+            issueTypes.push({issueType: "FamHistory", label: "Family History"});
+            <% } %>
+            <% if ("true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_ONGOING_CONCERNS", "false"))) { %>
+            issueTypes.push({issueType: "Concerns", label: "Ongoing Concerns"});
+            <% } %>
+            <% if ("true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_REMINDERS", "false"))) { %>
+            issueTypes.push({issueType: "Reminders", label: "Reminders"});
+            <% } %>
             var idx = 0;
 
             function fetchNext() {
                 if (idx >= issueTypes.length) return;
-                var issueType = issueTypes[idx];
+                var section = issueTypes[idx];
                 idx++;
                 jQuery.ajax({
                     method: "POST",
                     url: "${ pageContext.request.contextPath }/oscarConsultationRequest/consultationClinicalData",
-                    data: { method: "fetchIssueNote", issueType: issueType, demographicNo: demographicNo },
+                    data: { method: "fetchIssueNote", issueType: section.issueType, demographicNo: demographicNo },
                     dataType: 'JSON',
                     success: function (data) {
-                        if (data.note && data.note.trim().length > 0) {
-                            var current = jQuery(target).val();
-                            if (current && current.trim().length > 0) {
-                                jQuery(target).val(current + "\n" + data.note);
-                            } else {
-                                jQuery(target).val(data.note);
-                            }
-                        }
+                        appendAutoImportedClinicalSection(target, section.label, data.note);
                         fetchNext();
                     },
-                    error: function () { console.warn('Failed to auto-import ' + issueType + ' for consultation'); fetchNext(); }
+                    error: function () { console.warn('Failed to auto-import ' + section.issueType + ' for consultation'); fetchNext(); }
                 });
             }
 
@@ -1246,8 +1265,8 @@
                 getClinicalData(data, target)
             });
 
-            // Auto-import Medical and Social History for new consultations
-            <% if (requestId == null && demo != null) { %>
+            // Auto-import configured CPP history sections for new consultations
+            <% if (requestId == null && demo != null && request.getAttribute("validateError") == null) { %>
             var clinical = jQuery("#clinicalInformation").val();
             if (!clinical || clinical.trim().length === 0) {
                 autoImportClinicalHistory(<carlos:encode value='<%= demo %>' context="javaScript"/>);
