@@ -377,7 +377,7 @@
 
                 <div class="card">
                     <div class="card-header">
-                        <h3 class="card-title">Cover page</h3>
+                        <h3 class="card-title"><fmt:message key="coverPage.card.coverPage"/></h3>
                     </div>
                     <div class="card-body">
                         <div class="container">
@@ -386,19 +386,19 @@
                                     <div class="form-check form-check-inline">
                                         <input class="form-check-input" type="radio" name="coverpage" id="coverpageyes" value="true"
                                                onchange="document.getElementById('comments_container').style.display = 'block';"/>
-                                        <label class="form-check-label" for="coverpageyes">Yes</label>
+                                        <label class="form-check-label" for="coverpageyes"><fmt:message key="coverPage.lbl.yes"/></label>
                                     </div>
                                     <div class="form-check form-check-inline">
                                         <input class="form-check-input" type="radio" checked="checked" name="coverpage" id="coverpageno"
                                                value="false"
                                                onchange="document.getElementById('comments_container').style.display = 'none';"/>
-                                        <label class="form-check-label" for="coverpageno">No</label>
+                                        <label class="form-check-label" for="coverpageno"><fmt:message key="coverPage.lbl.no"/></label>
                                     </div>
                                 </div>
                             </div>
                             <div class="row" id="comments_container" style="display:none;">
                                 <div class="col-sm-12">
-                                    <label for="commentsTextArea">Comments</label>
+                                    <label for="commentsTextArea"><fmt:message key="coverPage.lbl.comments"/></label>
                                     <textarea class="form-control" name="comments" id="commentsTextArea"
                                               rows="5"><%= CarlosProperties.getInstance().getProperty("DEFAULT_FAX_COVERPAGE_COMMENT", "") %></textarea>
                                 </div>
@@ -411,14 +411,14 @@
                         <div class="col-sm-12">
                             <input type="hidden" id="submitMethod" name="method" value="queue"/>
                             <button type="submit" id="btnSend" class="btn btn-primary btn-md float-end" value="Send">
-                                <span class="btn-label"><i class="fa-solid fa-paper-plane"></i></span>
-                                Send
+                                <i class="fa-solid fa-paper-plane"></i>
+                                <fmt:message key="coverPage.btn.send"/>
                             </button>
                             <button formnovalidate="formnovalidate" id="btnCancel" type="submit"
                                     class="btn btn-danger btn-md float-end" value="Cancel"
                                     onclick="document.getElementById('submitMethod').value = 'cancel'">
-                                <span class="btn-label"><i class="fa-solid fa-circle-xmark"></i></span>
-                                Cancel
+                                <i class="fa-solid fa-circle-xmark"></i>
+                                <fmt:message key="coverPage.btn.cancel"/>
                             </button>
                         </div>
                     </div>
@@ -428,7 +428,7 @@
             <c:if test="${ transactionType ne 'CONSULTATION' and empty faxSuccessful }">
                 <div class="card" id="preview-panel">
                     <div class="card-header">
-                        <h3 class="card-title">Preview</h3>
+                        <h3 class="card-title"><fmt:message key="coverPage.card.preview"/></h3>
                     </div>
                     <div class="card-body">
                         <div class="container">
@@ -447,18 +447,18 @@
             <c:forEach items="${ faxJobList }" var="faxJob">
                 <c:choose>
                     <c:when test="${ faxJob.status eq 'ERROR' }">
-                        <div class="alert alert-success" role="alert">
-                            Failed to add fax to outgoing queue: ${carlos:forHtml(faxJob.recipient)} at ${carlos:forHtml(faxJob.destination)} ${carlos:forHtml(faxJob.status)}: ${carlos:forHtml(faxJob.statusString)}
+                        <div class="alert alert-danger" role="alert">
+                            <fmt:message key="coverPage.msg.faxError"/> ${carlos:forHtml(faxJob.recipient)} at ${carlos:forHtml(faxJob.destination)} ${carlos:forHtml(faxJob.status)}: ${carlos:forHtml(faxJob.statusString)}
                         </div>
                     </c:when>
                     <c:otherwise>
                         <div class="alert alert-success" role="alert">
-                            Successfully added fax to outgoing queue: ${carlos:forHtml(faxJob.recipient)} at ${carlos:forHtml(faxJob.destination)}
+                            <fmt:message key="coverPage.msg.faxSuccess"/> ${carlos:forHtml(faxJob.recipient)} at ${carlos:forHtml(faxJob.destination)}
                         </div>
                     </c:otherwise>
                 </c:choose>
             </c:forEach>
-            <input type="button" class="btn btn-danger btn-md float-end" value="Close" onclick="window.close();"/>
+            <input type="button" class="btn btn-danger btn-md float-end" value="<fmt:message key='coverPage.btn.close'/>" onclick="window.close();"/>
         </c:if>
     </div>
 </div>
@@ -532,7 +532,7 @@
                     <div class="col-sm-12 input-group recipientGroup">\
                         <input type="text" class="form-control" value="' + inputValue + '" disabled/>\
 						      <button class="btn btn-danger remove-additional-recipient-btn" type="button" onclick="removeRecipient(this)" >\
-						        <span class="fa-solid fa-trash"></span>\
+						        <i class="fa-solid fa-trash"></i>\
 						      </button>\
 					    </div>\
 						<input type="hidden" name="copyToRecipients" value=\'' + submitValue + '\' />\
