@@ -96,7 +96,8 @@ public class ProviderSignatureImage2Action extends ActionSupport {
             return NONE;
         }
 
-        String signatureName = UserProperty.CONSULT_SIGNATURE_PREFIX + providerNo + ".png";
+        String signatureName = PathValidationUtils.validatePathComponent(
+                UserProperty.CONSULT_SIGNATURE_PREFIX + providerNo + ".png", "signatureName");
         File sigFile = getValidatedSignatureFile(signatureName, response);
         if (sigFile == null) {
             return NONE;
