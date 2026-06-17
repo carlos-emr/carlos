@@ -40,6 +40,12 @@
             </tldx>
             -->
   </attribute>
+  <attribute>
+    <name>context</name>
+    <required>false</required>
+    <rtexprvalue>true</rtexprvalue>
+            <type>String</type>
+  </attribute>
 </tag>
 
 </taglib>

@@ -31,6 +31,7 @@
 package io.github.carlos_emr.carlos.util;
 
 import java.io.IOException;
+import java.util.Locale;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.jsp.JspException;
@@ -42,6 +43,7 @@ import io.github.carlos_emr.carlos.utility.SafeEncode;
 
 public class FullPathReWrite extends TagSupport {
 
+    private static final String DEFAULT_CONTEXT = "html";
 
     /**
      * Legacy server attribute retained for tag compatibility.
@@ -53,12 +55,25 @@ public class FullPathReWrite extends TagSupport {
      */
     protected String jspPage = null;
 
+    /**
+     * Output encoding context. Defaults to legacy HTML encoding.
+     */
+    protected String context = DEFAULT_CONTEXT;
+
     public String getJspPage() {
         return (this.jspPage == null) ? "" : this.jspPage;
     }
 
     public void setJspPage(String jspPage) {
         this.jspPage = jspPage;
+    }
+
+    public String getContext() {
+        return this.context;
+    }
+
+    public void setContext(String context) {
+        this.context = context;
     }
 
     /**
@@ -73,14 +88,25 @@ public class FullPathReWrite extends TagSupport {
 
         JspWriter out = pageContext.getOut();
         try {
-            // This tag is embedded in JavaScript strings and HTML attributes; keep quote encoding.
-            out.write(SafeEncode.forHtml(returnTag));
+            out.write(encodeForContext(returnTag, context));
             out.flush();
         } catch (IOException e) {
             throw new JspException(e.toString());
         }
 
         return EVAL_BODY_INCLUDE;
+    }
+
+    @Override
+    public int doEndTag() throws JspException {
+        resetAttributes();
+        return EVAL_PAGE;
+    }
+
+    @Override
+    public void release() {
+        resetAttributes();
+        super.release();
     }
 
     static String buildRelativeUrl(HttpServletRequest request, String jspPage) {
@@ -96,6 +122,30 @@ public class FullPathReWrite extends TagSupport {
         String path = last >= 0 ? temp.substring(0, last) : "";
 
         return path + "/" + safeJspPage;
+    }
+
+    static String encodeForContext(String value, String context) throws JspException {
+        String normalizedContext = (context == null || context.isBlank())
+                ? DEFAULT_CONTEXT
+                : context.toLowerCase(Locale.ROOT);
+        switch (normalizedContext) {
+            case "html":
+                return SafeEncode.forHtml(value);
+            case "htmlattribute":
+                return SafeEncode.forHtmlAttribute(value);
+            case "javascriptattribute":
+                return SafeEncode.forJavaScriptAttribute(value);
+            case "javascriptblock":
+                return SafeEncode.forJavaScriptBlock(value);
+            default:
+                throw new JspException("Unsupported FullPathReWrite encoding context: " + context);
+        }
+    }
+
+    private void resetAttributes() {
+        server = null;
+        jspPage = null;
+        context = DEFAULT_CONTEXT;
     }
 
 

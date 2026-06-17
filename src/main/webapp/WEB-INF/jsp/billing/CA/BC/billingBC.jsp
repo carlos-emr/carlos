@@ -826,7 +826,7 @@
             t0 = escape(document.BillingCreateBillingForm.xml_other1.value);
             t1 = escape(document.BillingCreateBillingForm.xml_other2.value);
             t2 = escape(document.BillingCreateBillingForm.xml_other3.value);
-            awnd = rs('att', '<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingCodeNewSearch"/>?name=' + t0 + '&name1=' + t1 + '&name2=' + t2 + '&search=', 820, 740, 1);
+            awnd = rs('att', '<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingCodeNewSearch" context="javaScriptBlock"/>?name=' + t0 + '&name1=' + t1 + '&name2=' + t2 + '&search=', 820, 740, 1);
             awnd.focus();
         }
 
@@ -843,7 +843,7 @@
             var d = elementName;
             t0 = escape(document.BillingCreateBillingForm.elements[d].value);
             t1 = escape("");
-            awnd = rs('att', '<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingReferCodeSearch"/>?name=' + t0 + '&name1=' + t1 + '&name2=&search=&formElement=' + d + '&formName=BillingCreateBillingForm', 600, 600, 1);
+            awnd = rs('att', '<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingReferCodeSearch" context="javaScriptBlock"/>?name=' + t0 + '&name1=' + t1 + '&name2=&search=&formElement=' + d + '&formName=BillingCreateBillingForm', 600, 600, 1);
             awnd.focus();
         }
 
@@ -852,7 +852,7 @@
             t0 = escape(document.serviceform.xml_referral1.value);
             t1 = escape(document.serviceform.xml_referral2.value);
 
-            awnd = rs('att', '<%= request.getContextPath() %>/billing/CA/<rewrite:reWrite jspPage="billingReferralCodeSearch.jsp"/>?name=' + t0 + '&name1=' + t1 + '&search=', 600, 600, 1);
+            awnd = rs('att', '<%= request.getContextPath() %>/billing/CA/<rewrite:reWrite jspPage="billingReferralCodeSearch.jsp" context="javaScriptBlock"/>?name=' + t0 + '&name1=' + t1 + '&search=', 600, 600, 1);
             awnd.focus();
         }
 
