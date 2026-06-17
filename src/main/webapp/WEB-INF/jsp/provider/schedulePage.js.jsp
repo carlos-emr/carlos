@@ -416,6 +416,42 @@ var openEncounterInTab = <%=openEncounterInTab%>;
 // Use the JSP encoder wrapper here so null modes render safely and match the rest of this file.
 var scheduleNavigationMode = '${carlos:forJavaScript(scheduleNavigationModeValue)}';
 
+function normalizeScheduleNavigationMode(mode) {
+if (mode === 'tab' || mode === 'focused') {
+return mode;
+}
+return 'popup';
+}
+
+function applyScheduleNavigationPreference(mode) {
+scheduleNavigationMode = normalizeScheduleNavigationMode(mode);
+openEncounterInTab = scheduleNavigationMode === 'tab';
+}
+
+function handleScheduleNavigationPreferenceMessage(message) {
+if (message && message.mode) {
+applyScheduleNavigationPreference(message.mode);
+}
+}
+
+try {
+var scheduleNavigationPreferenceChannel = new BroadcastChannel('carlos_schedule_navigation_mode');
+scheduleNavigationPreferenceChannel.onmessage = function(event) {
+handleScheduleNavigationPreferenceMessage(event.data);
+};
+} catch(e) { /* BroadcastChannel not supported */ }
+
+try {
+window.addEventListener('storage', function(event) {
+if (event.key !== 'carlos_schedule_navigation_mode' || !event.newValue) {
+return;
+}
+try {
+handleScheduleNavigationPreferenceMessage(JSON.parse(event.newValue));
+} catch(e) {}
+});
+} catch(e) {}
+
 function appendQueryParam(url, key, value) {
 var parts = String(url).split('#');
 var base = parts[0];
