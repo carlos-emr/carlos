@@ -299,6 +299,16 @@ linkService.setDocument(pdfDocument);
 eventBus.on('pagesinit', () => {
     document.getElementById('pageCount').textContent = '/ ' + pdfViewer.pagesCount;
     document.getElementById('pageInput').max = pdfViewer.pagesCount;
+
+    // PDF.js 4.x highlight mode requires color names to be initialised before
+    // the highlight editor layer is first activated; without this, switching to
+    // HIGHLIGHT mode throws "_uiManager.highlightColorNames is null".
+    // Dispatch the colours through the event bus exactly as the full viewer app does.
+    eventBus.dispatch('switchannotationeditorparams', {
+        source: pdfViewer,
+        type:   pdfjsLib.AnnotationEditorParamsType?.HIGHLIGHT_DEFAULT_COLOR ?? 11,
+        value:  '#FFFF00',
+    });
 });
 
 eventBus.on('pagechanging', ({ pageNumber }) => {
@@ -457,15 +467,10 @@ window.applySignature = async function() {
     // Preferences for consultations/prescriptions/eForms) so it's available
     // everywhere, not just in this fax viewer.
     try {
-        const body = new URLSearchParams();
-        body.set('signatureData', dataUrl);
+        const body = new URLSearchParams({ signatureData: dataUrl, 'CSRF-TOKEN': CSRF_TOKEN });
         const res = await fetch(CTX + '/provider/providerSignatureStamp?method=saveDrawn', {
             method:  'POST',
-            headers: {
-                'Content-Type':   'application/x-www-form-urlencoded',
-                'X-Requested-With': 'XMLHttpRequest',
-                'CSRF-TOKEN':     CSRF_TOKEN,
-            },
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: body.toString(),
         });
         const result = await res.json();
@@ -539,10 +544,12 @@ window.saveAndFax = async function() {
         formData.append('annotationTypes', [...usedAnnotationTypes].join(','));
 
         CSRF_TOKEN = document.querySelector('input[name="CSRF-TOKEN"]')?.value ?? '';
+        formData.append('CSRF-TOKEN', CSRF_TOKEN);
+
+        // No Content-Type header — browser sets multipart/form-data with boundary automatically
         const res = await fetch(CTX + '/documentManager/SaveAnnotatedDocument', {
-            method:  'POST',
-            headers: { 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': CSRF_TOKEN },
-            body:    formData,
+            method: 'POST',
+            body:   formData,
         });
 
         if (!res.ok) {
