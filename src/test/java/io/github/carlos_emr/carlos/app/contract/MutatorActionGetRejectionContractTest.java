@@ -24,7 +24,6 @@ package io.github.carlos_emr.carlos.app.contract;
 import io.github.carlos_emr.carlos.admin.web.SecurityAddSecurity2Action;
 import io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action;
 import io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action;
-import io.github.carlos_emr.carlos.commn.dao.EFormDao;
 import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
 import io.github.carlos_emr.carlos.eform.actions.DelEForm2Action;
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -480,8 +479,7 @@ class MutatorActionGetRejectionContractTest {
     private static Object instantiateAction(Class<?> actionClass, Map<Class<?>, Object> autoMocks)
             throws Exception {
         if (actionClass.equals(DelEForm2Action.class)) {
-            EFormDao eFormDao = (EFormDao) autoMocks.computeIfAbsent(EFormDao.class, Mockito::mock);
-            return new DelEForm2Action(mock(SecurityInfoManager.class), eFormDao);
+            return new DelEForm2Action(mock(SecurityInfoManager.class));
         }
         if (actionClass.equals(SecurityDelete2Action.class)) {
             CarlosMethodSecurity methodSecurity = mock(CarlosMethodSecurity.class);
