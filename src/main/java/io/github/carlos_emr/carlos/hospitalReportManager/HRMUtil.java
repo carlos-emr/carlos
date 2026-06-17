@@ -46,13 +46,17 @@ public class HRMUtil {
     public static final String DATE = "time_received";
     public static final String TYPE = " report_type";
 
-    private static HRMDocumentDao hrmDocumentDao = (HRMDocumentDao) SpringUtils.getBean(HRMDocumentDao.class);
-    private static HRMDocumentToDemographicDao hrmDocumentToDemographicDao = (HRMDocumentToDemographicDao) SpringUtils.getBean(HRMDocumentToDemographicDao.class);
-    private static HRMSubClassDao hrmSubClassDao = (HRMSubClassDao) SpringUtils.getBean(HRMSubClassDao.class);
-    private static HRMDocumentSubClassDao hrmDocumentSubClassDao = (HRMDocumentSubClassDao) SpringUtils.getBean(HRMDocumentSubClassDao.class);
-    private static HRMCategoryDao hrmCategoryDao = SpringUtils.getBean(HRMCategoryDao.class);
-    private static final NioFileManager nioFileManager = SpringUtils.getBean(NioFileManager.class);
-    private static final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    // Collaborator beans are resolved lazily (per call) instead of in static-final field
+    // initializers, so merely loading HRMUtil (e.g. Mockito.mockStatic in a unit test) no longer
+    // fetches from the Spring context at class-load time. SpringUtils.getBean returns the cached
+    // singleton, so the per-call cost is a map lookup and behavior is unchanged.
+    private static HRMDocumentDao hrmDocumentDao() { return SpringUtils.getBean(HRMDocumentDao.class); }
+    private static HRMDocumentToDemographicDao hrmDocumentToDemographicDao() { return SpringUtils.getBean(HRMDocumentToDemographicDao.class); }
+    private static HRMSubClassDao hrmSubClassDao() { return SpringUtils.getBean(HRMSubClassDao.class); }
+    private static HRMDocumentSubClassDao hrmDocumentSubClassDao() { return SpringUtils.getBean(HRMDocumentSubClassDao.class); }
+    private static HRMCategoryDao hrmCategoryDao() { return SpringUtils.getBean(HRMCategoryDao.class); }
+    private static NioFileManager nioFileManager() { return SpringUtils.getBean(NioFileManager.class); }
+    private static SecurityInfoManager securityInfoManager() { return SpringUtils.getBean(SecurityInfoManager.class); }
 
 
     public HRMUtil() {
@@ -69,7 +73,7 @@ public class HRMUtil {
         if (!CarlosProperties.getInstance().isOntarioBillingRegion()) {
             return new ArrayList<>();
         }
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_hrm", SecurityInfoManager.READ, null)) {
+        if (!securityInfoManager().hasPrivilege(loggedInInfo, "_hrm", SecurityInfoManager.READ, null)) {
             LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), "HRMUtil.listHRMDocuments", "UNAUTHORIZED", "missing required security object (_hrm)", loggedInInfo.getIp(), demographicNo, null);
             logger.warn("missing required security object (_hrm)");
             return new ArrayList<>();
@@ -78,7 +82,7 @@ public class HRMUtil {
         ArrayList<HashMap<String, ? extends Object>> hrmdocslist = new ArrayList<HashMap<String, ?>>();
 
         //get a list of all HRM documents linked to a particular demographic
-        List<HRMDocumentToDemographic> hrmDocResultsDemographic = hrmDocumentToDemographicDao.findByDemographicNo(demographicNo);
+        List<HRMDocumentToDemographic> hrmDocResultsDemographic = hrmDocumentToDemographicDao().findByDemographicNo(demographicNo);
         List<HRMDocument> hrmDocumentsAll = new LinkedList<HRMDocument>();
         HashMap<String, ArrayList<Integer>> duplicateLabIds = new HashMap<String, ArrayList<Integer>>();
 
@@ -104,18 +108,18 @@ public class HRMUtil {
 
             String categoryName = "";
             if (hrmDocument.getHrmCategoryId() != null) {
-                HRMCategory category = hrmCategoryDao.find(hrmDocument.getHrmCategoryId());
+                HRMCategory category = hrmCategoryDao().find(hrmDocument.getHrmCategoryId());
                 categoryName = category.getCategoryName();
             }
 
             String dispSubClass = "";
             HRMSubClass hrmSubClass;
-            List<HRMDocumentSubClass> subClassList = hrmDocumentSubClassDao.getSubClassesByDocumentId(hrmDocument.getId());
+            List<HRMDocumentSubClass> subClassList = hrmDocumentSubClassDao().getSubClassesByDocumentId(hrmDocument.getId());
             if (hrmReport.getFirstReportClass().equalsIgnoreCase("Diagnostic Imaging Report") || hrmReport.getFirstReportClass().equalsIgnoreCase("Cardio Respiratory Report")) {
                 //Get first sub class to display on eChart
                 if (subClassList != null && subClassList.size() > 0) {
                     HRMDocumentSubClass firstSubClass = subClassList.get(0);
-                    hrmSubClass = hrmSubClassDao.findApplicableSubClassMapping(hrmReport.getFirstReportClass(), firstSubClass.getSubClass(), firstSubClass.getSubClassMnemonic(), hrmReport.getSendingFacilityId());
+                    hrmSubClass = hrmSubClassDao().findApplicableSubClassMapping(hrmReport.getFirstReportClass(), firstSubClass.getSubClass(), firstSubClass.getSubClassMnemonic(), hrmReport.getSendingFacilityId());
                     dispSubClass = hrmSubClass != null ? hrmSubClass.getSubClassDescription() : "";
                 }
 
@@ -211,7 +215,7 @@ public class HRMUtil {
         HashMap<String, HRMDocument> docsToDisplay = new HashMap<String, HRMDocument>();
         for (HRMDocumentToDemographic hrmDocumentToDemographic : hrmDocumentToDemographics) {
             int id = hrmDocumentToDemographic.getHrmDocumentId() != null ? hrmDocumentToDemographic.getHrmDocumentId() : 0;
-            List<HRMDocument> hrmDocuments = hrmDocumentDao.findById(id);
+            List<HRMDocument> hrmDocuments = hrmDocumentDao().findById(id);
             for (HRMDocument hrmDocument : hrmDocuments) {
                 docsToDisplay.put(Integer.toString(id), hrmDocument);
             }
@@ -227,7 +231,7 @@ public class HRMUtil {
 
         for (HRMDocumentToDemographic hrmDocumentToDemographic : hrmDocumentToDemographics) {
             int id = hrmDocumentToDemographic.getHrmDocumentId() != null ? hrmDocumentToDemographic.getHrmDocumentId() : 0;
-            List<HRMDocument> hrmDocuments = hrmDocumentDao.findById(id);
+            List<HRMDocument> hrmDocuments = hrmDocumentDao().findById(id);
 
             for (HRMDocument hrmDocument : hrmDocuments) {
                 HRMReport hrmReport = HRMReportParser.parseReport(loggedInInfo, hrmDocument.getReportFile());
@@ -275,7 +279,7 @@ public class HRMUtil {
     public static ArrayList<HashMap<String, ? extends Object>> listMappings() {
         ArrayList<HashMap<String, ? extends Object>> hrmdocslist = new ArrayList<HashMap<String, ?>>();
 
-        List<HRMSubClass> hrmSubClasses = hrmSubClassDao.listAll();
+        List<HRMSubClass> hrmSubClasses = hrmSubClassDao().listAll();
 
         for (HRMSubClass hrmSubClass : hrmSubClasses) {
 
@@ -299,11 +303,11 @@ public class HRMUtil {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static HRMDocument getHRMDocumentById(LoggedInInfo loggedInInfo, Integer hrmId) {
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_hrm", "r", null)) {
+        if (!securityInfoManager().hasPrivilege(loggedInInfo, "_hrm", "r", null)) {
             throw new SecurityException("missing required sec object (_hrm)");
         }
 
-        HRMDocument hrmDocument = hrmDocumentDao.find(hrmId);
+        HRMDocument hrmDocument = hrmDocumentDao().find(hrmId);
         HRMReport hrmReport = HRMReportParser.parseReport(loggedInInfo, hrmDocument.getReportFile());
         if (hrmReport == null) {
             return null;
@@ -315,7 +319,7 @@ public class HRMUtil {
             //Get first sub class to display on eChart
             if (subClassList != null && subClassList.size() > 0) {
                 HRMDocumentSubClass firstSubClass = subClassList.get(0);
-                hrmSubClass = hrmSubClassDao.findApplicableSubClassMapping(hrmReport.getFirstReportClass(), firstSubClass.getSubClass(), firstSubClass.getSubClassMnemonic(), hrmReport.getSendingFacilityId());
+                hrmSubClass = hrmSubClassDao().findApplicableSubClassMapping(hrmReport.getFirstReportClass(), firstSubClass.getSubClass(), firstSubClass.getSubClassMnemonic(), hrmReport.getSendingFacilityId());
                 dispSubClass = hrmSubClass != null ? hrmSubClass.getSubClassDescription() : "";
             }
 
@@ -355,7 +359,7 @@ public class HRMUtil {
     }
 
     public static Path renderHRM(LoggedInInfo loggedInInfo, Integer hrmId) throws PDFGenerationException {
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_hrm", "r", null)) {
+        if (!securityInfoManager().hasPrivilege(loggedInInfo, "_hrm", "r", null)) {
             throw new SecurityException("missing required sec object (_hrm)");
         }
 
@@ -363,7 +367,7 @@ public class HRMUtil {
         try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
             HRMPDFCreator hrmpdfCreator = new HRMPDFCreator(outputStream, hrmId, loggedInInfo);
             hrmpdfCreator.printPdf();
-            path = nioFileManager.saveTempFile("temporaryPDF" + new Date().getTime(), outputStream);
+            path = nioFileManager().saveTempFile("temporaryPDF" + new Date().getTime(), outputStream);
         } catch (IOException e) {
             throw new PDFGenerationException("Error Details: HRM [" + getHRMDocumentDisplayName(hrmId) + "] could not be converted into a PDF", e);
         }
@@ -371,7 +375,7 @@ public class HRMUtil {
     }
 
     private static String getHRMDocumentDisplayName(Integer hrmId) {
-        HRMDocument hrmDocument = hrmDocumentDao.find(hrmId);
+        HRMDocument hrmDocument = hrmDocumentDao().find(hrmId);
         return getHRMDocumentDisplayName(hrmDocument.getDescription(), "", hrmDocument.getReportType(), hrmDocument.getReportStatus());
     }
 }

@@ -90,20 +90,18 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
             sql.append("and cr.sendTo = :team ");
         }
 
+        boolean searchByAppt = searchDate != null && searchDate.equals("1");
+
         if (startDate != null) {
-            if (searchDate != null && searchDate.equals("1")) {
-                sql.append("and cr.appointmentDate >= :startDate ");
-            } else {
-                sql.append("and cr.referralDate >= :startDate ");
-            }
+            sql.append(searchByAppt
+                    ? "and cr.appointmentDate >= :startDate "
+                    : "and cr.referralDate >= :startDate ");
         }
 
         if (endDate != null) {
-            if (searchDate != null && searchDate.equals("1")) {
-                sql.append("and cr.appointmentDate <= :endDate ");
-            } else {
-                sql.append("and cr.referralDate <= :endDate ");
-            }
+            sql.append(searchByAppt
+                    ? "and cr.appointmentDate <= :endDate "
+                    : "and cr.referralDate <= :endDate ");
         }
 
         String orderDesc = desc != null && desc.equals("1") ? "DESC" : "";

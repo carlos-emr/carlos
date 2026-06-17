@@ -132,7 +132,7 @@
 %>
 
 <center><input type="button" value="<%= bundle.getString("provider.providerencountersingle.printPreview") %>"
-               onClick="popupPage(600,800, '<%= request.getContextPath() %>/provider/ViewProviderEncounterPrint?encounter_no=<carlos:encode value='<%= request.getParameter("encounter_no") != null ? request.getParameter("encounter_no") : "" %>' context="uriComponent"/>&demographic_no=<carlos:encode value='<%= request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "" %>' context="uriComponent"/>&username=<carlos:encode value='<%= request.getParameter("username") != null ? request.getParameter("username") : "" %>' context="uriComponent"/>')">
+               onClick="popupPage(600,800, '<%= request.getContextPath() %>/provider/ViewProviderEncounterPrint?encounter_no=<carlos:encode value='<%= request.getParameter("encounter_no") != null ? request.getParameter("encounter_no") : "" %>' context="uriComponent"/>&demographic_no=<carlos:encode value='<%= request.getParameter("demographic_no") != null ? request.getParameter("demographic_no") : "" %>' context="uriComponent"/>&username=<carlos:encode value='<%= request.getParameter("username") != null ? request.getParameter("username") : "" %>' context="uriComponent"/>')"><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
     <input type="button" value="<%= bundle.getString("provider.providerencountersingle.closeWindow") %>" onClick="self.close()">
 </center>
 </body>

@@ -36,6 +36,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action to add premium billing service codes for Ontario billing.
@@ -63,6 +64,8 @@ public class ManageBillingFormPremium2Action extends ActionSupport {
      * @return {@link #NONE} after redirecting, or if the request method is not POST
      * @throws SecurityException if the user lacks {@code _admin.billing} write privilege
      */
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     @Override
     public String execute() throws Exception {
         if (!BillingRequestGuards.requirePost(request, response)) {

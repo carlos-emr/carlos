@@ -54,12 +54,23 @@ jobs:
         continue-on-error: true
         env:
           SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
-        run: semgrep ci --sarif --output semgrep.sarif
+        run: |
+          semgrep ci \
+            --sarif --output semgrep.sarif
+
+      - name: Run CARLOS custom Semgrep rules
+        id: run_semgrep_carlos
+        continue-on-error: true
+        run: semgrep scan --config .semgrep/jsp-scriptlet-xss-carlos.yml --sarif --output semgrep-carlos.sarif
+
+      - name: Filter suppressed Semgrep SARIF results
+        if: always() && steps.run_semgrep.outcome != 'skipped' && hashFiles('semgrep.sarif') != ''
+        run: python3 scripts/filter_suppressed_sarif.py semgrep.sarif
 
       - name: Skip Semgrep CI when token is not configured
         if: env.HAS_SEMGREP_TOKEN != 'true'
         run: |
-          echo "SEMGREP_APP_TOKEN is not configured; skipping Semgrep scan."
+          echo "SEMGREP_APP_TOKEN is not configured; skipping Semgrep Cloud scan."
           echo "Configure repository secret SEMGREP_APP_TOKEN to enable this check."
 
       - name: Upload SARIF to GitHub Security tab
@@ -67,3 +78,10 @@ jobs:
         with:
           sarif_file: semgrep.sarif
         if: always() && steps.run_semgrep.outcome != 'skipped' && hashFiles('semgrep.sarif') != ''
+
+      - name: Upload CARLOS Semgrep SARIF to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@0daab03d71ff584ef619d027a3fd9146679c5d84
+        with:
+          sarif_file: semgrep-carlos.sarif
+          category: semgrep-carlos
+        if: always() && steps.run_semgrep_carlos.outcome != 'skipped' && hashFiles('semgrep-carlos.sarif') != ''

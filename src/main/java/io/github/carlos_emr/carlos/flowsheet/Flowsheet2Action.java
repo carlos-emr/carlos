@@ -31,6 +31,7 @@ package io.github.carlos_emr.carlos.flowsheet;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
@@ -92,6 +93,7 @@ public class Flowsheet2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+    private static final String JSON_CONTENT_TYPE = "application/json; charset=UTF-8";
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     private FlowSheetUserCreatedDao flowsheetUserCreatedDao = SpringUtils.getBean(FlowSheetUserCreatedDao.class);
@@ -158,6 +160,12 @@ public class Flowsheet2Action extends ActionSupport {
             return reload();
         } 
         return list();
+    }
+
+    private void writeJsonResponse(String json) throws IOException {
+        response.setContentType(JSON_CONTENT_TYPE);
+        response.setCharacterEncoding("UTF-8");
+        response.getWriter().write(json);
     }
 
     private FlowSheetUserCreated create(FlowSheetUserCreated fsuc) {
@@ -484,7 +492,7 @@ public class Flowsheet2Action extends ActionSupport {
             }
         }
 
-        response.getWriter().write(resp.toString());
+        writeJsonResponse(resp.toString());
         return null;
     }
 
@@ -544,7 +552,7 @@ public class Flowsheet2Action extends ActionSupport {
         }
         resp.put("results", respArr);
 
-        response.getWriter().write(resp.toString());
+        writeJsonResponse(resp.toString());
 
         return null;
 
@@ -573,7 +581,7 @@ public class Flowsheet2Action extends ActionSupport {
         }
         resp.put("results", respArr);
 
-        response.getWriter().write(resp.toString());
+        writeJsonResponse(resp.toString());
 
         return null;
     }
@@ -594,7 +602,7 @@ public class Flowsheet2Action extends ActionSupport {
         }
         resp.put("results", respArr);
 
-        response.getWriter().write(resp.toString());
+        writeJsonResponse(resp.toString());
 
         return null;
     }
@@ -660,7 +668,7 @@ public class Flowsheet2Action extends ActionSupport {
         ObjectNode obj = objectMapper.createObjectNode();
         obj.put("success", true);
         obj.put("id", fsuc.getId());
-        response.getWriter().write(obj.toString());
+        writeJsonResponse(obj.toString());
 
         MeasurementTemplateFlowSheetConfig.getInstance().reloadFlowsheets();
 
@@ -676,7 +684,7 @@ public class Flowsheet2Action extends ActionSupport {
         obj.put("success", true);
         obj.put("id", id);
 
-        response.setContentType("application/json");
+        response.setContentType(JSON_CONTENT_TYPE);
         response.setCharacterEncoding("UTF-8");
 
         objectMapper.writeValue(response.getWriter(), obj);
@@ -747,7 +755,7 @@ public class Flowsheet2Action extends ActionSupport {
 
         ObjectNode obj = objectMapper.createObjectNode();
         obj.put("success", true);
-        response.getWriter().write(obj.toString());
+        writeJsonResponse(obj.toString());
         return null;
     }
 
@@ -801,7 +809,7 @@ public class Flowsheet2Action extends ActionSupport {
             }
         }
 
-        response.getWriter().write(obj.toString());
+        writeJsonResponse(obj.toString());
         return null;
 
     }
@@ -870,7 +878,7 @@ public class Flowsheet2Action extends ActionSupport {
 
         ObjectNode obj = objectMapper.createObjectNode();
         obj.put("success", true);
-        response.getWriter().write(obj.toString());
+        writeJsonResponse(obj.toString());
         return null;
     }
 
@@ -945,7 +953,7 @@ public class Flowsheet2Action extends ActionSupport {
 
         ObjectNode obj = objectMapper.createObjectNode();
         obj.put("success", true);
-        response.getWriter().write(obj.toString());
+        writeJsonResponse(obj.toString());
         return null;
     }
 
@@ -984,7 +992,7 @@ public class Flowsheet2Action extends ActionSupport {
 
         obj.put("indicators", jIndicators);
 
-        response.getWriter().write(obj.toString());
+        writeJsonResponse(obj.toString());
         return null;
 
     }
@@ -1044,7 +1052,7 @@ public class Flowsheet2Action extends ActionSupport {
             }
         }
 
-        response.getWriter().write(obj.toString());
+        writeJsonResponse(obj.toString());
         return null;
 
     }
@@ -1114,7 +1122,7 @@ public class Flowsheet2Action extends ActionSupport {
 
         ObjectNode obj = objectMapper.createObjectNode();
         obj.put("success", true);
-        response.getWriter().write(obj.toString());
+        writeJsonResponse(obj.toString());
         return null;
     }
 
@@ -1189,7 +1197,7 @@ public class Flowsheet2Action extends ActionSupport {
 
         ObjectNode obj = objectMapper.createObjectNode();
         obj.put("success", true);
-        response.getWriter().write(obj.toString());
+        writeJsonResponse(obj.toString());
         return null;
     }
 
@@ -1264,7 +1272,7 @@ public class Flowsheet2Action extends ActionSupport {
 
         ObjectNode obj = objectMapper.createObjectNode();
         obj.put("success", true);
-        response.getWriter().write(obj.toString());
+        writeJsonResponse(obj.toString());
         return null;
     }
 
@@ -1308,10 +1316,12 @@ public class Flowsheet2Action extends ActionSupport {
             }
         }
 
-        response.getWriter().write(obj.toString());
+        writeJsonResponse(obj.toString());
         return null;
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String getFlowsheet() throws IOException {
         String id = request.getParameter("id");
 
@@ -1385,7 +1395,7 @@ public class Flowsheet2Action extends ActionSupport {
             obj.put("items", iArr);
         }
 
-        response.getWriter().write(obj.toString());
+        writeJsonResponse(obj.toString());
         return null;
     }
 
@@ -1430,7 +1440,7 @@ public class Flowsheet2Action extends ActionSupport {
         }
 
         resp.put("results", fsList);
-        response.getWriter().write(resp.toString());
+        writeJsonResponse(resp.toString());
 
         return null;
     }
@@ -1476,7 +1486,7 @@ public class Flowsheet2Action extends ActionSupport {
         }
 
         resp.put("results", fsList);
-        response.getWriter().write(resp.toString());
+        writeJsonResponse(resp.toString());
 
         return null;
     }
@@ -1537,7 +1547,7 @@ public class Flowsheet2Action extends ActionSupport {
         }
         resp.put("results", fsList);
 
-        response.getWriter().write(resp.toString());
+        writeJsonResponse(resp.toString());
         return null;
     }
 
