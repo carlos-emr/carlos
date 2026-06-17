@@ -186,6 +186,10 @@
     <button class="tool-btn" id="btnSign"      title="<fmt:message key='faxAnnotateViewer.btn.signature'/>"  onclick="console.log('[sig] button clicked; fn defined:', typeof openSignatureOrInsert); if (typeof openSignatureOrInsert === 'function') openSignatureOrInsert(); else console.error('[sig] openSignatureOrInsert not yet defined — module still loading')">
         <i class="fas fa-signature"></i>
     </button>
+    <%-- title is set dynamically to today's formatted date by the module script --%>
+    <button class="tool-btn" id="btnDate" title="" onclick="insertTodayDate()">
+        <i class="fa-solid fa-calendar-day"></i>
+    </button>
 
     <div class="tool-separator"></div>
 
@@ -277,7 +281,8 @@ window.FAX_I18N = Object.freeze({
     statusOpeningFax:      "<fmt:message key='faxAnnotateViewer.status.openingFax'/>",
     alertNoSignature:      "<fmt:message key='faxAnnotateViewer.alert.noSignature'/>",
     alertSaveFailed:       "<fmt:message key='faxAnnotateViewer.alert.saveFailed'/>",
-    alertSaveFailedDetail: "<fmt:message key='faxAnnotateViewer.alert.saveFailedDetail'/>"
+    alertSaveFailedDetail: "<fmt:message key='faxAnnotateViewer.alert.saveFailedDetail'/>",
+    i18nLocale:            "<fmt:message key='global.i18nLanguagecode'/>"
 });
 </script>
 
@@ -440,7 +445,12 @@ async function insertSignatureViaFastPath(file) {
     }
 
     console.log('[sig] calling layer.pasteEditor for page', pageIndex);
-    await layer.pasteEditor({ mode: AnnotationEditorType.STAMP }, { bitmapFile: file });
+    // width/height are fractions of page dimensions; 0.20 × 0.05 ≈ 150 × 50 pt
+    // on a typical letter/A4 page, matching the provider's stamp proportions.
+    await layer.pasteEditor(
+        { mode: AnnotationEditorType.STAMP },
+        { bitmapFile: file, width: 0.20, height: 0.05 }
+    );
     console.log('[sig] pasteEditor done');
     usedAnnotationTypes.add('signed');
 }
@@ -468,6 +478,9 @@ window.openSignatureOrInsert = async function() {
                 new File([blob], 'signature.png', { type: 'image/png' })
             );
             console.log('[sig] fast-path stamp dispatch done');
+            const _sb = document.getElementById('btnSign');
+            _sb.classList.add('active');
+            setTimeout(() => _sb.classList.remove('active'), 800);
             return;
         }
         console.log('[sig] no existing stamp, opening draw modal');
@@ -486,6 +499,67 @@ window.openSignatureOrInsert = async function() {
 window.clearSignaturePad = function() {
     const canvas = document.getElementById('signatureCanvas');
     canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+};
+
+// ── Today's date insertion ────────────────────────────────────────────────
+// Format today's date using the locale code from oscarResources (e.g. "en-GB",
+// "fr-fr").  If the tag is not recognised by Intl, fall back to the browser's
+// default locale so there's always a human-readable result.
+const _dateLocale  = window.FAX_I18N.i18nLocale;
+const _dateOptions = { year: 'numeric', month: 'short', day: 'numeric' };
+const _todayFormatted = (() => {
+    const today = new Date();
+    try {
+        new Intl.DateTimeFormat(_dateLocale, _dateOptions);  // throws on invalid tag
+        return today.toLocaleDateString(_dateLocale, _dateOptions);
+    } catch (_) {
+        return today.toLocaleDateString(undefined, _dateOptions);
+    }
+})();
+
+// Set the button's tooltip to today's formatted date once the DOM is ready.
+document.getElementById('btnDate').title = _todayFormatted;
+
+// Inserts today's date as a FreeText stamp centred on the current page.
+// Uses AnnotationEditorLayer.createAndAddNewEditor (public API) to obtain a
+// direct reference to the new editor so content can be pre-filled before
+// commit(), bypassing the clipboard entirely.
+window.insertTodayDate = async function() {
+    pdfViewer.annotationEditorMode = { mode: AnnotationEditorType.FREETEXT };
+
+    const pageIndex = pdfViewer.currentPageNumber - 1;
+    let layer = null;
+    for (let i = 0; i < 50; i++) {
+        layer = _annotationLayers.get(pageIndex);
+        if (layer) break;
+        await new Promise(r => setTimeout(r, 10));
+    }
+    if (!layer) {
+        console.error('[date] no annotation editor layer for page', pageIndex);
+        return;
+    }
+
+    // Create a centred FreeText editor and immediately capture the reference.
+    const editor = layer.createAndAddNewEditor({ offsetX: 0, offsetY: 0 }, true, {});
+    if (!editor) return;
+
+    // Allow the editor to attach to DOM (onceAdded enters edit mode synchronously,
+    // but a tick ensures any async internal setup is complete before we write).
+    await new Promise(r => setTimeout(r, 0));
+
+    // Pre-fill the editable div and commit so the text lands in the undo stack.
+    editor.editorDiv.innerText = _todayFormatted;
+    editor.commit();
+
+    usedAnnotationTypes.add('text');
+
+    // Brief visual feedback on the date button.
+    const btn = document.getElementById('btnDate');
+    btn.classList.add('active');
+    setTimeout(() => btn.classList.remove('active'), 800);
+
+    // Return to select mode so the user can drag/resize the new text box.
+    setMode('none');
 };
 
 window.applySignature = async function() {
@@ -523,6 +597,9 @@ window.applySignature = async function() {
     await insertSignatureViaFastPath(
         new File([blob], 'signature.png', { type: 'image/png' })
     );
+    const _sb2 = document.getElementById('btnSign');
+    _sb2.classList.add('active');
+    setTimeout(() => _sb2.classList.remove('active'), 800);
 };
 
 // ── Signature pad drawing ─────────────────────────────────────────────────
@@ -551,6 +628,13 @@ window.applySignature = async function() {
 
 // ── Save & Fax ────────────────────────────────────────────────────────────
 window.saveAndFax = async function() {
+    // If the provider made no annotations, skip the save round-trip entirely
+    // and navigate straight to fax composition with the original document.
+    if (usedAnnotationTypes.size === 0) {
+        window.location.href = CTX + '/documentManager/FaxDocument?docId=' + DOC_ID + '&faxReady=true';
+        return;
+    }
+
     const btn     = document.getElementById('btnSaveFax');
     const overlay = document.getElementById('statusOverlay');
     const msg     = document.getElementById('statusMsg');
