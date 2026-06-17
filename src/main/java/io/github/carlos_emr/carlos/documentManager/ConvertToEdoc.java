@@ -625,7 +625,7 @@ public final class ConvertToEdoc {
             String translatedPath = translateSingleResourcePath(originalPath);
             if (translatedPath != null) {
                 element.attr("background", translatedPath);
-            } else if (isDisallowedResourcePath(originalPath)) {
+            } else {
                 element.removeAttr("background");
             }
         }
@@ -656,10 +656,8 @@ public final class ConvertToEdoc {
             String replacement;
             if (translatedPath != null) {
                 replacement = Matcher.quoteReplacement("url('" + translatedPath + "')");
-            } else if (isDisallowedResourcePath(originalPath)) {
-                replacement = "url('')";
             } else {
-                replacement = matcher.group(0);
+                replacement = "url('')";
             }
             matcher.appendReplacement(rewrittenCss, replacement);
         }
@@ -739,6 +737,8 @@ public final class ConvertToEdoc {
                     List<String> potentialFilePaths = collectPotentialFilePaths(path);
                     if (!potentialFilePaths.isEmpty()) {
                         pathTranslationMap.put(potentialFilePaths, element);
+                    } else {
+                        element.remove();
                     }
                 }
             }

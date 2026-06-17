@@ -45,6 +45,7 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
 
         assertThat(tidied).contains(image.toAbsolutePath().toString());
     }
+
     @Test
     @DisplayName("should not translate inline background asset paths outside the allowed real path root")
     void shouldNotTranslateInlineBackgroundAssetPaths_whenOutsideAllowedRealPathRoot() throws Exception {
@@ -72,4 +73,29 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
         assertThat(tidied).contains(image.toAbsolutePath().toString());
     }
 
+    @Test
+    @DisplayName("should strip unresolved traversal shaped background asset paths during tidy")
+    void shouldStripUnresolvedTraversalShapedBackgroundAssetPaths_whenTidyingDocument() throws Exception {
+        Path tempDir = Files.createTempDirectory("convert-edoc-traversal");
+        String traversalPath = "../../../../etc/passwd.png";
+
+        String html = "<html><body style=\"background-image:url('" + traversalPath + "')\"><div background=\"" + traversalPath + "\">x</div></body></html>";
+
+        String tidied = ConvertToEdoc.tidyDocument(html, tempDir.toString());
+
+        assertThat(tidied).doesNotContain(traversalPath);
+        assertThat(tidied).contains("background-image:url('')");
+        assertThat(tidied).doesNotContain("background=\"");
+    }
+
+    @Test
+    @DisplayName("should remove unresolved traversal shaped resource elements when parsing document")
+    void shouldRemoveUnresolvedTraversalShapedResourceElements_whenParsingDocument() throws Exception {
+        String html = "<html><head><link rel=\"stylesheet\" href=\"../../../../etc/passwd.css\"></head>"
+                + "<body><img src=\"../../../../etc/passwd.png\"><script src=\"../../../../etc/passwd.js\"></script></body></html>";
+
+        Document document = ConvertToEdoc.getDocument(html, Files.createTempDirectory("convert-edoc-validate").toString());
+
+        assertThat(document.select("link[href], img[src], script[src]")).isEmpty();
+    }
 }
