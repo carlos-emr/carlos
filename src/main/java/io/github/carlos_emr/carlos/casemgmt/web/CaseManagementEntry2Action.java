@@ -2083,7 +2083,10 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             // validator rejects protocol-relative URLs, absolute schemes, backslashes,
             // encoded control characters, and traversal escapes.
             if (redirectTarget != null) {
-                response.sendRedirect(redirectTarget); // nosemgrep: java.lang.security.audit.servlets.unvalidated-redirect.unvalidated-redirect-java -- gated by sanitizeInternalRedirect // lgtm[java/unvalidated-url-redirection]
+                // CodeQL false positive: sanitizeInternalRedirect returns only a trimmed,
+                // slash-prefixed relative URL accepted by RedirectValidationUtils.
+                // codeql[java/unvalidated-url-redirection]
+                response.sendRedirect(redirectTarget); // nosemgrep: java.lang.security.audit.servlets.unvalidated-redirect.unvalidated-redirect-java -- gated by sanitizeInternalRedirect
             } else {
                 logger.warn("Attempted redirect to invalid URL: {}", LogSafe.sanitize(chain));
                 // Fall through to return "windowClose" without redirect
