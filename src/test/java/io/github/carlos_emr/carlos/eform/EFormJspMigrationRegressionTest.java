@@ -81,6 +81,29 @@ class EFormJspMigrationRegressionTest {
     }
 
     @Test
+    @DisplayName("addEForm results should render the internal eForm JSP directly so POST save flows do not hit the GET-only gate")
+    void addEFormResultsShouldRenderInternalShowFormJsp() throws IOException {
+        String struts = Files.readString(STRUTS_EFORM_XML, StandardCharsets.UTF_8);
+        String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/eform/efmshowform_data.jsp"), StandardCharsets.UTF_8);
+
+        assertThat(struts).contains("<action name=\"eform/addEForm\" class=\"io.github.carlos_emr.carlos.eform.actions.AddEForm2Action\">");
+        assertThat(struts).contains("<result name=\"close\">/WEB-INF/jsp/eform/efmshowform_data.jsp</result>");
+        assertThat(struts).contains("<result name=\"download\">/WEB-INF/jsp/eform/efmshowform_data.jsp</result>");
+        assertThat(struts).contains("<result name=\"error\">/WEB-INF/jsp/eform/efmshowform_data.jsp</result>");
+        assertThat(jsp).contains("request.getParameter(\"error\") != null ? request.getParameter(\"error\") : (String) request.getAttribute(\"error\")");
+    }
+
+
+    @Test
+    @DisplayName("admin eForm preview should resolve image placeholders through the active request context")
+    void adminEFormPreviewShouldUseRequestContextForImagePath() throws IOException {
+        String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/eform/efmshowform_data.jsp"), StandardCharsets.UTF_8);
+
+        assertThat(jsp).contains("eForm.setImagePath(request.getContextPath());");
+        assertThat(jsp).doesNotContain("eForm.setImagePath();");
+    }
+
+    @Test
     @DisplayName("struts eForm config should keep both extensionless and legacy displayImage routes")
     void shouldKeepDisplayImageCompatibilityRoutes_whenReadingStrutsEFormConfig() throws IOException {
         String struts = Files.readString(STRUTS_EFORM_XML, StandardCharsets.UTF_8);

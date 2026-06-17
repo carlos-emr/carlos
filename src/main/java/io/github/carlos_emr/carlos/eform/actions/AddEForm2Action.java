@@ -519,6 +519,7 @@ public class AddEForm2Action extends ActionSupport {
 
     private void setPdfError(String message, Exception e) {
         logger.error(message, e);
+        request.setAttribute("error", "true");
         request.setAttribute("errorMessage", message);
     }
 
