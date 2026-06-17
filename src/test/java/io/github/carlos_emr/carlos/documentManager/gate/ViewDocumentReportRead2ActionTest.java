@@ -168,4 +168,77 @@ class ViewDocumentReportRead2ActionTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo(ActionSupport.NONE);
         verify(mockResponse).sendError(HttpServletResponse.SC_FORBIDDEN, "unauthorized access to patient record");
     }
+
+    @Test
+    void shouldRejectReport_whenDemographicFunctionIdOverflowsInt() throws Exception {
+        when(mockRequest.getParameter("function")).thenReturn("demographic");
+        when(mockRequest.getParameter("functionid")).thenReturn("99999999999"); // > Integer.MAX_VALUE
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        verify(mockResponse).sendError(HttpServletResponse.SC_BAD_REQUEST, "invalid functionid");
+        verify(mockSecurityInfoManager, never()).isAllowedAccessToPatientRecord(any(), any());
+    }
+
+    @Test
+    void shouldRejectReport_whenDemographicFunctionIdIsZero() throws Exception {
+        when(mockRequest.getParameter("function")).thenReturn("demographic");
+        when(mockRequest.getParameter("functionid")).thenReturn("0");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        verify(mockResponse).sendError(HttpServletResponse.SC_BAD_REQUEST, "invalid functionid");
+        verify(mockSecurityInfoManager, never()).isAllowedAccessToPatientRecord(any(), any());
+    }
+
+    @Test
+    void shouldRejectReport_whenDemographicFunctionIdHasNonAsciiDigits() throws Exception {
+        when(mockRequest.getParameter("function")).thenReturn("demographic");
+        when(mockRequest.getParameter("functionid")).thenReturn("١٢٣"); // Arabic-Indic 123
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        verify(mockResponse).sendError(HttpServletResponse.SC_BAD_REQUEST, "invalid functionid");
+        verify(mockSecurityInfoManager, never()).isAllowedAccessToPatientRecord(any(), any());
+    }
+
+    @Test
+    void shouldEnforcePatientAccess_whenDemographicFunctionMixedCase() throws Exception {
+        when(mockRequest.getParameter("function")).thenReturn("Demographic");
+        when(mockRequest.getParameter("functionid")).thenReturn("123");
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(mockLoggedInInfo, 123)).thenReturn(false);
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        verify(mockSecurityInfoManager).isAllowedAccessToPatientRecord(mockLoggedInInfo, 123);
+        verify(mockResponse).sendError(HttpServletResponse.SC_FORBIDDEN, "unauthorized access to patient record");
+    }
+
+    @Test
+    void shouldForwardNormalizedFunction_whenDemographicReportAllowed() throws Exception {
+        when(mockRequest.getParameter("function")).thenReturn("demographic");
+        when(mockRequest.getParameter("functionid")).thenReturn("123");
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(mockLoggedInInfo, 123)).thenReturn(true);
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        verify(mockRequest).setAttribute("normalizedFunction", "demographic");
+    }
+
+    @Test
+    void shouldForwardLowercasedNormalizedFunction_whenProviderFunctionMixedCase() throws Exception {
+        when(mockRequest.getParameter("function")).thenReturn("Providers");
+        when(mockRequest.getParameter("functionid")).thenReturn("999998");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        verify(mockRequest).setAttribute("normalizedFunction", "providers");
+        verify(mockSecurityInfoManager, never()).isAllowedAccessToPatientRecord(any(), any());
+    }
 }

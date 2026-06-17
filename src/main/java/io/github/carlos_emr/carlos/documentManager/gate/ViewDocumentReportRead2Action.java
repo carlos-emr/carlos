@@ -25,6 +25,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Locale;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -67,6 +69,10 @@ public final class ViewDocumentReportRead2Action extends ViewDocumentRead2Action
      * @return {@code true} to forward to the report JSP; {@code false} after an
      *         error response has been written (caller returns {@link #NONE}).
      */
+    // FindSecBugs IMPROPER_UNICODE: Locale.ROOT case-fold of a closed ASCII function allowlist
+    // (demographic/provider/providers); fail-closed (non-matches → 400), so it is not a
+    // locale-dependent authorization bypass. See docs/static-analysis-workflows.md and #2496.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Locale.ROOT case-fold of a closed ASCII function allowlist; fail-closed (non-matches → 400); not a locale-dependent bypass. See #2496")
     private static boolean validateDocumentReportRequest(HttpServletRequest request,
                                                          HttpServletResponse response,
                                                          SecurityInfoManager sim,
@@ -79,7 +85,7 @@ public final class ViewDocumentReportRead2Action extends ViewDocumentRead2Action
         String fn = function.toLowerCase(Locale.ROOT);
 
         if (!"demographic".equals(fn)
-                && !"provider".equals(fn) 
+                && !"provider".equals(fn)
                 && !"providers".equals(fn)) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "invalid function");
             return false;
@@ -99,6 +105,11 @@ public final class ViewDocumentReportRead2Action extends ViewDocumentRead2Action
             response.sendError(HttpServletResponse.SC_FORBIDDEN, "unauthorized access to patient record");
             return false;
         }
+
+        // Forward the validated, lowercased function token so the report JSP (which is also
+        // reached from non-gate actions) branches on the canonical value rather than re-reading
+        // the raw, possibly mixed-case request parameter. Only this gate sets this attribute.
+        request.setAttribute("normalizedFunction", fn);
 
         return true;
     }
@@ -123,17 +134,22 @@ public final class ViewDocumentReportRead2Action extends ViewDocumentRead2Action
 
     /**
      * Parses a non-negative {@code int}, returning {@code null} for any value
-     * that is empty, contains a non-digit, or overflows {@code int}. The digit
-     * pre-scan rejects signs/whitespace; the {@code catch} handles all-digit
-     * strings that exceed {@link Integer#MAX_VALUE} (and non-ASCII digit code
-     * points), so out-of-range ids are rejected rather than silently truncated.
+     * that is empty, contains a character outside ASCII {@code '0'}–{@code '9'},
+     * or overflows {@code int}. The pre-scan accepts ASCII digits only, so signs,
+     * whitespace, and non-ASCII Unicode digits (e.g. Arabic-Indic {@code ١٢٣} or
+     * fullwidth {@code １２３}, which {@link Character#isDigit} and
+     * {@link Integer#valueOf} would otherwise accept) are rejected; the
+     * {@code catch} rejects all-ASCII-digit strings that exceed
+     * {@link Integer#MAX_VALUE}, so out-of-range ids are rejected rather than
+     * silently truncated.
      */
     private static Integer parseNonNegativeInteger(String value) {
         if (value == null || value.isEmpty()) {
             return null;
         }
         for (int i = 0; i < value.length(); i++) {
-            if (!Character.isDigit(value.charAt(i))) {
+            char c = value.charAt(i);
+            if (c < '0' || c > '9') {
                 return null;
             }
         }

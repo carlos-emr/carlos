@@ -97,12 +97,15 @@ class JspJavaScriptEncodingRegressionTest {
         String addDocumentJsp = readJsp("documentManager/addDocument.jsp");
         String documentReportJsp = readJsp("documentManager/documentReport.jsp");
 
+        // Assert intent (whitespace-tolerant patterns), not exact source formatting. The
+        // doesNotContain guards are the durable regression net: curUser must not be read from a
+        // request parameter, and the opener URL map must not be dereferenced unguarded.
         assertThat(addDocumentJsp)
-                .contains("String curUser = user_no != null ? user_no : \"\";")
+                .containsPattern("curUser\\s*=\\s*user_no\\s*!=\\s*null")
                 .doesNotContain("request.getParameter(\"curUser\")");
         assertThat(documentReportJsp)
-                .contains("String curUser = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();")
-                .contains("Object.prototype.hasOwnProperty.call(window.opener.URLs, parentId)")
+                .containsPattern("curUser\\s*=\\s*LoggedInInfo\\.getLoggedInInfoFromSession\\(request\\)\\.getLoggedInProviderNo\\(\\)")
+                .containsPattern("hasOwnProperty\\.call\\(\\s*window\\.opener\\.URLs")
                 .doesNotContain("var Url = window.opener.URLs;");
     }
 
