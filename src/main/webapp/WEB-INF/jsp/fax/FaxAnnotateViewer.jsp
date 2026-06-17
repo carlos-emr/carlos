@@ -410,22 +410,23 @@ window.showOpenFilePicker = async function(options, ...rest) {
     throw new DOMException('showOpenFilePicker not supported', 'NotSupportedError');
 };
 
-// Fallback: intercept the hidden <input type="file"> click that older PDF.js versions
-// (or browsers without showOpenFilePicker) use. Accept any file input — PDF.js may
-// change the accept attribute between versions.
-document.addEventListener('click', (e) => {
-    if (!interceptNextStampFilePicker) return;
-    const el = e.target;
-    if (el.tagName === 'INPUT' && el.type === 'file') {
-        e.stopImmediatePropagation();
-        e.preventDefault();
+// PDF.js 6.x creates a detached <input type="file"> (never appended to the DOM) and
+// calls .click() on it. Detached-element clicks do NOT propagate to the document, so
+// a capture listener on document never fires. Patching the prototype intercepts the
+// call regardless of DOM attachment. PDF.js registers its own "change" listener on
+// the input *before* the .click() call, so feeding the file through that same input
+// is the correct channel — it triggers the PDF.js handler naturally.
+const _inputClick = HTMLInputElement.prototype.click;
+HTMLInputElement.prototype.click = function() {
+    if (interceptNextStampFilePicker && this.type === 'file' && pendingSignatureFile) {
         interceptNextStampFilePicker = false;
-        if (pendingSignatureFile) {
-            feedFileToInput(el, pendingSignatureFile);
-            pendingSignatureFile = null;
-        }
+        const file = pendingSignatureFile;
+        pendingSignatureFile = null;
+        feedFileToInput(this, file);
+        return;
     }
-}, true);
+    _inputClick.call(this);
+};
 
 function feedFileToInput(input, file) {
     const dt = new DataTransfer();
