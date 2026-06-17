@@ -86,10 +86,11 @@ class EFormJspMigrationRegressionTest {
         String struts = Files.readString(STRUTS_EFORM_XML, StandardCharsets.UTF_8);
         String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/eform/efmshowform_data.jsp"), StandardCharsets.UTF_8);
 
-        assertThat(struts).contains("<action name=\"eform/addEForm\" class=\"io.github.carlos_emr.carlos.eform.actions.AddEForm2Action\">");
-        assertThat(struts).contains("<result name=\"close\">/WEB-INF/jsp/eform/efmshowform_data.jsp</result>");
-        assertThat(struts).contains("<result name=\"download\">/WEB-INF/jsp/eform/efmshowform_data.jsp</result>");
-        assertThat(struts).contains("<result name=\"error\">/WEB-INF/jsp/eform/efmshowform_data.jsp</result>");
+        assertThat(struts)
+                .contains("<action name=\"eform/addEForm\" class=\"io.github.carlos_emr.carlos.eform.actions.AddEForm2Action\">")
+                .contains("<result name=\"close\">/WEB-INF/jsp/eform/efmshowform_data.jsp</result>")
+                .contains("<result name=\"download\">/WEB-INF/jsp/eform/efmshowform_data.jsp</result>")
+                .contains("<result name=\"error\">/WEB-INF/jsp/eform/efmshowform_data.jsp</result>");
         assertThat(jsp).contains("request.getParameter(\"error\") != null ? request.getParameter(\"error\") : (String) request.getAttribute(\"error\")");
     }
 

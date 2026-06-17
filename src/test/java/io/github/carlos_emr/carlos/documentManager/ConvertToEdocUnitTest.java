@@ -73,7 +73,7 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should preserve data uri backgrounds during tidy")
-    void shouldPreserveDataUriBackgrounds_whenTidyingDocument(@TempDir Path tempDir) throws Exception {
+    void shouldPreserveDataUriBackgrounds_whenTidyingDocument(@TempDir Path tempDir) {
         String dataUri = "data:image/png;base64,ZmFrZQ==";
         String html = "<html><body style=\"background-image:url('" + dataUri + "')\"><div background=\"" + dataUri + "\">x</div></body></html>";
 
