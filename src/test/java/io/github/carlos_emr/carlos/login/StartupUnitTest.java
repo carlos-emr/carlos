@@ -146,14 +146,15 @@ class StartupUnitTest extends CarlosUnitTestBase {
         try {
             keySpecField.set(null, null);
 
-            // Set a blank key - prepareSecretKeySpec reads from CarlosProperties and
-            // will attempt Base64 decode of empty string (producing 0-byte key)
+            // Set a blank key - prepareSecretKeySpec should treat it as missing
             props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, "   ");
 
             // prepareSecretKeySpec should handle the blank key gracefully
-            // (either by treating it as null or by catching decode errors)
             assertThatCode(() -> EncryptionUtils.prepareSecretKeySpec())
                     .doesNotThrowAnyException();
+
+            // SECRET_KEY_SPEC should remain null (blank treated as missing)
+            assertThat(keySpecField.get(null)).isNull();
         } finally {
             // Restore original state
             if (originalProp != null) {
