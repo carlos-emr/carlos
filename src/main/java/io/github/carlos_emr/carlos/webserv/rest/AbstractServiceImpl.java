@@ -96,9 +96,13 @@ public abstract class AbstractServiceImpl {
 
         LoggedInInfo info = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        if (info != null && info.getLoggedInProvider() == null) {
-            // It's possible in the OAuth situation that the session is empty, but we have a valid LoggedInInfo on the request.
-            info = LoggedInInfo.getLoggedInInfoFromRequest(request);
+        if (info == null || info.getLoggedInProvider() == null) {
+            // OAuth-authenticated /ws/services requests are stateless and carry
+            // LoggedInInfo on the request rather than in the browser session.
+            LoggedInInfo requestInfo = LoggedInInfo.getLoggedInInfoFromRequest(request);
+            if (requestInfo != null) {
+                info = requestInfo;
+            }
         }
 
         if (info == null) {

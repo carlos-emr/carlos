@@ -73,6 +73,31 @@ class PrivacyStatementAppendingFilterUnitTest {
     }
 
     @Test
+    @DisplayName("should skip web service routes by excluded prefix")
+    void shouldSkipWebServiceRoutes_byExcludedPrefix() throws Exception {
+        FilterConfig config = mock(FilterConfig.class);
+        when(config.getInitParameter("exclusions")).thenReturn("/ws");
+        PrivacyStatementAppendingFilter localFilter = new PrivacyStatementAppendingFilter();
+        localFilter.init(config);
+        MockHttpServletRequest request = new MockHttpServletRequest("GET",
+                "/carlos/ws/oauth/authorize");
+        request.setContextPath("/carlos");
+        request.setServletPath("/ws/oauth/authorize");
+        TrackingMockHttpServletResponse response = new TrackingMockHttpServletResponse();
+        String body = "<html><body>OAuth consent</body></html>";
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("text/html;charset=UTF-8");
+            servletResponse.getWriter().write(body);
+        };
+
+        localFilter.doFilter(request, response, chain);
+
+        assertThat(response.getContentAsString()).isEqualTo(body);
+        assertThat(response.getLastRequestedBufferSize()).isZero();
+    }
+
+    @Test
     @DisplayName("should flush non-HTML writer response when statement is skipped")
     void shouldFlushNonHtmlWriterResponse_whenStatementSkipped() throws Exception {
         PrivacyStatementAppendingFilter localFilter = new PrivacyStatementAppendingFilter();
