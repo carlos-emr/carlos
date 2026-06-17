@@ -24,6 +24,13 @@ configuration, API behavior, or automated tests.
 - Documented discovered SOAP surfaces:
   - CXF SOAP services mounted under `/ws`.
   - OLIS `OLISRequest` WSDL contract in `src/main/axis2/service.wsdl`.
+- Added an appointment integration mapping that connects external method names
+  such as `post_appointment_data`, `update_appointment`,
+  `get_day_work_schedule`, and `get_providers_appointments` to the actual
+  CARLOS `ScheduleService` SOAP operations.
+- Added dedicated Schedule SOAP checklist rows for required appointment reads,
+  writes, status updates, date-only derived behavior, and unresolved support
+  methods.
 - Added manual testing checklists for authentication, successful calls, bad
   input, authorization failures, response formats, and PHI-safe error handling.
 - Added a results table for recording what was tested, expected result, actual
@@ -52,6 +59,9 @@ results only. A minimum smoke pass should include:
 - SOAP authentication rejection.
 - SOAP success against a safe read-only operation when test credentials are
   available.
+- Schedule SOAP appointment operation inventory.
+- Required appointment integration reads and writes against disposable test
+  data.
 - Malformed REST and SOAP requests returning controlled errors.
 - Confirmation that no PHI, secrets, OAuth tokens, passwords, or production
   patient identifiers are included in testing evidence.
