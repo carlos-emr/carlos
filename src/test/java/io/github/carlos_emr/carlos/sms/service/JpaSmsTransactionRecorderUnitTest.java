@@ -23,6 +23,7 @@ import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.SimpleTransactionStatus;
 
+import java.lang.reflect.Field;
 import java.time.Instant;
 import java.util.Date;
 import java.util.List;
@@ -128,6 +129,44 @@ class JpaSmsTransactionRecorderUnitTest {
                         SmsTransaction::getLastAttemptAt
                 )
                 .containsExactly(SmsStatus.SENDING, 1, attemptAt);
+    }
+
+    @Test
+    @DisplayName("markSending rejects rows already claimed by another sender")
+    void shouldRejectClaim_whenRowIsAlreadyClaimed() {
+        JpaSmsTransactionRecorder recorder = new JpaSmsTransactionRecorder(smsTransactionDao, eventPublisher);
+        SmsTransaction claimed = SmsTransaction.outboundAttempt(
+                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsProviderType.STUB
+        );
+        assignId(claimed, 42L);
+        SmsTransaction current = SmsTransaction.outboundAttempt(
+                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsProviderType.STUB
+        );
+        assignId(current, 42L);
+        current.markSending(Date.from(Instant.parse("2026-06-08T11:59:00Z")));
+        when(smsTransactionDao.find(42L)).thenReturn(current);
+
+        assertThatThrownBy(() -> recorder.markSending(
+                claimed,
+                Date.from(Instant.parse("2026-06-08T12:00:00Z"))
+        )).isInstanceOf(SmsTransactionClaimConflictException.class);
+
+        verify(smsTransactionDao).find(42L);
+        verify(smsTransactionDao, never()).merge(any());
+        verify(smsTransactionDao, never()).flush();
+        assertThat(current)
+                .extracting(
+                        SmsTransaction::getStatus,
+                        SmsTransaction::getAttemptCount,
+                        SmsTransaction::getLastAttemptAt
+                )
+                .containsExactly(
+                        SmsStatus.SENDING,
+                        1,
+                        Date.from(Instant.parse("2026-06-08T11:59:00Z"))
+                );
     }
 
     @Test
@@ -487,5 +526,16 @@ class JpaSmsTransactionRecorderUnitTest {
                 recoveryAt,
                 25
         );
+    }
+
+    private static void assignId(SmsTransaction transaction, long id) {
+        try {
+            Field idField = SmsTransaction.class.getDeclaredField("id");
+            idField.setAccessible(true);
+            idField.set(transaction, id);
+            transaction.assignClientReferenceId(SmsTransaction.clientReferenceIdFor(id));
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("Unable to assign SMS transaction id for test", e);
+        }
     }
 }

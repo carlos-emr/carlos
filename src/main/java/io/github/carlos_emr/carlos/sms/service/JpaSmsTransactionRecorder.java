@@ -85,9 +85,9 @@ public class JpaSmsTransactionRecorder implements SmsTransactionRecorder {
     @Transactional
     public SmsTransaction markSending(SmsTransaction transaction, Date attemptAt) {
         Objects.requireNonNull(transaction, TRANSACTION_REQUIRED_MESSAGE);
-        transaction.markSending(attemptAt);
-        smsTransactionDao.merge(transaction);
-        return transaction;
+        SmsTransaction marked = claimForSending(transaction, attemptAt);
+        smsTransactionDao.flush();
+        return marked;
     }
 
     @Override
@@ -290,6 +290,25 @@ public class JpaSmsTransactionRecorder implements SmsTransactionRecorder {
         }
         mutation.accept(current);
         onApplied.accept(current);
+        return current;
+    }
+
+    private SmsTransaction claimForSending(SmsTransaction claimed, Date attemptAt) {
+        Long id = claimed.getId();
+        if (id == null) {
+            claimed.markSending(attemptAt);
+            smsTransactionDao.merge(claimed);
+            return claimed;
+        }
+        SmsTransaction current = smsTransactionDao.find(id);
+        if (current == null || current.getVersion() != claimed.getVersion() || current.getStatus() != SmsStatus.QUEUED) {
+            LOGGER.warn(
+                    "SMS transaction {} markSending skipped because the row is no longer claimable.",
+                    id
+            );
+            throw new SmsTransactionClaimConflictException(id);
+        }
+        current.markSending(attemptAt);
         return current;
     }
 
