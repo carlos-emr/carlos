@@ -2078,11 +2078,10 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String chain = request.getParameter("chain");
 
         if (chain != null && !chain.equals("")) {
-            // FP for open-redirect scanners (CodeQL java/OR): isValidInternalRedirect enforces
-            // relative-only (via RedirectValidationUtils.isValidRelativeRedirect) OR
-            // same-scheme+host+port match; rejects protocol-relative (//evil), backslash and %5c
-            // (/\evil.com -> //evil.com), userinfo (@evil), and suffix (host.evil) bypasses.
-            if (isValidInternalRedirect(chain, request)) {
+            // Redirect guard: only slash-prefixed relative paths are allowed. The shared
+            // validator rejects protocol-relative URLs, absolute schemes, backslashes,
+            // encoded control characters, and traversal escapes.
+            if (isValidInternalRedirect(chain)) {
                 response.sendRedirect(chain); // nosemgrep: java.lang.security.audit.servlets.unvalidated-redirect.unvalidated-redirect-java -- gated by isValidInternalRedirect // lgtm[java/unvalidated-url-redirection]
             } else {
                 logger.warn("Attempted redirect to invalid URL: {}", LogSafe.sanitize(chain));
@@ -3925,10 +3924,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
      * This prevents open redirect vulnerabilities.
      * 
      * @param url The URL to validate
-     * @param request The HTTP request object for context
      * @return true if the URL is safe for redirect, false otherwise
      */
-    private boolean isValidInternalRedirect(String url, HttpServletRequest request) {
+    static boolean isValidInternalRedirect(String url) {
         if (url == null || url.trim().isEmpty()) {
             return false;
         }
@@ -3936,55 +3934,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         // Remove any leading/trailing whitespace
         url = url.trim();
 
-        // Check for relative URLs (safe). Delegate to the shared validator, which — beyond the
-        // naive "no ://" check this method used to do — also rejects backslash and %5c
-        // (browsers normalise /\evil.com to //evil.com after a redirect), percent-encoded
-        // control characters, and path-traversal escapes.
-        if (url.startsWith("/") && !url.startsWith("//")) {
-            return RedirectValidationUtils.isValidRelativeRedirect(url);
-        }
-
-        // Check if URL starts with the application's context path
-        String contextPath = request.getContextPath();
-        if (!contextPath.isEmpty() && url.startsWith(contextPath + "/")) {
-            return true;
-        }
-
-        // Check for absolute URLs - must match the current server
-        try {
-            // Parse the URL to check if it's absolute
-            if (url.contains("://")) {
-                // Get the current server URL components
-                String scheme = request.getScheme();
-                String serverName = request.getServerName();
-                int serverPort = request.getServerPort();
-                
-                // Build the expected server prefix
-                StringBuilder expectedPrefix = new StringBuilder();
-                expectedPrefix.append(scheme).append("://").append(serverName);
-                
-                // Add port if it's not the default for the scheme
-                if ((scheme.equals("http") && serverPort != 80) || 
-                    (scheme.equals("https") && serverPort != 443)) {
-                    expectedPrefix.append(":").append(serverPort);
-                }
-                
-                // Check if the URL starts with our server prefix
-                if (url.startsWith(expectedPrefix.toString() + "/") ||
-                    url.startsWith(expectedPrefix.toString() + contextPath + "/")) {
-                    return true;
-                }
-                
-                // Reject any other absolute URLs
-                return false;
-            }
-        } catch (Exception e) {
-            logger.error("Error validating redirect URL: {}", LogSafe.sanitize(url), e);
-            return false;
-        }
-
-        // Default to rejecting unknown patterns
-        return false;
+        return url.startsWith("/") && RedirectValidationUtils.isValidRelativeRedirect(url);
     }
 
     /**
