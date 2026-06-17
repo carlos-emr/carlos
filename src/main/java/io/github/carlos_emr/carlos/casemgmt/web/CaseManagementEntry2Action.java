@@ -2088,7 +2088,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 // codeql[java/unvalidated-url-redirection]
                 response.sendRedirect(redirectTarget); // nosemgrep: java.lang.security.audit.servlets.unvalidated-redirect.unvalidated-redirect-java -- gated by sanitizeInternalRedirect
             } else {
-                logger.warn("Attempted redirect to invalid URL: {}", LogSafe.sanitize(chain));
+                logger.warn("Rejected invalid chain redirect target");
                 // Fall through to return "windowClose" without redirect
             }
         }
