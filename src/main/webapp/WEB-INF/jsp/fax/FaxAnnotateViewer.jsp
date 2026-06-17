@@ -296,9 +296,20 @@ const pdfjsLib  = await import(PDFJS + '/build/pdf.mjs');
 const viewerPkg = await import(PDFJS + '/web/pdf_viewer.mjs');
 
 const { PDFViewer, EventBus, PDFLinkService } = viewerPkg;
-const { AnnotationEditorType, GlobalWorkerOptions, getDocument } = pdfjsLib;
+const { AnnotationEditorType, GlobalWorkerOptions, getDocument, AnnotationEditorUIManager } = pdfjsLib;
 
 GlobalWorkerOptions.workerSrc = PDFJS + '/build/pdf.worker.mjs';
+
+// Capture AnnotationEditorLayer instances as they register with the UIManager.
+// PDF.js stores layers in a #-private Map; patching the public addLayer method
+// is the only reliable way to obtain layer references without modifying pdf.mjs.
+// Layers are keyed by 0-based pageIndex, matching pdfViewer.currentPageNumber-1.
+const _annotationLayers = new Map();
+const _origAddLayer = AnnotationEditorUIManager.prototype.addLayer;
+AnnotationEditorUIManager.prototype.addLayer = function(layer) {
+    _annotationLayers.set(layer.pageIndex, layer);
+    return _origAddLayer.call(this, layer);
+};
 
 // ── Viewer setup ──────────────────────────────────────────────────────────
 const eventBus    = new EventBus();
@@ -399,25 +410,38 @@ window.adjustZoom = function(delta) {
 // ── Signature modal ───────────────────────────────────────────────────────
 let signatureModal = null;
 
-// PDF.js 6.x listens for paste events on document while in editing state.
-// Dispatching a synthetic paste with an image File triggers StampEditor.paste →
-// pasteEditor({mode:STAMP},{bitmapFile}) which places the stamp at the centre
-// of the current page with no OS file picker required.
+// Places a signature stamp at the centre of the current page via PDF.js's
+// AnnotationEditorLayer.pasteEditor() API.  The synthetic-paste approach was
+// abandoned because Chrome returns an empty DataTransfer for synthetic
+// ClipboardEvents (clipboard security policy), so clipboardData.items is
+// always empty inside the PDF.js paste handler even when populated externally.
+// Calling pasteEditor() directly avoids that restriction entirely.
 async function insertSignatureViaFastPath(file) {
     console.log('[sig] insertSignatureViaFastPath; file size=', file.size, 'type=', file.type);
-    // Enter stamp mode to ensure the paste listener is registered on document.
-    pdfViewer.annotationEditorMode = { mode: AnnotationEditorType.STAMP };
-    await new Promise(r => setTimeout(r, 0));   // let annotation layers initialise
 
-    const dt = new DataTransfer();
-    dt.items.add(file);
-    console.log('[sig] dispatching synthetic paste; dt.items.length=', dt.items.length);
-    const handled = document.dispatchEvent(new ClipboardEvent('paste', {
-        bubbles:       true,
-        cancelable:    true,
-        clipboardData: dt,
-    }));
-    console.log('[sig] paste dispatched; event.defaultPrevented=', !handled);
+    // Switch to STAMP mode so PDF.js creates AnnotationEditorLayer instances
+    // for each page (they're built lazily when an edit mode is first activated).
+    pdfViewer.annotationEditorMode = { mode: AnnotationEditorType.STAMP };
+
+    // Poll for the current-page layer — layer creation is async and runs through
+    // PDF.js's rendering pipeline; allow up to 500 ms (50 × 10 ms ticks).
+    const pageIndex = pdfViewer.currentPageNumber - 1;
+    let layer = null;
+    for (let i = 0; i < 50; i++) {
+        layer = _annotationLayers.get(pageIndex);
+        if (layer) break;
+        await new Promise(r => setTimeout(r, 10));
+    }
+
+    if (!layer) {
+        console.error('[sig] no AnnotationEditorLayer for page', pageIndex,
+            '; captured pages:', [..._annotationLayers.keys()]);
+        return;
+    }
+
+    console.log('[sig] calling layer.pasteEditor for page', pageIndex);
+    await layer.pasteEditor({ mode: AnnotationEditorType.STAMP }, { bitmapFile: file });
+    console.log('[sig] pasteEditor done');
     usedAnnotationTypes.add('signed');
 }
 
