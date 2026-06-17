@@ -689,6 +689,12 @@ public class FaxManagerImpl implements FaxManager {
 
     /**
      * Clear the preview cache and temp directory.
+     *
+     * <p>When {@code filePath} is the original document path (e.g. a direct-to-cover-page
+     * flow where no annotation temp file was created), it will not be in an approved temp
+     * directory. In that case the temp-deletion step is skipped — only the preview cache
+     * is cleared. This avoids a SecurityException from {@code NioFileManagerImpl.deleteTempFile}
+     * when cancel is triggered on an unannotated fax-ready document.
      */
     @Override
     public boolean flush(LoggedInInfo loggedInInfo, String filePath) {
@@ -697,7 +703,13 @@ public class FaxManagerImpl implements FaxManager {
         }
 
         boolean cache = nioFileManager.removeCacheVersion(loggedInInfo, filePath);
-        boolean temp = nioFileManager.deleteTempFile(filePath);
+
+        // Only attempt temp deletion when filePath is actually inside an approved temp
+        // directory. A non-temp path (original document) has nothing to delete.
+        boolean temp = true;
+        if (PathValidationUtils.isInAllowedTempDirectory(new java.io.File(filePath))) {
+            temp = nioFileManager.deleteTempFile(filePath);
+        }
 
         return (cache && temp);
     }
