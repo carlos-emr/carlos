@@ -575,8 +575,13 @@ window.insertTodayDate = async function() {
     btn.classList.add('active');
     setTimeout(() => btn.classList.remove('active'), 800);
 
-    // Return to select mode so the user can drag/resize the new text box.
-    setMode('none');
+    // Stay in freetext mode so the annotation editor layer remains enabled
+    // and the new date box can be dragged to the correct position.
+    // setMode('none') would call #disableAll() → layer.disable() →
+    // pointer-events:none on the whole layer, making the text box unreachable.
+    // The viewer's internal mode is already FREETEXT (set at the top of this
+    // function), so this call only updates the toolbar button highlight.
+    setMode('freetext');
 };
 
 window.applySignature = async function() {
