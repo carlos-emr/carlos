@@ -58,8 +58,12 @@ public class RxPrescriptionData {
 
     private static final Logger logger = MiscUtils.getLogger();
 
-    private static int safeLength(String value) {
+    static int safeLength(String value) {
         return value == null ? 0 : value.length();
+    }
+
+    static String textViewLineForFullOutline(String fullOutLine) {
+        return StringUtils.defaultString(fullOutLine).replace(";", "\n");
     }
 
     public static String getFullOutLine(String special) {
@@ -575,7 +579,7 @@ public class RxPrescriptionData {
                 logger.warn("Drug full outline appears to be null or empty (length={})", safeLength(fullOutLine));
             }
 
-            txt = fullOutLine.replaceAll(";", "\n");
+            txt = textViewLineForFullOutline(fullOutLine);
             textView.append("\n" + txt);
         }
         // textView.append();
@@ -1397,7 +1401,7 @@ public class RxPrescriptionData {
                 // it was tracked down to some code which required a special, but we couldn't figure out why a special was required or missing.
                 // so now we have code to log an error when a drug is missing a special, we still don't know why it's required or missing
                 // but at least we know which drug does it.
-                logger.warn("Some one is retrieving the drug special but it appears to be blank (length={})", safeLength(special));
+                logger.warn("Someone is retrieving the drug special but it appears to be blank (length={})", safeLength(special));
             }
 
             return special;
@@ -1423,7 +1427,7 @@ public class RxPrescriptionData {
 
             //if (RHS == null || RHS.length() < 6) {
             if (RHS == null || RHS.length() < 4) {
-                logger.warn("Some one is setting the drug special but it appears to be blank (incomingLength={})", safeLength(RHS));
+                logger.warn("Someone is setting the drug special but it appears to be blank (incomingLength={})", safeLength(RHS));
             }
 
             if (RHS != null) {
