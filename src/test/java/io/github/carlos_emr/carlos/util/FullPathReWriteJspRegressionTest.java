@@ -73,7 +73,7 @@ class FullPathReWriteJspRegressionTest {
                 .doesNotContain("+ '?form=' + form + '&field=' + field + '&searchStr=' + str");
 
         assertThat(dxcodeSvcCodeAssoc)
-                .contains("encodeURIComponent(document.forms[0].xml_other1.value)")
+                .contains("var t0 = encodeURIComponent(document.forms[0].xml_other1.value)")
                 .doesNotContain("escape(document.forms[0].xml_other1.value)");
     }
 

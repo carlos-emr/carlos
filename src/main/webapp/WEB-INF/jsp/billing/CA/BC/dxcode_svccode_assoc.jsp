@@ -43,7 +43,7 @@
 
 
             function OtherScriptAttach() {
-                t0 = encodeURIComponent(document.forms[0].xml_other1.value);
+                var t0 = encodeURIComponent(document.forms[0].xml_other1.value);
                 awnd = rs('att', '<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingCodeNewSearch" context="javaScriptBlock"/>?name=' + t0 + '&name1=&name2=&search=', 820, 660, 1);
                 awnd.focus();
             }
