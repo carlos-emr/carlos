@@ -988,7 +988,7 @@
                                 String encodedLoggedInProviderName = URLEncoder.encode(loggedInProviderName, StandardCharsets.UTF_8);
                                 String scheduleMessengerUrl = request.getContextPath() + "/messenger/DisplayMessages?providerNo=" + loggedInProviderNo + "&userName=" + encodedLoggedInProviderName;
                                 String scheduleConsultationUrl = request.getContextPath() + "/encounter/IncomingConsultation?providerNo=" + loggedInProviderNo + "&userName=" + encodedLoggedInProviderName;
-                                String scheduleDocumentReportUrl = request.getContextPath() + "/documentManager/ViewDocumentReport?function=providers&functionid=" + loggedInProviderNo + "&curUser=" + loggedInProviderNo;
+                                String scheduleDocumentReportUrl = request.getContextPath() + "/documentManager/ViewDocumentReport?function=providers&functionid=" + SafeEncode.forUriComponent(loggedInProviderNo);
                                 String scheduleReportIndexUrl = request.getContextPath() + "/report/ViewReportindex";
                                 String scheduleAdministrationUrl = request.getContextPath() + "/administration";
                                 String scheduleTicklerUrl = request.getContextPath() + "/tickler/ViewTicklerMain";
@@ -2459,7 +2459,7 @@
                         popupOscarRx(425, 430, '<%= request.getContextPath() %>/share/CalendarPopup?urlfrom=<%= request.getContextPath() %>/provider/providercontrol&year=<%=strYear%>&month=<%=strMonth%>&param=<%=URLEncoder.encode("&view=0&displaymode=day&dboperation=searchappointmentday","UTF-8")%>');
                         return false;  //run code for 'C'alendar
                     case <fmt:message key="global.edocShortcut"/> :
-                        popupOscarRx('800', '1200', '<%= request.getContextPath() %>/documentManager/ViewDocumentReport?function=providers&functionid=<%=loggedInInfo1.getLoggedInProviderNo()%>&curUser=<%=loggedInInfo1.getLoggedInProviderNo()%>', 'edocView');
+                        popupOscarRx('800', '1200', '<%= request.getContextPath() %>/documentManager/ViewDocumentReport?function=providers&functionid=<%=SafeEncode.forUriComponent(loggedInInfo1.getLoggedInProviderNo())%>', 'edocView');
                         return false;  //run code for e'D'oc
                     case <fmt:message key="global.resourcesShortcut"/> :
                         popupOscarRx(550, 687, '<%=resourcebaseurl%>');
