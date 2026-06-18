@@ -3952,7 +3952,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         if (trimmedUrl == null || !isValidInternalRedirect(trimmedUrl)) {
             return null;
         }
-        return "/" + trimmedUrl.substring(1);
+        return trimmedUrl;
     }
 
     /**
