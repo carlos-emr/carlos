@@ -25,15 +25,6 @@ import io.github.carlos_emr.carlos.entities.MSPBill;
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile.BillSearch;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.PayRefSummary;
 
-/**
- * <p>Title: CreateBillingReport2Action</p>
- * <p>Description: </p>
- * <p>Copyright: Copyright (c) 2005</p>
- * <p>Company: </p>
- *
- * @author Joel Legris
- * @version 1.0
- */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
@@ -41,7 +32,12 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Struts action that gathers parameters, filters, and date ranges to generate comprehensive financial and submission reports for clinic management.
+ */
 public class CreateBillingReport2Action extends ActionSupport {
+    // Reports are generated in a background thread for large date ranges to prevent the HTTP request from timing out.
+
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -245,7 +241,6 @@ public class CreateBillingReport2Action extends ActionSupport {
     /**
      * A convenience method that returns a concatenated list of insurer types
      * to be passed into a report
-     *
      * @return String
      */
     private String createInsurerList(boolean showICBC, boolean showMSP, boolean showPriv, boolean showWCB) {
@@ -293,7 +288,6 @@ public class CreateBillingReport2Action extends ActionSupport {
 
     /**
      * Configures the response header for upload of specified mime-type
-     *
      * @param response HttpServletResponse
      * @param docName  String
      * @param docType  String
@@ -332,7 +326,6 @@ public class CreateBillingReport2Action extends ActionSupport {
     /**
      * A convenience method for retrieving the servlet outputstream without
      * cluttering the calling code with verbose exception handling
-     *
      * @param response HttpServletResponse
      * @return ServletOutputStream
      */

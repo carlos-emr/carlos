@@ -52,9 +52,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 /**
- * @author jay
+ * Lookup entity for diagnostic (ICD) codes, mapping alphanumeric codes to their standardized medical descriptions.
  */
 public class DxReference {
+    // We maintain a local copy of the ICD reference to support offline fast-searching without external API calls.
+
     private static final Logger _log = MiscUtils.getLogger();
     DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);
 

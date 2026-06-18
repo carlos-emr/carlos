@@ -33,15 +33,11 @@ package io.github.carlos_emr.carlos.entities;
  * SELECT *
  * FROM `prescription`
  * where demographic_no = 1;
- * <p>Title: </p>
- * <p>Description: </p>
- * <p>Copyright: Copyright (c) 2004</p>
- * <p>Company: </p>
- *
- * @author not attributable
- * @version 1.0
+  * Domain model for tracking patient prescriptions, linking the demographic record with the prescribing provider and maintaining the printed/reprinted audit trail for legal compliance.
  */
 public class Prescription {
+    // We track the text view separately to accommodate legacy formatting differences in how prescriptions were historically rendered in older UI views.
+
     private String scriptNo;
     private String providerNo;
     private String demographicNo;

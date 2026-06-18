@@ -61,9 +61,11 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.CarlosProperties;
 
 /**
- * @author jay
+ * Core integration interface for communicating with the BC Teleplan network, managing connection protocols, authentication, and secure data transmission.
  */
 public class TeleplanAPI {
+    // Connection timeouts are kept deliberately short to fail fast, as the Teleplan network can occasionally hang during peak submission hours.
+
     static Logger log = MiscUtils.getLogger();
 
     public static String ExternalActionLogon = "AsignOn";

@@ -25,20 +25,14 @@
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
 /**
- * <p>Title: SexValidator</p>
- *
- * <p>Description: </p>
  * Thi validator represents the rules governing an MSP service code
  * with regards to a patients sex
- * <p>Copyright: Copyright (c) 2005</p>
- *
- * <p>Company: </p>
- *
- * @author not attributable
- * @version 1.0
+  * Utility class that verifies billing codes against the patient's recorded sex, preventing submission errors for gender-specific procedures (e.g., pap smears).
  */
 public class SexValidator
         extends ServiceCodeValidator {
+    // We handle unspecified or indeterminate sexes gracefully by deferring to the physician's override flag if present.
+
     private String gender = "DEFAULT"; //Not all service codes will have a rule
     private String inputSex = ""; //sex of the patient that is being validated
 
@@ -50,7 +44,6 @@ public class SexValidator
 
     /**
      * Creates a new SexValidator initializing the service code and input gender
-     *
      * @param svcCode  String
      * @param inputSex int
      */

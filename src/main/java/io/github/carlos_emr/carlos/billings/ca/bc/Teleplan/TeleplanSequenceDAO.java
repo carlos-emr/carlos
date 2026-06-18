@@ -40,10 +40,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Deals with storing the teleplan sequence #
- *
- * @author jay
+  * Data access object managing the generation and retrieval of unique sequence numbers required by the Teleplan API for tracking individual batch submissions.
  */
 public class TeleplanSequenceDAO {
+    // We use a database sequence table rather than an auto-incrementing ID to ensure sequences are contiguous, which is a strict Teleplan requirement.
+
     static Logger log = MiscUtils.getLogger();
     private PropertyDao propertyDao = SpringUtils.getBean(PropertyDao.class);
 

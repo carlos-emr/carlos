@@ -45,11 +45,12 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 /**
  * Provides CRUD operations for BillingPrivateTransactions and legacy
  * {@link PrivateBillTransaction} classes.
- *
- * @author Joel Legris
+  * Data access for private (uninsured) billing transactions, managing direct patient payments, invoices, and receipts outside the provincial system.
  */
 @Repository
 public class PrivateBillTransactionsDAO extends AbstractDaoImpl<BillingPrivateTransactions> {
+    // Private bills require tracking of local taxes (GST/PST) which are not applicable to standard provincial health coverage.
+
 
     public PrivateBillTransactionsDAO() {
         super(BillingPrivateTransactions.class);

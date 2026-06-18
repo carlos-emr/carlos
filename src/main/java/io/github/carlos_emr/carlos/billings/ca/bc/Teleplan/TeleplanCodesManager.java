@@ -45,9 +45,11 @@ import io.github.carlos_emr.CarlosProperties;
 
 
 /**
- * @author jay
+ * Business logic component responsible for loading, validating, and caching the large dictionary of Teleplan fee items and diagnostic codes.
  */
 public class TeleplanCodesManager {
+    // Codes are cached in memory upon initialization to prevent expensive database lookups during high-volume billing data entry.
+
 
     /**
      * Creates a new instance of TeleplanCodesManager

@@ -46,9 +46,11 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 /**
- * @author jaygallagher
+ * Formats and packages WCB-specific billing claims into the exact file structure and encoding required by the Teleplan submission gateway.
  */
 public class WCBTeleplanSubmission {
+    // WCB records use a different file layout than standard MSP bills, requiring specialized padding and alignment algorithms.
+
     private static Logger log = MiscUtils.getLogger();
 
     private DemographicManager demographicManager = null;

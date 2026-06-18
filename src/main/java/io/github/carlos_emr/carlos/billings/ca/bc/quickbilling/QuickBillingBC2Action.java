@@ -47,7 +47,6 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData.BillingVisit;
 
 /**
- * @author Dennis Warren
  * Company Colcamex Resources
  * Date Jun 4, 2012
  * Revised Jun 6, 2012
@@ -64,7 +63,12 @@ import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Struts 2 action handling the web requests for the BC quick billing interface, routing users to the appropriate quick billing views based on their provider type.
+ */
 public class QuickBillingBC2Action extends ActionSupport {
+    // The action checks provider roles explicitly to ensure specialists only see billing codes relevant to their discipline.
+
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();

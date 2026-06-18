@@ -44,12 +44,14 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
- * @author Jef King
  * For The Oscar McMaster Project
  * Developed By Andromedia
  * www.andromedia.ca
+  * Data builder or string buffer wrapper used to construct the fixed-width text files required by the legacy WCB submission gateway.
  */
 public class WcbSb {
+    // We use a custom buffer rather than standard String concatenation to ensure exact byte-length alignment for fixed-width fields.
+
     private static Logger logger = MiscUtils.getLogger();
 
     protected static String file = null;

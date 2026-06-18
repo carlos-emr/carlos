@@ -35,11 +35,11 @@ import io.github.carlos_emr.carlos.util.UtilMisc;
 
 /**
  * BillHistory  represents an archive of a modification event on a specific line(BillingMaster Record) of a Bill
- *
- * @author Joel Legris
- * @version 1.0
+  * Maintains an immutable historical record of billing transactions and status changes, ensuring full auditability of financial records within the clinic.
  */
 public class BillHistory {
+    // Archival status is used to safely soft-delete old records while keeping them available for historical reporting and audit purposes.
+
 
     private int id;
     private int billingMasterNo;
@@ -62,7 +62,6 @@ public class BillHistory {
 
     /**
      * Sets the billingMaster Number of the records which is being tracked
-     *
      * @param billingMasterNo int
      */
     public void setBillingMasterNo(int billingMasterNo) {
@@ -71,7 +70,6 @@ public class BillHistory {
 
     /**
      * Sets the number of the provider who is responsible for initiating this audit event
-     *
      * @param practitioner_no String
      */
     public void setPractitioner_no(String practitioner_no) {
@@ -81,7 +79,6 @@ public class BillHistory {
 
     /**
      * Set the status of the billingMaster record at the time of the event
-     *
      * @param billingStatus String
      */
     public void setBillingStatus(String billingStatus) {
@@ -90,7 +87,6 @@ public class BillHistory {
 
     /**
      * Sets the Date of the event
-     *
      * @param archiveDate Date
      */
     public void setArchiveDate(Date archiveDate) {

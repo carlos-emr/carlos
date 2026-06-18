@@ -38,9 +38,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
- * @author Jay Gallagher
+ * Support class providing common data transformations and validation routines specifically tailored for the Workers' Compensation Board claim formats.
  */
 public class WcbHelper {
+    // WCB requires distinct date formatting rules compared to standard MSP, which are isolated within this helper.
+
 
     ArrayList empList = null;
     ArrayList claimList = null;
@@ -118,7 +120,6 @@ public class WcbHelper {
 
     /**
      * Getter for property empList.
-     *
      * @return Value of property empList.
      */
     public java.util.ArrayList getEmpList() {
@@ -127,7 +128,6 @@ public class WcbHelper {
 
     /**
      * Setter for property empList.
-     *
      * @param empList New value of property empList.
      */
     public void setEmpList(java.util.ArrayList empList) {
@@ -136,7 +136,6 @@ public class WcbHelper {
 
     /**
      * Getter for property claimList.
-     *
      * @return Value of property claimList.
      */
     public java.util.ArrayList getClaimList() {
@@ -145,7 +144,6 @@ public class WcbHelper {
 
     /**
      * Setter for property claimList.
-     *
      * @param claimList New value of property claimList.
      */
     public void setClaimList(java.util.ArrayList claimList) {

@@ -38,12 +38,12 @@ import org.springframework.stereotype.Repository;
 
 /**
  * Responsible for CRUD operation a user Billing Module Preferences
- *
- * @author not attributable
- * @version 1.0
+  * Manages user and clinic-level configuration settings for the billing module, such as default diagnostic codes or preferred billing macros.
  */
 @Repository
 public class BillingPreferencesDAO extends AbstractDaoImpl<BillingPreference> {
+    // Preferences are heavily cached because they are read on almost every page load but rarely modified.
+
 
     public BillingPreferencesDAO() {
         super(BillingPreference.class);
@@ -62,7 +62,6 @@ public class BillingPreferencesDAO extends AbstractDaoImpl<BillingPreference> {
     /**
      * Saves the preferences for a specific user, if a record exists for the specific user,
      * the values in that record are updated otherwise a new record is created
-     *
      * @param pref the preferences
      * @deprecated
      */

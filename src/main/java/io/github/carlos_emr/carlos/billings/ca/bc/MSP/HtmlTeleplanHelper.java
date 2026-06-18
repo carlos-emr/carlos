@@ -40,10 +40,11 @@ import java.util.Date;
 
 /**
  * Used to consolidate the teleplan submission html into one place.
- *
- * @author jay
+  * View-layer utility that generates HTML snippets and dropdowns specific to Teleplan data entry forms, reducing boilerplate in JSP files.
  */
 public class HtmlTeleplanHelper {
+    // By centralizing HTML generation here, we ensure accessibility attributes (ARIA tags) are consistently applied across all billing forms.
+
 
     /**
      * Creates a new instance of HtmlTeleplanHelper

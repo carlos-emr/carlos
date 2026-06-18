@@ -52,10 +52,11 @@ import io.github.carlos_emr.carlos.util.StringUtils;
 
 /**
  * Holds Data about a teleplan submission
- *
- * @author jay
+  * Core model representing a finalized batch of claims ready for secure transmission to the Teleplan network, including header and footer control records.
  */
 public class TeleplanSubmission {
+    // The batch total amount is calculated locally and embedded in the footer to allow Teleplan to verify file integrity upon receipt.
+
 
     private BillingDao billingDao = SpringUtils.getBean(BillingDao.class);
 

@@ -38,9 +38,11 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
- * @author jay
+ * High-level service orchestrating the entire Teleplan lifecycle, including batch creation, network submission, and remittance reconciliation.
  */
 public class TeleplanService {
+    // We encapsulate the orchestration here so controllers don't need to understand the complex multi-step Teleplan workflow.
+
     static Logger log = MiscUtils.getLogger();
 
     /**

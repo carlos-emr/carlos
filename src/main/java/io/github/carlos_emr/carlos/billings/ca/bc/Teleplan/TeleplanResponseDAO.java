@@ -35,9 +35,11 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanResponseLog;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
- * @author jay
+ * Persists the raw and parsed remittance data returned by Teleplan, allowing clinics to track payment history and identify rejected claims.
  */
 public class TeleplanResponseDAO {
+    // We store the raw response string alongside parsed data so we can re-process it if our parsing logic changes in the future.
+
 
     private TeleplanResponseLogDao dao = SpringUtils.getBean(TeleplanResponseLogDao.class);
 

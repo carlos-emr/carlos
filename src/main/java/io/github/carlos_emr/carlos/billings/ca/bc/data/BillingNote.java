@@ -58,10 +58,11 @@ import io.github.carlos_emr.carlos.util.UtilMisc;
  * | note             | text       | YES  |     | NULL    |                |
  * | note_type        | int(2)     | YES  |     | NULL    |                |
  * +------------------+------------+------+-----+---------+----------------+
- *
- * @author root
+  * Entity representing internal clinic notes or comments attached to a specific bill, often used for communication between doctors and billing clerks.
  */
 public class BillingNote {
+    // Notes are kept separate from the main bill entity so they can be updated without triggering a re-submission to Teleplan.
+
 
     /**
      * Creates a new instance of BillingNote
@@ -153,7 +154,6 @@ public class BillingNote {
 
         /**
          * Getter for property billingnote_no.
-         *
          * @return Value of property billingnote_no.
          */
         public java.lang.String getBillingnote_no() {
@@ -162,7 +162,6 @@ public class BillingNote {
 
         /**
          * Setter for property billingnote_no.
-         *
          * @param billingnote_no New value of property billingnote_no.
          */
         public void setBillingnote_no(java.lang.String billingnote_no) {
@@ -171,7 +170,6 @@ public class BillingNote {
 
         /**
          * Getter for property billingmaster_no.
-         *
          * @return Value of property billingmaster_no.
          */
         public java.lang.String getBillingmaster_no() {
@@ -180,7 +178,6 @@ public class BillingNote {
 
         /**
          * Setter for property billingmaster_no.
-         *
          * @param billingmaster_no New value of property billingmaster_no.
          */
         public void setBillingmaster_no(java.lang.String billingmaster_no) {
@@ -189,7 +186,6 @@ public class BillingNote {
 
         /**
          * Getter for property createdate.
-         *
          * @return Value of property createdate.
          */
         public java.lang.String getCreatedate() {
@@ -198,7 +194,6 @@ public class BillingNote {
 
         /**
          * Setter for property createdate.
-         *
          * @param createdate New value of property createdate.
          */
         public void setCreatedate(java.lang.String createdate) {
@@ -207,7 +202,6 @@ public class BillingNote {
 
         /**
          * Getter for property provider_no.
-         *
          * @return Value of property provider_no.
          */
         public java.lang.String getProviderNo() {
@@ -216,7 +210,6 @@ public class BillingNote {
 
         /**
          * Setter for property provider_no.
-         *
          * @param provider_no New value of property provider_no.
          */
         public void setProviderNo(java.lang.String provider_no) {
@@ -225,7 +218,6 @@ public class BillingNote {
 
         /**
          * Getter for property note.
-         *
          * @return Value of property note.
          */
         public java.lang.String getNote() {
@@ -234,7 +226,6 @@ public class BillingNote {
 
         /**
          * Setter for property note.
-         *
          * @param note New value of property note.
          */
         public void setNote(java.lang.String note) {

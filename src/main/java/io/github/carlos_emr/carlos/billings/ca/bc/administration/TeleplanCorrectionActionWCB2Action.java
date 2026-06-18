@@ -60,7 +60,6 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
 /*
- * @author Jef King
  * For The Oscar McMaster Project
  * Developed By Andromedia
  * www.andromedia.ca
@@ -74,7 +73,12 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Web action allowing billing clerks to correct and resubmit rejected WCB claims based on error codes returned in the Teleplan remittance.
+ */
 public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
+    // Corrections create a new version of the bill rather than overwriting the old one, preserving the audit trail of the rejection.
+
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();

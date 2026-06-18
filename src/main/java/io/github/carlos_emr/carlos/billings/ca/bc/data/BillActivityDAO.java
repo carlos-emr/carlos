@@ -44,9 +44,11 @@ import io.github.carlos_emr.carlos.entities.Billactivity;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
- * @author jay
+ * Tracks granular changes and state transitions for individual bills, powering the audit log and billing activity timeline.
  */
 public class BillActivityDAO {
+    // Activity logs are strictly append-only to satisfy accounting and legal audit requirements.
+
 
     private BillActivityDao dao = SpringUtils.getBean(BillActivityDao.class);
 

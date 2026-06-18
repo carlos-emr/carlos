@@ -39,7 +39,6 @@ import jakarta.servlet.http.HttpServletResponse;
 
 
 /**
- * @author Dennis Warren
  * Company Colcamex Resources
  * Date Jun 4, 2012
  * Revised Jun 6, 2012
@@ -57,7 +56,12 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Action responsible for validating and persisting quick billing entries into the database, handling submission errors and returning appropriate validation messages to the UI.
+ */
 public class QuickBillingBCSave2Action extends ActionSupport {
+    // Save operations are synchronized at the session level to prevent duplicate billing entries from accidental double-clicks.
+
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();

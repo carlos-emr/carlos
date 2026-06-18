@@ -39,10 +39,11 @@ package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
  * | sequence_no      | int(10) | YES  |     | NULL    |                |
  * | billingmaster_no | int(10) | YES  |     | NULL    |                |
  * +------------------+---------+------+-----+---------+----------------+
- *
- * @author jay
+  * Entity storing a single request/response transaction payload sent over the Teleplan network, capturing timestamps and error codes.
  */
 public class TeleplanLog {
+    // Sensitive patient data is stripped or masked from the log payload to comply with HIPAA/PIPEDA privacy regulations.
+
     private int logNo;
     private String claim;
     private int sequenceNo;

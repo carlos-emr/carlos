@@ -74,12 +74,13 @@ import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
 
 
 /**
- * @author Dennis Warren
  * @Revised Jun 4, 2012
  * @Comment
- *
+  * Service handler coordinating the fast-entry billing workflow for BC, streamlining the process of adding common fee items to patient encounters.
  */
 public class QuickBillingBCHandler {
+    // We process quick bills in a separate transaction to ensure that if a complex bill fails, it doesn't rollback the entire batch of quick bills.
+
 
     // full logging to be added later. too pressed for time.
     private static Logger log = MiscUtils.getLogger();
@@ -156,7 +157,6 @@ public class QuickBillingBCHandler {
 
 
     /**
-     *
      * @return Provider Data Access Object
      */
     public ProviderDataDao getProviderDao() {
@@ -164,7 +164,6 @@ public class QuickBillingBCHandler {
     }
 
     /**
-     *
      * @return Oscar Properties Object
      */
     public Properties getCarlosProperties() {
@@ -208,7 +207,6 @@ public class QuickBillingBCHandler {
      * Header consists of a providers, service location, and service date and
      * is the header for a group of individual patients with the header data
      * in commons.
-     *
      */
     public void setHeader(ObjectNode billingEntry) {
 
@@ -409,7 +407,6 @@ public class QuickBillingBCHandler {
 
     /**
      * Triggers existing class: BillingSaveBillingAction to recursively save the bills array list.
-     *
      * @return true if bills were saved successfully
      */
     public boolean saveBills() {
@@ -510,7 +507,6 @@ public class QuickBillingBCHandler {
 
     /**
      * Again method borrowed from BillingSaveBillingAction.
-     *
      * @param billingid
      * @param billingAccountStatus
      * @param dataCenterId

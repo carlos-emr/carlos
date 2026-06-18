@@ -46,11 +46,13 @@ import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
 /**
- * @author jaygallagher
+ * Entity representing a Workers' Compensation Board (WCB) claim, capturing injury details, claim numbers, and employment information required for accurate occupational health billing.
  */
 @Entity
 @Table(name = "wcb")
 public class WCB {
+    // Service dates are crucial here because WCB claims have strict time limits for submission after an injury occurs.
+
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -747,7 +749,6 @@ public class WCB {
     }
 
     /*
-     * 
     Form 
     Field         MSP  MSP
     Label  REC #  REC  SEQ     Data Element Name      MAND   Wcb Specific   Should be check with bill

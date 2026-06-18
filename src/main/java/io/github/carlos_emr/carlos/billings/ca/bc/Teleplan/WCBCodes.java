@@ -39,9 +39,11 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.CarlosProperties;
 
 /**
- * @author jaygallagher
+ * Reference data class containing the specific subset of procedure and diagnostic codes mandated by the Workers' Compensation Board.
  */
 public class WCBCodes {
+    // These codes are separated from general MSP codes because they have unique pricing rules and validation requirements.
+
 
     private static Logger log = MiscUtils.getLogger();
     private static WCBCodes wcbCodes = new WCBCodes();

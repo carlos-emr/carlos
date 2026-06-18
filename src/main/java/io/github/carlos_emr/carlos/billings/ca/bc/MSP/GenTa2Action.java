@@ -63,13 +63,15 @@ import io.github.carlos_emr.CarlosProperties;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
-/**
- * @author jay
- */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Web action for generating Treatment Authorization (TA) requests, a prerequisite step before performing certain restricted medical procedures.
+ */
 public class GenTa2Action extends ActionSupport {
+    // TA requests are assigned a unique tracking number immediately so the clinic can reference them if the patient calls back.
+
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -427,7 +429,6 @@ public class GenTa2Action extends ActionSupport {
                  *     two records are added to teleplanS21, one with a status of D ( the one from the C12 records ) and the other with N
                  *3.File with C12 records at the bottom.
                  *     one record with a status of N
-                 *
                  */
             } else if (header.equals("C12")) {
                 C12 c12 = new C12(nextline);

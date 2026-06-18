@@ -57,10 +57,11 @@ import io.github.carlos_emr.CarlosProperties;
 /**
  * Class used to Manage BillingGuidelines.
  * Temporary and will be refactored to include the other billing systems. And probably more of a centralized rule repository.
- *
- * @author jay
+  * Decision support component that evaluates proposed bills against complex provincial rules to warn users about mutually exclusive fee codes or missing diagnostics.
  */
 public class BillingGuidelines {
+    // This rules engine is evaluated client-side and server-side to provide immediate feedback while ensuring data integrity.
+
 
     private static Logger log = MiscUtils.getLogger();
     private List<DSGuideline> billingGuideLines;

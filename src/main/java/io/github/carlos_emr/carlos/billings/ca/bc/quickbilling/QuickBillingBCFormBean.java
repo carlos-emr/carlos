@@ -38,10 +38,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 
+/**
+ * Backing bean for the quick billing HTML forms, binding user input parameters such as fee codes, diagnoses, and service dates for controller processing.
+ */
 public class QuickBillingBCFormBean {
+    // Default values are populated here to speed up data entry for high-volume clinics where most bills follow a standard pattern.
+
 
     /**
-     * @author Dennis Warren
      * Company Colcamex Resources
      * Date Jun 4, 2012
      */

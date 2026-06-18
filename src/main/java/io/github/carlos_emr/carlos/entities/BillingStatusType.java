@@ -30,14 +30,11 @@
 package io.github.carlos_emr.carlos.entities;
 
 /**
- * <p>Title:BillingStatusType </p>
- *
- * <p>Description: Represents a bill status type as defined by MSP</p>
- *
- * @author not attributable
- * @version 1.0
+ * Represents the specific billing status type as defined by the MSP (Medical Services Plan) guidelines, tracking the lifecycle of a medical bill from creation to submission and settlement.
  */
 public class BillingStatusType {
+    // The sort order is maintained here because UI components need to present statuses in a specific workflow sequence, rather than alphabetical order.
+
 
     /**
      * Single char MSP status code

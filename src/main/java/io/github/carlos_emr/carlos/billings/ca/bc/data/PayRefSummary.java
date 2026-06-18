@@ -36,21 +36,14 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile;
 
 /**
- * <p>Title: PayRefSummary</p>
- *
- * <p>Description: </p>
  * Represent a Summary for the payments and refunds report.
  * This class is just for convenience to avoid the awkward
  * grouping calculations that would have been necessary in the report design
- *
- * <p>Copyright: Copyright (c) 2005</p>
- *
- * <p>Company: </p>
- *
- * @author not attributable
- * @version 1.0
+  * Summarizes payment references from electronic remittance files, grouping multiple claim settlements under a single banking deposit reference.
  */
 public class PayRefSummary {
+    // We aggregate by payment reference to help clinic accountants easily reconcile Teleplan deposits with their bank statements.
+
     private double cash = 0.0;
     private double cheque = 0.0;
     private double visa = 0.0;
@@ -68,7 +61,6 @@ public class PayRefSummary {
     /**
      * Increments the value of the specified payment type, with the supplied
      * String reprentation of a double value
-     *
      * @param paymentMethod String
      * @param value         double
      */

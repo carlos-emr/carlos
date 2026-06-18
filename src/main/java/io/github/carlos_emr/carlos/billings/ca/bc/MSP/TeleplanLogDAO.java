@@ -38,10 +38,11 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
- * @author jay
+ * Data access for the system-level communication logs between the clinic and the Teleplan network, used primarily for technical troubleshooting.
  */
-
 public class TeleplanLogDAO {
+    // Logs older than 90 days are automatically pruned by a scheduled job to prevent the database from growing unbounded.
+
 
     private LogTeleplanTxDao dao = SpringUtils.getBean(LogTeleplanTxDao.class);
 

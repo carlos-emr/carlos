@@ -51,15 +51,13 @@ import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.UtilMisc;
 
 /**
- * <p>Title:ServiceCodeValidationLogic </p>
- *
- * @author Joel Legris
- * @version 1.0
  * @todo Should be renamed to something more appropriate eg ServiceCodeDAO
- * <p>Description: </p>
  * <p>Responsible for service code validation
+  * Complex business rules engine that checks for conflicting fee items, daily maximums, and invalid code combinations prior to claim submission.
  */
 public class ServiceCodeValidationLogic {
+    // We evaluate these rules locally to catch errors early, saving the clinic from waiting weeks for a formal Teleplan rejection.
+
 
     private String demographicNo;
     private String serviceCode;
@@ -79,7 +77,6 @@ public class ServiceCodeValidationLogic {
      * Filters a list of BillingService objects according to the supplied Demographic data
      * The filter essentially creates a new list with the codes that pertain to the specified
      * Demographic record's age and gender
-     *
      * @param svcList BillingService[]
      * @param d       Demographic
      * @return BillingService[]
@@ -98,7 +95,6 @@ public class ServiceCodeValidationLogic {
 
     /**
      * Returns true if the service code is valid for the specified demographic and service code
-     *
      * @param d       Demographic
      * @param svcCode String
      * @return boolean
@@ -111,7 +107,6 @@ public class ServiceCodeValidationLogic {
 
     /**
      * Returns a ServiceCodeValidator for the supplied demographic data and service code
-     *
      * @param serviceCode String
      * @param d           Demographic
      * @return ServiceCodeValidator
@@ -129,7 +124,6 @@ public class ServiceCodeValidationLogic {
 
     /**
      * Returns a ServiceCodeValidator for the supplied demographic data and service code
-     *
      * @param serviceCode String
      * @param d           Demographic
      * @return ServiceCodeValidator
@@ -147,7 +141,6 @@ public class ServiceCodeValidationLogic {
     /**
      * Returns the number of days since a 13050 code was billed to a patient
      * if no record is found the return value is -1
-     *
      * @param demoNo String
      * @return int
      */
@@ -158,7 +151,6 @@ public class ServiceCodeValidationLogic {
     /**
      * Returns the number of days since a 13050 code was billed to a patient
      * if no record is found the return value is -1
-     *
      * @param demoNo String
      * @return int
      */
@@ -182,7 +174,6 @@ public class ServiceCodeValidationLogic {
     /**
      * Returns false if a patient has used up all 4 allowable 00120 codes
      * for the current year
-     *
      * @param demoNo String
      * @return boolean
      */
@@ -199,7 +190,6 @@ public class ServiceCodeValidationLogic {
      * The rules are as follows:
      * A maximum of 6 units may be billed per calendar year
      * A maximum of 4 units may be billed on any given day
-     *
      * @param demoNo      String - The uid of the patient
      * @param code        String - The service code to be evaluated
      * @param serviceDate String - The date of service
@@ -289,7 +279,6 @@ public class ServiceCodeValidationLogic {
 
     /**
      * Returns the date of the last time that Service Code 13050 was billed
-     *
      * @param demoNo String
      * @return String
      */

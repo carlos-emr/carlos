@@ -47,9 +47,11 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.CarlosProperties;
 
 /**
- * @author jay
+ * Parses and encapsulates the acknowledgment and remittance files returned by Teleplan, mapping their cryptic status codes into readable application states.
  */
 public class TeleplanResponse {
+    // We parse the response asynchronously because large remittance files can take several minutes to process and we shouldn't block the UI.
+
     static Logger log = MiscUtils.getLogger();
     private static final String DOCUMENT_DIR_PROPERTY = "DOCUMENT_DIR";
     private String transactionNo = null;

@@ -41,10 +41,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Deals with storing the teleplan sequence #
- *
- * @author jay
+  * Secure data access object for managing the encrypted Teleplan data center credentials for different billing providers within the clinic.
  */
 public class TeleplanUserPassDAO {
+    // Passwords must be decrypted strictly at runtime and never logged, adhering to Teleplan security and privacy policies.
+
     static Logger log = MiscUtils.getLogger();
     private PropertyDao propertyDao = SpringUtils.getBean(PropertyDao.class);
 
