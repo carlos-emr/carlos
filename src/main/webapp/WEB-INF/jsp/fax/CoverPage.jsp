@@ -1,4 +1,3 @@
-<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%--
 
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
@@ -30,8 +29,22 @@
 
 --%>
 
+<%--
+    CoverPage.jsp
+
+    Loaded via POST from FaxAnnotateViewer.jsp on forward from
+    FaxDocument?faxReady=true to CoverPage.jsp.
+
+    Provides UI for autocomplete fax numbers and outgoing fax 
+    coordinates.
+
+    @param docId        (request attribute, int) Document number
+    @param faxReady     (request attribute, boolean)
+    @since 2026-06
+--%>
 <!DOCTYPE html>
 
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -118,7 +131,7 @@
             width: auto \9;
         }
 
-        #additionalRecipientControlPanel, #form-control-buttons {
+        #form-control-buttons {
             margin-bottom: 15px;
         }
 
@@ -233,7 +246,7 @@
 				<input type="hidden" name="transactionId" value="<carlos:encode value='${ not empty reqId ? reqId : transactionId }' context="htmlAttribute"/>" />
 				<input type="hidden" name="transactionType" value="<carlos:encode value='${ transactionType }' context="htmlAttribute"/>" />
 				<input type="hidden" name="demographicNo" value="<carlos:encode value='${ not empty demographicNo ? demographicNo : param.demographicNo }' context="htmlAttribute"/>" />
-		  		<input type="hidden" name="faxFilePath" value="<carlos:encode value='${ faxFilePath }' context="htmlAttribute"/>" />
+				<input type="hidden" name="faxFilePath" value="<carlos:encode value='${ faxFilePath }' context="htmlAttribute"/>" />
 		  		
 		  		<%-- to be removed soon below --%>
 		  		<input type="hidden" name="documents" value="<carlos:encode value='${ documents }' context="htmlAttribute"/>" />
@@ -246,7 +259,7 @@
 					<div class="card-body">
 						<div class="container">
 							<div class="row">
-							<div class="col-sm-12">
+							<div class="col-sm-12 mb-3">
 							  <label for="senderFaxAccount"><fmt:message key="coverPage.lbl.faxAccount"/></label>
 							  <select class="form-select" name="senderFaxNumber"  id="senderFaxAccount">
 									<c:forEach items="${ requestScope.accounts }" var="account">
