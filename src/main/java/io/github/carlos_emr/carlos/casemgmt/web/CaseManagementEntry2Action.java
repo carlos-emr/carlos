@@ -2083,10 +2083,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             // validator rejects protocol-relative URLs, absolute schemes, backslashes,
             // encoded control characters, and traversal escapes.
             if (redirectTarget != null) {
-                // CodeQL false positive: sanitizeInternalRedirect returns only a trimmed,
-                // slash-prefixed relative URL accepted by RedirectValidationUtils.
-                // codeql[java/unvalidated-url-redirection]
-                response.sendRedirect(redirectTarget); // nosemgrep: java.lang.security.audit.servlets.unvalidated-redirect.unvalidated-redirect-java -- gated by sanitizeInternalRedirect
+                sendChainRedirect(redirectTarget);
             } else {
                 logger.warn("Rejected invalid chain redirect target");
                 // Fall through to return "windowClose" without redirect
@@ -2094,6 +2091,17 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         return "windowClose";
+    }
+
+    // FindSecBugs UNVALIDATED_REDIRECT: redirectTarget is returned by sanitizeInternalRedirect,
+    // which only permits trimmed, slash-prefixed relative URLs accepted by RedirectValidationUtils.
+    @SuppressFBWarnings(
+            value = "UNVALIDATED_REDIRECT",
+            justification = "redirectTarget is returned by sanitizeInternalRedirect, which only permits trimmed, "
+                    + "slash-prefixed relative URLs accepted by RedirectValidationUtils")
+    private void sendChainRedirect(String redirectTarget) throws IOException {
+        // codeql[java/unvalidated-url-redirection]
+        response.sendRedirect(redirectTarget); // nosemgrep: java.lang.security.audit.servlets.unvalidated-redirect.unvalidated-redirect-java -- gated by sanitizeInternalRedirect
     }
 
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a fixed same-origin billing path (contextPath + "/billing"); only query parameters (billing/appointment request and session values) vary and cannot alter the host or scheme.
