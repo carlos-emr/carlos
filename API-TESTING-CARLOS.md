@@ -20,8 +20,8 @@ The current API surface was identified from these files:
 
 | Environment | Base URL | Tester | Date | Notes |
 | --- | --- | --- | --- | --- |
-| CARLOS local/test | `https://<host>/<context>` |  |  |  |
-| OSCAR | Deferred |  |  | OSCAR testing is blocked separately. |
+| CARLOS local/test | `https://<host>/<context>` |  |  | Primary CARLOS target. |
+| OSCAR 19 Galaxy VM | `https://<host>/oscar` |  |  | Comparison target when available; use demo/test data only. |
 
 ## REST Surfaces
 
@@ -144,6 +144,7 @@ collections only if they do not contain PHI or secrets.
 | Date | Area | Endpoint or operation | Request type | Expected | Actual | Status | Evidence | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-06-17 | Source inspection | REST and SOAP configuration | Repository review | API surfaces identified from source | `/ws/rs`, `/ws/oauth`, `/ws/services`, SOAP `/ws/*`, and OLIS WSDL documented | Complete | `spring_ws.xml`, `applicationContextREST.xml`, `service.wsdl` | No live environment calls recorded in this entry. |
+| 2026-06-18 | CARLOS/OSCAR comparison | SOAP, REST, OAuth, and appointment integration paths | Live test/demo environments | Determine whether CARLOS APIs work and whether CARLOS/OSCAR behave the same | CARLOS SOAP worked for tested appointment flows; CARLOS REST worked for core flows with defects; CARLOS and OSCAR were compatible but not identical | Complete | PR investigation summary/comments | Keep detailed evidence sanitized and outside this checklist if it contains sensitive values. |
 |  | REST |  |  |  |  |  |  |  |
 |  | SOAP |  |  |  |  |  |  |  |
 
@@ -152,14 +153,15 @@ collections only if they do not contain PHI or secrets.
 A CARLOS API smoke pass is complete when these items are recorded in the result
 log:
 
-- One unauthenticated REST rejection.
-- One authenticated `/ws/rs` read.
-- One OAuth token flow or documented OAuth environment blocker.
-- One OAuth-protected `/ws/services` rejection without credentials.
-- One OAuth-protected `/ws/services` success, if OAuth credentials are available.
-- One SOAP WSDL load.
-- One SOAP auth rejection.
-- One SOAP success against a safe read-only operation, if test credentials are
+- Record an unauthenticated REST rejection.
+- Record an authenticated `/ws/rs` read.
+- Complete an OAuth token flow, or document the OAuth environment blocker.
+- Verify an OAuth-protected `/ws/services` rejection without credentials.
+- Verify an OAuth-protected `/ws/services` success, if OAuth credentials are
+  available.
+- Load a SOAP WSDL.
+- Confirm SOAP auth rejection.
+- Call a safe read-only SOAP operation successfully, if test credentials are
   available.
 - Schedule SOAP WSDL confirms the required appointment operations are present.
 - Required appointment integration reads are exercised:
