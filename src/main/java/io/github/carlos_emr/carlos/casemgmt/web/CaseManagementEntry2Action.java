@@ -2083,6 +2083,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             logger.debug("Redirecting to billing form for appointment_no={}, demographic_no={}",
                     appointmentNo, demoNo);
             sendBillingRedirect(url);
+            return NONE;
         }
 
         String chain = request.getParameter("chain");
@@ -2094,6 +2095,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             // encoded control characters, and traversal escapes.
             if (redirectTarget != null) {
                 sendChainRedirect(redirectTarget);
+                return NONE;
             } else {
                 logger.warn("Rejected invalid chain redirect target");
                 // Fall through to return "windowClose" without redirect
