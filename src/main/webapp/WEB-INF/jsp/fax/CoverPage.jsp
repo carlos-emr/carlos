@@ -452,7 +452,6 @@
                                 <fmt:param value="${carlos:forHtml(faxJob.recipient)}"/>
                                 <fmt:param value="${carlos:forHtml(faxJob.destination)}"/>
                                 <fmt:param value="${carlos:forHtml(faxJob.status)}"/>
-                                <fmt:param value="${carlos:forHtml(faxJob.statusString)}"/>
                             </fmt:message>
                         </div>
                     </c:when>
