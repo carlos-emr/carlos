@@ -29,25 +29,26 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.Part;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
-import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintWriter;
 import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
-import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * Receives an annotated PDF from PDF.js (sent as a multipart file upload),
@@ -55,10 +56,19 @@ import java.util.stream.Collectors;
  * and writes an audit log entry that itemises which annotation tool types
  * were used — without recording any content that could constitute PHI.
  *
+ * <p>File upload is read via {@code request.getPart("pdfFile")} rather than
+ * Struts2's FileUploadInterceptor setter injection. The interceptor approach
+ * fails because {@link io.github.carlos_emr.carlos.app.MultiReadHttpServletRequest}
+ * caches the body for CSRF token extraction, and the Struts2 stream-based
+ * multipart parser ({@code jakarta-stream}) cannot reliably re-read from the
+ * cached stream. {@code MultiReadHttpServletRequest.getParts()} parses directly
+ * from the same cached bytes and is the correct entry point here.</p>
+ *
  * <p>Security requirements:
  * <ul>
- *   <li>/li>
- *   <li>Requires {@code _edoc w} privilege.</li>
+ *   <li>Requires {@code _edoc w} privilege (enforced in this action). The upstream
+ *       {@link FaxDocument2Action} gate also requires {@code _edoc r} and
+ *       {@code _fax r} before the annotation viewer is reached.</li>
  *   <li>The uploaded bytes must start with the {@code %PDF} magic header.</li>
  *   <li>The resolved file path must lie within the document's own directory
  *       (validated via {@link PathValidationUtils#validateExistingPath}).</li>
@@ -77,16 +87,10 @@ public class SaveAnnotatedDocument2Action extends ActionSupport {
     private static final List<String> ALLOWED_ANNOTATION_TYPES =
             List.of("signed", "text", "drawn", "highlighted");
 
+    /** 50 MB — matches struts.multipart.maxSize and MultiReadHttpServletRequest.MAX_BODY_SIZE. */
+    private static final long MAX_UPLOAD_BYTES = 50L * 1024 * 1024;
+
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-
-    // Struts2 FileUploadInterceptor populates these via setter injection.
-    private File pdfFile;
-    private String pdfFileContentType;
-    private String pdfFileFileName;
-
-    public void setPdfFile(File pdfFile) { this.pdfFile = pdfFile; }
-    public void setPdfFileContentType(String ct) { this.pdfFileContentType = ct; }
-    public void setPdfFileFileName(String fn) { this.pdfFileFileName = fn; }
 
     @Override
     public String execute() throws Exception {
@@ -117,45 +121,41 @@ public class SaveAnnotatedDocument2Action extends ActionSupport {
             return NONE;
         }
 
-        if (pdfFile == null) {
+        // Read the uploaded file via the Part API. MultiReadHttpServletRequest.getParts()
+        // parses from its cached body bytes, so this works regardless of whether the CSRF
+        // filter already consumed the original input stream.
+        Part filePart;
+        try {
+            filePart = request.getPart("pdfFile");
+        } catch (ServletException e) {
+            logger.error("Failed to parse multipart parts for docId={}", docId, e);
+            sendJsonError(response, "Failed to read uploaded file");
+            return NONE;
+        }
+
+        if (filePart == null || filePart.getSize() == 0L) {
             sendJsonError(response, "No PDF data received");
             return NONE;
         }
-        
-        final Path uploadPath;       
-        try {
-            PathValidationUtils.validateUpload(pdfFile);
-            uploadPath = pdfFile.toPath().toAbsolutePath().normalize();
-            Path trustedUploadDir = Paths.get(System.getProperty("java.io.tmpdir"))
-                     .toAbsolutePath()
-                     .normalize();
-             if (!uploadPath.startsWith(trustedUploadDir)) {
-                 throw new SecurityException("Uploaded file path is outside trusted upload directory");
-             }
-             if (!Files.isRegularFile(uploadPath, LinkOption.NOFOLLOW_LINKS) || !Files.isReadable(uploadPath)) {
-                throw new SecurityException("Uploaded file path is not a readable regular file");
-            }
-        } catch (SecurityException e) {
-            logger.error("Uploaded file validation failed", e);
-            sendJsonError(response, "Invalid uploaded file");
+
+        if (filePart.getSize() > MAX_UPLOAD_BYTES) {
+            logger.warn("Rejecting oversized annotated PDF for docId={}: {} bytes", docId, filePart.getSize());
+            sendJsonError(response, "Uploaded file exceeds maximum allowed size");
             return NONE;
         }
-        
-        try {
-             if (!Files.exists(uploadPath) || Files.size(uploadPath) == 0L) {
-                 sendJsonError(response, "No PDF data received");
-                 return NONE;
-             }
-         } catch (Exception e) {
-             logger.error("Failed checking uploaded PDF file size/existence", e);
-            sendJsonError(response, "No PDF data received");
-            return NONE;
-        }
-        
-        // Reject if the uploaded bytes are not a PDF
+
+        // Check %PDF magic header using a separate stream open so the main copy
+        // still reads from byte 0. Part.getInputStream() can be opened multiple times
+        // (DiskFileItem opens a fresh FileInputStream; in-memory returns ByteArrayInputStream).
         byte[] header = new byte[4];
-        try (var is = Files.newInputStream(uploadPath, LinkOption.NOFOLLOW_LINKS)) {
-            if (is.read(header) < 4 || !Arrays.equals(header, PDF_MAGIC)) {
+        try (InputStream is = filePart.getInputStream()) {
+            int totalRead = 0;
+            while (totalRead < 4) {
+                int r = is.read(header, totalRead, 4 - totalRead);
+                if (r < 0) break;
+                totalRead += r;
+            }
+            if (totalRead < 4 || !Arrays.equals(header, PDF_MAGIC)) {
                 logger.warn("SaveAnnotatedDocument: upload for docId={} failed PDF magic check", docId);
                 sendJsonError(response, "Uploaded file is not a valid PDF");
                 return NONE;
@@ -168,21 +168,6 @@ public class SaveAnnotatedDocument2Action extends ActionSupport {
             return NONE;
         }
 
-        // Validate uploaded temp-file path before any path-based file operation
-        Path uploadedPath = pdfFile.toPath().toAbsolutePath().normalize();
-        Path tempBase = Paths.get(System.getProperty("java.io.tmpdir")).toAbsolutePath().normalize();
-        try {
-             if (!uploadedPath.startsWith(tempBase)) {
-                 throw new SecurityException("Uploaded file path is outside temp directory");
-             }
-             PathValidationUtils.validateExistingPath(uploadedPath.toFile(), tempBase.toFile());
-        } catch (SecurityException e) {
-             logger.error("Uploaded file path validation failed for docId={}: {}", docId, uploadedPath);
-             sendJsonError(response, "Invalid uploaded file path");
-             return NONE;
-        }
-
-        // Resolve and validate the existing document file before overwriting it
         Path targetPath = Paths.get(doc.getFilePath());
         try {
             PathValidationUtils.validateExistingPath(targetPath.toFile(), targetPath.getParent().toFile());
@@ -192,15 +177,16 @@ public class SaveAnnotatedDocument2Action extends ActionSupport {
             return NONE;
         }
 
-        // Overwrite the document file with the annotated version
-        try {
-            Files.copy(uploadedPath, targetPath, StandardCopyOption.REPLACE_EXISTING);
+        // Overwrite the document file with the annotated version.
+        // Second stream open gives the full content from byte 0.
+        try (InputStream is = filePart.getInputStream()) {
+            Files.copy(is, targetPath, StandardCopyOption.REPLACE_EXISTING);
         } catch (AccessDeniedException e) {
-            logger.error("Unable to overwrite existing file docId={}: {}", docId, uploadedPath);
+            logger.error("Unable to overwrite existing file docId={}", docId, e);
             sendJsonError(response, "Unable to overwrite existing file");
             return NONE;
         }
-        
+
         // Parse and sanitise annotation type labels before logging
         String annotationTypesCsv = StringUtils.trimToEmpty(request.getParameter("annotationTypes"));
         List<String> usedTypes = buildSafeAnnotationList(annotationTypesCsv);
@@ -208,7 +194,7 @@ public class SaveAnnotatedDocument2Action extends ActionSupport {
         String demographicNoStr = StringUtils.defaultString(doc.getModuleId(), "0");
 
         if (!usedTypes.isEmpty()) {
-            String summary = usedTypes.stream().collect(Collectors.joining(", "));
+            String summary = String.join(", ", usedTypes);
             LogAction.addLog(
                     loggedInInfo,
                     "DOCUMENT_ANNOTATED",
@@ -220,7 +206,6 @@ public class SaveAnnotatedDocument2Action extends ActionSupport {
             logger.info("Document {} annotated by provider {} — types: {}",
                     docId, loggedInInfo.getLoggedInProviderNo(), summary);
         } else {
-            // Document was saved from the viewer without any annotations being placed
             LogAction.addLog(
                     loggedInInfo,
                     "DOCUMENT_SAVED_FAX_PREP",
@@ -256,7 +241,7 @@ public class SaveAnnotatedDocument2Action extends ActionSupport {
         return result;
     }
 
-    private static void sendJsonError(HttpServletResponse response, String message) throws Exception {
+    private static void sendJsonError(HttpServletResponse response, String message) throws IOException {
         response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
