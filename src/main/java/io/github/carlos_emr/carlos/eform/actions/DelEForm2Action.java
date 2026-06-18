@@ -72,7 +72,13 @@ public class DelEForm2Action extends ActionSupport {
         }
 
         String fid = request.getParameter("fid");
-        if (StringUtils.isBlank(fid) || !StringUtils.isNumeric(fid)) {
+        if (StringUtils.isBlank(fid)) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing or invalid fid");
+            return NONE;
+        }
+        try {
+            Integer.parseInt(fid);
+        } catch (NumberFormatException e) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing or invalid fid");
             return NONE;
         }
