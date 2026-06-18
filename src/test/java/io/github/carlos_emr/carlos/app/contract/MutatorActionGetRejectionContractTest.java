@@ -207,7 +207,7 @@ class MutatorActionGetRejectionContractTest {
                     "_demographic", "w"),
             // --- eform ---
             Arguments.of("io.github.carlos_emr.carlos.eform.actions.DelEForm2Action",
-                    "_eform", "d")
+                    "_admin.eform", "w")
         );
     }
 

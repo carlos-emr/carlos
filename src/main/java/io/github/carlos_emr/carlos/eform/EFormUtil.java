@@ -99,7 +99,7 @@ public class EFormUtil {
 
     private static final Set<String> ALLOWED_SORT_COLUMNS = Set.of(NAME, SUBJECT, DATE, FILE_NAME, PROVIDER);
 
-    static final String FORM_CREATOR_KEY = "formCreator";
+    public static final String FORM_CREATOR_KEY = "formCreator";
 
     // Collaborator beans are resolved lazily (per call) instead of in static-final field
     // initializers. SpringUtils.getBean returns the cached singleton, so the per-call cost is a
