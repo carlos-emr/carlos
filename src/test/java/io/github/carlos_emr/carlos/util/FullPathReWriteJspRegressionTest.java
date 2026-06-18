@@ -32,6 +32,8 @@ class FullPathReWriteJspRegressionTest {
             "src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingSVCTrayAssoc.jsp");
     private static final Path DXCODE_SVCCODE_ASSOC_JSP = Path.of(
             "src/main/webapp/WEB-INF/jsp/billing/CA/BC/dxcode_svccode_assoc.jsp");
+    private static final Path FORMWCB_JSP = Path.of(
+            "src/main/webapp/WEB-INF/jsp/billing/CA/BC/formwcb.jsp");
 
     @Test
     @DisplayName("should encode runtime query values in rewrite popup URLs")
@@ -40,11 +42,12 @@ class FullPathReWriteJspRegressionTest {
         String billingBC = read(BILLING_BC_JSP);
         String billingSvcTrayAssoc = read(BILLING_SVC_TRAY_ASSOC_JSP);
         String dxcodeSvcCodeAssoc = read(DXCODE_SVCCODE_ASSOC_JSP);
+        String formwcb = read(FORMWCB_JSP);
 
         assertThat(adjustBill)
-                .contains("encodeURIComponent(document.forms['reprocessBilling'].elements[d].value)")
-                .contains("encodeURIComponent(document.forms[form].elements[code].value)")
-                .contains("encodeURIComponent(document.forms['reprocessBilling'].service_code.value)")
+                .contains("var t0 = encodeURIComponent(document.forms['reprocessBilling'].elements[d].value)")
+                .contains("var t0 = encodeURIComponent(document.forms[form].elements[code].value)")
+                .contains("var t0 = encodeURIComponent(document.forms['reprocessBilling'].service_code.value)")
                 .contains("encodeURIComponent(form)")
                 .contains("encodeURIComponent(field)")
                 .contains("encodeURIComponent(str)")
@@ -58,9 +61,9 @@ class FullPathReWriteJspRegressionTest {
                 .doesNotContain("&providerNo=' + providerNo");
 
         assertThat(billingBC)
-                .contains("encodeURIComponent(document.BillingCreateBillingForm.xml_other1.value)")
-                .contains("encodeURIComponent(document.BillingCreateBillingForm.elements[d].value)")
-                .contains("encodeURIComponent(document.serviceform.xml_referral1.value)")
+                .contains("var t0 = encodeURIComponent(document.BillingCreateBillingForm.xml_other1.value)")
+                .contains("var t0 = encodeURIComponent(document.BillingCreateBillingForm.elements[d].value)")
+                .contains("var t0 = encodeURIComponent(document.serviceform.xml_referral1.value)")
                 .contains("encodeURIComponent(d)")
                 .doesNotContain("escape(document.BillingCreateBillingForm")
                 .doesNotContain("escape(document.serviceform")
@@ -75,6 +78,13 @@ class FullPathReWriteJspRegressionTest {
         assertThat(dxcodeSvcCodeAssoc)
                 .contains("var t0 = encodeURIComponent(document.forms[0].xml_other1.value)")
                 .doesNotContain("escape(document.forms[0].xml_other1.value)");
+
+        assertThat(formwcb)
+                .contains("context=\"javaScriptBlock\"")
+                .contains("encodeURIComponent(form)")
+                .contains("encodeURIComponent(field)")
+                .contains("encodeURIComponent(str)")
+                .doesNotContain("&searchStr=' + str");
     }
 
     private static String read(Path path) throws IOException {

@@ -823,9 +823,9 @@
         var awnd = null;
 
         function OtherScriptAttach() {
-            t0 = encodeURIComponent(document.BillingCreateBillingForm.xml_other1.value);
-            t1 = encodeURIComponent(document.BillingCreateBillingForm.xml_other2.value);
-            t2 = encodeURIComponent(document.BillingCreateBillingForm.xml_other3.value);
+            var t0 = encodeURIComponent(document.BillingCreateBillingForm.xml_other1.value);
+            var t1 = encodeURIComponent(document.BillingCreateBillingForm.xml_other2.value);
+            var t2 = encodeURIComponent(document.BillingCreateBillingForm.xml_other3.value);
             awnd = rs('att', '<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingCodeNewSearch" context="javaScriptBlock"/>?name=' + t0 + '&name1=' + t1 + '&name2=' + t2 + '&search=', 820, 740, 1);
             awnd.focus();
         }
@@ -841,16 +841,16 @@
 
         function ReferralScriptAttach(elementName) {
             var d = elementName;
-            t0 = encodeURIComponent(document.BillingCreateBillingForm.elements[d].value);
-            t1 = encodeURIComponent("");
+            var t0 = encodeURIComponent(document.BillingCreateBillingForm.elements[d].value);
+            var t1 = encodeURIComponent("");
             awnd = rs('att', '<rewrite:reWrite jspPage="/billing/CA/BC/ViewBillingReferCodeSearch" context="javaScriptBlock"/>?name=' + t0 + '&name1=' + t1 + '&name2=&search=&formElement=' + encodeURIComponent(d) + '&formName=BillingCreateBillingForm', 600, 600, 1);
             awnd.focus();
         }
 
 
         function ResearchScriptAttach() {
-            t0 = encodeURIComponent(document.serviceform.xml_referral1.value);
-            t1 = encodeURIComponent(document.serviceform.xml_referral2.value);
+            var t0 = encodeURIComponent(document.serviceform.xml_referral1.value);
+            var t1 = encodeURIComponent(document.serviceform.xml_referral2.value);
 
             awnd = rs('att', '<rewrite:reWrite jspPage="billingReferralCodeSearch.jsp" context="javaScriptBlock"/>?name=' + t0 + '&name1=' + t1 + '&search=', 600, 600, 1);
             awnd.focus();
