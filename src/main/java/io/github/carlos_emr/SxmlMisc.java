@@ -84,7 +84,7 @@ public class SxmlMisc extends Properties {
                 // temp is an attacker-controlled request parameter name and is logged here
                 // precisely because it failed the alphanumeric guard above, so it may contain
                 // CR/LF or control chars. Sanitize to prevent log forging (CodeQL log-injection).
-                log.error("Invalid XML element name: {}", LogSafe.sanitize(temp));
+                log.error("Invalid XML element name: {}", LogSafe.sanitize(temp)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 continue; // Skip invalid parameter names
             }
 
