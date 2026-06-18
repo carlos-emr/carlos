@@ -176,6 +176,24 @@ class SelectFacility2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should sanitize remote address when writing login audit log")
+    void shouldSanitizeRemoteAddress_whenWritingLoginAuditLog() throws Exception {
+        Facility facility = new Facility();
+        facility.setId(10);
+        request.setRemoteAddr("127.0.0.1\r\nforged-login");
+        request.addParameter(Login2Action.SELECTED_FACILITY_ID, "10");
+        request.addParameter("nextPage", "provider");
+        when(providerDao.getFacilityIds("999998")).thenReturn(List.of(10));
+        when(facilityDao.find(10)).thenReturn(facility);
+
+        String result = action().execute();
+
+        assertThat(result).isEqualTo("provider");
+        logActionMock.verify(() -> LogAction.addLog("999998", "log in", "login",
+                "facilityId=10", "127.0.0.1\\r\\nforged-login"));
+    }
+
+    @Test
     @DisplayName("should default to provider when next page is blank")
     void shouldDefaultToProvider_whenNextPageIsBlank() throws Exception {
         Facility facility = new Facility();

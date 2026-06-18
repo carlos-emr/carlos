@@ -133,7 +133,7 @@ public final class SelectFacility2Action extends BaseLoginPageView2Action {
         LoggedInInfo loggedInInfo = LoggedInUserFilter.generateLoggedInInfoFromSession(request);
         LoggedInInfo.setLoggedInInfoIntoSession(session, loggedInInfo);
         LogAction.addLog(providerNo, LogConst.LOGIN, LogConst.CON_LOGIN,
-                "facilityId=" + facilityId, request.getRemoteAddr());
+                "facilityId=" + facilityId, LogSafe.sanitize(request.getRemoteAddr()));
 
         if (nextResult == null || nextResult.isEmpty()) {
             return "provider";
