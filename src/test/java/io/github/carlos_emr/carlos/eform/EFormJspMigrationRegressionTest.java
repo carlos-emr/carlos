@@ -48,8 +48,6 @@ class EFormJspMigrationRegressionTest {
 
     private static final Path PATIENT_FORM_LIST_JSP =
             Path.of("src/main/webapp/WEB-INF/jsp/eform/efmpatientformlist.jsp");
-    private static final Path CONSULTATION_FORM_REQUEST_JSP =
-            Path.of("src/main/webapp/WEB-INF/jsp/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp");
     private static final Path IMPORT_PARTIAL_JSP =
             Path.of("src/main/webapp/WEB-INF/jsp/eform/partials/import.jsp");
     private static final Path STRUTS_EFORM_XML =
@@ -83,6 +81,30 @@ class EFormJspMigrationRegressionTest {
     }
 
     @Test
+    @DisplayName("addEForm results should render the internal eForm JSP directly so POST save flows do not hit the GET-only gate")
+    void shouldRenderInternalShowFormJsp_whenAddEFormReturnsResults() throws IOException {
+        String struts = Files.readString(STRUTS_EFORM_XML, StandardCharsets.UTF_8);
+        String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/eform/efmshowform_data.jsp"), StandardCharsets.UTF_8);
+
+        assertThat(struts)
+                .contains("<action name=\"eform/addEForm\" class=\"io.github.carlos_emr.carlos.eform.actions.AddEForm2Action\">")
+                .contains("<result name=\"close\">/WEB-INF/jsp/eform/efmshowform_data.jsp</result>")
+                .contains("<result name=\"download\">/WEB-INF/jsp/eform/efmshowform_data.jsp</result>")
+                .contains("<result name=\"error\">/WEB-INF/jsp/eform/efmshowform_data.jsp</result>");
+        assertThat(jsp).contains("request.getParameter(\"error\") != null ? request.getParameter(\"error\") : (String) request.getAttribute(\"error\")");
+    }
+
+
+    @Test
+    @DisplayName("admin eForm preview should resolve image placeholders through the active request context")
+    void shouldUseRequestContextForImagePath_whenAdminEFormPreviewRenders() throws IOException {
+        String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/eform/efmshowform_data.jsp"), StandardCharsets.UTF_8);
+
+        assertThat(jsp).contains("eForm.setImagePath(request.getContextPath());")
+                .doesNotContain("eForm.setImagePath();");
+    }
+
+    @Test
     @DisplayName("saved eForm previews should resolve image placeholders through the active request context")
     void savedEFormPreviewShouldUseRequestContextForImagePath() throws IOException {
         String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/eform/efmshowform_data.jsp"), StandardCharsets.UTF_8);
@@ -95,7 +117,8 @@ class EFormJspMigrationRegressionTest {
     @Test
     @DisplayName("consultation request eForm links should keep using the shared saved-form route")
     void consultationRequestShouldLinkSavedEformsThroughSharedShowFormRoute() throws IOException {
-        String jsp = Files.readString(CONSULTATION_FORM_REQUEST_JSP, StandardCharsets.UTF_8);
+        String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp"),
+                StandardCharsets.UTF_8);
 
         assertThat(jsp).contains("/eform/efmshowform_data?fdid=");
     }
