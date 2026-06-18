@@ -27,9 +27,33 @@ CREATE TABLE IF NOT EXISTS sms_transaction (
   sent_at DATETIME NULL,
   delivered_at DATETIME NULL,
   received_at DATETIME NULL,
+  provider_event_at DATETIME NULL,
+  claim_token VARCHAR(64) NULL,
   PRIMARY KEY (id),
   KEY sms_transaction_demographic_created_idx (demographic_no, created_at),
-  KEY sms_transaction_provider_message_idx (provider_type, provider_message_id),
-  KEY sms_transaction_queue_idx (status, provider_type, next_attempt_at),
-  KEY sms_transaction_status_updated_idx (status, updated_at)
+  UNIQUE KEY sms_transaction_provider_message_uidx (provider_type, provider_message_id),
+  KEY sms_transaction_queue_idx (direction, provider_type, status, next_attempt_at, created_at),
+  KEY sms_transaction_status_updated_idx (status, updated_at),
+  KEY sms_transaction_claim_token_idx (claim_token)
 );
+
+CREATE TABLE IF NOT EXISTS sms_provider_rate_limit (
+  provider_type VARCHAR(16) NOT NULL,
+  send_count INT NOT NULL DEFAULT 0,
+  window_started_at DATETIME NOT NULL,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NOT NULL,
+  PRIMARY KEY (provider_type)
+);
+
+-- Default send limit is enforced in JpaSmsSendRateLimiter at 5 SMS/5 seconds until provider limits are confirmed.
+INSERT IGNORE INTO sms_provider_rate_limit (
+  provider_type,
+  send_count,
+  window_started_at,
+  created_at,
+  updated_at
+) VALUES
+  ('STUB', 0, NOW(), NOW(), NOW()),
+  ('VOIPMS', 0, NOW(), NOW(), NOW()),
+  ('CLOUDLI', 0, NOW(), NOW(), NOW());

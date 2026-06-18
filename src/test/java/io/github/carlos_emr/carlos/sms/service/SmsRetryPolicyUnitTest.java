@@ -17,6 +17,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("unit")
 @Tag("service")
 class SmsRetryPolicyUnitTest {
+    private static final Instant FIRST_ATTEMPT_AT = Instant.parse("2026-06-08T12:00:00Z");
+    private static final Instant RETRY_SCHEDULED_AT = Instant.parse("2026-06-08T12:05:00Z");
+    private static final Instant SECOND_ATTEMPT_AT = Instant.parse("2026-06-08T12:10:00Z");
+
     @Test
     @DisplayName("canRetry permits attempts below the configured maximum")
     void shouldAllowRetry_whenAttemptsRemain() {
@@ -32,9 +36,12 @@ class SmsRetryPolicyUnitTest {
     void shouldRejectRetry_whenMaximumAttemptsReached() {
         SmsRetryPolicy retryPolicy = new SmsRetryPolicy(2, Duration.ofMinutes(1), Duration.ofHours(1));
         SmsTransaction transaction = queuedTransaction();
-        transaction.markSending(new Date());
-        transaction.markRetryScheduled(SmsProviderSendResultDto.failed("PROVIDER_ERROR", "Provider rejected"), new Date());
-        transaction.markSending(new Date());
+        transaction.markSending(dateAt(FIRST_ATTEMPT_AT));
+        transaction.markRetryScheduled(
+                SmsProviderSendResultDto.failed("PROVIDER_ERROR", "Provider rejected"),
+                dateAt(RETRY_SCHEDULED_AT)
+        );
+        transaction.markSending(dateAt(SECOND_ATTEMPT_AT));
 
         assertThat(retryPolicy.canRetry(transaction)).isFalse();
     }
@@ -57,5 +64,9 @@ class SmsRetryPolicyUnitTest {
                 SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
         );
+    }
+
+    private static Date dateAt(Instant instant) {
+        return Date.from(instant);
     }
 }

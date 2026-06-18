@@ -5,7 +5,7 @@ import io.github.carlos_emr.carlos.sms.SmsDirection;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
-import jakarta.persistence.LockModeType;
+import jakarta.persistence.Query;
 import jakarta.persistence.TypedQuery;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> implements SmsTransactionDao {
@@ -57,25 +58,106 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
 
     @Override
     @Transactional
-    public List<SmsTransaction> findDueOutboundQueueForUpdate(SmsProviderType providerType, Date now, int limit) {
-        if (providerType == null || now == null) {
+    @SuppressWarnings("unchecked")
+    public List<SmsTransaction> claimDueOutboundQueue(SmsProviderType providerType, Date claimAt, int limit) {
+        if (providerType == null || claimAt == null) {
             return List.of();
         }
-        TypedQuery<SmsTransaction> query = entityManager.createQuery(
-                "SELECT t FROM SmsTransaction t WHERE t.direction = :direction "
-                        + "AND t.providerType = :providerType "
-                        + "AND t.status = :status "
-                        + "AND (t.nextAttemptAt IS NULL OR t.nextAttemptAt <= :now) "
-                        + "ORDER BY t.createdAt ASC",
+        String claimToken = newClaimToken();
+        Query update = entityManager.createNativeQuery(
+                "UPDATE sms_transaction "
+                        + "SET status = ?1, "
+                        + "attempt_count = attempt_count + 1, "
+                        + "last_attempt_at = ?2, "
+                        + "next_attempt_at = NULL, "
+                        + "updated_at = ?3, "
+                        + "claim_token = ?4 "
+                        + "WHERE direction = ?5 "
+                        + "AND provider_type = ?6 "
+                        + "AND status = ?7 "
+                        + "AND (next_attempt_at IS NULL OR next_attempt_at <= ?8) "
+                        + "ORDER BY created_at ASC "
+                        + "LIMIT ?9"
+        );
+        update.setParameter(1, SmsStatus.SENDING.name());
+        update.setParameter(2, claimAt);
+        update.setParameter(3, claimAt);
+        update.setParameter(4, claimToken);
+        update.setParameter(5, SmsDirection.OUTBOUND.name());
+        update.setParameter(6, providerType.name());
+        update.setParameter(7, SmsStatus.QUEUED.name());
+        update.setParameter(8, claimAt);
+        update.setParameter(9, safeLimit(limit));
+        int claimed = update.executeUpdate();
+        if (claimed == 0) {
+            return List.of();
+        }
+        return findByClaimTokenOrderByCreatedAt(claimToken);
+    }
+
+    @Override
+    @Transactional
+    @SuppressWarnings("unchecked")
+    public List<SmsTransaction> claimStaleOutboundSendingForRecovery(
+            SmsProviderType providerType,
+            Date staleBefore,
+            Date recoveryAt,
+            int limit
+    ) {
+        if (providerType == null || staleBefore == null || recoveryAt == null) {
+            return List.of();
+        }
+        String claimToken = newClaimToken();
+        Query update = entityManager.createNativeQuery(
+                "UPDATE sms_transaction "
+                        + "SET last_attempt_at = ?1, "
+                        + "updated_at = ?2, "
+                        + "claim_token = ?3 "
+                        + "WHERE direction = ?4 "
+                        + "AND provider_type = ?5 "
+                        + "AND status = ?6 "
+                        + "AND last_attempt_at IS NOT NULL "
+                        + "AND last_attempt_at < ?7 "
+                        + "ORDER BY last_attempt_at ASC "
+                        + "LIMIT ?8"
+        );
+        update.setParameter(1, recoveryAt);
+        update.setParameter(2, recoveryAt);
+        update.setParameter(3, claimToken);
+        update.setParameter(4, SmsDirection.OUTBOUND.name());
+        update.setParameter(5, providerType.name());
+        update.setParameter(6, SmsStatus.SENDING.name());
+        update.setParameter(7, staleBefore);
+        update.setParameter(8, safeLimit(limit));
+        int claimed = update.executeUpdate();
+        if (claimed == 0) {
+            return List.of();
+        }
+        return findByClaimTokenOrderById(claimToken);
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<SmsTransaction> findByClaimTokenOrderByCreatedAt(String claimToken) {
+        Query query = entityManager.createNativeQuery(
+                "SELECT * FROM sms_transaction WHERE claim_token = ?1 ORDER BY created_at ASC",
                 SmsTransaction.class
         );
-        query.setParameter("direction", SmsDirection.OUTBOUND);
-        query.setParameter("providerType", providerType);
-        query.setParameter("status", SmsStatus.QUEUED);
-        query.setParameter("now", now);
-        query.setMaxResults(safeLimit(limit));
-        query.setLockMode(LockModeType.PESSIMISTIC_WRITE);
+        query.setParameter(1, claimToken);
         return query.getResultList();
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<SmsTransaction> findByClaimTokenOrderById(String claimToken) {
+        Query query = entityManager.createNativeQuery(
+                "SELECT * FROM sms_transaction WHERE claim_token = ?1 ORDER BY id ASC",
+                SmsTransaction.class
+        );
+        query.setParameter(1, claimToken);
+        return query.getResultList();
+    }
+
+    private String newClaimToken() {
+        return UUID.randomUUID().toString();
     }
 
     private int safeLimit(int limit) {

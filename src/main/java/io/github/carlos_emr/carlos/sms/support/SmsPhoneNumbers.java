@@ -70,7 +70,7 @@ public final class SmsPhoneNumbers {
             char c = trimmed.charAt(i);
             if (i == 0 && c == '+') {
                 leadingPlus = true;
-            } else if (Character.isDigit(c)) {
+            } else if (isAsciiDigit(c)) {
                 digits.append(c);
             } else if (Character.isLetter(c) || !isAllowedSeparator(c)) {
                 invalid = true;
@@ -93,11 +93,15 @@ public final class SmsPhoneNumbers {
         StringBuilder digits = new StringBuilder();
         for (int i = 0; i < value.length(); i++) {
             char c = value.charAt(i);
-            if (Character.isDigit(c)) {
+            if (isAsciiDigit(c)) {
                 digits.append(c);
             }
         }
         return digits.toString();
+    }
+
+    private static boolean isAsciiDigit(char c) {
+        return c >= '0' && c <= '9';
     }
 
     private static boolean isAllowedSeparator(char c) {

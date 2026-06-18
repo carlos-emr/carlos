@@ -10,12 +10,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("support")
 class SmsAuditRedactorUnitTest {
     @Test
-    @DisplayName("phone redaction keeps only a short non-identifying suffix")
+    @DisplayName("phone redaction keeps only a labeled last-four suffix")
     void shouldRedactPhoneNumber_whenValueContainsFullPhoneNumber() {
         String redacted = SmsAuditRedactor.redactPhoneNumber("+1 416 555 1212");
 
         assertThat(redacted)
-                .isEqualTo("[redacted-phone:****1212]")
+                .isEqualTo("[redacted-phone:last4=1212]")
                 .doesNotContain("416", "555");
     }
 
@@ -28,6 +28,19 @@ class SmsAuditRedactorUnitTest {
                 .startsWith("[redacted-message length=")
                 .contains("sha256=")
                 .doesNotContain("Patient", "appointment", "tomorrow");
+    }
+
+    @Test
+    @DisplayName("provider payload previews do not include provider payload text")
+    void shouldRedactProviderPayloadPreview_whenPayloadContainsSensitiveValues() {
+        String preview = SmsAuditRedactor.safeProviderPayloadPreview(
+                "{\"to\":\"+14165551212\",\"body\":\"Patient appointment is tomorrow\"}"
+        );
+
+        assertThat(preview)
+                .startsWith("[redacted-provider-payload length=")
+                .contains("sha256=")
+                .doesNotContain("+14165551212", "Patient", "appointment", "tomorrow");
     }
 
     @Test

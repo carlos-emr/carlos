@@ -15,6 +15,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -129,12 +130,39 @@ class SmsSendServiceUnitTest {
                 );
     }
 
+    @Test
+    @DisplayName("send records provider resolution exceptions as failed SMS transactions")
+    void shouldMarkTransactionFailed_whenProviderResolutionThrows() {
+        SmsConsentService allowConsent = command -> SmsConsentDecisionDto.permit();
+        RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder();
+        SmsSendService service = new SmsSendService(
+                new SmsSendValidator(),
+                allowConsent,
+                new SmsProviderResolver(List.of()),
+                recorder
+        );
+
+        SmsSendResultDto result = service.send(SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"));
+
+        assertThat(result.accepted()).isFalse();
+        assertThat(result.status()).isEqualTo(SmsStatus.FAILED);
+        assertThat(recorder.transactions()).singleElement()
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode, SmsTransaction::getErrorMessage)
+                .containsExactly(
+                        SmsStatus.FAILED,
+                        "DIRECT_PROVIDER_EXCEPTION",
+                        "SMS direct send failed because the provider client threw an exception."
+                );
+    }
+
     private static class RecordingSmsTransactionRecorder implements SmsTransactionRecorder {
         private final List<SmsTransaction> transactions = new ArrayList<>();
+        private long nextTransactionId = 1L;
 
         @Override
         public SmsTransaction recordOutboundAttempt(SmsSendCommand command, SmsProviderType providerType) {
             SmsTransaction transaction = SmsTransaction.outboundAttempt(command, providerType);
+            assignId(transaction, nextTransactionId++);
             transactions.add(transaction);
             return transaction;
         }
@@ -190,8 +218,28 @@ class SmsSendServiceUnitTest {
                     .toList();
         }
 
+        @Override
+        public List<SmsTransaction> claimStaleSendingForRecovery(
+                SmsProviderType providerType,
+                Date staleBefore,
+                Date recoveryAt,
+                int limit
+        ) {
+            return List.of();
+        }
+
         private List<SmsTransaction> transactions() {
             return transactions;
+        }
+    }
+
+    private static void assignId(SmsTransaction transaction, long id) {
+        try {
+            Field idField = SmsTransaction.class.getDeclaredField("id");
+            idField.setAccessible(true);
+            idField.set(transaction, id);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("Unable to assign SMS transaction id for test", e);
         }
     }
 

@@ -19,7 +19,8 @@ public class SmsQueueScheduler {
     private static final String INTERVAL_SECONDS_PROPERTY = "sms.queue.scheduler.intervalSeconds";
     private static final String BATCH_SIZE_PROPERTY = "sms.queue.scheduler.batchSize";
     private static final long DEFAULT_INTERVAL_SECONDS = 60;
-    private static final int DEFAULT_BATCH_SIZE = 25;
+    // Default queued rows to ask the worker to process per scheduler run; override via sms.queue.scheduler.batchSize.
+    private static final int DEFAULT_BATCH_SIZE = 60;
 
     private final SmsQueueWorker smsQueueWorker;
     private ScheduledExecutorService executorService;
@@ -59,7 +60,7 @@ public class SmsQueueScheduler {
         try {
             runOnce();
         } catch (RuntimeException e) {
-            LOGGER.warn("SMS queue scheduler run failed", e);
+            LOGGER.warn("SMS queue scheduler run failed; exceptionClass={}", exceptionClass(e));
         }
     }
 
@@ -82,5 +83,9 @@ public class SmsQueueScheduler {
         } catch (NumberFormatException e) {
             return defaultValue;
         }
+    }
+
+    private static String exceptionClass(RuntimeException e) {
+        return e == null ? "unknown" : e.getClass().getName();
     }
 }

@@ -8,14 +8,25 @@ public record SmsConsentDecisionDto(
         String reasonCode,
         String operatorMessage
 ) {
+    public SmsConsentDecisionDto {
+        if (allowed) {
+            if (blockedStatus != null) {
+                throw new IllegalArgumentException("allowed SMS consent decisions cannot include a blockedStatus");
+            }
+        } else if (!isBlockingStatus(blockedStatus)) {
+            throw new IllegalArgumentException("blockedStatus must be CONSENT_BLOCKED or OPTOUT_BLOCKED");
+        }
+    }
+
     public static SmsConsentDecisionDto permit() {
         return new SmsConsentDecisionDto(true, null, null, null);
     }
 
     public static SmsConsentDecisionDto blocked(SmsStatus blockedStatus, String reasonCode, String operatorMessage) {
-        if (blockedStatus == null) {
-            throw new IllegalArgumentException("blockedStatus is required");
-        }
         return new SmsConsentDecisionDto(false, blockedStatus, reasonCode, operatorMessage);
+    }
+
+    private static boolean isBlockingStatus(SmsStatus status) {
+        return status == SmsStatus.CONSENT_BLOCKED || status == SmsStatus.OPTOUT_BLOCKED;
     }
 }

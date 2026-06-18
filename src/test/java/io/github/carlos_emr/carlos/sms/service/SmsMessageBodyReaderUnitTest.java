@@ -1,5 +1,6 @@
 package io.github.carlos_emr.carlos.sms.service;
 
+import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
 import io.github.carlos_emr.carlos.sms.dto.SmsDeliveryWebhookDto;
@@ -14,6 +15,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Tag("unit")
 @Tag("service")
@@ -21,16 +23,19 @@ class SmsMessageBodyReaderUnitTest {
     @Test
     @DisplayName("readFullMessageBody audits access before returning body")
     void shouldAuditAccess_whenReadingFullBody() {
+        RecordingAuthorizer authorizer = new RecordingAuthorizer();
         RecordingAuditor auditor = new RecordingAuditor();
-        SmsMessageBodyReader reader = new SmsMessageBodyReader(auditor);
+        SmsMessageBodyReader reader = new SmsMessageBodyReader(authorizer, auditor);
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
                 SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
         );
 
-        Optional<String> body = reader.readFullMessageBody(transaction, null, "CARE_REVIEW");
+        Optional<String> messageBody = reader.readFullMessageBody(transaction, null, "CARE_REVIEW");
 
-        assertThat(body).contains("Appointment reminder");
+        assertThat(messageBody).contains("Appointment reminder");
+        assertThat(authorizer.records()).singleElement()
+                .satisfies(record -> assertThat(record.transaction()).isSameAs(transaction));
         assertThat(auditor.records()).singleElement()
                 .satisfies(record -> {
                     assertThat(record.transaction()).isSameAs(transaction);
@@ -41,8 +46,9 @@ class SmsMessageBodyReaderUnitTest {
     @Test
     @DisplayName("readFullMessageBody audits access when body is missing")
     void shouldAuditAccess_whenFullBodyIsMissing() {
+        RecordingAuthorizer authorizer = new RecordingAuthorizer();
         RecordingAuditor auditor = new RecordingAuditor();
-        SmsMessageBodyReader reader = new SmsMessageBodyReader(auditor);
+        SmsMessageBodyReader reader = new SmsMessageBodyReader(authorizer, auditor);
         SmsTransaction transaction = SmsTransaction.deliveryEvent(new SmsDeliveryWebhookDto(
                 SmsProviderType.STUB,
                 "provider-1",
@@ -53,9 +59,9 @@ class SmsMessageBodyReaderUnitTest {
                 null
         ));
 
-        Optional<String> body = reader.readFullMessageBody(transaction, null, "DELIVERY_REVIEW");
+        Optional<String> messageBody = reader.readFullMessageBody(transaction, null, "DELIVERY_REVIEW");
 
-        assertThat(body).isEmpty();
+        assertThat(messageBody).isEmpty();
         assertThat(auditor.records()).singleElement()
                 .satisfies(record -> {
                     assertThat(record.transaction()).isSameAs(transaction);
@@ -63,7 +69,62 @@ class SmsMessageBodyReaderUnitTest {
                 });
     }
 
+    @Test
+    @DisplayName("readFullMessageBody fails before returning body when audit fails")
+    void shouldNotReturnBody_whenAuditFails() {
+        SmsMessageBodyReader reader = new SmsMessageBodyReader(
+                new RecordingAuthorizer(),
+                (transaction, loggedInInfo, reasonCode) -> {
+                    throw new IllegalStateException("audit failed");
+                }
+        );
+        SmsTransaction transaction = SmsTransaction.outboundAttempt(
+                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsProviderType.STUB
+        );
+
+        assertThatThrownBy(() -> reader.readFullMessageBody(transaction, null, "CARE_REVIEW"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("audit failed");
+    }
+
+    @Test
+    @DisplayName("readFullMessageBody denies access before audit")
+    void shouldNotAuditOrReturnBody_whenAccessDenied() {
+        RecordingAuditor auditor = new RecordingAuditor();
+        SmsMessageBodyReader reader = new SmsMessageBodyReader(
+                (transaction, loggedInInfo) -> {
+                    throw new AccessDeniedException("_msg", "r", transaction.getDemographicNo());
+                },
+                auditor
+        );
+        SmsTransaction transaction = SmsTransaction.outboundAttempt(
+                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsProviderType.STUB
+        );
+
+        assertThatThrownBy(() -> reader.readFullMessageBody(transaction, null, "CARE_REVIEW"))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThat(auditor.records()).isEmpty();
+    }
+
     private record AccessRecord(SmsTransaction transaction, String reasonCode) {
+    }
+
+    private record AuthorizationRecord(SmsTransaction transaction) {
+    }
+
+    private static class RecordingAuthorizer implements SmsMessageBodyAccessAuthorizer {
+        private final List<AuthorizationRecord> records = new ArrayList<>();
+
+        @Override
+        public void assertCanReadFullBody(SmsTransaction transaction, LoggedInInfo loggedInInfo) {
+            records.add(new AuthorizationRecord(transaction));
+        }
+
+        private List<AuthorizationRecord> records() {
+            return records;
+        }
     }
 
     private static class RecordingAuditor implements SmsMessageBodyAccessAuditor {

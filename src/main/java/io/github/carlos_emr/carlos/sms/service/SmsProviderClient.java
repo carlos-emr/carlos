@@ -4,15 +4,44 @@ import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
 import io.github.carlos_emr.carlos.sms.dto.SmsDeliveryWebhookDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsInboundWebhookDto;
+import io.github.carlos_emr.carlos.sms.dto.SmsProviderMessageStatusDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsProviderSendResultDto;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 public interface SmsProviderClient {
     SmsProviderType providerType();
 
+    /**
+     * Send an outbound SMS through this provider.
+     * <p>
+     * Provider adapters should include {@code clientReferenceId} in the provider request when the
+     * provider supports client references/idempotency keys. Expected provider rejections, timeouts,
+     * validation failures, and other provider-classified send failures should return a failed
+     * {@link SmsProviderSendResultDto}. Throwing a runtime exception should be reserved for unexpected
+     * adapter defects or infrastructure failures the adapter cannot safely classify.
+     */
     SmsProviderSendResultDto send(SmsSendCommand command);
+
+    default SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId) {
+        Objects.requireNonNull(clientReferenceId, "clientReferenceId is required");
+        return send(command);
+    }
+
+    /**
+     * Look up provider state for a previously attempted send.
+     * <p>
+     * Real providers should prefer lookup by {@code clientReferenceId} when supported, because CARLOS
+     * may crash after the provider accepts a send but before the provider message id is persisted.
+     */
+    default SmsProviderMessageStatusDto lookupMessageStatus(String clientReferenceId, String providerMessageId) {
+        return SmsProviderMessageStatusDto.unavailable(
+                "PROVIDER_STATUS_LOOKUP_UNSUPPORTED",
+                "SMS provider message status lookup is not implemented."
+        );
+    }
 
     boolean validateCallback(String payload, Map<String, String> headers, String secret);
 

@@ -39,6 +39,32 @@ class InMemorySmsSendRateLimiterUnitTest {
         assertThat(limiter.tryAcquire(SmsProviderType.STUB)).isTrue();
     }
 
+    @Test
+    @DisplayName("tryAcquire resets the provider window when the clock moves backward")
+    void shouldAllowSend_whenClockMovesBackward() {
+        MutableClock clock = new MutableClock(Instant.parse("2026-06-08T12:00:00Z"));
+        InMemorySmsSendRateLimiter limiter = new InMemorySmsSendRateLimiter(1, Duration.ofMinutes(1), clock);
+
+        assertThat(limiter.tryAcquire(SmsProviderType.STUB)).isTrue();
+        assertThat(limiter.tryAcquire(SmsProviderType.STUB)).isFalse();
+        clock.advance(Duration.ofSeconds(-10));
+
+        assertThat(limiter.tryAcquire(SmsProviderType.STUB)).isTrue();
+    }
+
+    @Test
+    @DisplayName("tryAcquire clamps sub-millisecond windows to one millisecond")
+    void shouldClampWindow_whenDurationIsSubMillisecond() {
+        MutableClock clock = new MutableClock(Instant.parse("2026-06-08T12:00:00Z"));
+        InMemorySmsSendRateLimiter limiter = new InMemorySmsSendRateLimiter(1, Duration.ofNanos(1), clock);
+
+        assertThat(limiter.tryAcquire(SmsProviderType.STUB)).isTrue();
+        assertThat(limiter.tryAcquire(SmsProviderType.STUB)).isFalse();
+        clock.advance(Duration.ofMillis(1));
+
+        assertThat(limiter.tryAcquire(SmsProviderType.STUB)).isTrue();
+    }
+
     private static class MutableClock extends Clock {
         private Instant instant;
 

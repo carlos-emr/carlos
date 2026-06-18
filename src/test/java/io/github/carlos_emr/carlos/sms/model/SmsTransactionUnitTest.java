@@ -19,6 +19,7 @@ import java.util.Date;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Tag("unit")
 @Tag("model")
@@ -70,7 +71,6 @@ class SmsTransactionUnitTest {
                         SmsTransaction::getRequestedBySecurityNo,
                         SmsTransaction::getToPhoneNumber,
                         SmsTransaction::getRecipientPhoneType,
-                        SmsTransaction::getMessageBody,
                         SmsTransaction::getMessageBodyLength
                 )
                 .containsExactly(
@@ -82,9 +82,9 @@ class SmsTransactionUnitTest {
                         1001,
                         "+14165551212",
                         SmsRecipientPhoneType.WORK,
-                        "Appointment reminder",
                         20
                 );
+        assertThat(transaction.toSendCommand().body()).isEqualTo("Appointment reminder");
         assertThat(transaction.getMessageBodySha256()).hasSize(64);
         assertThat(transaction.getNextAttemptAt()).isNotNull();
     }
@@ -227,7 +227,7 @@ class SmsTransactionUnitTest {
                         SmsTransaction::getStatus,
                         SmsTransaction::getFromPhoneNumber,
                         SmsTransaction::getToPhoneNumber,
-                        SmsTransaction::getMessageBody
+                        SmsTransaction::getMessageBodyLength
                 )
                 .containsExactly(
                         SmsDirection.INBOUND,
@@ -235,9 +235,10 @@ class SmsTransactionUnitTest {
                         SmsStatus.RECEIVED,
                         "+14165551212",
                         "+16475551000",
-                        "Reply text"
+                        10
                 );
         assertThat(transaction.getReceivedAt()).isNotNull();
+        assertThat(transaction.getMessageBodySha256()).hasSize(64);
         assertThat(transaction.getProviderMetadata())
                 .isEqualTo("{\"messageType\":\"sms\",\"providerStatus\":\"received\"}");
     }
@@ -266,6 +267,98 @@ class SmsTransactionUnitTest {
                 .extracting(SmsTransaction::getStatus, SmsTransaction::getProviderMessageId)
                 .containsExactly(SmsStatus.DELIVERED, "provider-1");
         assertThat(transaction.getDeliveredAt()).isEqualTo(Date.from(eventAt));
+        assertThat(transaction.getProviderMetadata()).isEqualTo("{\"providerStatus\":\"delivered\"}");
+    }
+
+    @Test
+    @DisplayName("delivery webhook rejects missing provider message id")
+    void shouldRejectDeliveryEvent_whenProviderMessageIdIsBlank() {
+        SmsDeliveryWebhookDto webhook = new SmsDeliveryWebhookDto(
+                SmsProviderType.STUB,
+                " ",
+                SmsStatus.DELIVERED,
+                Instant.EPOCH,
+                null,
+                null,
+                null
+        );
+
+        assertThatThrownBy(() -> SmsTransaction.deliveryEvent(webhook))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("providerMessageId");
+    }
+
+    @Test
+    @DisplayName("delivery webhook ignores older provider events")
+    void shouldIgnoreDeliveryEvent_whenProviderEventIsOlderThanRecordedEvent() {
+        SmsTransaction transaction = SmsTransaction.outboundAttempt(
+                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsProviderType.STUB
+        );
+        transaction.markProviderResult(SmsProviderSendResultDto.accepted("provider-1", SmsStatus.SENT));
+
+        Instant sentAt = Instant.parse("2026-06-08T12:05:00Z");
+        transaction.markDeliveryEvent(new SmsDeliveryWebhookDto(
+                SmsProviderType.STUB,
+                "provider-1",
+                SmsStatus.SENT,
+                sentAt,
+                null,
+                null,
+                Map.of("providerStatus", "sent")
+        ));
+
+        transaction.markDeliveryEvent(new SmsDeliveryWebhookDto(
+                SmsProviderType.STUB,
+                "provider-1",
+                SmsStatus.FAILED,
+                sentAt.minusSeconds(60),
+                "PROVIDER_ERROR",
+                "Old provider failure",
+                Map.of("providerStatus", "failed")
+        ));
+
+        assertThat(transaction)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode)
+                .containsExactly(SmsStatus.SENT, null);
+        assertThat(transaction.getProviderEventAt()).isEqualTo(Date.from(sentAt));
+        assertThat(transaction.getProviderMetadata()).isEqualTo("{\"providerStatus\":\"sent\"}");
+    }
+
+    @Test
+    @DisplayName("delivery webhook does not downgrade delivered transactions")
+    void shouldKeepDeliveredStatus_whenLaterFailureWebhookArrives() {
+        SmsTransaction transaction = SmsTransaction.outboundAttempt(
+                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsProviderType.STUB
+        );
+        transaction.markProviderResult(SmsProviderSendResultDto.accepted("provider-1", SmsStatus.SENT));
+        Instant deliveredAt = Instant.parse("2026-06-08T12:05:00Z");
+
+        transaction.markDeliveryEvent(new SmsDeliveryWebhookDto(
+                SmsProviderType.STUB,
+                "provider-1",
+                SmsStatus.DELIVERED,
+                deliveredAt,
+                null,
+                null,
+                Map.of("providerStatus", "delivered")
+        ));
+
+        transaction.markDeliveryEvent(new SmsDeliveryWebhookDto(
+                SmsProviderType.STUB,
+                "provider-1",
+                SmsStatus.FAILED,
+                deliveredAt.plusSeconds(60),
+                "PROVIDER_ERROR",
+                "Provider failure after delivery",
+                Map.of("providerStatus", "failed")
+        ));
+
+        assertThat(transaction)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode)
+                .containsExactly(SmsStatus.DELIVERED, null);
+        assertThat(transaction.getDeliveredAt()).isEqualTo(Date.from(deliveredAt));
         assertThat(transaction.getProviderMetadata()).isEqualTo("{\"providerStatus\":\"delivered\"}");
     }
 }

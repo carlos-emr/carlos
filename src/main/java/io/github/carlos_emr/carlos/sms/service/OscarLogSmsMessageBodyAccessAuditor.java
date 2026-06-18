@@ -1,10 +1,12 @@
 package io.github.carlos_emr.carlos.sms.service;
 
+import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
-import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Objects;
 
@@ -14,7 +16,14 @@ public class OscarLogSmsMessageBodyAccessAuditor implements SmsMessageBodyAccess
     static final String CONTENT = "sms_transaction";
     private static final int MAX_REASON_CODE_LENGTH = 64;
 
+    private final OscarLogDao oscarLogDao;
+
+    public OscarLogSmsMessageBodyAccessAuditor(OscarLogDao oscarLogDao) {
+        this.oscarLogDao = oscarLogDao;
+    }
+
     @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recordFullBodyRead(SmsTransaction transaction, LoggedInInfo loggedInInfo, String reasonCode) {
         Objects.requireNonNull(transaction, "transaction is required");
         OscarLog log = new OscarLog();
@@ -32,7 +41,8 @@ public class OscarLogSmsMessageBodyAccessAuditor implements SmsMessageBodyAccess
         log.setContentId(transaction.getId() == null ? null : transaction.getId().toString());
         log.setDemographicId(transaction.getDemographicNo());
         log.setData(dataFor(transaction, reasonCode));
-        LogAction.addLogSynchronous(log);
+        oscarLogDao.persist(log);
+        oscarLogDao.flush();
     }
 
     private String dataFor(SmsTransaction transaction, String reasonCode) {

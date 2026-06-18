@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -44,6 +45,31 @@ class SmsDtoUnitTest {
     }
 
     @Test
+    @DisplayName("accepted provider results require provider id and send-success status")
+    void shouldRejectAcceptedProviderResult_whenRequiredFieldsAreInvalid() {
+        assertThatThrownBy(() -> SmsProviderSendResultDto.accepted(null, SmsStatus.SENT))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("providerMessageId");
+        assertThatThrownBy(() -> SmsProviderSendResultDto.accepted(" ", SmsStatus.SENT))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("providerMessageId");
+        assertThatThrownBy(() -> SmsProviderSendResultDto.accepted("provider-1", SmsStatus.FAILED))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("SENT or DELIVERED");
+    }
+
+    @Test
+    @DisplayName("blocked consent decisions require a blocking SMS status")
+    void shouldRejectConsentBlockedDecision_whenStatusIsNotBlocking() {
+        assertThatThrownBy(() -> SmsConsentDecisionDto.blocked(null, "MISSING", "blocked"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("blockedStatus");
+        assertThatThrownBy(() -> SmsConsentDecisionDto.blocked(SmsStatus.FAILED, "FAILED", "blocked"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("CONSENT_BLOCKED or OPTOUT_BLOCKED");
+    }
+
+    @Test
     @DisplayName("inbound webhook metadata allows nullable provider values and remains immutable")
     void shouldPreserveInboundMetadata_whenProviderValueIsNull() {
         Map<String, String> metadata = new HashMap<>();
@@ -60,7 +86,8 @@ class SmsDtoUnitTest {
         );
 
         assertThat(dto.providerMetadata()).containsEntry("nullable", null);
-        assertThatThrownBy(() -> dto.providerMetadata().put("next", "value"))
+        Map<String, String> providerMetadata = dto.providerMetadata();
+        assertThatThrownBy(() -> providerMetadata.put("next", "value"))
                 .isInstanceOf(UnsupportedOperationException.class);
     }
 
@@ -81,7 +108,56 @@ class SmsDtoUnitTest {
         );
 
         assertThat(dto.providerMetadata()).containsEntry("nullable", null);
-        assertThatThrownBy(() -> dto.providerMetadata().put("next", "value"))
+        Map<String, String> providerMetadata = dto.providerMetadata();
+        assertThatThrownBy(() -> providerMetadata.put("next", "value"))
                 .isInstanceOf(UnsupportedOperationException.class);
+    }
+
+    @Test
+    @DisplayName("webhook metadata drops sensitive keys and bounds large values")
+    void shouldSanitizeWebhookMetadata_whenProviderIncludesSensitiveOrLargeValues() {
+        Map<String, String> metadata = new LinkedHashMap<>();
+        metadata.put("Authorization", "Bearer secret");
+        metadata.put("providerStatus", "delivered");
+        metadata.put("api_key", "secret");
+        metadata.put("s\u00e9cret", "hidden");
+        metadata.put("auth t\u00f3ken", "hidden");
+        metadata.put("longValue", "x".repeat(600));
+
+        SmsInboundWebhookDto dto = new SmsInboundWebhookDto(
+                SmsProviderType.STUB,
+                "provider-1",
+                "+14165551212",
+                "+14165550000",
+                "reply",
+                Instant.EPOCH,
+                metadata
+        );
+
+        assertThat(dto.providerMetadata()).containsOnlyKeys("providerStatus", "longValue");
+        assertThat(dto.providerMetadata().get("longValue")).hasSize(512);
+    }
+
+    @Test
+    @DisplayName("webhook metadata keeps a bounded number of entries")
+    void shouldLimitWebhookMetadataEntries_whenProviderIncludesTooManyValues() {
+        Map<String, String> metadata = new LinkedHashMap<>();
+        for (int i = 0; i < 30; i++) {
+            metadata.put("safe-" + i, "value-" + i);
+        }
+
+        SmsDeliveryWebhookDto dto = new SmsDeliveryWebhookDto(
+                SmsProviderType.STUB,
+                "provider-1",
+                SmsStatus.SENT,
+                Instant.EPOCH,
+                null,
+                null,
+                metadata
+        );
+
+        assertThat(dto.providerMetadata()).hasSize(25);
+        assertThat(dto.providerMetadata()).containsKey("safe-24");
+        assertThat(dto.providerMetadata()).doesNotContainKey("safe-25");
     }
 }

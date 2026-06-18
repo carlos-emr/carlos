@@ -2,10 +2,9 @@ package io.github.carlos_emr.carlos.sms.dto;
 
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
+import io.github.carlos_emr.carlos.sms.support.SmsProviderMetadataSanitizer;
 
 import java.time.Instant;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
 
 public record SmsDeliveryWebhookDto(
@@ -18,8 +17,6 @@ public record SmsDeliveryWebhookDto(
         Map<String, String> providerMetadata
 ) {
     public SmsDeliveryWebhookDto {
-        providerMetadata = providerMetadata == null
-                ? Map.of()
-                : Collections.unmodifiableMap(new HashMap<>(providerMetadata));
+        providerMetadata = SmsProviderMetadataSanitizer.sanitize(providerMetadata);
     }
 }

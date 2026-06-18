@@ -17,6 +17,9 @@ import java.util.Objects;
 
 @Service
 public class JpaSmsTransactionRecorder implements SmsTransactionRecorder {
+    private static final String TRANSACTION_REQUIRED_MESSAGE = "transaction is required";
+    private static final String WEBHOOK_REQUIRED_MESSAGE = "webhook is required";
+
     private final SmsTransactionDao smsTransactionDao;
 
     public JpaSmsTransactionRecorder(SmsTransactionDao smsTransactionDao) {
@@ -36,7 +39,7 @@ public class JpaSmsTransactionRecorder implements SmsTransactionRecorder {
     @Override
     @Transactional
     public SmsTransaction markConsentBlocked(SmsTransaction transaction, SmsConsentDecisionDto decision) {
-        Objects.requireNonNull(transaction, "transaction is required");
+        Objects.requireNonNull(transaction, TRANSACTION_REQUIRED_MESSAGE);
         Objects.requireNonNull(decision, "decision is required");
         transaction.markConsentBlocked(decision);
         smsTransactionDao.merge(transaction);
@@ -46,7 +49,7 @@ public class JpaSmsTransactionRecorder implements SmsTransactionRecorder {
     @Override
     @Transactional
     public SmsTransaction markSending(SmsTransaction transaction, Date attemptAt) {
-        Objects.requireNonNull(transaction, "transaction is required");
+        Objects.requireNonNull(transaction, TRANSACTION_REQUIRED_MESSAGE);
         transaction.markSending(attemptAt);
         smsTransactionDao.merge(transaction);
         return transaction;
@@ -55,7 +58,7 @@ public class JpaSmsTransactionRecorder implements SmsTransactionRecorder {
     @Override
     @Transactional
     public SmsTransaction markProviderResult(SmsTransaction transaction, SmsProviderSendResultDto providerResult) {
-        Objects.requireNonNull(transaction, "transaction is required");
+        Objects.requireNonNull(transaction, TRANSACTION_REQUIRED_MESSAGE);
         Objects.requireNonNull(providerResult, "providerResult is required");
         transaction.markProviderResult(providerResult);
         smsTransactionDao.merge(transaction);
@@ -69,7 +72,7 @@ public class JpaSmsTransactionRecorder implements SmsTransactionRecorder {
             SmsProviderSendResultDto providerResult,
             Date nextAttemptAt
     ) {
-        Objects.requireNonNull(transaction, "transaction is required");
+        Objects.requireNonNull(transaction, TRANSACTION_REQUIRED_MESSAGE);
         Objects.requireNonNull(providerResult, "providerResult is required");
         transaction.markRetryScheduled(providerResult, nextAttemptAt);
         smsTransactionDao.merge(transaction);
@@ -79,7 +82,7 @@ public class JpaSmsTransactionRecorder implements SmsTransactionRecorder {
     @Override
     @Transactional
     public SmsTransaction recordInboundMessage(SmsInboundWebhookDto webhook) {
-        Objects.requireNonNull(webhook, "webhook is required");
+        Objects.requireNonNull(webhook, WEBHOOK_REQUIRED_MESSAGE);
         SmsTransaction transaction = SmsTransaction.inboundMessage(webhook);
         smsTransactionDao.persist(transaction);
         smsTransactionDao.flush();
@@ -89,7 +92,10 @@ public class JpaSmsTransactionRecorder implements SmsTransactionRecorder {
     @Override
     @Transactional
     public SmsTransaction recordDeliveryEvent(SmsDeliveryWebhookDto webhook) {
-        Objects.requireNonNull(webhook, "webhook is required");
+        Objects.requireNonNull(webhook, WEBHOOK_REQUIRED_MESSAGE);
+        if (webhook.providerMessageId() == null || webhook.providerMessageId().isBlank()) {
+            throw new IllegalArgumentException("providerMessageId is required for delivery webhooks");
+        }
         SmsProviderType providerType = webhook.providerType() == null ? SmsProviderType.STUB : webhook.providerType();
         SmsTransaction transaction = smsTransactionDao
                 .findByProviderMessageId(providerType, webhook.providerMessageId())
@@ -109,11 +115,24 @@ public class JpaSmsTransactionRecorder implements SmsTransactionRecorder {
     @Transactional
     public List<SmsTransaction> claimDueOutboundQueue(SmsProviderType providerType, Date now, int limit) {
         Date claimAt = now == null ? new Date() : new Date(now.getTime());
-        List<SmsTransaction> transactions = smsTransactionDao.findDueOutboundQueueForUpdate(providerType, claimAt, limit);
-        for (SmsTransaction transaction : transactions) {
-            transaction.markSending(claimAt);
-        }
-        smsTransactionDao.flush();
-        return transactions;
+        return smsTransactionDao.claimDueOutboundQueue(providerType, claimAt, limit);
+    }
+
+    @Override
+    @Transactional
+    public List<SmsTransaction> claimStaleSendingForRecovery(
+            SmsProviderType providerType,
+            Date staleBefore,
+            Date recoveryAt,
+            int limit
+    ) {
+        Date safeStaleBefore = staleBefore == null ? new Date() : new Date(staleBefore.getTime());
+        Date safeRecoveryAt = recoveryAt == null ? new Date() : new Date(recoveryAt.getTime());
+        return smsTransactionDao.claimStaleOutboundSendingForRecovery(
+                providerType,
+                safeStaleBefore,
+                safeRecoveryAt,
+                limit
+        );
     }
 }
