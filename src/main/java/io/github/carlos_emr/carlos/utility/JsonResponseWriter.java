@@ -21,6 +21,7 @@
 package io.github.carlos_emr.carlos.utility;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
@@ -34,9 +35,12 @@ public final class JsonResponseWriter {
     private JsonResponseWriter() {
     }
 
+    // FindSecBugs XSS_SERVLET: centralized JSON response writer; callers provide JSON strings or Jackson-serialized objects.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "centralized JSON response writer with application/json content type")
     public static void write(HttpServletResponse response, Object body) throws IOException {
         response.setContentType(CONTENT_TYPE);
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-        OBJECT_MAPPER.writeValue(response.getOutputStream(), body);
+        String json = body instanceof String ? (String) body : OBJECT_MAPPER.writeValueAsString(body);
+        response.getWriter().write(json); // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep, java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- centralized JSON API response writer with application/json content type
     }
 }

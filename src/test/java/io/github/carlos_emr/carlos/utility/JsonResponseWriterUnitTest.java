@@ -25,6 +25,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
+import jakarta.servlet.ServletOutputStream;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -35,7 +37,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 class JsonResponseWriterUnitTest {
     @Test
     @DisplayName("writes UTF-8 JSON with JSON content type")
-    void writesUtf8JsonWithJsonContentType() throws Exception {
+    void shouldWriteObjectBody_withUtf8JsonContentType() throws Exception {
         MockHttpServletResponse response = new MockHttpServletResponse();
         response.setCharacterEncoding(StandardCharsets.ISO_8859_1.name());
 
@@ -45,5 +47,32 @@ class JsonResponseWriterUnitTest {
         assertThat(response.getCharacterEncoding()).isEqualTo(StandardCharsets.UTF_8.name());
         assertThat(new String(response.getContentAsByteArray(), StandardCharsets.UTF_8))
                 .isEqualTo("{\"message\":\"Jose 東京\"}");
+    }
+
+    @Test
+    @DisplayName("writes pre-serialized JSON strings without double serialization")
+    void shouldWriteStringBody_withoutDoubleSerialization() throws Exception {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        JsonResponseWriter.write(response, "{\"success\":true}");
+
+        assertThat(response.getContentAsString()).isEqualTo("{\"success\":true}");
+    }
+
+    @Test
+    @DisplayName("uses servlet writer for legacy response compatibility")
+    void shouldUseWriter_whenOutputStreamUnavailable() throws Exception {
+        MockHttpServletResponse response = new OutputStreamRejectingResponse();
+
+        JsonResponseWriter.write(response, Map.of("success", true));
+
+        assertThat(response.getContentAsString()).isEqualTo("{\"success\":true}");
+    }
+
+    private static class OutputStreamRejectingResponse extends MockHttpServletResponse {
+        @Override
+        public ServletOutputStream getOutputStream() {
+            throw new AssertionError("JsonResponseWriter should use getWriter()");
+        }
     }
 }

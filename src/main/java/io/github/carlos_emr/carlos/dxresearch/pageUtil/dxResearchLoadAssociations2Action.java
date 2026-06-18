@@ -37,9 +37,6 @@ import java.util.Map;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAO;
 import io.github.carlos_emr.carlos.casemgmt.dao.IssueDAO;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
@@ -76,9 +73,6 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
     private static final String PRIVILEGE_READ = "r";
     private static final String PRIVILEGE_UPDATE = "u";
     private static final String PRIVILEGE_WRITE = "w";
-
-    
-    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
@@ -131,9 +125,7 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
             assoc.setDescription(getDescription(assoc.getCodeType(), assoc.getCode()));
         }
 
-        //serialize and return
-        ArrayNode jsonArray = objectMapper.valueToTree(associations);
-        JsonResponseWriter.write(response, jsonArray);
+        JsonResponseWriter.write(response, associations);
         return null;
     }
 

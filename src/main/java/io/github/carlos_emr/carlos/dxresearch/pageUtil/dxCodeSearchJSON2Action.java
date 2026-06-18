@@ -214,13 +214,13 @@ public class dxCodeSearchJSON2Action extends ActionSupport {
     private static void jsonify(final List<?> classList,
                                 final HttpServletResponse response, String[] ignoreMethods) throws IOException {
 
-        Object jsonBody = objectMapper.createObjectNode();
+        String jsonString = "{}";
 
         if (classList != null && !classList.isEmpty()) {
-            jsonBody = objectMapper.readTree(JsonUtil.pojoCollectionToJson(classList, ignoreMethods));
+            jsonString = JsonUtil.pojoCollectionToJson(classList, ignoreMethods);
         }
 
-        JsonResponseWriter.write(response, jsonBody);
+        JsonResponseWriter.write(response, jsonString);
     }
 
 
