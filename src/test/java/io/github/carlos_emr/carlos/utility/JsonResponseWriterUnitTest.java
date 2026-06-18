@@ -34,6 +34,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 @DisplayName("JsonResponseWriter")
 @Tag("unit")
+@Tag("utility")
 class JsonResponseWriterUnitTest {
     @Test
     @DisplayName("writes UTF-8 JSON with JSON content type")
