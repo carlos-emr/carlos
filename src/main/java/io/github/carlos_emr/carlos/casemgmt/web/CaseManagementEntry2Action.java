@@ -2085,7 +2085,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             if (isValidInternalRedirect(chain, request)) {
                 response.sendRedirect(chain); // nosemgrep: java.lang.security.audit.servlets.unvalidated-redirect.unvalidated-redirect-java -- gated by isValidInternalRedirect // lgtm[java/unvalidated-url-redirection]
             } else {
-                logger.warn("Attempted redirect to invalid URL: {}", LogSafe.sanitize(chain));
+                logger.warn("Attempted redirect to invalid URL: {}", LogSafe.sanitize(chain)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                 // Fall through to return "windowClose" without redirect
             }
         }
@@ -3305,7 +3305,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             demono = (String) request.getAttribute("casemgmt_DemoNo");
         } else if (!demono.matches("\\d+")) {
             // Reject tainted value but fall back to request attribute to avoid crashing callers
-            logger.error("Invalid non-numeric demographicNo rejected, falling back to request attribute: {}", LogSafe.sanitize(demono));
+            logger.error("Invalid non-numeric demographicNo rejected, falling back to request attribute: {}", LogSafe.sanitize(demono)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
             demono = (String) request.getAttribute("casemgmt_DemoNo");
         } else {
             request.setAttribute("casemgmt_DemoNo", demono);
