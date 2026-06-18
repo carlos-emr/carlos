@@ -276,13 +276,19 @@
 
 <%-- ── i18n strings for JavaScript (resolved server-side by JSP) ──────── --%>
 <script>
+<c:set var="msg_statusSaving"><fmt:message key='faxAnnotateViewer.status.saving'/></c:set>
+<c:set var="msg_statusOpeningFax"><fmt:message key='faxAnnotateViewer.status.openingFax'/></c:set>
+<c:set var="msg_alertNoSignature"><fmt:message key='faxAnnotateViewer.alert.noSignature'/></c:set>
+<c:set var="msg_alertSaveFailed"><fmt:message key='faxAnnotateViewer.alert.saveFailed'/></c:set>
+<c:set var="msg_alertSaveFailedDetail"><fmt:message key='faxAnnotateViewer.alert.saveFailedDetail'/></c:set>
+<c:set var="msg_i18nLocale"><fmt:message key='global.i18nLanguagecode'/></c:set>
 window.FAX_I18N = Object.freeze({
-    statusSaving:          "<fmt:message key='faxAnnotateViewer.status.saving'/>",
-    statusOpeningFax:      "<fmt:message key='faxAnnotateViewer.status.openingFax'/>",
-    alertNoSignature:      "<fmt:message key='faxAnnotateViewer.alert.noSignature'/>",
-    alertSaveFailed:       "<fmt:message key='faxAnnotateViewer.alert.saveFailed'/>",
-    alertSaveFailedDetail: "<fmt:message key='faxAnnotateViewer.alert.saveFailedDetail'/>",
-    i18nLocale:            "<fmt:message key='global.i18nLanguagecode'/>"
+    statusSaving:          "${carlos:forJavaScript(msg_statusSaving)}",
+    statusOpeningFax:      "${carlos:forJavaScript(msg_statusOpeningFax)}",
+    alertNoSignature:      "${carlos:forJavaScript(msg_alertNoSignature)}",
+    alertSaveFailed:       "${carlos:forJavaScript(msg_alertSaveFailed)}",
+    alertSaveFailedDetail: "${carlos:forJavaScript(msg_alertSaveFailedDetail)}",
+    i18nLocale:            "${carlos:forJavaScript(msg_i18nLocale)}"
 });
 </script>
 
@@ -429,8 +435,6 @@ let signatureModal = null;
 // in that window so StampEditor.#createCanvas() sees truthy values and uses
 // them instead of falling through to the 75% MAX_RATIO default clamp.
 async function insertSignatureViaFastPath(file) {
-    console.log('[sig] insertSignatureViaFastPath; file size=', file.size, 'type=', file.type);
-
     // Switch to STAMP mode so PDF.js creates AnnotationEditorLayer instances
     // for each page (they're built lazily when an edit mode is first activated).
     pdfViewer.annotationEditorMode = { mode: AnnotationEditorType.STAMP };
@@ -446,19 +450,15 @@ async function insertSignatureViaFastPath(file) {
     }
 
     if (!layer) {
-        console.error('[sig] no AnnotationEditorLayer for page', pageIndex,
-            '; captured pages:', [..._annotationLayers.keys()]);
         return;
     }
 
-    console.log('[sig] creating stamp editor on layer for page', pageIndex);
     const editor = layer.createAndAddNewEditor(
         { offsetX: 0, offsetY: 0 },
         true,               // isCentered — positions stamp at page centre
         { bitmapFile: file }
     );
     if (!editor) {
-        console.error('[sig] createAndAddNewEditor returned null — mode may not be STAMP');
         return;
     }
 
@@ -467,7 +467,6 @@ async function insertSignatureViaFastPath(file) {
     editor.width  = 0.20;
     editor.height = 0.05;
 
-    console.log('[sig] stamp editor created and sized');
     usedAnnotationTypes.add('signed');
 }
 
@@ -476,39 +475,28 @@ async function insertSignatureViaFastPath(file) {
 // centre of the visible page — no modal shown.  When no stamp exists the draw
 // modal opens so the provider can create one.
 window.openSignatureOrInsert = async function() {
-    console.log('[sig] openSignatureOrInsert start; CTX=', CTX);
     try {
         const checkUrl = CTX + '/provider/providerSignatureStamp?method=check';
-        console.log('[sig] fetching', checkUrl);
         const res  = await fetch(checkUrl);
-        console.log('[sig] check response status:', res.status, res.ok);
         const json = await res.json();
-        console.log('[sig] check json:', json);
         if (res.ok && json.exists && json.imageUrl) {
-            console.log('[sig] existing stamp found, fetching image:', json.imageUrl);
             const imgRes = await fetch(json.imageUrl);
-            console.log('[sig] image response status:', imgRes.status);
             const blob   = await imgRes.blob();
-            console.log('[sig] image blob size:', blob.size, 'type:', blob.type);
             await insertSignatureViaFastPath(
                 new File([blob], 'signature.png', { type: 'image/png' })
             );
-            console.log('[sig] fast-path stamp dispatch done');
             const _sb = document.getElementById('btnSign');
             _sb.classList.add('active');
             setTimeout(() => _sb.classList.remove('active'), 800);
             return;
         }
-        console.log('[sig] no existing stamp, opening draw modal');
     } catch (e) {
-        console.warn('[sig] check/fetch error (opening draw modal instead):', e);
+        // Fall through to modal
     }
     if (!signatureModal) {
-        console.log('[sig] creating bootstrap modal');
         signatureModal = new bootstrap.Modal(document.getElementById('signatureModal'));
     }
     clearSignaturePad();
-    console.log('[sig] calling signatureModal.show()');
     signatureModal.show();
 };
 

@@ -177,14 +177,34 @@ public class SaveAnnotatedDocument2Action extends ActionSupport {
             return NONE;
         }
 
-        // Overwrite the document file with the annotated version.
-        // Second stream open gives the full content from byte 0.
+        // Overwrite the document file with the annotated version atomically.
+        // Write to a temporary file first, then move atomically to avoid corruption on failure.
+        Path tempFile = null;
         try (InputStream is = filePart.getInputStream()) {
-            Files.copy(is, targetPath, StandardCopyOption.REPLACE_EXISTING);
+            tempFile = Files.createTempFile(targetPath.getParent(), ".annotated-", ".pdf.tmp");
+            Files.copy(is, tempFile, StandardCopyOption.REPLACE_EXISTING);
+
+            // Atomic move with fallback if ATOMIC_MOVE is not supported on this filesystem
+            try {
+                Files.move(tempFile, targetPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } catch (UnsupportedOperationException e) {
+                logger.warn("ATOMIC_MOVE not supported for docId={}, falling back to standard move", docId);
+                Files.move(tempFile, targetPath, StandardCopyOption.REPLACE_EXISTING);
+            }
+            tempFile = null; // Successfully moved, no cleanup needed
         } catch (AccessDeniedException e) {
             logger.error("Unable to overwrite existing file docId={}", docId, e);
             sendJsonError(response, "Unable to overwrite existing file");
             return NONE;
+        } finally {
+            // Clean up temp file if move failed
+            if (tempFile != null) {
+                try {
+                    Files.deleteIfExists(tempFile);
+                } catch (IOException e) {
+                    logger.warn("Failed to delete temp file after error: {}", tempFile, e);
+                }
+            }
         }
 
         // Parse and sanitise annotation type labels before logging

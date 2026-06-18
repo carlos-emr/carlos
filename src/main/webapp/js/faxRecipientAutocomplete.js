@@ -200,7 +200,9 @@
                 .catch(function (err) {
                     if (err.name === 'AbortError') {
                         return; // request was intentionally aborted
-                    }           
+                    }
+                    // Clear stale suggestions when fetch fails
+                    hideDropdown();
                     console.error('Error searching fax recipients:', err);
                 });
         });
