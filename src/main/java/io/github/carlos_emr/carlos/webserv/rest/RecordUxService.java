@@ -38,6 +38,8 @@ import java.util.List;
 import java.util.Map;
 
 import jakarta.servlet.http.HttpServletRequest;
+
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
@@ -209,7 +211,7 @@ public class RecordUxService extends AbstractServiceImpl {
         //}
 
         if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.documents", "r", null)) {
-            morelist.add(new MenuItemTo1(idCounter++, "Documents", "../documentManager/ViewDocumentReport?function=demographic&doctype=lab&functionid=" + demographicNo));
+            morelist.add(new MenuItemTo1(idCounter++, "Documents", "../documentManager/ViewDocumentReport?function=demographic&doctype=lab&functionid=" + SafeEncode.forUriComponent(String.valueOf(demographicNo))));
         }
 
         if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.decisionSupportAlerts", "r", null)) {
