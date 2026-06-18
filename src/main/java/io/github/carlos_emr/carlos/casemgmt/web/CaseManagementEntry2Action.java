@@ -137,7 +137,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             "observation_date_asc", "observation_date_desc",
             "providerName", "programName", "roleName", "update_date");
 
-    private static final Set<String> ALLOWED_CHAIN_RESULT_NAMES = Set.of("list", "view", "issueList_ajax");
+    private static final String ISSUE_LIST_AJAX_RESULT = "issueList_ajax";
+    private static final Set<String> ALLOWED_CHAIN_RESULT_NAMES = Set.of("list", "view", ISSUE_LIST_AJAX_RESULT);
 
     public String execute() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -543,7 +544,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             }
             String ajax = request.getParameter("ajax");
             if (ajax != null && ajax.equalsIgnoreCase("true")) {
-                fwd = "issueList_ajax";
+                fwd = ISSUE_LIST_AJAX_RESULT;
             } else {
                 fwd = "view";
             }
@@ -1922,7 +1923,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), logAction, LogConst.CON_CME_NOTE, String.valueOf(note.getId()), request.getRemoteAddr(), demo, note.getAuditString());
 
-        return "issueList_ajax";
+        return ISSUE_LIST_AJAX_RESULT;
     }
 
     /**
@@ -2109,7 +2110,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             justification = "redirectTarget is returned by sanitizeInternalRedirect, which only permits trimmed, "
                     + "slash-prefixed relative URLs accepted by RedirectValidationUtils")
     private void sendChainRedirect(String redirectTarget) throws IOException {
-        response.sendRedirect(redirectTarget); // nosemgrep: java.lang.security.audit.servlets.unvalidated-redirect.unvalidated-redirect-java -- gated by sanitizeInternalRedirect
+        String sameHostRedirectTarget = "/" + redirectTarget.substring(1);
+        response.sendRedirect(sameHostRedirectTarget); // nosemgrep: java.lang.security.audit.servlets.unvalidated-redirect.unvalidated-redirect-java -- gated by sanitizeInternalRedirect
     }
 
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a fixed same-origin billing path (contextPath + "/billing"); only query parameters (billing/appointment request and session values) vary and cannot alter the host or scheme.
@@ -2411,7 +2413,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String ajax = request.getParameter("ajax");
         if (ajax != null && ajax.equalsIgnoreCase("true")) {
             request.setAttribute("caseManagementEntryForm", sessionFrm);
-            return "issueList_ajax";
+            return ISSUE_LIST_AJAX_RESULT;
         } else return "view";
     }
 
@@ -2531,7 +2533,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
         request.setAttribute("caseManagementEntryForm", sessionFrm);
 
-        return "issueList_ajax";
+        return ISSUE_LIST_AJAX_RESULT;
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
@@ -2595,7 +2597,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String ajax = request.getParameter("ajax");
         if (ajax != null && ajax.equalsIgnoreCase("true")) {
             request.setAttribute("caseManagementEntryForm", sessionFrm);
-            return "issueList_ajax";
+            return ISSUE_LIST_AJAX_RESULT;
         } else return "view";
     }
 
@@ -2679,7 +2681,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String ajax = request.getParameter("ajax");
         if (ajax != null && ajax.equalsIgnoreCase("true")) {
             request.setAttribute("caseManagementEntryForm", sessionFrm);
-            return "issueList_ajax";
+            return ISSUE_LIST_AJAX_RESULT;
         } else return "view";
     }
 
@@ -3950,7 +3952,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         if (trimmedUrl == null || !isValidInternalRedirect(trimmedUrl)) {
             return null;
         }
-        return "/" + StringUtils.removeStart(trimmedUrl, "/");
+        return "/" + trimmedUrl.substring(1);
     }
 
     /**
@@ -3970,7 +3972,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     /**
      * Validates that a redirect URL is safe and points to an internal application URL.
      * This prevents open redirect vulnerabilities.
-     * 
+     *
      * @param url The URL to validate
      * @return true if the URL is safe for redirect, false otherwise
      */
