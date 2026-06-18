@@ -144,12 +144,10 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
             return null;
         }
 
-        String trimmed = rawUrl.trim();
-        if (trimmed.isEmpty() || containsUnsafeHtmlAttributeCharacters(trimmed)) {
+        String rewritten = rawUrl.trim().replace(IMAGE_RENDERING_SERVLET_PATH, PDF_SIGNATURE_SERVLET_PATH);
+        if (rewritten.isEmpty() || containsUnsafeHtmlAttributeCharacters(rewritten)) {
             return null;
         }
-
-        String rewritten = trimmed.replace(IMAGE_RENDERING_SERVLET_PATH, PDF_SIGNATURE_SERVLET_PATH);
 
         final URI uri;
         try {
