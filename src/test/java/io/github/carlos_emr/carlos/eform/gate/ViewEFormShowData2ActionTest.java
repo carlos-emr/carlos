@@ -107,7 +107,7 @@ class ViewEFormShowData2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldForwardSavedFormRendererWhenFdidIsPresent() throws Exception {
+    void shouldForwardSavedFormRenderer_whenFdidIsPresent() throws Exception {
         when(mockRequest.getQueryString()).thenReturn("fdid=123");
 
         String result = action.execute();

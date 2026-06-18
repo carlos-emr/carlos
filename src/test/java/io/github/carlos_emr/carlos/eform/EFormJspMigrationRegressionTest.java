@@ -106,17 +106,19 @@ class EFormJspMigrationRegressionTest {
 
     @Test
     @DisplayName("saved eForm previews should resolve image placeholders through the active request context")
-    void savedEFormPreviewShouldUseRequestContextForImagePath() throws IOException {
+    void shouldResolveImagePath_whenSavedEFormPreviewRenders() throws IOException {
         String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/eform/efmshowform_data.jsp"), StandardCharsets.UTF_8);
 
-        assertThat(jsp)
-                .contains("eForm = new EForm(fdid);")
-                .contains("eForm.setImagePath(request.getContextPath());");
+        assertThat(jsp).containsPattern(
+                "(?s)eForm = new EForm\\(fdid\\);\\s*"
+                        + "eForm\\.setContextPath\\(request\\.getContextPath\\(\\)\\);\\s*"
+                        + "eForm\\.setOscarOPEN\\(request\\.getRequestURI\\(\\)\\);\\s*"
+                        + "eForm\\.setImagePath\\(request\\.getContextPath\\(\\)\\);");
     }
 
     @Test
     @DisplayName("consultation request eForm links should keep using the shared saved-form route")
-    void consultationRequestShouldLinkSavedEformsThroughSharedShowFormRoute() throws IOException {
+    void shouldUseSharedShowFormRoute_whenConsultationRequestLinksSavedEforms() throws IOException {
         String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp"),
                 StandardCharsets.UTF_8);
 
