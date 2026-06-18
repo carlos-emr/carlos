@@ -2220,11 +2220,12 @@ public class RxPrescriptionData {
             if (this.takeMin > this.takeMax) {
                 this.takeMax = this.takeMin;
             }
-            if (getSpecial() == null || getSpecial().length() < 4) {
+            String special = getSpecial();
+            if (special == null || special.length() < 4) {
                 //if (getSpecial() == null || getSpecial().length() < 6) {
-                logger.warn("drug special appears to be null or empty (length={})", safeLength(getSpecial()));
+                logger.warn("drug special appears to be null or empty (length={})", safeLength(special));
             }
-            String parsedSpecial = RxUtil.replace(this.getSpecial(), "'", "");
+            String parsedSpecial = RxUtil.replace(special, "'", "");
             //if (parsedSpecial == null || parsedSpecial.length() < 6) {
             if (parsedSpecial == null || parsedSpecial.length() < 4) {
                 logger.warn("drug special after parsing appears to be null or empty (length={})", safeLength(parsedSpecial));
