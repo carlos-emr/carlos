@@ -137,7 +137,9 @@ public class FaxRecipientSearch2Action extends ActionSupport {
         try {
             // searchPharmacyByNameAddressCity matches name/address by first param, city by second.
             // Passing "" for city means any city is accepted.
-            List<PharmacyInfo> pharmacies = pharmacyInfoDao.searchPharmacyByNameAddressCity(term, "");
+            // Pass remaining as DB-level limit; the loop below still skips entries without a fax
+            // number, so we may get fewer than remaining results — that's acceptable.
+            List<PharmacyInfo> pharmacies = pharmacyInfoDao.searchPharmacyByNameAddressCity(term, "", remaining);
             for (PharmacyInfo ph : pharmacies) {
                 if (remaining <= 0) break;
                 if (StringUtils.isBlank(ph.getFax())) continue;

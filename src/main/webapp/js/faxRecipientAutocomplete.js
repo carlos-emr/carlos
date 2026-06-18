@@ -176,6 +176,7 @@
         nameEl.addEventListener('input', function () {
             var term = nameEl.value.trim();
             if (term.length < 2) {
+                if (abortCtrl) { abortCtrl.abort(); abortCtrl = null; }
                 hideDropdown();
                 return;
             }

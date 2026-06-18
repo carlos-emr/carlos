@@ -173,7 +173,14 @@ public class FaxManagerImpl implements FaxManager {
             return null;
         }
 
-        Path path = Paths.get(filePath);
+        Path path;
+        try {
+            path = Paths.get(filePath);
+        } catch (java.nio.file.InvalidPathException e) {
+            logger.error("renderDocument: malformed file path for documentNo={}: {}", documentNo,
+                    LogSafe.sanitize(filePath, 1024));
+            return null;
+        }
         if (!Files.exists(path) || !Files.isRegularFile(path)) {
             logger.error("renderDocument: file not found on disk for documentNo={}: {}", documentNo,
                     LogSafe.sanitize(filePath, 1024));

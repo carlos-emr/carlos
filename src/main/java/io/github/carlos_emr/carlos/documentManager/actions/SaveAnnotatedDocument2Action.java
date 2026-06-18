@@ -38,10 +38,10 @@ import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+import io.github.carlos_emr.CarlosProperties;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
-import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -127,7 +127,7 @@ public class SaveAnnotatedDocument2Action extends ActionSupport {
         Part filePart;
         try {
             filePart = request.getPart("pdfFile");
-        } catch (ServletException e) {
+        } catch (ServletException | IOException e) {
             logger.error("Failed to parse multipart parts for docId={}", docId, e);
             sendJsonError(response, "Failed to read uploaded file");
             return NONE;
@@ -170,7 +170,13 @@ public class SaveAnnotatedDocument2Action extends ActionSupport {
 
         Path targetPath = Paths.get(doc.getFilePath());
         try {
-            PathValidationUtils.validateExistingPath(targetPath.toFile(), targetPath.getParent().toFile());
+            // Validate against the configured document root, not just the file's own parent.
+            // Using the parent as the trust boundary would allow a corrupted DB row with an
+            // out-of-tree path to overwrite arbitrary files on the filesystem.
+            java.io.File documentDir = new java.io.File(
+                    CarlosProperties.getInstance().getProperty(
+                            "DOCUMENT_DIR", "/var/lib/OscarDocument/"));
+            PathValidationUtils.validateExistingPath(targetPath.toFile(), documentDir);
         } catch (SecurityException e) {
             logger.error("Path traversal attempt for docId={}", docId);
             sendJsonError(response, "Invalid document path");
@@ -192,9 +198,9 @@ public class SaveAnnotatedDocument2Action extends ActionSupport {
                 Files.move(tempFile, targetPath, StandardCopyOption.REPLACE_EXISTING);
             }
             tempFile = null; // Successfully moved, no cleanup needed
-        } catch (AccessDeniedException e) {
-            logger.error("Unable to overwrite existing file docId={}", docId, e);
-            sendJsonError(response, "Unable to overwrite existing file");
+        } catch (IOException e) {
+            logger.error("Failed to write annotated document for docId={}", docId, e);
+            sendJsonError(response, "Unable to save annotated document");
             return NONE;
         } finally {
             // Clean up temp file if move failed

@@ -31,13 +31,13 @@
     @param demographicNo (request attribute, int) Linked demographic, or 0
     @since 2026-06
 --%>
-<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"
+         import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
     String ctx = request.getContextPath();
-    int    docId         = (Integer) request.getAttribute("docId");
-    int    demographicNo = (Integer) request.getAttribute("demographicNo");
+    int    docId = (Integer) request.getAttribute("docId");
 
     // web.xml filtering is not enabled for WEB-INF/web.xml, so getInitParameter would return
     // the raw Maven placeholder "${pdfjs.version}". Hardcode the version here to match pom.xml.
@@ -52,9 +52,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title><fmt:message key="faxAnnotateViewer.title"/></title>
 
-<link rel="stylesheet" href="<%=ctx%>/library/bootstrap/5.3.8/css/bootstrap.min.css"/>
-<link rel="stylesheet" href="<%=ctx%>/css/fontawesome-all.min.css"/>
-<link rel="stylesheet" href="<%=pdfjsBase%>/web/pdf_viewer.css"/>
+<link rel="stylesheet" href="<%=SafeEncode.forHtmlAttribute(ctx)%>/library/bootstrap/5.3.8/css/bootstrap.min.css"/>
+<link rel="stylesheet" href="<%=SafeEncode.forHtmlAttribute(ctx)%>/css/fontawesome-all.min.css"/>
+<link rel="stylesheet" href="<%=SafeEncode.forHtmlAttribute(pdfjsBase)%>/web/pdf_viewer.css"/>
 
 <style>
     html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #404040; }
@@ -183,7 +183,7 @@
     <button class="tool-btn" id="btnHighlight" title="<fmt:message key='faxAnnotateViewer.btn.highlight'/>"  onclick="setMode('highlight')">
         <i class="fas fa-highlighter"></i>
     </button>
-    <button class="tool-btn" id="btnSign"      title="<fmt:message key='faxAnnotateViewer.btn.signature'/>"  onclick="console.log('[sig] button clicked; fn defined:', typeof openSignatureOrInsert); if (typeof openSignatureOrInsert === 'function') openSignatureOrInsert(); else console.error('[sig] openSignatureOrInsert not yet defined — module still loading')">
+    <button class="tool-btn" id="btnSign"      title="<fmt:message key='faxAnnotateViewer.btn.signature'/>"  onclick="openSignatureOrInsert()">
         <i class="fas fa-signature"></i>
     </button>
     <%-- title is set dynamically to today's formatted date by the module script --%>
@@ -272,7 +272,7 @@
 </div>
 
 <%-- Bootstrap bundle --%>
-<script src="<%=ctx%>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
+<script src="<%=SafeEncode.forHtmlAttribute(ctx)%>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 
 <%-- ── i18n strings for JavaScript (resolved server-side by JSP) ──────── --%>
 <script>
@@ -296,8 +296,8 @@ window.FAX_I18N = Object.freeze({
 <script type="module">
 'use strict';
 
-const CTX       = '<%=ctx%>';
-const PDFJS     = '<%=pdfjsBase%>';
+const CTX       = '<%=SafeEncode.forJavaScript(ctx)%>';
+const PDFJS     = '<%=SafeEncode.forJavaScript(pdfjsBase)%>';
 const DOC_ID    = <%=docId%>;
 
 let CSRF_TOKEN = document.querySelector('input[name="CSRF-TOKEN"]')?.value ?? '';
