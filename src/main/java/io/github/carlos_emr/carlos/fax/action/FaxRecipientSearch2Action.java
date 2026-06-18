@@ -84,7 +84,13 @@ public class FaxRecipientSearch2Action extends ActionSupport {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", "r", null)) {
-            throw new SecurityException("missing required sec object (_fax)");
+            // Return 403 JSON rather than throwing SecurityException: this is a
+            // JSON-only autocomplete endpoint with no Struts exception mapping, so
+            // an uncaught exception would bubble as a 500 HTML response that the
+            // JS caller cannot parse. Standard page actions should throw instead.
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            JSONUtil.jsonResponse(response, objectMapper.createArrayNode().toString());
+            return NONE;
         }
 
         String term = StringUtils.trimToEmpty(request.getParameter("term"));

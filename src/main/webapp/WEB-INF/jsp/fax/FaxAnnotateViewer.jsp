@@ -301,6 +301,10 @@ const PDFJS     = '<%=SafeEncode.forJavaScript(pdfjsBase)%>';
 const DOC_ID    = <%=docId%>;
 
 let CSRF_TOKEN = document.querySelector('input[name="CSRF-TOKEN"]')?.value ?? '';
+// Start the CSRF token fetch as early as possible; awaited before each POST so the
+// token is guaranteed to be populated even if the user acts before DOMContentLoaded
+// handlers have had time to complete their async fetch.
+const csrfBootstrap = fetchCsrfToken(CTX);
 
 // ── Dynamic imports (paths computed at runtime to avoid JSP/template-literal conflicts) ──
 const pdfjsLib  = await import(PDFJS + '/build/pdf.mjs');
@@ -581,11 +585,13 @@ window.applySignature = async function() {
     }
 
     const dataUrl = canvas.toDataURL('image/png');
-    CSRF_TOKEN = document.querySelector('input[name="CSRF-TOKEN"]')?.value ?? '';
 
     // Persist as the provider's signature stamp (Administration > Provider
     // Preferences > Signature) so it's available everywhere, not just here.
+    // Best-effort: signature insertion into the PDF continues even on failure.
     try {
+        await csrfBootstrap;
+        CSRF_TOKEN = document.querySelector('input[name="CSRF-TOKEN"]')?.value ?? '';
         const body = new URLSearchParams({ signatureData: dataUrl, 'CSRF-TOKEN': CSRF_TOKEN });
         const saveRes = await fetch(CTX + '/provider/providerSignatureStamp?method=saveDrawn', {
             method:  'POST',
@@ -663,6 +669,7 @@ window.saveAndFax = async function() {
         formData.append('pdfFile',         blob, 'annotated.pdf');
         formData.append('annotationTypes', [...usedAnnotationTypes].join(','));
 
+        await csrfBootstrap;
         CSRF_TOKEN = document.querySelector('input[name="CSRF-TOKEN"]')?.value ?? '';
         formData.append('CSRF-TOKEN', CSRF_TOKEN);
 

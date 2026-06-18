@@ -122,6 +122,7 @@
         }
 
         function selectItem(item) {
+            if (abortCtrl) { abortCtrl.abort(); abortCtrl = null; }
             nameEl.value = item.name;
             faxEl.value  = item.fax;
             hideDropdown();
