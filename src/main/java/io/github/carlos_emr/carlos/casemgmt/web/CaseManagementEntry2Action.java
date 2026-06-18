@@ -2100,7 +2100,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             justification = "redirectTarget is returned by sanitizeInternalRedirect, which only permits trimmed, "
                     + "slash-prefixed relative URLs accepted by RedirectValidationUtils")
     private void sendChainRedirect(String redirectTarget) throws IOException {
-        // codeql[java/unvalidated-url-redirection]
         response.sendRedirect(redirectTarget); // nosemgrep: java.lang.security.audit.servlets.unvalidated-redirect.unvalidated-redirect-java -- gated by sanitizeInternalRedirect
     }
 
@@ -3942,7 +3941,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         if (trimmedUrl == null || !isValidInternalRedirect(trimmedUrl)) {
             return null;
         }
-        return trimmedUrl;
+        return "/" + StringUtils.removeStart(trimmedUrl, "/");
     }
 
     /**
