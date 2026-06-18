@@ -44,8 +44,8 @@ import static org.mockito.Mockito.when;
 /**
  * Unit tests for {@link DelEForm2Action} privilege checks.
  *
- * <p>Deletion requires the {@code _eform} delete ("d") privilege; providers without
- * that privilege are rejected regardless of form ownership.
+ * <p>Deletion requires the {@code _admin.eform} write privilege; providers without
+ * it are rejected regardless of form ownership.
  *
  * @since 2026-06-15
  */
@@ -70,9 +70,9 @@ class DelEForm2ActionTest extends CarlosWebTestBase {
     }
 
     @Test
-    @DisplayName("should delete eForm when provider has _eform delete privilege")
-    void shouldDeleteEForm_whenProviderHasDeletePrivilege() throws Exception {
-        allowPrivilege("_eform", SecurityInfoManager.DELETE);
+    @DisplayName("should delete eForm when provider has _admin.eform write privilege")
+    void shouldDeleteEForm_whenProviderHasAdminEFormWritePrivilege() throws Exception {
+        allowPrivilege("_admin.eform", SecurityInfoManager.WRITE);
 
         try (MockedStatic<EFormUtil> eformUtils = mockStatic(EFormUtil.class)) {
             String result = action.execute();
@@ -82,11 +82,11 @@ class DelEForm2ActionTest extends CarlosWebTestBase {
     }
 
     @Test
-    @DisplayName("should reject delete when provider has no _eform delete privilege")
-    void shouldRejectDelete_whenProviderHasNoDeletePrivilege() {
+    @DisplayName("should reject delete when provider lacks _admin.eform write privilege")
+    void shouldRejectDelete_whenProviderLacksAdminEFormPrivilege() {
         assertThatThrownBy(() -> action.execute())
                 .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("missing required sec object (_eform)");
+                .hasMessageContaining("missing required sec object (_admin.eform)");
     }
 
     @Test

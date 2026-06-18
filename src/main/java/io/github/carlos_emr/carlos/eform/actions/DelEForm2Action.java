@@ -43,8 +43,9 @@ import org.apache.struts2.ServletActionContext;
 /**
  * Deletes an eForm template from the library.
  *
- * <p>Deletion requires the {@code _eform} delete privilege ("d"), which is held by
- * admin-level providers. The doctor role carries only write ("w") and cannot delete.
+ * <p>Deletion requires the {@code _admin.eform} write privilege, which is held by
+ * admin-level providers. The doctor role carries only {@code _eform} write and
+ * cannot delete templates.
  *
  * @since 2026-06-15
  */
@@ -77,8 +78,8 @@ public class DelEForm2Action extends ActionSupport {
         }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.DELETE, null)) {
-            throw new SecurityException("missing required sec object (_eform)");
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.eform", SecurityInfoManager.WRITE, null)) {
+            throw new SecurityException("missing required sec object (_admin.eform)");
         }
 
         EFormUtil.delEForm(fid);

@@ -28,8 +28,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("admin")
 class AdminSecuritySeedRegressionTest {
 
-    private static final String ADMIN_EFORM_DELETE_GRANT =
-            "insert into `secObjPrivilege` values('admin','_eform','d',0,'999998');";
     private static final String DOCTOR_EFORM_WRITE_GRANT =
             "insert into `secObjPrivilege` values('doctor','_eform','w',0,'999998');";
 
@@ -50,30 +48,34 @@ class AdminSecuritySeedRegressionTest {
     }
 
     @Test
-    @DisplayName("should grant admin delete and doctor write for eForms in fresh seed")
-    void shouldGrantAdminDeleteAndDoctorWrite_forEFormsInFreshSeed() throws IOException {
+    @DisplayName("should seed doctor role with eForm write privilege in fresh seed")
+    void shouldSeedDoctorEFormWritePrivilege_inFreshSeed() throws IOException {
         String freshSeed = Files.readString(Path.of("database/mysql/oscardata.sql"), StandardCharsets.UTF_8);
 
         assertThat(freshSeed)
-                .contains(ADMIN_EFORM_DELETE_GRANT, DOCTOR_EFORM_WRITE_GRANT);
-        assertThat(freshSeed.indexOf(DOCTOR_EFORM_WRITE_GRANT))
-                .isGreaterThan(freshSeed.indexOf(ADMIN_EFORM_DELETE_GRANT));
+                .as("fresh dev databases should seed doctor with _eform write (not full-access)")
+                .contains(DOCTOR_EFORM_WRITE_GRANT)
+                .as("admin deletion rights come from the existing _admin.eform grant, not a new _eform:d row")
+                .doesNotContain("'admin','_eform','d'");
     }
 
     @Test
-    @DisplayName("should preserve admin eForm delete privilege while downgrading doctor in migration")
-    void shouldPreserveAdminEFormDeletePrivilege_whileDowngradingDoctorInMigration() throws IOException {
+    @DisplayName("should downgrade doctor _eform privilege using correct column names in migration")
+    void shouldDowngradeDoctorPrivilege_usingCorrectColumnNamesInMigration() throws IOException {
         String migration = Files.readString(Path.of(
                 "database/mysql/updates/update-2026-06-15-eform-delete-privilege.sql"), StandardCharsets.UTF_8);
 
         assertThat(migration)
-                .contains("SELECT 'admin', '_eform', 'd', 0, '999998'")
-                .contains("WHERE roleName = 'admin'")
-                .contains("AND objectName = '_eform'")
-                .contains("AND privilege IN ('d', 'x')")
+                .as("migration must use the real column name 'roleUserGroup', not the non-existent 'roleName'")
+                .contains("roleUserGroup")
+                .doesNotContain("roleName")
+                .as("migration should downgrade doctor from x to w")
                 .contains("SET privilege = 'w'")
-                .contains("WHERE roleName = 'doctor'")
-                .contains("AND objectName = '_eform'")
-                .contains("AND privilege = 'x'");
+                .contains("'doctor'")
+                .contains("'_eform'")
+                .contains("privilege = 'x'")
+                .as("admin deletion rights come from the existing _admin.eform grant; no INSERT needed")
+                .doesNotContain("'admin', '_eform', 'd'")
+                .doesNotContain("'admin','_eform','d'");
     }
 }

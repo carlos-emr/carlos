@@ -200,7 +200,7 @@
             <%
                 LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
                 SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-                boolean isEFormAdmin = securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.DELETE, null);
+                boolean isEFormAdmin = securityInfoManager.hasPrivilege(loggedInInfo, "_admin.eform", SecurityInfoManager.WRITE, null);
 
                 ArrayList<HashMap<String, ? extends Object>> eForms = EFormUtil.listEForms(orderBy, EFormUtil.CURRENT);
                 for (int i = 0; i < eForms.size(); i++) {
