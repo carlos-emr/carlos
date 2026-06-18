@@ -27,4 +27,11 @@ public interface SmsTransactionRecorder {
     SmsTransaction recordDeliveryEvent(SmsDeliveryWebhookDto webhook);
 
     List<SmsTransaction> claimDueOutboundQueue(SmsProviderType providerType, Date now, int limit);
+
+    List<SmsTransaction> claimStaleSendingForRecovery(
+            SmsProviderType providerType,
+            Date staleBefore,
+            Date recoveryAt,
+            int limit
+    );
 }

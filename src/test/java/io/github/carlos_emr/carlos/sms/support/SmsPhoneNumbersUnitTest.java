@@ -40,6 +40,13 @@ class SmsPhoneNumbersUnitTest {
     }
 
     @Test
+    @DisplayName("normalizeToE164 rejects non-ASCII digits")
+    void shouldRejectPhoneNumber_whenDigitsAreNonAscii() {
+        assertThat(SmsPhoneNumbers.normalizeToE164("\u0664\u0661\u0666-\u0665\u0665\u0665-\u0661\u0662\u0661\u0662"))
+                .isEmpty();
+    }
+
+    @Test
     @DisplayName("isLikelyE164 accepts only plus-prefixed international numbers")
     void shouldIdentifyE164Format_whenPhoneNumberIsPlusPrefixed() {
         assertThat(SmsPhoneNumbers.isLikelyE164("+14165551212")).isTrue();

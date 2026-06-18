@@ -32,6 +32,7 @@ import jakarta.persistence.TemporalType;
 import java.util.Date;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.TreeMap;
 
 @Entity
@@ -43,6 +44,8 @@ public class SmsTransaction extends AbstractModel<Long> {
     private static final int MAX_PROVIDER_MESSAGE_ID_LENGTH = 128;
     private static final int MAX_REASON_CODE_LENGTH = 64;
     private static final int MAX_ERROR_MESSAGE_LENGTH = 1024;
+    private static final int MAX_CLAIM_TOKEN_LENGTH = 64;
+    private static final String WEBHOOK_REQUIRED_MESSAGE = "webhook is required";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -143,7 +146,15 @@ public class SmsTransaction extends AbstractModel<Long> {
     @Column(name = "received_at")
     private Date receivedAt;
 
+    @Temporal(TemporalType.TIMESTAMP)
+    @Column(name = "provider_event_at")
+    private Date providerEventAt;
+
+    @Column(name = "claim_token", length = MAX_CLAIM_TOKEN_LENGTH)
+    private String claimToken;
+
     public SmsTransaction() {
+        // Required by JPA.
     }
 
     public static SmsTransaction outboundAttempt(SmsSendCommand command, SmsProviderType providerType) {
@@ -169,7 +180,7 @@ public class SmsTransaction extends AbstractModel<Long> {
     }
 
     public static SmsTransaction inboundMessage(SmsInboundWebhookDto webhook) {
-        Objects.requireNonNull(webhook, "webhook is required");
+        Objects.requireNonNull(webhook, WEBHOOK_REQUIRED_MESSAGE);
         SmsTransaction transaction = new SmsTransaction();
         transaction.direction = SmsDirection.INBOUND;
         transaction.providerType = webhook.providerType() == null ? SmsProviderType.STUB : webhook.providerType();
@@ -186,7 +197,10 @@ public class SmsTransaction extends AbstractModel<Long> {
     }
 
     public static SmsTransaction deliveryEvent(SmsDeliveryWebhookDto webhook) {
-        Objects.requireNonNull(webhook, "webhook is required");
+        Objects.requireNonNull(webhook, WEBHOOK_REQUIRED_MESSAGE);
+        if (isBlank(webhook.providerMessageId())) {
+            throw new IllegalArgumentException("providerMessageId is required for delivery webhooks");
+        }
         SmsTransaction transaction = new SmsTransaction();
         transaction.direction = SmsDirection.OUTBOUND;
         transaction.providerType = webhook.providerType() == null ? SmsProviderType.STUB : webhook.providerType();
@@ -201,6 +215,7 @@ public class SmsTransaction extends AbstractModel<Long> {
         status = decision.blockedStatus();
         consentReasonCode = trimTo(decision.reasonCode(), MAX_REASON_CODE_LENGTH);
         errorMessage = trimTo(decision.operatorMessage(), MAX_ERROR_MESSAGE_LENGTH);
+        clearClaim();
         touch();
     }
 
@@ -216,6 +231,17 @@ public class SmsTransaction extends AbstractModel<Long> {
         touch();
     }
 
+    public void markStaleRecoveryStarted(Date recoveryAt) {
+        Date safeRecoveryAt = copyOf(recoveryAt);
+        if (safeRecoveryAt == null) {
+            safeRecoveryAt = new Date();
+        }
+        status = SmsStatus.SENDING;
+        lastAttemptAt = safeRecoveryAt;
+        nextAttemptAt = null;
+        touch();
+    }
+
     public void markProviderResult(SmsProviderSendResultDto providerResult) {
         Objects.requireNonNull(providerResult, "providerResult is required");
         status = providerResult.status() == null ? SmsStatus.FAILED : providerResult.status();
@@ -223,6 +249,7 @@ public class SmsTransaction extends AbstractModel<Long> {
         errorCode = trimTo(providerResult.errorCode(), MAX_REASON_CODE_LENGTH);
         errorMessage = trimTo(providerResult.errorMessage(), MAX_ERROR_MESSAGE_LENGTH);
         nextAttemptAt = null;
+        clearClaim();
         if (status == SmsStatus.SENT && sentAt == null) {
             sentAt = new Date();
         }
@@ -239,21 +266,35 @@ public class SmsTransaction extends AbstractModel<Long> {
         errorCode = trimTo(providerResult.errorCode(), MAX_REASON_CODE_LENGTH);
         errorMessage = trimTo(providerResult.errorMessage(), MAX_ERROR_MESSAGE_LENGTH);
         this.nextAttemptAt = copyOf(nextAttemptAt);
+        clearClaim();
         touch();
     }
 
     public void markDeliveryEvent(SmsDeliveryWebhookDto webhook) {
-        Objects.requireNonNull(webhook, "webhook is required");
-        status = webhook.status() == null ? SmsStatus.FAILED : webhook.status();
+        Objects.requireNonNull(webhook, WEBHOOK_REQUIRED_MESSAGE);
+        SmsStatus webhookStatus = webhook.status() == null ? SmsStatus.FAILED : webhook.status();
+        Date webhookEventAt = webhook.eventAt() == null ? null : Date.from(webhook.eventAt());
+        if (shouldIgnoreDeliveryEvent(webhookStatus, webhookEventAt)) {
+            return;
+        }
+
+        Date appliedEventAt = webhookEventAt == null ? new Date() : webhookEventAt;
+        status = webhookStatus;
         errorCode = trimTo(webhook.errorCode(), MAX_REASON_CODE_LENGTH);
         errorMessage = trimTo(webhook.errorMessage(), MAX_ERROR_MESSAGE_LENGTH);
         String providerMetadataJson = providerMetadataJson(webhook.providerMetadata());
         if (providerMetadataJson != null) {
             providerMetadata = providerMetadataJson;
         }
-        if (status == SmsStatus.DELIVERED) {
-            deliveredAt = webhook.eventAt() == null ? new Date() : Date.from(webhook.eventAt());
+        if (webhookEventAt != null || providerEventAt == null) {
+            providerEventAt = appliedEventAt;
         }
+        if (status == SmsStatus.DELIVERED) {
+            if (deliveredAt == null || webhookEventAt != null) {
+                deliveredAt = appliedEventAt;
+            }
+        }
+        clearClaim();
         touch();
     }
 
@@ -283,9 +324,30 @@ public class SmsTransaction extends AbstractModel<Long> {
         messageBodySha256 = SmsAuditRedactor.digest(body, 64);
     }
 
+    private void clearClaim() {
+        claimToken = null;
+    }
+
+    private boolean shouldIgnoreDeliveryEvent(SmsStatus webhookStatus, Date webhookEventAt) {
+        if (webhookEventAt != null && providerEventAt != null && webhookEventAt.before(providerEventAt)) {
+            return true;
+        }
+        if (status == SmsStatus.DELIVERED && webhookStatus != SmsStatus.DELIVERED) {
+            return true;
+        }
+        return status == SmsStatus.DELIVERED
+                && webhookEventAt != null
+                && deliveredAt != null
+                && webhookEventAt.before(deliveredAt);
+    }
+
     private static String normalizePhone(String phoneNumber) {
         return SmsPhoneNumbers.normalizeToE164(phoneNumber)
                 .orElse(trimTo(phoneNumber, MAX_PHONE_LENGTH));
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     private static String trimTo(String value, int maxLength) {
@@ -373,11 +435,12 @@ public class SmsTransaction extends AbstractModel<Long> {
     }
 
     /**
-     * Full SMS body access should go through the SMS body reader so access can be audited.
+     * Runs the caller-provided audit action before exposing the stored full body.
      */
-    @Deprecated
-    public String getMessageBody() {
-        return messageBody;
+    public Optional<String> readFullMessageBodyWithAudit(Runnable auditAction) {
+        Objects.requireNonNull(auditAction, "auditAction is required");
+        auditAction.run();
+        return Optional.ofNullable(messageBody);
     }
 
     public String getMessageBodySha256() {
@@ -434,6 +497,14 @@ public class SmsTransaction extends AbstractModel<Long> {
 
     public Date getReceivedAt() {
         return copyOf(receivedAt);
+    }
+
+    public Date getProviderEventAt() {
+        return copyOf(providerEventAt);
+    }
+
+    public String getClaimToken() {
+        return claimToken;
     }
 
     private static Date copyOf(Date date) {

@@ -1,6 +1,7 @@
 package io.github.carlos_emr.carlos.sms.service;
 
 import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -16,6 +17,7 @@ public class SmsRetryPolicy {
     private final Duration initialDelay;
     private final Duration maxDelay;
 
+    @Autowired
     public SmsRetryPolicy() {
         this(DEFAULT_MAX_ATTEMPTS, DEFAULT_INITIAL_DELAY, DEFAULT_MAX_DELAY);
     }

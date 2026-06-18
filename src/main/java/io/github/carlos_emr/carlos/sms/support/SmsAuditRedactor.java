@@ -13,7 +13,7 @@ public final class SmsAuditRedactor {
         if (digits.length() < 4) {
             return "[redacted-phone]";
         }
-        return "[redacted-phone:****" + digits.substring(digits.length() - 4) + "]";
+        return "[redacted-phone:last4=" + digits.substring(digits.length() - 4) + "]";
     }
 
     public static String safeMessagePreview(String body) {

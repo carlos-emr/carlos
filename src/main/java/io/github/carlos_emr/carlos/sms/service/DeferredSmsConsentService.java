@@ -5,6 +5,7 @@ import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.SmsTransactionType;
 import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
 import io.github.carlos_emr.carlos.sms.dto.SmsConsentDecisionDto;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.function.BooleanSupplier;
@@ -19,6 +20,7 @@ public class DeferredSmsConsentService implements SmsConsentService {
 
     private final BooleanSupplier systemTestEnabled;
 
+    @Autowired
     public DeferredSmsConsentService() {
         this(() -> CarlosProperties.getInstance().isPropertyActive(SYSTEM_TEST_ENABLED_PROPERTY));
     }

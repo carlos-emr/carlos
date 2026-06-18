@@ -13,5 +13,12 @@ public interface SmsTransactionDao extends AbstractDao<SmsTransaction> {
 
     Optional<SmsTransaction> findByProviderMessageId(SmsProviderType providerType, String providerMessageId);
 
-    List<SmsTransaction> findDueOutboundQueueForUpdate(SmsProviderType providerType, Date now, int limit);
+    List<SmsTransaction> claimDueOutboundQueue(SmsProviderType providerType, Date claimAt, int limit);
+
+    List<SmsTransaction> claimStaleOutboundSendingForRecovery(
+            SmsProviderType providerType,
+            Date staleBefore,
+            Date recoveryAt,
+            int limit
+    );
 }

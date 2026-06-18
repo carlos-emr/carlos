@@ -9,6 +9,19 @@ public record SmsProviderSendResultDto(
         String errorCode,
         String errorMessage
 ) {
+    public SmsProviderSendResultDto {
+        if (accepted) {
+            if (providerMessageId == null || providerMessageId.isBlank()) {
+                throw new IllegalArgumentException("providerMessageId is required for accepted SMS provider results");
+            }
+            if (status != SmsStatus.SENT && status != SmsStatus.DELIVERED) {
+                throw new IllegalArgumentException("accepted SMS provider results must be SENT or DELIVERED");
+            }
+        } else if (status == null) {
+            status = SmsStatus.FAILED;
+        }
+    }
+
     public static SmsProviderSendResultDto accepted(String providerMessageId, SmsStatus status) {
         return new SmsProviderSendResultDto(true, providerMessageId, status, null, null);
     }

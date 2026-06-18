@@ -23,7 +23,9 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @Tag("unit")
@@ -211,6 +213,26 @@ class JpaSmsTransactionRecorderUnitTest {
     }
 
     @Test
+    @DisplayName("recordDeliveryEvent rejects blank provider message ids")
+    void shouldRejectDeliveryEvent_whenProviderMessageIdIsBlank() {
+        JpaSmsTransactionRecorder recorder = new JpaSmsTransactionRecorder(smsTransactionDao);
+        SmsDeliveryWebhookDto webhook = new SmsDeliveryWebhookDto(
+                SmsProviderType.STUB,
+                " ",
+                SmsStatus.DELIVERED,
+                Instant.EPOCH,
+                null,
+                null,
+                null
+        );
+
+        assertThatThrownBy(() -> recorder.recordDeliveryEvent(webhook))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("providerMessageId");
+        verifyNoInteractions(smsTransactionDao);
+    }
+
+    @Test
     @DisplayName("recordDeliveryEvent creates a record when no provider transaction exists")
     void shouldPersistTransaction_whenDeliveryEventIsUnmatched() {
         JpaSmsTransactionRecorder recorder = new JpaSmsTransactionRecorder(smsTransactionDao);
@@ -239,7 +261,7 @@ class JpaSmsTransactionRecorderUnitTest {
     }
 
     @Test
-    @DisplayName("claimDueOutboundQueue marks locked rows as sending")
+    @DisplayName("claimDueOutboundQueue delegates atomic claiming to the DAO")
     void shouldMarkTransactionsSending_whenClaimingDueOutboundQueue() {
         JpaSmsTransactionRecorder recorder = new JpaSmsTransactionRecorder(smsTransactionDao);
         Date now = Date.from(Instant.parse("2026-06-08T12:00:00Z"));
@@ -247,7 +269,8 @@ class JpaSmsTransactionRecorderUnitTest {
                 SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
         );
-        when(smsTransactionDao.findDueOutboundQueueForUpdate(SmsProviderType.STUB, now, 25))
+        transaction.markSending(now);
+        when(smsTransactionDao.claimDueOutboundQueue(SmsProviderType.STUB, now, 25))
                 .thenReturn(List.of(transaction));
 
         List<SmsTransaction> transactions = recorder.claimDueOutboundQueue(SmsProviderType.STUB, now, 25);
@@ -256,6 +279,35 @@ class JpaSmsTransactionRecorderUnitTest {
         assertThat(transaction)
                 .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount, SmsTransaction::getLastAttemptAt)
                 .containsExactly(SmsStatus.SENDING, 1, now);
-        verify(smsTransactionDao).flush();
+        verify(smsTransactionDao).claimDueOutboundQueue(SmsProviderType.STUB, now, 25);
+    }
+
+    @Test
+    @DisplayName("claimStaleSendingForRecovery delegates atomic claiming to the DAO")
+    void shouldMarkRecoveryStarted_whenSendingRowsAreStale() {
+        JpaSmsTransactionRecorder recorder = new JpaSmsTransactionRecorder(smsTransactionDao);
+        Date staleBefore = Date.from(Instant.parse("2026-06-08T12:00:00Z"));
+        Date recoveryAt = Date.from(Instant.parse("2026-06-08T12:05:00Z"));
+        SmsTransaction transaction = SmsTransaction.outboundAttempt(
+                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998"),
+                SmsProviderType.STUB
+        );
+        transaction.markSending(Date.from(Instant.parse("2026-06-08T11:00:00Z")));
+        transaction.markStaleRecoveryStarted(recoveryAt);
+        when(smsTransactionDao.claimStaleOutboundSendingForRecovery(SmsProviderType.STUB, staleBefore, recoveryAt, 25))
+                .thenReturn(List.of(transaction));
+
+        List<SmsTransaction> transactions = recorder.claimStaleSendingForRecovery(
+                SmsProviderType.STUB,
+                staleBefore,
+                recoveryAt,
+                25
+        );
+
+        assertThat(transactions).singleElement().isSameAs(transaction);
+        assertThat(transaction)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount, SmsTransaction::getLastAttemptAt)
+                .containsExactly(SmsStatus.SENDING, 1, recoveryAt);
+        verify(smsTransactionDao).claimStaleOutboundSendingForRecovery(SmsProviderType.STUB, staleBefore, recoveryAt, 25);
     }
 }

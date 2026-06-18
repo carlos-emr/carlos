@@ -9,6 +9,8 @@ import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
 import io.github.carlos_emr.carlos.sms.validator.SmsSendValidator;
 import org.springframework.stereotype.Service;
 
+import java.util.Objects;
+
 @Service
 public class SmsSendService {
     private static final SmsProviderType DEFAULT_PROVIDER_TYPE = SmsProviderType.STUB;
@@ -46,10 +48,10 @@ public class SmsSendService {
             return SmsSendResultDto.consentBlocked(consentDecision);
         }
 
-        SmsProviderClient providerClient = providerResolver.resolve(DEFAULT_PROVIDER_TYPE);
         SmsProviderSendResultDto providerResult;
         try {
-            providerResult = providerClient.send(command);
+            SmsProviderClient providerClient = providerResolver.resolve(DEFAULT_PROVIDER_TYPE);
+            providerResult = providerClient.send(command, clientReferenceId(transaction));
         } catch (RuntimeException e) {
             providerResult = SmsProviderSendResultDto.failed(
                     DIRECT_PROVIDER_EXCEPTION_CODE,
@@ -58,5 +60,13 @@ public class SmsSendService {
         }
         transactionRecorder.markProviderResult(transaction, providerResult);
         return SmsSendResultDto.fromProvider(providerResult);
+    }
+
+    private String clientReferenceId(SmsTransaction transaction) {
+        Long transactionId = Objects.requireNonNull(
+                transaction.getId(),
+                "sms_transaction id is required before provider send"
+        );
+        return "sms-transaction-" + transactionId;
     }
 }

@@ -9,20 +9,26 @@ import java.util.Optional;
 
 @Service
 public class SmsMessageBodyReader {
+    private final SmsMessageBodyAccessAuthorizer accessAuthorizer;
     private final SmsMessageBodyAccessAuditor accessAuditor;
 
-    public SmsMessageBodyReader(SmsMessageBodyAccessAuditor accessAuditor) {
+    public SmsMessageBodyReader(
+            SmsMessageBodyAccessAuthorizer accessAuthorizer,
+            SmsMessageBodyAccessAuditor accessAuditor
+    ) {
+        this.accessAuthorizer = accessAuthorizer;
         this.accessAuditor = accessAuditor;
     }
 
-    @SuppressWarnings("deprecation")
     public Optional<String> readFullMessageBody(
             SmsTransaction transaction,
             LoggedInInfo loggedInInfo,
             String reasonCode
     ) {
         Objects.requireNonNull(transaction, "transaction is required");
-        accessAuditor.recordFullBodyRead(transaction, loggedInInfo, reasonCode);
-        return Optional.ofNullable(transaction.getMessageBody());
+        accessAuthorizer.assertCanReadFullBody(transaction, loggedInInfo);
+        return transaction.readFullMessageBodyWithAudit(
+                () -> accessAuditor.recordFullBodyRead(transaction, loggedInInfo, reasonCode)
+        );
     }
 }

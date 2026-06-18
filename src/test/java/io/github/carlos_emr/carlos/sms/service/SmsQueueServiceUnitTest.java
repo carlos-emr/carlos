@@ -20,6 +20,11 @@ import java.util.Date;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @Tag("unit")
 @Tag("service")
@@ -28,10 +33,12 @@ class SmsQueueServiceUnitTest {
     @DisplayName("enqueue returns queued after validation and consent pass")
     void shouldQueueMessage_whenConsentAllows() {
         RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder();
+        SmsQueueWorker worker = mock(SmsQueueWorker.class);
         SmsQueueService service = new SmsQueueService(
                 new SmsSendValidator(),
                 command -> SmsConsentDecisionDto.permit(),
-                recorder
+                recorder,
+                worker
         );
 
         SmsSendResultDto result = service.enqueue(
@@ -54,12 +61,66 @@ class SmsQueueServiceUnitTest {
                         SmsTransaction::getRecipientPhoneType
                 )
                 .containsExactly(SmsStatus.QUEUED, SmsProviderType.STUB, SmsRecipientPhoneType.HOME);
+        verify(worker, never()).processDueMessages(anyInt());
+    }
+
+    @Test
+    @DisplayName("enqueueAndProcessNow wakes the queue worker after queuing")
+    void shouldWakeWorker_whenMessageIsQueuedForImmediateProcessing() {
+        RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder();
+        SmsQueueWorker worker = mock(SmsQueueWorker.class);
+        when(worker.processDueMessages(1)).thenReturn(1);
+        SmsQueueService service = new SmsQueueService(
+                new SmsSendValidator(),
+                command -> SmsConsentDecisionDto.permit(),
+                recorder,
+                worker
+        );
+
+        SmsSendResultDto result = service.enqueueAndProcessNow(
+                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998")
+        );
+
+        assertThat(result)
+                .extracting(SmsSendResultDto::accepted, SmsSendResultDto::status)
+                .containsExactly(true, SmsStatus.QUEUED);
+        assertThat(recorder.transactions()).singleElement()
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getProviderType)
+                .containsExactly(SmsStatus.QUEUED, SmsProviderType.STUB);
+        verify(worker).processDueMessages(1);
+    }
+
+    @Test
+    @DisplayName("enqueueAndProcessNow keeps queued result when the immediate worker wake fails")
+    void shouldReturnQueued_whenImmediateWorkerWakeFails() {
+        RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder();
+        SmsQueueWorker worker = mock(SmsQueueWorker.class);
+        when(worker.processDueMessages(1)).thenThrow(new IllegalStateException("worker unavailable"));
+        SmsQueueService service = new SmsQueueService(
+                new SmsSendValidator(),
+                command -> SmsConsentDecisionDto.permit(),
+                recorder,
+                worker
+        );
+
+        SmsSendResultDto result = service.enqueueAndProcessNow(
+                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998")
+        );
+
+        assertThat(result)
+                .extracting(SmsSendResultDto::accepted, SmsSendResultDto::status)
+                .containsExactly(true, SmsStatus.QUEUED);
+        assertThat(recorder.transactions()).singleElement()
+                .extracting(SmsTransaction::getStatus)
+                .isEqualTo(SmsStatus.QUEUED);
+        verify(worker).processDueMessages(1);
     }
 
     @Test
     @DisplayName("enqueue records consent blocks without sending")
     void shouldBlockMessage_whenConsentDeniesQueue() {
         RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder();
+        SmsQueueWorker worker = mock(SmsQueueWorker.class);
         SmsQueueService service = new SmsQueueService(
                 new SmsSendValidator(),
                 command -> SmsConsentDecisionDto.blocked(
@@ -67,7 +128,8 @@ class SmsQueueServiceUnitTest {
                         "CONSENT_MODEL_PENDING",
                         "SMS consent integration is pending"
                 ),
-                recorder
+                recorder,
+                worker
         );
 
         SmsSendResultDto result = service.enqueue(
@@ -79,16 +141,44 @@ class SmsQueueServiceUnitTest {
         assertThat(recorder.transactions()).singleElement()
                 .extracting(SmsTransaction::getStatus, SmsTransaction::getConsentReasonCode)
                 .containsExactly(SmsStatus.CONSENT_BLOCKED, "CONSENT_MODEL_PENDING");
+        verify(worker, never()).processDueMessages(anyInt());
+    }
+
+    @Test
+    @DisplayName("enqueueAndProcessNow does not wake worker when consent blocks")
+    void shouldSkipWorkerWake_whenConsentDeniesImmediateQueue() {
+        RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder();
+        SmsQueueWorker worker = mock(SmsQueueWorker.class);
+        SmsQueueService service = new SmsQueueService(
+                new SmsSendValidator(),
+                command -> SmsConsentDecisionDto.blocked(
+                        SmsStatus.CONSENT_BLOCKED,
+                        "CONSENT_MODEL_PENDING",
+                        "SMS consent integration is pending"
+                ),
+                recorder,
+                worker
+        );
+
+        SmsSendResultDto result = service.enqueueAndProcessNow(
+                SmsSendCommand.direct(123, "416-555-1212", "Appointment reminder", "999998")
+        );
+
+        assertThat(result.accepted()).isFalse();
+        assertThat(result.status()).isEqualTo(SmsStatus.CONSENT_BLOCKED);
+        verify(worker, never()).processDueMessages(anyInt());
     }
 
     @Test
     @DisplayName("enqueue does not create transactions for invalid commands")
     void shouldSkipTransactionRecord_whenQueueValidationFails() {
         RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder();
+        SmsQueueWorker worker = mock(SmsQueueWorker.class);
         SmsQueueService service = new SmsQueueService(
                 new SmsSendValidator(),
                 command -> SmsConsentDecisionDto.permit(),
-                recorder
+                recorder,
+                worker
         );
 
         SmsSendResultDto result = service.enqueue(SmsSendCommand.direct(0, "not-a-phone", " ", "999998"));
@@ -96,6 +186,29 @@ class SmsQueueServiceUnitTest {
         assertThat(result.accepted()).isFalse();
         assertThat(result.status()).isEqualTo(SmsStatus.FAILED);
         assertThat(recorder.transactions()).isEmpty();
+        verify(worker, never()).processDueMessages(anyInt());
+    }
+
+    @Test
+    @DisplayName("enqueueAndProcessNow does not wake worker after validation failures")
+    void shouldSkipWorkerWake_whenImmediateQueueValidationFails() {
+        RecordingSmsTransactionRecorder recorder = new RecordingSmsTransactionRecorder();
+        SmsQueueWorker worker = mock(SmsQueueWorker.class);
+        SmsQueueService service = new SmsQueueService(
+                new SmsSendValidator(),
+                command -> SmsConsentDecisionDto.permit(),
+                recorder,
+                worker
+        );
+
+        SmsSendResultDto result = service.enqueueAndProcessNow(
+                SmsSendCommand.direct(0, "not-a-phone", " ", "999998")
+        );
+
+        assertThat(result.accepted()).isFalse();
+        assertThat(result.status()).isEqualTo(SmsStatus.FAILED);
+        assertThat(recorder.transactions()).isEmpty();
+        verify(worker, never()).processDueMessages(anyInt());
     }
 
     private static class RecordingSmsTransactionRecorder implements SmsTransactionRecorder {
@@ -152,6 +265,16 @@ class SmsQueueServiceUnitTest {
 
         @Override
         public List<SmsTransaction> claimDueOutboundQueue(SmsProviderType providerType, Date now, int limit) {
+            return List.of();
+        }
+
+        @Override
+        public List<SmsTransaction> claimStaleSendingForRecovery(
+                SmsProviderType providerType,
+                Date staleBefore,
+                Date recoveryAt,
+                int limit
+        ) {
             return List.of();
         }
 
