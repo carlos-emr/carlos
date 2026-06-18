@@ -107,6 +107,16 @@ class ViewEFormShowData2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldForwardSavedFormRendererWhenFdidIsPresent() throws Exception {
+        when(mockRequest.getQueryString()).thenReturn("fdid=123");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        verify(mockDispatcher).forward(mockRequest, mockResponse);
+    }
+
+    @Test
     void shouldThrowWhenReadPrivilegeDenied() {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_eform"), eq("r"), isNull()))
                 .thenReturn(false);
