@@ -49,6 +49,7 @@ import io.github.carlos_emr.carlos.commn.dao.DxDao;
 import io.github.carlos_emr.carlos.commn.dao.DxresearchDAO;
 import io.github.carlos_emr.carlos.commn.model.DxAssociation;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.JsonResponseWriter;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -132,7 +133,7 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
 
         //serialize and return
         ArrayNode jsonArray = objectMapper.valueToTree(associations);
-        response.getWriter().print(jsonArray);
+        JsonResponseWriter.write(response, jsonArray);
         return null;
     }
 
@@ -150,7 +151,7 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
 
         Map<String, Integer> map = new HashMap<String, Integer>();
         map.put("recordsUpdated", recordsUpdated);
-        response.getWriter().print(objectMapper.valueToTree(map));
+        JsonResponseWriter.write(response, map);
         return null;
     }
 
@@ -167,7 +168,7 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
 
         Map<String, String> map = new HashMap<String, String>();
         map.put("result", "success");
-        response.getWriter().print(objectMapper.valueToTree(map));
+        JsonResponseWriter.write(response, map);
         return null;
     }
 
@@ -246,7 +247,7 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
 
         Map<String, Integer> map = new HashMap<String, Integer>();
         map.put("recordsAdded", rowsInserted);
-        response.getWriter().print(objectMapper.valueToTree(map));
+        JsonResponseWriter.write(response, map);
 
         return SUCCESS;
     }
@@ -280,7 +281,7 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
 
         Map<String, Integer> map = new HashMap<String, Integer>();
         map.put("recordsAdded", recordsAdded);
-        response.getWriter().print(objectMapper.valueToTree(map));
+        JsonResponseWriter.write(response, map);
 
         return null;
     }
