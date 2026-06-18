@@ -2110,6 +2110,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             justification = "redirectTarget is returned by sanitizeInternalRedirect, which only permits trimmed, "
                     + "slash-prefixed relative URLs accepted by RedirectValidationUtils")
     private void sendChainRedirect(String redirectTarget) throws IOException {
+        // Intentionally rebuild at the sink so static analysis sees a same-host path
+        // constructed from a literal slash after sanitizeInternalRedirect validates it.
         String sameHostRedirectTarget = "/" + redirectTarget.substring(1);
         response.sendRedirect(sameHostRedirectTarget); // nosemgrep: java.lang.security.audit.servlets.unvalidated-redirect.unvalidated-redirect-java -- gated by sanitizeInternalRedirect
     }
