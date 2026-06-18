@@ -137,6 +137,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             "observation_date_asc", "observation_date_desc",
             "providerName", "programName", "roleName", "update_date");
 
+    private static final Set<String> ALLOWED_CHAIN_RESULT_NAMES = Set.of("list", "view", "issueList_ajax");
+
     public String execute() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
@@ -532,9 +534,13 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         mySessionMap.put(frmName, cform);
 
         String fwd, finalFwd = null;
-        if (chain != null && chain.length() > 0) {
-            fwd = chain;
+        String chainResult = sanitizeChainResultName(chain);
+        if (chainResult != null) {
+            fwd = chainResult;
         } else {
+            if (StringUtils.isNotBlank(chain)) {
+                logger.warn("Rejected invalid chain result target");
+            }
             String ajax = request.getParameter("ajax");
             if (ajax != null && ajax.equalsIgnoreCase("true")) {
                 fwd = "issueList_ajax";
@@ -1722,9 +1728,12 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         /* prepare the message */
         addActionMessage(getText("note.saved"));
         String chain = request.getParameter("chain");
+        String chainResult = sanitizeChainResultName(chain);
 
-        if (chain != null && !chain.equals("")) {
-            return chain;
+        if (chainResult != null) {
+            return chainResult;
+        } else if (StringUtils.isNotBlank(chain)) {
+            logger.warn("Rejected invalid chain result target");
         }
 
         return "view";
@@ -3942,6 +3951,20 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             return null;
         }
         return "/" + StringUtils.removeStart(trimmedUrl, "/");
+    }
+
+    /**
+     * Returns a whitelisted Struts result name for the legacy {@code chain} parameter.
+     *
+     * @param chain raw requested result name
+     * @return safe result name, or null when absent or unsafe
+     */
+    static String sanitizeChainResultName(String chain) {
+        String trimmedChain = StringUtils.trimToNull(chain);
+        if (trimmedChain == null || !ALLOWED_CHAIN_RESULT_NAMES.contains(trimmedChain)) {
+            return null;
+        }
+        return trimmedChain;
     }
 
     /**

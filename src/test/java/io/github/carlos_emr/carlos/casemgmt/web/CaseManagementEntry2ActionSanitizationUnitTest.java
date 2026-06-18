@@ -289,6 +289,50 @@ class CaseManagementEntry2ActionSanitizationUnitTest {
     }
 
     @Nested
+    @DisplayName("sanitizeChainResultName")
+    class SanitizeChainResultName {
+
+        @ParameterizedTest(name = "safe chain result: {0}")
+        @ValueSource(strings = {
+                "list",
+                "view",
+                "issueList_ajax"
+        })
+        @DisplayName("should return whitelisted chain result names")
+        void shouldReturn_whenResultNameWhitelisted(String chain) {
+            assertThat(CaseManagementEntry2Action.sanitizeChainResultName(chain)).isEqualTo(chain);
+        }
+
+        @Test
+        @DisplayName("should return trimmed whitelisted chain result name")
+        void shouldReturn_whenResultNameHasOuterWhitespace() {
+            assertThat(CaseManagementEntry2Action.sanitizeChainResultName(" \tlist \n")).isEqualTo("list");
+        }
+
+        @ParameterizedTest(name = "blank chain result: [{0}]")
+        @NullAndEmptySource
+        @ValueSource(strings = {" ", "\t", "\n"})
+        @DisplayName("should return null for blank chain result names")
+        void shouldReturnNull_whenResultNameBlank(String chain) {
+            assertThat(CaseManagementEntry2Action.sanitizeChainResultName(chain)).isNull();
+        }
+
+        @ParameterizedTest(name = "unsafe chain result: {0}")
+        @ValueSource(strings = {
+                "listCPPNotes",
+                "windowClose",
+                "https://evil.example",
+                "/provider/providercontrol.jsp",
+                "../admin",
+                "list;listCPPNotes"
+        })
+        @DisplayName("should return null for untrusted chain result names")
+        void shouldReturnNull_whenResultNameUntrusted(String chain) {
+            assertThat(CaseManagementEntry2Action.sanitizeChainResultName(chain)).isNull();
+        }
+    }
+
+    @Nested
     @DisplayName("resolveReporterProgramTeamId")
     class ResolveReporterProgramTeamId {
 
