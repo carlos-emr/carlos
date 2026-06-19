@@ -32,8 +32,10 @@ package io.github.carlos_emr.carlos.form.pdfservlet;
 
 import java.io.*;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.*;
 import java.util.List;
 
@@ -149,7 +151,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                     String document_dir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
                     
                     // Use PathValidationUtils for proper path validation
-                    File baseDirFile = new File(document_dir);
+                    File baseDirFile = PathValidationUtils.resolveConfiguredDirectory(document_dir, "DOCUMENT_DIR");
                     File validatedPdfFile = PathValidationUtils.validatePath(pdfFile, baseDirFile);
                     Path filepath = validatedPdfFile.toPath();
 
@@ -161,7 +163,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
 
                     // write to temporary file
                     String tempPath = CarlosProperties.getInstance().getProperty("fax_file_location", System.getProperty("java.io.tmpdir"));
-                    File tempDirFile = new File(tempPath);
+                    File tempDirFile = PathValidationUtils.resolveConfiguredDirectory(tempPath, "fax_file_location");
                     File validatedTempPdf = PathValidationUtils.validatePath("prescription_" + pdfid + ".pdf", tempDirFile);
                     Path tempPdf = validatedTempPdf.toPath();
 
@@ -172,9 +174,8 @@ public class FrmCustomedPDFServlet extends HttpServlet {
 
                     // tracking file
                     File validatedTxtFile = PathValidationUtils.validatePath("prescription_" + pdfid + ".txt", tempDirFile);
-                    String txtFile = validatedTxtFile.toString();
-                    try (FileWriter fstream = new FileWriter(txtFile);
-                         BufferedWriter out = new BufferedWriter(fstream)) {
+                    try (BufferedWriter out = Files.newBufferedWriter(validatedTxtFile.toPath(), StandardCharsets.UTF_8,
+                            StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE)) {
                         if (faxNo != null) {
                             out.write(faxNo);
                         }

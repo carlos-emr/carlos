@@ -300,6 +300,19 @@ class ProviderSignatureImage2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should return 404 when the configured image path is not a directory")
+    void shouldReturn404_whenConfiguredImagePathIsNotDirectory() throws Exception {
+        Path configuredFile = Files.createTempFile(tempDir, "eform-images-", ".txt");
+        when(mockProperties.getEformImageDirectory()).thenReturn(configuredFile.toString());
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_NOT_FOUND);
+        assertThat(mockResponse.getContentAsByteArray()).isEmpty();
+    }
+
+    @Test
     @DisplayName("should return bad request when the logged-in provider number is invalid")
     void shouldReturnBadRequest_whenLoggedInProviderNoIsInvalid() {
         when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("provider-x");
