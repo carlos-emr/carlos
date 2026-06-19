@@ -293,6 +293,14 @@ class RxUtilRegexUnitTest {
         }
 
         @Test
+        @DisplayName("should parse single-space amount before frequency synonym")
+        void shouldParseSingleSpaceAmount_beforeFrequencySynonym() {
+            RxPrescriptionData.Prescription rx = parse("for 1 once daily ");
+            assertThat(rx.getTakeMax()).isEqualTo(1.0f);
+            assertThat(rx.getFrequencyCode()).isEqualToIgnoringCase("OD");
+        }
+
+        @Test
         @DisplayName("should parse single-space range before frequency")
         void shouldParseSingleSpaceRange_beforeFrequency() {
             RxPrescriptionData.Prescription rx = parse("for 1-2 OD ");
@@ -302,9 +310,27 @@ class RxUtilRegexUnitTest {
         }
 
         @Test
+        @DisplayName("should parse single-space range before frequency synonym")
+        void shouldParseSingleSpaceRange_beforeFrequencySynonym() {
+            RxPrescriptionData.Prescription rx = parse("for 1-2 once daily ");
+            assertThat(rx.getTakeMin()).isEqualTo(1.0f);
+            assertThat(rx.getTakeMax()).isEqualTo(2.0f);
+            assertThat(rx.getFrequencyCode()).isEqualToIgnoringCase("OD");
+        }
+
+        @Test
         @DisplayName("should parse single-space decimal range before frequency")
         void shouldParseSingleSpaceDecimalRange_beforeFrequency() {
             RxPrescriptionData.Prescription rx = parse("for 0.5-1.5 OD ");
+            assertThat(rx.getTakeMin()).isEqualTo(0.5f);
+            assertThat(rx.getTakeMax()).isEqualTo(1.5f);
+            assertThat(rx.getFrequencyCode()).isEqualToIgnoringCase("OD");
+        }
+
+        @Test
+        @DisplayName("should parse single-space decimal range before frequency synonym")
+        void shouldParseSingleSpaceDecimalRange_beforeFrequencySynonym() {
+            RxPrescriptionData.Prescription rx = parse("for 0.5-1.5 once daily ");
             assertThat(rx.getTakeMin()).isEqualTo(0.5f);
             assertThat(rx.getTakeMax()).isEqualTo(1.5f);
             assertThat(rx.getFrequencyCode()).isEqualToIgnoringCase("OD");

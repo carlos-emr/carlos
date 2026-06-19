@@ -593,7 +593,7 @@ public class RxUtil {
                 frequency = changeToStandardFrequencyCode(matchedFrequency);
                 //     p("here11", instructions);
                 //since "\\s+[0-9]+-[0-9]+\\s+" is a case in "\\s+[0-9]+\\s+", check the latter regex first.
-                NumberRange frequencyRange = matchedFrequency.equals(frequency) ? findRangeBeforeFrequency(instructions, matcher.start()) : null;
+                NumberRange frequencyRange = findRangeBeforeFrequency(instructions, matcher.start());
                 if (frequencyRange != null) {
                     takeMinFrequency = frequencyRange.min;
                     takeMaxFrequency = frequencyRange.max;
