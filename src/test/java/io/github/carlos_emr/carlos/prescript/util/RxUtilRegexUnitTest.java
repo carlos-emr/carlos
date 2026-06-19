@@ -191,6 +191,14 @@ class RxUtilRegexUnitTest {
         }
 
         @Test
+        @DisplayName("should parse leading-dot decimal dosage without method")
+        void shouldParseLeadingDotDecimalDosage_withoutMethod() {
+            RxPrescriptionData.Prescription rx = parse(".5 BID ");
+            assertThat(rx.getTakeMax()).isEqualTo(0.5f);
+            assertThat(rx.getFrequencyCode()).isEqualToIgnoringCase("BID");
+        }
+
+        @Test
         @DisplayName("should parse dosage range with frequency")
         void shouldParseDosageRange_withFrequency() {
             RxPrescriptionData.Prescription rx = parse("Take 1-2 BID ");
@@ -207,6 +215,14 @@ class RxUtilRegexUnitTest {
         }
 
         @Test
+        @DisplayName("should parse leading-dot dosage range with frequency")
+        void shouldParseLeadingDotDosageRange_withFrequency() {
+            RxPrescriptionData.Prescription rx = parse("Take .5-1 BID ");
+            assertThat(rx.getTakeMin()).isEqualTo(0.5f);
+            assertThat(rx.getTakeMax()).isEqualTo(1.0f);
+        }
+
+        @Test
         @DisplayName("should parse dosage range without method")
         void shouldParseDosageRange_withoutMethod() {
             RxPrescriptionData.Prescription rx = parse("0.5-1.5 BID ");
@@ -216,9 +232,25 @@ class RxUtilRegexUnitTest {
         }
 
         @Test
+        @DisplayName("should parse leading-dot dosage range without method")
+        void shouldParseLeadingDotDosageRange_withoutMethod() {
+            RxPrescriptionData.Prescription rx = parse(".5-1 BID ");
+            assertThat(rx.getTakeMin()).isEqualTo(0.5f);
+            assertThat(rx.getTakeMax()).isEqualTo(1.0f);
+            assertThat(rx.getFrequencyCode()).isEqualToIgnoringCase("BID");
+        }
+
+        @Test
         @DisplayName("should parse fraction 1/2 dosage")
         void shouldParseFractionHalf_withFrequency() {
             RxPrescriptionData.Prescription rx = parse("Take 1/2 BID ");
+            assertThat(rx.getTakeMax()).isEqualTo(0.5f);
+        }
+
+        @Test
+        @DisplayName("should parse fraction 1/2 dosage without trailing whitespace")
+        void shouldParseFractionHalf_withoutTrailingWhitespace() {
+            RxPrescriptionData.Prescription rx = parse("Take 1/2");
             assertThat(rx.getTakeMax()).isEqualTo(0.5f);
         }
 

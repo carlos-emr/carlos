@@ -1033,7 +1033,7 @@ public class RxUtil {
         if (index == denominatorStart) {
             return null;
         }
-        if (!hasWhitespaceAt(text, index)) {
+        if (!hasTokenBoundaryAt(text, index)) {
             return null;
         }
 
@@ -1056,8 +1056,8 @@ public class RxUtil {
         return index;
     }
 
-    private static boolean hasWhitespaceAt(String text, int index) {
-        return index < text.length() && Character.isWhitespace(text.charAt(index));
+    private static boolean hasTokenBoundaryAt(String text, int index) {
+        return index >= text.length() || Character.isWhitespace(text.charAt(index));
     }
 
     private static boolean isDigit(char c) {
@@ -1109,7 +1109,7 @@ public class RxUtil {
 
     private static boolean setRangeAfterMethod(InstructionSegment segment, String instructions, int amountStart) {
         NumberRange methodRange = findRangeAt(instructions, amountStart);
-        if (methodRange == null || !hasWhitespaceAt(instructions, methodRange.end)) {
+        if (methodRange == null || !hasTokenBoundaryAt(instructions, methodRange.end)) {
             return false;
         }
 
@@ -1121,7 +1121,7 @@ public class RxUtil {
 
     private static boolean setDecimalAfterMethod(InstructionSegment segment, String instructions, int amountStart) {
         NumberToken methodAmount = findDecimalAt(instructions, amountStart);
-        if (methodAmount == null || !hasWhitespaceAt(instructions, methodAmount.end)) {
+        if (methodAmount == null || !hasTokenBoundaryAt(instructions, methodAmount.end)) {
             return false;
         }
 
