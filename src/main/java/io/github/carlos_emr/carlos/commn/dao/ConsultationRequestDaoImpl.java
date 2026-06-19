@@ -89,6 +89,24 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
     }
 
 
+    /**
+     * Queries consultation requests for the consult list view, applying the optional team, status
+     * and date filters and the legacy order-by / pagination contract. The query LEFT-joins the
+     * specialist association plus the demographic, provider and service rows so the optional
+     * ORDER BY columns are available, and binds every filter value as a Criteria parameter.
+     *
+     * @param team          {@code sendTo} value to match exactly; {@code null} or empty skips the team filter
+     * @param showCompleted when {@code false}, rows with status {@code "4"} (and NULL status) are excluded
+     * @param startDate     inclusive lower bound on the searched date column (see {@code searchDate}), or {@code null} for none
+     * @param endDate       inclusive upper bound on the searched date column (see {@code searchDate}), or {@code null} for none
+     * @param orderby       legacy sort token {@code "1"}-{@code "9"}; {@code null} or an unknown token falls back to referral date descending
+     * @param desc          primary sort direction; {@code "1"} sorts descending, any other value ascending
+     * @param searchDate    {@code "1"} filters on {@code appointmentDate}, any other value filters on {@code referralDate}
+     * @param offset        zero-based index of the first row to return; {@code null} starts at {@code 0}
+     * @param limit         maximum rows to return; {@code null} uses {@link ConsultationRequestDao#DEFAULT_CONSULT_REQUEST_RESULTS_LIMIT}, capped at the maximum list return size
+     * @return the matching consultation requests in the requested order, never {@code null}
+     * @since 2026-06-18
+     */
     public List<ConsultationRequest> getConsults(String team, boolean showCompleted, Date startDate, Date endDate, String orderby, String desc, String searchDate, Integer offset, Integer limit) {
 
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
@@ -125,11 +143,11 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
             predicates.add(cb.notEqual(cr.get("status"), "4"));
         }
 
-        if (!team.isEmpty()) {
+        if (team != null && !team.isEmpty()) {
             // sendTo is bound as a parameter. The original code concatenated team into the HQL
             // string; #2898 moved it to a named :team parameter, and this keeps it bound in the
-            // type-safe Criteria form. (Legacy NPE-on-null-team contract preserved: a null team
-            // still throws here, as the single caller never passes null.)
+            // type-safe Criteria form. A null or empty team skips the filter (returns all teams),
+            // consistent with how the empty-string case is already handled and avoiding a latent NPE.
             predicates.add(cb.equal(cr.get("sendTo"), team));
         }
 
@@ -202,6 +220,7 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
         }
     }
 
+    /** Wraps the given expression as an ascending or descending {@link Order} per the {@code descending} flag. */
     private Order consultsDirection(CriteriaBuilder cb, Expression<?> expression, boolean descending) {
         return descending ? cb.desc(expression) : cb.asc(expression);
     }

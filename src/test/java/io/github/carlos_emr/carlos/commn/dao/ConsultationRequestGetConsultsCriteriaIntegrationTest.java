@@ -97,8 +97,16 @@ public class ConsultationRequestGetConsultsCriteriaIntegrationTest extends Carlo
     @DisplayName("should return only literal matches when team contains an injection payload")
     void shouldReturnOnlyLiteralMatches_whenTeamContainsInjectionPayload() {
         String team = "cardiology_" + marker();
-        persistConsult(c -> { c.setSendTo(team); c.setStatus("1"); c.setReferralDate(date(2031, 1, 1)); });
-        persistConsult(c -> { c.setSendTo("ortho_" + marker()); c.setStatus("1"); c.setReferralDate(date(2031, 1, 2)); });
+        persistConsult(c -> {
+            c.setSendTo(team);
+            c.setStatus("1");
+            c.setReferralDate(date(2031, 1, 1));
+        });
+        persistConsult(c -> {
+            c.setSendTo("ortho_" + marker());
+            c.setStatus("1");
+            c.setReferralDate(date(2031, 1, 2));
+        });
 
         // Legacy code would have concatenated this into "... cr.sendTo = 'x' OR '1'='1' ..."
         // and returned everything. Bound as a parameter it is a literal that matches nothing.
@@ -117,9 +125,18 @@ public class ConsultationRequestGetConsultsCriteriaIntegrationTest extends Carlo
     @DisplayName("should match exactly when team equals a stored value")
     void shouldMatchExactly_whenTeamEqualsStoredValue() {
         String team = "team_" + marker();
-        persistConsult(c -> { c.setSendTo(team); c.setReferralDate(date(2031, 2, 1)); });
-        persistConsult(c -> { c.setSendTo(team); c.setReferralDate(date(2031, 2, 2)); });
-        persistConsult(c -> { c.setSendTo("other_" + marker()); c.setReferralDate(date(2031, 2, 3)); });
+        persistConsult(c -> {
+            c.setSendTo(team);
+            c.setReferralDate(date(2031, 2, 1));
+        });
+        persistConsult(c -> {
+            c.setSendTo(team);
+            c.setReferralDate(date(2031, 2, 2));
+        });
+        persistConsult(c -> {
+            c.setSendTo("other_" + marker());
+            c.setReferralDate(date(2031, 2, 3));
+        });
 
         List<ConsultationRequest> results =
                 dao.getConsults(team, true, null, null, null, null, null, null, null);
@@ -136,9 +153,21 @@ public class ConsultationRequestGetConsultsCriteriaIntegrationTest extends Carlo
     @DisplayName("should exclude completed and null-status rows when showCompleted is false")
     void shouldExcludeCompletedAndNullStatus_whenShowCompletedFalse() {
         String team = "status_" + marker();
-        persistConsult(c -> { c.setSendTo(team); c.setStatus("1"); c.setReferralDate(date(2032, 1, 1)); });
-        persistConsult(c -> { c.setSendTo(team); c.setStatus("4"); c.setReferralDate(date(2032, 1, 2)); });
-        persistConsult(c -> { c.setSendTo(team); c.setStatus(null); c.setReferralDate(date(2032, 1, 3)); });
+        persistConsult(c -> {
+            c.setSendTo(team);
+            c.setStatus("1");
+            c.setReferralDate(date(2032, 1, 1));
+        });
+        persistConsult(c -> {
+            c.setSendTo(team);
+            c.setStatus("4");
+            c.setReferralDate(date(2032, 1, 2));
+        });
+        persistConsult(c -> {
+            c.setSendTo(team);
+            c.setStatus(null);
+            c.setReferralDate(date(2032, 1, 3));
+        });
 
         List<ConsultationRequest> active =
                 dao.getConsults(team, false, null, null, null, null, null, null, null);
@@ -156,13 +185,22 @@ public class ConsultationRequestGetConsultsCriteriaIntegrationTest extends Carlo
     @Test
     @Tag("query")
     @DisplayName("should return all matching rows ordered by referral date descending for default sort")
-    void shouldReturnAllRows_orderedByReferralDateDesc_forDefaultSort() {
+    void shouldReturnAllRowsOrderedByReferralDateDesc_forDefaultSort() {
         // team="" exercises the "filter omitted" path; a unique far-future date window isolates
         // these rows from any pre-existing seed data.
         Date windowStart = date(2090, 1, 1);
-        ConsultationRequest earliest = persistConsult(c -> { c.setSendTo("x_" + marker()); c.setReferralDate(date(2090, 1, 10)); });
-        ConsultationRequest latest = persistConsult(c -> { c.setSendTo("y_" + marker()); c.setReferralDate(date(2090, 3, 10)); });
-        ConsultationRequest middle = persistConsult(c -> { c.setSendTo("z_" + marker()); c.setReferralDate(date(2090, 2, 10)); });
+        ConsultationRequest earliest = persistConsult(c -> {
+            c.setSendTo("x_" + marker());
+            c.setReferralDate(date(2090, 1, 10));
+        });
+        ConsultationRequest latest = persistConsult(c -> {
+            c.setSendTo("y_" + marker());
+            c.setReferralDate(date(2090, 3, 10));
+        });
+        ConsultationRequest middle = persistConsult(c -> {
+            c.setSendTo("z_" + marker());
+            c.setReferralDate(date(2090, 2, 10));
+        });
 
         List<ConsultationRequest> results =
                 dao.getConsults("", true, windowStart, null, null, null, "0", null, null);
@@ -180,11 +218,26 @@ public class ConsultationRequestGetConsultsCriteriaIntegrationTest extends Carlo
     @DisplayName("should apply inclusive referral-date bounds and drop null referral dates when searchDate is not 1")
     void shouldApplyInclusiveReferralBounds_whenSearchDateNotOne() {
         String team = "refdate_" + marker();
-        ConsultationRequest before = persistConsult(c -> { c.setSendTo(team); c.setReferralDate(date(2033, 1, 5)); });
-        ConsultationRequest lower = persistConsult(c -> { c.setSendTo(team); c.setReferralDate(date(2033, 1, 10)); });
-        ConsultationRequest upper = persistConsult(c -> { c.setSendTo(team); c.setReferralDate(date(2033, 1, 20)); });
-        ConsultationRequest after = persistConsult(c -> { c.setSendTo(team); c.setReferralDate(date(2033, 1, 25)); });
-        ConsultationRequest nullDate = persistConsult(c -> { c.setSendTo(team); c.setReferralDate(null); });
+        ConsultationRequest before = persistConsult(c -> {
+            c.setSendTo(team);
+            c.setReferralDate(date(2033, 1, 5));
+        });
+        ConsultationRequest lower = persistConsult(c -> {
+            c.setSendTo(team);
+            c.setReferralDate(date(2033, 1, 10));
+        });
+        ConsultationRequest upper = persistConsult(c -> {
+            c.setSendTo(team);
+            c.setReferralDate(date(2033, 1, 20));
+        });
+        ConsultationRequest after = persistConsult(c -> {
+            c.setSendTo(team);
+            c.setReferralDate(date(2033, 1, 25));
+        });
+        ConsultationRequest nullDate = persistConsult(c -> {
+            c.setSendTo(team);
+            c.setReferralDate(null);
+        });
 
         List<ConsultationRequest> results = dao.getConsults(team, true,
                 date(2033, 1, 10), date(2033, 1, 20), null, null, "0", null, null);
@@ -201,10 +254,14 @@ public class ConsultationRequestGetConsultsCriteriaIntegrationTest extends Carlo
         String team = "apptdate_" + marker();
         // referralDate is set out-of-window to prove the filter targets appointmentDate, not referralDate.
         ConsultationRequest inWindow = persistConsult(c -> {
-            c.setSendTo(team); c.setAppointmentDate(date(2034, 6, 15)); c.setReferralDate(date(2000, 1, 1));
+            c.setSendTo(team);
+            c.setAppointmentDate(date(2034, 6, 15));
+            c.setReferralDate(date(2000, 1, 1));
         });
         ConsultationRequest outWindow = persistConsult(c -> {
-            c.setSendTo(team); c.setAppointmentDate(date(2034, 7, 1)); c.setReferralDate(date(2034, 6, 15));
+            c.setSendTo(team);
+            c.setAppointmentDate(date(2034, 7, 1));
+            c.setReferralDate(date(2034, 6, 15));
         });
 
         List<ConsultationRequest> results = dao.getConsults(team, true,
@@ -223,8 +280,14 @@ public class ConsultationRequestGetConsultsCriteriaIntegrationTest extends Carlo
     @DisplayName("should order by appointment date ascending and descending per the desc flag")
     void shouldOrderByAppointmentDate_perDescFlag() {
         String team = "apptsort_" + marker();
-        ConsultationRequest early = persistConsult(c -> { c.setSendTo(team); c.setAppointmentDate(date(2035, 1, 1)); });
-        ConsultationRequest late = persistConsult(c -> { c.setSendTo(team); c.setAppointmentDate(date(2035, 12, 1)); });
+        ConsultationRequest early = persistConsult(c -> {
+            c.setSendTo(team);
+            c.setAppointmentDate(date(2035, 1, 1));
+        });
+        ConsultationRequest late = persistConsult(c -> {
+            c.setSendTo(team);
+            c.setAppointmentDate(date(2035, 12, 1));
+        });
 
         List<ConsultationRequest> asc = dao.getConsults(team, true, null, null, "8", null, null, null, null);
         assertThat(asc).extracting(ConsultationRequest::getId).containsExactly(early.getId(), late.getId());
@@ -238,8 +301,14 @@ public class ConsultationRequestGetConsultsCriteriaIntegrationTest extends Carlo
     @DisplayName("should fall back to referral date descending for an unknown order token")
     void shouldFallBackToReferralDateDesc_forUnknownToken() {
         String team = "unknown_" + marker();
-        ConsultationRequest a = persistConsult(c -> { c.setSendTo(team); c.setReferralDate(date(2036, 1, 1)); });
-        ConsultationRequest b = persistConsult(c -> { c.setSendTo(team); c.setReferralDate(date(2036, 5, 1)); });
+        ConsultationRequest a = persistConsult(c -> {
+            c.setSendTo(team);
+            c.setReferralDate(date(2036, 1, 1));
+        });
+        ConsultationRequest b = persistConsult(c -> {
+            c.setSendTo(team);
+            c.setReferralDate(date(2036, 5, 1));
+        });
 
         // Unknown token + desc=null must still come back referralDate DESC (legacy default branch).
         List<ConsultationRequest> results = dao.getConsults(team, true, null, null, "99", null, null, null, null);
@@ -249,12 +318,18 @@ public class ConsultationRequestGetConsultsCriteriaIntegrationTest extends Carlo
     @Test
     @Tag("query")
     @DisplayName("should order by demographic last name through the entity join when token is 3")
-    void shouldOrderByDemographicLastName_throughEntityJoin_whenTokenIsThree() {
+    void shouldOrderByDemographicLastNameThroughEntityJoin_whenTokenIsThree() {
         String team = "demosort_" + marker();
         Demographic younger = persistDemographic("Zulu");
         Demographic older = persistDemographic("Alpha");
-        ConsultationRequest z = persistConsult(c -> { c.setSendTo(team); c.setDemographicId(younger.getDemographicNo()); });
-        ConsultationRequest a = persistConsult(c -> { c.setSendTo(team); c.setDemographicId(older.getDemographicNo()); });
+        ConsultationRequest z = persistConsult(c -> {
+            c.setSendTo(team);
+            c.setDemographicId(younger.getDemographicNo());
+        });
+        ConsultationRequest a = persistConsult(c -> {
+            c.setSendTo(team);
+            c.setDemographicId(older.getDemographicNo());
+        });
 
         List<ConsultationRequest> asc = dao.getConsults(team, true, null, null, "3", null, null, null, null);
         assertThat(asc).extracting(ConsultationRequest::getId).containsExactly(a.getId(), z.getId());
@@ -263,14 +338,20 @@ public class ConsultationRequestGetConsultsCriteriaIntegrationTest extends Carlo
     @Test
     @Tag("query")
     @DisplayName("should order by provider last name through the chained entity join when token is 4")
-    void shouldOrderByProviderLastName_throughEntityJoin_whenTokenIsFour() {
+    void shouldOrderByProviderLastNameThroughEntityJoin_whenTokenIsFour() {
         String team = "provsort_" + marker();
         Provider pB = persistProvider("prov_b_" + marker(), "Brown");
         Provider pA = persistProvider("prov_a_" + marker(), "Adams");
         Demographic dB = persistDemographicWithProvider("PatB", pB.getProviderNo());
         Demographic dA = persistDemographicWithProvider("PatA", pA.getProviderNo());
-        ConsultationRequest cB = persistConsult(c -> { c.setSendTo(team); c.setDemographicId(dB.getDemographicNo()); });
-        ConsultationRequest cA = persistConsult(c -> { c.setSendTo(team); c.setDemographicId(dA.getDemographicNo()); });
+        ConsultationRequest cB = persistConsult(c -> {
+            c.setSendTo(team);
+            c.setDemographicId(dB.getDemographicNo());
+        });
+        ConsultationRequest cA = persistConsult(c -> {
+            c.setSendTo(team);
+            c.setDemographicId(dA.getDemographicNo());
+        });
 
         List<ConsultationRequest> asc = dao.getConsults(team, true, null, null, "4", null, null, null, null);
         assertThat(asc).extracting(ConsultationRequest::getId).containsExactly(cA.getId(), cB.getId());
@@ -279,12 +360,18 @@ public class ConsultationRequestGetConsultsCriteriaIntegrationTest extends Carlo
     @Test
     @Tag("query")
     @DisplayName("should order by service description through the entity join when token is 5")
-    void shouldOrderByServiceDesc_throughEntityJoin_whenTokenIsFive() {
+    void shouldOrderByServiceDescThroughEntityJoin_whenTokenIsFive() {
         String team = "svcsort_" + marker();
         ConsultationServices svcB = persistService("Radiology");
         ConsultationServices svcA = persistService("Cardiology");
-        ConsultationRequest cB = persistConsult(c -> { c.setSendTo(team); c.setServiceId(svcB.getServiceId()); });
-        ConsultationRequest cA = persistConsult(c -> { c.setSendTo(team); c.setServiceId(svcA.getServiceId()); });
+        ConsultationRequest cB = persistConsult(c -> {
+            c.setSendTo(team);
+            c.setServiceId(svcB.getServiceId());
+        });
+        ConsultationRequest cA = persistConsult(c -> {
+            c.setSendTo(team);
+            c.setServiceId(svcA.getServiceId());
+        });
 
         List<ConsultationRequest> asc = dao.getConsults(team, true, null, null, "5", null, null, null, null);
         assertThat(asc).extracting(ConsultationRequest::getId).containsExactly(cA.getId(), cB.getId());
@@ -293,14 +380,20 @@ public class ConsultationRequestGetConsultsCriteriaIntegrationTest extends Carlo
     @Test
     @Tag("query")
     @DisplayName("should order by specialist last name through the association join when token is 6")
-    void shouldOrderBySpecialistLastName_throughAssociationJoin_whenTokenIsSix() {
+    void shouldOrderBySpecialistLastNameThroughAssociationJoin_whenTokenIsSix() {
         // Token 6 sorts on the native professionalSpecialist @ManyToOne association join, a
         // different mechanism from the three Hibernate entity joins covered above.
         String team = "specsort_" + marker();
         ProfessionalSpecialist zulu = persistSpecialist("Zulu");
         ProfessionalSpecialist alpha = persistSpecialist("Alpha");
-        ConsultationRequest z = persistConsult(c -> { c.setSendTo(team); c.setProfessionalSpecialist(zulu); });
-        ConsultationRequest a = persistConsult(c -> { c.setSendTo(team); c.setProfessionalSpecialist(alpha); });
+        ConsultationRequest z = persistConsult(c -> {
+            c.setSendTo(team);
+            c.setProfessionalSpecialist(zulu);
+        });
+        ConsultationRequest a = persistConsult(c -> {
+            c.setSendTo(team);
+            c.setProfessionalSpecialist(alpha);
+        });
 
         List<ConsultationRequest> asc = dao.getConsults(team, true, null, null, "6", null, null, null, null);
         assertThat(asc).extracting(ConsultationRequest::getId).containsExactly(a.getId(), z.getId());
@@ -312,14 +405,22 @@ public class ConsultationRequestGetConsultsCriteriaIntegrationTest extends Carlo
     @Test
     @Tag("query")
     @DisplayName("should break ties on the always-ascending secondary service description when the primary key ties")
-    void shouldBreakTies_onSecondaryServiceDesc_whenPrimaryKeyTies() {
+    void shouldBreakTiesOnSecondaryServiceDesc_whenPrimaryKeyTies() {
         String team = "tiebreak_" + marker();
         ConsultationServices bravo = persistService("Bravo");
         ConsultationServices alpha = persistService("Alpha");
         // Both rows share status "1", so the token-1 primary sort key ties and the always-ascending
         // secondary "service.serviceDesc" must break the tie (Alpha service before Bravo service).
-        ConsultationRequest withBravo = persistConsult(c -> { c.setSendTo(team); c.setStatus("1"); c.setServiceId(bravo.getServiceId()); });
-        ConsultationRequest withAlpha = persistConsult(c -> { c.setSendTo(team); c.setStatus("1"); c.setServiceId(alpha.getServiceId()); });
+        ConsultationRequest withBravo = persistConsult(c -> {
+            c.setSendTo(team);
+            c.setStatus("1");
+            c.setServiceId(bravo.getServiceId());
+        });
+        ConsultationRequest withAlpha = persistConsult(c -> {
+            c.setSendTo(team);
+            c.setStatus("1");
+            c.setServiceId(alpha.getServiceId());
+        });
 
         List<ConsultationRequest> primaryAsc = dao.getConsults(team, true, null, null, "1", null, null, null, null);
         assertThat(primaryAsc).extracting(ConsultationRequest::getId).containsExactly(withAlpha.getId(), withBravo.getId());
@@ -337,10 +438,13 @@ public class ConsultationRequestGetConsultsCriteriaIntegrationTest extends Carlo
     @Test
     @Tag("query")
     @DisplayName("should cap results at the default limit when limit is null")
-    void shouldCapResults_atDefaultLimit_whenLimitNull() {
+    void shouldCapResultsAtDefaultLimit_whenLimitNull() {
         String team = "cap_" + marker();
         for (int i = 0; i < ConsultationRequestDao.DEFAULT_CONSULT_REQUEST_RESULTS_LIMIT + 5; i++) {
-            persistConsult(c -> { c.setSendTo(team); c.setReferralDate(date(2037, 1, 1)); });
+            persistConsult(c -> {
+                c.setSendTo(team);
+                c.setReferralDate(date(2037, 1, 1));
+            });
         }
 
         List<ConsultationRequest> results =
@@ -354,7 +458,10 @@ public class ConsultationRequestGetConsultsCriteriaIntegrationTest extends Carlo
     @DisplayName("should return an empty list when limit is zero")
     void shouldReturnEmpty_whenLimitIsZero() {
         String team = "zero_" + marker();
-        persistConsult(c -> { c.setSendTo(team); c.setReferralDate(date(2038, 1, 1)); });
+        persistConsult(c -> {
+            c.setSendTo(team);
+            c.setReferralDate(date(2038, 1, 1));
+        });
 
         List<ConsultationRequest> results =
                 dao.getConsults(team, true, null, null, null, null, null, 0, 0);
@@ -367,8 +474,14 @@ public class ConsultationRequestGetConsultsCriteriaIntegrationTest extends Carlo
     @DisplayName("should return an empty list when the offset is past the end")
     void shouldReturnEmpty_whenOffsetPastEnd() {
         String team = "off_" + marker();
-        persistConsult(c -> { c.setSendTo(team); c.setReferralDate(date(2039, 1, 1)); });
-        persistConsult(c -> { c.setSendTo(team); c.setReferralDate(date(2039, 1, 2)); });
+        persistConsult(c -> {
+            c.setSendTo(team);
+            c.setReferralDate(date(2039, 1, 1));
+        });
+        persistConsult(c -> {
+            c.setSendTo(team);
+            c.setReferralDate(date(2039, 1, 2));
+        });
 
         List<ConsultationRequest> results =
                 dao.getConsults(team, true, null, null, null, null, null, 50, null);
@@ -385,7 +498,10 @@ public class ConsultationRequestGetConsultsCriteriaIntegrationTest extends Carlo
     @DisplayName("should return a consult once even with multiple ereferral ext rows after dropping the dead ext join")
     void shouldReturnConsultOnce_whenMultipleEreferralExtRowsExist() {
         String team = "dedupe_" + marker();
-        ConsultationRequest consult = persistConsult(c -> { c.setSendTo(team); c.setReferralDate(date(2040, 1, 1)); });
+        ConsultationRequest consult = persistConsult(c -> {
+            c.setSendTo(team);
+            c.setReferralDate(date(2040, 1, 1));
+        });
         // Two matching ext rows would have multiplied the row under the legacy LEFT JOIN ... ON
         // ext.key='ereferral_service'. That join is dropped, so the consult appears exactly once.
         persistExt(consult.getId(), "ereferral_service");
