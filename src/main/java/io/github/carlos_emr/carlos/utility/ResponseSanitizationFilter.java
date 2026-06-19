@@ -44,7 +44,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
-import java.util.regex.Pattern;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
@@ -57,10 +56,10 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * excerpts because error pages can contain PHI even after control-character sanitization.</p>
  *
  * <h3>Detection</h3>
- * <p>Stack trace detection uses a {@link Pattern} that matches common Java stack trace markers:
- * {@code at pkg.Class.method(File.java:nn)}, {@code Caused by:}, {@code java.lang.},
- * {@code jakarta.servlet.}, and class name prefixes for Tomcat, Spring, Hibernate, and
- * the CARLOS application itself.</p>
+ * <p>Stack trace detection uses literal marker checks and deterministic line parsing for common
+ * Java stack trace markers: {@code at pkg.Class.method(File.java:nn)}, {@code Caused by:},
+ * {@code java.lang.}, {@code jakarta.servlet.}, and class name prefixes for Tomcat, Spring,
+ * Hibernate, and the CARLOS application itself.</p>
  *
  * <h3>Scope</h3>
  * <p>Captures responses written via {@link PrintWriter} (text content). Output-stream error
@@ -139,34 +138,18 @@ public class ResponseSanitizationFilter implements Filter {
     static final int MAX_CAPTURE_CHARS = 512 * 1024;
 
     /**
-     * Regex that matches Java stack trace markers commonly found in unhandled error responses.
-     *
-     * <p>Patterns matched:
-     * <ul>
-     *   <li>{@code \n   at pkg.Class.method(File.java:nn)} — standard stack frame line</li>
-     *   <li>{@code Caused by:} — chained exception marker</li>
-     *   <li>{@code java.lang.} — JDK core exception class names (e.g. NullPointerException)</li>
-     *   <li>{@code io.github.carlos_emr.} — CARLOS application class names</li>
-     *   <li>{@code jakarta.servlet.} — Jakarta Servlet API exception class names</li>
-     *   <li>{@code org.apache.} — Apache Tomcat / Struts / Commons class names</li>
-     *   <li>{@code org.springframework.} — Spring Framework class names</li>
-     *   <li>{@code org.hibernate.} — Hibernate ORM class names</li>
-     * </ul>
-     *
-     * <p>The {@code at} frame pattern uses a preceding newline anchor so it does not match
-     * the word "at" in normal English text (e.g. "error at line"). Class name patterns use
-     * a word boundary {@code \b} for the same reason.</p>
+     * Class-name markers commonly found in Java error responses. Callers check these with a
+     * word-boundary equivalent so normal prose containing a marker-like suffix does not match.
      */
-    static final Pattern STACK_TRACE_PATTERN = Pattern.compile(
-            "(?:[\r\n]\\s*at\\s+[\\w.$]+\\.[\\w$<>]+\\([^)]*\\))" // stack frame: \n   at pkg.Class.method(File.java:nn)
-            + "|(?:\\bCaused by:)"                                   // chained exception
-            + "|(?:\\bjava\\.lang\\.)"                               // JDK exception class names
-            + "|(?:\\bio\\.github\\.carlos_emr\\.)"                  // CARLOS class names
-            + "|(?:\\bjakarta\\.servlet\\.)"                         // Servlet API exceptions
-            + "|(?:\\borg\\.apache\\.)"                              // Tomcat / Struts / Commons
-            + "|(?:\\borg\\.springframework\\.)"                     // Spring Framework
-            + "|(?:\\borg\\.hibernate\\.)"                           // Hibernate ORM
-    );
+    private static final String[] STACK_TRACE_MARKERS = {
+            "Caused by:",
+            "java.lang.",
+            "io.github.carlos_emr.",
+            "jakarta.servlet.",
+            "org.apache.",
+            "org.springframework.",
+            "org.hibernate."
+    };
 
     private boolean enabled;
 
@@ -359,13 +342,123 @@ public class ResponseSanitizationFilter implements Filter {
      * Package-private to allow direct unit testing without a servlet container.
      *
      * @param body String the response body to inspect; may be {@code null} or empty
-     * @return {@code true} if the body matches one or more stack trace patterns
+     * @return {@code true} if the body contains one or more stack trace markers
      */
     static boolean containsStackTrace(String body) {
         if (body == null || body.isEmpty()) {
             return false;
         }
-        return STACK_TRACE_PATTERN.matcher(body).find();
+        for (String marker : STACK_TRACE_MARKERS) {
+            if (containsWithWordBoundary(body, marker)) {
+                return true;
+            }
+        }
+        return containsJavaStackFrame(body);
+    }
+
+    private static boolean containsWithWordBoundary(String body, String marker) {
+        int searchFrom = 0;
+        while (searchFrom < body.length()) {
+            int markerIndex = body.indexOf(marker, searchFrom);
+            if (markerIndex < 0) {
+                return false;
+            }
+            if (markerIndex == 0 || !isWordCharacter(body.charAt(markerIndex - 1))) {
+                return true;
+            }
+            searchFrom = markerIndex + 1;
+        }
+        return false;
+    }
+
+    private static boolean containsJavaStackFrame(String body) {
+        int lineStart = 0;
+        while (lineStart < body.length()) {
+            int lineEnd = lineStart;
+            while (lineEnd < body.length()
+                    && body.charAt(lineEnd) != '\r'
+                    && body.charAt(lineEnd) != '\n') {
+                lineEnd++;
+            }
+            if (isJavaStackFrameLine(body, lineStart, lineEnd)) {
+                return true;
+            }
+            if (lineEnd < body.length()
+                    && body.charAt(lineEnd) == '\r'
+                    && lineEnd + 1 < body.length()
+                    && body.charAt(lineEnd + 1) == '\n') {
+                lineEnd++;
+            }
+            lineStart = lineEnd + 1;
+        }
+        return false;
+    }
+
+    private static boolean isJavaStackFrameLine(String body, int lineStart, int lineEnd) {
+        int index = lineStart;
+        while (index < lineEnd && Character.isWhitespace(body.charAt(index))) {
+            index++;
+        }
+        if (index + 3 >= lineEnd || body.charAt(index) != 'a' || body.charAt(index + 1) != 't'
+                || !Character.isWhitespace(body.charAt(index + 2))) {
+            return false;
+        }
+        index += 3;
+        while (index < lineEnd && Character.isWhitespace(body.charAt(index))) {
+            index++;
+        }
+
+        int symbolStart = index;
+        int openParen = indexOf(body, '(', symbolStart, lineEnd);
+        if (openParen < 0) {
+            return false;
+        }
+        int closeParen = indexOf(body, ')', openParen + 1, lineEnd);
+        if (closeParen < 0) {
+            return false;
+        }
+
+        int lastDot = -1;
+        for (int i = symbolStart; i < openParen; i++) {
+            if (body.charAt(i) == '.') {
+                lastDot = i;
+            }
+        }
+        if (lastDot <= symbolStart || lastDot >= openParen - 1) {
+            return false;
+        }
+        for (int i = symbolStart; i < lastDot; i++) {
+            if (!isJavaClassNameCharacter(body.charAt(i))) {
+                return false;
+            }
+        }
+        for (int i = lastDot + 1; i < openParen; i++) {
+            if (!isJavaMethodNameCharacter(body.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static int indexOf(String body, char target, int fromIndex, int toIndexExclusive) {
+        for (int i = fromIndex; i < toIndexExclusive; i++) {
+            if (body.charAt(i) == target) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private static boolean isWordCharacter(char c) {
+        return c == '_' || Character.isLetterOrDigit(c);
+    }
+
+    private static boolean isJavaClassNameCharacter(char c) {
+        return c == '.' || c == '$' || isWordCharacter(c);
+    }
+
+    private static boolean isJavaMethodNameCharacter(char c) {
+        return c == '$' || c == '<' || c == '>' || isWordCharacter(c);
     }
 
     /**

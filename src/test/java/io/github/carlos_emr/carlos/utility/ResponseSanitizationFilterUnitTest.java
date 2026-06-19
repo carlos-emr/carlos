@@ -43,9 +43,11 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
@@ -164,6 +166,13 @@ class ResponseSanitizationFilterUnitTest {
         }
 
         @Test
+        @DisplayName("should return true for constructor stack frame line")
+        void shouldReturnTrue_forConstructorStackFrameLine() {
+            String body = "Error\n\tat ca.example.SomeClass.<init>(SomeClass.java:42)";
+            assertThat(ResponseSanitizationFilter.containsStackTrace(body)).isTrue();
+        }
+
+        @Test
         @DisplayName("should return true for body containing Caused by:")
         void shouldReturnTrue_forCausedByMarker() {
             String body = "java.lang.RuntimeException: Something failed\n"
@@ -231,6 +240,39 @@ class ResponseSanitizationFilterUnitTest {
             // "at" in plain text (without a preceding newline) should not match the stack frame pattern
             String body = "An error occurred at line 10 of the configuration file.";
             assertThat(ResponseSanitizationFilter.containsStackTrace(body)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should return false when marker is embedded in a larger word")
+        void shouldReturnFalse_whenMarkerEmbeddedInWord() {
+            String body = "notjava.lang.Exception is just prose";
+            assertThat(ResponseSanitizationFilter.containsStackTrace(body)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should complete in time for adversarial stack frame near miss")
+        void shouldCompleteInTime_forAdversarialStackFrameNearMiss() {
+            String body = "\nat "
+                    + "a.".repeat(ResponseSanitizationFilter.MAX_CAPTURE_CHARS / 4)
+                    + "method("
+                    + "x".repeat(ResponseSanitizationFilter.MAX_CAPTURE_CHARS / 4);
+
+            boolean result = assertTimeoutPreemptively(Duration.ofSeconds(2),
+                    () -> ResponseSanitizationFilter.containsStackTrace(body));
+
+            assertThat(result).isFalse();
+        }
+
+        @Test
+        @DisplayName("should complete in time for repeated stack frame prefixes")
+        void shouldCompleteInTime_forRepeatedStackFramePrefixes() {
+            String body = ("\nat " + "a".repeat(80) + ".method\n")
+                    .repeat(ResponseSanitizationFilter.MAX_CAPTURE_CHARS / 90);
+
+            boolean result = assertTimeoutPreemptively(Duration.ofSeconds(2),
+                    () -> ResponseSanitizationFilter.containsStackTrace(body));
+
+            assertThat(result).isFalse();
         }
     }
 
