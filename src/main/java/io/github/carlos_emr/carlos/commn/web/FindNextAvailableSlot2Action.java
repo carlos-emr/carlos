@@ -74,7 +74,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  *   "providerNo": "10001", "startTime": "09:00", "duration": 15 }
  * </pre>
  * <pre>
- * { "found": false }
+ * { "found": false, "lookaheadDays": {@value NextAppointmentSearchHelper#MAX_DAYS_TO_SEARCH} }
  * </pre>
  *
  * @since 2026-03-22
@@ -151,7 +151,7 @@ public class FindNextAvailableSlot2Action extends ActionSupport {
         }
 
         if (allResults.isEmpty()) {
-            writeJson(Map.of("found", false));
+            writeJson(Map.of("found", false, "lookaheadDays", NextAppointmentSearchHelper.MAX_DAYS_TO_SEARCH));
             return null;
         }
 

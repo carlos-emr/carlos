@@ -53,7 +53,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 public class NextAppointmentSearchHelper {
-    static final int MAX_DAYS_TO_SEARCH = 180;
+    public static final int MAX_DAYS_TO_SEARCH = 180;
 
     static Logger logger = MiscUtils.getLogger();
     static ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
