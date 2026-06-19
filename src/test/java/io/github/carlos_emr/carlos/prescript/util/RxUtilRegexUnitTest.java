@@ -302,6 +302,15 @@ class RxUtilRegexUnitTest {
         }
 
         @Test
+        @DisplayName("should parse single-space decimal range before frequency")
+        void shouldParseSingleSpaceDecimalRange_beforeFrequency() {
+            RxPrescriptionData.Prescription rx = parse("for 0.5-1.5 OD ");
+            assertThat(rx.getTakeMin()).isEqualTo(0.5f);
+            assertThat(rx.getTakeMax()).isEqualTo(1.5f);
+            assertThat(rx.getFrequencyCode()).isEqualToIgnoringCase("OD");
+        }
+
+        @Test
         @DisplayName("should ignore compact integer token without whitespace")
         void shouldIgnoreCompactIntegerToken_whenAmountHasNoWhitespace() {
             RxPrescriptionData.Prescription rx = parse("Take 1tablet BID ");
