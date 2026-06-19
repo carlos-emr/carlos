@@ -1159,14 +1159,18 @@ public class RxUtil {
             return "0";
         }
 
-        double numerator = Double.parseDouble(fraction.substring(0, separator));
-        double denominator = Double.parseDouble(fraction.substring(separator + 1));
-        if (denominator == 0d || !Double.isFinite(numerator) || !Double.isFinite(denominator)) {
+        try {
+            double numerator = Double.parseDouble(fraction.substring(0, separator));
+            double denominator = Double.parseDouble(fraction.substring(separator + 1));
+            if (denominator == 0d || !Double.isFinite(numerator) || !Double.isFinite(denominator)) {
+                return "0";
+            }
+
+            double amount = numerator / denominator;
+            return Double.isFinite(amount) ? Double.toString(amount) : "0";
+        } catch (NumberFormatException e) {
             return "0";
         }
-
-        double amount = numerator / denominator;
-        return Double.isFinite(amount) ? Double.toString(amount) : "0";
     }
 
     private static String findWordAmountAfterMethod(String instructions, String method) {
