@@ -377,7 +377,7 @@ class BillingShortcutPg1ViewModelAssemblerUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldSanitizeDemographicNumber_whenNewOnBillingPairShapeRegresses() {
+    void shouldOmitDemographicNumber_whenNewOnBillingPairShapeRegresses() {
         String previous = CarlosProperties.getInstance().getProperty("isNewONbilling", "");
         CarlosProperties.getInstance().setProperty("isNewONbilling", "true");
         try {
@@ -397,7 +397,7 @@ class BillingShortcutPg1ViewModelAssemblerUnitTest extends CarlosUnitTestBase {
                         .findFirst()
                         .orElseThrow();
                 assertThat(logged).doesNotContain("\r").doesNotContain("\n");
-                assertThat(logged).contains("1\\r\\nforged-demo");
+                assertThat(logged).doesNotContain("1\r\nforged-demo", "1\\r\\nforged-demo", "forged-demo");
             }
         } finally {
             if (previous == null) {

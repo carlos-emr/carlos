@@ -87,8 +87,8 @@ class ZipUtilTest {
     }
 
     @Test
-    @DisplayName("unzipXML should sanitize invalid file name before logging")
-    void shouldSanitizeFileName_whenZipExtensionIsMissing() {
+    @DisplayName("unzipXML should omit invalid file name before logging")
+    void shouldOmitFileName_whenZipExtensionIsMissing() {
         try (LogCapture capture = LogCapture.forLogger(zip.class)) {
             boolean result = zip.unzipXML(tempDir.toString(), "claim\r\nforged.txt");
 
@@ -96,7 +96,7 @@ class ZipUtilTest {
             assertThat(capture.messages()).hasSize(1);
             String logged = capture.messages().get(0);
             assertThat(logged).doesNotContain("\r").doesNotContain("\n");
-            assertThat(logged).contains("claim\\r\\nforged.txt");
+            assertThat(logged).doesNotContain("claim\r\nforged.txt", "claim\\r\\nforged.txt", "forged.txt");
         }
     }
 }

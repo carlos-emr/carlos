@@ -29,7 +29,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao;
 import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
-import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
@@ -67,8 +66,7 @@ public class DiagCodeDescriptionPersister {
             }
             Logger logger = MiscUtils.getLogger();
             if (logger.isErrorEnabled()) {
-                String safeCode = LogSafe.sanitize(code);
-                logger.error("Diagnostic code update failed for {}", safeCode, ex);
+                logger.error("Diagnostic code update failed; diagnostic code omitted from log", ex);
             }
             throw new DiagDescriptionUpdateException(code, ex);
         }

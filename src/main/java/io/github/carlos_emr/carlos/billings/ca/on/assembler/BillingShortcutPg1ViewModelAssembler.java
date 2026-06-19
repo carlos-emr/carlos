@@ -290,17 +290,15 @@ public class BillingShortcutPg1ViewModelAssembler {
                         historyPartialRowCount++;
                         Logger logger = MiscUtils.getLogger();
                         if (logger.isErrorEnabled()) {
-                            String safeDemoNo = LogSafe.sanitize(demoNo);
-                            logger.error("Shortcut history: data-shape regression at pair index {} for demo={}",
-                                    i, safeDemoNo, ccEx);
+                            logger.error("Shortcut history: data-shape regression at pair index {}; demo omitted from log",
+                                    i, ccEx);
                         }
                     } catch (RuntimeException rowEx) {
                         historyPartialRowCount++;
                         Logger logger = MiscUtils.getLogger();
                         if (logger.isWarnEnabled()) {
-                            String safeDemoNo = LogSafe.sanitize(demoNo);
-                            logger.warn("Shortcut history: skipping malformed pair at index {} for demo={}",
-                                    i, safeDemoNo, rowEx);
+                            logger.warn("Shortcut history: skipping malformed pair at index {}; demo omitted from log",
+                                    i, rowEx);
                         }
                     }
                 }

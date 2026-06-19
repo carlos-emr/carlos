@@ -99,8 +99,8 @@ class DiagCodeDescriptionPersisterUnitTest {
     }
 
     @Test
-    @DisplayName("should sanitize diagnostic code before logging")
-    void shouldSanitizeDiagnosticCode_whenDaoLookupFails() {
+    @DisplayName("should omit diagnostic code before logging")
+    void shouldOmitDiagnosticCode_whenDaoLookupFails() {
         DiagnosticCodeDao dao = mock(DiagnosticCodeDao.class);
         DiagCodeDescriptionPersister persister = new DiagCodeDescriptionPersister(dao);
         when(dao.findByDiagnosticCode("1\r\n")).thenThrow(new RuntimeException("lock timeout"));
@@ -112,7 +112,7 @@ class DiagCodeDescriptionPersisterUnitTest {
             assertThat(capture.messages()).hasSize(1);
             String logged = capture.messages().get(0);
             assertThat(logged).doesNotContain("\r").doesNotContain("\n");
-            assertThat(logged).contains("1\\r\\n");
+            assertThat(logged).doesNotContain("1\r\n", "1\\r\\n");
         }
     }
 

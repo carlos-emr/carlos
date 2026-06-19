@@ -61,8 +61,8 @@ class MsgDisplayDemographicMessages2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should sanitize demographic number when rejecting non numeric value")
-    void shouldSanitizeDemographicNumber_whenRejectingNonNumericValue() throws Exception {
+    @DisplayName("should omit demographic number when rejecting non numeric value")
+    void shouldOmitDemographicNumber_whenRejectingNonNumericValue() throws Exception {
         SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
         registerMock(SecurityInfoManager.class, securityInfoManager);
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/demographic/messages");
@@ -86,7 +86,7 @@ class MsgDisplayDemographicMessages2ActionUnitTest extends CarlosUnitTestBase {
                     .findFirst()
                     .orElseThrow();
             assertThat(logged).doesNotContain("\r").doesNotContain("\n");
-            assertThat(logged).contains("123\\r\\nforged-demo");
+            assertThat(logged).doesNotContain("123\r\nforged-demo", "123\\r\\nforged-demo", "forged-demo");
         }
     }
 }

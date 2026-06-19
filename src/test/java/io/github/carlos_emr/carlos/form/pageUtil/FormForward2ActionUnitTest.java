@@ -35,8 +35,8 @@ import static org.mockito.Mockito.when;
 class FormForward2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
-    @DisplayName("should sanitize form name when action path cannot be resolved")
-    void shouldSanitizeFormName_whenActionPathCannotBeResolved() throws Exception {
+    @DisplayName("should omit form name when action path cannot be resolved")
+    void shouldOmitFormName_whenActionPathCannotBeResolved() throws Exception {
         SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(EncounterFormDao.class, mock(EncounterFormDao.class));
@@ -66,7 +66,7 @@ class FormForward2ActionUnitTest extends CarlosUnitTestBase {
                     .findFirst()
                     .orElseThrow();
             assertThat(logged).doesNotContain("\r").doesNotContain("\n");
-            assertThat(logged).contains("bad\\r\\nform");
+            assertThat(logged).doesNotContain("bad\r\nform", "bad\\r\\nform");
         }
     }
 }

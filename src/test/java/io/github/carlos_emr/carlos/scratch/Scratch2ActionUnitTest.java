@@ -134,8 +134,8 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should sanitize provider values when rejecting mismatched save")
-    void shouldSanitizeProviderValues_whenRejectingMismatchedSave() throws Exception {
+    @DisplayName("should omit provider values when rejecting mismatched save")
+    void shouldOmitProviderValues_whenRejectingMismatchedSave() throws Exception {
         HttpServletRequest request = mockRequest("POST", "999998\r\nforged-session");
         HttpServletResponse response = mock(HttpServletResponse.class);
         StringWriter json = new StringWriter();
@@ -153,7 +153,13 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(capture.messages()).hasSize(1);
             String logged = capture.messages().get(0);
             assertThat(logged).doesNotContain("\r").doesNotContain("\n");
-            assertThat(logged).contains("123456\\r\\nforged-provider", "999998\\r\\nforged-session");
+            assertThat(logged).doesNotContain(
+                    "123456\r\nforged-provider",
+                    "999998\r\nforged-session",
+                    "123456\\r\\nforged-provider",
+                    "999998\\r\\nforged-session",
+                    "forged-provider",
+                    "forged-session");
         }
     }
 

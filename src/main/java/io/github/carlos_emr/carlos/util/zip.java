@@ -114,8 +114,7 @@ public class zip {
         boolean result = false;
         if (fName == null || fName.length() < 4 || !fName.toLowerCase().endsWith(".zip")) {
             if (logger.isErrorEnabled()) {
-                String safeFileName = LogSafe.sanitize(fName);
-                logger.error("unzipXML: {} does not have .zip extension.", safeFileName);
+                logger.error("unzipXML rejected file without .zip extension; file name omitted from log.");
             }
             return result;
         }

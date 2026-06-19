@@ -179,10 +179,7 @@ public class Scratch2Action extends JSONAction {
         }else {
 			Logger logger = MiscUtils.getLogger();
 			if (logger.isErrorEnabled()) {
-				String safePNo = LogSafe.sanitize(pNo);
-				String safeProviderNo = LogSafe.sanitize(providerNo);
-				logger.error("Scratch pad trying to save data for user {} but session user is {}",
-					safePNo, safeProviderNo);
+				logger.error("Scratch pad provider mismatch; request and session provider values omitted from log");
 			}
 			response.setStatus(HttpServletResponse.SC_FORBIDDEN);
             ObjectNode jsonObject = objectMapper.createObjectNode();
