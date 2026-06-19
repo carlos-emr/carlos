@@ -55,6 +55,7 @@ import io.github.carlos_emr.carlos.model.LookupCodeValue;
 import io.github.carlos_emr.carlos.model.LookupTableDefValue;
 import io.github.carlos_emr.carlos.model.LstOrgcd;
 import io.github.carlos_emr.carlos.model.security.SecProvider;
+import io.github.carlos_emr.carlos.util.SqlIdentifierValidator;
 import io.github.carlos_emr.carlos.utils.Utility;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
@@ -278,7 +279,7 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
      * second layer of defense for all identifier usage within the DAO.</p>
      */
     private String validateSqlIdentifier(String identifier) {
-        if (identifier == null || !identifier.matches("^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$")) {
+        if (!SqlIdentifierValidator.isValidIdentifier(identifier)) {
             MiscUtils.getLogger().error("Invalid SQL identifier rejected in lookup configuration");
             throw new IllegalArgumentException("Invalid SQL identifier in lookup configuration");
         }
@@ -293,7 +294,7 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
      * single-quoted string literals, commas, and whitespace are permitted.
      */
     private String validateFieldSql(String fieldSql) {
-        if (fieldSql == null || !fieldSql.matches("^[A-Za-z_][A-Za-z0-9_.,() ']*$")) {
+        if (!SqlIdentifierValidator.isValidFieldExpression(fieldSql)) {
             MiscUtils.getLogger().error("Invalid field SQL expression rejected in lookup configuration");
             throw new IllegalArgumentException("Invalid field SQL expression in lookup configuration");
         }

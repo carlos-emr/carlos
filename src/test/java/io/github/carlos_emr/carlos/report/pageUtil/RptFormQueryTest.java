@@ -13,6 +13,7 @@
 package io.github.carlos_emr.carlos.report.pageUtil;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -33,6 +34,20 @@ import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
 @Tag("unit")
 @Tag("report")
 class RptFormQueryTest {
+
+    @Test
+    @DisplayName("should accept report table names with schema and aliases")
+    void shouldAcceptTableNames_withSchemaAndAliases() {
+        RptFormQuery.validateTableName("formBCAR f, schema.formBCNewBorn AS n");
+    }
+
+    @Test
+    @DisplayName("should reject injected report table names")
+    void shouldRejectInjectedTableNames() {
+        assertThatThrownBy(() -> RptFormQuery.validateTableName("formBCAR f, demographic d OR 1=1"))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("Invalid table name");
+    }
 
     @Test
     @DisplayName("should return empty ParameterizedSql when fragment list is empty")
