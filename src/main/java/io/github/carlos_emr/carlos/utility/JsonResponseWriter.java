@@ -40,7 +40,7 @@ public final class JsonResponseWriter {
     public static void write(HttpServletResponse response, Object body) throws IOException {
         response.setContentType(CONTENT_TYPE);
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-        String json = body instanceof String ? (String) body : OBJECT_MAPPER.writeValueAsString(body);
+        String json = body instanceof String stringBody ? stringBody : OBJECT_MAPPER.writeValueAsString(body);
         response.getWriter().write(json); // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep, java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- centralized JSON API response writer with application/json content type
     }
 }
