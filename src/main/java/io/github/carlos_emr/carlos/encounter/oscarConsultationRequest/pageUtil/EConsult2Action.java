@@ -335,7 +335,7 @@ public class EConsult2Action extends ActionSupport {
 
     private static String sessionString(HttpSession session, String attributeName) {
         Object value = session.getAttribute(attributeName); // nosemgrep: java.servlets.security.tainted-session-from-http-request.tainted-session-from-http-request -- authenticated session identity value is URL-encoded before being added to the configured eConsult redirect
-        return value instanceof String ? (String) value : null;
+        return value instanceof String string ? string : null;
     }
 
     // FindSecBugs UNVALIDATED_REDIRECT: eConsult redirects intentionally leave CARLOS for a deployment-configured eConsult service. The configured base is parsed as http(s), rejects userinfo/query/fragment, request data is URL-encoded, and the final redirect must remain under the configured origin/path.

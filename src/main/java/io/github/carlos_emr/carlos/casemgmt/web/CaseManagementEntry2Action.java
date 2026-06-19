@@ -108,6 +108,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     private static final String HEADER_PATTERN = "yyyy-MM-dd.HH.mm.ss";
     private static final String YYYY_MM_DD_PATTERN = "yyyy-MM-dd";
     private static final String YYYY_MM_DD_HHMM_PATTERN = "yyyy-MM-dd HH:mm";
+    private static final String CASE_MANAGEMENT_LIST_CHAIN = "list";
+    private static final String CASE_MANAGEMENT_LIST_REDIRECT_PATH = "/CaseManagementView?method=view";
     private static final int REMOVED_ISSUE_MESSAGE_OVERHEAD = 64;
 
     private static String appendRemovedIssueMessage(String noteText, Locale locale, ResourceBundle props, CharSequence issueNames) {
@@ -2078,13 +2080,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String chain = request.getParameter("chain");
 
         if (chain != null && !chain.equals("")) {
-            String redirectUrl = chain.trim();
-            // FP for open-redirect scanners (CodeQL java/OR): isValidInternalRedirect enforces
-            // root-relative targets via RedirectValidationUtils.isValidRelativeRedirect; rejects
-            // protocol-relative (//evil), backslash and %5c (/\evil.com -> //evil.com),
-            // percent-encoded controls, absolute URLs, and path-traversal escapes.
-            if (isValidInternalRedirect(redirectUrl)) {
-                sendValidatedInternalRedirect(response, redirectUrl);
+            if (isAllowedInternalRedirectChain(chain)) {
+                sendCaseManagementListRedirect(response, request.getContextPath());
             } else {
                 logger.warn("Attempted redirect to invalid URL: {}", LogSafe.sanitize(chain));
                 // Fall through to return "windowClose" without redirect
@@ -3921,27 +3918,23 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         this.reloadUrl = reloadUrl;
     }
 
-    /**
-     * Validates that a redirect URL is safe and points to an internal application URL.
-     * This prevents open redirect vulnerabilities.
-     * 
-     * @param url The URL to validate
-     * @return true if the URL is safe for redirect, false otherwise
-     */
-    static boolean isValidInternalRedirect(String url) {
-        if (url == null || url.trim().isEmpty()) {
-            return false;
-        }
-
-        String redirectUrl = url.trim();
-        return redirectUrl.startsWith("/") && RedirectValidationUtils.isValidRelativeRedirect(redirectUrl);
+    static boolean isAllowedInternalRedirectChain(String chain) {
+        return CASE_MANAGEMENT_LIST_CHAIN.equals(StringUtils.trimToEmpty(chain));
     }
 
-    // FindSecBugs UNVALIDATED_REDIRECT: caller gates this sink through isValidInternalRedirect, which requires a safe root-relative target validated by RedirectValidationUtils.
-    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is accepted only after isValidInternalRedirect verifies a safe root-relative target with RedirectValidationUtils")
-    private static void sendValidatedInternalRedirect(HttpServletResponse response, String redirectUrl)
+    static String caseManagementListRedirectUrl(String contextPath) {
+        String redirectUrl = StringUtils.defaultString(contextPath) + CASE_MANAGEMENT_LIST_REDIRECT_PATH;
+        if (!RedirectValidationUtils.isValidRelativeRedirect(redirectUrl)) {
+            throw new IllegalArgumentException("Unsafe case-management redirect context path");
+        }
+        return redirectUrl;
+    }
+
+    // FindSecBugs UNVALIDATED_REDIRECT: this sink redirects only to the fixed case-management list path under the servlet context after RedirectValidationUtils validates the final root-relative URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a fixed case-management path under the servlet context and is validated with RedirectValidationUtils before sendRedirect")
+    private static void sendCaseManagementListRedirect(HttpServletResponse response, String contextPath)
             throws IOException {
-        response.sendRedirect(redirectUrl);
+        response.sendRedirect(caseManagementListRedirectUrl(contextPath));
     }
 
     /**

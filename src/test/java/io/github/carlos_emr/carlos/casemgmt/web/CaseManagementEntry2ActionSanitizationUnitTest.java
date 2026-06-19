@@ -29,6 +29,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -254,34 +255,53 @@ class CaseManagementEntry2ActionSanitizationUnitTest {
     }
 
     @Nested
-    @DisplayName("isValidInternalRedirect")
-    class IsValidInternalRedirect {
+    @DisplayName("case-management chain redirect")
+    class CaseManagementChainRedirect {
 
         @Test
-        @DisplayName("should accept safe root-relative redirects")
-        void shouldAcceptRedirect_whenRootRelative() {
-            assertThat(CaseManagementEntry2Action.isValidInternalRedirect(
-                    "/carlos/provider/providercontrol.jsp?tab=main")).isTrue();
+        @DisplayName("should allow list chain token")
+        void shouldAllowRedirect_whenChainIsList() {
+            assertThat(CaseManagementEntry2Action.isAllowedInternalRedirectChain("list")).isTrue();
         }
 
         @Test
-        @DisplayName("should reject absolute redirects")
-        void shouldReject_absoluteRedirects() {
-            assertThat(CaseManagementEntry2Action.isValidInternalRedirect(
+        @DisplayName("should allow list chain token with whitespace")
+        void shouldAllowRedirect_whenChainHasWhitespace() {
+            assertThat(CaseManagementEntry2Action.isAllowedInternalRedirectChain(" list ")).isTrue();
+        }
+
+        @Test
+        @DisplayName("should reject raw redirect values")
+        void shouldRejectRedirect_whenChainIsRawUrl() {
+            assertThat(CaseManagementEntry2Action.isAllowedInternalRedirectChain(null)).isFalse();
+            assertThat(CaseManagementEntry2Action.isAllowedInternalRedirectChain("")).isFalse();
+            assertThat(CaseManagementEntry2Action.isAllowedInternalRedirectChain(
+                    "/carlos/provider/providercontrol.jsp?tab=main")).isFalse();
+            assertThat(CaseManagementEntry2Action.isAllowedInternalRedirectChain(
                     "https://emr.example/carlos/provider/providercontrol.jsp")).isFalse();
+            assertThat(CaseManagementEntry2Action.isAllowedInternalRedirectChain("//evil.example/path")).isFalse();
         }
 
         @Test
-        @DisplayName("should reject external and ambiguous redirects")
-        void shouldRejectRedirect_whenExternalOrAmbiguous() {
-            assertThat(CaseManagementEntry2Action.isValidInternalRedirect(
-                    "https://emr.example.evil/carlos/provider/providercontrol.jsp")).isFalse();
-            assertThat(CaseManagementEntry2Action.isValidInternalRedirect(
-                    "https://emr.example@evil.example/carlos/provider/providercontrol.jsp")).isFalse();
-            assertThat(CaseManagementEntry2Action.isValidInternalRedirect("//evil.example/path")).isFalse();
-            assertThat(CaseManagementEntry2Action.isValidInternalRedirect("/%5cevil.example")).isFalse();
-            assertThat(CaseManagementEntry2Action.isValidInternalRedirect(
-                    "/carlos/%0d%0aLocation:%20https://evil.example")).isFalse();
+        @DisplayName("should include servlet context path")
+        void shouldBuildRedirect_whenContextPathProvided() {
+            assertThat(CaseManagementEntry2Action.caseManagementListRedirectUrl("/carlos"))
+                    .isEqualTo("/carlos/CaseManagementView?method=view");
+        }
+
+        @Test
+        @DisplayName("should use root path when context path is empty")
+        void shouldBuildRedirect_whenContextPathEmpty() {
+            assertThat(CaseManagementEntry2Action.caseManagementListRedirectUrl(""))
+                    .isEqualTo("/CaseManagementView?method=view");
+        }
+
+        @Test
+        @DisplayName("should reject unsafe context paths")
+        void shouldRejectRedirect_whenContextPathUnsafe() {
+            assertThatThrownBy(() -> CaseManagementEntry2Action.caseManagementListRedirectUrl("//evil.example"))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("Unsafe case-management redirect context path");
         }
     }
 }
