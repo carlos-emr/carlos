@@ -42,6 +42,10 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+/**
+ * Form backing object used when users input corrections for rejected WCB Teleplan claims.
+ * Captures the adjusted fields necessary to successfully resubmit the claim.
+ */
 
 public class TeleplanCorrectionFormWCB {
 

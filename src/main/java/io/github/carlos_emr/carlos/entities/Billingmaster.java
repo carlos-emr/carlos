@@ -70,6 +70,10 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 */
         }
 )
+/**
+ * Core entity mapping the canonical master record of a generated billing claim.
+ * Tracks the claim's lifecycle status, submission batches, and reconciliation outcomes.
+ */
 
 public class Billingmaster {
 

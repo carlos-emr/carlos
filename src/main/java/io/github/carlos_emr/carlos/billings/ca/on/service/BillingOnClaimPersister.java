@@ -78,6 +78,10 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
  */
 @org.springframework.stereotype.Service
 @org.springframework.transaction.annotation.Transactional
+/**
+ * Core data access service for creating and updating standardized billing claims.
+ * Abstracts the persistence logic for all provincial submission types.
+ */
 public class BillingOnClaimPersister {
     private static final Logger _logger = MiscUtils.getLogger();
     private final BillingONHeaderDao dao;

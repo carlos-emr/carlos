@@ -64,6 +64,10 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+/**
+ * Controller handling the presentation of a specific WCB claim record.
+ * Formats the occupational injury details and associated billing history for review.
+ */
 
 public class ViewWCB2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();

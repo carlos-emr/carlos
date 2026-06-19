@@ -42,6 +42,10 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  */
 @org.springframework.stereotype.Service
 @org.springframework.transaction.annotation.Transactional(readOnly = true)
+/**
+ * Service responsible for retrieving and updating the lifecycle status of billing claims.
+ * Translates provincial response codes into internal state representations.
+ */
 public class BillingStatusLoader {
     private static final String ANY_PROVIDER = "all";
     private static final String ANY_STATUS_TYPE = "%";

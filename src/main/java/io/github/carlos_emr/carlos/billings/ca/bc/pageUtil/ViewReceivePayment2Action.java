@@ -43,6 +43,10 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+/**
+ * Controller rendering the interface for entering manual payments.
+ * Pre-populates the form with outstanding invoice details and current balances.
+ */
 
 public class ViewReceivePayment2Action
         extends ActionSupport {

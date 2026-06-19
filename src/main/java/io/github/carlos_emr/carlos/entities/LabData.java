@@ -28,6 +28,10 @@
  */
 
 package io.github.carlos_emr.carlos.entities;
+/**
+ * Container for parsed laboratory result data values.
+ * Holds individual test metrics, reference ranges, and abnormal flags received from lab interfaces.
+ */
 
 public class LabData {
     private String a1c;

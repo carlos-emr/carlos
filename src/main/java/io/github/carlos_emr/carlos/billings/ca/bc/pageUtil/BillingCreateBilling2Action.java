@@ -64,6 +64,10 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+/**
+ * Action controller initializing the required context for a new billing encounter.
+ * Pre-loads default codes, practitioner preferences, and patient demographic data.
+ */
 
 public class BillingCreateBilling2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);

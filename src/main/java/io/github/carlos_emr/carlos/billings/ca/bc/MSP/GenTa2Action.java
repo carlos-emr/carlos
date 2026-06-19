@@ -68,6 +68,10 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+/**
+ * Controller responsible for generating TA (Teleplan) batch submission files.
+ * Orchestrates the packaging of multiple individual claims into the required provincial transmission format.
+ */
 
 public class GenTa2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);

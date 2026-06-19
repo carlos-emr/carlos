@@ -40,6 +40,10 @@ import java.util.List;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+/**
+ * Controller responsible for persisting new service and diagnostic code associations.
+ * Saves user-defined shortcuts for frequently billed clinical scenarios.
+ */
 
 public class SaveAssoc2Action
         extends ActionSupport {

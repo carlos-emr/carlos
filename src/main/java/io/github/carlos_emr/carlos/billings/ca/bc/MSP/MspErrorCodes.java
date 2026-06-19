@@ -45,6 +45,10 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.CarlosProperties;
+/**
+ * Dictionary mapping standardized MSP error codes to descriptive human-readable text.
+ * Used to translate provincial rejection reasons into actionable UI feedback.
+ */
 
 public class MspErrorCodes extends Properties {
 

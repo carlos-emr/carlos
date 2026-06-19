@@ -43,6 +43,10 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 import java.util.*;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+/**
+ * Consolidates the data required to populate a generic billing entry form.
+ * Feeds the UI layer with default values, diagnostic codes, and applicable service fees.
+ */
 
 public class BillingFormData {
 

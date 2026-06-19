@@ -59,6 +59,10 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+/**
+ * Controller triggering the physical generation of a Teleplan transmission file.
+ * Packages staged claims into the proprietary flat-file format required by the province.
+ */
 
 public class GenerateTeleplanFile2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);

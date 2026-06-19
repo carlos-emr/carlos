@@ -28,6 +28,10 @@
  */
 
 package io.github.carlos_emr.carlos.billings.ca.bc.data;
+/**
+ * Represents the anatomical location of an injury for WCB claims.
+ * Provides standardized coding for body parts affected by an occupational incident.
+ */
 
 public class InjuryLocation {
     private String sidetype;

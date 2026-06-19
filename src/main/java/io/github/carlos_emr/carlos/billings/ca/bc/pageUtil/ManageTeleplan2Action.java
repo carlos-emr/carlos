@@ -75,6 +75,10 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+/**
+ * Controller serving the primary administrative interface for Teleplan operations.
+ * Provides access to submission, retrieval, and reconciliation workflows.
+ */
 
 public class ManageTeleplan2Action extends ActionSupport {
     private static final Set<String> POST_ONLY_METHODS = Set.of(

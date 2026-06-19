@@ -60,6 +60,10 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  */
 @org.springframework.stereotype.Service
 @org.springframework.transaction.annotation.Transactional
+/**
+ * Core orchestration service for the entire claim submission lifecycle.
+ * Coordinates validation, file generation, and transmission record keeping.
+ */
 public class BillingClaimSubmissionService {
     private static final Logger _logger = MiscUtils.getLogger();
     private final BillingOnClaimPersister claimPersister;

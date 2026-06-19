@@ -35,6 +35,10 @@ import java.util.List;
 import io.github.carlos_emr.carlos.billing.CA.BC.dao.TeleplanSubmissionLinkDao;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanSubmissionLink;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+/**
+ * Data access object for tracking claim batches submitted to Teleplan.
+ * Maintains the audit trail and transmission history for all provincial interactions.
+ */
 
 public class TeleplanSubmissionLinkDAO {
 

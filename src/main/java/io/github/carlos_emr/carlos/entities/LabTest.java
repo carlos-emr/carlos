@@ -30,6 +30,10 @@
 package io.github.carlos_emr.carlos.entities;
 
 //
+/**
+ * Represents a specific laboratory test definition within a broader lab panel.
+ * Defines the expected data type, standard units, and clinical significance of the test.
+ */
 public class LabTest
         extends Test {
     private String observationDateTime = "";

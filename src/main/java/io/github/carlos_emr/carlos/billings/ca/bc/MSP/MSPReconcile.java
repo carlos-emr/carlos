@@ -59,6 +59,10 @@ import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+/**
+ * Core service for reconciling paid or adjusted claims against local records.
+ * Updates internal invoice statuses based on the remittance advice received from the province.
+ */
 
 public class MSPReconcile {
     private static Logger log = MiscUtils.getLogger();

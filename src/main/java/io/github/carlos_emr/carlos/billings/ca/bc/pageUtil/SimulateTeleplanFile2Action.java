@@ -52,6 +52,10 @@ import java.util.List;
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+/**
+ * Controller providing a dry-run capability for generating a Teleplan submission file.
+ * Allows administrators to preview the exact output file structure without transmitting it.
+ */
 
 public class SimulateTeleplanFile2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);

@@ -62,6 +62,10 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  */
 @org.springframework.stereotype.Service
 @org.springframework.transaction.annotation.Transactional
+/**
+ * Service managing billing operations directed at private or third-party insurers.
+ * Handles distinct validation rules and invoice generation outside the provincial system.
+ */
 public class BillingThirdPartyService {
 
     private final ClinicDAO clinicDao;

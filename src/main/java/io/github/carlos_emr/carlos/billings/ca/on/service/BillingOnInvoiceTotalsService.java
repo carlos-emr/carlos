@@ -48,6 +48,10 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  */
 @Service
 @org.springframework.transaction.annotation.Transactional(readOnly = true)
+/**
+ * Service calculating aggregated financial totals across multiple invoices.
+ * Provides summarized revenue metrics for reporting and reconciliation purposes.
+ */
 public class BillingOnInvoiceTotalsService {
 
     private final BillingONCHeader1Dao headerDao;

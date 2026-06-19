@@ -63,6 +63,10 @@ import org.springframework.transaction.support.TransactionTemplate;
  * <p>Web security is enforced at the action layer before invocation.</p>
  */
 @org.springframework.stereotype.Service
+/**
+ * Legacy service supporting the creation of billing payloads to physical media.
+ * Generates appropriately formatted claim files for manual submission via floppy or USB.
+ */
 @Transactional
 public class BillingDiskCreationService {
 

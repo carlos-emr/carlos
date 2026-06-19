@@ -54,6 +54,10 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  */
 @org.springframework.stereotype.Service
 @org.springframework.transaction.annotation.Transactional(readOnly = true)
+/**
+ * Service facilitating the parsing and loading of billing responses from local disk.
+ * Processes remittance advice files manually retrieved from the provincial portal.
+ */
 public class BillingOnDiskLoader {
 
     private final BillingONHeaderDao headerDao;

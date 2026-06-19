@@ -51,6 +51,10 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import io.github.carlos_emr.DocumentBean;
+/**
+ * Servlet endpoint handling incoming Teleplan report file uploads.
+ * Processes the parsed batch response files returned by the provincial authority.
+ */
 
 public class DocumentTeleplanReportUploadServlet extends HttpServlet {
     final static int BUFFER = 2048;

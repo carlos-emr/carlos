@@ -31,6 +31,10 @@
 package io.github.carlos_emr.carlos.commn.model;
 
 import java.util.Date;
+/**
+ * Represents a specific laboratory test definition within a broader lab panel.
+ * Defines the expected data type, standard units, and clinical significance of the test.
+ */
 
 public class LabTest {
 

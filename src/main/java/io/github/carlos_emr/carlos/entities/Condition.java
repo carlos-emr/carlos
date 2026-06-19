@@ -31,6 +31,10 @@ package io.github.carlos_emr.carlos.entities;
 
 // Class Condition
 //
+/**
+ * Represents a diagnosed clinical condition or chronic disease for a patient.
+ * Used to populate the patient's problem list and drive clinical decision support rules.
+ */
 public class Condition
         extends ClinicalFactor {
     // Fields

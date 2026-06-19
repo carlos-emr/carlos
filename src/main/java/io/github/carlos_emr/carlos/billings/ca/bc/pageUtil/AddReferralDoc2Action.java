@@ -47,6 +47,10 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+/**
+ * Controller for associating a referring practitioner document with a specific claim.
+ * Manages the workflow for attaching external consult notes required for specialist billing.
+ */
 
 public class AddReferralDoc2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);

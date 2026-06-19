@@ -36,6 +36,10 @@ import io.github.carlos_emr.carlos.utility.SafeEncode;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+/**
+ * Utility for validating and auditing raw billing payloads prior to submission.
+ * Enforces provincial field constraints and mandatory code combination rules.
+ */
 
 public class CheckBillingData {
 

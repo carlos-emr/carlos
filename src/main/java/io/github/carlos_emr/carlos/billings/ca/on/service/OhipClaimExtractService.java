@@ -57,6 +57,10 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @org.springframework.stereotype.Service
 @org.springframework.context.annotation.Scope("prototype")
+/**
+ * Service orchestrating the extraction of eligible OHIP claims for submission.
+ * Executes complex queries to identify encounters that meet the Ministry's billing criteria.
+ */
 public class OhipClaimExtractService implements Serializable {
 
     private static final long serialVersionUID = 1L;

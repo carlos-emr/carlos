@@ -40,6 +40,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Iterator;
 import java.util.List;
+/**
+ * Utility for validating and auditing raw billing payloads prior to submission.
+ * Enforces provincial field constraints and mandatory code combination rules.
+ */
 
 public class CheckBillingData {
 

@@ -23,6 +23,10 @@
  */
 
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
+/**
+ * Validates proposed service codes against current provincial fee schedules.
+ * Checks for valid code formats, active dates, and restricted combinations.
+ */
 
 public class ServiceCodeValidator {
     protected boolean valid = true;

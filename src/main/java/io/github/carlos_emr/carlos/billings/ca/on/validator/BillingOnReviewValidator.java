@@ -64,6 +64,10 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * @since 2026-04-25
  */
 @org.springframework.stereotype.Component
+/**
+ * Specialized validator for claims pending administrative or clinical review.
+ * Enforces strict consistency checks on manually adjusted or complex submissions.
+ */
 public class BillingOnReviewValidator {
 
     /**

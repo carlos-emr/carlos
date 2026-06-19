@@ -37,6 +37,10 @@ import io.github.carlos_emr.carlos.entities.WCB;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 import java.util.List;
+/**
+ * Form bean capturing user input for the creation or modification of a WCB claim.
+ * Binds the specific occupational details, employer information, and injury dates.
+ */
 
 public final class WCBForm {
 

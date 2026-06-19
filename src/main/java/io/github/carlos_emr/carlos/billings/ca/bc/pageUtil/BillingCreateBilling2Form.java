@@ -34,6 +34,10 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import java.util.List;
+/**
+ * Form bean capturing the user input when initializing a new billing record.
+ * Temporarily holds the selected diagnostic codes and fees prior to final persistence.
+ */
 
 public final class BillingCreateBilling2Form {
     private static final Logger _log = MiscUtils.getLogger();

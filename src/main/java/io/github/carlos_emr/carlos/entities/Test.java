@@ -28,6 +28,10 @@
  */
 
 package io.github.carlos_emr.carlos.entities;
+/**
+ * Base domain entity representing an abstract medical or diagnostic test.
+ * Serves as the foundation for specific test types such as labs, imaging, and functional assessments.
+ */
 
 public class Test {
     private String id;

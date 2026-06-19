@@ -55,6 +55,10 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+/**
+ * Controller handling the inline editing of specific service codes within an open claim.
+ * Validates updated fee amounts and modifier combinations before saving.
+ */
 
 public final class BillingEditCode2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);

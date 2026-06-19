@@ -60,6 +60,10 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+/**
+ * Controller responsible for processing edits to an existing, unsent claim.
+ * Handles updates to service dates, codes, or diagnostic information before submission.
+ */
 
 public final class BillingUpdateBilling2Action
         extends ActionSupport {

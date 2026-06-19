@@ -50,6 +50,10 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
  */
 
 @org.springframework.stereotype.Service
+/**
+ * Business logic service calculating and aggregating GST for taxable private services.
+ * Generates the necessary financial reports for tax compliance and remittance.
+ */
 public class GstReportService {
 
     private final BillingONExtDao dao;

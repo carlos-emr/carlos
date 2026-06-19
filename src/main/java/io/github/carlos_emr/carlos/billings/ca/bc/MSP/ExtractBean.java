@@ -57,6 +57,10 @@ import java.io.Serializable;
 import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
+/**
+ * Data container for provincial billing extraction parameters and results.
+ * Manages the criteria used to gather eligible claims for submission to the regional health authority.
+ */
 
 
 public class ExtractBean extends Object implements Serializable {

@@ -28,6 +28,10 @@
  */
 
 package io.github.carlos_emr.carlos.entities;
+/**
+ * Core domain entity representing a registered patient in the clinic.
+ * Centralizes demographic data, identifiers, and links to all clinical records.
+ */
 
 public class Patient {
     private String firstName;

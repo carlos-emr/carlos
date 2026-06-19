@@ -28,6 +28,10 @@
  */
 
 package io.github.carlos_emr.carlos.entities;
+/**
+ * Defines the acceptable modes of payment for private or uninsured services.
+ * Used to categorize financial transactions for accounting and reconciliation purposes.
+ */
 
 public class PaymentType {
     private String id;

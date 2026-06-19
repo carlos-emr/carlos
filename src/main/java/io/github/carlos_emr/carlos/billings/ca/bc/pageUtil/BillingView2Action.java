@@ -54,6 +54,10 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 import io.github.carlos_emr.carlos.utility.LogSafe;
+/**
+ * Controller responsible for rendering a read-only view of a submitted billing claim.
+ * Formats the historical claim data, including status updates and payment reconciliation.
+ */
 public final class BillingView2Action
         extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);

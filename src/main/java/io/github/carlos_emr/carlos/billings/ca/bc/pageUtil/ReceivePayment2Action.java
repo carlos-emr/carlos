@@ -52,6 +52,10 @@ import java.util.List;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+/**
+ * Controller for processing manual payment entries against private or third-party bills.
+ * Handles the recording of cash, cheque, or credit payments and updates the account balance.
+ */
 
 public class ReceivePayment2Action
         extends ActionSupport {

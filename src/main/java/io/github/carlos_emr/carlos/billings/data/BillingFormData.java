@@ -41,6 +41,10 @@ import io.github.carlos_emr.carlos.commn.model.CtlBillingService;
 import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+/**
+ * Consolidates the data required to populate a generic billing entry form.
+ * Feeds the UI layer with default values, diagnostic codes, and applicable service fees.
+ */
 
 public class BillingFormData {
 

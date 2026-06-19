@@ -50,6 +50,10 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+/**
+ * Core service for reconciling paid or adjusted claims against local records.
+ * Updates internal invoice statuses based on the remittance advice received from the province.
+ */
 
 public class MSPReconcile {
 

@@ -70,6 +70,10 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  */
 @org.springframework.stereotype.Component
 @org.springframework.context.annotation.Scope("prototype")
+/**
+ * Controller processing the manual upload of provincial error report documents.
+ * Parses unstructured error summaries to update the status of rejected claims.
+ */
 public class BillingDocumentErrorReportUpload2Action extends ActionSupport implements UploadedFilesAware {
     private static final String CONFIG_ERROR_MESSAGE = "MOH report directory is not configured.";
     private static final String FILE_ACCESS_ERROR_MESSAGE = "MOH report file could not be read.";

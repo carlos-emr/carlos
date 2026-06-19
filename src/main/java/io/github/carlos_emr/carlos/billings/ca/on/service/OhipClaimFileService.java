@@ -116,6 +116,10 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  */
 @org.springframework.stereotype.Service
 @org.springframework.context.annotation.Scope("prototype")
+/**
+ * Service managing the generation and formatting of OHIP transmission files.
+ * Ensures adherence to the Ministry of Health's strict flat-file specifications.
+ */
 public class OhipClaimFileService {
 
     private static final Logger _logger = MiscUtils.getLogger();

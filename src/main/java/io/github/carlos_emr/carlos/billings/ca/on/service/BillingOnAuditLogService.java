@@ -40,6 +40,10 @@ import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONProc;
  */
 @org.springframework.stereotype.Service
 @org.springframework.transaction.annotation.Transactional
+/**
+ * Core service recording specific audit events related to billing transactions.
+ * Tracks modifications, approvals, and transmissions for financial compliance.
+ */
 public class BillingOnAuditLogService {
 
     private final BillingONProcDao dao;

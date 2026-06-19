@@ -28,6 +28,10 @@
  */
 
 package io.github.carlos_emr.carlos.entities;
+/**
+ * Represents an observed clinical factor or vital sign measurement.
+ * Captures discrete health indicators such as blood pressure or weight over time.
+ */
 
 public class ClinicalFactor {
     // Fields

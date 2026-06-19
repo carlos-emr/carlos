@@ -53,6 +53,10 @@ import java.util.List;
 import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+/**
+ * Data container for provincial billing extraction parameters and results.
+ * Manages the criteria used to gather eligible claims for submission to the regional health authority.
+ */
 
 
 public class ExtractBean extends Object implements Serializable {

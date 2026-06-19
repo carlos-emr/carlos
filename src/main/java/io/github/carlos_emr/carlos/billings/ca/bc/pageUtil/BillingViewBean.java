@@ -49,6 +49,10 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingNote;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBillingManager.BillingItem;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+/**
+ * Read-only view object aggregating a consolidated view of a billing encounter.
+ * Formats fees, statuses, and patient details for display in the summary interface.
+ */
 
 public class BillingViewBean {
 

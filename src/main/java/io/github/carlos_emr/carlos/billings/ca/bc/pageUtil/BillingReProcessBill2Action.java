@@ -68,6 +68,10 @@ import io.github.carlos_emr.carlos.util.StringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+/**
+ * Controller for recycling rejected or stale claims back into the submission queue.
+ * Resets internal statuses to allow an adjusted claim to be included in the next batch.
+ */
 
 public class BillingReProcessBill2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);

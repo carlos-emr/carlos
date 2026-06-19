@@ -26,6 +26,10 @@
  */
 
 package io.github.carlos_emr.carlos.caisi;
+/**
+ * Utility methods specifically supporting the CAISI community integration modules.
+ * Handles specific data transformations and validations required by community partner workflows.
+ */
 
 public class CaisiUtil {
     public static String removeAttr(String str, String attr) {

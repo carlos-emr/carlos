@@ -47,6 +47,10 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  */
 @org.springframework.stereotype.Service
 @org.springframework.transaction.annotation.Transactional
+/**
+ * Component responsible for persisting diagnostic codes specifically for claims under review.
+ * Ensures modified diagnoses are correctly associated with the reviewed encounter.
+ */
 public class BillingOnReviewDiagPersister {
 
     private final DxresearchDAO dxresearchDAO;

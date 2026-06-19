@@ -24,6 +24,10 @@
 package io.github.carlos_emr.carlos.util.plugin;
 
 import java.util.Properties;
+/**
+ * Central configuration manager for application properties.
+ * Provides strongly-typed accessors for system settings, feature flags, and environment overrides.
+ */
 
 public class CarlosProperties extends Properties {
     private static Properties properties;

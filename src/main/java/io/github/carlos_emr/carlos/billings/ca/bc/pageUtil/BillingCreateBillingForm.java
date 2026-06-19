@@ -34,6 +34,10 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import java.util.List;
+/**
+ * Legacy form bean capturing user input for billing creation.
+ * Binds incoming HTTP request parameters to the corresponding claim attributes.
+ */
 
 public final class BillingCreateBillingForm {
     private static final Logger _log = MiscUtils.getLogger();

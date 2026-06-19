@@ -53,6 +53,10 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+/**
+ * Data container for provincial billing extraction parameters and results.
+ * Manages the criteria used to gather eligible claims for submission to the regional health authority.
+ */
 
 public class ExtractBean extends Object implements Serializable {
 

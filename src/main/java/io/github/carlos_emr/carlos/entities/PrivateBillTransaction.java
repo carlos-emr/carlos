@@ -31,6 +31,10 @@ package io.github.carlos_emr.carlos.entities;
 
 import java.math.BigDecimal;
 import java.util.Date;
+/**
+ * Represents a financial transaction for non-provincially insured medical services.
+ * Tracks patient or third-party payments, invoices, and outstanding balances for private billing.
+ */
 
 public class PrivateBillTransaction {
     private int id;

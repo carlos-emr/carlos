@@ -36,6 +36,10 @@ import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
 
 import java.util.ArrayList;
 import java.util.List;
+/**
+ * Form backing object representing the user input from the BC quick billing interface.
+ * Binds HTML form fields to Java properties for validation and processing in the action layer.
+ */
 
 
 public class QuickBillingBCFormBean {

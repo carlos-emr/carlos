@@ -28,6 +28,10 @@
  */
 
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
+/**
+ * Validates patient age against age-restricted billing rules.
+ * Ensures claims correctly apply specific diagnostic modifiers based on demographic constraints.
+ */
 
 
 public class AgeValidator

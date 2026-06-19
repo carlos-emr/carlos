@@ -32,6 +32,10 @@ import jakarta.servlet.jsp.tagext.TagSupport;
 
 import io.github.carlos_emr.CarlosProperties;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+/**
+ * JSP custom tag handler for conditionally rendering UI based on module enablement.
+ * Evaluates application properties to determine if specific functional modules are active.
+ */
 
 public class IsModuleLoadTag extends TagSupport {
 

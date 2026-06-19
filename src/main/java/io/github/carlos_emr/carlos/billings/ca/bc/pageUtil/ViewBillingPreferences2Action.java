@@ -53,6 +53,10 @@ import java.util.*;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+/**
+ * Controller handling the retrieval and display of user-specific billing settings.
+ * Manages preferences such as default diagnostic codes or preferred fee schedules.
+ */
 
 public class ViewBillingPreferences2Action
         extends ActionSupport {

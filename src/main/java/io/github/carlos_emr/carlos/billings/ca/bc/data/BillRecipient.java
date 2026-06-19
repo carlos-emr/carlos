@@ -35,6 +35,10 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.BillRecipients;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+/**
+ * Represents the designated payee or responsible party for a particular bill.
+ * Used in private billing to distinguish between patient-pay, corporate, or third-party payers.
+ */
 
 public class BillRecipient {
 

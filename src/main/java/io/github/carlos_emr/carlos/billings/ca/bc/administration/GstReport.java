@@ -17,6 +17,10 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import java.util.Properties;
 import java.util.Vector;
+/**
+ * Data model and processing logic for generating Goods and Services Tax (GST) reports.
+ * Aggregates taxable private billing transactions for accounting and tax remittance purposes.
+ */
 
 public class GstReport {
 

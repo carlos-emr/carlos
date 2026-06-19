@@ -39,6 +39,10 @@ import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+/**
+ * Controller rendering the list of saved service code associations for a user.
+ * Provides the administrative interface for managing personal billing macros.
+ */
 
 public class ShowServiceCodeAssocs2Action
         extends ActionSupport {

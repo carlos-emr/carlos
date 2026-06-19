@@ -36,6 +36,10 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.tickler.TicklerCreator;
 import io.github.carlos_emr.carlos.util.SqlUtils;
+/**
+ * Helper class for calculating Chronic Disease Management (CDM) reminders.
+ * Checks billing histories to notify practitioners of eligible upcoming preventative care tasks.
+ */
 
 public class CDMReminderHlp {
     public CDMReminderHlp() {
