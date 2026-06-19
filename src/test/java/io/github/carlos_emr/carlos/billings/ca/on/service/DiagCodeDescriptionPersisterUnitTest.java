@@ -103,7 +103,7 @@ class DiagCodeDescriptionPersisterUnitTest {
     void shouldOmitDiagnosticCode_whenDaoLookupFails() {
         DiagnosticCodeDao dao = mock(DiagnosticCodeDao.class);
         DiagCodeDescriptionPersister persister = new DiagCodeDescriptionPersister(dao);
-        when(dao.findByDiagnosticCode("1\r\n")).thenThrow(new RuntimeException("lock timeout"));
+        when(dao.findByDiagnosticCode("1\r\n")).thenThrow(new RuntimeException("lock\r\nforged-exception"));
 
         try (LogCapture capture = LogCapture.forLogger(DiagCodeDescriptionPersister.class)) {
             assertThatThrownBy(() -> persister.updateDescription("update1\r\n", "Acute infection"))
@@ -112,7 +112,9 @@ class DiagCodeDescriptionPersisterUnitTest {
             assertThat(capture.messages()).hasSize(1);
             String logged = capture.messages().get(0);
             assertThat(logged).doesNotContain("\r").doesNotContain("\n");
-            assertThat(logged).doesNotContain("1\r\n", "1\\r\\n");
+            assertThat(logged).contains(RuntimeException.class.getName());
+            assertThat(logged).doesNotContain("1\r\n", "1\\r\\n", "lock\r\nforged-exception",
+                    "lock\\r\\nforged-exception", "forged-exception");
         }
     }
 

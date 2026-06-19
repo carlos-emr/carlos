@@ -66,7 +66,8 @@ public class DiagCodeDescriptionPersister {
             }
             Logger logger = MiscUtils.getLogger();
             if (logger.isErrorEnabled()) {
-                logger.error("Diagnostic code update failed; diagnostic code omitted from log", ex);
+                logger.error("Diagnostic code update failed; diagnostic code omitted from log; causeType={}",
+                        ex.getClass().getName());
             }
             throw new DiagDescriptionUpdateException(code, ex);
         }
