@@ -1154,13 +1154,19 @@ public class RxUtil {
     }
 
     private static String convertFractionToAmount(String fraction) {
-        if (fraction.equals("1/2")) {
-            return "0.5";
+        int separator = fraction.indexOf('/');
+        if (separator <= 0 || separator == fraction.length() - 1) {
+            return "0";
         }
-        if (fraction.equals("1/4")) {
-            return "0.25";
+
+        double numerator = Double.parseDouble(fraction.substring(0, separator));
+        double denominator = Double.parseDouble(fraction.substring(separator + 1));
+        if (denominator == 0d || !Double.isFinite(numerator) || !Double.isFinite(denominator)) {
+            return "0";
         }
-        return "0";
+
+        double amount = numerator / denominator;
+        return Double.isFinite(amount) ? Double.toString(amount) : "0";
     }
 
     private static String findWordAmountAfterMethod(String instructions, String method) {

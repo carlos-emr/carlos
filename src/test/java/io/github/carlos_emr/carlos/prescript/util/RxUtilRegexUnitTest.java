@@ -262,6 +262,21 @@ class RxUtilRegexUnitTest {
         }
 
         @Test
+        @DisplayName("should parse fraction 3/4 dosage")
+        void shouldParseFractionThreeQuarter_withFrequency() {
+            RxPrescriptionData.Prescription rx = parse("Take 3/4 BID ");
+            assertThat(rx.getTakeMax()).isEqualTo(0.75f);
+        }
+
+        @Test
+        @DisplayName("should ignore fraction with zero denominator")
+        void shouldIgnoreFractionZeroDenominator_withFrequency() {
+            RxPrescriptionData.Prescription rx = parse("Take 1/0 BID ");
+            assertThat(rx.getTakeMax()).isEqualTo(0.0f);
+            assertThat(rx.getFrequencyCode()).isEqualToIgnoringCase("BID");
+        }
+
+        @Test
         @DisplayName("should parse integer dosage with frequency synonym")
         void shouldParseIntegerDosage_withFrequencySynonym() {
             RxPrescriptionData.Prescription rx = parse("Take 1 once daily ");
