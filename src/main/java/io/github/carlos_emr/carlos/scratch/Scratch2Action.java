@@ -177,8 +177,13 @@ public class Scratch2Action extends JSONAction {
 			jsonResponse(jsonObject);
 
         }else {
-			MiscUtils.getLogger().error("Scratch pad trying to save data for user {} but session user is {}",
-				LogSafe.sanitize(pNo), LogSafe.sanitize(providerNo));
+			Logger logger = MiscUtils.getLogger();
+			if (logger.isErrorEnabled()) {
+				String safePNo = LogSafe.sanitize(pNo);
+				String safeProviderNo = LogSafe.sanitize(providerNo);
+				logger.error("Scratch pad trying to save data for user {} but session user is {}",
+					safePNo, safeProviderNo);
+			}
 			response.setStatus(HttpServletResponse.SC_FORBIDDEN);
             ObjectNode jsonObject = objectMapper.createObjectNode();
             jsonObject.put("success", false);

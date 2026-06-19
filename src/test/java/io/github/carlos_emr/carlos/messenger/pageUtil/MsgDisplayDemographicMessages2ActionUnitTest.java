@@ -59,4 +59,34 @@ class MsgDisplayDemographicMessages2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(logged).contains("999998\\r\\nforged-provider");
         }
     }
+
+    @Test
+    @DisplayName("should sanitize demographic number when rejecting non numeric value")
+    void shouldSanitizeDemographicNumber_whenRejectingNonNumericValue() throws Exception {
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/demographic/messages");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        request.getSession(true).setAttribute("user", "999998");
+        request.addParameter("userName", "Unit Test");
+        request.addParameter("demographic_no", "123\r\nforged-demo");
+        when(securityInfoManager.hasPrivilege(any(), eq("_msg"), eq("r"), isNull())).thenReturn(true);
+
+        try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class);
+             LogCapture capture = LogCapture.forLogger(MsgDisplayDemographicMessages2Action.class)) {
+            servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
+
+            MsgDisplayDemographicMessages2Action action = new MsgDisplayDemographicMessages2Action();
+
+            assertThat(action.execute()).isEqualTo("error");
+
+            String logged = capture.messages().stream()
+                    .filter(message -> message.startsWith("Invalid non-numeric demographic_no"))
+                    .findFirst()
+                    .orElseThrow();
+            assertThat(logged).doesNotContain("\r").doesNotContain("\n");
+            assertThat(logged).contains("123\\r\\nforged-demo");
+        }
+    }
 }

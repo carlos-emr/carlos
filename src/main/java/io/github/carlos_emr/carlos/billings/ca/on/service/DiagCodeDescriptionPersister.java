@@ -23,11 +23,13 @@ package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.util.List;
 
+import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao;
 import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
@@ -63,7 +65,11 @@ public class DiagCodeDescriptionPersister {
             if (ex instanceof DiagDescriptionUpdateException) {
                 throw ex;
             }
-            MiscUtils.getLogger().error("Diagnostic code update failed for {}", code, ex);
+            Logger logger = MiscUtils.getLogger();
+            if (logger.isErrorEnabled()) {
+                String safeCode = LogSafe.sanitize(code);
+                logger.error("Diagnostic code update failed for {}", safeCode, ex);
+            }
             throw new DiagDescriptionUpdateException(code, ex);
         }
     }

@@ -41,6 +41,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.apache.commons.codec.CharEncoding;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -127,7 +128,10 @@ public class FormForward2Action extends ActionSupport {
          */
         String actionPath = FormViewRoutes.resolveActionPath(formPath[0]);
         if (actionPath == null) {
-            logger.warn("Failed to resolve action path for form {}", strFrm);
+            if (logger.isWarnEnabled()) {
+                String safeFormName = LogSafe.sanitize(strFrm);
+                logger.warn("Failed to resolve action path for form {}", safeFormName);
+            }
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid form path");
             return NONE;
         }
