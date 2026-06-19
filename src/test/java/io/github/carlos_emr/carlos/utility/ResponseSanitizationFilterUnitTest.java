@@ -166,6 +166,13 @@ class ResponseSanitizationFilterUnitTest {
         }
 
         @Test
+        @DisplayName("should return true for body starting with stack frame line")
+        void shouldReturnTrue_forLeadingStackFrameLine() {
+            String body = "at io.github.carlos_emr.carlos.SomeClass.method(SomeClass.java:42)";
+            assertThat(ResponseSanitizationFilter.containsStackTrace(body)).isTrue();
+        }
+
+        @Test
         @DisplayName("should return true for constructor stack frame line")
         void shouldReturnTrue_forConstructorStackFrameLine() {
             String body = "Error\n\tat ca.example.SomeClass.<init>(SomeClass.java:42)";
@@ -250,6 +257,13 @@ class ResponseSanitizationFilterUnitTest {
         }
 
         @Test
+        @DisplayName("should return false when Caused by marker is embedded in a larger word")
+        void shouldReturnFalse_whenCausedByMarkerEmbeddedInWord() {
+            String body = "notCaused by: this is ordinary text";
+            assertThat(ResponseSanitizationFilter.containsStackTrace(body)).isFalse();
+        }
+
+        @Test
         @DisplayName("should complete in time for adversarial stack frame near miss")
         void shouldCompleteInTime_forAdversarialStackFrameNearMiss() {
             String body = "\nat "
@@ -266,6 +280,7 @@ class ResponseSanitizationFilterUnitTest {
         @Test
         @DisplayName("should complete in time for repeated stack frame prefixes")
         void shouldCompleteInTime_forRepeatedStackFramePrefixes() {
+            // Exercises the repeated-line path where each candidate exits before an open paren.
             String body = ("\nat " + "a".repeat(80) + ".method\n")
                     .repeat(ResponseSanitizationFilter.MAX_CAPTURE_CHARS / 90);
 

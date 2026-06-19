@@ -59,7 +59,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * <p>Stack trace detection uses literal marker checks and deterministic line parsing for common
  * Java stack trace markers: {@code at pkg.Class.method(File.java:nn)}, {@code Caused by:},
  * {@code java.lang.}, {@code jakarta.servlet.}, and class name prefixes for Tomcat, Spring,
- * Hibernate, and the CARLOS application itself.</p>
+ * Hibernate, and the CARLOS application itself. Stack-frame lines are detected at the beginning
+ * of the captured body as well as after line breaks so first-line stack traces are sanitized.</p>
  *
  * <h3>Scope</h3>
  * <p>Captures responses written via {@link PrintWriter} (text content). Output-stream error
@@ -363,6 +364,7 @@ public class ResponseSanitizationFilter implements Filter {
             if (markerIndex < 0) {
                 return false;
             }
+            // Every marker ends in '.' or ':', so the right boundary is implicit.
             if (markerIndex == 0 || !isWordCharacter(body.charAt(markerIndex - 1))) {
                 return true;
             }
