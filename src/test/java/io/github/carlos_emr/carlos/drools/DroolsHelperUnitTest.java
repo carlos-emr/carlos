@@ -356,6 +356,26 @@ class DroolsHelperUnitTest {
                     .hasMessageContaining("Failed to read DRL from URL");
         }
 
+        @Test
+        @DisplayName("should reject http URL before opening stream")
+        void shouldRejectHttpUrl_beforeOpeningStream() throws Exception {
+            URL remoteUrl = new URL("http://169.254.169.254/latest/meta-data/rules.drl");
+
+            assertThatThrownBy(() -> DroolsHelper.loadFromUrl(remoteUrl))
+                    .isInstanceOf(DroolsCompilationException.class)
+                    .hasMessageContaining("Unsupported DRL URL protocol");
+        }
+
+        @Test
+        @DisplayName("should reject jar URL backed by http before opening stream")
+        void shouldRejectJarHttpUrl_beforeOpeningStream() throws Exception {
+            URL remoteJarUrl = new URL("jar:http://169.254.169.254/rules.jar!/rules.drl");
+
+            assertThatThrownBy(() -> DroolsHelper.loadFromUrl(remoteJarUrl))
+                    .isInstanceOf(DroolsCompilationException.class)
+                    .hasMessageContaining("Unsupported DRL jar URL protocol");
+        }
+
         /**
          * Integration smoke test: loads the production {@code prevention.drl},
          * compiles it, and verifies a {@link KieSession} can be created from
