@@ -167,6 +167,16 @@ class ResponseSanitizationFilterUnitTest {
             assertThat(ResponseSanitizationFilter.containsStackTrace(body)).isTrue();
         }
 
+        @ParameterizedTest
+        @DisplayName("should return true for stack frame line variations")
+        @ValueSource(strings = {
+                "Error\r\nat io.github.carlos_emr.carlos.SomeClass.method(SomeClass.java:42)",
+                "Error\r\n\tat io.github.carlos_emr.carlos.SomeClass.method(SomeClass.java:42)"
+        })
+        void shouldReturnTrue_forStackFrameLineVariations(String body) {
+            assertThat(ResponseSanitizationFilter.containsStackTrace(body)).isTrue();
+        }
+
         @Test
         @DisplayName("should return true for body starting with stack frame line")
         void shouldReturnTrue_forLeadingStackFrameLine() {
@@ -248,7 +258,11 @@ class ResponseSanitizationFilterUnitTest {
         @ValueSource(strings = {
                 "An error occurred at line 10 of the configuration file.",
                 "notjava.lang.Exception is just prose",
-                "notCaused by: this is ordinary text"
+                "notCaused by: this is ordinary text",
+                "foo_java.lang.Exception is part of an identifier",
+                "1java.lang.Exception is part of a token",
+                "foo_Caused by: is embedded in a larger word",
+                "1Caused by: is embedded in a larger token"
         })
         void shouldReturnFalse_forPlainTextNearMisses(String body) {
             assertThat(ResponseSanitizationFilter.containsStackTrace(body)).isFalse();
