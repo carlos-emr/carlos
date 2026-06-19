@@ -6,7 +6,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -36,10 +35,10 @@ class EFormViewForPdfGenerationServletUnitTest {
         assertThat(normalized).isEqualTo("/EFormSignatureViewForPdfGenerationServlet?digitalSignatureId=7");
     }
 
-    @ParameterizedTest(name = "{0}")
+    @ParameterizedTest(name = "invalid signature URL [{index}]")
     @MethodSource("invalidSignatureUrls")
     @DisplayName("should reject invalid signature URLs")
-    void shouldRejectInvalidSignatureUrl_whenNormalizingSignatureUrl(String scenario, String rawUrl) {
+    void shouldRejectInvalidSignatureUrl_whenNormalizingSignatureUrl(String rawUrl) {
         String normalized = EFormViewForPdfGenerationServlet.normalizePdfSignatureUrl(rawUrl, "/carlos");
 
         assertThat(normalized).isNull();
@@ -58,12 +57,12 @@ class EFormViewForPdfGenerationServletUnitTest {
         assertThat(markup).contains("src=\"/carlos/EFormSignatureViewForPdfGenerationServlet?digitalSignatureId=42&amp;foo=bar\"");
     }
 
-    private static Stream<Arguments> invalidSignatureUrls() {
+    private static Stream<String> invalidSignatureUrls() {
         return Stream.of(
-                Arguments.of("javascript scheme", "javascript:alert(1)"),
-                Arguments.of("external url", "https://evil.example/EFormSignatureViewForPdfGenerationServlet?digitalSignatureId=5"),
-                Arguments.of("quote breaking payload", "/carlos/imageRenderingServlet?source=signature_stored&digitalSignatureId=12\" onerror=\"alert(1)"),
-                Arguments.of("missing numeric digital signature id", "/carlos/imageRenderingServlet?source=signature_preview&signatureRequestId=temp123")
+                "javascript:alert(1)",
+                "https://evil.example/EFormSignatureViewForPdfGenerationServlet?digitalSignatureId=5",
+                "/carlos/imageRenderingServlet?source=signature_stored&digitalSignatureId=12\" onerror=\"alert(1)",
+                "/carlos/imageRenderingServlet?source=signature_preview&signatureRequestId=temp123"
         );
     }
 }
