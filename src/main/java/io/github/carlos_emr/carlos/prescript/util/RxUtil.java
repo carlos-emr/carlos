@@ -589,11 +589,11 @@ public class RxUtil {
             Pattern p = Pattern.compile(s);
             Matcher matcher = p.matcher(instructions);
             if (matcher.find()) {
-	                String matchedFrequency = (instructions.substring(matcher.start(), matcher.end())).trim();
-	                frequency = changeToStandardFrequencyCode(matchedFrequency);
-	                //     p("here11", instructions);
-	                //since "\\s+[0-9]+-[0-9]+\\s+" is a case in "\\s+[0-9]+\\s+", check the latter regex first.
-	                NumberRange frequencyRange = matchedFrequency.equals(frequency) ? findRangeBeforeFrequency(instructions, matcher.start()) : null;
+                String matchedFrequency = (instructions.substring(matcher.start(), matcher.end())).trim();
+                frequency = changeToStandardFrequencyCode(matchedFrequency);
+                //     p("here11", instructions);
+                //since "\\s+[0-9]+-[0-9]+\\s+" is a case in "\\s+[0-9]+\\s+", check the latter regex first.
+                NumberRange frequencyRange = matchedFrequency.equals(frequency) ? findRangeBeforeFrequency(instructions, matcher.start()) : null;
                 if (frequencyRange != null) {
                     takeMinFrequency = frequencyRange.min;
                     takeMaxFrequency = frequencyRange.max;
@@ -629,7 +629,7 @@ public class RxUtil {
                             }
                         }
                     }
-	                }
+                }
                 //the string before frequency maybe the amount of drug
                 //check if the string is a number, if it is, get the number
                 //if not a number, check if it has "min-max" pattern, if yes, get min and max, if not, ignore
@@ -1021,17 +1021,18 @@ public class RxUtil {
             index++;
         }
 
-        if (index < text.length() && text.charAt(index) == '/') {
-            index++;
-            int denominatorStart = index;
-            while (index < text.length() && isDigit(text.charAt(index))) {
-                index++;
-            }
-            if (index == denominatorStart) {
-                return null;
-            }
+        if (index >= text.length() || text.charAt(index) != '/') {
+            return null;
         }
 
+        index++;
+        int denominatorStart = index;
+        while (index < text.length() && isDigit(text.charAt(index))) {
+            index++;
+        }
+        if (index == denominatorStart) {
+            return null;
+        }
         if (!hasWhitespaceAt(text, index)) {
             return null;
         }
@@ -1092,84 +1093,107 @@ public class RxUtil {
     }
 
     private static void scanForFrequencyAndUpdateInstructionSegment(InstructionSegment segment, String instructions, String method, int methodEnd) {
-        String takeMinMethod = null;
-        String takeMaxMethod = null;
-        String amountMethod = null;
-        String amountFrequency = null;
-
         int amountStart = skipWhitespaceForward(instructions, methodEnd);
-        NumberRange methodRange = findRangeAt(instructions, amountStart);
-
-        //since "\\s+[0-9]+-[0-9]+\\s+" is a case in "\\s+[0-9]+\\s+", check the latter regex first.
-        if (methodRange != null && hasWhitespaceAt(instructions, methodRange.end)) {
-            p("else if 1");
-            takeMinMethod = methodRange.min;
-            takeMaxMethod = methodRange.max;
-        } else {
-            NumberToken methodAmount = findDecimalAt(instructions, amountStart);
-            if (methodAmount != null && hasWhitespaceAt(instructions, methodAmount.end)) {
-                p("if 1");
-                p("str1 ", instructions.substring(amountStart, methodAmount.end));
-                p("found1");
-                amountMethod = methodAmount.value;
-                //      p("amountMethod", amountMethod);
-            } else {
-                String fraction = findFractionAt(instructions, amountStart);
-                if (fraction != null) {
-                    amountFrequency = "0";
-                    if (fraction.equals("1/2")) {
-                        amountFrequency = "0.5";
-                    } else if (fraction.equals("1/4")) {
-                        amountFrequency = "0.25";
-                    }
-                } else {
-                    p("word amount");
-                    for (String word : zeroToTen) {
-                        String safeMethod = Pattern.quote(method);
-                        String safeWord = Pattern.quote(word);
-                        String r1 = safeMethod + "\\s+" + safeWord + "\\s";
-                        String r2 = safeMethod + "\\s+" + safeWord + "$";
-                        Pattern p5 = Pattern.compile(r1);
-                        Matcher m5 = p5.matcher(instructions);
-                        p("pattern word =" + r1);
-                        if (m5.find()) {
-                            amountMethod = instructions.substring(m5.start(), m5.end());
-                            amountMethod = amountMethod.replace(method, "").trim();
-                            p("amountMethod=" + amountMethod);
-                            amountMethod = convertWordToNumerical(amountMethod);
-                            p("num amountMethod=" + amountMethod);
-                            break;
-                        } else {
-                            p5 = Pattern.compile(r2);
-                            m5 = p5.matcher(instructions);
-                            p("pattern word =" + r2);
-                            if (m5.find()) {
-                                amountMethod = instructions.substring(m5.start(), m5.end());
-                                amountMethod = amountMethod.replace(method, "").trim();
-                                p("amountMethod=" + amountMethod);
-                                amountMethod = convertWordToNumerical(amountMethod);
-                                p("num amountMethod=" + amountMethod);
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
+        if (setRangeAfterMethod(segment, instructions, amountStart)) {
+            return;
+        }
+        if (setDecimalAfterMethod(segment, instructions, amountStart)) {
+            return;
+        }
+        if (setFractionAfterMethod(segment, instructions, amountStart)) {
+            return;
         }
 
-        segment.takeMax = takeMaxMethod;
-        segment.takeMin = takeMinMethod;
-        segment.amountMethod = amountMethod;
-        segment.amountFrequency = amountFrequency;
+        segment.amountMethod = findWordAmountAfterMethod(instructions, method);
     }
 
-		private static class InstructionSegment {
-			String method;
-			String takeMin;
-			String takeMax;
-			String amountMethod;
-			String amountFrequency;
-		}
+    private static boolean setRangeAfterMethod(InstructionSegment segment, String instructions, int amountStart) {
+        NumberRange methodRange = findRangeAt(instructions, amountStart);
+        if (methodRange == null || !hasWhitespaceAt(instructions, methodRange.end)) {
+            return false;
+        }
+
+        p("else if 1");
+        segment.takeMin = methodRange.min;
+        segment.takeMax = methodRange.max;
+        return true;
+    }
+
+    private static boolean setDecimalAfterMethod(InstructionSegment segment, String instructions, int amountStart) {
+        NumberToken methodAmount = findDecimalAt(instructions, amountStart);
+        if (methodAmount == null || !hasWhitespaceAt(instructions, methodAmount.end)) {
+            return false;
+        }
+
+        p("if 1");
+        p("str1 ", instructions.substring(amountStart, methodAmount.end));
+        p("found1");
+        segment.amountMethod = methodAmount.value;
+        //      p("amountMethod", amountMethod);
+        return true;
+    }
+
+    private static boolean setFractionAfterMethod(InstructionSegment segment, String instructions, int amountStart) {
+        String fraction = findFractionAt(instructions, amountStart);
+        if (fraction == null) {
+            return false;
+        }
+
+        segment.amountFrequency = convertFractionToAmount(fraction);
+        return true;
+    }
+
+    private static String convertFractionToAmount(String fraction) {
+        if (fraction.equals("1/2")) {
+            return "0.5";
+        }
+        if (fraction.equals("1/4")) {
+            return "0.25";
+        }
+        return "0";
+    }
+
+    private static String findWordAmountAfterMethod(String instructions, String method) {
+        p("word amount");
+        for (String word : zeroToTen) {
+            String amountMethod = findWordAmountAfterMethod(instructions, method, word, "\\s");
+            if (amountMethod != null) {
+                return amountMethod;
+            }
+            amountMethod = findWordAmountAfterMethod(instructions, method, word, "$");
+            if (amountMethod != null) {
+                return amountMethod;
+            }
+        }
+        return null;
+    }
+
+    private static String findWordAmountAfterMethod(String instructions, String method, String word, String suffix) {
+        String safeMethod = Pattern.quote(method);
+        String safeWord = Pattern.quote(word);
+        String regex = safeMethod + "\\s+" + safeWord + suffix;
+        Pattern pattern = Pattern.compile(regex);
+        Matcher matcher = pattern.matcher(instructions);
+        p("pattern word =" + regex);
+        if (!matcher.find()) {
+            return null;
+        }
+
+        String amountMethod = instructions.substring(matcher.start(), matcher.end());
+        amountMethod = amountMethod.replace(method, "").trim();
+        p("amountMethod=" + amountMethod);
+        amountMethod = convertWordToNumerical(amountMethod);
+        p("num amountMethod=" + amountMethod);
+        return amountMethod;
+    }
+
+    private static class InstructionSegment {
+        String method;
+        String takeMin;
+        String takeMax;
+        String amountMethod;
+        String amountFrequency;
+    }
 
     private static class NumberToken {
         final int start;

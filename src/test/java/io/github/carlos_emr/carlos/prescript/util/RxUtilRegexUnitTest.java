@@ -102,6 +102,18 @@ class RxUtilRegexUnitTest {
         }
 
         @Test
+        @DisplayName("should return false for a null string")
+        void shouldReturnFalse_forNullString() {
+            assertThat(RxUtil.isStringToNumber(null)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should return false for a trailing decimal point")
+        void shouldReturnFalse_forTrailingDecimalPoint() {
+            assertThat(RxUtil.isStringToNumber("1.")).isFalse();
+        }
+
+        @Test
         @DisplayName("should return false for a number followed by non-numeric characters")
         void shouldReturnFalse_forNumberFollowedByLetters() {
             assertThat(RxUtil.isStringToNumber("5mg")).isFalse();
@@ -164,6 +176,14 @@ class RxUtilRegexUnitTest {
         }
 
         @Test
+        @DisplayName("should parse decimal dosage without method")
+        void shouldParseDecimalDosage_withoutMethod() {
+            RxPrescriptionData.Prescription rx = parse("1.5 BID ");
+            assertThat(rx.getTakeMax()).isEqualTo(1.5f);
+            assertThat(rx.getFrequencyCode()).isEqualToIgnoringCase("BID");
+        }
+
+        @Test
         @DisplayName("should parse leading-dot decimal dosage with frequency")
         void shouldParseLeadingDotDecimalDosage_withFrequency() {
             RxPrescriptionData.Prescription rx = parse("Take .5 BID ");
@@ -187,10 +207,42 @@ class RxUtilRegexUnitTest {
         }
 
         @Test
+        @DisplayName("should parse dosage range without method")
+        void shouldParseDosageRange_withoutMethod() {
+            RxPrescriptionData.Prescription rx = parse("0.5-1.5 BID ");
+            assertThat(rx.getTakeMin()).isEqualTo(0.5f);
+            assertThat(rx.getTakeMax()).isEqualTo(1.5f);
+            assertThat(rx.getFrequencyCode()).isEqualToIgnoringCase("BID");
+        }
+
+        @Test
         @DisplayName("should parse fraction 1/2 dosage")
         void shouldParseFractionHalf_withFrequency() {
             RxPrescriptionData.Prescription rx = parse("Take 1/2 BID ");
             assertThat(rx.getTakeMax()).isEqualTo(0.5f);
+        }
+
+        @Test
+        @DisplayName("should parse fraction 1/4 dosage")
+        void shouldParseFractionQuarter_withFrequency() {
+            RxPrescriptionData.Prescription rx = parse("Take 1/4 BID ");
+            assertThat(rx.getTakeMax()).isEqualTo(0.25f);
+        }
+
+        @Test
+        @DisplayName("should parse integer dosage with frequency synonym")
+        void shouldParseIntegerDosage_withFrequencySynonym() {
+            RxPrescriptionData.Prescription rx = parse("Take 1 once daily ");
+            assertThat(rx.getTakeMax()).isEqualTo(1.0f);
+            assertThat(rx.getFrequencyCode()).isEqualToIgnoringCase("OD");
+        }
+
+        @Test
+        @DisplayName("should ignore compact integer token without whitespace")
+        void shouldIgnoreCompactIntegerToken_whenAmountHasNoWhitespace() {
+            RxPrescriptionData.Prescription rx = parse("Take 1tablet BID ");
+            assertThat(rx.getTakeMax()).isEqualTo(0.0f);
+            assertThat(rx.getFrequencyCode()).isEqualToIgnoringCase("BID");
         }
 
         @Test
