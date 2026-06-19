@@ -150,35 +150,44 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                     String pdfFile = "prescription_" + pdfid + ".pdf";
                     String document_dir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
                     
-                    // Use PathValidationUtils for proper path validation
-                    File baseDirFile = PathValidationUtils.resolveConfiguredDirectory(document_dir, "DOCUMENT_DIR");
-                    File validatedPdfFile = PathValidationUtils.validatePath(pdfFile, baseDirFile);
-                    Path filepath = validatedPdfFile.toPath();
+                    Path filepath;
+                    try {
+                        // Use PathValidationUtils for proper path validation
+                        File baseDirFile = PathValidationUtils.resolveConfiguredDirectory(document_dir, "DOCUMENT_DIR");
+                        File validatedPdfFile = PathValidationUtils.validatePath(pdfFile, baseDirFile);
+                        filepath = validatedPdfFile.toPath();
 
-                    if (!Files.exists(filepath)) {
-                        try (java.io.OutputStream fileOut = Files.newOutputStream(filepath)) {
-                            baosPDF.writeTo(fileOut); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- PDF bytes written to file, not HTTP response
+                        if (!Files.exists(filepath)) {
+                            try (java.io.OutputStream fileOut = Files.newOutputStream(filepath)) {
+                                baosPDF.writeTo(fileOut); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- PDF bytes written to file, not HTTP response
+                            }
                         }
-                    }
 
-                    // write to temporary file
-                    String tempPath = CarlosProperties.getInstance().getProperty("fax_file_location", System.getProperty("java.io.tmpdir"));
-                    File tempDirFile = PathValidationUtils.resolveConfiguredDirectory(tempPath, "fax_file_location");
-                    File validatedTempPdf = PathValidationUtils.validatePath("prescription_" + pdfid + ".pdf", tempDirFile);
-                    Path tempPdf = validatedTempPdf.toPath();
+                        // write to temporary file
+                        String tempPath = CarlosProperties.getInstance().getProperty("fax_file_location", System.getProperty("java.io.tmpdir"));
+                        File tempDirFile = PathValidationUtils.resolveConfiguredDirectory(tempPath, "fax_file_location");
+                        File validatedTempPdf = PathValidationUtils.validatePath("prescription_" + pdfid + ".pdf", tempDirFile);
+                        Path tempPdf = validatedTempPdf.toPath();
 
-                    // Copying the fax pdf.
-                    if (Files.exists(filepath) && !Files.exists(tempPdf)) {
-                        FileUtils.copyFile(filepath.toFile(), tempPdf.toFile());
-                    }
-
-                    // tracking file
-                    File validatedTxtFile = PathValidationUtils.validatePath("prescription_" + pdfid + ".txt", tempDirFile);
-                    try (BufferedWriter out = Files.newBufferedWriter(validatedTxtFile.toPath(), StandardCharsets.UTF_8,
-                            StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE)) {
-                        if (faxNo != null) {
-                            out.write(faxNo);
+                        // Copying the fax pdf.
+                        if (Files.exists(filepath) && !Files.exists(tempPdf)) {
+                            FileUtils.copyFile(filepath.toFile(), tempPdf.toFile());
                         }
+
+                        // tracking file
+                        File validatedTxtFile = PathValidationUtils.validatePath("prescription_" + pdfid + ".txt", tempDirFile);
+                        try (BufferedWriter out = Files.newBufferedWriter(validatedTxtFile.toPath(), StandardCharsets.UTF_8,
+                                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE)) {
+                            if (faxNo != null) {
+                                out.write(faxNo);
+                            }
+                        }
+                    } catch (SecurityException e) {
+                        logger.warn("Prescription fax file path validation failed: {}", e.getClass().getSimpleName());
+                        res.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                        writer.println("<div id='fax-failure'><h3>Error: Unable to generate fax.</h3><p>Please try again or contact support if the problem persists.</p></div>");
+                        writer.flush();
+                        return;
                     }
 
                     List<FaxConfig> faxConfigs = faxConfigDao.findAll(null, null);
