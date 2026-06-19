@@ -56,7 +56,7 @@ public final class EncryptionUtils {
     private static final QueueCache<String, byte[]> sha1Cache;
     private static final int MAX_SHA_KEY_CACHE_SIZE = 2048;
     public static final String SECRET_KEY_ENV_VAR = "encryption.util.secret.key";
-    private static SecretKeySpec SECRET_KEY_SPEC;
+    private static volatile SecretKeySpec SECRET_KEY_SPEC;
     private static final String ENCRYPTION_PREFIX = "{ENC}";
 
     public EncryptionUtils() {
@@ -126,7 +126,7 @@ public final class EncryptionUtils {
      **/
     public static byte[] encrypt(byte[] input) throws Exception {
         if (Objects.isNull(SECRET_KEY_SPEC)) {
-            throw new Exception("Secret key not found in environment variables.");
+            throw new Exception("Secret key not found in CarlosProperties.");
         }
 
         byte[] iv = new byte[12];
@@ -164,7 +164,7 @@ public final class EncryptionUtils {
      **/
     public static byte[] decrypt(byte[] cipherBytes) throws Exception {
         if (Objects.isNull(SECRET_KEY_SPEC)) {
-            throw new Exception("Secret key not found in environment variables.");
+            throw new Exception("Secret key not found in CarlosProperties.");
         }
 
         ByteBuffer byteBuffer = ByteBuffer.wrap(cipherBytes);
@@ -269,7 +269,20 @@ public final class EncryptionUtils {
      * <p>
      * This method retrieves the secret key from the CarlosProperties, decodes it from Base64,
      * and initializes the SECRET_KEY_SPEC with the decoded key.
-     * If the secret key is not found in the properties, an error is logged.
+     * <p>
+     * The cached SECRET_KEY_SPEC is unconditionally reset to {@code null} before re-deriving it,
+     * so a missing or invalid key always clears any previously cached spec rather than leaving a
+     * stale value in place.
+     * <p>
+     * Failure modes:
+     * <ul>
+     *   <li>A missing or blank key is treated as "not configured": an error is logged and the
+     *       method returns with SECRET_KEY_SPEC left {@code null} (non-fatal, no exception).</li>
+     *   <li>An invalid key (not valid Base64, or not a 16/24/32-byte AES key) is fatal and throws.</li>
+     * </ul>
+     *
+     * @throws IllegalArgumentException if the configured key is not valid Base64 or does not
+     *                                  decode to a 16/24/32-byte (AES-128/192/256) key
      */
     public static void prepareSecretKeySpec() {
         String key = CarlosProperties.getInstance().getProperty(SECRET_KEY_ENV_VAR);
@@ -326,7 +339,20 @@ public final class EncryptionUtils {
 
     static {
         sha1Cache = new QueueCache(4, 2048, byteArrayCloner);
-        prepareSecretKeySpec();
+        /*
+         * EncryptionUtils is frequently class-loaded before application properties are read, so
+         * the key may be absent (or, after a bad edit, invalid) at this point. Never let key
+         * preparation abort class loading - an exception here would surface as
+         * ExceptionInInitializerError and leave the class permanently unusable. Startup is
+         * authoritative: it re-prepares and validates the key once properties are available, and
+         * fails fast there if the key is invalid. Leaving the spec null mirrors the missing-key state.
+         */
+        try {
+            prepareSecretKeySpec();
+        } catch (RuntimeException e) {
+            SECRET_KEY_SPEC = null;
+            logger.error("Deferred encryption key initialization; it will be prepared at startup.", e);
+        }
     }
 }
 

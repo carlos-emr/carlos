@@ -142,30 +142,30 @@ public class Startup implements ServletContextListener {
 					p.saveProperty(propFileName, EncryptionUtils.SECRET_KEY_ENV_VAR, secretKey);
 					logger.info("New Secret Key generated...");
 				} catch (IOException | NoSuchAlgorithmException e) {
-					logger.error("Error generating new Secret Key - ", e);
+					/*
+					 * A usable encryption key is mandatory: it protects stored PHI and provider
+					 * credentials. Fail fast rather than booting with no key, which would defer the
+					 * failure to the first credential save (an opaque runtime error for clinicians).
+					 */
+					throw new IllegalStateException("Unable to generate and persist a new encryption key at startup", e);
 				}
 			} else {
 				logger.info("Using existing Secret Key...");
 			}
 
 			/*
-			 * EncryptionUtils may be loaded before the application properties are read,
-			 * leaving its cached SecretKeySpec unset even when a key already exists in
-			 * the properties file. Always prepare the key after startup has ensured a
-			 * key exists so credential saves can encrypt passwords reliably.
+			 * EncryptionUtils may be loaded before the application properties are read, leaving its
+			 * cached SecretKeySpec unset even when a key already exists in the properties file.
+			 * Always prepare the key after startup has ensured a key exists so credential saves can
+			 * encrypt passwords reliably. An invalid existing key is NOT auto-rotated: regenerating
+			 * over it would permanently orphan everything already encrypted under the real key.
+			 * Instead, abort startup so an operator can restore the correct key.
 			 */
 			try {
 				EncryptionUtils.prepareSecretKeySpec();
 			} catch (IllegalArgumentException e) {
-				logger.error("Configured encryption key is not valid Base64; generating a new key", e);
-				try {
-					secretKey = EncryptionUtils.generateSecretKey();
-					p.saveProperty(propFileName, EncryptionUtils.SECRET_KEY_ENV_VAR, secretKey);
-					EncryptionUtils.prepareSecretKeySpec();
-					logger.info("Replacement Secret Key generated after invalid key detected");
-				} catch (IOException | NoSuchAlgorithmException | IllegalArgumentException ex) {
-					logger.error("Error generating replacement Secret Key - ", ex);
-				}
+				throw new IllegalStateException("Configured encryption key is invalid (" + e.getMessage()
+						+ "); refusing to start. Restore the correct encryption key, or remove it to have a new one generated.", e);
 			}
 
 			// CHECK FOR DEFAULT PROPERTIES
