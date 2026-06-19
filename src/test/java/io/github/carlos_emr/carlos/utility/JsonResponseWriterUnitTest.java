@@ -21,11 +21,12 @@
 package io.github.carlos_emr.carlos.utility;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
-
-import jakarta.servlet.ServletOutputStream;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -61,19 +62,14 @@ class JsonResponseWriterUnitTest {
     }
 
     @Test
-    @DisplayName("uses servlet writer for legacy response compatibility")
-    void shouldUseWriter_whenOutputStreamUnavailable() throws Exception {
-        MockHttpServletResponse response = new OutputStreamRejectingResponse();
+    @DisplayName("uses servlet writer instead of output stream")
+    void shouldUseWriter_forServletResponseCompatibility() throws Exception {
+        MockHttpServletResponse response = spy(new MockHttpServletResponse());
 
         JsonResponseWriter.write(response, Map.of("success", true));
 
+        verify(response).getWriter();
+        verify(response, never()).getOutputStream();
         assertThat(response.getContentAsString()).isEqualTo("{\"success\":true}");
-    }
-
-    private static class OutputStreamRejectingResponse extends MockHttpServletResponse {
-        @Override
-        public ServletOutputStream getOutputStream() {
-            throw new AssertionError("JsonResponseWriter should use getWriter()");
-        }
     }
 }
