@@ -972,9 +972,15 @@ public class RxUtil {
             while (tokenStart > 0 && isDigit(text.charAt(tokenStart - 1))) {
                 tokenStart--;
             }
+            if (!hasTokenBoundaryBefore(text, tokenStart)) {
+                return null;
+            }
             return new NumberToken(text, tokenStart, end);
         }
 
+        if (!hasTokenBoundaryBefore(text, start)) {
+            return null;
+        }
         return new NumberToken(text, start, end);
     }
 
@@ -1058,6 +1064,10 @@ public class RxUtil {
 
     private static boolean hasTokenBoundaryAt(String text, int index) {
         return index >= text.length() || Character.isWhitespace(text.charAt(index));
+    }
+
+    private static boolean hasTokenBoundaryBefore(String text, int index) {
+        return index <= 0 || Character.isWhitespace(text.charAt(index - 1));
     }
 
     private static boolean isDigit(char c) {

@@ -278,6 +278,22 @@ class RxUtilRegexUnitTest {
         }
 
         @Test
+        @DisplayName("should ignore compact trailing integer token before frequency")
+        void shouldIgnoreCompactTrailingIntegerToken_whenAmountHasNoWhitespaceBeforeFrequency() {
+            RxPrescriptionData.Prescription rx = parse("Take tablet1 BID ");
+            assertThat(rx.getTakeMax()).isEqualTo(0.0f);
+            assertThat(rx.getFrequencyCode()).isEqualToIgnoringCase("BID");
+        }
+
+        @Test
+        @DisplayName("should ignore compact trailing decimal token before frequency")
+        void shouldIgnoreCompactTrailingDecimalToken_whenAmountHasNoWhitespaceBeforeFrequency() {
+            RxPrescriptionData.Prescription rx = parse("Take tablet.5 BID ");
+            assertThat(rx.getTakeMax()).isEqualTo(0.0f);
+            assertThat(rx.getFrequencyCode()).isEqualToIgnoringCase("BID");
+        }
+
+        @Test
         @DisplayName("should parse OD frequency")
         void shouldParseODFrequency() {
             RxPrescriptionData.Prescription rx = parse("Take 1 OD ");
