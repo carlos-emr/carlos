@@ -48,9 +48,14 @@ import io.github.carlos_emr.carlos.log.LogConst;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.utility.RedirectValidationUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public final class Frm2Action extends ActionSupport {
 
@@ -263,8 +268,10 @@ public final class Frm2Action extends ActionSupport {
                 actionForward = strAction;
                 actionForward = rec.createActionURL(actionForward, strAction, demographicNo+"", "" + newID);
                 if (actionForward.startsWith("save?")) {
-                    response.sendRedirect(request.getContextPath() + "/form/forwardname?form_link="
-                        + request.getParameter("form_link") + "&" + actionForward.substring(5));
+                    sendForwardNameRedirect(forwardNameRedirectUrl(
+                            request.getContextPath(),
+                            request.getParameter("form_link"),
+                            actionForward));
                     return null;
                 }
             }
@@ -279,6 +286,27 @@ public final class Frm2Action extends ActionSupport {
         request.setAttribute("saveSuccess", saveSuccess);
 
         return actionForward;
+    }
+
+    static String forwardNameRedirectUrl(String contextPath, String formLink, String actionForward) {
+        if (actionForward == null || !actionForward.startsWith("save?")) {
+            throw new IllegalArgumentException("Form forward action must be a save action");
+        }
+
+        String redirectUrl = StringUtils.defaultString(contextPath)
+                + "/form/forwardname?form_link="
+                + URLEncoder.encode(StringUtils.defaultString(formLink), StandardCharsets.UTF_8)
+                + "&" + actionForward.substring("save?".length());
+        if (!RedirectValidationUtils.isValidRelativeRedirect(redirectUrl)) {
+            throw new IllegalArgumentException("Unsafe form forward redirect");
+        }
+        return redirectUrl;
+    }
+
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is fixed to the same-origin /form/forwardname action; form_link is URL-encoded, the remaining query comes from server-generated save action parameters, and the final URL is validated as a safe relative redirect.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is fixed to same-origin /form/forwardname; form_link is URL-encoded, save action query is server-generated, and RedirectValidationUtils validates the final URL")
+    private void sendForwardNameRedirect(String redirectUrl) throws IOException {
+        response.sendRedirect(redirectUrl);
     }
 
     private void quickSaveForm(FrmRecord formRecord, HttpServletRequest request, HttpServletResponse response) {

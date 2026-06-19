@@ -27,6 +27,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockHttpServletRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -250,6 +251,53 @@ class CaseManagementEntry2ActionSanitizationUnitTest {
 
             assertThat(CaseManagementEntry2Action.resolveReporterProgramTeamId(admissionManager, "7", "abc"))
                     .isEqualTo("0");
+        }
+    }
+
+    @Nested
+    @DisplayName("isValidInternalRedirect")
+    class IsValidInternalRedirect {
+
+        @Test
+        @DisplayName("should accept safe root-relative redirects")
+        void shouldAcceptSafeRootRelativeRedirects() {
+            MockHttpServletRequest request = sameOriginRequest();
+
+            assertThat(CaseManagementEntry2Action.isValidInternalRedirect(
+                    "/carlos/provider/providercontrol.jsp?tab=main", request)).isTrue();
+        }
+
+        @Test
+        @DisplayName("should accept exact same-origin absolute redirects")
+        void shouldAcceptExactSameOriginAbsoluteRedirects() {
+            MockHttpServletRequest request = sameOriginRequest();
+
+            assertThat(CaseManagementEntry2Action.isValidInternalRedirect(
+                    "https://emr.example/carlos/provider/providercontrol.jsp", request)).isTrue();
+        }
+
+        @Test
+        @DisplayName("should reject external and ambiguous redirects")
+        void shouldRejectExternalAndAmbiguousRedirects() {
+            MockHttpServletRequest request = sameOriginRequest();
+
+            assertThat(CaseManagementEntry2Action.isValidInternalRedirect(
+                    "https://emr.example.evil/carlos/provider/providercontrol.jsp", request)).isFalse();
+            assertThat(CaseManagementEntry2Action.isValidInternalRedirect(
+                    "https://emr.example@evil.example/carlos/provider/providercontrol.jsp", request)).isFalse();
+            assertThat(CaseManagementEntry2Action.isValidInternalRedirect("//evil.example/path", request)).isFalse();
+            assertThat(CaseManagementEntry2Action.isValidInternalRedirect("/%5cevil.example", request)).isFalse();
+            assertThat(CaseManagementEntry2Action.isValidInternalRedirect(
+                    "https://emr.example/carlos/%0d%0aLocation:%20https://evil.example", request)).isFalse();
+        }
+
+        private MockHttpServletRequest sameOriginRequest() {
+            MockHttpServletRequest request = new MockHttpServletRequest();
+            request.setScheme("https");
+            request.setServerName("emr.example");
+            request.setServerPort(443);
+            request.setContextPath("/carlos");
+            return request;
         }
     }
 }

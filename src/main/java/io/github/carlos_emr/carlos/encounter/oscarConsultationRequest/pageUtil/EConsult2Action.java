@@ -30,9 +30,9 @@
 
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 
-import java.io.File;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
@@ -40,6 +40,7 @@ import java.util.regex.Pattern;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -101,34 +102,28 @@ public class EConsult2Action extends ActionSupport {
             MiscUtils.getLogger().error("Invalid task parameter provided");
             return "error";
         }
-        
-        StringBuilder stringBuilder = new StringBuilder(frontendEconsultUrl);
 
-        if (!frontendEconsultUrl.endsWith(File.separator)) {
-            stringBuilder.append(File.separator);
-        }
-
-        setLoginId(stringBuilder, request);
-
-        // Add the validated task
-        if (task != null && !task.isEmpty()) {
-            stringBuilder.append(task);
-        }
-
-        // method parameters.
         if (demographicNo != null && !demographicNo.isEmpty()) {
             // Validate demographicNo to ensure it's numeric
             if (!demographicNo.matches("^\\d+$")) {
                 MiscUtils.getLogger().error("Invalid demographicNo parameter");
                 return "error";
             }
-            stringBuilder.append(String.format("?%1$s=%2$s", "patient_id", demographicNo));
         }
 
         try {
-            response.sendRedirect(stringBuilder.toString());
+            String redirectUrl = frontendRedirectUrl(
+                    frontendEconsultUrl,
+                    (String) request.getSession().getAttribute("oneIdEmail"),
+                    (String) request.getSession().getAttribute("delegateOneIdEmail"),
+                    task,
+                    demographicNo);
+            sendConfiguredEconsultRedirect(response, redirectUrl, frontendEconsultUrl, "frontendEconsultUrl");
         } catch (IOException e) {
-            MiscUtils.getLogger().error("There was a problem with the redirect of " + stringBuilder.toString(), e);
+            MiscUtils.getLogger().error("There was a problem with the eConsult frontend redirect", e);
+        } catch (IllegalArgumentException e) {
+            MiscUtils.getLogger().error("Invalid eConsult frontend redirect configuration", e);
+            return "error";
         }
 
         return null;
@@ -148,59 +143,31 @@ public class EConsult2Action extends ActionSupport {
         //Sets the length of the URL, found by subtracting the length of the servlet path from the length of the full URL, that way it only gets up to the context path
         oscarUrl.setLength(urlLength);
 
-        oscarUrl.append(String.format("%1$s%2$s", File.separator, "econsultSSOLogin"));
-
-        StringBuilder stringBuilder = new StringBuilder(backendEconsultUrl);
-
-        if (!backendEconsultUrl.endsWith(File.separator)) {
-            stringBuilder.append(File.separator);
-        }
-
-        stringBuilder.append("SAML2/login");
+        oscarUrl.append("/econsultSSOLogin");
 
         try {
-            stringBuilder.append(String.format("?%1$s=%2$s", "oscarReturnURL", URLEncoder.encode(oscarUrl.toString(), StandardCharsets.UTF_8.toString())));
-            stringBuilder.append(String.format("?%1$s=%2$s", "loginStart", new Date().getTime() / 1000));
-            response.sendRedirect(stringBuilder.toString());
+            String redirectUrl = loginRedirectUrl(
+                    backendEconsultUrl,
+                    oscarUrl.toString(),
+                    new Date().getTime() / 1000);
+            sendConfiguredEconsultRedirect(response, redirectUrl, backendEconsultUrl, "backendEconsultUrl");
         } catch (IOException e) {
-            MiscUtils.getLogger().error("There was a problem with the redirect of " + stringBuilder.toString(), e);
+            MiscUtils.getLogger().error("There was a problem with the eConsult login redirect", e);
+        } catch (IllegalArgumentException e) {
+            MiscUtils.getLogger().error("Invalid eConsult backend redirect configuration", e);
+            return "error";
         }
 
         return null;
     }
 
     /**
-     * Adds the proper user name line for both the user and user delegate.
-     * <p>
-     * ie: ?{oneIdEmail}&{delegateOneIdEmail}#!/
-     */
-    private void setLoginId(StringBuilder stringBuilder, HttpServletRequest request) {
-
-        String oneIdEmail = (String) request.getSession().getAttribute("oneIdEmail");
-        String delegateOneIdEmail = (String) request.getSession().getAttribute("delegateOneIdEmail");
-
-        try {
-            stringBuilder.append(String.format("?%1$s=%2$s", "oneid_email", URLEncoder.encode(oneIdEmail, StandardCharsets.UTF_8.toString())));
-
-            // Add if there is a delegate too.
-            if (delegateOneIdEmail != null && !delegateOneIdEmail.isEmpty()) {
-                stringBuilder.append(String.format("&%1$s=%2$s", "delegate_oneid_email", URLEncoder.encode(delegateOneIdEmail, StandardCharsets.UTF_8.toString())));
-            }
-
-            // Add the shebang
-            stringBuilder.append(String.format("#!%s", File.separator));
-        } catch (UnsupportedEncodingException e) {
-            MiscUtils.getLogger().error("There was a problem with construction of the login ids " + stringBuilder.toString(), e);
-        }
-    }
-    
-    /**
      * Validates the task parameter to prevent URL injection attacks
      * 
      * @param task The task parameter from the request
      * @return true if the task is valid, false otherwise
      */
-    private boolean isValidTask(String task) {
+    static boolean isValidTask(String task) {
         // Allow null or empty tasks (will be handled later)
         if (task == null || task.isEmpty()) {
             return true;
@@ -232,5 +199,117 @@ public class EConsult2Action extends ActionSupport {
         return true;
     }
 
+    static String frontendRedirectUrl(String frontendEconsultUrl, String oneIdEmail,
+            String delegateOneIdEmail, String task, String demographicNo) {
+        URI configuredBase = validatedConfiguredRedirectBase("frontendEconsultUrl", frontendEconsultUrl);
+        StringBuilder redirect = new StringBuilder(normalizedBaseUrl(configuredBase));
+        redirect.append("?oneid_email=").append(urlParam(oneIdEmail));
+
+        if (delegateOneIdEmail != null && !delegateOneIdEmail.isEmpty()) {
+            redirect.append("&delegate_oneid_email=").append(urlParam(delegateOneIdEmail));
+        }
+
+        redirect.append("#!/");
+        if (task != null && !task.isEmpty()) {
+            if (!isValidTask(task)) {
+                throw new IllegalArgumentException("Invalid eConsult task");
+            }
+            redirect.append(task);
+        }
+        if (demographicNo != null && !demographicNo.isEmpty()) {
+            if (!demographicNo.matches("^\\d+$")) {
+                throw new IllegalArgumentException("Invalid eConsult demographic number");
+            }
+            redirect.append("?patient_id=").append(urlParam(demographicNo));
+        }
+
+        return validatedRedirectUnderConfiguredBase(configuredBase, redirect.toString(), "frontendEconsultUrl");
+    }
+
+    static String loginRedirectUrl(String backendEconsultUrl, String oscarReturnUrl, long loginStartEpochSeconds) {
+        URI configuredBase = validatedConfiguredRedirectBase("backendEconsultUrl", backendEconsultUrl);
+        String redirect = normalizedBaseUrl(configuredBase)
+                + "SAML2/login?oscarReturnURL=" + urlParam(oscarReturnUrl)
+                + "&loginStart=" + loginStartEpochSeconds;
+
+        return validatedRedirectUnderConfiguredBase(configuredBase, redirect, "backendEconsultUrl");
+    }
+
+    private static URI validatedConfiguredRedirectBase(String propertyName, String configuredBaseUrl) {
+        if (configuredBaseUrl == null || configuredBaseUrl.trim().isEmpty()) {
+            throw new IllegalArgumentException(propertyName + " is blank");
+        }
+        try {
+            URI uri = new URI(configuredBaseUrl.trim());
+            String scheme = uri.getScheme();
+            if (!"https".equalsIgnoreCase(scheme) && !"http".equalsIgnoreCase(scheme)) {
+                throw new IllegalArgumentException(propertyName + " must use http or https");
+            }
+            if (uri.getHost() == null || uri.getHost().trim().isEmpty()) {
+                throw new IllegalArgumentException(propertyName + " must include a host");
+            }
+            if (uri.getUserInfo() != null) {
+                throw new IllegalArgumentException(propertyName + " must not include userinfo");
+            }
+            if (uri.getRawQuery() != null || uri.getRawFragment() != null) {
+                throw new IllegalArgumentException(propertyName + " must not include query or fragment");
+            }
+            return uri;
+        } catch (URISyntaxException e) {
+            throw new IllegalArgumentException(propertyName + " is not a valid URI", e);
+        }
+    }
+
+    private static String normalizedBaseUrl(URI configuredBase) {
+        String base = configuredBase.toASCIIString();
+        return base.endsWith("/") ? base : base + "/";
+    }
+
+    private static String validatedRedirectUnderConfiguredBase(URI configuredBase, String redirectUrl, String propertyName) {
+        try {
+            URI redirect = new URI(redirectUrl);
+            if (!sameOrigin(configuredBase, redirect)) {
+                throw new IllegalArgumentException(propertyName + " redirect changed origin");
+            }
+            String basePath = configuredBase.getRawPath();
+            if (basePath == null || basePath.isEmpty()) {
+                basePath = "/";
+            } else if (!basePath.endsWith("/")) {
+                basePath = basePath + "/";
+            }
+            String redirectPath = redirect.getRawPath();
+            if (redirectPath == null || !redirectPath.startsWith(basePath)) {
+                throw new IllegalArgumentException(propertyName + " redirect left configured path");
+            }
+            return redirect.toASCIIString();
+        } catch (URISyntaxException e) {
+            throw new IllegalArgumentException(propertyName + " redirect is not a valid URI", e);
+        }
+    }
+
+    private static boolean sameOrigin(URI configuredBase, URI redirect) {
+        return configuredBase.getScheme().equalsIgnoreCase(redirect.getScheme())
+                && configuredBase.getHost().equalsIgnoreCase(redirect.getHost())
+                && effectivePort(configuredBase) == effectivePort(redirect);
+    }
+
+    private static int effectivePort(URI uri) {
+        if (uri.getPort() != -1) {
+            return uri.getPort();
+        }
+        return "https".equalsIgnoreCase(uri.getScheme()) ? 443 : 80;
+    }
+
+    private static String urlParam(String value) {
+        return URLEncoder.encode(value == null ? "" : value, StandardCharsets.UTF_8);
+    }
+
+    // FindSecBugs UNVALIDATED_REDIRECT: eConsult redirects intentionally leave CARLOS for a deployment-configured eConsult service. The configured base is parsed as http(s), rejects userinfo/query/fragment, request data is URL-encoded, and the final redirect must remain under the configured origin/path.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "eConsult redirects are built from validated deployment-configured http(s) base URLs; request data is URL-encoded and the final target must remain under the configured origin/path")
+    private void sendConfiguredEconsultRedirect(HttpServletResponse response, String redirectUrl,
+            String configuredBaseUrl, String propertyName) throws IOException {
+        URI configuredBase = validatedConfiguredRedirectBase(propertyName, configuredBaseUrl);
+        response.sendRedirect(validatedRedirectUnderConfiguredBase(configuredBase, redirectUrl, propertyName));
+    }
 
 }
