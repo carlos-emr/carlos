@@ -31,6 +31,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
@@ -241,25 +243,14 @@ class ResponseSanitizationFilterUnitTest {
             assertThat(ResponseSanitizationFilter.containsStackTrace(body)).isTrue();
         }
 
-        @Test
-        @DisplayName("should return false for word 'at' in normal prose text")
-        void shouldReturnFalse_forWordAtInNormalText() {
-            // "at" in plain text (without a preceding newline) should not match the stack frame pattern
-            String body = "An error occurred at line 10 of the configuration file.";
-            assertThat(ResponseSanitizationFilter.containsStackTrace(body)).isFalse();
-        }
-
-        @Test
-        @DisplayName("should return false when marker is embedded in a larger word")
-        void shouldReturnFalse_whenMarkerEmbeddedInWord() {
-            String body = "notjava.lang.Exception is just prose";
-            assertThat(ResponseSanitizationFilter.containsStackTrace(body)).isFalse();
-        }
-
-        @Test
-        @DisplayName("should return false when Caused by marker is embedded in a larger word")
-        void shouldReturnFalse_whenCausedByMarkerEmbeddedInWord() {
-            String body = "notCaused by: this is ordinary text";
+        @ParameterizedTest
+        @DisplayName("should return false for plain text stack trace near misses")
+        @ValueSource(strings = {
+                "An error occurred at line 10 of the configuration file.",
+                "notjava.lang.Exception is just prose",
+                "notCaused by: this is ordinary text"
+        })
+        void shouldReturnFalse_forPlainTextNearMisses(String body) {
             assertThat(ResponseSanitizationFilter.containsStackTrace(body)).isFalse();
         }
 
