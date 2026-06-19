@@ -43,6 +43,9 @@ import java.util.Objects;
 
 
 public final class EncryptionUtils {
+    private static final int AES_128_KEY_BYTES = 16;
+    private static final int AES_192_KEY_BYTES = 24;
+    private static final int AES_256_KEY_BYTES = 32;
     private static final QueueCacheValueCloner<byte[]> byteArrayCloner = new QueueCacheValueCloner<byte[]>() {
         public byte[] cloneBean(byte[] original) {
             return (byte[]) original.clone();
@@ -270,13 +273,18 @@ public final class EncryptionUtils {
      */
     public static void prepareSecretKeySpec() {
         String key = CarlosProperties.getInstance().getProperty(SECRET_KEY_ENV_VAR);
+        SECRET_KEY_SPEC = null;
         if (Objects.isNull(key) || key.isBlank()) {
-            SECRET_KEY_SPEC = null;
             logger.error("Secret key not found in CarlosProperties.");
             return;
         }
 
         byte[] keyBytes = Base64.getDecoder().decode(key);
+        if (keyBytes.length != AES_128_KEY_BYTES
+                && keyBytes.length != AES_192_KEY_BYTES
+                && keyBytes.length != AES_256_KEY_BYTES) {
+            throw new IllegalArgumentException("Invalid AES key length: " + keyBytes.length + " bytes");
+        }
         SECRET_KEY_SPEC = new SecretKeySpec(keyBytes, "AES");
     }
 

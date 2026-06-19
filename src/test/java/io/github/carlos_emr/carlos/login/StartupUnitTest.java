@@ -8,11 +8,14 @@ import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletContextEvent;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.MockedStatic;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -20,6 +23,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @Tag("unit")
 class StartupUnitTest extends CarlosUnitTestBase {
@@ -172,4 +176,89 @@ class StartupUnitTest extends CarlosUnitTestBase {
             keySpecField.set(null, originalKeySpec);
         }
     }
+
+    @Test
+    @Tag("create")
+    @DisplayName("should clear prepared key when configured key is invalid")
+    void shouldClearPreparedKey_whenConfiguredKeyIsInvalid() throws Exception {
+        Field keySpecField = EncryptionUtils.class.getDeclaredField("SECRET_KEY_SPEC");
+        keySpecField.setAccessible(true);
+        Object originalKeySpec = keySpecField.get(null);
+
+        CarlosProperties props = CarlosProperties.getInstance();
+        String originalProp = props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR);
+
+        try {
+            props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, EncryptionUtils.generateSecretKey());
+            EncryptionUtils.prepareSecretKeySpec();
+            assertThat(keySpecField.get(null)).isNotNull();
+
+            props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, "AA==");
+            assertThatCode(() -> EncryptionUtils.prepareSecretKeySpec())
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("Invalid AES key length");
+            assertThat(keySpecField.get(null)).isNull();
+
+            props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, "not-base64%%");
+            assertThatCode(() -> EncryptionUtils.prepareSecretKeySpec())
+                    .isInstanceOf(IllegalArgumentException.class);
+            assertThat(keySpecField.get(null)).isNull();
+        } finally {
+            if (originalProp != null) {
+                props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, originalProp);
+            } else {
+                props.remove(EncryptionUtils.SECRET_KEY_ENV_VAR);
+            }
+            keySpecField.set(null, originalKeySpec);
+        }
+    }
+
+    @Test
+    @Tag("create")
+    @DisplayName("should replace malformed key during startup")
+    void shouldReplaceMalformedKey_duringStartup(@TempDir Path tempDir) throws Exception {
+        Field keySpecField = EncryptionUtils.class.getDeclaredField("SECRET_KEY_SPEC");
+        keySpecField.setAccessible(true);
+        Object originalKeySpec = keySpecField.get(null);
+
+        CarlosProperties props = CarlosProperties.getInstance();
+        String originalProp = props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR);
+        String originalUserHome = System.getProperty("user.home");
+
+        Path webappRoot = tempDir.resolve("webapps").resolve("carlos");
+        Files.createDirectories(webappRoot);
+        ServletContextEvent event = mock(ServletContextEvent.class);
+        ServletContext servletContext = mock(ServletContext.class);
+        when(event.getServletContext()).thenReturn(servletContext);
+        when(servletContext.getResource("/")).thenReturn(webappRoot.toUri().toURL());
+
+        try {
+            System.setProperty("user.home", tempDir.toString());
+            props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, "not-base64%%");
+            keySpecField.set(null, null);
+
+            new Startup().contextInitialized(event);
+
+            String replacementKey = props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR);
+            assertThat(replacementKey).isNotBlank();
+            assertThat(replacementKey).isNotEqualTo("not-base64%%");
+            assertThat(keySpecField.get(null)).isNotNull();
+
+            String encrypted = EncryptionUtils.encrypt("startup-password");
+            assertThat(EncryptionUtils.decrypt(encrypted)).isEqualTo("startup-password");
+        } finally {
+            if (originalUserHome != null) {
+                System.setProperty("user.home", originalUserHome);
+            } else {
+                System.clearProperty("user.home");
+            }
+            if (originalProp != null) {
+                props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, originalProp);
+            } else {
+                props.remove(EncryptionUtils.SECRET_KEY_ENV_VAR);
+            }
+            keySpecField.set(null, originalKeySpec);
+        }
+    }
+
 }
