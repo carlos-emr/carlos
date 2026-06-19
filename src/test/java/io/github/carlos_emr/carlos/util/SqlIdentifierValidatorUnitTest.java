@@ -19,6 +19,7 @@ import java.time.Duration;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -115,6 +116,8 @@ class SqlIdentifierValidatorUnitTest {
     @NullAndEmptySource
     @ValueSource(strings = {
             " ",
+            "42",
+            "'literal'",
             "1code",
             "buf1 + 1",
             "IFNULL(buf1,''); drop table x",
@@ -128,6 +131,15 @@ class SqlIdentifierValidatorUnitTest {
     @DisplayName("should reject invalid lookup field expressions")
     void shouldRejectInvalidLookupFieldExpressions_whenExpressionIsInvalid(String expression) {
         assertThat(SqlIdentifierValidator.isValidFieldExpression(expression)).isFalse();
+    }
+
+    @Test
+    @DisplayName("should reject deeply nested function calls when expression nesting exceeds limit")
+    void shouldRejectDeeplyNestedFunctionCalls_whenExpressionNestingExceedsLimit() {
+        String expression = "f(".repeat(128) + "code" + ")".repeat(128);
+
+        assertTimeoutPreemptively(Duration.ofSeconds(1), () ->
+                assertThat(SqlIdentifierValidator.isValidFieldExpression(expression)).isFalse());
     }
 
     @ParameterizedTest

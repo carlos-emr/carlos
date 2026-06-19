@@ -19,10 +19,12 @@ package io.github.carlos_emr.carlos.util;
  * <p>This class intentionally does not parse general SQL. It accepts only the
  * identifier shapes that the current callers need: simple or dotted
  * identifiers, report table references with optional aliases, and lookup field
- * expressions made from identifiers, simple function calls, numeric literals,
- * and single-quoted string literals.</p>
+ * expressions made from identifiers and simple function calls with numeric or
+ * single-quoted string literal arguments.</p>
  */
 public final class SqlIdentifierValidator {
+
+    private static final int MAX_EXPRESSION_NESTING = 16;
 
     private SqlIdentifierValidator() {
     }
@@ -86,10 +88,11 @@ public final class SqlIdentifierValidator {
     /**
      * Validates whether the given value is a safe lookup field expression.
      *
-     * <p>Accepted expressions are identifiers, dotted identifiers, function calls
-     * with safe expression arguments, numeric literals, and single-quoted string
-     * literals. This is a deliberately small grammar for legacy lookup field
-     * configuration, not a general SQL expression parser.</p>
+     * <p>Accepted top-level expressions are identifiers, dotted identifiers, and
+     * function calls with safe expression arguments. Numeric and single-quoted
+     * string literals are accepted only as function call arguments. This is a
+     * deliberately small grammar for legacy lookup field configuration, not a
+     * general SQL expression parser.</p>
      *
      * @param expression String the lookup field expression to validate
      * @return boolean true when the lookup field expression is valid; false otherwise
@@ -101,7 +104,7 @@ public final class SqlIdentifierValidator {
 
         Parser parser = new Parser(expression);
         parser.skipWhitespace();
-        if (!parser.parseExpression()) {
+        if (!parser.parseExpression(0)) {
             return false;
         }
         parser.skipWhitespace();
@@ -128,14 +131,19 @@ public final class SqlIdentifierValidator {
                 return true;
             }
 
-            if (consumeKeyword("as") && !consumeRequiredWhitespace()) {
+            boolean hasAsKeyword = consumeKeyword("as");
+            if (hasAsKeyword && !consumeRequiredWhitespace()) {
                 return false;
             }
 
             return parseIdentifier();
         }
 
-        private boolean parseExpression() {
+        private boolean parseExpression(int depth) {
+            if (depth > MAX_EXPRESSION_NESTING) {
+                return false;
+            }
+
             skipWhitespace();
 
             int mark = position;
@@ -143,12 +151,13 @@ public final class SqlIdentifierValidator {
                 return false;
             }
 
+            int identifierEnd = position;
             skipWhitespace();
             if (!consume('(')) {
                 return true;
             }
 
-            if (!isSingleIdentifier(mark, position - 1)) {
+            if (!isSingleIdentifier(mark, identifierEnd)) {
                 return false;
             }
 
@@ -157,7 +166,7 @@ public final class SqlIdentifierValidator {
                 return true;
             }
 
-            if (!parseExpressionArgument()) {
+            if (!parseExpressionArgument(depth)) {
                 return false;
             }
 
@@ -169,13 +178,13 @@ public final class SqlIdentifierValidator {
                 if (!consume(',')) {
                     return false;
                 }
-                if (!parseExpressionArgument()) {
+                if (!parseExpressionArgument(depth)) {
                     return false;
                 }
             }
         }
 
-        private boolean parseExpressionArgument() {
+        private boolean parseExpressionArgument(int depth) {
             skipWhitespace();
             if (isEnd()) {
                 return false;
@@ -186,7 +195,7 @@ public final class SqlIdentifierValidator {
             if (isDigit(peek())) {
                 return parseNumber();
             }
-            return parseExpression();
+            return parseExpression(depth + 1);
         }
 
         private boolean parseQualifiedIdentifier(int maxSegments) {
@@ -321,6 +330,11 @@ public final class SqlIdentifierValidator {
             return c >= '0' && c <= '9';
         }
 
+        /**
+         * Allows only characters known to be needed by legacy lookup literals.
+         * Whitespace controls, operators, and other SQL-significant punctuation
+         * are intentionally excluded.
+         */
         private static boolean isStringLiteralCharacter(char c) {
             return c == ' ' || c == ',' || c == '.' || c == '(' || c == ')' || isIdentifierPart(c);
         }
