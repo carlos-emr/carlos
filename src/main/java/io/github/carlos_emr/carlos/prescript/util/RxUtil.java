@@ -907,22 +907,16 @@ public class RxUtil {
     }
 
     private static NumberRange findRangeBeforeFrequency(String text, int frequencyStart) {
-        if (skipWhitespaceBackward(text, frequencyStart) == frequencyStart) {
-            return null;
-        }
         return findRangeBefore(text, frequencyStart);
     }
 
     private static NumberToken findDecimalBeforeFrequency(String text, int frequencyStart) {
-        if (skipWhitespaceBackward(text, frequencyStart) == frequencyStart) {
-            return null;
-        }
         return findDecimalBefore(text, frequencyStart);
     }
 
     private static NumberRange findRangeBefore(String text, int endExclusive) {
         int end = skipWhitespaceBackward(text, endExclusive);
-        NumberToken max = findDecimalBefore(text, end);
+        NumberToken max = findDecimalBefore(text, end, false);
         if (max == null || max.end != end) {
             return null;
         }
@@ -956,6 +950,10 @@ public class RxUtil {
     }
 
     private static NumberToken findDecimalBefore(String text, int endExclusive) {
+        return findDecimalBefore(text, endExclusive, true);
+    }
+
+    private static NumberToken findDecimalBefore(String text, int endExclusive, boolean requireBoundaryBefore) {
         int end = skipWhitespaceBackward(text, endExclusive);
         if (end == 0 || !isDigit(text.charAt(end - 1))) {
             return null;
@@ -972,13 +970,13 @@ public class RxUtil {
             while (tokenStart > 0 && isDigit(text.charAt(tokenStart - 1))) {
                 tokenStart--;
             }
-            if (!hasTokenBoundaryBefore(text, tokenStart)) {
+            if (requireBoundaryBefore && !hasTokenBoundaryBefore(text, tokenStart)) {
                 return null;
             }
             return new NumberToken(text, tokenStart, end);
         }
 
-        if (!hasTokenBoundaryBefore(text, start)) {
+        if (requireBoundaryBefore && !hasTokenBoundaryBefore(text, start)) {
             return null;
         }
         return new NumberToken(text, start, end);

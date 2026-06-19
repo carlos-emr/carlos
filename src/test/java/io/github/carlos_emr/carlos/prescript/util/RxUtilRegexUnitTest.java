@@ -285,11 +285,36 @@ class RxUtilRegexUnitTest {
         }
 
         @Test
+        @DisplayName("should parse single-space amount before frequency")
+        void shouldParseSingleSpaceAmount_beforeFrequency() {
+            RxPrescriptionData.Prescription rx = parse("for 1 OD ");
+            assertThat(rx.getTakeMax()).isEqualTo(1.0f);
+            assertThat(rx.getFrequencyCode()).isEqualToIgnoringCase("OD");
+        }
+
+        @Test
+        @DisplayName("should parse single-space range before frequency")
+        void shouldParseSingleSpaceRange_beforeFrequency() {
+            RxPrescriptionData.Prescription rx = parse("for 1-2 OD ");
+            assertThat(rx.getTakeMin()).isEqualTo(1.0f);
+            assertThat(rx.getTakeMax()).isEqualTo(2.0f);
+            assertThat(rx.getFrequencyCode()).isEqualToIgnoringCase("OD");
+        }
+
+        @Test
         @DisplayName("should ignore compact integer token without whitespace")
         void shouldIgnoreCompactIntegerToken_whenAmountHasNoWhitespace() {
             RxPrescriptionData.Prescription rx = parse("Take 1tablet BID ");
             assertThat(rx.getTakeMax()).isEqualTo(0.0f);
             assertThat(rx.getFrequencyCode()).isEqualToIgnoringCase("BID");
+        }
+
+        @Test
+        @DisplayName("should ignore compact range before frequency")
+        void shouldIgnoreCompactRange_beforeFrequency() {
+            RxPrescriptionData.Prescription rx = parse("for tablet1-2 OD ");
+            assertThat(rx.getTakeMax()).isEqualTo(0.0f);
+            assertThat(rx.getFrequencyCode()).isEqualToIgnoringCase("OD");
         }
 
         @Test
