@@ -50,13 +50,13 @@ class EConsult2ActionUnitTest {
         assertThat(redirect).isEqualTo(
                 "https://econsult.example/sso/SAML2/login"
                         + "?oscarReturnURL=https%3A%2F%2Femr.example%2Fcarlos%2FeconsultSSOLogin"
-                        + "&loginStart=1770000000");
-        assertThat(redirect).doesNotContain("?loginStart=");
+                        + "&loginStart=1770000000")
+                .doesNotContain("?loginStart=");
     }
 
     @Test
     @DisplayName("should reject unsafe eConsult base URLs")
-    void shouldRejectUnsafeConfiguredBaseUrls() {
+    void shouldRejectConfiguredBase_whenUnsafe() {
         assertThatThrownBy(() -> EConsult2Action.loginRedirectUrl(
                 "javascript:alert(1)",
                 "https://emr.example/carlos/econsultSSOLogin",
@@ -70,15 +70,34 @@ class EConsult2ActionUnitTest {
                 "draft",
                 "123"))
                 .isInstanceOf(IllegalArgumentException.class);
+
+        assertThatThrownBy(() -> EConsult2Action.loginRedirectUrl(
+                "https://econsult.example/sso?next=https://evil.example",
+                "https://emr.example/carlos/econsultSSOLogin",
+                1770000000L))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     @DisplayName("should reject task values that could change redirect shape")
-    void shouldRejectUnsafeTaskValues() {
+    void shouldRejectTask_whenRedirectShapeCouldChange() {
         assertThat(EConsult2Action.isValidTask("patientSummary")).isTrue();
         assertThat(EConsult2Action.isValidTask("referral/draft-1")).isTrue();
         assertThat(EConsult2Action.isValidTask("../admin")).isFalse();
         assertThat(EConsult2Action.isValidTask("//evil.example")).isFalse();
         assertThat(EConsult2Action.isValidTask("http://evil.example")).isFalse();
+    }
+
+    @Test
+    @DisplayName("should handle optional eConsult redirect parameters")
+    void shouldHandleOptionalParameters_whenBuildingFrontendRedirect() {
+        String redirect = EConsult2Action.frontendRedirectUrl(
+                "HTTPS://ECONSULT.EXAMPLE/app/",
+                null,
+                null,
+                null,
+                null);
+
+        assertThat(redirect).isEqualTo("HTTPS://ECONSULT.EXAMPLE/app/?oneid_email=#!/");
     }
 }

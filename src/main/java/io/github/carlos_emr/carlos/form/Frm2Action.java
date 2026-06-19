@@ -61,6 +61,7 @@ public final class Frm2Action extends ActionSupport {
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
+    private static final String SAVE_ACTION_PREFIX = "save?";
     private final ObjectMapper objectMapper = new ObjectMapper();
     Logger log = MiscUtils.getLogger();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -267,7 +268,7 @@ public final class Frm2Action extends ActionSupport {
                 String strAction = rec.findActionValue(submitType);
                 actionForward = strAction;
                 actionForward = rec.createActionURL(actionForward, strAction, demographicNo+"", "" + newID);
-                if (actionForward.startsWith("save?")) {
+                if (actionForward.startsWith(SAVE_ACTION_PREFIX)) {
                     sendForwardNameRedirect(forwardNameRedirectUrl(
                             request.getContextPath(),
                             request.getParameter("form_link"),
@@ -289,14 +290,14 @@ public final class Frm2Action extends ActionSupport {
     }
 
     static String forwardNameRedirectUrl(String contextPath, String formLink, String actionForward) {
-        if (actionForward == null || !actionForward.startsWith("save?")) {
+        if (actionForward == null || !actionForward.startsWith(SAVE_ACTION_PREFIX)) {
             throw new IllegalArgumentException("Form forward action must be a save action");
         }
 
         String redirectUrl = StringUtils.defaultString(contextPath)
                 + "/form/forwardname?form_link="
                 + URLEncoder.encode(StringUtils.defaultString(formLink), StandardCharsets.UTF_8)
-                + "&" + actionForward.substring("save?".length());
+                + "&" + actionForward.substring(SAVE_ACTION_PREFIX.length());
         if (!RedirectValidationUtils.isValidRelativeRedirect(redirectUrl)) {
             throw new IllegalArgumentException("Unsafe form forward redirect");
         }

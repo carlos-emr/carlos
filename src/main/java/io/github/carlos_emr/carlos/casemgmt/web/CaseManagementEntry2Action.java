@@ -80,8 +80,6 @@ import java.io.InputStream;
 import java.io.PrintWriter;
 import java.io.Serializable;
 import java.lang.reflect.Array;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.text.ParseException;
 import java.util.*;
 import org.owasp.encoder.Encode;
@@ -2082,10 +2080,10 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         if (chain != null && !chain.equals("")) {
             String redirectUrl = chain.trim();
             // FP for open-redirect scanners (CodeQL java/OR): isValidInternalRedirect enforces
-            // relative-only (via RedirectValidationUtils.isValidRelativeRedirect) OR
-            // same-scheme+host+port match; rejects protocol-relative (//evil), backslash and %5c
-            // (/\evil.com -> //evil.com), userinfo (@evil), and suffix (host.evil) bypasses.
-            if (isValidInternalRedirect(redirectUrl, request)) {
+            // root-relative targets via RedirectValidationUtils.isValidRelativeRedirect; rejects
+            // protocol-relative (//evil), backslash and %5c (/\evil.com -> //evil.com),
+            // percent-encoded controls, absolute URLs, and path-traversal escapes.
+            if (isValidInternalRedirect(redirectUrl)) {
                 sendValidatedInternalRedirect(response, redirectUrl);
             } else {
                 logger.warn("Attempted redirect to invalid URL: {}", LogSafe.sanitize(chain));
@@ -3928,78 +3926,19 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
      * This prevents open redirect vulnerabilities.
      * 
      * @param url The URL to validate
-     * @param request The HTTP request object for context
      * @return true if the URL is safe for redirect, false otherwise
      */
-    static boolean isValidInternalRedirect(String url, HttpServletRequest request) {
+    static boolean isValidInternalRedirect(String url) {
         if (url == null || url.trim().isEmpty()) {
             return false;
         }
 
-        // Remove any leading/trailing whitespace
-        url = url.trim();
-
-        // Check for relative URLs (safe). Delegate to the shared validator, which — beyond the
-        // naive "no ://" check this method used to do — also rejects backslash and %5c
-        // (browsers normalise /\evil.com to //evil.com after a redirect), percent-encoded
-        // control characters, and path-traversal escapes.
-        if (!url.contains("://")) {
-            return url.startsWith("/") && RedirectValidationUtils.isValidRelativeRedirect(url);
-        }
-
-        // Check absolute URLs - they must match the current server exactly.
-        try {
-            URI redirect = new URI(url);
-            if (!redirect.isAbsolute()) {
-                return false;
-            }
-            if (!"http".equalsIgnoreCase(redirect.getScheme())
-                    && !"https".equalsIgnoreCase(redirect.getScheme())) {
-                return false;
-            }
-            if (redirect.getUserInfo() != null || redirect.getHost() == null) {
-                return false;
-            }
-
-            String scheme = request.getScheme();
-            String serverName = request.getServerName();
-            if (scheme == null || serverName == null) {
-                return false;
-            }
-            if (!scheme.equalsIgnoreCase(redirect.getScheme())
-                    || !serverName.equalsIgnoreCase(redirect.getHost())) {
-                return false;
-            }
-            if (effectivePort(scheme, request.getServerPort()) != effectivePort(redirect)) {
-                return false;
-            }
-
-            String rawPath = redirect.getRawPath();
-            if (rawPath == null || rawPath.isEmpty()) {
-                return false;
-            }
-            String relativeTarget = rawPath
-                    + (redirect.getRawQuery() == null ? "" : "?" + redirect.getRawQuery());
-            return RedirectValidationUtils.isValidRelativeRedirect(relativeTarget);
-        } catch (URISyntaxException e) {
-            logger.error("Error validating redirect URL: {}", LogSafe.sanitize(url), e);
-            return false;
-        }
+        String redirectUrl = url.trim();
+        return redirectUrl.startsWith("/") && RedirectValidationUtils.isValidRelativeRedirect(redirectUrl);
     }
 
-    private static int effectivePort(URI uri) {
-        return effectivePort(uri.getScheme(), uri.getPort());
-    }
-
-    private static int effectivePort(String scheme, int port) {
-        if (port > 0) {
-            return port;
-        }
-        return "https".equalsIgnoreCase(scheme) ? 443 : 80;
-    }
-
-    // FindSecBugs UNVALIDATED_REDIRECT: caller gates this sink through isValidInternalRedirect, which requires a safe root-relative path or an absolute URL whose scheme, host, and effective port match the current request before re-validating the path/query as a relative redirect.
-    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is accepted only after isValidInternalRedirect verifies a safe root-relative target or an exact same-origin absolute target and re-validates path/query with RedirectValidationUtils")
+    // FindSecBugs UNVALIDATED_REDIRECT: caller gates this sink through isValidInternalRedirect, which requires a safe root-relative target validated by RedirectValidationUtils.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is accepted only after isValidInternalRedirect verifies a safe root-relative target with RedirectValidationUtils")
     private static void sendValidatedInternalRedirect(HttpServletResponse response, String redirectUrl)
             throws IOException {
         response.sendRedirect(redirectUrl);

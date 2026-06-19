@@ -39,11 +39,27 @@ class Frm2ActionRedirectUnitTest {
 
     @Test
     @DisplayName("should reject non-save forward actions")
-    void shouldRejectNonSaveForwardActions() {
+    void shouldRejectForwardAction_whenNonSave() {
         assertThatThrownBy(() -> Frm2Action.forwardNameRedirectUrl(
                 "/carlos",
                 "formannual.jsp",
                 "https://evil.example"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("should reject unsafe forwardname redirect shape")
+    void shouldRejectRedirect_whenForwardnameShapeUnsafe() {
+        assertThatThrownBy(() -> Frm2Action.forwardNameRedirectUrl(
+                "//evil.example",
+                "formannual.jsp",
+                "save?demographic_no=123"))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        assertThatThrownBy(() -> Frm2Action.forwardNameRedirectUrl(
+                "/carlos",
+                "formannual.jsp",
+                "save?next=%0d%0aLocation:%20https://evil.example"))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 }
