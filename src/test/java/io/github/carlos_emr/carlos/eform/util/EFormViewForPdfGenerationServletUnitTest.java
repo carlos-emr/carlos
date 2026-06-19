@@ -13,6 +13,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("EFormViewForPdfGenerationServlet unit tests")
 @Tag("unit")
 @Tag("fast")
+@Tag("eform")
 class EFormViewForPdfGenerationServletUnitTest {
 
     @Test
@@ -55,6 +56,18 @@ class EFormViewForPdfGenerationServletUnitTest {
                 "4");
 
         assertThat(markup).contains("src=\"/carlos/EFormSignatureViewForPdfGenerationServlet?digitalSignatureId=42&amp;foo=bar\"");
+    }
+
+    @Test
+    @DisplayName("should return null for null input")
+    void shouldReturnNull_forNullUrl() {
+        assertThat(EFormViewForPdfGenerationServlet.normalizePdfSignatureUrl(null, "/carlos")).isNull();
+    }
+
+    @Test
+    @DisplayName("should return null for empty string input")
+    void shouldReturnNull_forEmptyUrl() {
+        assertThat(EFormViewForPdfGenerationServlet.normalizePdfSignatureUrl("", "/carlos")).isNull();
     }
 
     private static Stream<String> invalidSignatureUrls() {

@@ -27,10 +27,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
-import org.owasp.encoder.Encode;
-
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.EFormValueDao;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.commn.model.EFormValue;
 import io.github.carlos_emr.carlos.eform.data.EForm;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -182,7 +181,7 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
     static String buildSignatureImageMarkup(String signatureUrl, String left, String top, String width, String height) {
         return String.format(
                 "<div id=\"signatureDisplay\"><img src=\"%s\" style=\"position:absolute;left:%s;top:%s;width:%s;height:%s;\" /> </div>",
-                Encode.forHtmlAttribute(signatureUrl), left, top, width, height);
+                SafeEncode.forHtmlAttribute(signatureUrl), left, top, width, height);
     }
 
     private static boolean containsUnsafeHtmlAttributeCharacters(String value) {
