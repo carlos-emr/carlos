@@ -400,7 +400,6 @@ public final class RxWriteScript2Action extends ActionSupport {
 
         logger.debug("=============Start listPreviousInstructions RxWriteScript2Action.java===============");
         String randomId = request.getParameter("randomId");
-        randomId = randomId.trim();
         // get prescript from randomId.
         // if prescript is normal drug, if din is not null, use din to find it
         // if din is null, use BN to find it
@@ -411,8 +410,20 @@ public final class RxWriteScript2Action extends ActionSupport {
             response.sendRedirect("error.html");
             return null;
         }
+        if (randomId == null || !randomId.matches("\\d+")) {
+            logger.warn("listPreviousInstructions: invalid randomId={}", Encode.forJava(randomId));
+            bean.setListMedHistory(new ArrayList<>());
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid randomId: digits only");
+            return NONE;
+        }
         // create Prescription
         RxPrescriptionData.Prescription rx = bean.getStashItem2(Integer.parseInt(randomId));
+        if (rx == null) {
+            logger.warn("listPreviousInstructions: no stash item found for randomId={}", Encode.forJava(randomId));
+            bean.setListMedHistory(new ArrayList<>());
+            response.sendError(HttpServletResponse.SC_NOT_FOUND, "Prescription not found for randomId: " + randomId);
+            return NONE;
+        }
         List<HashMap<String, String>> retList = new ArrayList();
         retList = RxUtil.getPreviousInstructions(rx);
 
