@@ -395,44 +395,65 @@ public class ResponseSanitizationFilter implements Filter {
     }
 
     private static boolean isJavaStackFrameLine(String body, int lineStart, int lineEnd) {
-        int index = lineStart;
-        while (index < lineEnd && Character.isWhitespace(body.charAt(index))) {
-            index++;
-        }
-        if (index + 3 >= lineEnd || body.charAt(index) != 'a' || body.charAt(index + 1) != 't'
-                || !Character.isWhitespace(body.charAt(index + 2))) {
+        int prefixStart = skipWhitespace(body, lineStart, lineEnd);
+        if (!hasStackFramePrefix(body, prefixStart, lineEnd)) {
             return false;
         }
-        index += 3;
-        while (index < lineEnd && Character.isWhitespace(body.charAt(index))) {
-            index++;
-        }
 
-        int symbolStart = index;
+        int symbolStart = skipWhitespace(body, prefixStart + 2, lineEnd);
         int openParen = indexOf(body, '(', symbolStart, lineEnd);
         if (openParen < 0) {
             return false;
         }
         int closeParen = indexOf(body, ')', openParen + 1, lineEnd);
-        if (closeParen < 0) {
-            return false;
-        }
+        return closeParen >= 0 && isJavaStackFrameSymbol(body, symbolStart, openParen);
+    }
 
-        int lastDot = -1;
-        for (int i = symbolStart; i < openParen; i++) {
-            if (body.charAt(i) == '.') {
-                lastDot = i;
+    private static int skipWhitespace(String body, int fromIndex, int toIndexExclusive) {
+        int index = fromIndex;
+        while (index < toIndexExclusive && Character.isWhitespace(body.charAt(index))) {
+            index++;
+        }
+        return index;
+    }
+
+    private static boolean hasStackFramePrefix(String body, int index, int lineEnd) {
+        return index + 2 < lineEnd
+                && body.charAt(index) == 'a'
+                && body.charAt(index + 1) == 't'
+                && Character.isWhitespace(body.charAt(index + 2));
+    }
+
+    private static boolean isJavaStackFrameSymbol(String body, int symbolStart, int openParen) {
+        int lastDot = lastIndexOf(body, '.', symbolStart, openParen);
+        return lastDot > symbolStart
+                && lastDot < openParen - 1
+                && containsOnlyJavaClassNameCharacters(body, symbolStart, lastDot)
+                && containsOnlyJavaMethodNameCharacters(body, lastDot + 1, openParen);
+    }
+
+    private static int lastIndexOf(String body, char target, int fromIndex, int toIndexExclusive) {
+        for (int i = toIndexExclusive - 1; i >= fromIndex; i--) {
+            if (body.charAt(i) == target) {
+                return i;
             }
         }
-        if (lastDot <= symbolStart || lastDot >= openParen - 1) {
-            return false;
-        }
-        for (int i = symbolStart; i < lastDot; i++) {
+        return -1;
+    }
+
+    private static boolean containsOnlyJavaClassNameCharacters(
+            String body, int fromIndex, int toIndexExclusive) {
+        for (int i = fromIndex; i < toIndexExclusive; i++) {
             if (!isJavaClassNameCharacter(body.charAt(i))) {
                 return false;
             }
         }
-        for (int i = lastDot + 1; i < openParen; i++) {
+        return true;
+    }
+
+    private static boolean containsOnlyJavaMethodNameCharacters(
+            String body, int fromIndex, int toIndexExclusive) {
+        for (int i = fromIndex; i < toIndexExclusive; i++) {
             if (!isJavaMethodNameCharacter(body.charAt(i))) {
                 return false;
             }
