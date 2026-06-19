@@ -130,9 +130,23 @@ function releaseDirtyFlag() {
 <div id="page1" style="page-break-after:always;position:relative;">
 <img id="BGImage1" src="\${oscar_image_path}${bgImageName}" style="position:relative;left:0;top:0;width:750px;height:140px;">
 <input name="patient_nameL" id="patient_nameL" type="text" value="TemplateSeed" class="noborder" style="position:absolute;left:40px;top:32px;width:220px;height:22px;" oscarDB="patient_nameL">
-<input name="subject" id="subject" type="text" value="Saved Render Subject" class="noborder" style="position:absolute;left:40px;top:72px;width:220px;height:22px;">
+<textarea name="playwright_notes" id="playwright_notes" class="noborder" style="position:absolute;left:40px;top:72px;width:220px;height:44px;">TemplateNote</textarea>
+<select name="playwright_select" id="playwright_select" style="position:absolute;left:300px;top:32px;width:160px;height:24px;">
+  <option value="">Choose</option>
+  <option value="alpha">Alpha</option>
+  <option value="bravo">Bravo</option>
+</select>
+<div style="position:absolute;left:300px;top:72px;">
+  <label><input type="radio" name="playwright_radio" id="playwright_radio_alpha" value="alpha"> Alpha</label>
+  <label><input type="radio" name="playwright_radio" id="playwright_radio_bravo" value="bravo"> Bravo</label>
 </div>
-<div class="DoNotPrint" id="BottomButtons" style="position:absolute;top:180px;left:0;">
+<div style="position:absolute;left:40px;top:130px;">
+  <label><input type="checkbox" name="playwright_checkbox_checked" id="playwright_checkbox_checked" value="yes"> Checked box</label>
+  <label><input type="checkbox" name="playwright_checkbox_unchecked" id="playwright_checkbox_unchecked" value="no"> Unchecked box</label>
+</div>
+<input name="subject" id="subject" type="text" value="Saved Render Subject" class="noborder" style="position:absolute;left:40px;top:170px;width:220px;height:22px;">
+</div>
+<div class="DoNotPrint" id="BottomButtons" style="position:absolute;top:220px;left:0;">
   <input value="Submit" name="SubmitButton" id="SubmitButton" type="submit" onclick="releaseDirtyFlag();">
 </div>
 </form>
@@ -335,9 +349,39 @@ async function screenshot(page, name) {
   await page.screenshot({ path: path.join(screenshotDir, `${name}.png`), fullPage: true }); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- local Playwright helper writes screenshots under caller-selected local artifact dir
 }
 
-async function saveEformAndCaptureFdid(page, savedValue) {
+async function capturePersistenceState(page) {
+  return page.evaluate(() => {
+    const selectedRadio = document.querySelector('input[name="playwright_radio"]:checked');
+    return {
+      fdid: document.getElementById('fdid') ? document.getElementById('fdid').value : '',
+      patientValue: document.getElementById('patient_nameL') ? document.getElementById('patient_nameL').value : '',
+      notesValue: document.getElementById('playwright_notes') ? document.getElementById('playwright_notes').value : '',
+      selectValue: document.getElementById('playwright_select') ? document.getElementById('playwright_select').value : '',
+      radioValue: selectedRadio ? selectedRadio.value : '',
+      checkedBox: document.getElementById('playwright_checkbox_checked') ? document.getElementById('playwright_checkbox_checked').checked : false,
+      uncheckedBox: document.getElementById('playwright_checkbox_unchecked') ? document.getElementById('playwright_checkbox_unchecked').checked : false,
+      autoclose: document.getElementById('isSuccess_Autoclose') ? document.getElementById('isSuccess_Autoclose').value : '',
+      closeIntercepted: Boolean(window.__playwrightCloseIntercepted),
+    };
+  });
+}
+
+async function saveEformAndCaptureFdid(page, expectedState) {
   await assertNotErrorPage(page, 'add eForm page');
-  await page.locator('#patient_nameL').fill(savedValue);
+  await page.locator('#patient_nameL').fill(expectedState.patientValue);
+  await page.locator('#playwright_notes').fill(expectedState.notesValue);
+  await page.locator('#playwright_select').selectOption(expectedState.selectValue);
+  await page.locator(`input[name="playwright_radio"][value="${expectedState.radioValue}"]`).check({ force: true });
+  await page.locator('#playwright_checkbox_checked').evaluate((element) => {
+    element.checked = true;
+    element.dispatchEvent(new Event('input', { bubbles: true }));
+    element.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  await page.locator('#playwright_checkbox_unchecked').evaluate((element) => {
+    element.checked = false;
+    element.dispatchEvent(new Event('input', { bubbles: true }));
+    element.dispatchEvent(new Event('change', { bubbles: true }));
+  });
   await page.locator('#remote_eform_subject').fill('Playwright Saved Render Subject');
 
   await Promise.all([
@@ -347,30 +391,31 @@ async function saveEformAndCaptureFdid(page, savedValue) {
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   await page.locator('#fdid').waitFor({ state: 'attached', timeout: 15000 });
 
-  const state = await page.evaluate(() => ({
-    fdid: document.getElementById('fdid') ? document.getElementById('fdid').value : '',
-    patientValue: document.getElementById('patient_nameL') ? document.getElementById('patient_nameL').value : '',
-    autoclose: document.getElementById('isSuccess_Autoclose') ? document.getElementById('isSuccess_Autoclose').value : '',
-    closeIntercepted: Boolean(window.__playwrightCloseIntercepted),
-  }));
+  const state = await capturePersistenceState(page);
 
   assert(/^\d+$/.test(state.fdid), `Expected numeric fdid after save, got ${JSON.stringify(state)}`);
-  assert(state.patientValue === savedValue, `Saved page did not preserve patient value after submit: ${JSON.stringify(state)}`);
+  assert(state.patientValue === expectedState.patientValue, `Saved page did not preserve patient value after submit: ${JSON.stringify(state)}`);
+  assert(state.notesValue === expectedState.notesValue, `Saved page did not preserve textarea value after submit: ${JSON.stringify(state)}`);
+  assert(state.selectValue === expectedState.selectValue, `Saved page did not preserve select value after submit: ${JSON.stringify(state)}`);
+  assert(state.radioValue === expectedState.radioValue, `Saved page did not preserve radio value after submit: ${JSON.stringify(state)}`);
+  assert(state.checkedBox === true, `Saved page did not preserve checked checkbox state after submit: ${JSON.stringify(state)}`);
+  assert(state.uncheckedBox === false, `Saved page did not preserve unchecked checkbox state after submit: ${JSON.stringify(state)}`);
   assert(state.autoclose === 'true', `Expected auto-close success flag after save, got ${JSON.stringify(state)}`);
   return state.fdid;
 }
 
-async function assertSavedFormState(page, expectedValue, expectedFdid, screenshotName) {
+async function assertSavedFormState(page, expectedState, expectedFdid, screenshotName) {
   await assertNotErrorPage(page, screenshotName);
   await page.locator('#patient_nameL').waitFor({ state: 'visible', timeout: 15000 });
   await assertImageLoaded(page, '#BGImage1', `${screenshotName} background image`);
-  const state = await page.evaluate(() => ({
-    fdid: document.getElementById('fdid') ? document.getElementById('fdid').value : '',
-    patientValue: document.getElementById('patient_nameL') ? document.getElementById('patient_nameL').value : '',
-    bgSrc: document.getElementById('BGImage1') ? document.getElementById('BGImage1').src : '',
-  }));
+  const state = await capturePersistenceState(page);
   assert(state.fdid === expectedFdid, `${screenshotName} did not render the expected fdid: ${JSON.stringify(state)}`);
-  assert(state.patientValue === expectedValue, `${screenshotName} did not render persisted patient value: ${JSON.stringify(state)}`);
+  assert(state.patientValue === expectedState.patientValue, `${screenshotName} did not render persisted patient value: ${JSON.stringify(state)}`);
+  assert(state.notesValue === expectedState.notesValue, `${screenshotName} did not render persisted textarea value: ${JSON.stringify(state)}`);
+  assert(state.selectValue === expectedState.selectValue, `${screenshotName} did not render persisted select value: ${JSON.stringify(state)}`);
+  assert(state.radioValue === expectedState.radioValue, `${screenshotName} did not render persisted radio value: ${JSON.stringify(state)}`);
+  assert(state.checkedBox === true, `${screenshotName} did not render the checked checkbox as checked: ${JSON.stringify(state)}`);
+  assert(state.uncheckedBox === false, `${screenshotName} incorrectly rendered the unchecked checkbox as checked: ${JSON.stringify(state)}`);
   await screenshot(page, screenshotName);
 }
 
@@ -379,7 +424,12 @@ async function assertSavedFormState(page, expectedValue, expectedFdid, screensho
   const timestamp = Date.now();
   const formName = `Playwright Saved Render ${timestamp}`;
   const formSubject = `Saved Render ${timestamp}`;
-  const savedValue = `Playwright Saved ${timestamp}`;
+  const expectedState = {
+    patientValue: `Playwright Saved ${timestamp}`,
+    notesValue: `Playwright Notes ${timestamp}`,
+    selectValue: 'bravo',
+    radioValue: 'bravo',
+  };
   let importedFid = null;
   let managerPage = null;
 
@@ -403,17 +453,17 @@ async function assertSavedFormState(page, expectedValue, expectedFdid, screensho
     importedFid = uploadResult.fid;
 
     const addPage = await openAddEform(context, importedFid);
-    const fdid = await saveEformAndCaptureFdid(addPage, savedValue);
+    const fdid = await saveEformAndCaptureFdid(addPage, expectedState);
     await screenshot(addPage, 'saved-render-after-save');
     await addPage.close();
 
     const directPage = await openSavedEformDirect(context, fdid);
-    await assertSavedFormState(directPage, savedValue, fdid, 'saved-render-direct-route');
+    await assertSavedFormState(directPage, expectedState, fdid, 'saved-render-direct-route');
     await directPage.close();
 
     const patientListPopup = await openSavedEformFromPatientList(context, formName);
     assert(patientListPopup.url().includes(`fdid=${fdid}`), `Patient list popup did not open the expected saved-form route: ${patientListPopup.url()}`);
-    await assertSavedFormState(patientListPopup, savedValue, fdid, 'saved-render-patient-list');
+    await assertSavedFormState(patientListPopup, expectedState, fdid, 'saved-render-patient-list');
     await patientListPopup.close();
 
     assertDisplayImageFetchesSucceeded(bgImageName);
@@ -421,7 +471,7 @@ async function assertSavedFormState(page, expectedValue, expectedFdid, screensho
     const renderConsoleIssues = consoleIssues.filter((issue) => ['add-eform', 'saved-direct', 'patient-list-popup'].includes(issue.label));
     assert(renderConsoleIssues.length === 0, `unexpected render-surface browser console failures: ${JSON.stringify(renderConsoleIssues, null, 2)}`);
 
-    console.log('PASS saved eForm render path preserves background assets and persisted field values');
+    console.log('PASS saved eForm render path preserves background assets and persisted field values across text, textarea, select, radio, and checkbox fields');
     console.log(`Imported fid=${importedFid}, saved fdid=${fdid}`);
     console.log(`Screenshots written under ${screenshotDir}`);
   } finally {
