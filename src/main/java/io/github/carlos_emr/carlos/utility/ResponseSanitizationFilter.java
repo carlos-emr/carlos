@@ -364,13 +364,21 @@ public class ResponseSanitizationFilter implements Filter {
             if (markerIndex < 0) {
                 return false;
             }
-            // Every marker ends in '.' or ':', so the right boundary is implicit.
-            if (markerIndex == 0 || !isWordCharacter(body.charAt(markerIndex - 1))) {
+            if (hasWordBoundaries(body, markerIndex, marker.length())) {
                 return true;
             }
             searchFrom = markerIndex + 1;
         }
         return false;
+    }
+
+    private static boolean hasWordBoundaries(String body, int markerIndex, int markerLength) {
+        int markerEnd = markerIndex + markerLength;
+        boolean hasLeftBoundary = markerIndex == 0 || !isWordCharacter(body.charAt(markerIndex - 1));
+        boolean hasRightBoundary = !isWordCharacter(body.charAt(markerEnd - 1))
+                || markerEnd == body.length()
+                || !isWordCharacter(body.charAt(markerEnd));
+        return hasLeftBoundary && hasRightBoundary;
     }
 
     private static boolean containsJavaStackFrame(String body) {

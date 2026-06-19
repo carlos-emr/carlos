@@ -185,6 +185,13 @@ class ResponseSanitizationFilterUnitTest {
         }
 
         @Test
+        @DisplayName("should return true for body starting with whitespace before stack frame line")
+        void shouldReturnTrue_forLeadingWhitespaceStackFrameLine() {
+            String body = "  \tat io.github.carlos_emr.carlos.SomeClass.method(SomeClass.java:42)";
+            assertThat(ResponseSanitizationFilter.containsStackTrace(body)).isTrue();
+        }
+
+        @Test
         @DisplayName("should return true for constructor stack frame line")
         void shouldReturnTrue_forConstructorStackFrameLine() {
             String body = "Error\n\tat ca.example.SomeClass.<init>(SomeClass.java:42)";
