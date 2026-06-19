@@ -43,7 +43,7 @@ class RptFormQueryTest {
 
     @Test
     @DisplayName("should reject injected report table names")
-    void shouldRejectInjectedTableNames() {
+    void shouldRejectInjectedTableNames_whenTableNameContainsSql() {
         assertThatThrownBy(() -> RptFormQuery.validateTableName("formBCAR f, demographic d OR 1=1"))
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("Invalid table name");

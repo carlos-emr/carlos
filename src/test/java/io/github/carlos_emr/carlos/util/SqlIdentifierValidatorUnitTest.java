@@ -38,7 +38,7 @@ class SqlIdentifierValidatorUnitTest {
             "schema.table.column"
     })
     @DisplayName("should accept dotted SQL identifiers")
-    void shouldAcceptDottedSqlIdentifiers(String identifier) {
+    void shouldAcceptDottedSqlIdentifiers_whenIdentifierIsValid(String identifier) {
         assertThat(SqlIdentifierValidator.isValidIdentifier(identifier)).isTrue();
     }
 
@@ -56,7 +56,7 @@ class SqlIdentifierValidatorUnitTest {
             "schema.table\nwhere"
     })
     @DisplayName("should reject invalid SQL identifiers")
-    void shouldRejectInvalidSqlIdentifiers(String identifier) {
+    void shouldRejectInvalidSqlIdentifiers_whenIdentifierIsInvalid(String identifier) {
         assertThat(SqlIdentifierValidator.isValidIdentifier(identifier)).isFalse();
     }
 
@@ -71,7 +71,7 @@ class SqlIdentifierValidatorUnitTest {
             " formBCAR , schema.formBCNewBorn AS n "
     })
     @DisplayName("should accept report table reference lists")
-    void shouldAcceptReportTableReferenceLists(String tableReferences) {
+    void shouldAcceptReportTableReferenceLists_whenReferenceListIsValid(String tableReferences) {
         assertThat(SqlIdentifierValidator.isValidTableReferenceList(tableReferences)).isTrue();
     }
 
@@ -89,7 +89,7 @@ class SqlIdentifierValidatorUnitTest {
             "formBCAR f, demographic d OR 1=1"
     })
     @DisplayName("should reject invalid report table reference lists")
-    void shouldRejectInvalidReportTableReferenceLists(String tableReferences) {
+    void shouldRejectInvalidReportTableReferenceLists_whenReferenceListIsInvalid(String tableReferences) {
         assertThat(SqlIdentifierValidator.isValidTableReferenceList(tableReferences)).isFalse();
     }
 
@@ -102,10 +102,12 @@ class SqlIdentifierValidatorUnitTest {
             "IFNULL(s.buf1, 0)",
             "IFNULL(s.buf1, 0.0)",
             "IFNULL(buf1, ',')",
+            "IFNULL(buf1, 'some (value)')",
+            "IFNULL(buf1, 'O''Connor')",
             "IFNULL(TRIM(buf1), '')"
     })
     @DisplayName("should accept lookup field expressions")
-    void shouldAcceptLookupFieldExpressions(String expression) {
+    void shouldAcceptLookupFieldExpressions_whenExpressionIsValid(String expression) {
         assertThat(SqlIdentifierValidator.isValidFieldExpression(expression)).isTrue();
     }
 
@@ -119,11 +121,12 @@ class SqlIdentifierValidatorUnitTest {
             "IFNULL(buf1,'unterminated)",
             "IFNULL(buf1,(select x))",
             "IFNULL(buf1, 'x-y')",
+            "IFNULL(buf1, 'O'';drop')",
             "schema.function_name(value)",
             "code alias"
     })
     @DisplayName("should reject invalid lookup field expressions")
-    void shouldRejectInvalidLookupFieldExpressions(String expression) {
+    void shouldRejectInvalidLookupFieldExpressions_whenExpressionIsInvalid(String expression) {
         assertThat(SqlIdentifierValidator.isValidFieldExpression(expression)).isFalse();
     }
 

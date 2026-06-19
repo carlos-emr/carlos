@@ -27,6 +27,12 @@ public final class SqlIdentifierValidator {
     private SqlIdentifierValidator() {
     }
 
+    /**
+     * Validates whether the given value is a simple or dotted SQL identifier.
+     *
+     * @param identifier String the SQL identifier to validate
+     * @return boolean true when the identifier is valid; false otherwise
+     */
     public static boolean isValidIdentifier(String identifier) {
         if (identifier == null) {
             return false;
@@ -37,6 +43,16 @@ public final class SqlIdentifierValidator {
                 && parser.isEnd();
     }
 
+    /**
+     * Validates whether the given value is a comma-separated SQL table reference list.
+     *
+     * <p>Each table reference may be a simple table name, schema-qualified table
+     * name, or one of those forms followed by an optional alias with or without
+     * {@code AS}.</p>
+     *
+     * @param tableReferences String the SQL table reference list to validate
+     * @return boolean true when the table reference list is valid; false otherwise
+     */
     public static boolean isValidTableReferenceList(String tableReferences) {
         if (tableReferences == null) {
             return false;
@@ -67,6 +83,17 @@ public final class SqlIdentifierValidator {
         }
     }
 
+    /**
+     * Validates whether the given value is a safe lookup field expression.
+     *
+     * <p>Accepted expressions are identifiers, dotted identifiers, function calls
+     * with safe expression arguments, numeric literals, and single-quoted string
+     * literals. This is a deliberately small grammar for legacy lookup field
+     * configuration, not a general SQL expression parser.</p>
+     *
+     * @param expression String the lookup field expression to validate
+     * @return boolean true when the lookup field expression is valid; false otherwise
+     */
     public static boolean isValidFieldExpression(String expression) {
         if (expression == null) {
             return false;
@@ -101,10 +128,8 @@ public final class SqlIdentifierValidator {
                 return true;
             }
 
-            if (consumeKeyword("as")) {
-                if (!consumeRequiredWhitespace()) {
-                    return false;
-                }
+            if (consumeKeyword("as") && !consumeRequiredWhitespace()) {
+                return false;
             }
 
             return parseIdentifier();
@@ -200,6 +225,10 @@ public final class SqlIdentifierValidator {
             while (!isEnd()) {
                 char c = peek();
                 if (c == '\'') {
+                    if (position + 1 < input.length() && input.charAt(position + 1) == '\'') {
+                        position += 2;
+                        continue;
+                    }
                     position++;
                     return true;
                 }
@@ -293,7 +322,7 @@ public final class SqlIdentifierValidator {
         }
 
         private static boolean isStringLiteralCharacter(char c) {
-            return c == ' ' || c == ',' || c == '.' || isIdentifierPart(c);
+            return c == ' ' || c == ',' || c == '.' || c == '(' || c == ')' || isIdentifierPart(c);
         }
     }
 }
