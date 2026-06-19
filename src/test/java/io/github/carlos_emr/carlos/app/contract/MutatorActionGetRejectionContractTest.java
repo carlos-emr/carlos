@@ -25,6 +25,7 @@ import io.github.carlos_emr.carlos.admin.web.SecurityAddSecurity2Action;
 import io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action;
 import io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action;
 import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
+import io.github.carlos_emr.carlos.eform.actions.DelEForm2Action;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.security.CarlosMethodSecurity;
@@ -203,7 +204,10 @@ class MutatorActionGetRejectionContractTest {
             Arguments.of("io.github.carlos_emr.carlos.waitinglist.pageUtil.WLAdd2WaitingList2Action",
                     "_demographic", "w"),
             Arguments.of("io.github.carlos_emr.carlos.waitinglist.pageUtil.WLRemoveFromWaitingList2Action",
-                    "_demographic", "w")
+                    "_demographic", "w"),
+            // --- eform ---
+            Arguments.of("io.github.carlos_emr.carlos.eform.actions.DelEForm2Action",
+                    "_admin.eform", "w")
         );
     }
 
@@ -324,7 +328,9 @@ class MutatorActionGetRejectionContractTest {
         "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action",
         "io.github.carlos_emr.carlos.form.pageUtil.FrmXmlUpload2Action",
         "io.github.carlos_emr.carlos.login.gate.SelectFacility2Action",
-        "io.github.carlos_emr.carlos.provider.web.DocumentDescriptionTemplate2Action"
+        "io.github.carlos_emr.carlos.provider.web.DocumentDescriptionTemplate2Action",
+        // eform slice: only DelEForm2Action is registered; broader slice audit tracked in issue #2828.
+        "io.github.carlos_emr.carlos.eform.actions.DelEForm2Action"
     );
 
     @ParameterizedTest(name = "{0} rejects GET and HEAD without side-effects")
@@ -474,6 +480,9 @@ class MutatorActionGetRejectionContractTest {
 
     private static Object instantiateAction(Class<?> actionClass, Map<Class<?>, Object> autoMocks)
             throws Exception {
+        if (actionClass.equals(DelEForm2Action.class)) {
+            return new DelEForm2Action(mock(SecurityInfoManager.class));
+        }
         if (actionClass.equals(SecurityDelete2Action.class)) {
             CarlosMethodSecurity methodSecurity = mock(CarlosMethodSecurity.class);
             when(methodSecurity.hasAdminWrite()).thenReturn(true);
