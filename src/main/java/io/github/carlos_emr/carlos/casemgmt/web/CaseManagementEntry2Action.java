@@ -109,6 +109,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     private static final String YYYY_MM_DD_PATTERN = "yyyy-MM-dd";
     private static final String YYYY_MM_DD_HHMM_PATTERN = "yyyy-MM-dd HH:mm";
     private static final String CASE_MANAGEMENT_LIST_CHAIN = "list";
+    @SuppressWarnings("java:S1075") // fixed allowlist target; making this configurable would weaken redirect hardening
     private static final String CASE_MANAGEMENT_LIST_REDIRECT_PATH = "/CaseManagementView?method=view";
     private static final int REMOVED_ISSUE_MESSAGE_OVERHEAD = 64;
 

@@ -266,11 +266,13 @@ public class EConsult2Action extends ActionSupport {
         }
     }
 
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "URI.toASCIIString intentionally emits ASCII-safe configured eConsult redirect URLs; no locale-sensitive case mapping is used")
     private static String normalizedBaseUrl(URI configuredBase) {
         String base = configuredBase.toASCIIString();
         return base.endsWith(URL_PATH_SEPARATOR) ? base : base + URL_PATH_SEPARATOR;
     }
 
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "URI.toASCIIString intentionally emits ASCII-safe validated eConsult redirect URLs; no locale-sensitive case mapping is used")
     private static String validatedRedirectUnderConfiguredBase(URI configuredBase, String redirectUrl, String propertyName) {
         try {
             URI redirect = new URI(redirectUrl);
