@@ -23,7 +23,8 @@
     "test:multiple-session-playwright": "node scripts/multiple-session-playwright-checks.js",
     "test:logout-redirect-playwright": "node scripts/logout-redirect-playwright-checks.js",
     "test:eform-render-playwright": "node scripts/eform-render-playwright-checks.js",
-    "test:eform-saved-render-playwright": "node scripts/eform-saved-render-playwright-checks.js"
+    "test:eform-saved-render-playwright": "node scripts/eform-saved-render-playwright-checks.js",
+    "test:eform-consultation-acceptance": "node scripts/eform-consultation-acceptance-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

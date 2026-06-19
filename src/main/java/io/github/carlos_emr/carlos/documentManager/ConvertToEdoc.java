@@ -485,6 +485,27 @@ public final class ConvertToEdoc {
      * @return org.jsoup.nodes.Document JSoup DOM
      */
     public static Document getDocument(String documentString) {
+        Document document = parseDocument(documentString);
+
+        /*
+         * Process and validate resource paths
+         */
+        validateResourcePaths(document);
+
+        /*
+         * Returns a Document object.
+         * Document will contain a blank HTML page if the incoming HTML
+         * string is NULL, empty, or if an error occurs.
+         */
+        return document;
+    }
+
+    /**
+     * Parses runtime eForm HTML into a Jsoup DOM without stripping unresolved resource tags.
+     * Runtime eForms intentionally reference application-served assets such as
+     * /eform/displayImage?imagefile=... and should keep those authored elements intact.
+     */
+    public static Document parseDocument(String documentString) {
         if (StringUtils.isBlank(documentString)) {
             throw new IllegalArgumentException("HTML cannot be blank");
         }
@@ -500,17 +521,6 @@ public final class ConvertToEdoc {
             .escapeMode(Entities.EscapeMode.xhtml)
             .charset("UTF-8")
             .prettyPrint(false);
-
-        /*
-         * Process and validate resource paths
-         */
-        validateResourcePaths(document);
-
-        /*
-         * Returns a Document object.
-         * Document will contain a blank HTML page if the incoming HTML
-         * string is NULL, empty, or if an error occurs.
-         */
         return document;
     }
 
