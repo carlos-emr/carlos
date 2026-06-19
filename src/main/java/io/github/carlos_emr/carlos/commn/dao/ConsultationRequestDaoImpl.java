@@ -31,13 +31,30 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
 import jakarta.persistence.Query;
+import jakarta.persistence.TypedQuery;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Expression;
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Order;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+
+import org.hibernate.query.criteria.JpaEntityJoin;
+import org.hibernate.query.criteria.JpaRoot;
 
 import io.github.carlos_emr.carlos.commn.NativeSql;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
+import io.github.carlos_emr.carlos.commn.model.ConsultationServices;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
+import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.consultation.dto.ConsultationRequestListItemDTO;
 
 @SuppressWarnings("unchecked")
@@ -74,73 +91,62 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
 
     public List<ConsultationRequest> getConsults(String team, boolean showCompleted, Date startDate, Date endDate, String orderby, String desc, String searchDate, Integer offset, Integer limit) {
 
-        	StringBuilder sql = new StringBuilder("SELECT cr " +
-					"FROM ConsultationRequest cr " +
-                    "LEFT JOIN cr.professionalSpecialist specialist " +
-                    "LEFT JOIN ConsultationServices service ON cr.serviceId = service.serviceId " +
-                    "LEFT JOIN ConsultationRequestExt ext ON cr.id = ext.requestId AND ext.key = 'ereferral_service' " +
-					"LEFT JOIN Demographic d on cr.demographicId = d.demographicNo " +
-					"LEFT JOIN Provider p on d.providerNo = p.providerNo WHERE 1=1 ");
+        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+        CriteriaQuery<ConsultationRequest> cq = cb.createQuery(ConsultationRequest.class);
+        JpaRoot<ConsultationRequest> cr = (JpaRoot<ConsultationRequest>) cq.from(ConsultationRequest.class);
+
+        // professionalSpecialist is a mapped @ManyToOne association: clean LEFT association join.
+        Join<ConsultationRequest, ProfessionalSpecialist> specialist =
+                cr.join("professionalSpecialist", JoinType.LEFT);
+
+        // ConsultationServices, Demographic and Provider are NOT mapped associations on
+        // ConsultationRequest (the columns are raw FK scalars). They are reproduced as Hibernate
+        // LEFT entity joins so the optional ORDER BY columns stay available; the correlation
+        // predicates live in the ON clause to preserve LEFT (not INNER) semantics. The legacy
+        // 'ereferral_service' ConsultationRequestExt join was a dead join (never selected,
+        // filtered or ordered on) whose only effect was to multiply result rows; it is dropped.
+        JpaEntityJoin<ConsultationRequest, ConsultationServices> service =
+                cr.join(ConsultationServices.class, JoinType.LEFT);
+        service.on(cb.equal(cr.get("serviceId"), service.get("serviceId")));
+
+        JpaEntityJoin<ConsultationRequest, Demographic> demographic =
+                cr.join(Demographic.class, JoinType.LEFT);
+        demographic.on(cb.equal(cr.get("demographicId"), demographic.get("demographicNo")));
+
+        JpaEntityJoin<ConsultationRequest, Provider> provider =
+                cr.join(Provider.class, JoinType.LEFT);
+        provider.on(cb.equal(demographic.get("providerNo"), provider.get("providerNo")));
+
+        List<Predicate> predicates = new ArrayList<>();
 
         if (!showCompleted) {
-            sql.append("and cr.status != '4' ");
+            // NULL-excluding, exactly like the legacy "cr.status != '4'": rows with NULL status
+            // are dropped (NULL != '4' is UNKNOWN). status is a String literal, not promoted.
+            predicates.add(cb.notEqual(cr.get("status"), "4"));
         }
 
         if (!team.isEmpty()) {
-            sql.append("and cr.sendTo = :team ");
+            // sendTo is bound as a parameter. The original code concatenated team into the HQL
+            // string; #2898 moved it to a named :team parameter, and this keeps it bound in the
+            // type-safe Criteria form. (Legacy NPE-on-null-team contract preserved: a null team
+            // still throws here, as the single caller never passes null.)
+            predicates.add(cb.equal(cr.get("sendTo"), team));
         }
 
-        boolean searchByAppt = searchDate != null && searchDate.equals("1");
-
+        // Date bounds target appointmentDate when searchDate=="1", else referralDate; values are
+        // bound as real Date parameters (the legacy code formatted them to datetime strings).
+        String dateAttr = "1".equals(searchDate) ? "appointmentDate" : "referralDate";
         if (startDate != null) {
-            sql.append(searchByAppt
-                    ? "and cr.appointmentDate >= :startDate "
-                    : "and cr.referralDate >= :startDate ");
-        }
-
-        if (endDate != null) {
-            sql.append(searchByAppt
-                    ? "and cr.appointmentDate <= :endDate "
-                    : "and cr.referralDate <= :endDate ");
-        }
-
-        String orderDesc = desc != null && desc.equals("1") ? "DESC" : "";
-        String service = ", service.serviceDesc";
-        if (orderby == null) {
-            sql.append("order by cr.referralDate desc ");
-        } else if (orderby.equals("1")) {               //1 = msgStatus
-            sql.append("order by cr.status " + orderDesc + service);
-        } else if (orderby.equals("2")) {               //2 = msgTeam
-            sql.append("order by cr.sendTo " + orderDesc + service);
-        } else if (orderby.equals("3")) {               //3 = msgPatient
-            sql.append("order by d.lastName " + orderDesc + service);
-        } else if (orderby.equals("4")) {               //4 = msgProvider
-            sql.append("order by p.lastName " + orderDesc + service);
-        } else if (orderby.equals("5")) {               //5 = msgService Desc
-            sql.append("order by service.serviceDesc " + orderDesc);
-        } else if (orderby.equals("6")) {               //6 = msgSpecialist Name
-            sql.append("order by specialist.lastName " + orderDesc + service);
-        } else if (orderby.equals("7")) {               //7 = msgRefDate
-            sql.append("order by cr.referralDate " + orderDesc);
-        } else if (orderby.equals("8")) {               //8 = Appointment Date
-            sql.append("order by cr.appointmentDate " + orderDesc);
-        } else if (orderby.equals("9")) {               //9 = FollowUp Date
-            sql.append("order by cr.followUpDate " + orderDesc);
-        } else {
-            sql.append("order by cr.referralDate desc");
-        }
-
-
-        Query query = entityManager.createQuery(sql.toString());
-        if (!team.isEmpty()) {
-            query.setParameter("team", team);
-        }
-        if (startDate != null) {
-            query.setParameter("startDate", startDate);
+            predicates.add(cb.greaterThanOrEqualTo(cr.<Date>get(dateAttr), startDate));
         }
         if (endDate != null) {
-            query.setParameter("endDate", endDate);
+            predicates.add(cb.lessThanOrEqualTo(cr.<Date>get(dateAttr), endDate));
         }
+
+        cq.select(cr).where(predicates.toArray(new Predicate[0]));
+        cq.orderBy(buildConsultsOrder(cb, cr, specialist, service, demographic, provider, orderby, desc));
+
+        TypedQuery<ConsultationRequest> query = entityManager.createQuery(cq);
         query.setFirstResult(offset != null ? offset : 0);
 
         //need to never send more than MAX_LIST_RETURN_SIZE
@@ -148,6 +154,56 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
         query.setMaxResults(Math.min(myLimit, MAX_LIST_RETURN_SIZE));
 
         return query.getResultList();
+    }
+
+    /**
+     * Builds the ORDER BY for {@link #getConsults(String, boolean, Date, Date, String, String, String, Integer, Integer)},
+     * reproducing the legacy hand-rolled token whitelist exactly.
+     *
+     * <p>Tokens {@code "1"}-{@code "9"} map to fixed columns; the primary direction is
+     * {@code DESC} when {@code desc} equals {@code "1"} and ascending otherwise. Tokens
+     * {@code "1","2","3","4","6"} append the legacy secondary sort {@code service.serviceDesc},
+     * which was always ascending (no direction token). A {@code null} or unrecognized
+     * {@code orderby} falls back to {@code referralDate} descending, regardless of {@code desc},
+     * matching the legacy default branches.</p>
+     */
+    private List<Order> buildConsultsOrder(CriteriaBuilder cb, Root<ConsultationRequest> cr,
+            Join<?, ?> specialist, Join<?, ?> service, Join<?, ?> demographic, Join<?, ?> provider,
+            String orderby, String desc) {
+
+        boolean descending = "1".equals(desc);
+        Order secondary = cb.asc(service.get("serviceDesc"));
+
+        if (orderby == null) {
+            return List.of(cb.desc(cr.get("referralDate")));
+        }
+
+        switch (orderby) {
+            case "1": // msgStatus
+                return List.of(consultsDirection(cb, cr.get("status"), descending), secondary);
+            case "2": // msgTeam
+                return List.of(consultsDirection(cb, cr.get("sendTo"), descending), secondary);
+            case "3": // msgPatient
+                return List.of(consultsDirection(cb, demographic.get("lastName"), descending), secondary);
+            case "4": // msgProvider
+                return List.of(consultsDirection(cb, provider.get("lastName"), descending), secondary);
+            case "5": // msgServiceDesc
+                return List.of(consultsDirection(cb, service.get("serviceDesc"), descending));
+            case "6": // msgSpecialistName
+                return List.of(consultsDirection(cb, specialist.get("lastName"), descending), secondary);
+            case "7": // msgRefDate
+                return List.of(consultsDirection(cb, cr.get("referralDate"), descending));
+            case "8": // appointmentDate
+                return List.of(consultsDirection(cb, cr.get("appointmentDate"), descending));
+            case "9": // followUpDate
+                return List.of(consultsDirection(cb, cr.get("followUpDate"), descending));
+            default:
+                return List.of(cb.desc(cr.get("referralDate")));
+        }
+    }
+
+    private Order consultsDirection(CriteriaBuilder cb, Expression<?> expression, boolean descending) {
+        return descending ? cb.desc(expression) : cb.asc(expression);
     }
 
 
