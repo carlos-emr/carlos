@@ -104,11 +104,16 @@ public class Startup implements ServletContextListener {
                     p.readFromFile("/WEB-INF/" + propName);
                     logger.info("loading properties from /WEB-INF/" + propName);
                 } catch (java.io.FileNotFoundException e) {
-                    logger.error("Configuration file: " + propName + " cannot be found, it should be put either in the User's home or in WEB-INF ");
-                    return;
+                    /*
+                     * No configuration in either location means the app has no DB connection and,
+                     * critically, no encryption key. Booting on would defer the failure to the first
+                     * PHI/credential operation. Fail fast at startup instead.
+                     */
+                    throw new IllegalStateException("Configuration file " + propName
+                            + " not found in user home or WEB-INF; refusing to start.");
                 } catch (Exception e) {
-                    logger.error("Error", e);
-                    return;
+                    throw new IllegalStateException("Failed to read configuration file " + propName
+                            + "; refusing to start.", e);
                 }
             }
             try {

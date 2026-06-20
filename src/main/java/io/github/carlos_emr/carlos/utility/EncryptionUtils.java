@@ -292,7 +292,13 @@ public final class EncryptionUtils {
             return;
         }
 
-        byte[] keyBytes = Base64.getDecoder().decode(key);
+        byte[] keyBytes;
+        try {
+            keyBytes = Base64.getDecoder().decode(key);
+        } catch (IllegalArgumentException e) {
+            // Re-throw without the JDK detail message, which can echo the offending key character.
+            throw new IllegalArgumentException("encryption key is not valid Base64");
+        }
         if (keyBytes.length != AES_128_KEY_BYTES
                 && keyBytes.length != AES_192_KEY_BYTES
                 && keyBytes.length != AES_256_KEY_BYTES) {
@@ -346,12 +352,16 @@ public final class EncryptionUtils {
          * ExceptionInInitializerError and leave the class permanently unusable. Startup is
          * authoritative: it re-prepares and validates the key once properties are available, and
          * fails fast there if the key is invalid. Leaving the spec null mirrors the missing-key state.
+         * This deferral assumes the servlet Startup listener runs; non-servlet entry points (CLI,
+         * batch jobs, tests) do not re-validate the key and will see a null spec until they prepare it.
          */
         try {
             prepareSecretKeySpec();
         } catch (RuntimeException e) {
             SECRET_KEY_SPEC = null;
-            logger.error("Deferred encryption key initialization; it will be prepared at startup.", e);
+            // Expected when properties are not yet loaded; warn (not error) so a genuine encryption
+            // failure at startup is not lost in routine boot noise. Startup re-prepares authoritatively.
+            logger.warn("Deferred encryption key initialization; it will be prepared at startup.", e);
         }
     }
 }

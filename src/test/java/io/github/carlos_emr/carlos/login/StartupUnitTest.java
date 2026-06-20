@@ -8,6 +8,7 @@ import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletContextEvent;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.security.NoSuchAlgorithmException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Base64;
@@ -223,6 +224,12 @@ class StartupUnitTest extends CarlosUnitTestBase {
             assertThatCode(() -> EncryptionUtils.prepareSecretKeySpec())
                     .isInstanceOf(IllegalArgumentException.class);
             assertThat(keySpecField.get(null)).isNull();
+
+            // Recovery: an invalid key must not permanently poison the class - a subsequent valid
+            // key still prepares successfully.
+            props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, EncryptionUtils.generateSecretKey());
+            EncryptionUtils.prepareSecretKeySpec();
+            assertThat(keySpecField.get(null)).isNotNull();
         } finally {
             if (originalProp != null) {
                 props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, originalProp);
@@ -307,8 +314,26 @@ class StartupUnitTest extends CarlosUnitTestBase {
 
     @Test
     @Tag("create")
-    @DisplayName("should abort startup when configured key is invalid")
+    @DisplayName("should abort startup when configured key is not valid Base64")
     void shouldAbortStartup_whenConfiguredKeyIsInvalid(@TempDir Path tempDir) throws Exception {
+        // Bad-Base64 key: decode fails before the length check.
+        assertStartupAbortsForInvalidKey("not-base64%%", tempDir);
+    }
+
+    @Test
+    @Tag("create")
+    @DisplayName("should abort startup when configured key has a wrong AES length")
+    void shouldAbortStartup_whenConfiguredKeyHasWrongLength(@TempDir Path tempDir) throws Exception {
+        // Valid Base64 but a 33-byte key: exercises the length-check abort path, distinct from the
+        // bad-Base64 decode path, through the same Startup catch.
+        String wrongLengthKey = Base64.getEncoder().encodeToString(new byte[33]);
+        assertStartupAbortsForInvalidKey(wrongLengthKey, tempDir);
+    }
+
+    @Test
+    @Tag("create")
+    @DisplayName("should abort startup when key generation fails")
+    void shouldAbortStartup_whenKeyGenerationFails(@TempDir Path tempDir) throws Exception {
         Field keySpecField = EncryptionUtils.class.getDeclaredField("SECRET_KEY_SPEC");
         keySpecField.setAccessible(true);
         Object originalKeySpec = keySpecField.get(null);
@@ -317,31 +342,110 @@ class StartupUnitTest extends CarlosUnitTestBase {
         String originalProp = props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR);
         String originalUserHome = System.getProperty("user.home");
 
-        Path webappRoot = tempDir.resolve("webapps").resolve("carlos");
-        Files.createDirectories(webappRoot);
-        ServletContextEvent event = mock(ServletContextEvent.class);
-        ServletContext servletContext = mock(ServletContext.class);
-        when(event.getServletContext()).thenReturn(servletContext);
-        when(servletContext.getResource("/")).thenReturn(webappRoot.toUri().toURL());
+        ServletContextEvent event = newStartupEvent(tempDir);
+
+        try (MockedStatic<EncryptionUtils> encryption = mockStatic(EncryptionUtils.class)) {
+            System.setProperty("user.home", tempDir.toString());
+            // A blank key forces Startup into the generate-and-persist branch.
+            props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, "   ");
+            keySpecField.set(null, null);
+            encryption.when(EncryptionUtils::generateSecretKey)
+                    .thenThrow(new NoSuchAlgorithmException("AES unavailable"));
+
+            // Generation failure must abort startup rather than booting with no key. The
+            // IllegalStateException is re-wrapped by contextInitialized's outer catch, so it is
+            // reachable only as the cause of the propagated RuntimeException.
+            assertThatThrownBy(() -> new Startup().contextInitialized(event))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasCauseInstanceOf(IllegalStateException.class);
+        } finally {
+            restoreUserHome(originalUserHome);
+            restoreProperty(props, originalProp);
+            keySpecField.set(null, originalKeySpec);
+        }
+    }
+
+    @Test
+    @Tag("create")
+    @DisplayName("should generate and persist a new key when startup finds a blank key")
+    void shouldGenerateAndPersistKey_whenStartupFindsBlankKey(@TempDir Path tempDir) throws Exception {
+        Field keySpecField = EncryptionUtils.class.getDeclaredField("SECRET_KEY_SPEC");
+        keySpecField.setAccessible(true);
+        Object originalKeySpec = keySpecField.get(null);
+
+        CarlosProperties props = CarlosProperties.getInstance();
+        String originalProp = props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR);
+        String originalUserHome = System.getProperty("user.home");
+
+        ServletContextEvent event = newStartupEvent(tempDir);
 
         try {
             System.setProperty("user.home", tempDir.toString());
-            props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, "not-base64%%");
+            props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, "   ");
             keySpecField.set(null, null);
 
-            // Fail fast: an invalid existing key must abort startup rather than being silently
-            // rotated, which would permanently orphan data already encrypted under the real key.
+            new Startup().contextInitialized(event);
+
+            // A fresh 32-byte (AES-256) key is generated, persisted, and usable for a round-trip.
+            String generated = props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR);
+            assertThat(generated).isNotBlank();
+            assertThat(Base64.getDecoder().decode(generated)).hasSize(32);
+            assertThat(keySpecField.get(null)).isNotNull();
+
+            String encrypted = EncryptionUtils.encrypt("startup-password");
+            assertThat(EncryptionUtils.decrypt(encrypted)).isEqualTo("startup-password");
+        } finally {
+            restoreUserHome(originalUserHome);
+            restoreProperty(props, originalProp);
+            keySpecField.set(null, originalKeySpec);
+        }
+    }
+
+    /**
+     * Drives {@code Startup.contextInitialized} with an invalid existing key and asserts a fail-fast
+     * abort. The abort is raised as an {@link IllegalStateException} but re-wrapped by the method's
+     * outer catch, so it surfaces as a {@link RuntimeException} whose cause carries the message and
+     * type. Also asserts the stored key is left untouched (no silent rotation) and no spec is set.
+     */
+    private void assertStartupAbortsForInvalidKey(String invalidKey, Path tempDir) throws Exception {
+        Field keySpecField = EncryptionUtils.class.getDeclaredField("SECRET_KEY_SPEC");
+        keySpecField.setAccessible(true);
+        Object originalKeySpec = keySpecField.get(null);
+
+        CarlosProperties props = CarlosProperties.getInstance();
+        String originalProp = props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR);
+        String originalUserHome = System.getProperty("user.home");
+
+        ServletContextEvent event = newStartupEvent(tempDir);
+
+        try {
+            System.setProperty("user.home", tempDir.toString());
+            props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, invalidKey);
+            keySpecField.set(null, null);
+
             assertThatThrownBy(() -> new Startup().contextInitialized(event))
-                    .isInstanceOf(RuntimeException.class);
+                    .isInstanceOf(RuntimeException.class)
+                    .hasCauseInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("refusing to start");
 
             // The stored key is left untouched (no rotation) and no usable spec is established.
-            assertThat(props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR)).isEqualTo("not-base64%%");
+            assertThat(props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR)).isEqualTo(invalidKey);
             assertThat(keySpecField.get(null)).isNull();
         } finally {
             restoreUserHome(originalUserHome);
             restoreProperty(props, originalProp);
             keySpecField.set(null, originalKeySpec);
         }
+    }
+
+    private static ServletContextEvent newStartupEvent(Path tempDir) throws Exception {
+        Path webappRoot = tempDir.resolve("webapps").resolve("carlos");
+        Files.createDirectories(webappRoot);
+        ServletContextEvent event = mock(ServletContextEvent.class);
+        ServletContext servletContext = mock(ServletContext.class);
+        when(event.getServletContext()).thenReturn(servletContext);
+        when(servletContext.getResource("/")).thenReturn(webappRoot.toUri().toURL());
+        return event;
     }
 
     private static void restoreUserHome(String originalUserHome) {
