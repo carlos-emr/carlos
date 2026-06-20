@@ -13,6 +13,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Base64;
 import java.util.List;
+import java.util.Properties;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -429,6 +430,39 @@ class StartupUnitTest extends CarlosUnitTestBase {
             restoreUserHome(originalUserHome);
             restoreProperty(props, originalProp);
             keySpecField.set(null, originalKeySpec);
+        }
+    }
+
+    @Test
+    @Tag("create")
+    @DisplayName("should abort startup when no configuration file exists")
+    void shouldAbortStartup_whenNoConfigFileExists(@TempDir Path tempDir) throws Exception {
+        CarlosProperties props = CarlosProperties.getInstance();
+        String originalUserHome = System.getProperty("user.home");
+
+        // CarlosProperties is a process-wide singleton; snapshot and clear it so contextInitialized
+        // sees an empty set and both the user-home and WEB-INF lookups fail, reaching the new
+        // fail-fast path. Restored in finally so other tests in the JVM are unaffected.
+        Properties snapshot = new Properties();
+        snapshot.putAll(props);
+
+        ServletContextEvent event = newStartupEvent(tempDir);
+
+        try {
+            System.setProperty("user.home", tempDir.toString()); // no carlos.properties here
+            props.clear();
+            assertThat(props.isEmpty()).isTrue();
+
+            // Missing config = no DB connection and no encryption key: must fail fast rather than
+            // boot into a broken state. The IllegalStateException is re-wrapped by the outer catch.
+            assertThatThrownBy(() -> new Startup().contextInitialized(event))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasCauseInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("refusing to start");
+        } finally {
+            restoreUserHome(originalUserHome);
+            props.clear();
+            props.putAll(snapshot);
         }
     }
 

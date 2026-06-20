@@ -295,7 +295,10 @@ public final class EncryptionUtils {
         }
         SECRET_KEY_SPEC = null;
         if (Objects.isNull(key) || key.isBlank()) {
-            logger.error("Secret key not found in CarlosProperties.");
+            // Expected during early class-load before properties are read (the static initializer
+            // documents this); Startup re-prepares once a key exists. Warn, not error, so this
+            // normal boot path does not raise false-positive monitoring alerts.
+            logger.warn("Secret key not found in CarlosProperties.");
             return;
         }
 
@@ -303,8 +306,10 @@ public final class EncryptionUtils {
         try {
             keyBytes = Base64.getDecoder().decode(key);
         } catch (IllegalArgumentException e) {
-            // Re-throw without the JDK detail message, which can echo the offending key character.
-            throw new IllegalArgumentException("encryption key is not valid Base64");
+            // Use a sanitized message (the JDK detail message can name the offending character) but
+            // keep the original exception as the cause so operators retain the stack trace for
+            // diagnosis. The cause surfaces only in boot-time server logs, never to the browser.
+            throw new IllegalArgumentException("encryption key is not valid Base64", e);
         }
         if (keyBytes.length != AES_128_KEY_BYTES
                 && keyBytes.length != AES_192_KEY_BYTES

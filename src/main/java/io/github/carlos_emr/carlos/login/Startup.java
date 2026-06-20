@@ -110,7 +110,7 @@ public class Startup implements ServletContextListener {
                      * PHI/credential operation. Fail fast at startup instead.
                      */
                     throw new IllegalStateException("Configuration file " + propName
-                            + " not found in user home or WEB-INF; refusing to start.");
+                            + " not found in user home or WEB-INF; refusing to start.", e);
                 } catch (Exception e) {
                     throw new IllegalStateException("Failed to read configuration file " + propName
                             + "; refusing to start.", e);
