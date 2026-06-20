@@ -30,6 +30,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DisplayName("Deprecated SHA password encoder")
 @Tag("unit")
+@Tag("utility")
 class DeprecatedShaPasswordEncoderUnitTest {
 
     private static final String LEGACY_PASSWORD = "legacy-password";
@@ -37,7 +38,7 @@ class DeprecatedShaPasswordEncoderUnitTest {
             "-4331-12498-123-53-58-47-3511810312215-43-120-56-3368-276";
 
     @Test
-    void shouldVerifyExistingLegacyShaPasswordHash() {
+    void shouldVerifyLegacyShaPassword_whenExistingHashProvided() {
         Deprecated_SHA_PasswordEncoder encoder = new Deprecated_SHA_PasswordEncoder();
 
         assertThat(encoder.matches(LEGACY_PASSWORD, LEGACY_SHA1_HASH)).isTrue();
@@ -45,7 +46,7 @@ class DeprecatedShaPasswordEncoderUnitTest {
     }
 
     @Test
-    void shouldRejectNewLegacyShaPasswordEncoding() {
+    void shouldThrowException_whenEncodingLegacyShaPassword() {
         Deprecated_SHA_PasswordEncoder encoder = new Deprecated_SHA_PasswordEncoder();
 
         assertThatThrownBy(() -> encoder.encode(LEGACY_PASSWORD))
@@ -54,7 +55,7 @@ class DeprecatedShaPasswordEncoderUnitTest {
     }
 
     @Test
-    void shouldUseBcryptForNewPasswordHashes() {
+    void shouldUseBcrypt_forNewPasswordHashes() {
         String hash = PasswordHashHelper.encodePassword(LEGACY_PASSWORD);
 
         assertThat(hash).startsWith("{bcrypt}");

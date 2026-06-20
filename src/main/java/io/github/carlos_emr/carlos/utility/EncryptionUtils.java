@@ -60,8 +60,8 @@ public final class EncryptionUtils {
     public EncryptionUtils() {
     }
 
-    // FindSecBugs WEAK_MESSAGE_DIGEST_SHA1: retained only to verify pre-existing legacy password hashes;
-    // new password hashes are generated through PasswordHashHelper using BCrypt.
+    // FindSecBugs WEAK_MESSAGE_DIGEST_SHA1: legacy verification only; BCrypt via PasswordHashHelper
+    // remains the password write path.
     @SuppressFBWarnings(value = "WEAK_MESSAGE_DIGEST_SHA1",
             justification = "SHA-1 retained only to verify pre-existing legacy password hashes; "
                     + "new password hashes use BCrypt via PasswordHashHelper")

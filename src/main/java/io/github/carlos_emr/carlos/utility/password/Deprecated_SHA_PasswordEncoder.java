@@ -39,8 +39,12 @@ import java.security.MessageDigest;
  * Verifies legacy unprefixed SHA-1 password hashes while accounts migrate to BCrypt.
  * This encoder must not create new SHA-1 hashes; new password creation is handled by
  * {@link PasswordHashHelper} through Spring Security's BCrypt encoder.
+ *
+ * @deprecated Legacy verification adapter retained for pre-BCrypt password rows only.
+ * Do not use for new password hashes; use {@link PasswordHashHelper}.
  */
-@Deprecated
+@Deprecated(since = "2026-06-20", forRemoval = false)
+@SuppressWarnings("java:S1133") // Sonar: removal depends on completion of legacy password migration.
 public class Deprecated_SHA_PasswordEncoder implements PasswordEncoder {
 
     @Override
@@ -68,8 +72,8 @@ public class Deprecated_SHA_PasswordEncoder implements PasswordEncoder {
         return false;
     }
 
-    // FindSecBugs WEAK_MESSAGE_DIGEST_SHA1: compatibility verifier for legacy unprefixed password
-    // rows only; encode() rejects SHA-1 creation and new hashes use BCrypt.
+    // FindSecBugs WEAK_MESSAGE_DIGEST_SHA1: compatibility verifier for legacy unprefixed password rows;
+    // encode() rejects SHA-1 creation and BCrypt remains the password write path.
     @SuppressFBWarnings(value = "WEAK_MESSAGE_DIGEST_SHA1",
             justification = "SHA-1 retained only to verify legacy unprefixed password rows; "
                     + "encode() rejects SHA-1 creation and new hashes use BCrypt")
