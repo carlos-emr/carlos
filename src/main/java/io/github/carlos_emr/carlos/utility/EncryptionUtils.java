@@ -126,7 +126,7 @@ public final class EncryptionUtils {
      **/
     public static byte[] encrypt(byte[] input) throws Exception {
         if (Objects.isNull(SECRET_KEY_SPEC)) {
-            throw new Exception("Secret key not found in CarlosProperties.");
+            throw new IllegalStateException("Secret key not found in CarlosProperties.");
         }
 
         byte[] iv = new byte[12];
@@ -164,7 +164,7 @@ public final class EncryptionUtils {
      **/
     public static byte[] decrypt(byte[] cipherBytes) throws Exception {
         if (Objects.isNull(SECRET_KEY_SPEC)) {
-            throw new Exception("Secret key not found in CarlosProperties.");
+            throw new IllegalStateException("Secret key not found in CarlosProperties.");
         }
 
         ByteBuffer byteBuffer = ByteBuffer.wrap(cipherBytes);
@@ -286,6 +286,13 @@ public final class EncryptionUtils {
      */
     public static void prepareSecretKeySpec() {
         String key = CarlosProperties.getInstance().getProperty(SECRET_KEY_ENV_VAR);
+        if (key != null) {
+            // Base64.getDecoder() rejects any whitespace, and CarlosProperties does not trim
+            // values. Normalize incidental surrounding whitespace (e.g. a manual properties edit)
+            // so a usable key is not rejected at startup. Base64 never legitimately contains
+            // surrounding whitespace, so trimming cannot mask or corrupt a real key.
+            key = key.trim();
+        }
         SECRET_KEY_SPEC = null;
         if (Objects.isNull(key) || key.isBlank()) {
             logger.error("Secret key not found in CarlosProperties.");

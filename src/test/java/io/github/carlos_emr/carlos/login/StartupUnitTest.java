@@ -127,7 +127,7 @@ class StartupUnitTest extends CarlosUnitTestBase {
 
             // Verify encryption fails with null key
             assertThatCode(() -> EncryptionUtils.encrypt("test"))
-                    .isInstanceOf(Exception.class)
+                    .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("Secret key not found");
 
             // Generate a valid key and set it in CarlosProperties
@@ -236,6 +236,37 @@ class StartupUnitTest extends CarlosUnitTestBase {
             } else {
                 props.remove(EncryptionUtils.SECRET_KEY_ENV_VAR);
             }
+            keySpecField.set(null, originalKeySpec);
+        }
+    }
+
+    @Test
+    @Tag("create")
+    @DisplayName("should prepare key when configured key has surrounding whitespace")
+    void shouldPrepareKey_whenConfiguredKeyHasSurroundingWhitespace() throws Exception {
+        Field keySpecField = EncryptionUtils.class.getDeclaredField("SECRET_KEY_SPEC");
+        keySpecField.setAccessible(true);
+        Object originalKeySpec = keySpecField.get(null);
+
+        CarlosProperties props = CarlosProperties.getInstance();
+        String originalProp = props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR);
+
+        try {
+            keySpecField.set(null, null);
+
+            // A valid Base64 key with incidental leading/trailing whitespace (e.g. a manual
+            // properties edit) must still prepare - Base64.getDecoder() would otherwise reject it
+            // and abort startup. Without the trim in prepareSecretKeySpec this throws.
+            String validKey = EncryptionUtils.generateSecretKey();
+            props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, "  " + validKey + "\n");
+
+            assertThatCode(EncryptionUtils::prepareSecretKeySpec).doesNotThrowAnyException();
+            assertThat(keySpecField.get(null)).isNotNull();
+
+            String encrypted = EncryptionUtils.encrypt("whitespace-key-password");
+            assertThat(EncryptionUtils.decrypt(encrypted)).isEqualTo("whitespace-key-password");
+        } finally {
+            restoreProperty(props, originalProp);
             keySpecField.set(null, originalKeySpec);
         }
     }
