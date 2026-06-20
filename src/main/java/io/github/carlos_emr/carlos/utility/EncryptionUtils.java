@@ -28,6 +28,7 @@
  */
 package io.github.carlos_emr.carlos.utility;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.CarlosProperties;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.password.PasswordHashHelper;
@@ -59,6 +60,11 @@ public final class EncryptionUtils {
     public EncryptionUtils() {
     }
 
+    // FindSecBugs WEAK_MESSAGE_DIGEST_SHA1: retained only to verify pre-existing legacy password hashes;
+    // new password hashes are generated through PasswordHashHelper using BCrypt.
+    @SuppressFBWarnings(value = "WEAK_MESSAGE_DIGEST_SHA1",
+            justification = "SHA-1 retained only to verify pre-existing legacy password hashes; "
+                    + "new password hashes use BCrypt via PasswordHashHelper")
     private static MessageDigest initMessageDigest() {
         try {
             return MessageDigest.getInstance("SHA-1");
@@ -70,8 +76,8 @@ public final class EncryptionUtils {
 
     /**
      * @deprecated
-     * weak: do not use for generating password hashes.
-     * use the hash(String password) method below.
+     * Legacy SHA-1 compatibility helper for pre-BCrypt password records only.
+     * Do not use for generating new password hashes; use {@link #hash(CharSequence)}.
      */
     @Deprecated
     public static byte[] getSha1(String s) {
@@ -88,8 +94,8 @@ public final class EncryptionUtils {
 
     /**
      * @deprecated
-     * weak: do not use for generating password hashes.
-     * use the hash(String password) method below.
+     * Legacy SHA-1 compatibility helper for pre-BCrypt password records only.
+     * Do not use for generating new password hashes; use {@link #hash(CharSequence)}.
      */
     @Deprecated
     private static byte[] getSha1NoCache(String s) {
@@ -320,4 +326,3 @@ public final class EncryptionUtils {
         prepareSecretKeySpec();
     }
 }
-

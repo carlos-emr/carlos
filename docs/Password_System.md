@@ -22,6 +22,10 @@ CARLOS maintains backward compatibility with legacy SHA hashes:
 - **Format**: Concatenated byte values (e.g., `-51-282443-97-5-9410489-60-1021-45-127-12435464-32`)
 - **Usage**: Existing passwords only, automatically upgraded when user logs in
 - **Status**: Deprecated, will be upgraded to BCrypt on next login
+- **Write policy**: New SHA/SHA-1 password hashes must not be created; all new password writes use
+  `PasswordHashHelper`/`EncryptionUtils.hash()` and produce `{bcrypt}` hashes.
+- **Static-analysis handling**: The remaining SHA-1 digest calls are intentionally limited to legacy
+  verification paths and carry per-site `WEAK_MESSAGE_DIGEST_SHA1` suppressions with justifications.
 
 ## Database Schema
 
