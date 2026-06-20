@@ -131,8 +131,7 @@
                      Mirrors: MainTableLeftColumn
                      Contains navigation links / contextual actions. -->
                 <div class="col-12 col-md-2">
-                    <nav class="d-flex flex-column gap-1" aria-label="Sidebar navigation">
-                    </nav>
+
                 </div>
                 <!-- RIGHT CONTENT COLUMN
                      Mirrors: MainTableRightColumn
@@ -146,7 +145,7 @@
                             <fmt:message key="provider.setLabRecallPrefs.delegate"/><span style="color:red;">*</span>
                         </label>
                         <select name="labRecallDelegate.value" id="labRecallDelegate.value" onchange="delegateCheck();" title="<fmt:message key="admin.jobs.choose"/>"
-						class="form-select form-select-sm flex-grow-1">
+						class="form-select form-select-sm">
                             <c:forEach var="provider" items="${providerSelect}">
                                 <option value="${carlos:forHtmlAttribute(provider.value)}" <c:if test="${provider.value == labRecallDelegate.value}">selected</c:if> >
                                     ${carlos:forHtmlContent(provider.label)}
@@ -179,8 +178,8 @@
                         <label for="labRecallTicklerPriority.value" class="form-label form-label-sm">
                             <fmt:message key="provider.setLabRecallPrefs.ticklerPriority"/>
                         </label>
-                        <select name="labRecallTicklerPriority.value" id="labRecallTicklerPriority.value" onchange="delegateCheck();"
-						class="form-select form-select-sm flex-grow-1">
+                        <select name="labRecallTicklerPriority.value" id="labRecallTicklerPriority.value" 
+						class="form-select form-select-sm">
                             <option value="" ><fmt:message key="admin.jobs.choose"/></option>
                             <option value="High" <c:if test="${'High' eq labRecallTicklerPriority.value}">
 selected</c:if>><fmt:message key="tickler.ticklerMain.priority.high"/></option>
