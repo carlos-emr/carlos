@@ -18,6 +18,7 @@ table#firstTable {
 table#firstTable tr {
     display: flex;
     align-items: center;
+    justify-content: space-between;
 }
 
 table#firstTable td {
@@ -30,11 +31,17 @@ table#firstTable td {
 
 table#firstTable td#firstMenu {
     flex: 1 1 auto;
-    margin-left: 10px;
 }
 
 table#firstTable td#userSettings {
     flex: 0 0 auto;
+}
+
+#firstMenu {
+    margin-left: 10px;
+}
+
+#userSettings {
     margin-right: 15px;
 }
 
@@ -51,7 +58,10 @@ table#firstTable td#userSettings ul#userSettingsMenu:not(.dashboardDropdown) {
     list-style-type: none;
 }
 
-table#firstTable td#userSettings ul#userSettingsMenu li,
+table#firstTable td#userSettings ul#userSettingsMenu li {
+    display: inline-block;
+}
+
 table#firstTable td#firstMenu ul#navlist > li:not(.dashboardDropdown) {
     line-height: 1;
     display: inline-block;
@@ -187,16 +197,88 @@ table.topnav td {
 }
 
 
+#navlist {
+    margin: 0;
+    padding: 0;
+    white-space: nowrap;
+}
+
+
 /* Match the schedule bar alert affordance; these links need higher specificity
    than the general topnav anchor color rules above. */
+table#firstTable .tabalert,
 table#firstTable #unclaimedLabLink.tabalert,
-table#firstTable #oscar_new_tickler {
+table#firstTable #oscar_new_lab,
+table#firstTable #oscar_new_msg,
+table#firstTable #oscar_new_tickler,
+table#firstTable #demographicMessageCount,
+table#firstTable #totalMessageCount {
     color: red !important;
 }
 
+table#firstTable #oscar_new_lab .tabalert sup,
+table#firstTable #oscar_new_msg .tabalert sup,
+table#firstTable #oscar_new_tickler .tabalert sup {
+    color: red !important;
+    font-size: 9px !important;
+    line-height: 0;
+}
+
 table#firstTable #unclaimedLabLink.tabalert:hover,
-table#firstTable a:hover #oscar_new_tickler {
+table#firstTable a:hover .tabalert,
+table#firstTable a:hover #oscar_new_lab,
+table#firstTable a:hover #oscar_new_msg,
+table#firstTable a:hover #oscar_new_tickler,
+table#firstTable a:hover #demographicMessageCount,
+table#firstTable a:hover #totalMessageCount,
+table#firstTable #unclaimedLabLink.tabalert:focus,
+table#firstTable a:focus .tabalert,
+table#firstTable a:focus #oscar_new_lab,
+table#firstTable a:focus #oscar_new_msg,
+table#firstTable a:focus #oscar_new_tickler,
+table#firstTable a:focus #demographicMessageCount,
+table#firstTable a:focus #totalMessageCount,
+table#firstTable #unclaimedLabLink.tabalert:focus-visible,
+table#firstTable a:focus-visible .tabalert,
+table#firstTable a:focus-visible #oscar_new_lab,
+table#firstTable a:focus-visible #oscar_new_msg,
+table#firstTable a:focus-visible #oscar_new_tickler,
+table#firstTable a:focus-visible #demographicMessageCount,
+table#firstTable a:focus-visible #totalMessageCount {
+    color: #fff !important;
+}
+
+table#firstTable a:hover #oscar_new_lab .tabalert sup,
+table#firstTable a:hover #oscar_new_msg .tabalert sup,
+table#firstTable a:hover #oscar_new_tickler .tabalert sup,
+table#firstTable a:focus #oscar_new_lab .tabalert sup,
+table#firstTable a:focus #oscar_new_msg .tabalert sup,
+table#firstTable a:focus #oscar_new_tickler .tabalert sup,
+table#firstTable a:focus-visible #oscar_new_lab .tabalert sup,
+table#firstTable a:focus-visible #oscar_new_msg .tabalert sup,
+table#firstTable a:focus-visible #oscar_new_tickler .tabalert sup {
     color: #fff !important;
 }
 
 /*end of top navigation bar */
+
+.carlos-content-shell {
+    --bs-gutter-x: 0;
+    max-width: none;
+    width: 100%;
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.carlos-content-shell > .searchBox,
+.carlos-content-shell .doclist {
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.carlos-content-shell .doclist > .card-header > .container {
+    max-width: none;
+    width: 100%;
+    padding-left: 0;
+    padding-right: 0;
+}

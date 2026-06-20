@@ -191,7 +191,7 @@ public class BillingShortcutPg1ViewModelAssembler {
                     // taking the NPE detour through the catch.
                     if (b == null) {
                         historyPartialRowCount++;
-                        MiscUtils.getLogger().warn(
+                        MiscUtils.getLogger().warn( // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                                 "BillingShortcutPg1: null Billing row in history for demo {}; skipping",
                                 LogSafe.sanitize(demoNo));
                         continue;
@@ -570,7 +570,7 @@ public class BillingShortcutPg1ViewModelAssembler {
                     name = p.getFormattedName();
                 }
             } catch (RuntimeException e) {
-                MiscUtils.getLogger().warn(
+                MiscUtils.getLogger().warn( // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                         "Shortcut: assgProvider display lookup failed for provider={}; rendering blank",
                         LogSafe.sanitize(assgProviderNo), e);
                 return new ResolvedAssgProviderDisplay("", true);

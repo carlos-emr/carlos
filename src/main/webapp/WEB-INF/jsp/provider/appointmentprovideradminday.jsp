@@ -328,6 +328,7 @@
     if (rbu != null) {
         resourcebaseurl = rbu.getValue();
     }
+    pageContext.setAttribute("scheduleResourceBaseUrl", resourcebaseurl);
 
     boolean isWeekView = false;
     String provNum = request.getParameter("provider_no");
@@ -479,6 +480,8 @@
         <%
             }
         %>
+        <link rel="stylesheet" href="${pageContext.servletContext.contextPath}/css/topnav.css?v=${rand}"
+              type="text/css">
 
         <c:if test="${empty sessionScope.archiveView or sessionScope.archiveView != true}">
             <%!String refresh = io.github.carlos_emr.CarlosProperties.getInstance().getProperty("refresh.appointmentprovideradminday.jsp", "-1");%>
@@ -897,10 +900,10 @@
     <table id="firstTable" class="noprint">
         <tr>
 
+            <td class="icon-container">
+                <img alt="CARLOS EMR" src="<%=request.getContextPath()%>/images/oscar_logo_small.png" width="19">
+            </td>
             <td id="firstMenu">
-                <div class="icon-container">
-                    <img alt="CARLOS EMR" src="<%=request.getContextPath()%>/images/oscar_logo_small.png" width="19px">
-                </div>
                 <ul id="navlist">
                     <c:if test="${infirmaryView_isOscar != 'false'}">
                         <% String scheduleNavActiveClass = NavPath.requestPathMatches(request,
@@ -960,7 +963,9 @@
                                     <c:if test="${doctorLinkRights}">
                                         <li>
                                        <a HREF="<%= "1".equals(request.getParameter("scheduleNav")) ? request.getContextPath() + "/web/inboxhub/Inboxhub?method=displayInboxForm&scheduleNav=1" : "#" %>" id="inboxLink">
-                                                <span id="oscar_new_lab" title="<fmt:message key="provider.appointmentProviderAdminDay.viewLabReports"/>"><fmt:message key="global.lab"/></span>
+                                                <span id="oscar_new_lab" title="<fmt:message key="provider.appointmentProviderAdminDay.viewLabReports"/>">
+                                                    <oscar:newLab providerNo="<%=loggedInInfo1.getLoggedInProviderNo()%>"><fmt:message key="global.lab"/></oscar:newLab>
+                                                </span>
                                             </a>
                                             <oscar:newUnclaimedLab>
                                                 <a id="unclaimedLabLink" class="tabalert" HREF="<%= "1".equals(request.getParameter("scheduleNav")) ? request.getContextPath() + "/web/inboxhub/Inboxhub?method=displayInboxForm&unclaimed=1&scheduleNav=1" : "javascript:void(0)" %>"
@@ -983,7 +988,7 @@
                                 String encodedLoggedInProviderName = URLEncoder.encode(loggedInProviderName, StandardCharsets.UTF_8);
                                 String scheduleMessengerUrl = request.getContextPath() + "/messenger/DisplayMessages?providerNo=" + loggedInProviderNo + "&userName=" + encodedLoggedInProviderName;
                                 String scheduleConsultationUrl = request.getContextPath() + "/encounter/IncomingConsultation?providerNo=" + loggedInProviderNo + "&userName=" + encodedLoggedInProviderName;
-                                String scheduleDocumentReportUrl = request.getContextPath() + "/documentManager/ViewDocumentReport?function=providers&functionid=" + loggedInProviderNo + "&curUser=" + loggedInProviderNo;
+                                String scheduleDocumentReportUrl = request.getContextPath() + "/documentManager/ViewDocumentReport?function=providers&functionid=" + SafeEncode.forUriComponent(loggedInProviderNo);
                                 String scheduleReportIndexUrl = request.getContextPath() + "/report/ViewReportindex";
                                 String scheduleAdministrationUrl = request.getContextPath() + "/administration";
                                 String scheduleTicklerUrl = request.getContextPath() + "/tickler/ViewTicklerMain";
@@ -1000,7 +1005,9 @@
                                     <a HREF="#"
                                        ONCLICK="return openScheduleSection('<%=scheduleTicklerUrlForJsAttribute%>', function(u){ popupPage2(u,'${carlos:forJavaScript(ticklerTitle)}'); }, event);"
                                        TITLE='${carlos:forHtmlAttribute(ticklerTitle)}'>
-                                        <span id="oscar_new_tickler"><fmt:message key="global.btntickler"/></span></a>
+                                        <span id="oscar_new_tickler">
+                                            <oscar:newTickler providerNo="<%=loggedInInfo1.getLoggedInProviderNo()%>"><fmt:message key="global.btntickler"/></oscar:newTickler>
+                                        </span></a>
                                 </li>
                             </security:oscarSec>
 
@@ -1010,7 +1017,9 @@
                                         <a HREF="#"
                                            ONCLICK="return openScheduleSection('<%=scheduleMessengerUrlForJsAttribute%>', function(u){ popupOscarRx(600,1024,u); }, event);"
                                            title="<fmt:message key="global.messenger"/>">
-                                              <span id="oscar_new_msg"><fmt:message key="global.msg"/></span></a>
+                                              <span id="oscar_new_msg">
+                                                  <oscar:newMessage providerNo="<%=loggedInInfo1.getLoggedInProviderNo()%>"><fmt:message key="global.msg"/></oscar:newMessage>
+                                              </span></a>
                                     </li>
                                 </security:oscarSec>
                             </caisi:isModuleLoad>
@@ -1122,6 +1131,11 @@
                                 </li>
 
                             </security:oscarSec>
+
+                            <li id="helpLink">
+                                <a href="javascript:void(0)"
+                                   onClick="popupPage(600,750,'${carlos:forJavaScriptAttribute(scheduleResourceBaseUrl)}');return false;"><fmt:message key="global.help"/></a>
+                            </li>
 
                             <% if (isMobileOptimized) { %>
                         </ul>
@@ -2445,7 +2459,7 @@
                         popupOscarRx(425, 430, '<%= request.getContextPath() %>/share/CalendarPopup?urlfrom=<%= request.getContextPath() %>/provider/providercontrol&year=<%=strYear%>&month=<%=strMonth%>&param=<%=URLEncoder.encode("&view=0&displaymode=day&dboperation=searchappointmentday","UTF-8")%>');
                         return false;  //run code for 'C'alendar
                     case <fmt:message key="global.edocShortcut"/> :
-                        popupOscarRx('800', '1200', '<%= request.getContextPath() %>/documentManager/ViewDocumentReport?function=providers&functionid=<%=loggedInInfo1.getLoggedInProviderNo()%>&curUser=<%=loggedInInfo1.getLoggedInProviderNo()%>', 'edocView');
+                        popupOscarRx('800', '1200', '<%= request.getContextPath() %>/documentManager/ViewDocumentReport?function=providers&functionid=<%=SafeEncode.forUriComponent(loggedInInfo1.getLoggedInProviderNo())%>', 'edocView');
                         return false;  //run code for e'D'oc
                     case <fmt:message key="global.resourcesShortcut"/> :
                         popupOscarRx(550, 687, '<%=resourcebaseurl%>');

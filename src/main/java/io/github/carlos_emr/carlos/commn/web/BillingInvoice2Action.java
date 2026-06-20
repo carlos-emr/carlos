@@ -283,10 +283,11 @@ public class BillingInvoice2Action extends ActionSupport {
     }
 
     private String failPdfResponse(String logMessage, Throwable e) throws IOException {
+        String safeLogMessage = LogSafe.sanitize(logMessage);
         if (e == null) {
-            MiscUtils.getLogger().error(logMessage);
+            MiscUtils.getLogger().error(safeLogMessage); // NOSONAR javasecurity:S5145 - wrapper message sanitized at helper boundary
         } else {
-            MiscUtils.getLogger().error(logMessage, e);
+            MiscUtils.getLogger().error(safeLogMessage, e); // NOSONAR javasecurity:S5145 - wrapper message sanitized at helper boundary
         }
         if (!response.isCommitted()) {
             // Dedicated PDF actions own their error response too. Returning a named result here

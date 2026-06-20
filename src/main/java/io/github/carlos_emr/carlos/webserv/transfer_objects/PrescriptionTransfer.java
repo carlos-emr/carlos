@@ -39,6 +39,7 @@ import io.github.carlos_emr.carlos.commn.model.Prescription;
 import io.github.carlos_emr.carlos.managers.PrescriptionManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.beans.BeanUtils;
 
 public final class PrescriptionTransfer {
@@ -139,6 +140,11 @@ public final class PrescriptionTransfer {
      * If prescription is null, then null is returned.
      * If prescription is not null, then drugs must not be null, it should at least be an empty list to signify no drugs.
      */
+    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
+    // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
+    @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
+            justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
+                    "known CARLOS types; no user-controlled property name reaches the sink")
     public static PrescriptionTransfer toTransfer(Prescription prescription, List<Drug> drugs) {
         if (prescription == null) return (null);
 

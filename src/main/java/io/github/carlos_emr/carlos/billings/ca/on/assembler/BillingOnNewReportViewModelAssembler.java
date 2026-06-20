@@ -190,7 +190,7 @@ public class BillingOnNewReportViewModelAssembler {
                     // Unrecognized report action — render empty rows but log
                     // so a typo or future report-type the switch hasn't
                     // caught up with is distinguishable from "no matches".
-                    MiscUtils.getLogger().warn(
+                    MiscUtils.getLogger().warn( // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                             "BillingOnNewReportViewModelAssembler: unknown action [{}]; rendering empty result",
                             LogSafe.sanitize(action));
                     break;

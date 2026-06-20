@@ -124,6 +124,7 @@
         return;
     }
 %>
+<%@ include file="messengerScheduleNav.jspf" %>
 
 
 <%-- Session validation: Ensure message session bean exists and is valid --%>
@@ -172,8 +173,6 @@
     String delegate = "";
     String delegateName = "";
     boolean recall = (request.getParameter("recall") != null);
-    boolean showScheduleNav = "1".equals(request.getParameter("scheduleNav"));
-    String scheduleNavFirstQuerySuffix = showScheduleNav ? "?scheduleNav=1" : "";
 
     if (recall) {
         String subjectText = messagingManager.getLabRecallMsgSubjectPref(LoggedInInfo.getLoggedInInfoFromSession(request));
@@ -471,9 +470,11 @@ function validateFields() {
                             <a class="btn btn-outline-secondary" href="<%=request.getContextPath()%>/messenger/ClearMessage<%=scheduleNavFirstQuerySuffix%>">
 								<fmt:message key="messenger.CreateMessage.btnClear" />
 							</a>
-                            <button type="button" class="btn btn-outline-secondary" onclick="BackToCarlos()">
-                                <fmt:message key="messenger.CreateMessage.btnExit" />
-                            </button>
+                            <% if (showMessengerExitButton) { %>
+                                <button type="button" class="btn btn-outline-secondary" onclick="BackToCarlos()">
+                                    <fmt:message key="messenger.CreateMessage.btnExit" />
+                                </button>
+                            <% } %>
                             </div>
 						</td>
 

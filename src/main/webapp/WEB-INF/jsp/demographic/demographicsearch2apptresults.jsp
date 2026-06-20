@@ -229,25 +229,25 @@
             <%--    <ul style="display: flex;">--%>
             <%--        <li>--%>
             <select class="wideInput form-select" name="search_mode">
-                <option value="search_name" <%=request.getParameter("search_mode").equals("search_name") ? "selected" : ""%>>
+                <option value="search_name" <%="search_name".equals(request.getParameter("search_mode")) ? "selected" : ""%>><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                     <fmt:message key="demographic.demographicsearch2apptresults.optName"/>
                 </option>
-                <option value="search_phone" <%=request.getParameter("search_mode").equals("search_phone") ? "selected" : ""%>>
+                <option value="search_phone" <%="search_phone".equals(request.getParameter("search_mode")) ? "selected" : ""%>><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                     <fmt:message key="demographic.demographicsearch2apptresults.optPhone"/>
                 </option>
-                <option value="search_dob" <%=request.getParameter("search_mode").equals("search_dob") ? "selected" : ""%>>
+                <option value="search_dob" <%="search_dob".equals(request.getParameter("search_mode")) ? "selected" : ""%>><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                     <fmt:message key="demographic.demographicsearch2apptresults.optDOB"/>
                 </option>
-                <option value="search_address" <%=request.getParameter("search_mode").equals("search_address") ? "selected" : ""%>>
+                <option value="search_address" <%="search_address".equals(request.getParameter("search_mode")) ? "selected" : ""%>><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                     <fmt:message key="demographic.demographicsearch2apptresults.optAddress"/>
                 </option>
-                <option value="search_hin" <%=request.getParameter("search_mode").equals("search_hin") ? "selected" : ""%>>
+                <option value="search_hin" <%="search_hin".equals(request.getParameter("search_mode")) ? "selected" : ""%>><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                     <fmt:message key="demographic.demographicsearch2apptresults.optHIN"/>
                 </option>
-                <option value="search_chart_no" <%=request.getParameter("search_mode").equals("search_chart_no") ? "selected" : ""%>>
+                <option value="search_chart_no" <%="search_chart_no".equals(request.getParameter("search_mode")) ? "selected" : ""%>><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                     <fmt:message key="demographic.demographicsearch2apptresults.optChart"/>
                 </option>
-                <option value="search_demographic_no" <%=request.getParameter("search_mode").equals("search_demographic_no") ? "selected" : ""%>>
+                <option value="search_demographic_no" <%="search_demographic_no".equals(request.getParameter("search_mode")) ? "selected" : ""%>><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                     <fmt:message key="demographic.demographicsearch2apptresults.demographicId"/>
                 </option>
             </select>

@@ -99,6 +99,8 @@ public class EFormUtil {
 
     private static final Set<String> ALLOWED_SORT_COLUMNS = Set.of(NAME, SUBJECT, DATE, FILE_NAME, PROVIDER);
 
+    public static final String FORM_CREATOR_KEY = "formCreator";
+
     // Collaborator beans are resolved lazily (per call) instead of in static-final field
     // initializers. SpringUtils.getBean returns the cached singleton, so the per-call cost is a
     // map lookup, but - critically - the Spring context is no longer touched when the class is
@@ -475,7 +477,7 @@ public class EFormUtil {
         curht.put("formFileName", eform.getFileName());
         curht.put("formDate", eform.getFormDate().toString());
         curht.put("formTime", eform.getFormTime().toString());
-        curht.put("formCreator", eform.getCreator());
+        curht.put(FORM_CREATOR_KEY, eform.getCreator());
         curht.put("formHtml", eform.getFormHtml());
         curht.put("showLatestFormOnly", eform.isShowLatestFormOnly());
         curht.put("patientIndependent", eform.isPatientIndependent());

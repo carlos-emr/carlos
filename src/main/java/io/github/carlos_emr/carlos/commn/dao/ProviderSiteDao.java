@@ -41,6 +41,21 @@ public interface ProviderSiteDao extends AbstractDao<ProviderSite> {
 
     List<Provider> findActiveProvidersWithSites(String provider_no);
 
+    /**
+     * Finds providers with status {@code "1"} and provider numbers that do not
+     * start with {@code "-"} that share at least one site with the given provider
+     * number.
+     *
+     * <p>The source provider is included when it is active, has a non-system
+     * provider number, and is assigned to one of its own sites. A null provider
+     * number, or one with no matching site assignments, returns an empty list.
+     * Results are ordered by last name, then first name.</p>
+     *
+     * @param providerNo provider number used to determine shared sites
+     * @return matching providers, never {@code null}
+     */
+    List<Provider> findActiveProvidersBySharedSites(String providerNo);
+
     List<String> findByProviderNoBySiteName(String siteName);
 
     List<ProviderSite> findBySiteId(Integer siteId);

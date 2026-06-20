@@ -21,8 +21,11 @@
  */
 package io.github.carlos_emr.carlos.app.contract;
 
+import io.github.carlos_emr.carlos.admin.web.SecurityAddSecurity2Action;
 import io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action;
+import io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action;
 import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
+import io.github.carlos_emr.carlos.eform.actions.DelEForm2Action;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.security.CarlosMethodSecurity;
@@ -95,7 +98,7 @@ import static org.mockito.Mockito.when;
  * <p><b>Adding a new mutator 2Action.</b> The {@link #discoveryCandidatesMustBeRegistered()}
  * test scans {@code src/main/java} for any {@code *2Action.java} in an audited
  * slice, or explicitly registered legacy class, containing both
- * {@code SC_METHOD_NOT_ALLOWED} and an {@code equalsIgnoreCase("POST")} check
+ * {@code SC_METHOD_NOT_ALLOWED} and a POST method check
  * and fails the build if the class is not listed here. New mutators must be
  * registered in one of:
  *
@@ -157,8 +160,16 @@ class MutatorActionGetRejectionContractTest {
             // --- admin ---
             Arguments.of("io.github.carlos_emr.carlos.admin.web.ClinicNbrManage2Action",
                     "_admin", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.admin.web.SecurityAddSecurity2Action",
+                    "_admin", "w"),
             Arguments.of("io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action",
                     "_admin", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action",
+                    "_admin", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.form.pageUtil.FrmXmlUpload2Action",
+                    "_admin.eform", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.eform.actions.AddEForm2Action",
+                    "_eform", "w"),
             // --- clinical measurements / flowsheets ---
             Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action",
                     "_measurement", "w"),
@@ -193,7 +204,10 @@ class MutatorActionGetRejectionContractTest {
             Arguments.of("io.github.carlos_emr.carlos.waitinglist.pageUtil.WLAdd2WaitingList2Action",
                     "_demographic", "w"),
             Arguments.of("io.github.carlos_emr.carlos.waitinglist.pageUtil.WLRemoveFromWaitingList2Action",
-                    "_demographic", "w")
+                    "_demographic", "w"),
+            // --- eform ---
+            Arguments.of("io.github.carlos_emr.carlos.eform.actions.DelEForm2Action",
+                    "_admin.eform", "w")
         );
     }
 
@@ -300,7 +314,9 @@ class MutatorActionGetRejectionContractTest {
     private static final Set<String> IN_SCOPE_EXPLICIT_CLASSES = Set.of(
         "io.github.carlos_emr.carlos.admin.web.ClientManage2Action",
         "io.github.carlos_emr.carlos.admin.web.ClinicNbrManage2Action",
+        "io.github.carlos_emr.carlos.admin.web.SecurityAddSecurity2Action",
         "io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action",
+        "io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSaveBilling2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingUpdateBilling2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ManageTeleplan2Action",
@@ -310,8 +326,11 @@ class MutatorActionGetRejectionContractTest {
         "io.github.carlos_emr.carlos.billings.ca.on.web.ScheduleOfBenefitsUpload2Action",
         "io.github.carlos_emr.carlos.commn.web.FlowSheetCustom2Action",
         "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action",
+        "io.github.carlos_emr.carlos.form.pageUtil.FrmXmlUpload2Action",
         "io.github.carlos_emr.carlos.login.gate.SelectFacility2Action",
-        "io.github.carlos_emr.carlos.provider.web.DocumentDescriptionTemplate2Action"
+        "io.github.carlos_emr.carlos.provider.web.DocumentDescriptionTemplate2Action",
+        // eform slice: only DelEForm2Action is registered; broader slice audit tracked in issue #2828.
+        "io.github.carlos_emr.carlos.eform.actions.DelEForm2Action"
     );
 
     @ParameterizedTest(name = "{0} rejects GET and HEAD without side-effects")
@@ -461,11 +480,24 @@ class MutatorActionGetRejectionContractTest {
 
     private static Object instantiateAction(Class<?> actionClass, Map<Class<?>, Object> autoMocks)
             throws Exception {
+        if (actionClass.equals(DelEForm2Action.class)) {
+            return new DelEForm2Action(mock(SecurityInfoManager.class));
+        }
         if (actionClass.equals(SecurityDelete2Action.class)) {
             CarlosMethodSecurity methodSecurity = mock(CarlosMethodSecurity.class);
             when(methodSecurity.hasAdminWrite()).thenReturn(true);
             SecurityDao securityDao = (SecurityDao) autoMocks.computeIfAbsent(SecurityDao.class, Mockito::mock);
             return new SecurityDelete2Action(securityDao, methodSecurity);
+        }
+        if (actionClass.equals(SecurityAddSecurity2Action.class)) {
+            CarlosMethodSecurity methodSecurity = mock(CarlosMethodSecurity.class);
+            when(methodSecurity.hasAdminWrite()).thenReturn(true);
+            return new SecurityAddSecurity2Action(methodSecurity);
+        }
+        if (actionClass.equals(SecurityUpdate2Action.class)) {
+            CarlosMethodSecurity methodSecurity = mock(CarlosMethodSecurity.class);
+            when(methodSecurity.hasAdminWrite()).thenReturn(true);
+            return new SecurityUpdate2Action(methodSecurity);
         }
         return actionClass.getDeclaredConstructor().newInstance();
     }
@@ -497,8 +529,7 @@ class MutatorActionGetRejectionContractTest {
     /**
      * Walks {@code src/main/java} and fails if any {@code *2Action.java}
      * containing both a {@code SC_METHOD_NOT_ALLOWED} reference and a
-     * {@code "POST".equalsIgnoreCase(...)} (or {@code equalsIgnoreCase("POST")})
-     * check is not registered in one of
+     * literal POST method comparison is not registered in one of
      * {@link #unconditionalMutators()}, {@link #CONDITIONAL_MUTATORS}, or
      * {@link #NON_MUTATOR_GATES}.
      *
@@ -565,7 +596,8 @@ class MutatorActionGetRejectionContractTest {
                         + actionSource, e);
             }
             if (source.contains("SC_METHOD_NOT_ALLOWED")
-                    && (source.contains("\"POST\".equalsIgnoreCase(")
+                    && (source.contains("\"POST\".equals(")
+                        || source.contains("\"POST\".equalsIgnoreCase(")
                         || source.contains(".equalsIgnoreCase(\"POST\")"))) {
                 out.add(className);
             }

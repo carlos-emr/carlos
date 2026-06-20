@@ -2070,16 +2070,18 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                     + "&appointment_date=" + date
                     + "&start_time=" + start_time
                     + "&bNewForm=1" + dxCodes.toString();
-            logger.debug("BILLING URL " + url);
-            response.sendRedirect(url);
+            logger.debug("Redirecting to billing form for appointment_no={}, demographic_no={}",
+                    appointmentNo, demoNo);
+            sendBillingRedirect(url);
         }
 
         String chain = request.getParameter("chain");
 
         if (chain != null && !chain.equals("")) {
             // FP for open-redirect scanners (CodeQL java/OR): isValidInternalRedirect enforces
-            // relative-only OR same-scheme+host+port match; rejects protocol-relative (//evil),
-            // backslash, userinfo (@evil), and suffix (host.evil) bypasses.
+            // relative-only (via RedirectValidationUtils.isValidRelativeRedirect) OR
+            // same-scheme+host+port match; rejects protocol-relative (//evil), backslash and %5c
+            // (/\evil.com -> //evil.com), userinfo (@evil), and suffix (host.evil) bypasses.
             if (isValidInternalRedirect(chain, request)) {
                 response.sendRedirect(chain); // nosemgrep: java.lang.security.audit.servlets.unvalidated-redirect.unvalidated-redirect-java -- gated by isValidInternalRedirect // lgtm[java/unvalidated-url-redirection]
             } else {
@@ -2089,6 +2091,12 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         return "windowClose";
+    }
+
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a fixed same-origin billing path (contextPath + "/billing"); only query parameters (billing/appointment request and session values) vary and cannot alter the host or scheme.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a fixed same-origin billing path (contextPath + \"/billing\"); only query parameters (billing/appointment request and session values) vary and cannot alter the host or scheme")
+    private void sendBillingRedirect(String url) throws IOException {
+        response.sendRedirect(url);
     }
 
     public String cancel() {
@@ -3928,10 +3936,12 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         // Remove any leading/trailing whitespace
         url = url.trim();
 
-        // Check for relative URLs (safe)
+        // Check for relative URLs (safe). Delegate to the shared validator, which — beyond the
+        // naive "no ://" check this method used to do — also rejects backslash and %5c
+        // (browsers normalise /\evil.com to //evil.com after a redirect), percent-encoded
+        // control characters, and path-traversal escapes.
         if (url.startsWith("/") && !url.startsWith("//")) {
-            // Ensure it doesn't contain protocol-relative URLs
-            return !url.contains("://");
+            return RedirectValidationUtils.isValidRelativeRedirect(url);
         }
 
         // Check if URL starts with the application's context path
