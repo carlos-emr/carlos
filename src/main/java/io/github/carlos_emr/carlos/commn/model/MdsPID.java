@@ -37,6 +37,9 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+/**
+ * Domain model mapping for the MdsPID table, facilitating object-relational data transfer within common application layers.
+ */
 @Entity
 @Table(name = "mdsPID")
 public class MdsPID extends AbstractModel<Integer> {
@@ -64,6 +67,8 @@ public class MdsPID extends AbstractModel<Integer> {
     private String healthNumber;
 
     public Integer getId() {
+        // Retrieves the current value mapped to the corresponding database column for MdsPID.
+
         return id;
     }
 

@@ -41,6 +41,9 @@ import jakarta.persistence.Table;
 import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
 
+/**
+ * Domain model mapping for the Immunizations table, facilitating object-relational data transfer within common application layers.
+ */
 @Entity
 @Table(name = "immunizations")
 public class Immunizations extends AbstractModel<Integer> {
@@ -64,6 +67,8 @@ public class Immunizations extends AbstractModel<Integer> {
     private int archived;
 
     public Integer getId() {
+        // Retrieves the current value mapped to the corresponding database column for Immunizations.
+
         return id;
     }
 

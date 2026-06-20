@@ -36,6 +36,9 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+/**
+ * Domain model mapping for the MessageList table, facilitating object-relational data transfer within common application layers.
+ */
 @Entity
 @Table(name = "messagelisttbl")
 public class MessageList extends AbstractModel<Integer> {
@@ -66,6 +69,8 @@ public class MessageList extends AbstractModel<Integer> {
     private int sourceFacilityId;
 
     public int getDestinationFacilityId() {
+        // Retrieves the current value mapped to the corresponding database column for MessageList.
+
         return destinationFacilityId;
     }
 

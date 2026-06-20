@@ -44,6 +44,9 @@ import jakarta.persistence.TemporalType;
  * This stores prevention report json objects
  */
 
+/**
+ * Domain model mapping for the PreventionReport table, facilitating object-relational data transfer within common application layers.
+ */
 @Entity
 public class PreventionReport extends AbstractModel<Integer> {
 	
@@ -79,6 +82,8 @@ public class PreventionReport extends AbstractModel<Integer> {
     private Date updateDate = new Date();
 
     public Date getUpdateDate() {
+        // Retrieves the current value mapped to the corresponding database column for PreventionReport.
+
         return updateDate;
     }
 

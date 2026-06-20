@@ -32,6 +32,9 @@ package io.github.carlos_emr.carlos.commn.model;
 
 import jakarta.persistence.*;
 
+/**
+ * Domain model mapping for the IncomingLabRulesType table, facilitating object-relational data transfer within common application layers.
+ */
 @Entity
 @Table(name = "incomingLabRulesType")
 public class IncomingLabRulesType extends AbstractModel<Integer> {
@@ -48,6 +51,8 @@ public class IncomingLabRulesType extends AbstractModel<Integer> {
 
     @Override
     public Integer getId() {
+        // Retrieves the current value mapped to the corresponding database column for IncomingLabRulesType.
+
         return id;
     }
 

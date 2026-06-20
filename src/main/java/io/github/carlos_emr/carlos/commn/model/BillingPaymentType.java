@@ -37,6 +37,9 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+/**
+ * Domain model mapping for the BillingPaymentType table, facilitating object-relational data transfer within common application layers.
+ */
 @Entity
 @Table(name = "billing_payment_type")
 public class BillingPaymentType extends AbstractModel<Integer> {
@@ -49,6 +52,8 @@ public class BillingPaymentType extends AbstractModel<Integer> {
     private String paymentType = "";
 
     public Integer getId() {
+        // Retrieves the current value mapped to the corresponding database column for BillingPaymentType.
+
         return id;
     }
 

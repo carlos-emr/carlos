@@ -41,6 +41,9 @@ import jakarta.persistence.Table;
 import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
 
+/**
+ * Domain model mapping for the ConsultDocs table, facilitating object-relational data transfer within common application layers.
+ */
 @Entity
 @Table(name = "consultdocs")
 public class ConsultDocs extends AbstractModel<Integer> {
@@ -85,6 +88,8 @@ public class ConsultDocs extends AbstractModel<Integer> {
     }
 
     public Integer getId() {
+        // Retrieves the current value mapped to the corresponding database column for ConsultDocs.
+
         return id;
     }
 

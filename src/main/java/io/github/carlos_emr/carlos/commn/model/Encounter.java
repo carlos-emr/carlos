@@ -41,6 +41,9 @@ import jakarta.persistence.Table;
 import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
 
+/**
+ * Domain model mapping for the Encounter table, facilitating object-relational data transfer within common application layers.
+ */
 @Entity
 @Table(name = "encounter")
 public class Encounter extends AbstractModel<Integer> {
@@ -72,6 +75,8 @@ public class Encounter extends AbstractModel<Integer> {
     private String encounterAttachment;
 
     public Integer getId() {
+        // Retrieves the current value mapped to the corresponding database column for Encounter.
+
         return id;
     }
 

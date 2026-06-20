@@ -39,6 +39,9 @@ import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
 import jakarta.persistence.Transient;
 
+/**
+ * Domain model mapping for the PrintResourceLog table, facilitating object-relational data transfer within common application layers.
+ */
 @Entity
 public class PrintResourceLog extends AbstractModel<Integer> {
 
@@ -64,6 +67,8 @@ public class PrintResourceLog extends AbstractModel<Integer> {
 
 
     public Integer getId() {
+        // Retrieves the current value mapped to the corresponding database column for PrintResourceLog.
+
         return id;
     }
 

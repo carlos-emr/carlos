@@ -36,6 +36,9 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+/**
+ * Domain model mapping for the CtlBillingServiceAgeRules table, facilitating object-relational data transfer within common application layers.
+ */
 @Entity
 @Table(name = "ctl_billingservice_age_rules")
 public class CtlBillingServiceAgeRules extends AbstractModel<Integer> {
@@ -66,6 +69,8 @@ public class CtlBillingServiceAgeRules extends AbstractModel<Integer> {
     }
 
     public Integer getId() {
+        // Retrieves the current value mapped to the corresponding database column for CtlBillingServiceAgeRules.
+
         return this.id;
     }
 

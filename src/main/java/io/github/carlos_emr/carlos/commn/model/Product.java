@@ -35,6 +35,9 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Inheritance;
 import jakarta.persistence.InheritanceType;
 
+/**
+ * Domain model mapping for the Product table, facilitating object-relational data transfer within common application layers.
+ */
 @Entity
 @Inheritance(strategy = InheritanceType.TABLE_PER_CLASS)
 public abstract class Product extends AbstractModel<Integer> {
@@ -49,6 +52,8 @@ public abstract class Product extends AbstractModel<Integer> {
 
 
     public Integer getId() {
+        // Retrieves the current value mapped to the corresponding database column for Product.
+
         return id;
     }
 

@@ -41,6 +41,9 @@ import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
+/**
+ * Domain model mapping for the PreventionExt table, facilitating object-relational data transfer within common application layers.
+ */
 @Entity
 @Table(name = "preventionsExt")
 public class PreventionExt extends AbstractModel<Integer> implements Serializable {
@@ -66,6 +69,8 @@ public class PreventionExt extends AbstractModel<Integer> implements Serializabl
     }
 
     public Integer getPreventionId() {
+        // Retrieves the current value mapped to the corresponding database column for PreventionExt.
+
         return preventionId;
     }
 

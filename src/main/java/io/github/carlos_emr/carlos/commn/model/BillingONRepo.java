@@ -41,6 +41,9 @@ import jakarta.persistence.Table;
 import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
 
+/**
+ * Domain model mapping for the BillingONRepo table, facilitating object-relational data transfer within common application layers.
+ */
 @Entity
 @Table(name = "billing_on_repo")
 public class BillingONRepo extends AbstractModel<Integer> implements Serializable {
@@ -62,6 +65,8 @@ public class BillingONRepo extends AbstractModel<Integer> implements Serializabl
 
     @Override
     public Integer getId() {
+        // Retrieves the current value mapped to the corresponding database column for BillingONRepo.
+
         return id;
     }
 

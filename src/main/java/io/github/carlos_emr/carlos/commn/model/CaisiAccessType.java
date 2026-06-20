@@ -35,6 +35,9 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+/**
+ * Domain model mapping for the CaisiAccessType table, facilitating object-relational data transfer within common application layers.
+ */
 @Entity
 @Table(name = "access_type")
 public class CaisiAccessType extends AbstractModel<Integer> {
@@ -47,6 +50,8 @@ public class CaisiAccessType extends AbstractModel<Integer> {
     private String type;
 
     public Integer getId() {
+        // Retrieves the current value mapped to the corresponding database column for CaisiAccessType.
+
         return id;
     }
 

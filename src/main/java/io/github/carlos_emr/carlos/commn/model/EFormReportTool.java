@@ -37,6 +37,9 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 
 
+/**
+ * Domain model mapping for the EFormReportTool table, facilitating object-relational data transfer within common application layers.
+ */
 @Entity
 public class EFormReportTool extends AbstractModel<Integer> {
 
@@ -62,6 +65,8 @@ public class EFormReportTool extends AbstractModel<Integer> {
 
 
     public Integer getId() {
+        // Retrieves the current value mapped to the corresponding database column for EFormReportTool.
+
         return id;
     }
 

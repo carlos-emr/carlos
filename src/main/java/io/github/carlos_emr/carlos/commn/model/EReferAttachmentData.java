@@ -8,6 +8,9 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
+/**
+ * Domain model mapping for the EReferAttachmentData table, facilitating object-relational data transfer within common application layers.
+ */
 @Entity
 @IdClass(EReferAttachmentDataCompositeKey.class)
 @Table(name = "erefer_attachment_data")
@@ -35,6 +38,8 @@ public class EReferAttachmentData extends AbstractModel<EReferAttachmentDataComp
     }
 
     public EReferAttachmentDataCompositeKey getId() {
+        // Retrieves the current value mapped to the corresponding database column for EReferAttachmentData.
+
         return new EReferAttachmentDataCompositeKey(eReferAttachment, labId, labType);
     }
 

@@ -41,6 +41,9 @@ import jakarta.persistence.Table;
 import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
 
+/**
+ * Domain model mapping for the RSchedule table, facilitating object-relational data transfer within common application layers.
+ */
 @Entity
 @Table(name = "rschedule")
 public class RSchedule extends AbstractModel<Integer> {
@@ -73,6 +76,8 @@ public class RSchedule extends AbstractModel<Integer> {
     private String status;
 
     public Integer getId() {
+        // Retrieves the current value mapped to the corresponding database column for RSchedule.
+
         return id;
     }
 

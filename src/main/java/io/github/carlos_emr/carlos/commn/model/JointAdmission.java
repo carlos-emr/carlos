@@ -39,6 +39,9 @@ import jakarta.persistence.Table;
 import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
 
+/**
+ * Domain model mapping for the JointAdmission table, facilitating object-relational data transfer within common application layers.
+ */
 @Entity
 @Table(name = "joint_admissions")
 public class JointAdmission extends AbstractModel<Integer> {
@@ -69,6 +72,8 @@ public class JointAdmission extends AbstractModel<Integer> {
     private Date admissionDate;
 
     public Integer getId() {
+        // Retrieves the current value mapped to the corresponding database column for JointAdmission.
+
         return id;
     }
 

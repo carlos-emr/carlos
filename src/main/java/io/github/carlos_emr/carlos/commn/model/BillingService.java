@@ -48,6 +48,9 @@ import jakarta.persistence.Temporal;
 
 import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingPercLimit;
 
+/**
+ * Domain model mapping for the BillingService table, facilitating object-relational data transfer within common application layers.
+ */
 @Entity
 @Table(name = "billingservice")
 public class BillingService extends AbstractModel<Integer> implements Serializable {
@@ -91,6 +94,8 @@ public class BillingService extends AbstractModel<Integer> implements Serializab
 
     @Override
     public Integer getId() {
+        // Retrieves the current value mapped to the corresponding database column for BillingService.
+
         // TODO Auto-generated method stub
         return billingserviceNo;
     }

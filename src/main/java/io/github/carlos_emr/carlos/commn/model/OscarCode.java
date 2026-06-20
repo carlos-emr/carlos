@@ -30,6 +30,9 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 
 
+/**
+ * Domain model mapping for the OscarCode table, facilitating object-relational data transfer within common application layers.
+ */
 @Entity
 public class OscarCode extends AbstractCodeSystemModel<Integer> implements java.io.Serializable {
 
@@ -49,6 +52,8 @@ public class OscarCode extends AbstractCodeSystemModel<Integer> implements java.
     }
 
     public Integer getId() {
+        // Retrieves the current value mapped to the corresponding database column for OscarCode.
+
         return this.id;
     }
 

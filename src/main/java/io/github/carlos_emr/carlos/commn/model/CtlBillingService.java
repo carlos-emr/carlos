@@ -37,6 +37,9 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+/**
+ * Domain model mapping for the CtlBillingService table, facilitating object-relational data transfer within common application layers.
+ */
 @Entity
 @Table(name = "ctl_billingservice")
 public class CtlBillingService extends AbstractModel<Integer> {
@@ -61,6 +64,8 @@ public class CtlBillingService extends AbstractModel<Integer> {
 
     @Override
     public Integer getId() {
+        // Retrieves the current value mapped to the corresponding database column for CtlBillingService.
+
         return id;
     }
 

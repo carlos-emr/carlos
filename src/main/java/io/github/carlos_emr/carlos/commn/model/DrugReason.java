@@ -82,6 +82,9 @@ create table drugReason(
  */
 
 
+/**
+ * Domain model mapping for the DrugReason table, facilitating object-relational data transfer within common application layers.
+ */
 @Entity
 @Table(name = "drugReason")
 public class DrugReason extends AbstractModel<Integer> implements Serializable {
@@ -105,6 +108,8 @@ public class DrugReason extends AbstractModel<Integer> implements Serializable {
 
     @Override
     public Integer getId() {
+        // Retrieves the current value mapped to the corresponding database column for DrugReason.
+
         return id;
     }
 

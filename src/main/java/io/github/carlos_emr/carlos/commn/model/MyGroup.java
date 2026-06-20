@@ -38,6 +38,9 @@ import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 
+/**
+ * Domain model mapping for the MyGroup table, facilitating object-relational data transfer within common application layers.
+ */
 @Entity
 @Table(name = "mygroup")
 public class MyGroup extends AbstractModel<MyGroupPrimaryKey> implements Serializable {
@@ -75,6 +78,8 @@ public class MyGroup extends AbstractModel<MyGroupPrimaryKey> implements Seriali
 
     @Override
     public MyGroupPrimaryKey getId() {
+        // Retrieves the current value mapped to the corresponding database column for MyGroup.
+
         return this.id;
     }
 

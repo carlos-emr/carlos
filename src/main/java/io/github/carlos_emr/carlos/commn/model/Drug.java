@@ -54,6 +54,9 @@ import io.github.carlos_emr.carlos.prescript.util.RxUtil;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Domain model mapping for the Drug table, facilitating object-relational data transfer within common application layers.
+ */
 @Entity
 @Table(name = "drugs")
 public class Drug extends AbstractModel<Integer> implements Serializable {
@@ -271,6 +274,8 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     }
 
     public String getDrugName() {
+        // Retrieves the current value mapped to the corresponding database column for Drug.
+
         String ret;
         if (this.isCustom()) {
 

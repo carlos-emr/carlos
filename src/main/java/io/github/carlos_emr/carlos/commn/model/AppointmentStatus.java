@@ -40,6 +40,9 @@ import jakarta.persistence.Table;
 import io.github.carlos_emr.carlos.appt.status.service.impl.AppointmentStatusMgrImpl;
 
 
+/**
+ * Domain model mapping for the AppointmentStatus table, facilitating object-relational data transfer within common application layers.
+ */
 @Entity
 @Table(name = "appointment_status")
 public class AppointmentStatus extends AbstractModel<Integer> {
@@ -71,6 +74,8 @@ public class AppointmentStatus extends AbstractModel<Integer> {
     private String shortLetterColour;
 
     public Integer getId() {
+        // Retrieves the current value mapped to the corresponding database column for AppointmentStatus.
+
         return id;
     }
 

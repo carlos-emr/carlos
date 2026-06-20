@@ -28,6 +28,9 @@ import jakarta.persistence.TemporalType;
 
 import org.apache.commons.lang3.StringUtils;
 
+/**
+ * Domain model mapping for the ProviderLabRoutingModel table, facilitating object-relational data transfer within common application layers.
+ */
 @Entity
 @Table(name = "providerLabRouting")
 public class ProviderLabRoutingModel extends AbstractModel<Integer> implements Serializable {
@@ -80,6 +83,8 @@ public class ProviderLabRoutingModel extends AbstractModel<Integer> implements S
 
     @Override
     public Integer getId() {
+        // Retrieves the current value mapped to the corresponding database column for ProviderLabRoutingModel.
+
         return id;
     }
 

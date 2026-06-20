@@ -34,6 +34,9 @@ import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 
+/**
+ * Domain model mapping for the ProviderSite table, facilitating object-relational data transfer within common application layers.
+ */
 @Entity
 @Table(name = "providersite")
 public class ProviderSite extends AbstractModel<ProviderSitePK> {
@@ -42,6 +45,8 @@ public class ProviderSite extends AbstractModel<ProviderSitePK> {
     private ProviderSitePK id;
 
     public ProviderSitePK getId() {
+        // Retrieves the current value mapped to the corresponding database column for ProviderSite.
+
         return id;
     }
 

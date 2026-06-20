@@ -29,6 +29,9 @@ package io.github.carlos_emr.carlos.commn.model;
 
 import jakarta.persistence.*;
 
+/**
+ * Domain model mapping for the AppointmentType table, facilitating object-relational data transfer within common application layers.
+ */
 @Entity
 @Table(name = "appointmentType")
 public class AppointmentType extends AbstractModel<Integer> {
@@ -63,6 +66,8 @@ public class AppointmentType extends AbstractModel<Integer> {
 
     @Override
     public Integer getId() {
+        // Retrieves the current value mapped to the corresponding database column for AppointmentType.
+
         return id;
     }
 

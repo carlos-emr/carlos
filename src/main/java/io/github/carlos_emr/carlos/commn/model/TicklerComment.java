@@ -38,6 +38,9 @@ import jakarta.persistence.*;
 import java.util.Date;
 import java.util.Locale;
 
+/**
+ * Domain model mapping for the TicklerComment table, facilitating object-relational data transfer within common application layers.
+ */
 @Entity
 @Table(name = "tickler_comments")
 public class TicklerComment extends AbstractModel<Integer> {
@@ -70,6 +73,8 @@ public class TicklerComment extends AbstractModel<Integer> {
     }
 
     public Integer getId() {
+        // Retrieves the current value mapped to the corresponding database column for TicklerComment.
+
         return id;
     }
 

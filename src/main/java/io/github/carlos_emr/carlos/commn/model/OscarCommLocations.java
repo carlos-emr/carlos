@@ -35,6 +35,9 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+/**
+ * Domain model mapping for the OscarCommLocations table, facilitating object-relational data transfer within common application layers.
+ */
 @Entity
 @Table(name = "oscarcommlocations")
 public class OscarCommLocations extends AbstractModel<Integer> {
@@ -54,6 +57,8 @@ public class OscarCommLocations extends AbstractModel<Integer> {
     private String remoteServerURL;
 
     public Integer getId() {
+        // Retrieves the current value mapped to the corresponding database column for OscarCommLocations.
+
         return id;
     }
 

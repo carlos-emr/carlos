@@ -42,6 +42,9 @@ import jakarta.persistence.TemporalType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 
+/**
+ * Domain model mapping for the FlowSheetUserCreated table, facilitating object-relational data transfer within common application layers.
+ */
 @Entity
 public class FlowSheetUserCreated extends AbstractModel<Integer> implements Serializable {
 
@@ -90,6 +93,8 @@ public class FlowSheetUserCreated extends AbstractModel<Integer> implements Seri
     private String xmlContent;
 
     public String getName() {
+        // Retrieves the current value mapped to the corresponding database column for FlowSheetUserCreated.
+
         return name;
     }
 

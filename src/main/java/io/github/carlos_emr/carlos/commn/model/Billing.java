@@ -43,6 +43,9 @@ import jakarta.persistence.TemporalType;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Domain model mapping for the Billing table, facilitating object-relational data transfer within common application layers.
+ */
 @Entity
 @Table(name = "billing")
 public class Billing extends AbstractModel<Integer> {
@@ -125,6 +128,8 @@ public class Billing extends AbstractModel<Integer> {
 
 
     public Integer getId() {
+        // Retrieves the current value mapped to the corresponding database column for Billing.
+
         return id;
     }
 

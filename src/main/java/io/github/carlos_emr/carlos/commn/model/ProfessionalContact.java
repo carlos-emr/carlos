@@ -34,6 +34,9 @@ import jakarta.persistence.Entity;
 
 import io.github.carlos_emr.carlos.integration.fhir.resources.constants.ContactType;
 
+/**
+ * Domain model mapping for the ProfessionalContact table, facilitating object-relational data transfer within common application layers.
+ */
 @Entity
 public class ProfessionalContact extends Contact {
 
@@ -48,6 +51,8 @@ public class ProfessionalContact extends Contact {
     }
 
     public String getSpecialty() {
+        // Retrieves the current value mapped to the corresponding database column for ProfessionalContact.
+
         return specialty;
     }
 

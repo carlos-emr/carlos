@@ -37,6 +37,9 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+/**
+ * Domain model mapping for the Favorite table, facilitating object-relational data transfer within common application layers.
+ */
 @Entity
 @Table(name = "favorites")
 public class Favorite extends AbstractModel<Integer> {
@@ -113,6 +116,8 @@ public class Favorite extends AbstractModel<Integer> {
     private boolean dispenseInternal = false;
 
     public Integer getId() {
+        // Retrieves the current value mapped to the corresponding database column for Favorite.
+
         return id;
     }
 

@@ -37,6 +37,9 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
 
+/**
+ * Domain model mapping for the AppDefinition table, facilitating object-relational data transfer within common application layers.
+ */
 @Entity
 public class AppDefinition extends AbstractModel<Integer> {
     public static final String OAUTH1_TYPE = "oauth1";
@@ -57,6 +60,8 @@ public class AppDefinition extends AbstractModel<Integer> {
     private Integer consentTypeId = null;
 
     public Integer getId() {
+        // Retrieves the current value mapped to the corresponding database column for AppDefinition.
+
         return id;
     }
 

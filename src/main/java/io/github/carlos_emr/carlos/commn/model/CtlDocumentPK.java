@@ -37,6 +37,9 @@ import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 
+/**
+ * Domain model mapping for the CtlDocumentPK table, facilitating object-relational data transfer within common application layers.
+ */
 @Embeddable
 public class CtlDocumentPK implements Serializable {
 
@@ -64,6 +67,8 @@ public class CtlDocumentPK implements Serializable {
     }
 
     public String getModule() {
+        // Retrieves the current value mapped to the corresponding database column for CtlDocumentPK.
+
         return module;
     }
 

@@ -35,6 +35,9 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+/**
+ * Domain model mapping for the BillingONErrorCode table, facilitating object-relational data transfer within common application layers.
+ */
 @Entity
 @Table(name = "billing_on_errorCode")
 public class BillingONErrorCode extends AbstractModel<String> {
@@ -46,6 +49,8 @@ public class BillingONErrorCode extends AbstractModel<String> {
     private String description;
 
     public String getDescription() {
+        // Retrieves the current value mapped to the corresponding database column for BillingONErrorCode.
+
         return description;
     }
 

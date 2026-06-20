@@ -47,6 +47,9 @@ import jakarta.persistence.TemporalType;
 import org.hibernate.annotations.NotFound;
 import org.hibernate.annotations.NotFoundAction;
 
+/**
+ * Domain model mapping for the TicklerUpdate table, facilitating object-relational data transfer within common application layers.
+ */
 @Entity
 @Table(name = "tickler_update")
 public class TicklerUpdate extends AbstractModel<Integer> {
@@ -88,6 +91,8 @@ public class TicklerUpdate extends AbstractModel<Integer> {
     }
 
     public Integer getId() {
+        // Retrieves the current value mapped to the corresponding database column for TicklerUpdate.
+
         return id;
     }
 
