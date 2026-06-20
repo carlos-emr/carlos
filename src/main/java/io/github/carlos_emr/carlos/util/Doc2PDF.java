@@ -44,7 +44,6 @@ import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.net.URLEncoder;
 import java.util.Locale;
 import java.util.Vector;
 
@@ -85,6 +84,7 @@ public class Doc2PDF {
     private static Logger logger = MiscUtils.getLogger();
     private static final int INTERNAL_FETCH_CONNECT_TIMEOUT_MS = 5000;
     private static final int INTERNAL_FETCH_READ_TIMEOUT_MS = 30000;
+    private static final char[] HEX_DIGITS = "0123456789ABCDEF".toCharArray();
 
     /**
      * Sends an HTTP 500 error response if the response has not yet been committed.
@@ -169,7 +169,7 @@ public class Doc2PDF {
         try {
 
             // Fetch the rendered JSP page via HTTP and parse it into a clean XHTML document
-            BufferedInputStream in = GetInputFromURI(request, jsessionid, uri);
+            BufferedInputStream in = getInputFromUri(request, jsessionid, uri);
             if (in == null) {
                 throw new IOException("Failed to fetch JSP content from the given URI");
             }
@@ -283,7 +283,11 @@ public class Doc2PDF {
      * @return BufferedInputStream the response body, or null if the connection fails
      */
     public static BufferedInputStream GetInputFromURI(String jsessionid, String uri) {
-        logger.warn("Blocked legacy Doc2PDF server-side fetch without request context");
+        if (jsessionid == null && uri == null) {
+            logger.warn("Blocked legacy Doc2PDF server-side fetch without request context and target data");
+        } else {
+            logger.warn("Blocked legacy Doc2PDF server-side fetch without request context");
+        }
         return null;
     }
 
@@ -297,7 +301,7 @@ public class Doc2PDF {
      */
     // FindSecBugs URLCONNECTION_SSRF_FD: validateInternalFetchUri rejects external hosts/schemes before openConnection.
     @SuppressFBWarnings(value = "URLCONNECTION_SSRF_FD", justification = "validateInternalFetchUri enforces same-application http(s) targets before opening a connection")
-    public static BufferedInputStream GetInputFromURI(HttpServletRequest request, String jsessionid, String uri) {
+    static BufferedInputStream getInputFromUri(HttpServletRequest request, String jsessionid, String uri) {
 
         HttpURLConnection conn = null;
         try {
@@ -307,7 +311,7 @@ public class Doc2PDF {
             URI validatedUri = validateInternalFetchUri(request, uri);
             URL url = appendSessionId(validatedUri, jsessionid).toURL();
 
-            MiscUtils.getLogger().debug("Opening internal Doc2PDF fetch for {}", validatedUri);
+            MiscUtils.getLogger().debug("Opening internal Doc2PDF fetch for validated same-application target");
 
             conn = (HttpURLConnection) url.openConnection();
             conn.setConnectTimeout(INTERNAL_FETCH_CONNECT_TIMEOUT_MS);
@@ -328,8 +332,14 @@ public class Doc2PDF {
             };
             return new BufferedInputStream(wrapped);
 
-        } catch (IllegalArgumentException | URISyntaxException e) {
-            logger.warn("Rejected internal Doc2PDF fetch: {}", e.getMessage());
+        } catch (IllegalArgumentException e) {
+            logger.warn("Rejected internal Doc2PDF fetch due to validation constraints");
+            if (conn != null) {
+                conn.disconnect();
+            }
+            return null;
+        } catch (URISyntaxException e) {
+            logger.warn("Rejected internal Doc2PDF fetch due to invalid URI syntax");
             if (conn != null) {
                 conn.disconnect();
             }
@@ -343,6 +353,7 @@ public class Doc2PDF {
         }
     }
 
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of parsed ASCII URL schemes/hosts in fail-closed SSRF validation")
     private static URI validateInternalFetchUri(HttpServletRequest request, String uri)
             throws URISyntaxException {
         if (request == null) {
@@ -411,6 +422,7 @@ public class Doc2PDF {
                 && normalizedTarget.equals(normalizeHost(candidate));
     }
 
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-folding parsed hostnames for same-connector comparison; not user identity or authorization")
     private static String normalizeHost(String host) {
         String normalized = host.trim().toLowerCase(Locale.ROOT);
         if (normalized.startsWith("[") && normalized.endsWith("]")) {
@@ -434,6 +446,7 @@ public class Doc2PDF {
         return request.getServerPort();
     }
 
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-folding parsed ASCII URL schemes for default port selection")
     private static int effectivePort(String scheme, int port) {
         if (port > 0) {
             return port;
@@ -453,14 +466,45 @@ public class Doc2PDF {
             throw new URISyntaxException(String.valueOf(uri), "JSESSIONID must not be empty");
         }
 
-        String encodedSessionId = URLEncoder.encode(jsessionid, StandardCharsets.UTF_8);
         String rawPath = uri.getRawPath();
         if (rawPath == null || rawPath.isEmpty()) {
             rawPath = "/";
         }
-        String pathWithSession = rawPath + ";jsessionid=" + encodedSessionId;
-        return new URI(uri.getScheme(), uri.getRawAuthority(), pathWithSession,
-                uri.getRawQuery(), null);
+        String pathWithSession = rawPath + ";jsessionid=" + encodePathSegment(jsessionid);
+        StringBuilder rewrittenUri = new StringBuilder()
+                .append(uri.getScheme())
+                .append("://")
+                .append(uri.getRawAuthority())
+                .append(pathWithSession);
+        if (uri.getRawQuery() != null) {
+            rewrittenUri.append('?').append(uri.getRawQuery());
+        }
+        return new URI(rewrittenUri.toString());
+    }
+
+    private static String encodePathSegment(String value) {
+        StringBuilder encoded = new StringBuilder();
+        for (byte b : value.getBytes(StandardCharsets.UTF_8)) {
+            int c = b & 0xff;
+            if (isUnreservedPathByte(c)) {
+                encoded.append((char) c);
+            } else {
+                encoded.append('%');
+                encoded.append(HEX_DIGITS[(c >> 4) & 0x0f]);
+                encoded.append(HEX_DIGITS[c & 0x0f]);
+            }
+        }
+        return encoded.toString();
+    }
+
+    private static boolean isUnreservedPathByte(int c) {
+        return (c >= 'A' && c <= 'Z')
+                || (c >= 'a' && c <= 'z')
+                || (c >= '0' && c <= '9')
+                || c == '-'
+                || c == '.'
+                || c == '_'
+                || c == '~';
     }
 
     /**

@@ -145,6 +145,7 @@ public final class DroolsHelper {
         }
     }
 
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of parsed ASCII URL schemes in fail-closed local DRL validation")
     private static void validateLocalDrlUrl(URL url) throws DroolsCompilationException {
         if (url == null) {
             throw new DroolsCompilationException("DRL URL must not be null");
@@ -164,6 +165,7 @@ public final class DroolsHelper {
         throw new DroolsCompilationException("Unsupported DRL URL protocol: " + protocol);
     }
 
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-folding parsed ASCII jar URL scheme before local file validation")
     private static void validateLocalJarUrl(URL url) throws DroolsCompilationException {
         String spec = url.getFile();
         int separator = spec.indexOf("!/");
@@ -178,6 +180,7 @@ public final class DroolsHelper {
         validateLocalFileUrl(jarFileUrl);
     }
 
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of parsed ASCII file URL scheme/localhost in fail-closed local file validation")
     private static void validateLocalFileUrl(String rawUrl) throws DroolsCompilationException {
         try {
             URI uri = new URI(rawUrl);
@@ -186,7 +189,9 @@ public final class DroolsHelper {
             }
 
             String host = uri.getHost();
-            if (host != null && !host.isEmpty() && !"localhost".equalsIgnoreCase(host)) {
+            String path = uri.getPath();
+            if ((host != null && !host.isEmpty() && !"localhost".equalsIgnoreCase(host))
+                    || (host == null && path != null && path.startsWith("//"))) {
                 throw new DroolsCompilationException("DRL file URL must not target a remote host");
             }
         } catch (URISyntaxException e) {

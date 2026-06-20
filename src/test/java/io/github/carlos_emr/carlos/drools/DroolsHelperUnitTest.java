@@ -367,6 +367,17 @@ class DroolsHelperUnitTest {
         }
 
         @Test
+        @Tag("security")
+        @DisplayName("should reject UNC file URL before opening stream")
+        void shouldRejectUncFileUrl_beforeOpeningStream() throws Exception {
+            URL uncUrl = new URL("file:////server/share/rules.drl");
+
+            assertThatThrownBy(() -> DroolsHelper.loadFromUrl(uncUrl))
+                    .isInstanceOf(DroolsCompilationException.class)
+                    .hasMessageContaining("remote host");
+        }
+
+        @Test
         @DisplayName("should reject jar URL backed by http before opening stream")
         void shouldRejectJarHttpUrl_beforeOpeningStream() throws Exception {
             URL remoteJarUrl = new URL("jar:http://169.254.169.254/rules.jar!/rules.drl");
@@ -374,6 +385,17 @@ class DroolsHelperUnitTest {
             assertThatThrownBy(() -> DroolsHelper.loadFromUrl(remoteJarUrl))
                     .isInstanceOf(DroolsCompilationException.class)
                     .hasMessageContaining("Unsupported DRL jar URL protocol");
+        }
+
+        @Test
+        @Tag("security")
+        @DisplayName("should reject jar URL backed by UNC file before opening stream")
+        void shouldRejectJarUncFileUrl_beforeOpeningStream() throws Exception {
+            URL remoteJarUrl = new URL("jar:file:////server/share/rules.jar!/rules.drl");
+
+            assertThatThrownBy(() -> DroolsHelper.loadFromUrl(remoteJarUrl))
+                    .isInstanceOf(DroolsCompilationException.class)
+                    .hasMessageContaining("remote host");
         }
 
         /**
