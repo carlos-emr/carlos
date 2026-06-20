@@ -203,7 +203,7 @@
 
     <script>
         function deleteProp() {
-            var r = confirm("<%=bundle.getString("provider.setLabRecallPrefs.confirmDelete")%>");
+            var r = confirm('<carlos:encode value='<%=bundle.getString("provider.setLabRecallPrefs.confirmDelete") %>' context="javascriptBlock"/>');
             if (r == true) {
                 document.forms[0].reset();
                 document.forms[0]['labRecallDelegate.value'].value = "";
