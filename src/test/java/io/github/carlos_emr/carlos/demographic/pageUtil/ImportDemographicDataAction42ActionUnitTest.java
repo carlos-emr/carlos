@@ -209,8 +209,14 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
 
     @Test
     @DisplayName("should allow relative report paths")
-    void shouldAllowRelativeReportPaths() throws Exception {
+    void shouldAllowRelativeReportPaths_whenPathIsRelative() throws Exception {
         assertThat(invokeIsAbsoluteReportPath("reports/result.pdf")).isFalse();
+    }
+
+    @Test
+    @DisplayName("should reject report paths containing null characters")
+    void shouldRejectReportPath_whenPathContainsNullCharacter() throws Exception {
+        assertThat(invokeIsAbsoluteReportPath("reports/result.pdf\0")).isTrue();
     }
 
     @Test
