@@ -1658,7 +1658,7 @@ public class ProviderProperty2Action extends ActionSupport {
         providerList.add(new LabelValueBean("Select", "")); //key, value
 
         ProviderDao dao = SpringUtils.getBean(ProviderDao.class);
-        List<Provider> ps = dao.getProviders();
+        List<Provider> ps = dao.getProviders(true);
         Collections.sort(ps, Comparator.comparing(Provider::getLastName));
         try {
             for (Provider p : ps) {

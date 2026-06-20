@@ -28,11 +28,28 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+
+
+<%--
+    setLabRecallPrefs.jsp
+
+    POSTs to setProviderStaleDate via method saveLabRecallPrefs
+
+    Provides UI for Lab Recall settings
+
+    @param method       viewLabRecall
+    @since 2017-07-28
+	
+--%>
 <%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <%@ page import="java.util.*" %>
 <%@ page import="java.util.ResourceBundle"%>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
+
 <%
     if (session.getAttribute("user") == null)
         response.sendRedirect(request.getContextPath() + "/logout.htm");
@@ -45,77 +62,144 @@
     String providermsgEdit = (String) request.getAttribute("providermsgEdit");
     String providermsgSuccess = (String) request.getAttribute("providermsgSuccess");
 %>
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
-<html>
-    <head>
-    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
-        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
-        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <title><%=bundle.getString(providertitle)%></title>
-        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
-    </head>
 
-    <body class="BodyStyle" vlink="#0000FF">
+<!DOCTYPE html>
+<html lang="${pageContext.request.locale.language}">
+<head>
+	<link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
+	<base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>"
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+	
+    <title><fmt:message key="provider.btnLabRecallSettings"/></title>
+    <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
 
-    <table class="MainTable" id="scrollNumber1" name="encounterTable">
-        <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn"><%=bundle.getString(providermsgPrefs)%></td>
-            <td style="color: white" class="MainTableTopRowRightColumn"><%=bundle.getString(providermsgProvider)%></td>
-        </tr>
-        <tr>
-            <td class="MainTableLeftColumn">&nbsp;</td>
-            <td class="MainTableRightColumn">
-                <%if (request.getAttribute("status") == null) {%>
-                <%=bundle.getString(providermsgEdit)%>
-                <form action="${pageContext.request.contextPath}/setProviderStaleDate" method="post">
-                    <input type="hidden" name="method" value="${carlos:forHtmlAttribute(method)}">
-                    <table>
-                        <tr>
-                            <td><%=bundle.getString("provider.setLabRecallPrefs.delegate")%> <font color="red"><%=bundle.getString("provider.setLabRecallPrefs.required")%></font></td>
-                            <td>
-                                <select name="labRecallDelegate.value" id="labRecallDelegate.value" onchange="delegateCheck();">
-                                    <c:forEach var="provider" items="${providerSelect}">
-                                        <option value="${provider.value}" <c:if test="${provider.value == labRecallDelegate.value}">selected</c:if> >
-                                                ${provider.label}
-                                        </option>
-                                    </c:forEach>
-                                </select>
-                            </td>
-                        </tr>
+    <!--    The global-head.jspf fragment provides:
+        - Viewport meta tag for responsive design
+        - global.js (legacy focus/refresh helpers)
+        - jQuery 3.7.1
+        - Bootstrap 5.3.3 (JS bundle + CSS)
+        - jQuery UI 1.14.2 CSS (JS must be included page-specifically where dialogs/widgets are needed)
+        - Font Awesome 6.7.2 (icon library)
+        - searchBox.css (shared search/form styles)
+        - global.css (CARLOS design tokens and common classes)
+    -->
 
-                        <tr>
-                            <td><%=bundle.getString("provider.setLabRecallPrefs.defaultSubject")%></td>
-                            <td><input type="text" name="labRecallMsgSubject.value" value="${carlos:forHtmlAttribute(subject.value)}" size="50" /></td>
-                        </tr>
+</head>
+<body>
 
-                        <tr>
-                            <td><%=bundle.getString("provider.setLabRecallPrefs.ticklerAssignee")%></td>
-                            <td><input type="checkbox" name="labRecallTicklerAssignee.checked" <c:if test="${labRecallTicklerAssignee.checked}">checked</c:if> /><%=bundle.getString("provider.setLabRecallPrefs.defaultToDelegate")%></td>
-                        </tr>
+<!-- ================================================================
+     CONTAINER — outermost wrapper; constrains max-width and centers
+     content on large screens while staying full-width on mobile.
+     ================================================================ -->
+<div class="container">
 
-                        <tr>
-                            <td><%=bundle.getString("provider.setLabRecallPrefs.ticklerPriority")%></td>
-                            <td><select name="labRecallTicklerPriority.value" id="labRecallTicklerPriority.value">
-                                <c:forEach var="priority" items="${prioritySelect}">
-                                    <option value="${priority.value}" <c:if test="${priority.value == labRecallTicklerPriority.value}">selected</c:if> >
-                                            ${priority.label}
-                                    </option>
-                                </c:forEach>
-                            </select></td>
-                        </tr>
 
-                    </table>
-                    <input type="submit" name="btnApply" value="<%=bundle.getString("provider.setLabRecallPrefs.submit")%>" />
-                    <input type="button" name="delete" value="<%=bundle.getString("provider.setLabRecallPrefs.delete")%>" onclick="deleteProp();" style="display:none;">
-                </form> <%} else {%> <%=bundle.getString(providermsgSuccess)%> <br>
-                <%}%>
-            </td>
-        </tr>
-        <tr>
-            <td class="MainTableBottomRowLeftColumn"></td>
-            <td class="MainTableBottomRowRightColumn"></td>
-        </tr>
-    </table>
+    <!-- ============================================================
+         PAGE HEADER BAR — short title + long title (icon optional).
+         Mirrors the OSCAR MainTableTopRow / TopStatusBar pattern.
+         Structure:
+           [icon?] [Short Title]   [Long Title .....................]
+         ============================================================ -->
+    <div class="page-header-bar d-flex align-items-center justify-content-between
+                py-2 mb-3 border-bottom" id="header">
+        <div class="d-flex align-items-center gap-2">
+            <i class="fa-solid fa-user-gear" aria-hidden="true"></i>
+            <span class="fw-semibold"><fmt:message key="provider.setLabRecall.msgProfileView"/></span>
+        </div>
+        <div class="text-muted small"><fmt:message key="provider.setLabRecall.title"/></div>
+    </div>
+	<%if (request.getAttribute("status") == null) {%>
+			<%=bundle.getString(providermsgEdit)%>
+			<form action="${pageContext.request.contextPath}/setProviderStaleDate" method="post">
+				<input type="hidden" name="method" value="${carlos:forHtmlAttribute(method)}">
+    <!-- ============================================================
+         MAIN CONTENT WRAPPER — light background card to separate
+         page content from the body background.
+         ============================================================ -->
+    <div class="bg-light border rounded p-2">
+
+            <!-- ==================================================
+                 CONTENT ROW — two-column layout:
+                   col-12 col-md-2 : left sidebar  (OSCAR left col)
+                   col-12 col-md-10: right content (OSCAR right col)
+                 On small screens both columns stack vertically.
+                 ================================================== -->
+            <div class="row g-2">
+
+                <!-- LEFT SIDEBAR COLUMN
+                     Mirrors: MainTableLeftColumn
+                     Contains navigation links / contextual actions. -->
+                <div class="col-12 col-md-2">
+                    <nav class="d-flex flex-column gap-1" aria-label="Sidebar navigation">
+                    </nav>
+                </div>
+                <!-- RIGHT CONTENT COLUMN
+                     Mirrors: MainTableRightColumn
+                     Contains the primary form and data entry area. -->
+                <div class="col-12 col-md-10">
+
+                    <!-- input group -->
+                    <div class="mb-3">
+                        <label for="labRecallDelegate.value" class="form-label form-label-sm" 
+							title="<fmt:message key="provider.setLabRecallPrefs.required"/>">
+                            <fmt:message key="provider.setLabRecallPrefs.delegate"/><span style="color:red;">*</span>
+                        </label>
+                        <select name="labRecallDelegate.value" id="labRecallDelegate.value" onchange="delegateCheck();" title="<fmt:message key="admin.jobs.choose"/>"
+						class="form-select form-select-sm flex-grow-1">
+                            <c:forEach var="provider" items="${providerSelect}">
+                                <option value="${provider.value}" <c:if test="${provider.value == labRecallDelegate.value}">selected</c:if> >
+                                    ${provider.label}
+                                </option>
+                            </c:forEach>
+                        </select>
+                    </div>
+                    <!-- input group -->
+                    <div class="mb-3">
+                        <label for="labRecallMsgSubject.value" class="form-label form-label-sm">
+                            <fmt:message key="provider.setLabRecallPrefs.defaultSubject"/>
+                        </label>
+                        <input type="text" name="labRecallMsgSubject.value" id="labRecallMsgSubject.value" class="form-control"
+						value="${carlos:forHtmlAttribute(subject.value)}" />
+                    </div>
+                    <!-- input group -->
+                    <div class="mb-3">
+                        <label for="labRecallTicklerPriority.value" class="form-label form-label-sm">
+                            <fmt:message key="provider.setLabRecallPrefs.ticklerPriority"/>
+                        </label>
+                        <select name="labRecallTicklerPriority.value" id="labRecallTicklerPriority.value" onchange="delegateCheck();"  title="<fmt:message key="admin.jobs.choose"/>" 
+						class="form-select form-select-sm flex-grow-1">
+                            <c:forEach var="priority" items="${prioritySelect}">
+                                <option value="${priority.value}" <c:if test="${priority.value == labRecallTicklerPriority.value}">selected</c:if> >
+                                        ${priority.label}
+                                </option>
+                            </c:forEach>
+                        </select>
+                    </div>					
+                    <!-- Primary action -->
+                    <div class="mb-2">
+						<input type="submit" name="btnApply" class="btn btn-primary btn-sm" value=" <fmt:message key="provider.setLabRecallPrefs.submit"/>">
+                        <input type="button" name="delete" class="btn btn-danger btn-sm" value="<fmt:message key="provider.setLabRecallPrefs.delete"/>" onclick="deleteProp();" style="display:none;">
+                    </div>
+
+                </div><!-- end right column -->
+
+            </div><!-- end .row -->
+
+    </div><!-- end .bg-light -->
+				</form> <%} else {%>
+				<div id="AlertBanner"
+					 class="alert alert-success alert-dismissible"
+					 role="alert">
+					<span id="AlertText"><%=bundle.getString(providermsgSuccess)%></span>
+					<button type="button"
+							class="btn-close"
+							onclick="this.closest('.alert').style.display='none'"
+							aria-label="Close"></button>
+				</div>				
+            <%}%>
+
+</div><!-- end .container -->
 
     <script>
         function deleteProp() {
@@ -143,5 +227,6 @@
         }
 
     </script>
-    </body>
+
+</body>
 </html>
