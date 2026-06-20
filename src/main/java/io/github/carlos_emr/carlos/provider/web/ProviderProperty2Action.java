@@ -1702,23 +1702,26 @@ public class ProviderProperty2Action extends ActionSupport {
 
     public String saveLabRecallPrefs() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.WRITE, null)) {
+            throw new SecurityException("missing required sec object (_admin)");
+        }
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         UserProperty s = this.getLabRecallMsgSubject();
         String subject = s != null ? s.getValue() : "";
 
-        String delegate = request.getParameter("labRecallDelegate.value");
+        String delegate = StringUtils.trimToEmpty(request.getParameter("labRecallDelegate.value"));
+
         String priority = request.getParameter("labRecallTicklerPriority.value");
 
         boolean assignee = request.getParameter("labRecallTicklerAssignee.checked") != null;
 
-        boolean delete = false;
-        if (delegate.equals("")) {
-            delete = true;
-        }
+        boolean delete = delegate.isEmpty();
+        boolean invalidDelegate = false;
+
 
         // Validate delegate is an active provider before persisting
-        if (!delete && delegate != null && !delegate.isEmpty()) {
+        if (!delete) {
             ProviderDao dao = SpringUtils.getBean(ProviderDao.class);
             List<Provider> activeProviders = dao.getProviders(true);
             boolean validDelegate = activeProviders.stream()
@@ -1726,9 +1729,14 @@ public class ProviderProperty2Action extends ActionSupport {
 
             if (!validDelegate) {
                 MiscUtils.getLogger().warn("Invalid or inactive provider selected as lab recall delegate");
-                // Reject invalid delegate - don't persist
-                delete = true;
+                invalidDelegate = true;
             }
+        }
+
+        if (invalidDelegate) {
+            request.setAttribute("status", "error");
+            request.setAttribute("providermsgSuccess", "provider.setLabRecall.msgInvalidDelegate");
+            return viewLabRecall();
         }
 
         // Save delegate (dropdown)
