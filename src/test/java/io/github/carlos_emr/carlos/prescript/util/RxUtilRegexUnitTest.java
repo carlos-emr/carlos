@@ -168,6 +168,14 @@ class RxUtilRegexUnitTest {
         }
 
         @Test
+        @DisplayName("should parse word dosage after method")
+        void shouldParseWordDosage_afterMethod() {
+            RxPrescriptionData.Prescription rx = parse("Take one tablet BID ");
+            assertThat(rx.getTakeMax()).isEqualTo(1.0f);
+            assertThat(rx.getFrequencyCode()).isEqualToIgnoringCase("BID");
+        }
+
+        @Test
         @DisplayName("should parse decimal dosage with frequency")
         void shouldParseDecimalDosage_withFrequency() {
             RxPrescriptionData.Prescription rx = parse("Take 1.5 BID ");

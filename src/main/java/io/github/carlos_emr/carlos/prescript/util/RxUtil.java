@@ -1188,8 +1188,7 @@ public class RxUtil {
 
     private static String findWordAmountAfterMethod(String instructions, String method, String word, String suffix) {
         String safeMethod = Pattern.quote(method);
-        String safeWord = Pattern.quote(word);
-        String regex = safeMethod + "\\s+" + safeWord + suffix;
+        String regex = safeMethod + "\\s+" + word + suffix;
         Pattern pattern = Pattern.compile(regex);
         Matcher matcher = pattern.matcher(instructions);
         p("pattern word =" + regex);
