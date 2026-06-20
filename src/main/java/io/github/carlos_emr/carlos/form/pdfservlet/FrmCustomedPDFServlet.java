@@ -150,14 +150,9 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                     String pdfFile = "prescription_" + pdfid + ".pdf";
                     String document_dir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
                     
-                    Path filepath;
-                    try {
-                        filepath = prepareValidatedFaxFiles(document_dir, pdfid, pdfFile, faxNo, baosPDF);
-                    } catch (SecurityException e) {
-                        logger.warn("Prescription fax file path validation failed: {}", e.getClass().getSimpleName());
-                        res.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-                        writer.println("<div id='fax-failure'><h3>Error: Unable to generate fax.</h3><p>Please try again or contact support if the problem persists.</p></div>");
-                        writer.flush();
+                    Path filepath = prepareValidatedFaxFilesOrReportFailure(document_dir, pdfid, pdfFile, faxNo,
+                            baosPDF, res, writer);
+                    if (filepath == null) {
                         return;
                     }
 
@@ -258,6 +253,20 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             writer.println("<script>alert('Signature not found. Please sign the prescription.');</script>");
         }
 
+    }
+
+    private Path prepareValidatedFaxFilesOrReportFailure(String documentDir, String pdfid, String pdfFile,
+            String faxNo, ByteArrayOutputStream baosPDF, HttpServletResponse res, PrintWriter writer)
+            throws IOException {
+        try {
+            return prepareValidatedFaxFiles(documentDir, pdfid, pdfFile, faxNo, baosPDF);
+        } catch (SecurityException e) {
+            logger.warn("Prescription fax file path validation failed: {}", e.getClass().getSimpleName());
+            res.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            writer.println("<div id='fax-failure'><h3>Error: Unable to generate fax.</h3><p>Please try again or contact support if the problem persists.</p></div>");
+            writer.flush();
+            return null;
+        }
     }
 
     private Path prepareValidatedFaxFiles(String documentDir, String pdfid, String pdfFile, String faxNo,
