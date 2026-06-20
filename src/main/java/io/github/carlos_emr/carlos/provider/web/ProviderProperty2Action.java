@@ -1707,7 +1707,7 @@ public class ProviderProperty2Action extends ActionSupport {
         UserProperty s = this.getLabRecallMsgSubject();
         String subject = s != null ? s.getValue() : "";
 
-        String delegate = request.getParameter("labRecallDelegate.value"); 
+        String delegate = request.getParameter("labRecallDelegate.value");
         String priority = request.getParameter("labRecallTicklerPriority.value");
 
         boolean assignee = request.getParameter("labRecallTicklerAssignee.checked") != null;
@@ -1715,6 +1715,20 @@ public class ProviderProperty2Action extends ActionSupport {
         boolean delete = false;
         if (delegate.equals("")) {
             delete = true;
+        }
+
+        // Validate delegate is an active provider before persisting
+        if (!delete && delegate != null && !delegate.isEmpty()) {
+            ProviderDao dao = SpringUtils.getBean(ProviderDao.class);
+            List<Provider> activeProviders = dao.getProviders(true);
+            boolean validDelegate = activeProviders.stream()
+                .anyMatch(p -> p.getProviderNo().equals(delegate));
+
+            if (!validDelegate) {
+                MiscUtils.getLogger().warn("Invalid or inactive provider selected as lab recall delegate");
+                // Reject invalid delegate - don't persist
+                delete = true;
+            }
         }
 
         // Save delegate (dropdown)

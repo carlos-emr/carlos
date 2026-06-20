@@ -148,8 +148,8 @@
                         <select name="labRecallDelegate.value" id="labRecallDelegate.value" onchange="delegateCheck();" title="<fmt:message key="admin.jobs.choose"/>"
 						class="form-select form-select-sm flex-grow-1">
                             <c:forEach var="provider" items="${providerSelect}">
-                                <option value="${provider.value}" <c:if test="${provider.value == labRecallDelegate.value}">selected</c:if> >
-                                    ${provider.label}
+                                <option value="${carlos:forHtmlAttribute(provider.value)}" <c:if test="${provider.value == labRecallDelegate.value}">selected</c:if> >
+                                    ${carlos:forHtmlContent(provider.label)}
                                 </option>
                             </c:forEach>
                         </select>
@@ -164,9 +164,9 @@
                     </div>
                     <!-- input group -->
                     <div class="mb-3">
-                        <label class="form-label form-label-sm">
+                        <div class="form-label form-label-sm">
                             <fmt:message key="provider.setLabRecallPrefs.ticklerAssignee"/>
-                        </label>
+                        </div>
                         <div class="form-check">
                             <input type="checkbox" name="labRecallTicklerAssignee.checked" id="labRecallTicklerAssignee.checked" class="form-check-input" <c:if test="${labRecallTicklerAssignee.checked}">checked</c:if> />
                             <label class="form-check-label" for="labRecallTicklerAssignee.checked">
@@ -179,14 +179,14 @@
                         <label for="labRecallTicklerPriority.value" class="form-label form-label-sm">
                             <fmt:message key="provider.setLabRecallPrefs.ticklerPriority"/>
                         </label>
-                        <select name="labRecallTicklerPriority.value" id="labRecallTicklerPriority.value" onchange="delegateCheck();"   
+                        <select name="labRecallTicklerPriority.value" id="labRecallTicklerPriority.value" onchange="delegateCheck();"
 						class="form-select form-select-sm flex-grow-1">
                             <option value="" ><fmt:message key="admin.jobs.choose"/></option>
-                            <option value="High" <c:if test="'High' eq ${labRecallTicklerPriority.value}">
+                            <option value="High" <c:if test="${'High' eq labRecallTicklerPriority.value}">
 selected</c:if>><fmt:message key="tickler.ticklerMain.priority.high"/></option>
-							<option value="Normal" <c:if test="'Normal' eq requestScope.labRecallTicklerPriority.value">
+							<option value="Normal" <c:if test="${'Normal' eq labRecallTicklerPriority.value}">
 selected</c:if>><fmt:message key="tickler.ticklerMain.priority.normal"/></option>
-							<option value="Low" <c:if test="'Low' eq requestScope.labRecallTicklerPriority.value">
+							<option value="Low" <c:if test="${'Low' eq labRecallTicklerPriority.value}">
 selected</c:if>><fmt:message key="tickler.ticklerMain.priority.low"/></option>
                         </select>
                     </div>					
@@ -205,12 +205,12 @@ selected</c:if>><fmt:message key="tickler.ticklerMain.priority.low"/></option>
 				<div id="AlertBanner"
 					 class="alert alert-success alert-dismissible"
 					 role="alert">
-					<span id="AlertText"><fmt:message key="provider.setLabRecall.msgSuccess"/></span>
+					<span id="AlertText"><fmt:message key="<%=providermsgSuccess%>"/></span>
 					<button type="button"
 							class="btn-close"
 							onclick="this.closest('.alert').style.display='none'"
 							aria-label="Close"></button>
-				</div>				
+				</div>
             <%}%>
 
 </div><!-- end .container -->
