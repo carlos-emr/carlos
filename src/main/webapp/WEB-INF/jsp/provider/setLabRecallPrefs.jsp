@@ -234,10 +234,12 @@ selected</c:if>><fmt:message key="tickler.ticklerMain.priority.low"/></option>
             }
         }
 
-        delegateCheck();
+        if (document.forms.length > 0) {
+            delegateCheck();
 
-        if (document.forms[0]['labRecallDelegate.value'].value != "") {
-            document.forms[0]['delete'].style.display = "inline";
+            if (document.forms[0]['labRecallDelegate.value'].value != "") {
+                document.forms[0]['delete'].style.display = "inline";
+            }
         }
 
     </script>
