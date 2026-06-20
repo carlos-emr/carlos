@@ -256,12 +256,11 @@ public class FrmCustomedPDFServlet extends HttpServlet {
     }
 
     private Path prepareValidatedFaxFilesOrReportFailure(String documentDir, String pdfid, String pdfFile,
-            String faxNo, ByteArrayOutputStream baosPDF, HttpServletResponse res, PrintWriter writer)
-            throws IOException {
+            String faxNo, ByteArrayOutputStream baosPDF, HttpServletResponse res, PrintWriter writer) {
         try {
             return prepareValidatedFaxFiles(documentDir, pdfid, pdfFile, faxNo, baosPDF);
-        } catch (SecurityException e) {
-            logger.warn("Prescription fax file path validation failed: {}", e.getClass().getSimpleName());
+        } catch (SecurityException | IOException e) {
+            logger.warn("Prescription fax file preparation failed: {}", e.getClass().getSimpleName());
             res.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             writer.println("<div id='fax-failure'><h3>Error: Unable to generate fax.</h3><p>Please try again or contact support if the problem persists.</p></div>");
             writer.flush();
