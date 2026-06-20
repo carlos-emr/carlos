@@ -390,6 +390,9 @@ public class Doc2PDF {
         if (targetPath == null || targetPath.isEmpty()) {
             targetPath = "/";
         }
+        if (containsDotSegment(targetPath)) {
+            throw new IllegalArgumentException("Internal Doc2PDF fetch URI must not contain path traversal");
+        }
         if (!contextPath.isEmpty()
                 && !targetPath.equals(contextPath)
                 && !targetPath.startsWith(contextPath + "/")) {
@@ -417,6 +420,15 @@ public class Doc2PDF {
         return candidate != null
                 && !candidate.trim().isEmpty()
                 && normalizedTarget.equals(normalizeHost(candidate));
+    }
+
+    private static boolean containsDotSegment(String path) {
+        for (String segment : path.split("/", -1)) {
+            if (".".equals(segment) || "..".equals(segment)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-folding parsed hostnames for same-connector comparison; not user identity or authorization")

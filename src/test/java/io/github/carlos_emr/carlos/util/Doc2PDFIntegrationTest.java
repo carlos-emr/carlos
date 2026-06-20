@@ -275,6 +275,14 @@ class Doc2PDFIntegrationTest extends CarlosTestBase {
 
     @Test
     @Tag("security")
+    @DisplayName("should reject Doc2PDF internal fetch when path contains encoded dot segment")
+    void shouldRejectInternalFetch_whenPathContainsEncodedDotSegment() {
+        assertThat(Doc2PDF.openValidatedInternalFetch(request, "ABC123",
+                "http://localhost:8080/openo/%2e%2e/admin/report.jsp")).isNull();
+    }
+
+    @Test
+    @Tag("security")
     @DisplayName("should reject legacy Doc2PDF fetch without request context")
     void shouldRejectLegacyInternalFetch_withoutRequestContext() {
         assertThat(Doc2PDF.GetInputFromURI("ABC123",
