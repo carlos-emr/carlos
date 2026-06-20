@@ -254,7 +254,7 @@ class Doc2PDFIntegrationTest extends CarlosTestBase {
     @Tag("security")
     @DisplayName("should reject Doc2PDF internal fetch when target host differs")
     void shouldRejectInternalFetch_whenTargetHostDiffers() {
-        assertThat(Doc2PDF.getInputFromUri(request, "ABC123",
+        assertThat(Doc2PDF.openValidatedInternalFetch(request, "ABC123",
                 "http://169.254.169.254/openo/report.jsp")).isNull();
     }
 
@@ -262,14 +262,14 @@ class Doc2PDFIntegrationTest extends CarlosTestBase {
     @Tag("security")
     @DisplayName("should reject Doc2PDF internal fetch when URI uses file scheme")
     void shouldRejectInternalFetch_whenUriUsesFileScheme() {
-        assertThat(Doc2PDF.getInputFromUri(request, "ABC123", "file:///etc/passwd")).isNull();
+        assertThat(Doc2PDF.openValidatedInternalFetch(request, "ABC123", "file:///etc/passwd")).isNull();
     }
 
     @Test
     @Tag("security")
     @DisplayName("should reject Doc2PDF internal fetch outside current context path")
     void shouldRejectInternalFetch_whenOutsideContextPath() {
-        assertThat(Doc2PDF.getInputFromUri(request, "ABC123",
+        assertThat(Doc2PDF.openValidatedInternalFetch(request, "ABC123",
                 "http://localhost:8080/admin/report.jsp")).isNull();
     }
 

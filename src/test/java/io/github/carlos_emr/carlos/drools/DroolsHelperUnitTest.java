@@ -357,6 +357,7 @@ class DroolsHelperUnitTest {
         }
 
         @Test
+        @Tag("security")
         @DisplayName("should reject http URL before opening stream")
         void shouldRejectHttpUrl_beforeOpeningStream() throws Exception {
             URL remoteUrl = new URL("http://169.254.169.254/latest/meta-data/rules.drl");
@@ -378,6 +379,7 @@ class DroolsHelperUnitTest {
         }
 
         @Test
+        @Tag("security")
         @DisplayName("should reject jar URL backed by http before opening stream")
         void shouldRejectJarHttpUrl_beforeOpeningStream() throws Exception {
             URL remoteJarUrl = new URL("jar:http://169.254.169.254/rules.jar!/rules.drl");

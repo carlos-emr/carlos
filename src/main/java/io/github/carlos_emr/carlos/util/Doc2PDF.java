@@ -169,7 +169,7 @@ public class Doc2PDF {
         try {
 
             // Fetch the rendered JSP page via HTTP and parse it into a clean XHTML document
-            BufferedInputStream in = getInputFromUri(request, jsessionid, uri);
+            BufferedInputStream in = openValidatedInternalFetch(request, jsessionid, uri);
             if (in == null) {
                 throw new IOException("Failed to fetch JSP content from the given URI");
             }
@@ -301,7 +301,7 @@ public class Doc2PDF {
      */
     // FindSecBugs URLCONNECTION_SSRF_FD: validateInternalFetchUri rejects external hosts/schemes before openConnection.
     @SuppressFBWarnings(value = "URLCONNECTION_SSRF_FD", justification = "validateInternalFetchUri enforces same-application http(s) targets before opening a connection")
-    static BufferedInputStream getInputFromUri(HttpServletRequest request, String jsessionid, String uri) {
+    static BufferedInputStream openValidatedInternalFetch(HttpServletRequest request, String jsessionid, String uri) {
 
         HttpURLConnection conn = null;
         try {
@@ -340,9 +340,6 @@ public class Doc2PDF {
             return null;
         } catch (URISyntaxException e) {
             logger.warn("Rejected internal Doc2PDF fetch due to invalid URI syntax");
-            if (conn != null) {
-                conn.disconnect();
-            }
             return null;
         } catch (Exception e) {
             logger.error("Failed to open HTTP connection to fetch URI content", e);
