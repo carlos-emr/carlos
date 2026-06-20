@@ -1,9 +1,9 @@
-# Contribution [#]: [Issue Title]
+# Contribution 2182: Smoke test: eForm image directory is missing during startup
 
 **Contribution Number:** 2182  
 **Student:** Hana Ahmed 
 **Issue:** https://github.com/carlos-emr/carlos/issues/2182#event-25727024596
-**Status:** Phase II
+**Status:** Phase III
 
 ---
 
@@ -135,21 +135,22 @@ Run the devcontainer, check the directory path, open an eForm that previously ha
 
 Just getting started - cloned the fork, reading through issues, trying to locate the exact files. Need to search the codebase for the warning message.
 
-### Week [Y] Progress
+### Week [3] Progress
 
-[Continue documenting as you work]
+Located EFormAssetDeployer.java as the source of the bug. Replaced the early return in the if (!targetDir.isDirectory()) block with a mkdirs() call that auto-creates the directory. Committed with DCO sign-off and pushed to working branch.
 
 ### Code Changes
 
 - **Files modified:** src/main/java/io/github/carlos_emr/carlos/eform/EFormAssetDeployer.java
-- **Key commits:** None yet
+- **Key commits:** Replaced early return with mkdirs() to auto-create eForm image directory on startup
 - **Approach decisions:** Will check if maintainers reply to my comment before opening PR
 
 ---
 
 ## Pull Request
 
-PR Link: Not yet submitted
+PR Link:https://github.com/carlos-emr/carlos/pull/2971
+Status: Submitted — awaiting maintainer review
 
 PR Description: Will adapt this template once PR is ready
 
@@ -165,7 +166,7 @@ Status: Researching / Locating files
 
 ### Technical Skills Gained
 
-Not yet - still in planning phase
+Learned how to navigate a large Java codebase using VS Code search. Understood Spring's InitializingBean startup pattern. Learned that git commits to open source projects require DCO sign-off.
 
 
 ### Challenges Overcome
