@@ -42,6 +42,7 @@
 	
 --%>
 <%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
+<%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <%@ page import="java.util.*" %>
 <%@ page import="java.util.ResourceBundle"%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
@@ -66,14 +67,14 @@
 <html lang="${pageContext.request.locale.language}">
 <head>
 	<link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
-	<base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>"
+	<base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 	
     <title><fmt:message key="provider.btnLabRecallSettings"/></title>
     <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
 
-    <!--    The global-head.jspf fragment provides:
+    <%--    The global-head.jspf fragment provides:
         - Viewport meta tag for responsive design
         - global.js (legacy focus/refresh helpers)
         - jQuery 3.7.1
@@ -82,7 +83,7 @@
         - Font Awesome 6.7.2 (icon library)
         - searchBox.css (shared search/form styles)
         - global.css (CARLOS design tokens and common classes)
-    -->
+    --%>
 
 </head>
 <body>
@@ -163,16 +164,30 @@
                     </div>
                     <!-- input group -->
                     <div class="mb-3">
+                        <label class="form-label form-label-sm">
+                            <fmt:message key="provider.setLabRecallPrefs.ticklerAssignee"/>
+                        </label>
+                        <div class="form-check">
+                            <input type="checkbox" name="labRecallTicklerAssignee.checked" id="labRecallTicklerAssignee.checked" class="form-check-input" <c:if test="${labRecallTicklerAssignee.checked}">checked</c:if> />
+                            <label class="form-check-label" for="labRecallTicklerAssignee.checked">
+                                <fmt:message key="provider.setLabRecallPrefs.defaultToDelegate"/>
+                            </label>
+                        </div>
+                    </div>
+                    <!-- input group -->
+                    <div class="mb-3">
                         <label for="labRecallTicklerPriority.value" class="form-label form-label-sm">
                             <fmt:message key="provider.setLabRecallPrefs.ticklerPriority"/>
                         </label>
-                        <select name="labRecallTicklerPriority.value" id="labRecallTicklerPriority.value" onchange="delegateCheck();"  title="<fmt:message key="admin.jobs.choose"/>" 
+                        <select name="labRecallTicklerPriority.value" id="labRecallTicklerPriority.value" onchange="delegateCheck();"   
 						class="form-select form-select-sm flex-grow-1">
-                            <c:forEach var="priority" items="${prioritySelect}">
-                                <option value="${priority.value}" <c:if test="${priority.value == labRecallTicklerPriority.value}">selected</c:if> >
-                                        ${priority.label}
-                                </option>
-                            </c:forEach>
+                            <option value="" ><fmt:message key="admin.jobs.choose"/></option>
+                            <option value="High" <c:if test="'High' eq ${labRecallTicklerPriority.value}">
+selected</c:if>><fmt:message key="tickler.ticklerMain.priority.high"/></option>
+							<option value="Normal" <c:if test="'Normal' eq requestScope.labRecallTicklerPriority.value">
+selected</c:if>><fmt:message key="tickler.ticklerMain.priority.normal"/></option>
+							<option value="Low" <c:if test="'Low' eq requestScope.labRecallTicklerPriority.value">
+selected</c:if>><fmt:message key="tickler.ticklerMain.priority.low"/></option>
                         </select>
                     </div>					
                     <!-- Primary action -->
@@ -190,7 +205,7 @@
 				<div id="AlertBanner"
 					 class="alert alert-success alert-dismissible"
 					 role="alert">
-					<span id="AlertText"><%=bundle.getString(providermsgSuccess)%></span>
+					<span id="AlertText"><fmt:message key="provider.setLabRecall.msgSuccess"/></span>
 					<button type="button"
 							class="btn-close"
 							onclick="this.closest('.alert').style.display='none'"
@@ -202,7 +217,7 @@
 
     <script>
         function deleteProp() {
-            var r = confirm('<carlos:encode value='<%=bundle.getString("provider.setLabRecallPrefs.confirmDelete") %>' context="javascriptBlock"/>');
+            var r = confirm('<carlos:encode value="<%=bundle.getString(\"provider.setLabRecallPrefs.confirmDelete\") %>" context="javascriptBlock"/>');
             if (r == true) {
                 document.forms[0].reset();
                 document.forms[0]['labRecallDelegate.value'].value = "";
