@@ -276,8 +276,10 @@ public final class EncryptionUtils {
      * <p>
      * Failure modes:
      * <ul>
-     *   <li>A missing or blank key is treated as "not configured": an error is logged and the
-     *       method returns with SECRET_KEY_SPEC left {@code null} (non-fatal, no exception).</li>
+     *   <li>A missing or blank key is treated as "not configured": a warning is logged and the
+     *       method returns with SECRET_KEY_SPEC left {@code null} (non-fatal, no exception). This
+     *       is the expected early-class-load state; Startup re-prepares the key once properties
+     *       are available.</li>
      *   <li>An invalid key (not valid Base64, or not a 16/24/32-byte AES key) is fatal and throws.</li>
      * </ul>
      *
@@ -371,8 +373,10 @@ public final class EncryptionUtils {
             prepareSecretKeySpec();
         } catch (RuntimeException e) {
             SECRET_KEY_SPEC = null;
-            // Expected when properties are not yet loaded; warn (not error) so a genuine encryption
-            // failure at startup is not lost in routine boot noise. Startup re-prepares authoritatively.
+            // A missing/blank key does NOT reach here - prepareSecretKeySpec returns after logging.
+            // This only fires when an actually-invalid key is present at class-load (bad Base64 /
+            // wrong AES length). Warn rather than error: Startup re-prepares and fails fast there if
+            // the key is still invalid, so this class-load attempt is not the authoritative check.
             logger.warn("Deferred encryption key initialization; it will be prepared at startup.", e);
         }
     }
