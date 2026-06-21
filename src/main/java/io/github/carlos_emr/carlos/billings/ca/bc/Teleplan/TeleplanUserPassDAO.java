@@ -27,7 +27,6 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-
 package io.github.carlos_emr.carlos.billings.ca.bc.Teleplan;
 
 import java.util.List;
@@ -40,9 +39,11 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
- * Deals with storing the teleplan sequence #
+ * Data Access Object for securely retrieving Teleplan data center credentials. Interacts with
+ * encrypted storage mechanisms to supply the necessary authentication tokens required for the
+ * automated Teleplan API connections.
  *
- * @author jay
+ * @since 2026-06-20
  */
 public class TeleplanUserPassDAO {
     static Logger log = MiscUtils.getLogger();

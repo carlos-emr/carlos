@@ -27,7 +27,6 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-
 package io.github.carlos_emr.carlos.billings.ca.bc.Teleplan;
 
 import java.io.BufferedWriter;
@@ -38,7 +37,11 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
- * @author jay
+ * High-level orchestration service for the complete Teleplan lifecycle. Coordinates sequence
+ * generation, batching of approved claims, submission via the TeleplanAPI, and the subsequent
+ * downloading and reconciliation of remittance files.
+ *
+ * @since 2026-06-20
  */
 public class TeleplanService {
     static Logger log = MiscUtils.getLogger();

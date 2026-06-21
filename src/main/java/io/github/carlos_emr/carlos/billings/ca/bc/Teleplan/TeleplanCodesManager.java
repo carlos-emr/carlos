@@ -27,7 +27,6 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-
 package io.github.carlos_emr.carlos.billings.ca.bc.Teleplan;
 
 import java.io.BufferedReader;
@@ -43,9 +42,12 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 
-
 /**
- * @author jay
+ * Service layer component for validating and retrieving Teleplan-specific billing and diagnostic
+ * codes. Acts as an intermediate cache and lookup mechanism to reduce database load when
+ * processing large batches of claims.
+ *
+ * @since 2026-06-20
  */
 public class TeleplanCodesManager {
 

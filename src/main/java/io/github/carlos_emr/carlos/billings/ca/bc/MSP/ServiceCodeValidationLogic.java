@@ -51,13 +51,11 @@ import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.UtilMisc;
 
 /**
- * <p>Title:ServiceCodeValidationLogic </p>
+ * Encapsulates the complex business rules governing the applicability of BC MSP service codes.
+ * Checks age restrictions, maximum daily limits, and required modifiers before a claim is
+ * permitted to enter the submission batch.
  *
- * @author Joel Legris
- * @version 1.0
- * @todo Should be renamed to something more appropriate eg ServiceCodeDAO
- * <p>Description: </p>
- * <p>Responsible for service code validation
+ * @since 2026-06-20
  */
 public class ServiceCodeValidationLogic {
 

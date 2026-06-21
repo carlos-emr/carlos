@@ -27,7 +27,6 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-
 package io.github.carlos_emr.carlos.billings.ca.bc.Teleplan;
 
 import java.io.File;
@@ -61,7 +60,11 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.CarlosProperties;
 
 /**
- * @author jay
+ * Central interface defining the operations for interacting with the BC Teleplan network. Provides
+ * abstract definitions for connecting, authenticating, uploading claims, and downloading
+ * remittance files.
+ *
+ * @since 2026-06-20
  */
 public class TeleplanAPI {
     static Logger log = MiscUtils.getLogger();

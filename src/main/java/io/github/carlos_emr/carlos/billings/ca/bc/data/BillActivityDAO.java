@@ -27,7 +27,6 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-
 package io.github.carlos_emr.carlos.billings.ca.bc.data;
 
 import java.util.ArrayList;
@@ -44,7 +43,11 @@ import io.github.carlos_emr.carlos.entities.Billactivity;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
- * @author jay
+ * Data Access Object tracking granular activity events related to billing. Distinct from
+ * BillHistory, this tracks system-level events such as batch inclusions and EDI transmission
+ * statuses for operational monitoring.
+ *
+ * @since 2026-06-20
  */
 public class BillActivityDAO {
 

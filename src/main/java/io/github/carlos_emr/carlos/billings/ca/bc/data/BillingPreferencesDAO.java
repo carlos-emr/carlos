@@ -37,10 +37,11 @@ import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
 /**
- * Responsible for CRUD operation a user Billing Module Preferences
+ * Data Access Object managing provider-specific billing UI preferences and defaults. Allows
+ * customization of commonly used diagnostic codes and default form settings to streamline the data
+ * entry process.
  *
- * @author not attributable
- * @version 1.0
+ * @since 2026-06-20
  */
 @Repository
 public class BillingPreferencesDAO extends AbstractDaoImpl<BillingPreference> {

@@ -29,7 +29,6 @@
 
 package io.github.carlos_emr.carlos.billings.ca.bc.quickbilling;
 
-
 import io.github.carlos_emr.carlos.commn.model.ProviderData;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData.BillingVisit;
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
@@ -37,11 +36,18 @@ import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Data Transfer Object (DTO) binding form fields from the Quick Billing UI to the backend action.
+ * Holds transient, unvalidated input for diagnostic codes, service codes, dates, and provider
+ * identifiers before they are formalized into persistent billing entities.
+ *
+ * @since 2026-06-20
+ */
+
 
 public class QuickBillingBCFormBean {
 
     /**
-     * @author Dennis Warren
      * Company Colcamex Resources
      * Date Jun 4, 2012
      */

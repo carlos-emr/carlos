@@ -26,7 +26,6 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-
 package io.github.carlos_emr.carlos.billings.ca.bc.administration;
 
 import java.io.IOException;
@@ -60,7 +59,6 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
 /*
- * @author Jef King
  * For The Oscar McMaster Project
  * Developed By Andromedia
  * www.andromedia.ca
@@ -73,6 +71,14 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
+/**
+ * Struts 2 Action for handling manual corrections to rejected WCB Teleplan claims. Validates
+ * billing administration security rights, processes user-supplied corrections to error codes or
+ * patient data, and queues the claim for resubmission in the next Teleplan batch.
+ *
+ * @since 2026-06-20
+ */
 
 public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);

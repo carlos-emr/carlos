@@ -48,18 +48,17 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilMisc;
 
 /**
- * +------------------+------------+------+-----+---------+----------------+
- * | Field            | Type       | Null | Key | Default | Extra          |
- * +------------------+------------+------+-----+---------+----------------+
- * | billingnote_no   | int(10)    |      | PRI | NULL    | auto_increment |
- * | billingmaster_no | int(10)    |      | MUL | 0       |                |
- * | createdate       | datetime   | YES  | MUL | NULL    |                |
- * | provider_no      | varchar(6) |      | MUL |         |                |
- * | note             | text       | YES  |     | NULL    |                |
- * | note_type        | int(2)     | YES  |     | NULL    |                |
+ * +------------------+------------+------+-----+---------+----------------+ | Field            |
+ * Type       | Null | Key | Default | Extra          |
+ * +------------------+------------+------+-----+---------+----------------+ | billingnote_no   |
+ * int(10)    |      | PRI | NULL    | auto_increment | | billingmaster_no | int(10)    |      |
+ * MUL | 0       |                | | createdate       | datetime   | YES  | MUL | NULL    |
+ * | | provider_no      | varchar(6) |      | MUL |         |                | | note             |
+ * text       | YES  |     | NULL    |                | | note_type        | int(2)     | YES  |
+ * | NULL    |                |
  * +------------------+------------+------+-----+---------+----------------+
  *
- * @author root
+ * @since 2026-06-20
  */
 public class BillingNote {
 

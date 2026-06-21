@@ -27,7 +27,6 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-
 package io.github.carlos_emr.carlos.billings.ca.bc.Teleplan;
 
 import java.io.BufferedReader;
@@ -47,7 +46,11 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.CarlosProperties;
 
 /**
- * @author jay
+ * Represents a parsed response or remittance advice file downloaded from Teleplan. Contains
+ * processing summaries, claim adjudication results, and error codes that must be mapped back to
+ * the original CARLOS billing records.
+ *
+ * @since 2026-06-20
  */
 public class TeleplanResponse {
     static Logger log = MiscUtils.getLogger();

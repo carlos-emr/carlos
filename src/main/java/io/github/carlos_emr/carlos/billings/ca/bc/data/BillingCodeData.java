@@ -27,7 +27,6 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-
 package io.github.carlos_emr.carlos.billings.ca.bc.data;
 
 import java.util.Date;
@@ -40,7 +39,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.SqlUtils;
 
 /**
- * @author root
+ * Domain object representing the structural definition of a BC MSP service or diagnostic code.
+ * Includes associated fee amounts, effective dates, and procedural descriptions used to populate
+ * billing UI components.
+ *
+ * @since 2026-06-20
  */
 public final class BillingCodeData implements Comparable {
     /**

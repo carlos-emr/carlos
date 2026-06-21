@@ -36,17 +36,6 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-
-
-/**
- * @author Dennis Warren
- * Company Colcamex Resources
- * Date Jun 4, 2012
- * Revised Jun 6, 2012
- * Comment
- * One action here: save the collection of bills from the
- * session form bean.
- */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
@@ -56,6 +45,15 @@ import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+
+/**
+ * Struts 2 Action responsible for persisting quick billing submissions in the BC module. Ensures
+ * the user has appropriate administrative write privileges for billing, processes the submitted
+ * QuickBillingBCFormBean, and coordinates with the underlying billing services to generate MSPBill
+ * entities.
+ *
+ * @since 2026-06-20
+ */
 
 public class QuickBillingBCSave2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);

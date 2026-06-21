@@ -51,7 +51,11 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
- * @author jay
+ * Core Data Access Object managing the central billing records in the BC module. Provides
+ * extensive querying capabilities based on status, provider, date ranges, and demographic
+ * identifiers to support both UI dashboards and batch extraction processes.
+ *
+ * @since 2026-06-20
  */
 @Repository
 @SuppressWarnings("unchecked")

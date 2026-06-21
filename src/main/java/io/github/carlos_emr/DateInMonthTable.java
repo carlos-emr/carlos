@@ -27,27 +27,18 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-
 package io.github.carlos_emr;
 
 import java.util.Calendar;
 import java.util.GregorianCalendar;
 
 /**
- * Calendar table grid bean for managing date information in a monthly view.
- * 
- * <p>This bean provides functionality for:</p>
- * <ul>
- *   <li>Tracking current year, month, and day</li>
- *   <li>Calendar calculations for monthly grid display</li>
- *   <li>Navigation between months and years</li>
- * </ul>
- * 
- * <p>Useful for generating calendar-based UI components and schedule views.</p>
- * 
- * @author Martin
- * @version 1.0
- * @since JDK 1.3
+ * Calendar table grid bean for managing date information in a monthly view. <p>This bean provides
+ * functionality for:</p> <ul> <li>Tracking current year, month, and day</li> <li>Calendar
+ * calculations for monthly grid display</li> <li>Navigation between months and years</li> </ul>
+ * <p>Useful for generating calendar-based UI components and schedule views.</p> @version 1.0
+ *
+ * @since 2026-06-20
  */
 public class DateInMonthTable {
     private int curYear = 0;

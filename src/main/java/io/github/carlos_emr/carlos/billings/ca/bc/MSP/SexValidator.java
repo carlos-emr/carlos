@@ -25,17 +25,11 @@
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
 /**
- * <p>Title: SexValidator</p>
+ * Validation utility ensuring patient gender information conforms to BC MSP rules. Prevents claim
+ * rejections by verifying that service codes restricted to specific genders (e.g., maternity care)
+ * are appropriately matched with the patient's demographic data.
  *
- * <p>Description: </p>
- * Thi validator represents the rules governing an MSP service code
- * with regards to a patients sex
- * <p>Copyright: Copyright (c) 2005</p>
- *
- * <p>Company: </p>
- *
- * @author not attributable
- * @version 1.0
+ * @since 2026-06-20
  */
 public class SexValidator
         extends ServiceCodeValidator {

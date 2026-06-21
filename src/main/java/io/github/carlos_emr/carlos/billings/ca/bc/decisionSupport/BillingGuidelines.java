@@ -27,7 +27,6 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-
 package io.github.carlos_emr.carlos.billings.ca.bc.decisionSupport;
 
 import java.io.BufferedReader;
@@ -55,10 +54,11 @@ import java.io.IOException;
 import io.github.carlos_emr.CarlosProperties;
 
 /**
- * Class used to Manage BillingGuidelines.
- * Temporary and will be refactored to include the other billing systems. And probably more of a centralized rule repository.
+ * Decision support engine evaluating clinical conditions against BC billing rules. Suggests
+ * applicable service codes or flags potential billing conflicts (e.g., mutually exclusive
+ * procedures) based on the patient's demographics, previous billing history, and active diagnoses.
  *
- * @author jay
+ * @since 2026-06-20
  */
 public class BillingGuidelines {
 

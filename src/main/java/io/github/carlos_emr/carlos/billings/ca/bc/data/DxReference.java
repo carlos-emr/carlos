@@ -27,7 +27,6 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-
 package io.github.carlos_emr.carlos.billings.ca.bc.data;
 
 import java.sql.Connection;
@@ -52,7 +51,10 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 /**
- * @author jay
+ * Domain object mapping diagnostic terminology to BC MSP diagnostic codes. Serves as a reference
+ * layer to assist providers in selecting the correct billing diagnosis based on clinical terms.
+ *
+ * @since 2026-06-20
  */
 public class DxReference {
     private static final Logger _log = MiscUtils.getLogger();

@@ -44,10 +44,11 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
- * @author Jef King
- * For The Oscar McMaster Project
- * Developed By Andromedia
- * www.andromedia.ca
+ * Session Bean managing the state and transactional boundary for complex WCB claim submissions.
+ * Organizes the multi-step process of validating clinical information, employer data, and service
+ * codes before committing the WCB claim.
+ *
+ * @since 2026-06-20
  */
 public class WcbSb {
     private static Logger logger = MiscUtils.getLogger();

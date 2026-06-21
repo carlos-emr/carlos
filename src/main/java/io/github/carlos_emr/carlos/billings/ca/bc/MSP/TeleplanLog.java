@@ -27,20 +27,18 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
 /**
- * +------------------+---------+------+-----+---------+----------------+
- * | Field            | Type    | Null | Key | Default | Extra          |
- * +------------------+---------+------+-----+---------+----------------+
- * | log_no           | int(10) |      | PRI | NULL    | auto_increment |
- * | claim            | blob    | YES  |     | NULL    |                |
- * | sequence_no      | int(10) | YES  |     | NULL    |                |
- * | billingmaster_no | int(10) | YES  |     | NULL    |                |
+ * +------------------+---------+------+-----+---------+----------------+ | Field            | Type
+ * | Null | Key | Default | Extra          |
+ * +------------------+---------+------+-----+---------+----------------+ | log_no           |
+ * int(10) |      | PRI | NULL    | auto_increment | | claim            | blob    | YES  |     |
+ * NULL    |                | | sequence_no      | int(10) | YES  |     | NULL    |
+ * | | billingmaster_no | int(10) | YES  |     | NULL    |                |
  * +------------------+---------+------+-----+---------+----------------+
  *
- * @author jay
+ * @since 2026-06-20
  */
 public class TeleplanLog {
     private int logNo;

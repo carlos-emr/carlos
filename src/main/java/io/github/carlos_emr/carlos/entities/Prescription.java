@@ -30,16 +30,11 @@
 package io.github.carlos_emr.carlos.entities;
 
 /**
- * SELECT *
- * FROM `prescription`
- * where demographic_no = 1;
- * <p>Title: </p>
- * <p>Description: </p>
- * <p>Copyright: Copyright (c) 2004</p>
- * <p>Company: </p>
+ * Domain entity representing a patient medication prescription. Manages drug information, dosages,
+ * quantities, duration, and anatomical therapeutic chemical (ATC) classification. Interacts
+ * heavily with the DrugRef and interaction checking modules to ensure safe prescribing practices.
  *
- * @author not attributable
- * @version 1.0
+ * @since 2026-06-20
  */
 public class Prescription {
     private String scriptNo;

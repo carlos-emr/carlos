@@ -21,11 +21,9 @@
  * Hamilton
  * Ontario, Canada
  *
- * @author Dennis Warren
  * Company Colcamex Resources
  * Date Jun 4, 2012
  * Filename QuickBillingBCHandler.java
- * @author Dennis Warren
  * Company Colcamex Resources
  * Date Jun 4, 2012
  * Filename QuickBillingBCHandler.java
@@ -36,12 +34,6 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-/**
- * @author Dennis Warren
- * Company Colcamex Resources
- * Date Jun 4, 2012
- * Filename QuickBillingBCHandler.java
- */
 package io.github.carlos_emr.carlos.billings.ca.bc.quickbilling;
 
 import java.text.ParseException;
@@ -72,12 +64,12 @@ import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBillingManager
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBillingManager.BillingItem;
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
 
-
 /**
- * @author Dennis Warren
- * @Revised Jun 4, 2012
- * @Comment
+ * Orchestrates the processing logic for rapid BC MSP billing entries. Handles validation of
+ * service codes, integration of diagnostic codes, and generation of billing records directly from
+ * clinical encounter screens without requiring full billing form navigation.
  *
+ * @since 2026-06-20
  */
 public class QuickBillingBCHandler {
 

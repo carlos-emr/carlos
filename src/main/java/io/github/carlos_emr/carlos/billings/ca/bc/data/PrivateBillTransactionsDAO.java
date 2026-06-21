@@ -43,10 +43,11 @@ import io.github.carlos_emr.carlos.entities.PrivateBillTransaction;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
- * Provides CRUD operations for BillingPrivateTransactions and legacy
- * {@link PrivateBillTransaction} classes.
+ * Data Access Object for managing private, non-MSP billing transactions. Handles queries and
+ * persistence for uninsured services, third-party invoices, and patient-direct payments separate
+ * from the provincial EDI workflows.
  *
- * @author Joel Legris
+ * @since 2026-06-20
  */
 @Repository
 public class PrivateBillTransactionsDAO extends AbstractDaoImpl<BillingPrivateTransactions> {

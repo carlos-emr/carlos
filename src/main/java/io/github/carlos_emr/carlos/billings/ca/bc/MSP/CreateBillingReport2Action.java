@@ -1,3 +1,11 @@
+/**
+ * <p>Title: CreateBillingReport2Action</p>
+ * <p>Description: </p>
+ * <p>Copyright: Copyright (c) 2005</p>
+ * <p>Company: </p>
+ *
+ * @version 1.0
+ */
 
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
@@ -25,21 +33,20 @@ import io.github.carlos_emr.carlos.entities.MSPBill;
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile.BillSearch;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.PayRefSummary;
 
-/**
- * <p>Title: CreateBillingReport2Action</p>
- * <p>Description: </p>
- * <p>Copyright: Copyright (c) 2005</p>
- * <p>Company: </p>
- *
- * @author Joel Legris
- * @version 1.0
- */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+
+/**
+ * Struts 2 Action responsible for generating comprehensive MSP billing reports. Validates
+ * reporting security privileges, parses date ranges and provider criteria, and formats the output
+ * for accounting and financial reconciliation purposes.
+ *
+ * @since 2026-06-20
+ */
 
 public class CreateBillingReport2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);

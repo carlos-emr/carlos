@@ -30,12 +30,11 @@
 package io.github.carlos_emr.carlos.entities;
 
 /**
- * <p>Title:BillingStatusType </p>
+ * Represents the status code and display properties for British Columbia Medical Services Plan
+ * (MSP) billing records. This entity defines how single-character MSP status codes are mapped to
+ * human-readable text and sorting logic within the billing administration views.
  *
- * <p>Description: Represents a bill status type as defined by MSP</p>
- *
- * @author not attributable
- * @version 1.0
+ * @since 2026-06-20
  */
 public class BillingStatusType {
 

@@ -27,7 +27,6 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-
 package io.github.carlos_emr.carlos.billings.ca.bc.Teleplan;
 
 import java.util.List;
@@ -39,9 +38,12 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
- * Deals with storing the teleplan sequence #
+ * Data Access Object managing the unique sequence numbers required by the BC Teleplan
+ * specification. Ensures sequential transaction numbers are atomically incremented and assigned to
+ * outgoing EDI transmissions to prevent duplicate or out-of-order rejections by the provincial
+ * billing authority.
  *
- * @author jay
+ * @since 2026-06-20
  */
 public class TeleplanSequenceDAO {
     static Logger log = MiscUtils.getLogger();

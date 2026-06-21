@@ -27,7 +27,6 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
 import java.util.List;
@@ -38,7 +37,11 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
- * @author jay
+ * Data Access Object for persisting communication logs with the Teleplan network. Stores raw EDI
+ * transmission strings and connection statuses to aid in debugging transmission failures and
+ * connectivity issues.
+ *
+ * @since 2026-06-20
  */
 
 public class TeleplanLogDAO {

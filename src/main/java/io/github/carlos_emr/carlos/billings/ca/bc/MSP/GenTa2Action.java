@@ -27,7 +27,6 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
 import java.io.BufferedReader;
@@ -63,11 +62,16 @@ import io.github.carlos_emr.CarlosProperties;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
-/**
- * @author jay
- */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+
+/**
+ * Struts 2 Action for generating specialized Teleplan adjustments or ad-hoc transactions (GenTa).
+ * Secures the endpoint for administrative users and initiates the construction of specialized EDI
+ * segments required for correcting or overriding previously rejected claims.
+ *
+ * @since 2026-06-20
+ */
 
 public class GenTa2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);

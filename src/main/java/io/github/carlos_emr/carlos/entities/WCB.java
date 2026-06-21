@@ -27,7 +27,6 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-
 package io.github.carlos_emr.carlos.entities;
 
 import java.util.ArrayList;
@@ -46,7 +45,11 @@ import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
 /**
- * @author jaygallagher
+ * Represents a Workers' Compensation Board (WCB) claim or billing entity. Used primarily in the BC
+ * billing module to track work-related injury claims, employer details, and specific WCB
+ * diagnostic and service codes.
+ *
+ * @since 2026-06-20
  */
 @Entity
 @Table(name = "wcb")

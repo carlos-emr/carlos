@@ -27,7 +27,6 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-
 package io.github.carlos_emr.carlos.billings.ca.bc.Teleplan;
 
 import java.util.Arrays;
@@ -39,7 +38,10 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.CarlosProperties;
 
 /**
- * @author jaygallagher
+ * Static reference dictionary defining standard WCB injury and service codes. Used for validation
+ * during claim entry and formatting during Teleplan submission generation.
+ *
+ * @since 2026-06-20
  */
 public class WCBCodes {
 

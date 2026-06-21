@@ -27,7 +27,6 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-
 package io.github.carlos_emr.carlos.billings.ca.bc.Teleplan;
 
 import org.apache.logging.log4j.Logger;
@@ -46,7 +45,11 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 /**
- * @author jaygallagher
+ * Formats and packages Workers' Compensation Board (WCB) claims for Teleplan transmission.
+ * Translates CARLOS internal WCB entities into the specific flat-file EDI string structures
+ * mandated by the Teleplan specifications for injury claims.
+ *
+ * @since 2026-06-20
  */
 public class WCBTeleplanSubmission {
     private static Logger log = MiscUtils.getLogger();

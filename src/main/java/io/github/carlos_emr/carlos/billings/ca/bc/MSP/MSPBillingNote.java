@@ -45,9 +45,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
- * @author root
- * <p>
- * This class is used to deal with MSP N01 correspondence notes.
+ * Domain object specifically handling notes attached to MSP claims. Often used to capture
+ * explanatory text required by Teleplan for complex procedures, independent operators, or out-of-
+ * province reciprocal billing scenarios.
+ *
+ * @since 2026-06-20
  */
 public class MSPBillingNote {
 

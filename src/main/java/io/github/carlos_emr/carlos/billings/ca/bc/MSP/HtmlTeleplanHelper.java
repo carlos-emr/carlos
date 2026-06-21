@@ -27,7 +27,6 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
 import io.github.carlos_emr.carlos.utility.SafeEncode;
@@ -39,9 +38,11 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 /**
- * Used to consolidate the teleplan submission html into one place.
+ * View helper providing HTML rendering utilities for Teleplan interfaces. Generates standardized
+ * markup for status badges, error code tooltips, and action links within the billing
+ * administration JSP pages.
  *
- * @author jay
+ * @since 2026-06-20
  */
 public class HtmlTeleplanHelper {
 

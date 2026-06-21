@@ -46,11 +46,11 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.SqlUtils;
 
 /**
- * BillingHistoryDAO is responsible for providing database CRUD operations
- * on the BillHistory Object
+ * Data Access Object for querying and persisting the state transition log of billing records.
+ * Supports financial audits by providing a chronologically ordered history of all modifications to
+ * a specific claim.
  *
- * @author not attributable
- * @version 1.0
+ * @since 2026-06-20
  */
 public class BillingHistoryDAO {
 

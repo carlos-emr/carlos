@@ -34,10 +34,11 @@ import java.util.Date;
 import io.github.carlos_emr.carlos.util.UtilMisc;
 
 /**
- * BillHistory  represents an archive of a modification event on a specific line(BillingMaster Record) of a Bill
+ * Audit and historical record of modifications to billing entries. Maintains a log of state
+ * transitions (e.g., from 'Submitted' to 'Paid' or 'Rejected'), capturing the exact timestamp and
+ * user responsible for each change to ensure billing integrity.
  *
- * @author Joel Legris
- * @version 1.0
+ * @since 2026-06-20
  */
 public class BillHistory {
 
