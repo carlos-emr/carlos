@@ -60,6 +60,7 @@
 <%@page import="org.apache.hc.core5.http.ContentType" %>
 <%@page import="org.apache.logging.log4j.Logger" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LogSafe" %>
 <%@page import="java.io.UnsupportedEncodingException" %>
 <%@page import="java.io.IOException" %>
 <%@page import="java.text.SimpleDateFormat" %>
@@ -367,7 +368,7 @@
                                 resp -> EntityUtils.toString(resp.getEntity()));
 
                         JsonNode object = dhirMapper.readTree(entity);
-                        logger.info("object=" + object.toString());
+                        logger.info("DHIR response received (body redacted for PHI)");
 
                         int code = object.get("code").asInt();
 
@@ -460,7 +461,7 @@
                 <%
                         }
                     } catch (IOException e) {
-                        logger.error("Failed to retrieve eConsults for the OneID account " + providerEmail, e);
+                        logger.error("Failed to submit to DHIR for provider {}", LogSafe.sanitize(providerEmail), e);
                     } catch (NoSuchAlgorithmException e) {
                         logger.error("Failed to create an HttpClient that allows all SSL", e);
                     } catch (KeyManagementException e) {
