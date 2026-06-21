@@ -64,32 +64,32 @@ class UploadedFileUtilsUnitTest {
         }
 
         @Test
-        @DisplayName("should throw IllegalStateException when upload is null")
-        void shouldThrowIllegalStateException_whenUploadIsNull() {
+        @DisplayName("should throw IllegalArgumentException when upload is null")
+        void shouldThrowIllegalArgumentException_whenUploadIsNull() {
             assertThatThrownBy(() -> UploadedFileUtils.getUploadedFile(null))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("null");
         }
 
         @Test
-        @DisplayName("should throw IllegalStateException when content is not file-backed")
-        void shouldThrowIllegalStateException_whenContentIsNotFileBacked() {
+        @DisplayName("should throw IllegalArgumentException when content is not file-backed")
+        void shouldThrowIllegalArgumentException_whenContentIsNotFileBacked() {
             UploadedFile upload = mock(UploadedFile.class);
             when(upload.getContent()).thenReturn("not-a-file");
 
             assertThatThrownBy(() -> UploadedFileUtils.getUploadedFile(upload))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("no backing file");
         }
 
         @Test
-        @DisplayName("should throw IllegalStateException when content is null")
-        void shouldThrowIllegalStateException_whenContentIsNull() {
+        @DisplayName("should throw IllegalArgumentException when content is null")
+        void shouldThrowIllegalArgumentException_whenContentIsNull() {
             UploadedFile upload = mock(UploadedFile.class);
             when(upload.getContent()).thenReturn(null);
 
             assertThatThrownBy(() -> UploadedFileUtils.getUploadedFile(upload))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(IllegalArgumentException.class);
         }
     }
 
