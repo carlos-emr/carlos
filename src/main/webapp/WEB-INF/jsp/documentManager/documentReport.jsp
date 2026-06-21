@@ -103,7 +103,14 @@
 // "Module" and "function" is the same thing (old documentManager module)
     String module = "";
     String moduleid = "";
-    if (request.getParameter("function") != null) {
+    // The ViewDocumentReport gate (ViewDocumentReportRead2Action) validates "function" and
+    // forwards the canonical lowercased token as "normalizedFunction". Prefer it so a mixed-case
+    // request param does not skip the case-sensitive "demographic" branch below. Only the gate
+    // sets this attribute; non-gate entry points fall through to the existing param/attribute read.
+    if (request.getAttribute("normalizedFunction") != null) {
+        module = (String) request.getAttribute("normalizedFunction");
+        moduleid = request.getParameter("functionid");
+    } else if (request.getParameter("function") != null) {
         module = request.getParameter("function");
         moduleid = request.getParameter("functionid");
     } else if (request.getAttribute("function") != null) {
@@ -340,10 +347,17 @@
             function setup() {
                 var update = "<carlos:encode value='<%= updateParent %>' context="javaScriptBlock"/>";
                 var parentId = "<carlos:encode value='<%= parentAjaxId %>' context="javaScriptBlock"/>";
-                var Url = window.opener.URLs;
 
-                if (update === "true" && !window.opener.closed) {
-                    window.opener.popLeftColumn(Url[parentId], parentId, parentId);
+                if (update === "true"
+                        && window.opener
+                        && !window.opener.closed
+                        && window.opener.URLs
+                        && Object.prototype.hasOwnProperty.call(window.opener.URLs, parentId)) {
+                    window.opener.popLeftColumn(window.opener.URLs[parentId], parentId, parentId);
+                } else if (update === "true") {
+                    // Parent refresh was requested but the opener/URL map is gone or lacks this id;
+                    // skip silently in the UI but leave a console trace for debugging.
+                    console.warn("documentReport: parent refresh skipped for parentAjaxId=" + parentId);
                 }
             }
 
@@ -405,7 +419,7 @@
         <jsp:include page="/WEB-INF/jsp/provider/mainMenu.jsp"/>
     <% } %>
 
-    <div class="container" style="margin-bottom: 25px">
+    <div class="container-fluid carlos-content-shell" style="margin-bottom: 25px">
         <h2>
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
                  class="bi bi-file-earmark" viewBox="0 0 16 16">

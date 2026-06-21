@@ -41,8 +41,10 @@ import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
 import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
@@ -63,6 +65,10 @@ public class UploadEFormAttachment2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_edoc)");
         }
         String docFileName = this.getUploadFileName();
+        if (uploadValidationError != null) {
+            writeError("Invalid filename");
+            return NONE;
+        }
         try {
             Date eformUploadDate = new Date();
             String user = (String) request.getSession().getAttribute("user");
@@ -111,6 +117,7 @@ public class UploadEFormAttachment2Action extends ActionSupport {
         return null;
     }
     private String uploadFileName = null;
+    private String uploadValidationError;
 
     public String getUploadFileName() {
         return uploadFileName;
@@ -118,6 +125,22 @@ public class UploadEFormAttachment2Action extends ActionSupport {
 
     @StrutsParameter
     public void setUploadFileName(String uploadFileName) {
-        this.uploadFileName = uploadFileName;
+        try {
+            this.uploadFileName = PathValidationUtils.validateStrictFileName(uploadFileName);
+        } catch (FileValidationException e) {
+            this.uploadValidationError = PathValidationUtils.INVALID_FILENAME_MESSAGE;
+            this.uploadFileName = null;
+        }
+    }
+
+    private void writeError(String message) {
+        String errorMsg = "<div id=\"error\">error</div><div id=\"message\">" + Encode.forHtml(message) + "</div>";
+        try {
+            response.getOutputStream().write(errorMsg.getBytes());
+            response.getOutputStream().flush();
+            response.getOutputStream().close();
+        } catch (IOException e1) {
+            //ignore
+        }
     }
 }

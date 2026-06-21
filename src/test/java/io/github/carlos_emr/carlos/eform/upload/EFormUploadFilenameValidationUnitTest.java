@@ -32,6 +32,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -43,7 +44,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("eForm upload filename validation")
 @Tag("unit")
 @Tag("security")
-class EFormUploadFilenameValidationTest extends CarlosUnitTestBase {
+class EFormUploadFilenameValidationUnitTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private SecurityInfoManager securityInfoManager;
@@ -87,7 +88,7 @@ class EFormUploadFilenameValidationTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("image upload should reject hidden filename before writing")
-    void imageUploadShouldRejectHiddenFilenameBeforeWriting() throws Exception {
+    void shouldRejectImageUpload_whenFilenameIsHidden() throws Exception {
         Path upload = Files.createTempFile(tempDir, "image-upload", ".png");
         ImageUpload2Action action = new ImageUpload2Action();
         action.setImage(upload.toFile());
@@ -102,7 +103,7 @@ class EFormUploadFilenameValidationTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("HTML upload should reject hidden filename before saving eForm")
-    void htmlUploadShouldRejectHiddenFilenameBeforeSavingEForm() throws Exception {
+    void shouldRejectHtmlUpload_whenFilenameIsHidden() throws Exception {
         Path upload = Files.createTempFile(tempDir, "html-upload", ".html");
         HtmlUpload2Action action = new HtmlUpload2Action();
         action.setFormHtml(upload.toFile());
@@ -116,12 +117,33 @@ class EFormUploadFilenameValidationTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("HTML upload should reject blocked final extension before saving eForm")
+    void shouldRejectHtmlUpload_whenFilenameHasBlockedFinalExtension() throws Exception {
+        Path upload = Files.createTempFile(tempDir, "html-upload", ".html");
+        Files.writeString(upload, "<html></html>");
+        UploadedFile uploadedFile = mock(UploadedFile.class);
+        when(uploadedFile.getContent()).thenReturn(upload.toFile());
+        when(uploadedFile.getContentType()).thenReturn("text/html");
+        when(uploadedFile.getOriginalName()).thenReturn("report.pdf.jsp");
+
+        HtmlUpload2Action action = new HtmlUpload2Action();
+        action.withUploadedFiles(List.of(uploadedFile));
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo("fail");
+        assertThat(action.getFormHtmlFileName()).isNull();
+        assertThat(request.getAttribute("errorMessage").toString())
+                .contains("Invalid filename");
+    }
+
+    @Test
     @DisplayName("HTML upload should fall back to temp filename when original name is missing")
-    void htmlUploadShouldFallBackToTempFilename_whenOriginalNameIsMissing() throws Exception {
+    void shouldFallbackToTempFilename_whenHtmlOriginalNameIsMissing() throws Exception {
         Path upload = Files.createTempFile(tempDir, "htmlupload", ".html");
         Files.writeString(upload, "<html></html>");
         UploadedFile uploadedFile = mock(UploadedFile.class);
-        when(uploadedFile.getAbsolutePath()).thenReturn(upload.toString());
+        when(uploadedFile.getContent()).thenReturn(upload.toFile());
         when(uploadedFile.getContentType()).thenReturn("text/html");
         when(uploadedFile.getOriginalName()).thenReturn(null);
 
@@ -140,6 +162,64 @@ class EFormUploadFilenameValidationTest extends CarlosUnitTestBase {
                     eq(false),
                     eq(false),
                     isNull()));
+        }
+    }
+
+    @Test
+    @DisplayName("image upload should capture valid Struts upload source")
+    void shouldCaptureImageUpload_whenStrutsUploadedFileIsValid() throws Exception {
+        Path upload = Files.createTempFile(tempDir, "image-upload", ".png");
+        UploadedFile uploadedFile = mock(UploadedFile.class);
+        when(uploadedFile.getContent()).thenReturn(upload.toFile());
+        when(uploadedFile.getContentType()).thenReturn("image/png");
+        when(uploadedFile.getOriginalName()).thenReturn("diagram.png");
+
+        ImageUpload2Action action = new ImageUpload2Action();
+        action.withUploadedFiles(List.of(uploadedFile));
+
+        assertThat(action.getImage()).isNotNull();
+        assertThat(action.getImage().getCanonicalPath()).isEqualTo(upload.toFile().getCanonicalPath());
+    }
+
+    @Test
+    @DisplayName("image upload should reject hidden Struts filename with user-facing error")
+    void shouldReturnError_whenStrutsImageFilenameIsHidden() throws Exception {
+        Path upload = Files.createTempFile(tempDir, "image-upload", ".png");
+        UploadedFile uploadedFile = mock(UploadedFile.class);
+        when(uploadedFile.getContent()).thenReturn(upload.toFile());
+        when(uploadedFile.getContentType()).thenReturn("image/png");
+        when(uploadedFile.getOriginalName()).thenReturn(".hidden.png");
+
+        ImageUpload2Action action = new ImageUpload2Action();
+        action.withUploadedFiles(List.of(uploadedFile));
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo("error");
+        assertThat(action.getActionErrors())
+                .anySatisfy(error -> assertThat(error).contains("Invalid filename"));
+    }
+
+    @Test
+    @DisplayName("image upload should reject source outside allowed temp directories")
+    void shouldRejectImageUpload_whenSourceIsOutsideTempDirectories() throws Exception {
+        Path outsideDir = Files.createTempDirectory(Path.of(System.getProperty("user.home")), "disallowed-upload-");
+        Path outside = Files.createFile(outsideDir.resolve("image.png"));
+        UploadedFile uploadedFile = mock(UploadedFile.class);
+        when(uploadedFile.getContent()).thenReturn(outside.toFile());
+        when(uploadedFile.getContentType()).thenReturn("image/png");
+        when(uploadedFile.getOriginalName()).thenReturn("diagram.png");
+
+        try {
+            ImageUpload2Action action = new ImageUpload2Action();
+            List<UploadedFile> uploadedFiles = List.of(uploadedFile);
+
+            assertThatThrownBy(() -> action.withUploadedFiles(uploadedFiles))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("Invalid upload source");
+        } finally {
+            Files.deleteIfExists(outside);
+            Files.deleteIfExists(outsideDir);
         }
     }
 }

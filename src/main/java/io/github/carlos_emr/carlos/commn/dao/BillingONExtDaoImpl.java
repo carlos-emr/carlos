@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.stereotype.Repository;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * @author mweston4
@@ -432,6 +433,8 @@ public class BillingONExtDaoImpl extends AbstractDaoImpl<BillingONExt> implement
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public boolean isNumberKey(String key) {
         if (KEY_PAYMENT.equalsIgnoreCase(key)

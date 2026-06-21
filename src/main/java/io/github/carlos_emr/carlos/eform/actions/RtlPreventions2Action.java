@@ -89,10 +89,10 @@ public class RtlPreventions2Action extends ActionSupport {
     /**
      * Handles the AJAX request from the RTL eForm's Preventions button.
      *
-     * <p>Writes HTML directly to the response and returns {@code null} to bypass
+     * <p>Writes HTML directly to the response and returns {@code NONE} to bypass
      * Struts result dispatch (no JSP view — the response IS the view).</p>
      *
-     * @return String always {@code null} (response written directly)
+     * @return String always {@code NONE} (response written directly)
      * @throws IOException if the response stream cannot be written to
      */
     @Override
@@ -108,7 +108,7 @@ public class RtlPreventions2Action extends ActionSupport {
         String demoNoParam = request.getParameter("demographic_no");
         if (demoNoParam == null || !demoNoParam.matches("\\d+")) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid demographic_no");
-            return null;
+            return NONE;
         }
 
         Integer demographicNo;
@@ -116,7 +116,7 @@ public class RtlPreventions2Action extends ActionSupport {
             demographicNo = Integer.parseInt(demoNoParam);
         } catch (NumberFormatException e) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid demographic_no");
-            return null;
+            return NONE;
         }
         try {
             // PreventionManager enforces circle-of-care access via loggedInInfo
@@ -159,6 +159,6 @@ public class RtlPreventions2Action extends ActionSupport {
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to retrieve prevention data");
             }
         }
-        return null;
+        return NONE;
     }
 }

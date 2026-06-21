@@ -67,9 +67,11 @@ jobs:
 
       - name: Extract keys added to English in this PR
         id: new_keys
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: |
           # Find keys added to English properties in this PR
-          NEW_EN_KEYS=$(git diff origin/${{ github.base_ref }}...HEAD \
+          NEW_EN_KEYS=$(git diff "origin/${BASE_REF}"...HEAD \
             -- src/main/resources/oscarResources_en.properties \
             | grep '^+' | grep -v '^+++' | grep -Ev '^\+[[:space:]]*[#!]' \
             | sed 's/^+//' | sed -E 's/[[:space:]]*[=:].*//' | sed 's/[[:space:]]*$//' \
@@ -149,6 +151,8 @@ jobs:
           fetch-depth: 0
 
       - name: Check new/modified JSPs for missing fmt:setBundle
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: |
           has_inherited_bundle() {
             local jsp="$1"
@@ -174,7 +178,7 @@ jobs:
           }
 
           # Only check JSP files changed in this PR
-          CHANGED_JSPS=$(git diff --name-only origin/${{ github.base_ref }}...HEAD \
+          CHANGED_JSPS=$(git diff --name-only "origin/${BASE_REF}"...HEAD \
             | grep -E '\.jspf?$' | grep -v '^test' || true)
 
           if [ -z "$CHANGED_JSPS" ]; then

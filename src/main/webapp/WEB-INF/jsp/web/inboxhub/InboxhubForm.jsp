@@ -44,15 +44,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 <input type="hidden" class="totalHRMCount" id="totalHRMCount" value="${totalHRMCount}" />
 <input type="hidden" class="totalResultsCount" id="totalResultsCount" value="${totalResultsCount}" />
 
-<!-- Preview button -->
-<div class="card mb-1 shadow-sm rounded-1">
-  <div class="card-body p-2">
-    <div class="d-grid">
-        <input type="checkbox" class="btn-check btn-sm" name="viewMode2" id="btnViewMode2" autocomplete="off" onchange="fetchInboxhubDataByMode(this)" ${query.viewMode ? 'checked' : ''}>
-        <label class="btn btn-secondary btn-sm" id="btnViewModeLabel" for="btnViewMode2"><c:choose><c:when test="${query.viewMode}"><fmt:message key="inboxhub.form.listMode"/></c:when><c:otherwise><fmt:message key="inboxhub.form.previewMode"/></c:otherwise></c:choose></label>
-    </div>
-  </div>
-</div>
 
 <!-- Search form Accordion -->
 <div class="accordion" id="inbox-hub-search">

@@ -116,9 +116,13 @@ class EFormReportToolDaoImplTest {
         dao.populateReportTableItem(reportTool, Collections.singletonList(buildValue("field_one", "value-one")),
                 7, 21, new Date(0L), null);
 
+        // Provider number is bound as a parameter (?4), not concatenated into the SQL text (the
+        // SQL-injection hardening from #1806). A null source provider number maps to the legacy
+        // "null" sentinel so historical report rows keep a non-null value.
         ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
         verify(mockEntityManager).createNativeQuery(sqlCaptor.capture());
-        assertThat(sqlCaptor.getValue()).contains(",'null',0,now(),");
+        assertThat(sqlCaptor.getValue()).doesNotContain("'null'");
+        verify(mockQuery).setParameter(4, "null");
     }
 
     @Test
@@ -133,10 +137,11 @@ class EFormReportToolDaoImplTest {
         dao.populateReportTableItem(reportTool, Collections.singletonList(buildValue("field_one", "value-one")),
                 7, 21, new Date(0L), "P12345");
 
+        // Provider number is bound as a parameter (?4), not concatenated into the SQL text.
         ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
         verify(mockEntityManager).createNativeQuery(sqlCaptor.capture());
-        assertThat(sqlCaptor.getValue()).contains(",'P12345',0,now(),");
-        assertThat(sqlCaptor.getValue()).doesNotContain(",'null',0,now(),");
+        assertThat(sqlCaptor.getValue()).doesNotContain("'P12345'").doesNotContain("'null'");
+        verify(mockQuery).setParameter(4, "P12345");
     }
 
     private static EFormValue buildValue(String varName, String varValue) {

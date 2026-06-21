@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Set;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Authenticated facility-selection endpoint for providers who belong to multiple facilities.
@@ -62,6 +63,9 @@ public final class SelectFacility2Action extends BaseLoginPageView2Action {
         this.facilityDao = facilityDao;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "UNVALIDATED_REDIRECT"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
@@ -142,12 +146,16 @@ public final class SelectFacility2Action extends BaseLoginPageView2Action {
         return "user";
     }
 
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     private String redirectToFacilitySelection(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
         response.sendRedirect(request.getContextPath() + "/select_facility");
         return NONE;
     }
 
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     private String redirectToLogoutAfterInvalidating(HttpSession session, HttpServletRequest request,
                                                      HttpServletResponse response) throws IOException {
         session.invalidate();

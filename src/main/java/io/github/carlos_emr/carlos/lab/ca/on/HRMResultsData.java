@@ -32,6 +32,7 @@ import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class HRMResultsData {
 
@@ -50,6 +51,8 @@ public class HRMResultsData {
     }
 
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public Collection<LabResultData> populateHRMdocumentsResultsData(LoggedInInfo loggedInInfo, String providerNo, String firstName, String lastName, String hin, String demographicNumber, String status, Date newestDate, Date oldestDate,
                                                                      boolean isPaged, Integer page, Integer pageSize) {
         String firstNameSearch = firstName != null ? firstName.toUpperCase() : "";

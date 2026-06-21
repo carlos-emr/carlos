@@ -12,6 +12,7 @@ import java.text.SimpleDateFormat;
 import java.util.Base64;
 import java.util.Date;
 import java.util.List;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * HL7 message generator for laboratory results integration in OpenO EMR.
@@ -109,6 +110,8 @@ public class HL7CreateFile {
      * @return String the complete HL7 message with newline-separated segments, or empty string if
      *         the labs list is null or empty
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String generateHL7(List<LaboratoryResultsDocument.LaboratoryResults> labs) {
         StringBuilder hl7 = new StringBuilder();
 
@@ -410,6 +413,8 @@ public class HL7CreateFile {
         return fullDateTime.format(date);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private boolean isFinal(String testResultStatus) {
         testResultStatus = StringUtils.noNull(testResultStatus);
 

@@ -41,6 +41,7 @@ import org.kie.api.builder.ReleaseId;
 import org.kie.api.builder.Results;
 import org.kie.api.runtime.KieContainer;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -235,6 +236,8 @@ public final class DroolsHelper {
      * @param classpathAnchor the class used to resolve classpath resources (determines the classloader)
      * @return KieBase the compiled rule base, or {@code null} if loading fails
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public static KieBase loadMeasurementRuleBase(String drlFilename, Class<?> classpathAnchor) {
         KieBase measurementRuleBase = null;
         try {

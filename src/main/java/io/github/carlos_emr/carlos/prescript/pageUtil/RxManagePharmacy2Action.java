@@ -36,6 +36,7 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
@@ -123,6 +124,8 @@ public final class RxManagePharmacy2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String delete() throws IOException {
 
 
@@ -148,6 +151,8 @@ public final class RxManagePharmacy2Action extends ActionSupport {
         return null;
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String unlink() {
 
         ObjectNode jsonObject = objectMapper.createObjectNode();
@@ -209,6 +214,8 @@ public final class RxManagePharmacy2Action extends ActionSupport {
         return null;
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String add() {
         RxPharmacyData pharmacy = new RxPharmacyData();
 

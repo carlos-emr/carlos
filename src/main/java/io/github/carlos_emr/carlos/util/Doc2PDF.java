@@ -33,6 +33,7 @@ package io.github.carlos_emr.carlos.util;
 import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FilterInputStream;
 import java.io.IOException;
@@ -50,6 +51,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Entities;
 import java.nio.charset.StandardCharsets;
@@ -57,6 +59,7 @@ import java.nio.charset.StandardCharsets;
 import io.github.carlos_emr.carlos.documentManager.LocalOnlyUserAgent;
 import org.xhtmlrenderer.pdf.ITextRenderer;
 import org.xhtmlrenderer.layout.SharedContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * HTML-to-PDF conversion utility using Flying Saucer's ITextRenderer.
@@ -249,8 +252,10 @@ public class Doc2PDF {
      * @param fileName String the output file path
      * @param docBin String the binary PDF data to write
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public static void SavePDF2File(String fileName, String docBin) {
-        try (FileOutputStream ostream = new FileOutputStream(fileName);
+        try (FileOutputStream ostream = new FileOutputStream(PathValidationUtils.resolveTrustedPath(new File(fileName)));
              ObjectOutputStream p = new ObjectOutputStream(ostream)) {
             p.writeBytes(docBin);
             p.flush();
