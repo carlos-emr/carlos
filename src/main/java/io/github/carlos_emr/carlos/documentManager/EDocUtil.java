@@ -84,6 +84,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.CarlosProperties;
@@ -1297,7 +1298,7 @@ public final class EDocUtil {
                 throw new SecurityException("Access denied: File is outside the allowed directories");
             }
         } catch (IOException e) {
-            logger.error("Error resolving file path: " + fileName, e);
+            logger.error("Error resolving file path: {}", LogSafe.sanitize(fileName), e);
             throw new SecurityException("Unable to resolve file path securely", e);
         }
     }
@@ -1380,7 +1381,7 @@ public final class EDocUtil {
             // This handles stale data from different environments gracefully
             Path inputPath = Paths.get(fileName);
             if (inputPath.isAbsolute() && !Files.exists(inputPath)) {
-                logger.debug("File not found (may be from different environment): " + fileName);
+                logger.debug("File not found (may be from different environment): {}", LogSafe.sanitize(fileName));
                 return 0;
             }
             // resolvePath validates the path is within allowed directories, including temp directories.
@@ -1391,16 +1392,16 @@ public final class EDocUtil {
                 try (PDDocument pdf = Loader.loadPDF(path.toFile())) {
                     pagecount = pdf.getNumberOfPages();
                 } catch (IOException e) {
-                    logger.error("Could not read PDF file: " + fileName, e);
+                    logger.error("Could not read PDF file: {}", LogSafe.sanitize(fileName), e);
                 }
             } else {
-                logger.warn("File " + fileName + " not found for page count.");
+                logger.warn("File {} not found for page count.", LogSafe.sanitize(fileName));
             }
         } catch (SecurityException e) {
-            logger.error("Security violation: Attempted to access file outside allowed directory: " + fileName, e);
+            logger.error("Security violation: Attempted to access file outside allowed directory: {}", LogSafe.sanitize(fileName), e);
             // Return 0 to indicate error without exposing security details
         } catch (IllegalArgumentException e) {
-            logger.error("Invalid file name provided: " + fileName, e);
+            logger.error("Invalid file name provided: {}", LogSafe.sanitize(fileName), e);
             // Return 0 to indicate error
         }
 
