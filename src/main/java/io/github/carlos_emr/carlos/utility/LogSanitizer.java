@@ -37,10 +37,27 @@ public final class LogSanitizer {
         // utility class — no instances
     }
 
+    /**
+     * Sanitizes {@code input} for safe inclusion in a log statement.
+     * Delegates to {@link LogSafe#sanitize(String)}.
+     *
+     * @param input the value to sanitize; may be {@code null}
+     * @return the sanitized string; never {@code null}
+     */
     public static String sanitize(String input) {
         return LogSafe.sanitize(input);
     }
 
+    /**
+     * Sanitizes {@code input} for safe inclusion in a log statement,
+     * truncating raw input to {@code maxLength} characters before encoding.
+     * Delegates to {@link LogSafe#sanitize(String, int)}.
+     *
+     * @param input the value to sanitize; may be {@code null}
+     * @param maxLength the maximum number of raw characters to keep before encoding;
+     *                  values less than 1 are treated as the default max length
+     * @return the sanitized string; never {@code null}
+     */
     public static String sanitize(String input, int maxLength) {
         return LogSafe.sanitize(input, maxLength);
     }
