@@ -28,6 +28,7 @@
  */
 package io.github.carlos_emr.carlos.managers;
 
+import io.github.carlos_emr.Misc;
 import org.apache.cxf.common.util.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.SecurityArchiveDao;
@@ -41,6 +42,8 @@ import org.springframework.stereotype.Service;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.Date;
 import java.util.List;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -132,6 +135,16 @@ public class SecurityManager {
 	}
 
 	/**
+	 * Encode the given PIN using the configured password hashing algorithm.
+	 *
+	 * @param pin The PIN to hash.
+	 * @return The hashed PIN.
+	 */
+	public String encodePin(CharSequence pin) {
+		return this.encodePassword(pin);
+	}
+
+	/**
 	 * Validates the password against the provided sec's stored password. If the password is valid and an upgrade
 	 * is needed to the existing stored password, the stored password will be upgraded.
 	 *
@@ -146,6 +159,37 @@ public class SecurityManager {
 				logger.error("Error while upgrading password hash");
 		}
 		return isValid;
+	}
+
+	/**
+	 * Validates a raw PIN against the stored PIN value.
+	 *
+	 * <p>Modern hashes are verified with the configured password hashing algorithm. Legacy plaintext
+	 * and legacy encrypted PIN values are accepted only long enough to replace them with a modern
+	 * hash, which is persisted through {@link #upgradeSavePinHash(CharSequence, Security)}. The
+	 * legacy encryption path should be removed after production PINs have migrated to modern hashes.</p>
+	 *
+	 * @param rawPin The PIN supplied by the user.
+	 * @param security The security record containing the stored PIN.
+	 * @return True when the supplied PIN matches and any required upgrade succeeds.
+	 */
+	public boolean validatePin(CharSequence rawPin, Security security) {
+		if (rawPin == null || rawPin.length() < 3 || security == null || security.getPin() == null) {
+			return false;
+		}
+
+		if (this.matchesPassword(rawPin, security.getPin())) {
+			if (EncryptionUtils.isPasswordHashUpgradeNeeded(security.getPin())) {
+				return this.upgradeSavePinHash(rawPin, security);
+			}
+			return true;
+		}
+
+		if (this.matchesLegacyPin(rawPin, security.getPin())) {
+			return this.upgradeSavePinHash(rawPin, security);
+		}
+
+		return false;
 	}
 
 	/**
@@ -178,6 +222,43 @@ public class SecurityManager {
 		this.securityDao.merge(security);
                 return true;
             }
+
+	/**
+	 * Hashes the supplied PIN, stores it on the security record, and persists the change.
+	 *
+	 * @param rawPin The raw PIN to hash.
+	 * @param security The security record to update.
+	 * @return True if the hash was generated, verified, and persisted.
+	 */
+	public boolean upgradeSavePinHash(CharSequence rawPin, Security security) {
+		String hash = this.encodePin(rawPin);
+		boolean matched = this.matchesPassword(rawPin, hash);
+
+		if (!matched)
+			return false;
+
+		security.setPin(hash);
+		security.setPinUpdateDate(new Date());
+		this.securityDao.merge(security);
+		return true;
+	}
+
+	private boolean matchesLegacyPin(CharSequence rawPin, String storedPin) {
+		String rawPinValue = rawPin.toString();
+		return constantTimeEquals(rawPinValue, storedPin) || constantTimeEquals(encryptLegacyPin(rawPinValue), storedPin);
+	}
+
+	@SuppressWarnings("deprecation")
+	private String encryptLegacyPin(String rawPin) {
+		return Misc.encryptPIN(rawPin);
+	}
+
+	private boolean constantTimeEquals(String first, String second) {
+		if (first == null || second == null) {
+			return false;
+		}
+		return MessageDigest.isEqual(first.getBytes(StandardCharsets.UTF_8), second.getBytes(StandardCharsets.UTF_8));
+	}
 
     public Security findByProviderNo(LoggedInInfo loggedInInfo, String providerNo) {
 

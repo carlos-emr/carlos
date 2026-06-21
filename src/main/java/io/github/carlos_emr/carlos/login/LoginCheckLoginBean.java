@@ -35,8 +35,6 @@ import java.security.MessageDigest;
 import java.util.Date;
 import java.util.List;
 
-import io.github.carlos_emr.Misc;
-import io.github.carlos_emr.CarlosProperties;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDao;
@@ -73,7 +71,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * <ul>
  *   <li>PIN required for WAN (remote) access when bRemotelockset == 1</li>
  *   <li>PIN required for LAN (local) access when bLocallockset == 1</li>
- *   <li>PIN can be encrypted based on CarlosProperties.isPINEncripted()</li>
+ *   <li>PIN supports legacy encrypted values and modern hashes</li>
  *   <li>PIN check disabled for users with MFA enabled</li>
  *   <li>PIN check disabled if global legacy PIN setting is off</li>
  * </ul>
@@ -210,7 +208,7 @@ public final class LoginCheckLoginBean {
      *   <li>Remote (WAN) access: PIN required if bRemotelockset == 1</li>
      *   <li>Local (LAN) access: PIN required if bLocallockset == 1</li>
      *   <li>PIN must be at least 3 characters</li>
-     *   <li>PIN encrypted if CarlosProperties.isPINEncripted() returns true</li>
+     *   <li>PIN supports legacy encrypted values and modern hashes</li>
      * </ul>
      *
      * <p>Password validation:
@@ -245,16 +243,19 @@ public final class LoginCheckLoginBean {
             return cleanNullObj(LOG_PRE + "No Such User: " + username);
         }
 
-        // Encrypt PIN if encryption is enabled in configuration
-        String sPin = pin;
-        if (sPin != null && CarlosProperties.getInstance().isPINEncripted()) sPin = Misc.encryptPIN(sPin);
-
-        // Validate PIN for remote (WAN) access
-        if (this.isPinCheckEnabled() && isWAN() && security.getBRemotelockset() != null && security.getBRemotelockset().intValue() == 1 && (!sPin.equals(security.getPin()) || pin.length() < 3)) {
-            return cleanNullObj(LOG_PRE + "Pin-remote needed: " + username);
+        boolean isWan = isWAN();
+        boolean isPinCheckEnabled = this.isPinCheckEnabled();
+        boolean isRemotePinRequired = isPinCheckEnabled && isWan && isEnabled(security.getBRemotelockset());
+        boolean isLocalPinRequired = isPinCheckEnabled && !isWan && isEnabled(security.getBLocallockset());
+        boolean isPinRequired = isRemotePinRequired || isLocalPinRequired;
+        boolean isPinValid = true;
+        if (isPinRequired) {
+            isPinValid = this.securityManager.validatePin(pin, security);
         }
-        // Validate PIN for local (LAN) access
-        else if (this.isPinCheckEnabled() && !isWAN() && security.getBLocallockset() != null && security.getBLocallockset().intValue() == 1 && (!sPin.equals(security.getPin()) || pin.length() < 3)) {
+
+        if (isRemotePinRequired && !isPinValid) {
+            return cleanNullObj(LOG_PRE + "Pin-remote needed: " + username);
+        } else if (isLocalPinRequired && !isPinValid) {
             return cleanNullObj(LOG_PRE + "Pin-local needed: " + username);
         }
 
@@ -535,5 +536,9 @@ public final class LoginCheckLoginBean {
 	private boolean isPinCheckEnabled() {
 		return MfaManager.isOscarLegacyPinEnabled() && !security.isUsingMfa();
 	}
+
+    private boolean isEnabled(Integer value) {
+        return Integer.valueOf(1).equals(value);
+    }
 
 }

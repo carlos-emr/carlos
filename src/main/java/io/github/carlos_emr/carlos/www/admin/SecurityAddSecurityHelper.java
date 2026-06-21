@@ -42,12 +42,16 @@ import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import org.apache.logging.log4j.Logger;
 
 
 /**
  * Helper class for securityaddsecurity.jsp page.
  */
 public class SecurityAddSecurityHelper {
+
+    private static final Logger logger = MiscUtils.getLogger();
 
     private SecurityDao securityDao = SpringUtils.getBean(SecurityDao.class);
 	private final SecurityManager securityManager = SpringUtils.getBean(SecurityManager.class);
@@ -68,6 +72,7 @@ public class SecurityAddSecurityHelper {
         ServletRequest request = pageContext.getRequest();
 
 		String digestedPassword = this.securityManager.encodePassword(request.getParameter("password"));
+		String digestedPin = this.securityManager.encodePin(request.getParameter("pin"));
 
         boolean isUserRecordAlreadyCreatedForProvider = !securityDao.findByProviderNo(request.getParameter("provider_no")).isEmpty();
         if (isUserRecordAlreadyCreatedForProvider) return "admin.securityaddsecurity.msgLoginAlreadyExistsForProvider";
@@ -79,11 +84,11 @@ public class SecurityAddSecurityHelper {
         s.setUserName(request.getParameter("user_name"));
         s.setPassword(digestedPassword);
         s.setProviderNo(request.getParameter("provider_no"));
-        s.setPin(request.getParameter("pin"));
-        s.setBExpireset(request.getParameter("b_ExpireSet") == null ? 0 : Integer.parseInt(request.getParameter("b_ExpireSet")));
+        s.setPin(digestedPin);
+        s.setBExpireset(parseLockSetting(request.getParameter("b_ExpireSet")));
         s.setDateExpiredate(MyDateFormat.getSysDate(request.getParameter("date_ExpireDate")));
-        s.setBLocallockset(request.getParameter("b_LocalLockSet") == null ? 0 : Integer.parseInt(request.getParameter("b_LocalLockSet")));
-        s.setBRemotelockset(request.getParameter("b_RemoteLockSet") == null ? 0 : Integer.parseInt(request.getParameter("b_RemoteLockSet")));
+        s.setBLocallockset(parseLockSetting(request.getParameter("b_LocalLockSet")));
+        s.setBRemotelockset(parseLockSetting(request.getParameter("b_RemoteLockSet")));
 
         if (request.getParameter("forcePasswordReset") != null && request.getParameter("forcePasswordReset").equals("1")) {
             s.setForcePasswordReset(Boolean.TRUE);
@@ -108,5 +113,25 @@ public class SecurityAddSecurityHelper {
         LogAction.addLog(loggedInInfo != null ? loggedInInfo.getLoggedInProviderNo() : null, LogConst.ADD, LogConst.CON_SECURITY, request.getParameter("user_name"), request.getRemoteAddr());
 
         return "admin.securityaddsecurity.msgAdditionSuccess";
+    }
+
+    /**
+     * Parses a lock-setting request value.
+     *
+     * <p>Valid form values are expected to be numeric flags, where 0 disables the lock and 1 enables
+     * it. Missing or malformed values default to 0 so direct POSTs cannot fail provider creation with
+     * an unhandled parsing exception.</p>
+     *
+     * @param value The submitted lock-setting value.
+     * @return The parsed numeric flag, or 0 when the value is missing or invalid.
+     */
+    static int parseLockSetting(String value) {
+        try {
+            int parsed = value == null ? 0 : Integer.parseInt(value);
+            return parsed == 1 ? 1 : 0;
+        } catch (NumberFormatException e) {
+            logger.warn("Invalid security lock setting submitted; defaulting to disabled");
+            return 0;
+        }
     }
 }
