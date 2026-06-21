@@ -39,19 +39,18 @@ public final class UploadedFileUtils {
      *
      * @param upload the uploaded file; may be {@code null}
      * @return the backing file
-     * @throws IllegalStateException if {@code upload} is null or not file-backed
+     * @throws IllegalArgumentException if {@code upload} is null or not file-backed
      */
     public static File getUploadedFile(UploadedFile upload) {
         if (upload == null) {
-            throw new IllegalStateException("Upload is null");
+            throw new IllegalArgumentException("Upload is null");
         }
         Object content = upload.getContent();
         if (!(content instanceof File)) {
-            throw new IllegalStateException("Upload has no backing file");
+            throw new IllegalArgumentException("Upload has no backing file");
         }
         return (File) content;
     }
-
     /**
      * Returns the backing {@link File}, or {@code null} when the upload is
      * unavailable, instead of throwing.
