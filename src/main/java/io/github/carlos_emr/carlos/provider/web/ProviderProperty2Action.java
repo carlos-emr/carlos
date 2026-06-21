@@ -1689,7 +1689,9 @@ public class ProviderProperty2Action extends ActionSupport {
         request.setAttribute("providermsgProvider", "provider.setLabRecall.msgProfileView");
         request.setAttribute("providermsgEdit", "provider.setLabRecall.msgEdit");
         request.setAttribute("providerbtnSubmit", "provider.setLabRecall.btnSubmit");
-        request.setAttribute("providermsgSuccess", "provider.setLabRecall.msgSuccess");
+        if (request.getAttribute("error") == null) {
+            request.setAttribute("providermsgSuccess", "provider.setLabRecall.msgSuccess");
+        }     
         request.setAttribute("method", "saveLabRecallPrefs");
 
         this.setLabRecallDelegate(delegate);
@@ -1702,8 +1704,8 @@ public class ProviderProperty2Action extends ActionSupport {
 
     public String saveLabRecallPrefs() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.WRITE, null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.WRITE, null)) {
+            throw new SecurityException("missing required sec object (_lab)");
         }
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
