@@ -39,7 +39,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Verifies the default DrugRef configuration points to the XML-RPC servlet endpoint.
  *
- * @since 2026-05-26
+ * @since 2026-05-28
  */
 @DisplayName("DrugRef configuration regressions")
 @Tag("unit")
