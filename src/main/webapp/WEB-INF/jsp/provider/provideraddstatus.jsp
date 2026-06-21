@@ -42,6 +42,7 @@
 %>
 <%
     //if action is good, then give me the result
+    boolean ajaxRequest = "XMLHttpRequest".equals(request.getHeader("X-Requested-With"));
     String[] param = new String[3];
     param[0] = request.getParameter("status") + request.getParameter("statusch");
     param[1] = (String) session.getAttribute("user");
@@ -71,11 +72,25 @@
         }
         if (true) {
             out.clear();
-            response.sendRedirect(displaypage);
+            if (ajaxRequest) {
+                // In-place status update: return the refreshed day-view URL so the
+                // browser navigates with a history-replacing GET instead of a
+                // full-page POST/redirect that flashes a blank page.
+                response.setContentType("text/plain;charset=UTF-8");
+                out.print(displaypage);
+            } else {
+                response.sendRedirect(displaypage);
+            }
             //pageContext.forward(displaypage); //forward request&response to the target page
             return;
         }
     } else {
+        if (ajaxRequest) {
+            // Signal failure to the AJAX caller with an empty body; the client
+            // shows a localized error and leaves the schedule untouched.
+            out.clear();
+            return;
+        }
 %>
 <p>
 <h1><fmt:message key="AddProviderStatus.msgAddFailure"/></h1>

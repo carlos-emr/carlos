@@ -796,6 +796,64 @@ document.body.appendChild(form);
 form.submit();
 }
 
+<fmt:message var="apptStatusUpdateErrorMessage" key="provider.appointmentProviderAdminDay.statusUpdateError"/>
+/**
+ * Updates an appointment status in place via an AJAX POST instead of a
+ * full-page form submission. This keeps the schedule visible (avoiding the
+ * blank white page that a full-page POST/redirect causes), shows a busy
+ * cursor while the update is in flight, and on success navigates to the
+ * refreshed day view using a history-replacing GET so browser Back does not
+ * appear to replay the status transition. Falls back to the full-page
+ * postViaForm helper when the Fetch API is unavailable.
+ * @param {string} url - providercontrol AddStatus URL with query parameters
+ */
+function updateApptStatus(url) {
+if (typeof window.fetch !== 'function') {
+    postViaForm(url);
+    return;
+}
+var parts = url.split('?');
+var body = new URLSearchParams();
+if (parts.length > 1) {
+    var pairs = parts[1].split('&');
+    for (var i = 0; i < pairs.length; i++) {
+        var kv = pairs[i].split('=');
+        var name = decodeURIComponent(kv[0]);
+        var value = kv.length > 1 ? decodeURIComponent(kv.slice(1).join('=')) : '';
+        body.append(name, value);
+    }
+}
+var X = (window.pageXOffset?window.pageXOffset:window.document.body.scrollLeft);
+var Y = (window.pageYOffset?window.pageYOffset:window.document.body.scrollTop);
+body.append('x', X);
+body.append('y', Y);
+// Inject CSRF token from an existing form (CSRFGuard injects into DOM forms at page load)
+var csrfInput = document.querySelector('input[name="CSRF-TOKEN"]');
+if (csrfInput) { body.append(csrfInput.name, csrfInput.value); }
+var previousCursor = document.body.style.cursor;
+document.body.style.cursor = 'wait';
+fetch(parts[0], {
+    method: 'post',
+    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    body: body,
+    credentials: 'same-origin'
+}).then(function(response){
+    if (!response.ok) { throw new Error('HTTP ' + response.status); }
+    return response.text();
+}).then(function(target){
+    target = (target || '').trim();
+    if (target) {
+        window.location.replace(target);
+    } else {
+        throw new Error('empty response');
+    }
+}).catch(function(e){
+    document.body.style.cursor = previousCursor;
+    console.error(e);
+    alert('${carlos:forJavaScript(apptStatusUpdateErrorMessage)}');
+});
+}
+
 function scrollOnLoad() {
 var X = getParameter("x");
 var Y = getParameter("y");
