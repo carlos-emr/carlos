@@ -160,6 +160,21 @@ class JspJavaScriptEncodingRegressionTest {
     }
 
     @Test
+    void shouldContainEncodedPrescribeValues_inHtmlAttributeAndJavaScriptContexts() throws Exception {
+        String prescribeJsp = readJsp("rx/prescribe.jsp");
+
+        assertThat(prescribeJsp)
+                .doesNotContain("value=\"<%=comment%>\"")
+                .contains("value=\"<carlos:encode value='<%= comment %>' context=\"htmlAttribute\"/>\"")
+                .doesNotContain("var archR='<%=archivedReason%>'")
+                .contains("var archR='<carlos:encode value='<%= archivedReason %>' context=\"javaScript\"/>'")
+                .doesNotContain("var archD='<%=archivedDate%>'")
+                .contains("var archD='<carlos:encode value='<%= archivedDate %>' context=\"javaScript\"/>'")
+                .doesNotContain("if(confirm('This drug was discontinued on <%=archivedDate%> because of <%=archivedReason%> are you sure you want to continue it?')==true)")
+                .contains("if(confirm('This drug was discontinued on <carlos:encode value='<%= archivedDate %>' context=\"javaScript\"/> because of <carlos:encode value='<%= archivedReason %>' context=\"javaScript\"/> are you sure you want to continue it?')==true)");
+    }
+
+    @Test
     void shouldContainEncodedMeasurementGroupNames_inHtmlBodyContext() throws Exception {
         String addGroupJsp = readJsp("encounter/oscarMeasurements/AddMeasurementGroup.jsp");
         String editGroupJsp = readJsp("encounter/oscarMeasurements/EditMeasurementGroup.jsp");
