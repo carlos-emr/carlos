@@ -2537,7 +2537,6 @@ public class ProviderProperty2Action extends ActionSupport {
      * Security:
      *     - Requires authenticated provider session (injected via LoggedInInfo)
      *     - Checks _lab READ privilege via SecurityInfoManager to view macros
-     *     - Checks _lab WRITE privilege via SecurityInfoManager to enable editing/saving
      *     - Throws RuntimeException if privilege is missing
      *
      * Flow:
