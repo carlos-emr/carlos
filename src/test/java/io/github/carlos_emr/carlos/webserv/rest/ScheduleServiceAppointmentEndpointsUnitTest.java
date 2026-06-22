@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.webserv.rest;
 
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -36,6 +37,7 @@ import org.junit.jupiter.api.Test;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.AppointmentTo1;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Regression guards for the appointment endpoints repaired under issue #2957:
@@ -80,6 +82,17 @@ class ScheduleServiceAppointmentEndpointsUnitTest {
     }
 
     @Test
+    @DisplayName("should throw IllegalArgumentException when toDate is given an unsupported type")
+    void shouldThrow_whenToDateGivenUnsupportedType() throws Exception {
+        Method toDate = ScheduleService.class.getDeclaredMethod("toDate", Object.class);
+        toDate.setAccessible(true);
+
+        assertThatThrownBy(() -> toDate.invoke(null, new Object()))
+                .isInstanceOf(InvocationTargetException.class)
+                .hasCauseInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     @DisplayName("should coerce CHAR column values (String or Character) to Character")
     void shouldCoerceCharColumn_toCharacter() throws Exception {
         Method toCharacter = ScheduleService.class.getDeclaredMethod("toCharacter", Object.class);
@@ -88,6 +101,7 @@ class ScheduleServiceAppointmentEndpointsUnitTest {
         assertThat(toCharacter.invoke(null, "N")).isEqualTo('N');
         assertThat(toCharacter.invoke(null, Character.valueOf('B'))).isEqualTo('B');
         assertThat(toCharacter.invoke(null, "")).isNull();
+        assertThat(toCharacter.invoke(null, "   ")).isNull();
         assertThat(toCharacter.invoke(null, new Object[]{null})).isNull();
     }
 }

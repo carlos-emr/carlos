@@ -554,7 +554,7 @@ public class ScheduleService extends AbstractServiceImpl {
         if (value instanceof Character character) {
             return character;
         }
-        String s = value.toString();
+        String s = value.toString().trim();
         return s.isEmpty() ? null : s.charAt(0);
     }
 

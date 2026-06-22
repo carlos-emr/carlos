@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.webserv.rest.util;
 
+import java.io.IOException;
+import java.time.Instant;
 import java.util.Calendar;
 import java.util.Date;
 
@@ -33,6 +35,7 @@ import org.junit.jupiter.api.Test;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.AppointmentTo1;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Verifies that {@link SmartDateModule} can round-trip a {@link Date} through the JSON
@@ -97,6 +100,29 @@ class SmartDateModuleRoundTripUnitTest {
     void shouldReturnNull_forNullAndEmptyString() throws Exception {
         assertThat(mapper.readValue("null", Date.class)).isNull();
         assertThat(mapper.readValue("\"\"", Date.class)).isNull();
+    }
+
+    @Test
+    @DisplayName("should deserialize an epoch-millis value encoded as a string")
+    void shouldDeserializeEpochMillis_fromNumericString() throws Exception {
+        assertThat(mapper.readValue("\"1234567890000\"", Date.class))
+                .isEqualTo(new Date(1234567890000L));
+    }
+
+    @Test
+    @DisplayName("should deserialize an ISO-8601 datetime string for backward compatibility")
+    void shouldDeserializeIso8601_fromDatetimeString() throws Exception {
+        // Not a shape the serializer emits, but the default Jackson deserializer accepted it
+        // before this module registered one; the StdDateFormat fallback must keep parsing it.
+        assertThat(mapper.readValue("\"2026-06-22T09:30:00Z\"", Date.class))
+                .isEqualTo(Date.from(Instant.parse("2026-06-22T09:30:00Z")));
+    }
+
+    @Test
+    @DisplayName("should fail with an IOException for an unparseable date string")
+    void shouldThrowIoException_forUnparseableString() {
+        assertThatThrownBy(() -> mapper.readValue("\"not-a-date\"", Date.class))
+                .isInstanceOf(IOException.class);
     }
 
     @Test
