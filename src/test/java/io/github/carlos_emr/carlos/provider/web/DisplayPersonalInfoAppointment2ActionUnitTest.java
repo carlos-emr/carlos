@@ -43,19 +43,28 @@ import static org.mockito.Mockito.when;
 @DisplayName("DisplayPersonalInfoAppointment2Action")
 class DisplayPersonalInfoAppointment2ActionUnitTest {
 
+    /**
+     * Pins the regression directly on {@code toggle()}: a first-time toggle (no prior session
+     * attribute) must default {@code showPersonal} to {@code true} and return {@link
+     * ActionSupport#NONE} so Struts renders no result body.
+     */
     @Test
     @DisplayName("should return NONE and set showPersonal true when attribute is absent")
     void shouldReturnNoneAndSetTrue_whenAttributeAbsent() {
         withMockedContext(true, request -> {
             DisplayPersonalInfoAppointment2Action action = new DisplayPersonalInfoAppointment2Action();
 
-            String result = action.execute();
+            String result = action.toggle();
 
             assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(request.getSession().getAttribute("showPersonal")).isEqualTo(Boolean.TRUE);
         });
     }
 
+    /**
+     * Verifies {@code toggle()} flips an existing {@code true} flag to {@code false} and still
+     * returns {@link ActionSupport#NONE}.
+     */
     @Test
     @DisplayName("should return NONE and flip showPersonal to false when previously true")
     void shouldReturnNoneAndSetFalse_whenPreviouslyTrue() {
@@ -63,13 +72,17 @@ class DisplayPersonalInfoAppointment2ActionUnitTest {
             request.getSession().setAttribute("showPersonal", Boolean.TRUE);
             DisplayPersonalInfoAppointment2Action action = new DisplayPersonalInfoAppointment2Action();
 
-            String result = action.execute();
+            String result = action.toggle();
 
             assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(request.getSession().getAttribute("showPersonal")).isEqualTo(Boolean.FALSE);
         });
     }
 
+    /**
+     * Verifies {@code toggle()} flips an existing {@code false} flag back to {@code true} and still
+     * returns {@link ActionSupport#NONE}.
+     */
     @Test
     @DisplayName("should return NONE and flip showPersonal to true when previously false")
     void shouldReturnNoneAndSetTrue_whenPreviouslyFalse() {
@@ -77,13 +90,18 @@ class DisplayPersonalInfoAppointment2ActionUnitTest {
             request.getSession().setAttribute("showPersonal", Boolean.FALSE);
             DisplayPersonalInfoAppointment2Action action = new DisplayPersonalInfoAppointment2Action();
 
-            String result = action.execute();
+            String result = action.toggle();
 
             assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(request.getSession().getAttribute("showPersonal")).isEqualTo(Boolean.TRUE);
         });
     }
 
+    /**
+     * Confirms the privilege gate in {@code execute()} rejects callers lacking {@code _demographic}
+     * read rights before any toggle side-effect runs. This case must drive {@code execute()} (not
+     * {@code toggle()}) because the security check lives in {@code execute()}.
+     */
     @Test
     @DisplayName("should throw SecurityException when _demographic read privilege is missing")
     void shouldThrowSecurityException_whenPrivilegeMissing() {
