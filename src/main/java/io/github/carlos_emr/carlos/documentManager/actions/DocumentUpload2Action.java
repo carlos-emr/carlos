@@ -234,7 +234,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
     private void deleteValidatedUploadTempFile(File uploadFile) {
         try {
             File validatedUpload = PathValidationUtils.validateUpload(uploadFile);
-            if (!SpringUtils.getBean(NioFileManager.class).deleteTempFile(validatedUpload.getPath())) {
+            if (!SpringUtils.getBean(NioFileManager.class).deleteTempFile(validatedUpload.getPath())) { // codeql[java/path-injection] validateUpload canonicalizes and restricts uploads to approved temp dirs before delegated cleanup.
                 logger.debug("Upload temp file cleanup did not delete a file");
             }
         } catch (SecurityException e) {
