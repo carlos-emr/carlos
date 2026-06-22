@@ -317,14 +317,15 @@ public class ResponseSanitizationFilter implements Filter {
             int status = wrapper.getStatus();
             byte[] capturedBytes = wrapper.getCapturedOutput();
             String capturedBody = new String(capturedBytes, StandardCharsets.UTF_8);
-            if (shouldSanitizeErrorBody(status, capturedBody, webServiceRequest)) {
+            String reason = sanitizationReason(status, capturedBody, webServiceRequest);
+            if (reason != null) {
                 String correlationId = generateCorrelationId();
                 LOGGER.error("Sanitizing output-stream error response body "
                                 + "[status={} uri={} correlationId={} reason={}]",
                         status,
                         LogSafe.sanitizeUri(((HttpServletRequest) request).getRequestURI()),
                         correlationId,
-                        sanitizationReason(capturedBody));
+                        reason);
                 sendSanitizedError(httpResponse, status, correlationId);
             } else {
                 writeBytesToResponse(httpResponse, capturedBytes);
@@ -348,7 +349,8 @@ public class ResponseSanitizationFilter implements Filter {
         int status = wrapper.getStatus();
         String capturedBody = wrapper.getCapturedContent();
 
-        if (shouldSanitizeErrorBody(status, capturedBody, webServiceRequest)) {
+        String reason = sanitizationReason(status, capturedBody, webServiceRequest);
+        if (reason != null) {
             // Tainted (stack trace) or web-service 5xx partial body: log correlation details
             // only and send a sanitized replacement.
             String correlationId = generateCorrelationId();
@@ -357,7 +359,7 @@ public class ResponseSanitizationFilter implements Filter {
                     status,
                     LogSafe.sanitizeUri(((HttpServletRequest) request).getRequestURI()),
                     correlationId,
-                    sanitizationReason(capturedBody));
+                    reason);
             sendSanitizedError(httpResponse, status, correlationId);
         } else {
             // Safe response — write captured content through to the real response.
@@ -379,19 +381,29 @@ public class ResponseSanitizationFilter implements Filter {
         return STACK_TRACE_PATTERN.matcher(body).find();
     }
 
+    /** Reason code logged when an error body is replaced because it carries a stack trace. */
+    static final String REASON_STACK_TRACE = "stack-trace-marker";
+
+    /** Reason code logged when a web-service 5xx partial entity body is replaced. */
+    static final String REASON_WEB_SERVICE_5XX = "web-service-5xx-partial-body";
+
     /**
-     * Decides whether a captured error-response body must be replaced with a generic page.
+     * Determines whether a captured error-response body must be replaced with a generic page and,
+     * if so, why. Returns a short, log-safe reason code, or {@code null} when the body may pass
+     * through unchanged. The reason never includes any portion of the response body itself (which
+     * can carry PHI even after the decision).
      *
      * <p>Two independent triggers, both scoped to error status codes ({@code >= 400}):
      * <ul>
-     *   <li>The body contains Java stack trace markers (any error route) — the original
-     *       CWE-209 protection.</li>
-     *   <li>The request targets a web-service route ({@code /ws/*}) and the status is a server
-     *       error ({@code >= 500}). A mid-stream Jackson/JAXB serialization failure commonly
-     *       leaves a clean, well-formed JSON/XML prefix already written — patient demographics,
-     *       names, phone numbers — that the stack-trace heuristic does not match. Web-service
-     *       5xx responses carry no client-meaningful entity body, so suppressing it removes the
-     *       PHI exposure without breaking an API contract. See issue #2953.</li>
+     *   <li>{@link #REASON_STACK_TRACE} — the body contains Java stack trace markers (any error
+     *       route); the original CWE-209 protection.</li>
+     *   <li>{@link #REASON_WEB_SERVICE_5XX} — the request targets a web-service route
+     *       ({@code /ws/*}) and the status is a server error ({@code >= 500}). A mid-stream
+     *       Jackson/JAXB serialization failure commonly leaves a clean, well-formed JSON/XML prefix
+     *       already written — patient demographics, names, phone numbers — that the stack-trace
+     *       heuristic does not match. Web-service 5xx responses carry no client-meaningful entity
+     *       body, so suppressing it removes the PHI exposure without breaking an API contract. See
+     *       issue #2953.</li>
      * </ul>
      *
      * <p>Client errors ({@code 4xx}) on web-service routes are intentionally left to the
@@ -402,28 +414,31 @@ public class ResponseSanitizationFilter implements Filter {
      * @param status             int the response status code
      * @param body               String the captured response body; may be {@code null}/empty
      * @param webServiceRequest  boolean {@code true} if the request targeted a {@code /ws/*} route
-     * @return {@code true} if the body must be replaced with a sanitized error page
+     * @return a log-safe reason code, or {@code null} if the body must not be sanitized
      */
-    static boolean shouldSanitizeErrorBody(int status, String body, boolean webServiceRequest) {
+    static String sanitizationReason(int status, String body, boolean webServiceRequest) {
         if (status < 400) {
-            return false;
+            return null;
         }
         if (body != null && containsStackTrace(body)) {
-            return true;
+            return REASON_STACK_TRACE;
         }
-        return webServiceRequest && status >= 500;
+        if (webServiceRequest && status >= 500) {
+            return REASON_WEB_SERVICE_5XX;
+        }
+        return null;
     }
 
     /**
-     * Returns a short, log-safe reason code describing why a body was sanitized. Never includes
-     * any portion of the response body itself (which can carry PHI even after the decision).
+     * Convenience predicate over {@link #sanitizationReason(int, String, boolean)}.
      *
-     * @param body String the captured body used only to distinguish the trigger
-     * @return {@code "stack-trace-marker"} or {@code "web-service-5xx-partial-body"}
+     * @param status             int the response status code
+     * @param body               String the captured response body; may be {@code null}/empty
+     * @param webServiceRequest  boolean {@code true} if the request targeted a {@code /ws/*} route
+     * @return {@code true} if the body must be replaced with a sanitized error page
      */
-    private static String sanitizationReason(String body) {
-        return (body != null && containsStackTrace(body))
-                ? "stack-trace-marker" : "web-service-5xx-partial-body";
+    static boolean shouldSanitizeErrorBody(int status, String body, boolean webServiceRequest) {
+        return sanitizationReason(status, body, webServiceRequest) != null;
     }
 
     /**

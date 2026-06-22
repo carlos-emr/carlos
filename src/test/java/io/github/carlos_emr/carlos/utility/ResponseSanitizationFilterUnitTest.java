@@ -920,6 +920,65 @@ class ResponseSanitizationFilterUnitTest {
             assertThat(response.getStatus()).isEqualTo(500);
             assertThat(response.getContentAsString()).isEqualTo(htmlError);
         }
+
+        @Test
+        @DisplayName("should sanitize 500 stack-trace body on /ws route through the full filter")
+        void shouldSanitizeStackTraceBody_whenStatusIs500OnWebServiceRoute() throws Exception {
+            MockHttpServletRequest request = wsRequest("POST");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            // A /ws 500 carrying an actual stack trace must be sanitized via the stack-trace
+            // trigger, exactly as it would on any other route — verified end-to-end here.
+            String stackTraceBody = "java.lang.NullPointerException\n"
+                    + "\tat io.github.carlos_emr.carlos.ws.rs.ScheduleService.getAppointment(ScheduleService.java:88)";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(500);
+                httpRes.setContentType("application/json");
+                res.getWriter().write(stackTraceBody);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getStatus()).isEqualTo(500);
+            String sanitized = response.getContentAsString();
+            assertThat(sanitized).doesNotContain("NullPointerException");
+            assertThat(sanitized).doesNotContain("io.github.carlos_emr");
+            assertThat(sanitized).contains("Reference ID:");
+        }
+    }
+
+    @Nested
+    @DisplayName("sanitizationReason()")
+    class SanitizationReason {
+
+        @Test
+        @DisplayName("should report stack-trace reason for any error status with markers")
+        void shouldReportStackTraceReason_forAnyErrorWithMarkers() {
+            String body = "java.lang.NullPointerException\n\tat io.github.carlos_emr.carlos.Foo.bar(Foo.java:1)";
+            assertThat(ResponseSanitizationFilter.sanitizationReason(404, body, false))
+                    .isEqualTo(ResponseSanitizationFilter.REASON_STACK_TRACE);
+            assertThat(ResponseSanitizationFilter.sanitizationReason(500, body, true))
+                    .isEqualTo(ResponseSanitizationFilter.REASON_STACK_TRACE);
+        }
+
+        @Test
+        @DisplayName("should report web-service 5xx reason for clean /ws 5xx body")
+        void shouldReportWebService5xxReason_forCleanWebService5xxBody() {
+            assertThat(ResponseSanitizationFilter.sanitizationReason(500, "{\"phi\":\"x\"}", true))
+                    .isEqualTo(ResponseSanitizationFilter.REASON_WEB_SERVICE_5XX);
+            assertThat(ResponseSanitizationFilter.sanitizationReason(503, null, true))
+                    .isEqualTo(ResponseSanitizationFilter.REASON_WEB_SERVICE_5XX);
+        }
+
+        @Test
+        @DisplayName("should return null when the body must not be sanitized")
+        void shouldReturnNull_whenBodyMustNotBeSanitized() {
+            // Successful status, /ws 4xx without stack trace, and non-/ws 5xx without stack trace.
+            assertThat(ResponseSanitizationFilter.sanitizationReason(200, "{\"phi\":\"x\"}", true)).isNull();
+            assertThat(ResponseSanitizationFilter.sanitizationReason(404, "{\"error\":\"x\"}", true)).isNull();
+            assertThat(ResponseSanitizationFilter.sanitizationReason(500, "plain page", false)).isNull();
+        }
     }
 
     @Nested
