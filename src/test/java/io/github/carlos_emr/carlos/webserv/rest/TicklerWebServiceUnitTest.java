@@ -136,7 +136,38 @@ class TicklerWebServiceUnitTest extends CarlosUnitTestBase {
                 .thenReturn(false);
 
         assertThatThrownBy(() -> service.completeTicklers(payload("{\"ticklers\":[1]}")))
-                .isInstanceOf(RuntimeException.class);
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Access Denied");
+        verify(ticklerManager, never()).completeTickler(any(), any(), any());
+    }
+
+    @Test
+    @Tag("update")
+    @DisplayName("should return an error when the ticklers field is missing")
+    void shouldReturnError_whenTicklersFieldMissing() throws Exception {
+        RestResponse<String> response = service.completeTicklers(payload("{}"));
+
+        assertThat(response.getStatus()).isEqualTo(ResponseStatus.ERROR);
+        verify(ticklerManager, never()).completeTickler(any(), any(), any());
+    }
+
+    @Test
+    @Tag("update")
+    @DisplayName("should return an error when the ticklers field is not an array")
+    void shouldReturnError_whenTicklersIsNotArray() throws Exception {
+        RestResponse<String> response = service.completeTicklers(payload("{\"ticklers\":5}"));
+
+        assertThat(response.getStatus()).isEqualTo(ResponseStatus.ERROR);
+        verify(ticklerManager, never()).completeTickler(any(), any(), any());
+    }
+
+    @Test
+    @Tag("update")
+    @DisplayName("should return an error when a tickler id is not an integer")
+    void shouldReturnError_whenTicklerIdIsNotInteger() throws Exception {
+        RestResponse<String> response = service.completeTicklers(payload("{\"ticklers\":[\"abc\"]}"));
+
+        assertThat(response.getStatus()).isEqualTo(ResponseStatus.ERROR);
         verify(ticklerManager, never()).completeTickler(any(), any(), any());
     }
 }

@@ -28,6 +28,7 @@
  */
 package io.github.carlos_emr.carlos.webserv.rest;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -274,10 +275,14 @@ public class TicklerWebService extends AbstractServiceImpl {
 
         MiscUtils.getLogger().info(json.toString());
 
-        ArrayNode ticklerIds = (ArrayNode) json.get("ticklers");
+        List<Integer> ticklerIds;
+        try {
+            ticklerIds = extractTicklerIds(json);
+        } catch (IllegalArgumentException e) {
+            return RestResponse.errorResponse(e.getMessage());
+        }
 
-        for (JsonNode id : ticklerIds) {
-            int ticklerNo = id.asInt();
+        for (Integer ticklerNo : ticklerIds) {
             ticklerManager.completeTickler(getLoggedInInfo(), ticklerNo, getLoggedInInfo().getLoggedInProviderNo());
         }
 
@@ -296,14 +301,45 @@ public class TicklerWebService extends AbstractServiceImpl {
 
         MiscUtils.getLogger().info(json.toString());
 
-        ArrayNode ticklerIds = (ArrayNode) json.get("ticklers");
+        List<Integer> ticklerIds;
+        try {
+            ticklerIds = extractTicklerIds(json);
+        } catch (IllegalArgumentException e) {
+            return RestResponse.errorResponse(e.getMessage());
+        }
 
-        for (JsonNode id : ticklerIds) {
-            int ticklerNo = id.asInt();
+        for (Integer ticklerNo : ticklerIds) {
             ticklerManager.deleteTickler(getLoggedInInfo(), ticklerNo, getLoggedInInfo().getLoggedInProviderNo());
         }
 
         return RestResponse.successResponse(null);
+    }
+
+    /**
+     * Extracts and validates the {@code ticklers} id array from a bulk request body.
+     *
+     * <p>The field must be present, a JSON array, and contain only values that fit a
+     * 32-bit int. Reading ids with {@link JsonNode#asInt()} alone would let a missing
+     * field NPE and silently coerce non-numeric values to {@code 0}, so malformed input
+     * is rejected here with a clear message instead.</p>
+     *
+     * @param json the request body
+     * @return the parsed tickler ids (possibly empty)
+     * @throws IllegalArgumentException if the field is missing, not an array, or holds a non-integer id
+     */
+    private List<Integer> extractTicklerIds(JsonNode json) {
+        JsonNode ticklerIds = json.get("ticklers");
+        if (ticklerIds == null || !ticklerIds.isArray()) {
+            throw new IllegalArgumentException("ticklers must be an array of integer ids");
+        }
+        List<Integer> ids = new ArrayList<>();
+        for (JsonNode id : ticklerIds) {
+            if (!id.canConvertToInt()) {
+                throw new IllegalArgumentException("ticklers must contain only integer ids");
+            }
+            ids.add(id.intValue());
+        }
+        return ids;
     }
 
     @POST
