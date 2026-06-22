@@ -183,4 +183,16 @@ class TicklerWebServiceUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(ResponseStatus.ERROR);
         verify(ticklerManager, never()).completeTickler(any(), any(), any());
     }
+
+    @Test
+    @Tag("update")
+    @DisplayName("should return an error when a tickler id is a fractional number")
+    void shouldReturnError_whenTicklerIdIsFractional() throws Exception {
+        // canConvertToInt() returns true for 1.9 and intValue() would truncate it to 1,
+        // so a fractional id must be rejected rather than silently acting on tickler 1.
+        RestResponse<String> response = service.completeTicklers(payload("{\"ticklers\":[1.9]}"));
+
+        assertThat(response.getStatus()).isEqualTo(ResponseStatus.ERROR);
+        verify(ticklerManager, never()).completeTickler(any(), any(), any());
+    }
 }

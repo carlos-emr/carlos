@@ -318,10 +318,14 @@ public class TicklerWebService extends AbstractServiceImpl {
     /**
      * Extracts and validates the {@code ticklers} id array from a bulk request body.
      *
-     * <p>The field must be present, a JSON array, and contain only values that fit a
-     * 32-bit int. Reading ids with {@link JsonNode#asInt()} alone would let a missing
+     * <p>The field must be present, a JSON array, and contain only integral values that
+     * fit a 32-bit int. Reading ids with {@link JsonNode#asInt()} alone would let a missing
      * field NPE and silently coerce non-numeric values to {@code 0}, so malformed input
-     * is rejected here with a clear message instead.</p>
+     * is rejected here with a clear message instead. {@link JsonNode#canConvertToInt()}
+     * alone is not enough: it returns {@code true} for fractional values in int range
+     * (e.g. {@code 1.9}), which {@link JsonNode#intValue()} would silently truncate to
+     * {@code 1}, so {@link JsonNode#isIntegralNumber()} is checked first to reject
+     * non-integral numbers.</p>
      *
      * @param json the request body
      * @return the parsed tickler ids (possibly empty)
@@ -334,7 +338,7 @@ public class TicklerWebService extends AbstractServiceImpl {
         }
         List<Integer> ids = new ArrayList<>();
         for (JsonNode id : ticklerIds) {
-            if (!id.canConvertToInt()) {
+            if (!id.isIntegralNumber() || !id.canConvertToInt()) {
                 throw new IllegalArgumentException("ticklers must contain only integer ids");
             }
             ids.add(id.intValue());
