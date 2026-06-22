@@ -65,6 +65,7 @@ public class ScheduleWs extends AbstractWs {
     private ScheduleManager scheduleManager;
 
     public ScheduleTemplateCodeTransfer[] getScheduleTemplateCodes() {
+        requirePrivilege("_appointment", "r");
         List<ScheduleTemplateCode> scheduleTemplateCodes = scheduleManager.getScheduleTemplateCodes();
         return (ScheduleTemplateCodeTransfer.toTransfer(scheduleTemplateCodes));
     }
@@ -74,6 +75,7 @@ public class ScheduleWs extends AbstractWs {
      */
     @Deprecated
     public AppointmentTransfer getAppointment(Integer appointmentId) {
+        requirePrivilege("_appointment", "r");
         Appointment appointment = scheduleManager.getAppointment(getLoggedInInfo(), appointmentId);
         return (AppointmentTransfer.toTransfer(appointment, false));
     }
@@ -83,6 +85,7 @@ public class ScheduleWs extends AbstractWs {
      */
     @Deprecated
     public AppointmentTransfer[] getAppointmentsForProvider(String providerNo, Calendar date) {
+        requirePrivilege("_appointment", "r");
         List<Appointment> appointments = scheduleManager.getDayAppointments(getLoggedInInfo(), providerNo, date);
         return (AppointmentTransfer.toTransfers(appointments, false));
     }
@@ -92,32 +95,38 @@ public class ScheduleWs extends AbstractWs {
      */
     @Deprecated
     public AppointmentTransfer[] getAppointmentsForPatient(Integer demographicId, int startIndex, int itemsToReturn) {
+        requirePrivilege("_appointment", "r");
         List<Appointment> appointments = scheduleManager.getAppointmentsForPatient(getLoggedInInfo(), demographicId, startIndex, itemsToReturn);
         return (AppointmentTransfer.toTransfers(appointments, false));
     }
 
     public AppointmentTransfer getAppointment2(Integer appointmentId, boolean useGMTTime) {
+        requirePrivilege("_appointment", "r");
         Appointment appointment = scheduleManager.getAppointment(getLoggedInInfo(), appointmentId);
         return (AppointmentTransfer.toTransfer(appointment, useGMTTime));
     }
 
     public AppointmentTransfer[] getAppointmentsForProvider2(String providerNo, Calendar date, boolean useGMTTime) {
+        requirePrivilege("_appointment", "r");
         List<Appointment> appointments = scheduleManager.getDayAppointments(getLoggedInInfo(), providerNo, date);
         return (AppointmentTransfer.toTransfers(appointments, useGMTTime));
     }
 
     public AppointmentTransfer[] getAppointmentsForPatient2(Integer demographicId, int startIndex, int itemsToReturn, boolean useGMTTime) {
+        requirePrivilege("_appointment", "r");
         List<Appointment> appointments = scheduleManager.getAppointmentsForPatient(getLoggedInInfo(), demographicId, startIndex, itemsToReturn);
         return (AppointmentTransfer.toTransfers(appointments, useGMTTime));
     }
 
     public DayWorkScheduleTransfer getDayWorkSchedule(String providerNo, Calendar date) {
+        requirePrivilege("_appointment", "r");
         DayWorkSchedule dayWorkSchedule = scheduleManager.getDayWorkSchedule(providerNo, date);
         if (dayWorkSchedule == null) return (null);
         else return (DayWorkScheduleTransfer.toTransfer(dayWorkSchedule));
     }
 
     public AppointmentTypeTransfer[] getAppointmentTypes() {
+        requirePrivilege("_appointment", "r");
         List<AppointmentType> appointmentTypes = scheduleManager.getAppointmentTypes();
         return (AppointmentTypeTransfer.toTransfer(appointmentTypes));
     }
@@ -126,6 +135,7 @@ public class ScheduleWs extends AbstractWs {
      * @return the ID of the appointment just added
      */
     public Integer addAppointment(AppointmentTransfer appointmentTransfer) {
+        requirePrivilege("_appointment", "w");
         Appointment appointment = new Appointment();
         appointmentTransfer.copyTo(appointment);
         scheduleManager.addAppointment(getLoggedInInfo(), getLoggedInSecurity(), appointment);
@@ -133,6 +143,7 @@ public class ScheduleWs extends AbstractWs {
     }
 
     public void updateAppointment(AppointmentTransfer appointmentTransfer) {
+        requirePrivilege("_appointment", "w");
         Appointment appointment = scheduleManager.getAppointment(getLoggedInInfo(), appointmentTransfer.getId());
 
         appointmentTransfer.copyTo(appointment);
@@ -146,26 +157,31 @@ public class ScheduleWs extends AbstractWs {
      */
     @Deprecated
     public AppointmentTransfer[] getAppointmentsForDateRangeAndProvider(Date startTime, Date endTime, String providerNo) {
+        requirePrivilege("_appointment", "r");
         List<Appointment> appointments = scheduleManager.getAppointmentsForDateRangeAndProvider(getLoggedInInfo(), startTime, endTime, providerNo);
         return (AppointmentTransfer.toTransfers(appointments, false));
     }
 
     public AppointmentTransfer[] getAppointmentsForDateRangeAndProvider2(Date startTime, Date endTime, String providerNo, boolean useGMTTime) {
+        requirePrivilege("_appointment", "r");
         List<Appointment> appointments = scheduleManager.getAppointmentsForDateRangeAndProvider(getLoggedInInfo(), startTime, endTime, providerNo);
         return (AppointmentTransfer.toTransfers(appointments, useGMTTime));
     }
 
     public AppointmentTransfer[] getAppointmentsUpdatedAfterDate(Date updatedAfterThisDateExclusive, int itemsToReturn, boolean useGMTTime) {
+        requirePrivilege("_appointment", "r");
         List<Appointment> appointments = scheduleManager.getAppointmentUpdatedAfterDate(getLoggedInInfo(), updatedAfterThisDateExclusive, itemsToReturn);
         return (AppointmentTransfer.toTransfers(appointments, useGMTTime));
     }
 
     public AppointmentArchiveTransfer[] getAppointmentArchivesUpdatedAfterDate(Date updatedAfterThisDateExclusive, int itemsToReturn, boolean useGMTTime) {
+        requirePrivilege("_appointment", "r");
         List<AppointmentArchive> appointments = scheduleManager.getAppointmentArchiveUpdatedAfterDate(getLoggedInInfo(), updatedAfterThisDateExclusive, itemsToReturn);
         return (AppointmentArchiveTransfer.toTransfers(appointments, useGMTTime));
     }
 
     public AppointmentTransfer[] getAppointmentsByProgramProviderDemographicDate(Integer programId, String providerNo, Integer demographicId, Calendar updatedAfterThisDateExclusive, int itemsToReturn, boolean useGMTTime) {
+        requirePrivilege("_appointment", "r");
         List<Appointment> appointments = scheduleManager.getAppointmentsByProgramProviderDemographicDate(getLoggedInInfo(), programId, providerNo, demographicId, updatedAfterThisDateExclusive, itemsToReturn);
         return (AppointmentTransfer.toTransfers(appointments, useGMTTime));
     }
@@ -175,6 +191,7 @@ public class ScheduleWs extends AbstractWs {
      * We will not support revisioning for this method, if / when we want to change this, we will.
      */
     public Calendar testTimeZone_1492_05_12_18_26_32(boolean useGMTTime) {
+        requirePrivilege("_appointment", "r");
         Calendar cal = new GregorianCalendar(1492, 05, 12, 18, 26, 32);
         cal = AppointmentTransfer.setToGMTIfRequired(cal, useGMTTime);
 
@@ -185,11 +202,13 @@ public class ScheduleWs extends AbstractWs {
     }
 
     public Integer[] getAllDemographicIdByProgramProvider(Integer programId, String providerNo) {
+        requirePrivilege("_appointment", "r");
         List<Integer> results = scheduleManager.getAllDemographicIdByProgramProvider(getLoggedInInfo(), programId, providerNo);
         return (results.toArray(new Integer[0]));
     }
 
     public AppointmentTransfer[] getAppointmentsByDemographicIdAfter(@WebParam(name = "lastUpdate") Calendar lastUpdate, @WebParam(name = "demographicId") Integer demographicId, @WebParam(name = "useGMTTime") boolean useGMTTime) {
+        requirePrivilege("_appointment", "r");
         List<Appointment> appointments = scheduleManager.getAppointmentByDemographicIdUpdatedAfterDate(getLoggedInInfo(), demographicId, lastUpdate.getTime());
         return (AppointmentTransfer.toTransfers(appointments, useGMTTime));
     }

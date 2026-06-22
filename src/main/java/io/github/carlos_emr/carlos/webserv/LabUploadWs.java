@@ -70,6 +70,7 @@ public class LabUploadWs extends AbstractWs {
             @WebParam(name = "contents") String contents,
             @WebParam(name = "oscar_provider_no") String oscarProviderNo
     ) {
+        requirePrivilege("_lab", "w");
         String returnMessage, audit;
 
         try {
@@ -91,6 +92,7 @@ public class LabUploadWs extends AbstractWs {
             @WebParam(name = "contents") String contents,
             @WebParam(name = "oscar_provider_no") String oscarProviderNo
     ) {
+        requirePrivilege("_lab", "w");
         String returnMessage, audit;
 
         try {
@@ -112,6 +114,7 @@ public class LabUploadWs extends AbstractWs {
             @WebParam(name = "contents") String contents,
             @WebParam(name = "oscar_provider_no") String oscarProviderNo
     ) {
+        requirePrivilege("_lab", "w");
         String returnMessage, audit;
 
         try {
@@ -132,6 +135,7 @@ public class LabUploadWs extends AbstractWs {
             @WebParam(name = "contents") String contents,
             @WebParam(name = "oscar_provider_no") String oscarProviderNo
     ) {
+        requirePrivilege("_lab", "w");
         String returnMessage, audit;
 
         LabType labType = LabType.EXCELLERIS;
@@ -161,6 +165,7 @@ public class LabUploadWs extends AbstractWs {
             @WebParam(name = "contents") String contents,
             @WebParam(name = "oscar_provider_no") String oscarProviderNo
     ) {
+        requirePrivilege("_lab", "w");
         String returnMessage, audit;
 
         try {
@@ -181,6 +186,7 @@ public class LabUploadWs extends AbstractWs {
             @WebParam(name = "contents") String contents,
             @WebParam(name = "oscar_provider_no") String oscarProviderNo
     ) {
+        requirePrivilege("_lab", "w");
         String returnMessage, audit;
 
         try {
@@ -201,6 +207,7 @@ public class LabUploadWs extends AbstractWs {
             @WebParam(name = "contents") String contents,
             @WebParam(name = "oscar_provider_no") String oscarProviderNo
     ) {
+        requirePrivilege("_lab", "w");
         String returnMessage, audit;
 
         try {
@@ -219,6 +226,7 @@ public class LabUploadWs extends AbstractWs {
     public String uploadPDF(@WebParam(name = "file_name") String fileName,
                             @WebParam(name = "contents") byte[] contents,
                             @WebParam(name = "oscar_provider_no") String oscarProviderNo) {
+        requirePrivilege("_lab", "w");
         logger.error("uploadPDF called file name " + fileName + " provider " + oscarProviderNo + " contnets " + contents);
         String returnMessageHandler = "{\"success\":0,\"message\":\"\"}";
 
@@ -238,6 +246,7 @@ public class LabUploadWs extends AbstractWs {
     public String uploadDocumentReference(@WebParam(name = "file_name") String fileName,
                                           @WebParam(name = "contents") byte[] contents,
                                           @WebParam(name = "oscar_provider_no") String oscarProviderNo) {
+        requirePrivilege("_lab", "w");
         String returnMessageHandler = "{\"success\":0,\"message\":\"\"}";
         try (ByteArrayInputStream is = new ByteArrayInputStream(contents)) {
             String filePath = Utilities.saveFile(is, fileName);

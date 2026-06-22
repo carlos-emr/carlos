@@ -66,17 +66,20 @@ public class DemographicWs extends AbstractWs {
     private PatientConsentManager patientConsentManager;
 
     public DemographicTransfer getDemographic(Integer demographicId) {
+        requirePrivilege("_demographic", "r", String.valueOf(demographicId));
         Demographic demographic = demographicManager.getDemographicWithExt(getLoggedInInfo(), demographicId);
         return (DemographicTransfer.toTransfer(demographic));
     }
 
     public DemographicTransfer2 getDemographic2(Integer demographicId) {
+        requirePrivilege("_demographic", "r", String.valueOf(demographicId));
         Demographic demographic = demographicManager.getDemographic(getLoggedInInfo(), demographicId);
         return (DemographicTransfer2.toTransfer(demographic));
     }
 
 
     public DemographicTransfer[] searchDemographicByName(String searchString, int startIndex, int itemsToReturn) {
+        requirePrivilege("_demographic", "r");
         List<Demographic> demographics = demographicManager.searchDemographicByName(getLoggedInInfo(), searchString, startIndex, itemsToReturn);
         return (DemographicTransfer.toTransfers(demographics));
     }
@@ -87,6 +90,7 @@ public class DemographicWs extends AbstractWs {
      * Searches demographics by various attributes. See DemographicManager for parameter details.
      */
     public DemographicTransfer[] searchDemographicsByAttributes(String hin, String firstName, String lastName, Gender gender, Calendar dateOfBirth, String city, String province, String phone, String email, String alias, int startIndex, int itemsToReturn) {
+        requirePrivilege("_demographic", "r");
         List<Demographic> demographics = demographicManager.searchDemographicsByAttributes(getLoggedInInfo(), hin, firstName, lastName, gender, dateOfBirth, city, province, phone, email, alias, startIndex, itemsToReturn);
         return (DemographicTransfer.toTransfers(demographics));
     }
@@ -95,6 +99,7 @@ public class DemographicWs extends AbstractWs {
      * @programId can be null for all / any program
      */
     public Integer[] getAdmittedDemographicIdsByProgramProvider(Integer programId, String providerNo) {
+        requirePrivilege("_demographic", "r");
         logger.debug("programId=" + programId + ", providerNo=" + providerNo);
         List<Integer> results = demographicManager.getAdmittedDemographicIdsByProgramAndProvider(getLoggedInInfo(), programId, providerNo);
         return (results.toArray(new Integer[0]));
@@ -102,6 +107,7 @@ public class DemographicWs extends AbstractWs {
 
 
     public DemographicTransfer[] getDemographics(Integer[] demographicIds) {
+        requirePrivilege("_demographic", "r");
         ArrayList<Integer> ids = new ArrayList<Integer>();
         for (Integer i : demographicIds) {
             ids.add(i);
@@ -112,6 +118,7 @@ public class DemographicWs extends AbstractWs {
     }
 
     public DemographicTransfer[] getActiveDemographicsAfter(@WebParam(name = "lastUpdate") Calendar lastUpdate, @WebParam(name = "fields") String fields) {
+        requirePrivilege("_demographic", "r");
         Date afterDateExclusive = lastUpdate != null ? lastUpdate.getTime() : null;
         List<Demographic> demographics = demographicManager.getActiveDemographicAfter(getLoggedInInfo(), afterDateExclusive);
 
@@ -133,6 +140,7 @@ public class DemographicWs extends AbstractWs {
     }
 
     public DemographicTransfer2[] getActiveDemographicsAfter2(@WebParam(name = "lastUpdate") Calendar lastUpdate, @WebParam(name = "fields") String fields) {
+        requirePrivilege("_demographic", "r");
         Date afterDateExclusive = lastUpdate != null ? lastUpdate.getTime() : null;
         List<Demographic> demographics = demographicManager.getActiveDemographicAfter(getLoggedInInfo(), afterDateExclusive);
 
@@ -155,6 +163,7 @@ public class DemographicWs extends AbstractWs {
 
 
     public Integer[] getConsentedDemographicIdsAfter(@WebParam(name = "lastUpdate") Calendar lastUpdate) {
+        requirePrivilege("_demographic", "r");
         LoggedInInfo loggedInInfo = getLoggedInInfo();
         ConsentType consentType = patientConsentManager.getProviderSpecificConsent(loggedInInfo);
         List<Consent> consents = patientConsentManager.getConsentsByTypeAndEditDate(loggedInInfo, consentType, lastUpdate.getTime());

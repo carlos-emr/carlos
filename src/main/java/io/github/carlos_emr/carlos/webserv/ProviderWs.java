@@ -51,6 +51,7 @@ public class ProviderWs extends AbstractWs {
     private ProviderManager2 providerManager;
 
     public ProviderTransfer getLoggedInProviderTransfer() {
+        requirePrivilege("_pref", "r");
         LoggedInInfo loggedInInfo = getLoggedInInfo();
         return (ProviderTransfer.toTransfer(loggedInInfo.getLoggedInProvider()));
     }
@@ -70,7 +71,14 @@ public class ProviderWs extends AbstractWs {
     }
 
     public ProviderPropertyTransfer[] getProviderProperties(String providerNo, String propertyName) {
-        List<Property> tempResults = providerManager.getProviderProperties(getLoggedInInfo(), providerNo, propertyName);
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        boolean selfRequest = providerNo != null && providerNo.equals(loggedInInfo.getLoggedInProviderNo());
+        if (selfRequest) {
+            requirePrivilege("_pref", "r");
+        } else {
+            requirePrivilege("_admin", "r");
+        }
+        List<Property> tempResults = providerManager.getProviderProperties(loggedInInfo, providerNo, propertyName);
         ProviderPropertyTransfer[] results = ProviderPropertyTransfer.toTransfers(tempResults);
         return (results);
     }

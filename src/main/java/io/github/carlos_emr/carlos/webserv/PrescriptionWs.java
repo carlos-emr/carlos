@@ -53,6 +53,7 @@ public class PrescriptionWs extends AbstractWs {
     private PrescriptionManager prescriptionManager;
 
     public PrescriptionTransfer getPrescription(Integer prescriptionId) {
+        requirePrivilege("_rx", "r");
         LoggedInInfo loggedInInfo = getLoggedInInfo();
         Prescription prescription = prescriptionManager.getPrescription(loggedInInfo, prescriptionId);
 
@@ -65,18 +66,21 @@ public class PrescriptionWs extends AbstractWs {
     }
 
     public PrescriptionTransfer[] getPrescriptionUpdatedAfterDate(Date updatedAfterThisDateExclusive, int itemsToReturn) {
+        requirePrivilege("_rx", "r");
         LoggedInInfo loggedInInfo = getLoggedInInfo();
         List<Prescription> prescriptions = prescriptionManager.getPrescriptionUpdatedAfterDate(loggedInInfo, updatedAfterThisDateExclusive, itemsToReturn);
         return (PrescriptionTransfer.getTransfers(loggedInInfo, prescriptions));
     }
 
     public PrescriptionTransfer[] getPrescriptionsByProgramProviderDemographicDate(Integer programId, String providerNo, Integer demographicId, Calendar updatedAfterThisDateExclusive, int itemsToReturn) {
+        requirePrivilege("_rx", "r");
         LoggedInInfo loggedInInfo = getLoggedInInfo();
         List<Prescription> prescriptions = prescriptionManager.getPrescriptionsByProgramProviderDemographicDate(loggedInInfo, programId, providerNo, demographicId, updatedAfterThisDateExclusive, itemsToReturn);
         return (PrescriptionTransfer.getTransfers(loggedInInfo, prescriptions));
     }
 
     public PrescriptionTransfer[] getPrescriptionsByDemographicIdAfter(@WebParam(name = "lastUpdate") Calendar lastUpdate, @WebParam(name = "demographicId") Integer demographicId) {
+        requirePrivilege("_rx", "r");
         LoggedInInfo loggedInInfo = getLoggedInInfo();
         List<Prescription> prescriptions = prescriptionManager.getPrescriptionByDemographicIdUpdatedAfterDate(loggedInInfo, demographicId, lastUpdate.getTime());
         return (PrescriptionTransfer.getTransfers(loggedInInfo, prescriptions));

@@ -85,6 +85,7 @@ public class BookingWs extends AbstractWs {
     //getAppointmentTypes
 
     public BookingType[] getAppointmentTypesByProvider(String providerNo) {
+        requirePrivilege("_appointment", "r");
         SearchConfig config = appointmentSearchManager.getProviderSearchConfig(this.getLoggedInInfo().getLoggedInProviderNo());
         List<AppointmentType> list = appointmentSearchManager.getAppointmentTypes(config, providerNo);
 
@@ -97,6 +98,7 @@ public class BookingWs extends AbstractWs {
     }
 
     public BookingType[] getExternalAppointmentTypes(Integer demographicNo) {
+        requirePrivilege("_appointment", "r");
 
         SearchConfig config = appointmentSearchManager.getProviderSearchConfig(this.getLoggedInInfo().getLoggedInProviderNo());
         if (config == null) return null;
@@ -113,6 +115,7 @@ public class BookingWs extends AbstractWs {
 
     //findAppointment
     public AppointmentResults findAppointment(Integer demographicNo, String appointmentTypeStr, Calendar startDate) {
+        requirePrivilege("_appointment", "r");
         String providerNo = this.getLoggedInInfo().getLoggedInProviderNo();
         SearchConfig config = appointmentSearchManager.getProviderSearchConfig(providerNo);
         AppointmentResults appointmentResults = null;
@@ -164,6 +167,7 @@ public class BookingWs extends AbstractWs {
     //bookAppointment
 
     public AppointmentConfirmationTransfer bookAppointment(String encryptedAppointmentTimeSlot, String appointmentNotes) {
+        requirePrivilege("_appointment", "w");
         String providerNo = this.getLoggedInInfo().getLoggedInProviderNo();
         SearchConfig config = appointmentSearchManager.getProviderSearchConfig(providerNo);
 

@@ -1,0 +1,194 @@
+package io.github.carlos_emr.carlos.webserv;
+
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+
+import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.commn.model.Property;
+import io.github.carlos_emr.carlos.managers.ProviderManager2;
+import io.github.carlos_emr.carlos.managers.ScheduleManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import java.util.Collections;
+import java.util.List;
+import java.util.Locale;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
+
+@DisplayName("AbstractWs privilege enforcement")
+@Tag("unit")
+@Tag("webservice")
+class AbstractWsPrivilegeTest {
+
+    @Test
+    @DisplayName("requirePrivilege throws when access is missing")
+    void requirePrivilegeThrowsWhenAccessMissing() {
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        LoggedInInfo loggedInInfo = loggedInInfo("101");
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_appointment"), eq("r"), eq((String) null)))
+                .thenReturn(false);
+
+        TestAbstractWs service = new TestAbstractWs(loggedInInfo, securityInfoManager);
+
+        assertThatThrownBy(() -> service.enforce("_appointment", "r"))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_appointment)");
+    }
+
+    @Test
+    @DisplayName("schedule service checks appointment privilege before loading data")
+    void scheduleServiceChecksPrivilegeBeforeLoadingData() {
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        ScheduleManager scheduleManager = mock(ScheduleManager.class);
+        LoggedInInfo loggedInInfo = loggedInInfo("101");
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_appointment"), eq("r"), eq((String) null)))
+                .thenReturn(true);
+        when(scheduleManager.getAppointmentTypes()).thenReturn(Collections.emptyList());
+
+        TestScheduleWs service = new TestScheduleWs(loggedInInfo, securityInfoManager);
+        ReflectionTestUtils.setField(service, "scheduleManager", scheduleManager);
+
+        service.getAppointmentTypes();
+
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_appointment", "r", (String) null);
+        verify(scheduleManager).getAppointmentTypes();
+    }
+
+    @Test
+    @DisplayName("schedule service stops before loading data when privilege is missing")
+    void scheduleServiceStopsBeforeLoadingDataWhenPrivilegeMissing() {
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        ScheduleManager scheduleManager = mock(ScheduleManager.class);
+        LoggedInInfo loggedInInfo = loggedInInfo("101");
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_appointment"), eq("r"), eq((String) null)))
+                .thenReturn(false);
+
+        TestScheduleWs service = new TestScheduleWs(loggedInInfo, securityInfoManager);
+        ReflectionTestUtils.setField(service, "scheduleManager", scheduleManager);
+
+        assertThatThrownBy(service::getAppointmentTypes)
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_appointment)");
+
+        verifyNoInteractions(scheduleManager);
+    }
+
+
+    @Test
+    @DisplayName("provider properties allow self reads with pref privilege")
+    void providerPropertiesAllowSelfReadsWithPrefPrivilege() {
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        ProviderManager2 providerManager = mock(ProviderManager2.class);
+        LoggedInInfo loggedInInfo = loggedInInfo("101");
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_pref"), eq("r"), eq((String) null)))
+                .thenReturn(true);
+        when(providerManager.getProviderProperties(loggedInInfo, "101", "faxnumber"))
+                .thenReturn(List.of(new Property()));
+
+        TestProviderWs service = new TestProviderWs(loggedInInfo, securityInfoManager);
+        ReflectionTestUtils.setField(service, "providerManager", providerManager);
+
+        service.getProviderProperties("101", "faxnumber");
+
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_pref", "r", (String) null);
+        verify(providerManager).getProviderProperties(loggedInInfo, "101", "faxnumber");
+    }
+
+    @Test
+    @DisplayName("provider properties require admin for cross-provider reads")
+    void providerPropertiesRequireAdminForCrossProviderReads() {
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        ProviderManager2 providerManager = mock(ProviderManager2.class);
+        LoggedInInfo loggedInInfo = loggedInInfo("101");
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_admin"), eq("r"), eq((String) null)))
+                .thenReturn(false);
+
+        TestProviderWs service = new TestProviderWs(loggedInInfo, securityInfoManager);
+        ReflectionTestUtils.setField(service, "providerManager", providerManager);
+
+        assertThatThrownBy(() -> service.getProviderProperties("202", "faxnumber"))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_admin)");
+
+        verifyNoInteractions(providerManager);
+    }
+
+    private static LoggedInInfo loggedInInfo(String providerNo) {
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        Provider provider = new Provider();
+        provider.setProviderNo(providerNo);
+        loggedInInfo.setLoggedInProvider(provider);
+        loggedInInfo.setLocale(Locale.CANADA);
+        return loggedInInfo;
+    }
+
+    private static class TestAbstractWs extends AbstractWs {
+        private final LoggedInInfo loggedInInfo;
+        private final SecurityInfoManager securityInfoManager;
+
+        private TestAbstractWs(LoggedInInfo loggedInInfo, SecurityInfoManager securityInfoManager) {
+            this.loggedInInfo = loggedInInfo;
+            this.securityInfoManager = securityInfoManager;
+        }
+
+        void enforce(String objectName, String privilege) {
+            requirePrivilege(objectName, privilege);
+        }
+
+        @Override
+        protected LoggedInInfo getLoggedInInfo() {
+            return loggedInInfo;
+        }
+
+        @Override
+        protected SecurityInfoManager getSecurityInfoManager() {
+            return securityInfoManager;
+        }
+    }
+
+    private static class TestProviderWs extends ProviderWs {
+        private final LoggedInInfo loggedInInfo;
+        private final SecurityInfoManager securityInfoManager;
+
+        private TestProviderWs(LoggedInInfo loggedInInfo, SecurityInfoManager securityInfoManager) {
+            this.loggedInInfo = loggedInInfo;
+            this.securityInfoManager = securityInfoManager;
+        }
+
+        @Override
+        protected LoggedInInfo getLoggedInInfo() {
+            return loggedInInfo;
+        }
+
+        @Override
+        protected SecurityInfoManager getSecurityInfoManager() {
+            return securityInfoManager;
+        }
+    }
+
+    private static class TestScheduleWs extends ScheduleWs {
+        private final LoggedInInfo loggedInInfo;
+        private final SecurityInfoManager securityInfoManager;
+
+        private TestScheduleWs(LoggedInInfo loggedInInfo, SecurityInfoManager securityInfoManager) {
+            this.loggedInInfo = loggedInInfo;
+            this.securityInfoManager = securityInfoManager;
+        }
+
+        @Override
+        protected LoggedInInfo getLoggedInInfo() {
+            return loggedInInfo;
+        }
+
+        @Override
+        protected SecurityInfoManager getSecurityInfoManager() {
+            return securityInfoManager;
+        }
+    }
+}
