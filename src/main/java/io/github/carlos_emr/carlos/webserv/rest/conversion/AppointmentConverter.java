@@ -55,8 +55,22 @@ public class AppointmentConverter extends AbstractConverter<Appointment, Appoint
     }
 
     @Override
+    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
+    // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
+    @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
+            justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
+                    "known CARLOS types; no user-controlled property name reaches the sink")
     public Appointment getAsDomainObject(LoggedInInfo loggedInInfo, AppointmentTo1 t) throws ConversionException {
-        return null;
+        if (t == null) {
+            return null;
+        }
+        // Inverse of getAsTransferObject(): copy the matching JavaBean properties back onto a
+        // domain Appointment. The DTO-only fields (demographic, provider, billingDetail) have no
+        // counterpart on Appointment and are ignored by copyProperties. Without this, callers such
+        // as updateAppointment received a null Appointment and failed downstream.
+        Appointment d = new Appointment();
+        BeanUtils.copyProperties(t, d);
+        return d;
     }
 
     @Override

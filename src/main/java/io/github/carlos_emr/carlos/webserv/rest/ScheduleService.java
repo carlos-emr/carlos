@@ -344,6 +344,7 @@ public class ScheduleService extends AbstractServiceImpl {
         return response;
     }
 
+    @POST
     @Path("/appointment/{id}/updateUrgency")
     @Produces("application/json")
     @Consumes("application/json")
@@ -480,13 +481,16 @@ public class ScheduleService extends AbstractServiceImpl {
                 for (Object[] obj : items) {
                     Integer appointmentNo = (Integer) obj[0];
                     String providerNo = (String) obj[1];
-                    Date appointmentDate = (Date) obj[2];
-                    Date startTime = (Date) obj[3];
+                    // This native query returns appointment_date (SQL DATE) and start_time
+                    // (SQL TIME) as java.time.LocalDate / LocalTime under the current JDBC
+                    // driver, and status (CHAR) as a String — convert rather than blind-cast.
+                    Date appointmentDate = toDate(obj[2]);
+                    Date startTime = toDate(obj[3]);
                     Integer demographicNo = (Integer) obj[4];
                     String notes = (String) obj[5];
                     String location = (String) obj[6];
                     String resources = (String) obj[7];
-                    Character status = (Character) obj[8];
+                    Character status = toCharacter(obj[8]);
                     String lastName = (String) obj[9];
                     String firstName = (String) obj[10];
                     String phone = (String) obj[11];
@@ -512,6 +516,46 @@ public class ScheduleService extends AbstractServiceImpl {
             throw new WebApplicationException(Response.status(Status.INTERNAL_SERVER_ERROR).entity("Internal server error").build());
         }
 
+    }
+
+    /**
+     * Coerce a JDBC column value to {@link java.util.Date}. The native appointment query can
+     * hand back {@code java.util.Date} (and subclasses), or — under the current driver —
+     * {@code java.time.LocalDate} / {@code LocalTime} / {@code LocalDateTime} for SQL
+     * DATE/TIME/TIMESTAMP columns. A plain {@code (Date) cast} throws ClassCastException on
+     * the java.time types, which previously surfaced as a 500 from {@code fetchDays}.
+     */
+    private static Date toDate(Object value) {
+        if (value == null || value instanceof Date) {
+            return (Date) value;
+        }
+        if (value instanceof java.time.LocalDate localDate) {
+            return java.sql.Date.valueOf(localDate);
+        }
+        if (value instanceof java.time.LocalTime localTime) {
+            // Keep the epoch date (1970-01-01) so the smart date serializer emits "HH:mm:ss".
+            return java.sql.Time.valueOf(localTime);
+        }
+        if (value instanceof java.time.LocalDateTime localDateTime) {
+            return java.sql.Timestamp.valueOf(localDateTime);
+        }
+        throw new IllegalArgumentException("Unsupported date type: " + value.getClass().getName());
+    }
+
+    /**
+     * Coerce a single-character JDBC column value to {@link Character}. CHAR columns are
+     * commonly returned as {@code String} by the driver, so a {@code (Character) cast} would
+     * throw; treat empty/blank as {@code null}.
+     */
+    private static Character toCharacter(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Character character) {
+            return character;
+        }
+        String s = value.toString();
+        return s.isEmpty() ? null : s.charAt(0);
     }
 
 
