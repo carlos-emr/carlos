@@ -81,13 +81,13 @@ public final class MsgClearMessage2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     
     /**
-     * HTTP response object, maintained for consistency but not used in this action.
+     * HTTP response object used to redirect when the message session bean is unavailable.
      */
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
 
-/**
+    /**
      * Clears all attachments from the message session bean.
      *
      * <p>This method retrieves the MsgSessionBean from the HTTP session and
