@@ -1,5 +1,6 @@
 package io.github.carlos_emr.carlos.documentManager.actions;
 
+import io.github.carlos_emr.carlos.documentManager.IncomingDocUtil;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -15,6 +16,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -38,6 +40,8 @@ class DocumentUpload2ActionFilenameValidationTest extends CarlosUnitTestBase {
     private MockHttpServletResponse response;
     private File tempUploadFile;
     private File tempUploadDirectory;
+    private File tempDestinationFile;
+    private File tempDestinationDirectory;
 
     @BeforeEach
     void setUp() {
@@ -55,14 +59,22 @@ class DocumentUpload2ActionFilenameValidationTest extends CarlosUnitTestBase {
 
     @AfterEach
     void tearDown() throws Exception {
-        if (tempUploadFile != null) {
-            Files.deleteIfExists(tempUploadFile.toPath());
-        }
-        if (tempUploadDirectory != null) {
-            Files.deleteIfExists(tempUploadDirectory.toPath());
-        }
+        Exception cleanupFailure = null;
+
+        cleanupFailure = deleteIfExists(tempDestinationFile, cleanupFailure);
+        cleanupFailure = deleteIfExists(tempUploadFile, cleanupFailure);
+        cleanupFailure = deleteIfExists(tempDestinationDirectory, cleanupFailure);
+        cleanupFailure = deleteIfExists(tempUploadDirectory, cleanupFailure);
         if (servletActionContextMock != null) {
-            servletActionContextMock.close();
+            try {
+                servletActionContextMock.close();
+            } catch (Exception e) {
+                cleanupFailure = appendCleanupFailure(cleanupFailure, e);
+            }
+        }
+
+        if (cleanupFailure != null) {
+            throw cleanupFailure;
         }
     }
 
@@ -101,7 +113,7 @@ class DocumentUpload2ActionFilenameValidationTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("incoming docs upload should reject outside temp source before cleanup delete")
-    void incomingDocsUploadShouldRejectOutsideTempSourceBeforeCleanupDelete() throws Exception {
+    void shouldRejectOutsideTempSource_beforeIncomingDocsCleanupDelete() throws Exception {
         request.addParameter("destination", "incomingDocs");
         DocumentUpload2Action action = outsideTempUploadAction("report.pdf");
 
@@ -114,7 +126,7 @@ class DocumentUpload2ActionFilenameValidationTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("document upload should reject outside temp source before cleanup delete")
-    void documentUploadShouldRejectOutsideTempSourceBeforeCleanupDelete() throws Exception {
+    void shouldRejectOutsideTempSource_beforeDocumentCleanupDelete() throws Exception {
         DocumentUpload2Action action = outsideTempUploadAction("report.pdf");
 
         String result = action.executeUpload();
@@ -122,6 +134,30 @@ class DocumentUpload2ActionFilenameValidationTest extends CarlosUnitTestBase {
         assertThat(result).isNull();
         assertThat(response.getContentAsString()).contains("Invalid file upload");
         assertThat(tempUploadFile).exists();
+    }
+
+    @Test
+    @DisplayName("incoming docs upload should delete allowed temp source after successful cleanup")
+    void shouldDeleteAllowedTempSource_afterIncomingDocsUploadSucceeds() throws Exception {
+        DocumentUpload2Action action = incomingDocsAction("report.pdf");
+        tempDestinationDirectory = Files.createTempDirectory("incoming-docs-target").toFile();
+
+        assertThat(PathValidationUtils.isInAllowedTempDirectory(tempUploadFile)).isTrue();
+
+        try (MockedStatic<IncomingDocUtil> incomingDocUtilMock = mockStatic(IncomingDocUtil.class)) {
+            incomingDocUtilMock.when(() -> IncomingDocUtil.getAndCreateIncomingDocumentFilePath(null, null))
+                    .thenReturn(tempDestinationDirectory.getPath());
+
+            String result = action.executeUpload();
+            tempDestinationFile = tempDestinationDirectory.toPath().resolve("report.pdf").toFile();
+
+            assertThat(result).isNull();
+            assertThat(response.getContentAsString())
+                    .contains("\"size\":3")
+                    .doesNotContain("error");
+            assertThat(tempDestinationFile).exists();
+            assertThat(tempUploadFile).doesNotExist();
+        }
     }
 
     private DocumentUpload2Action incomingDocsAction(String filename) throws Exception {
@@ -137,8 +173,8 @@ class DocumentUpload2ActionFilenameValidationTest extends CarlosUnitTestBase {
 
     private DocumentUpload2Action outsideTempUploadAction(String filename) throws Exception {
         Path outsideDir = createTempDirectoryOutsideAllowedTemp();
-        Path outsideUpload = Files.writeString(outsideDir.resolve("document-upload.pdf"), "pdf");
         tempUploadDirectory = outsideDir.toFile();
+        Path outsideUpload = Files.writeString(outsideDir.resolve("document-upload.pdf"), "pdf");
         tempUploadFile = outsideUpload.toFile();
 
         assertThat(PathValidationUtils.isInAllowedTempDirectory(tempUploadFile)).isFalse();
@@ -170,5 +206,26 @@ class DocumentUpload2ActionFilenameValidationTest extends CarlosUnitTestBase {
 
         org.junit.jupiter.api.Assumptions.assumeTrue(false, "Unable to create a test upload directory outside allowed temp roots");
         return null;
+    }
+
+    private Exception deleteIfExists(File file, Exception cleanupFailure) {
+        if (file == null) {
+            return cleanupFailure;
+        }
+
+        try {
+            Files.deleteIfExists(file.toPath());
+            return cleanupFailure;
+        } catch (IOException e) {
+            return appendCleanupFailure(cleanupFailure, e);
+        }
+    }
+
+    private Exception appendCleanupFailure(Exception cleanupFailure, Exception exception) {
+        if (cleanupFailure == null) {
+            return exception;
+        }
+        cleanupFailure.addSuppressed(exception);
+        return cleanupFailure;
     }
 }

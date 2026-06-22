@@ -145,7 +145,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                     }
                 }
                 if (docFile != null) {
-                    docFile.delete(); // codeql[java/path-injection] -- docFile is reassigned from PathValidationUtils.validateUpload(docFile) above; outside upload paths set it to null before this cleanup delete.
+                    deleteValidatedUploadTempFile(docFile);
                     docFile = null;
                 }
 
@@ -222,12 +222,32 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             map.put("size", docFile.length());
 
             if (docFile != null) {
-                docFile.delete(); // codeql[java/path-injection] -- docFile is reassigned from PathValidationUtils.validateUpload(docFile) above; outside upload paths set it to null before this cleanup delete.
+                deleteValidatedUploadTempFile(docFile);
                 docFile = null;
             }
         }
         writeUploadResponse(map);
         return null;
+    }
+
+    // FindSecBugs PATH_TRAVERSAL_IN: upload temp file is canonicalized and restricted to allowed temp dirs immediately before cleanup delete
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "upload temp file is canonicalized and restricted to allowed temp dirs immediately before cleanup delete")
+    private void deleteValidatedUploadTempFile(File uploadFile) {
+        try {
+            File validatedUpload = PathValidationUtils.validateUpload(uploadFile);
+            if (!PathValidationUtils.isInAllowedTempDirectory(validatedUpload)) {
+                logger.warn("Skipped cleanup for upload outside allowed temp directory");
+                return;
+            }
+
+            // validateUpload canonicalizes and rejects outside-temp paths immediately before cleanup delete.
+            // codeql[java/path-injection]
+            if (!validatedUpload.delete()) {
+                logger.debug("Upload temp file cleanup did not delete a file");
+            }
+        } catch (SecurityException e) {
+            logger.warn("Skipped cleanup for invalid upload temp file");
+        }
     }
 
     private void writeUploadResponse(HashMap<String, Object> map) throws IOException {
