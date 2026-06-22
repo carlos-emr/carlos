@@ -1,6 +1,7 @@
 package io.github.carlos_emr.carlos.documentManager.actions;
 
 import io.github.carlos_emr.carlos.documentManager.IncomingDocUtil;
+import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -36,6 +37,7 @@ class DocumentUpload2ActionFilenameValidationTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private SecurityInfoManager securityInfoManager;
+    private NioFileManager nioFileManager;
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
     private File tempUploadFile;
@@ -55,6 +57,13 @@ class DocumentUpload2ActionFilenameValidationTest extends CarlosUnitTestBase {
         registerMock(SecurityInfoManager.class, securityInfoManager);
         when(securityInfoManager.hasPrivilege(nullable(LoggedInInfo.class), eq("_edoc"), eq("w"), isNull()))
                 .thenReturn(true);
+
+        nioFileManager = mock(NioFileManager.class);
+        registerMock(NioFileManager.class, nioFileManager);
+        when(nioFileManager.deleteTempFile(nullable(String.class))).thenAnswer(invocation -> {
+            String filePath = invocation.getArgument(0);
+            return filePath != null && Files.deleteIfExists(Path.of(filePath));
+        });
     }
 
     @AfterEach

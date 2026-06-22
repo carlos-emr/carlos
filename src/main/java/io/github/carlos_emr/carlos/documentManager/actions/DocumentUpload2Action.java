@@ -48,6 +48,7 @@ import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.documentManager.IncomingDocUtil;
+import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
@@ -230,19 +231,10 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
         return null;
     }
 
-    // FindSecBugs PATH_TRAVERSAL_IN: upload temp file is canonicalized and restricted to allowed temp dirs immediately before cleanup delete
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "upload temp file is canonicalized and restricted to allowed temp dirs immediately before cleanup delete")
     private void deleteValidatedUploadTempFile(File uploadFile) {
         try {
             File validatedUpload = PathValidationUtils.validateUpload(uploadFile);
-            if (!PathValidationUtils.isInAllowedTempDirectory(validatedUpload)) {
-                logger.warn("Skipped cleanup for upload outside allowed temp directory");
-                return;
-            }
-
-            // validateUpload canonicalizes and rejects outside-temp paths immediately before cleanup delete.
-            // codeql[java/path-injection]
-            if (!validatedUpload.delete()) {
+            if (!SpringUtils.getBean(NioFileManager.class).deleteTempFile(validatedUpload.getPath())) {
                 logger.debug("Upload temp file cleanup did not delete a file");
             }
         } catch (SecurityException e) {
