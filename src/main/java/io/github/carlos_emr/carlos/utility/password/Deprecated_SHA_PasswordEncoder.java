@@ -73,7 +73,7 @@ public class Deprecated_SHA_PasswordEncoder implements PasswordEncoder {
     }
 
     // FindSecBugs WEAK_MESSAGE_DIGEST_SHA1: compatibility verifier for legacy unprefixed password rows;
-    // encode() rejects SHA-1 creation and BCrypt remains the password write path.
+    // legacy SHA-1 creation is rejected and BCrypt remains the password write path.
     @SuppressFBWarnings(value = "WEAK_MESSAGE_DIGEST_SHA1",
             justification = "SHA-1 retained only to verify legacy unprefixed password rows; "
                     + "encode() rejects SHA-1 creation and new hashes use BCrypt")
