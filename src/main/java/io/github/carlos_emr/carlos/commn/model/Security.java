@@ -41,8 +41,8 @@ import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
 
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.password.PasswordHashHelper;
 
 
 @Entity
@@ -233,14 +233,12 @@ public class Security extends AbstractModel<Integer> {
 	@Deprecated
     public boolean checkPassword(String inputedPassword) {
         if (password == null) return (false);
-
-        byte[] sha1Bytes = EncryptionUtils.getSha1(inputedPassword);
-        StringBuilder sb = new StringBuilder();
-        for (byte b : sha1Bytes) {
-            sb.append(b);
+        if (inputedPassword == null) {
+            throttleOnFailedLogin();
+            return false;
         }
 
-        if (password.equals(sb.toString())) {
+        if (PasswordHashHelper.matches(inputedPassword, password)) {
             return (true);
         } else {
             throttleOnFailedLogin();

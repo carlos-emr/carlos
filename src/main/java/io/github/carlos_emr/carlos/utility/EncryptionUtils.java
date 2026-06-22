@@ -28,7 +28,6 @@
  */
 package io.github.carlos_emr.carlos.utility;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.CarlosProperties;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.password.PasswordHashHelper;
@@ -38,79 +37,19 @@ import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.security.*;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.Objects;
 
 
 public final class EncryptionUtils {
-    private static final QueueCacheValueCloner<byte[]> byteArrayCloner = new QueueCacheValueCloner<byte[]>() {
-        public byte[] cloneBean(byte[] original) {
-            return (byte[]) original.clone();
-        }
-    };
     private static Logger logger = MiscUtils.getLogger();
-    private static final MessageDigest messageDigest = initMessageDigest();
-    private static final QueueCache<String, byte[]> sha1Cache;
-    private static final int MAX_SHA_KEY_CACHE_SIZE = 2048;
     public static final String SECRET_KEY_ENV_VAR = "encryption.util.secret.key";
     private static SecretKeySpec SECRET_KEY_SPEC;
     private static final String ENCRYPTION_PREFIX = "{ENC}";
 
     public EncryptionUtils() {
-    }
-
-    // FindSecBugs WEAK_MESSAGE_DIGEST_SHA1: legacy verification only; BCrypt via PasswordHashHelper
-    // remains the password write path.
-    @SuppressFBWarnings(value = "WEAK_MESSAGE_DIGEST_SHA1",
-            justification = "SHA-1 retained only to verify pre-existing legacy password hashes; "
-                    + "new password hashes use BCrypt via PasswordHashHelper")
-    private static MessageDigest initMessageDigest() {
-        try {
-            return MessageDigest.getInstance("SHA-1");
-        } catch (NoSuchAlgorithmException var1) {
-            logger.error("Error", var1);
-            return null;
-        }
-    }
-
-    /**
-     * @deprecated
-     * Legacy SHA-1 compatibility helper for pre-BCrypt password records only.
-     * Do not use for generating new password hashes; use {@link #hash(CharSequence)}.
-     */
-    @Deprecated
-    public static byte[] getSha1(String s) {
-        byte[] b = (byte[]) sha1Cache.get(s);
-        if (b == null) {
-            b = getSha1NoCache(s);
-            if (s.length() < 2048) {
-                sha1Cache.put(s, b);
-            }
-        }
-
-        return b;
-    }
-
-    /**
-     * @deprecated
-     * Legacy SHA-1 compatibility helper for pre-BCrypt password records only.
-     * Do not use for generating new password hashes; use {@link #hash(CharSequence)}.
-     */
-    @Deprecated
-    private static byte[] getSha1NoCache(String s) {
-        if (s == null) {
-            return null;
-        } else {
-            try {
-                synchronized (Objects.requireNonNull(messageDigest)) {
-                    return messageDigest.digest(s.getBytes("UTF-8"));
-                }
-            } catch (Exception var4) {
-                logger.error("Unexpected error.", var4);
-                return null;
-            }
-        }
     }
 
     /**
@@ -322,7 +261,6 @@ public final class EncryptionUtils {
     }
 
     static {
-        sha1Cache = new QueueCache(4, 2048, byteArrayCloner);
         prepareSecretKeySpec();
     }
 }
