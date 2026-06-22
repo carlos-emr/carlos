@@ -145,7 +145,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                     }
                 }
                 if (docFile != null) {
-                    docFile.delete();
+                    docFile.delete(); // codeql[java/path-injection] -- docFile is reassigned from PathValidationUtils.validateUpload(docFile) above; outside upload paths set it to null before this cleanup delete.
                     docFile = null;
                 }
 
@@ -222,7 +222,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             map.put("size", docFile.length());
 
             if (docFile != null) {
-                docFile.delete();
+                docFile.delete(); // codeql[java/path-injection] -- docFile is reassigned from PathValidationUtils.validateUpload(docFile) above; outside upload paths set it to null before this cleanup delete.
                 docFile = null;
             }
         }
