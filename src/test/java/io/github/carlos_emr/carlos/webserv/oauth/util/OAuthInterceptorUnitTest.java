@@ -20,7 +20,6 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -69,8 +68,8 @@ class OAuthInterceptorUnitTest {
     }
 
     @Test
-    @DisplayName("should not default to HTTP 500 on authentication failure")
-    void shouldNotDefaultToHttp500_onAuthenticationFailure() {
+    @DisplayName("should raise fault with HTTP 401 when signature verification fails")
+    void shouldRaiseFault_withHttp401WhenSignatureVerificationFails() {
         OscarOAuthDataProvider dataProvider = mock(OscarOAuthDataProvider.class);
         when(dataProvider.getClient(anyConsumer())).thenReturn(mock(Client.class));
 
@@ -82,9 +81,12 @@ class OAuthInterceptorUnitTest {
         request.addParameter("oauth_token", "some-token");
         Message message = messageWith(request);
 
-        assertThatThrownBy(() -> interceptor.handleMessage(message))
-                .isInstanceOfSatisfying(Fault.class,
-                        fault -> assertThat(fault.getStatusCode()).isNotEqualTo(500));
+        // No verifier wired -> signature verification fails -> generic auth-failure path.
+        // The intended status (401) must propagate; it must never default to HTTP 500.
+        Fault fault = catchThrowableOfType(() -> interceptor.handleMessage(message), Fault.class);
+
+        assertThat(fault).isNotNull();
+        assertThat(fault.getStatusCode()).isEqualTo(401);
     }
 
     private static String anyConsumer() {
