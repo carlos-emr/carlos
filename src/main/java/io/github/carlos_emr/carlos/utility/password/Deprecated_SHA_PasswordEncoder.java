@@ -79,7 +79,7 @@ public class Deprecated_SHA_PasswordEncoder implements PasswordEncoder {
                     + "encode() rejects SHA-1 creation and new hashes use BCrypt")
     private String encodeShaPassword(String password) throws Exception {
 
-        MessageDigest md = MessageDigest.getInstance("SHA");
+        MessageDigest md = MessageDigest.getInstance("SHA-1");
 
         StringBuilder sbTemp = new StringBuilder();
         byte[] btNewPasswd = md.digest(password.getBytes());

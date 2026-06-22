@@ -38,6 +38,7 @@ class DeprecatedShaPasswordEncoderUnitTest {
             "-4331-12498-123-53-58-47-3511810312215-43-120-56-3368-276";
 
     @Test
+    @DisplayName("should verify legacy SHA-1 password when existing hash is provided")
     void shouldVerifyLegacyShaPassword_whenExistingHashProvided() {
         Deprecated_SHA_PasswordEncoder encoder = new Deprecated_SHA_PasswordEncoder();
 
@@ -46,6 +47,7 @@ class DeprecatedShaPasswordEncoderUnitTest {
     }
 
     @Test
+    @DisplayName("should throw exception when encoding a legacy SHA-1 password")
     void shouldThrowException_whenEncodingLegacyShaPassword() {
         Deprecated_SHA_PasswordEncoder encoder = new Deprecated_SHA_PasswordEncoder();
 
@@ -55,6 +57,7 @@ class DeprecatedShaPasswordEncoderUnitTest {
     }
 
     @Test
+    @DisplayName("should use BCrypt for new password hashes")
     void shouldUseBcrypt_forNewPasswordHashes() {
         String hash = PasswordHashHelper.encodePassword(LEGACY_PASSWORD);
 
