@@ -47,12 +47,27 @@ import java.security.MessageDigest;
 @SuppressWarnings("java:S1133") // Sonar: removal depends on completion of legacy password migration.
 public class Deprecated_SHA_PasswordEncoder implements PasswordEncoder {
 
+    /**
+     * Rejects creation of new legacy SHA-1 password hashes.
+     *
+     * @param rawPassword ignored; SHA-1 password hash creation is disabled.
+     * @return never returns normally.
+     * @throws UnsupportedOperationException always, because legacy SHA-1 is verification-only.
+     */
     @Override
     public String encode(CharSequence rawPassword) {
         throw new UnsupportedOperationException(
                 "Legacy SHA-1 password hashes are verification-only; use PasswordHashHelper for new hashes");
     }
 
+    /**
+     * Verifies a raw password against an existing legacy unprefixed SHA-1 hash.
+     *
+     * @param rawPassword candidate password; must not be {@code null}.
+     * @param encodedPassword existing legacy SHA-1 hash in signed-byte concatenation format.
+     * @return {@code true} when the password matches the legacy hash, otherwise {@code false}.
+     * @throws NullPointerException when {@code rawPassword} is {@code null}.
+     */
     @Override
     public boolean matches(CharSequence rawPassword, String encodedPassword) {
         return this.validateShaPassword(rawPassword.toString(), encodedPassword);
