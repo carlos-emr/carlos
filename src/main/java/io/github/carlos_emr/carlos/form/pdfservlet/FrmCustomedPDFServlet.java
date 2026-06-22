@@ -260,7 +260,8 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         try {
             return prepareValidatedFaxFiles(documentDir, pdfid, pdfFile, faxNo, baosPDF);
         } catch (SecurityException | IOException e) {
-            logger.warn("Prescription fax file preparation failed: {}", e.getClass().getSimpleName());
+            logger.warn("Prescription fax file preparation failed: type={}, message={}",
+                    e.getClass().getSimpleName(), LogSafe.sanitize(e.getMessage(), 1024), e);
             res.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             writer.println("<div id='fax-failure'><h3>Error: Unable to generate fax.</h3><p>Please try again or contact support if the problem persists.</p></div>");
             writer.flush();
