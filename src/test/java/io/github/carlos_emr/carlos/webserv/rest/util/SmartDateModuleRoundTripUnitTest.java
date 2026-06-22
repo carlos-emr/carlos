@@ -23,9 +23,11 @@ package io.github.carlos_emr.carlos.webserv.rest.util;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.Calendar;
 import java.util.Date;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.junit.jupiter.api.DisplayName;
@@ -142,5 +144,49 @@ class SmartDateModuleRoundTripUnitTest {
         assertThat(back.getStartTime()).isEqualTo(appt.getStartTime());
         assertThat(back.getEndTime()).isEqualTo(appt.getEndTime());
         assertThat(back.getAppointmentDate()).isEqualTo(appt.getAppointmentDate());
+    }
+
+    // --- Backward-compatibility contract -------------------------------------------------------
+    // SmartDateModule is registered on the shared REST ObjectMapper, so its deserializer governs
+    // Date parsing for every REST DTO, not just scheduling. These tests pin the wire shapes the
+    // rest of the API relied on before this module had a deserializer (Jackson's default
+    // StdDateFormat: epoch number/string and ISO-8601), so a future change can't silently break
+    // other endpoints. The only @JsonFormat usage on REST date fields is shape=NUMBER, covered by
+    // the numeric and fixture tests below.
+
+    @Test
+    @DisplayName("should deserialize an epoch-millis value sent as a JSON number")
+    void shouldDeserializeEpochMillis_fromJsonNumber() throws Exception {
+        assertThat(mapper.readValue("1234567890000", Date.class))
+                .isEqualTo(new Date(1234567890000L));
+    }
+
+    @Test
+    @DisplayName("should deserialize ISO-8601 with an explicit offset and with milliseconds")
+    void shouldDeserializeIso8601_withOffsetAndMillis() throws Exception {
+        assertThat(mapper.readValue("\"2026-06-22T09:30:00-04:00\"", Date.class))
+                .isEqualTo(Date.from(OffsetDateTime.parse("2026-06-22T09:30:00-04:00").toInstant()));
+        assertThat(mapper.readValue("\"2026-06-22T09:30:00.123Z\"", Date.class))
+                .isEqualTo(Date.from(Instant.parse("2026-06-22T09:30:00.123Z")));
+    }
+
+    @Test
+    @DisplayName("should round-trip a @JsonFormat(shape=NUMBER) date field as other REST DTOs do")
+    void shouldRoundTripJsonFormatNumberField_likeOtherDtos() throws Exception {
+        JsonFormatNumberFixture fixture = new JsonFormatNumberFixture();
+        fixture.when = dateOf(2026, Calendar.JUNE, 22, 9, 30, 15);
+
+        String json = mapper.writeValueAsString(fixture);
+        JsonFormatNumberFixture back = mapper.readValue(json, JsonFormatNumberFixture.class);
+
+        // shape=NUMBER forces epoch-millis on the wire (matches ProviderTo1/AllergyTo1/etc.).
+        assertThat(json).contains("\"when\":" + fixture.when.getTime());
+        assertThat(back.when).isEqualTo(fixture.when);
+    }
+
+    /** Mirrors the {@code @JsonFormat(shape = NUMBER)} date fields used across REST DTOs. */
+    static class JsonFormatNumberFixture {
+        @JsonFormat(shape = JsonFormat.Shape.NUMBER)
+        public Date when;
     }
 }
