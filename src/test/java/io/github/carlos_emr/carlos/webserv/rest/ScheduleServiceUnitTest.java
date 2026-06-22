@@ -21,8 +21,10 @@
  */
 package io.github.carlos_emr.carlos.webserv.rest;
 
+import java.util.Date;
 import java.util.List;
 
+import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -30,18 +32,28 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.appointment.search.FilterDefinition;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentSearchDao;
+import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
+import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.AppointmentSearch;
+import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.managers.AppointmentManager;
+import io.github.carlos_emr.carlos.managers.ScheduleManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.AppointmentTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.SearchConfigTo1;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -72,6 +84,12 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
     @Mock
     private AppointmentSearchDao appointmentSearchDao;
 
+    @Mock
+    private AppointmentManager appointmentManager;
+
+    @Mock
+    private ScheduleManager scheduleManager;
+
     private ScheduleService service;
     private LoggedInInfo loggedInInfo;
 
@@ -87,6 +105,8 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
 
         injectDependency(service, "securityInfoManager", securityInfoManager);
         injectDependency(service, "appointmentSearchDao", appointmentSearchDao);
+        injectDependency(service, "appointmentManager", appointmentManager);
+        injectDependency(service, "scheduleManager", scheduleManager);
 
         // Lenient: some tests exercise paths that short-circuit before the privilege check
         // (e.g. findUnknownFilter) or override the stub. Strict-by-default would fail those.
@@ -147,5 +167,76 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
         String unknownFilter = service.findUnknownFilter(List.of(filterDefinition));
 
         assertThat(unknownFilter).isEqualTo("<missing filterClassName>");
+    }
+
+    @Test
+    @DisplayName("should preserve audit fields and stamp the updating provider when updating an appointment")
+    void shouldPreserveAuditFields_whenUpdatingAppointment() {
+        // AppointmentConverter resolves these DAOs via SpringUtils in its field initializers.
+        registerMock(DemographicDao.class, Mockito.mock(DemographicDao.class));
+        registerMock(ProviderDao.class, Mockito.mock(ProviderDao.class));
+
+        Provider loggedInProvider = new Provider();
+        loggedInProvider.setProviderNo("101");
+        loggedInInfo.setLoggedInProvider(loggedInProvider);
+
+        Date originalCreate = new Date(1_000_000_000_000L);
+        Appointment existing = new Appointment();
+        existing.setId(42);
+        existing.setCreateDateTime(originalCreate);
+        existing.setCreator("origCreator");
+        existing.setCreatorSecurityId(7);
+        existing.setReason("old reason");
+        when(appointmentManager.getAppointment(any(), eq(42))).thenReturn(existing);
+
+        AppointmentTo1 hostile = new AppointmentTo1();
+        hostile.setId(42);
+        hostile.setReason("new reason");
+        hostile.setCreator("hacker");
+        hostile.setCreatorSecurityId(999);
+        hostile.setLastUpdateUser("hacker");
+        hostile.setCreateDateTime(new Date(0));
+
+        service.updateAppointment(hostile);
+
+        ArgumentCaptor<Appointment> captor = ArgumentCaptor.forClass(Appointment.class);
+        verify(scheduleManager).updateAppointment(eq(loggedInInfo), captor.capture());
+        Appointment saved = captor.getValue();
+
+        assertThat(saved.getReason()).isEqualTo("new reason");
+        assertThat(saved.getCreateDateTime()).isEqualTo(originalCreate);
+        assertThat(saved.getCreator()).isEqualTo("origCreator");
+        assertThat(saved.getCreatorSecurityId()).isEqualTo(7);
+        assertThat(saved.getLastUpdateUser()).isEqualTo("101");
+    }
+
+    @Test
+    @DisplayName("should reject update with bad request when appointment id is missing")
+    void shouldRejectUpdate_whenIdIsMissing() {
+        AppointmentTo1 to = new AppointmentTo1();
+        to.setId(null);
+
+        assertThatThrownBy(() -> service.updateAppointment(to))
+                .isInstanceOf(WebApplicationException.class)
+                .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus())
+                        .isEqualTo(Response.Status.BAD_REQUEST.getStatusCode()));
+
+        verify(scheduleManager, never()).updateAppointment(any(), any());
+    }
+
+    @Test
+    @DisplayName("should respond not found when the appointment to update does not exist")
+    void shouldRespondNotFound_whenAppointmentMissing() {
+        when(appointmentManager.getAppointment(any(), eq(404))).thenReturn(null);
+
+        AppointmentTo1 to = new AppointmentTo1();
+        to.setId(404);
+
+        assertThatThrownBy(() -> service.updateAppointment(to))
+                .isInstanceOf(WebApplicationException.class)
+                .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus())
+                        .isEqualTo(Response.Status.NOT_FOUND.getStatusCode()));
+
+        verify(scheduleManager, never()).updateAppointment(any(), any());
     }
 }

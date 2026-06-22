@@ -53,10 +53,9 @@ class AppointmentConverterUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should copy matching JavaBean properties onto a domain Appointment")
-    void shouldCopyProperties_toDomainAppointment() throws Exception {
+    @DisplayName("should copy editable JavaBean properties onto a domain Appointment")
+    void shouldCopyEditableProperties_toDomainAppointment() throws Exception {
         AppointmentTo1 to = new AppointmentTo1();
-        to.setId(42);
         to.setProviderNo("999");
         to.setDemographicNo(123);
         to.setStatus("t");
@@ -69,7 +68,6 @@ class AppointmentConverterUnitTest extends CarlosUnitTestBase {
         Appointment domain = new AppointmentConverter().getAsDomainObject(null, to);
 
         assertThat(domain).isNotNull();
-        assertThat(domain.getId()).isEqualTo(42);
         assertThat(domain.getProviderNo()).isEqualTo("999");
         assertThat(domain.getDemographicNo()).isEqualTo(123);
         assertThat(domain.getStatus()).isEqualTo("t");
@@ -77,6 +75,53 @@ class AppointmentConverterUnitTest extends CarlosUnitTestBase {
         assertThat(domain.getReason()).isEqualTo("checkup");
         assertThat(domain.getNotes()).isEqualTo("note");
         assertThat(domain.getAppointmentDate()).isEqualTo(appointmentDate);
+    }
+
+    @Test
+    @DisplayName("should not copy identity or server-managed audit fields from the transfer object")
+    void shouldNotCopyServerManagedFields_fromTransferObject() throws Exception {
+        AppointmentTo1 to = new AppointmentTo1();
+        to.setId(42);
+        to.setCreator("hacker");
+        to.setCreatorSecurityId(999);
+        to.setLastUpdateUser("hacker");
+        to.setCreateDateTime(new Date(0));
+
+        Appointment domain = new AppointmentConverter().getAsDomainObject(null, to);
+
+        assertThat(domain.getId()).isNull();
+        assertThat(domain.getCreator()).isNull();
+        assertThat(domain.getCreatorSecurityId()).isNull();
+        assertThat(domain.getLastUpdateUser()).isNull();
+        // createDateTime keeps the entity's own default, not the DTO-supplied epoch value.
+        assertThat(domain.getCreateDateTime()).isNotEqualTo(new Date(0));
+    }
+
+    @Test
+    @DisplayName("should apply only editable fields onto an existing appointment, preserving audit fields")
+    void shouldApplyEditableFields_ontoExistingAppointment() throws Exception {
+        Date originalCreate = new Date(1_000_000_000_000L);
+        Appointment existing = new Appointment();
+        existing.setId(42);
+        existing.setCreateDateTime(originalCreate);
+        existing.setCreator("origCreator");
+        existing.setCreatorSecurityId(7);
+        existing.setReason("old reason");
+
+        AppointmentTo1 to = new AppointmentTo1();
+        to.setId(42);
+        to.setReason("new reason");
+        to.setCreator("hacker");
+        to.setCreatorSecurityId(999);
+        to.setCreateDateTime(new Date(0));
+
+        new AppointmentConverter().applyEditableProperties(to, existing);
+
+        assertThat(existing.getReason()).isEqualTo("new reason");
+        assertThat(existing.getId()).isEqualTo(42);
+        assertThat(existing.getCreateDateTime()).isEqualTo(originalCreate);
+        assertThat(existing.getCreator()).isEqualTo("origCreator");
+        assertThat(existing.getCreatorSecurityId()).isEqualTo(7);
     }
 
     @Test

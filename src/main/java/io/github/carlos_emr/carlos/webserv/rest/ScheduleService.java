@@ -251,10 +251,27 @@ public class ScheduleService extends AbstractServiceImpl {
     @Consumes("application/json")
     @Produces("application/json")
     public SchedulingResponse updateAppointment(AppointmentTo1 appointmentTo) {
-        SchedulingResponse response = new SchedulingResponse();
+        if (appointmentTo == null || appointmentTo.getId() == null) {
+            throw new WebApplicationException(Response.status(Status.BAD_REQUEST)
+                    .entity("Appointment id is required").build());
+        }
 
+        // Load the persisted appointment and apply only client-editable fields onto it, so the
+        // server-managed identity/audit fields (createDateTime, creator, creatorSecurityId,
+        // bookingSource) are preserved rather than overwritten by the request payload, and the
+        // updating provider is stamped server-side. A blind DTO->entity merge here would corrupt
+        // the creation audit trail and allow over-posting.
+        Appointment appt = appointmentManager.getAppointment(getLoggedInInfo(), appointmentTo.getId());
+        if (appt == null) {
+            throw new WebApplicationException(Response.status(Status.NOT_FOUND)
+                    .entity("Appointment not found").build());
+        }
+
+        SchedulingResponse response = new SchedulingResponse();
         AppointmentConverter converter = new AppointmentConverter();
-        Appointment appt = converter.getAsDomainObject(getLoggedInInfo(), appointmentTo);
+
+        converter.applyEditableProperties(appointmentTo, appt);
+        appt.setLastUpdateUser(getLoggedInInfo().getLoggedInProviderNo());
 
         scheduleManager.updateAppointment(getLoggedInInfo(), appt);
 
