@@ -81,9 +81,22 @@ public class EctSaveEncounter2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
 
+    /**
+     * Parses a layout size from the given request parameter string.
+     * Returns {@code defaultValue} if the parameter is null, non-numeric,
+     * or below the minimum layout size threshold ({@value MIN_LAYOUT_SIZE} px).
+     *
+     * @param param        the raw request parameter string
+     * @param defaultValue the field-specific default to apply on invalid input
+     * @return the parsed size, or {@code defaultValue} if the input is invalid or too small
+     */
     static int parseLayoutSize(String param, int defaultValue) {
         int value = ConversionUtils.fromIntString(param);
-        return value >= MIN_LAYOUT_SIZE ? value : defaultValue;
+        if (value >= MIN_LAYOUT_SIZE) {
+            return value;
+        }
+        log.debug("parseLayoutSize: invalid or missing layout param, using default {}", defaultValue);
+        return defaultValue;
     }
 
     private String getLatestID(String demoNo) {

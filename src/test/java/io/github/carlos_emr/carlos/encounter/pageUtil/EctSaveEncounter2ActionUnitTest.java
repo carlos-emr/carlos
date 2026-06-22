@@ -10,7 +10,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("unit")
 @Tag("fast")
 @Tag("encounter")
-class EctSaveEncounter2ActionTest {
+class EctSaveEncounter2ActionUnitTest {
 
     @Test
     void shouldReturnDefault_whenParamIsNull() {
@@ -30,6 +30,11 @@ class EctSaveEncounter2ActionTest {
     @Test
     void shouldReturnDefault_whenValueIsBelowMinimum() {
         assertThat(parseLayoutSize("9", DEFAULT_ROW_ONE_SIZE)).isEqualTo(DEFAULT_ROW_ONE_SIZE);
+    }
+
+    @Test
+    void shouldReturnValue_whenParamEqualsMinimum() {
+        assertThat(parseLayoutSize("10", DEFAULT_ROW_ONE_SIZE)).isEqualTo(10);
     }
 
     @Test
