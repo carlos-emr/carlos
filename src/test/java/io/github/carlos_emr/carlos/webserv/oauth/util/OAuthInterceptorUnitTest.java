@@ -7,6 +7,7 @@ package io.github.carlos_emr.carlos.webserv.oauth.util;
 
 import io.github.carlos_emr.carlos.login.OscarOAuthDataProvider;
 import io.github.carlos_emr.carlos.webserv.oauth.Client;
+import io.github.carlos_emr.carlos.webserv.oauth.OAuth1SignatureVerifier;
 
 import org.apache.cxf.interceptor.Fault;
 import org.apache.cxf.message.Message;
@@ -21,6 +22,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -74,6 +76,33 @@ class OAuthInterceptorUnitTest {
     void shouldRaiseFault_withHttp401WhenSignatureVerificationFails() {
         OscarOAuthDataProvider dataProvider = mock(OscarOAuthDataProvider.class);
         when(dataProvider.getClient(TEST_CONSUMER_KEY)).thenReturn(mock(Client.class));
+        // Verifier rejects the signature/timestamp the way it does for a real bad request.
+        OAuth1SignatureVerifier verifier = mock(OAuth1SignatureVerifier.class);
+        when(verifier.verifySignature(any(), any()))
+                .thenThrow(new IllegalArgumentException("bad signature"));
+
+        OAuthInterceptor interceptor = new OAuthInterceptor();
+        ReflectionTestUtils.setField(interceptor, "oauthDataProvider", dataProvider);
+        ReflectionTestUtils.setField(interceptor, "verifier", verifier);
+
+        MockHttpServletRequest request = oauthRequestWithoutCredentials();
+        request.addParameter("oauth_consumer_key", TEST_CONSUMER_KEY);
+        request.addParameter("oauth_token", "some-token");
+        Message message = messageWith(request);
+
+        Fault fault = catchThrowableOfType(() -> interceptor.handleMessage(message), Fault.class);
+
+        assertThat(fault).isNotNull();
+        assertThat(fault.getStatusCode()).isEqualTo(401);
+    }
+
+    @Test
+    @DisplayName("should raise fault with HTTP 500 when an unexpected error occurs")
+    void shouldRaiseFault_withHttp500WhenUnexpectedError() {
+        OscarOAuthDataProvider dataProvider = mock(OscarOAuthDataProvider.class);
+        // A data-access style failure is a server error, not an authentication failure.
+        when(dataProvider.getClient(TEST_CONSUMER_KEY))
+                .thenThrow(new RuntimeException("database unavailable"));
 
         OAuthInterceptor interceptor = new OAuthInterceptor();
         ReflectionTestUtils.setField(interceptor, "oauthDataProvider", dataProvider);
@@ -83,12 +112,10 @@ class OAuthInterceptorUnitTest {
         request.addParameter("oauth_token", "some-token");
         Message message = messageWith(request);
 
-        // No verifier wired -> signature verification fails -> generic auth-failure path.
-        // The intended status (401) must propagate; it must never default to HTTP 500.
         Fault fault = catchThrowableOfType(() -> interceptor.handleMessage(message), Fault.class);
 
         assertThat(fault).isNotNull();
-        assertThat(fault.getStatusCode()).isEqualTo(401);
+        assertThat(fault.getStatusCode()).isEqualTo(500);
     }
 
     /** A request that looks like OAuth1 (has an Authorization header) but carries no usable params. */

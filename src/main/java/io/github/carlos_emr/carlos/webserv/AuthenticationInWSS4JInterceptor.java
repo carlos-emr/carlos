@@ -43,6 +43,7 @@ import org.apache.cxf.transport.http.AbstractHTTPDestination;
 import org.apache.cxf.ws.security.wss4j.WSS4JInInterceptor;
 import org.apache.logging.log4j.Logger;
 import org.apache.wss4j.common.WSS4JConstants;
+import org.apache.wss4j.common.ext.WSSecurityException;
 import org.apache.wss4j.dom.handler.WSHandlerConstants;
 import org.springframework.beans.factory.annotation.Autowired;
 import jakarta.annotation.PostConstruct;
@@ -106,14 +107,59 @@ public class AuthenticationInWSS4JInterceptor extends WSS4JInInterceptor impleme
             oscarLog.setIp(ip);
             LogAction.addLogSynchronous(oscarLog);
 
-            // WS-Security processing failures here are authentication failures (bad/missing
-            // credentials). Mark the SOAP fault with HTTP 401 so the Soap*FaultOutInterceptor
-            // propagates it as the response code; otherwise CXF defaults the fault to HTTP 500
-            // and bad credentials read to callers as a server error.
-            e.setStatusCode(HttpServletResponse.SC_UNAUTHORIZED);
+            // Map the WS-Security failure to the most appropriate HTTP status so the
+            // Soap*FaultOutInterceptor propagates it as the response code; otherwise CXF
+            // defaults the fault to HTTP 500 and bad credentials read as a server error.
+            // CXF has already replaced the fault body with a safe (obscured) message, so
+            // only the status code is differentiated here -- no extra detail is leaked.
+            e.setStatusCode(resolveFaultStatusCode(e));
 
-            throw (e);
+            throw e;
         }
+    }
+
+    /**
+     * Maps a WS-Security processing failure to an HTTP status without disclosing which
+     * check failed:
+     * <ul>
+     *   <li>401 for authentication failures (bad/absent credentials or token);</li>
+     *   <li>400 for client-side malformed, invalid, unsupported, or expired security headers;</li>
+     *   <li>500 when the failure cannot be positively attributed to the request (callback,
+     *       configuration, or parse errors), so genuine server faults are not mislabelled as
+     *       authentication failures.</li>
+     * </ul>
+     */
+    static int resolveFaultStatusCode(SoapFault fault) {
+        WSSecurityException wss = findWssCause(fault);
+        if (wss == null) {
+            return HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
+        }
+        switch (wss.getErrorCode()) {
+            case FAILED_AUTHENTICATION:
+            case SECURITY_TOKEN_UNAVAILABLE:
+                return HttpServletResponse.SC_UNAUTHORIZED;
+            case MESSAGE_EXPIRED:
+            case INVALID_SECURITY:
+            case INVALID_SECURITY_TOKEN:
+            case UNSUPPORTED_SECURITY_TOKEN:
+            case UNSUPPORTED_ALGORITHM:
+            case FAILED_CHECK:
+            case FAILED_SIGNATURE:
+                return HttpServletResponse.SC_BAD_REQUEST;
+            default:
+                // FAILURE / FAILED_ENCRYPTION / SECURITY_ERROR and anything else are not
+                // reliably client-side -> treat as an unexpected server error.
+                return HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
+        }
+    }
+
+    private static WSSecurityException findWssCause(Throwable t) {
+        for (Throwable cause = t; cause != null; cause = cause.getCause()) {
+            if (cause instanceof WSSecurityException) {
+                return (WSSecurityException) cause;
+            }
+        }
+        return null;
     }
 
     @Override

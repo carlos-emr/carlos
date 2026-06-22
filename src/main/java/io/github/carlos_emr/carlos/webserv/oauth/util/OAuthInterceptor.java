@@ -72,8 +72,10 @@ import org.apache.cxf.message.Message;
 import org.apache.cxf.phase.Phase;
 import org.apache.cxf.phase.PhaseInterceptor;
 import org.apache.cxf.transport.http.AbstractHTTPDestination;
+import org.apache.logging.log4j.Logger;
 
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.webserv.oauth.Client;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1Exception;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -88,7 +90,9 @@ import io.github.carlos_emr.carlos.webserv.oauth.OAuth1SignatureVerifier;
 @Component
 public class OAuthInterceptor implements PhaseInterceptor<Message> {
 
-    @Autowired 
+    private static final Logger logger = MiscUtils.getLogger();
+
+    @Autowired
     private OscarOAuthDataProvider oauthDataProvider;
 
     @Autowired 
@@ -158,12 +162,20 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
             req.setAttribute(info.getLoggedInInfoKey(), info);
 
         } catch (OAuth1Exception e) {
+            // Explicit auth outcome (e.g. 400 missing param, 401 invalid consumer/token):
+            // carries its own intended status code.
             throw toFault(e);
         } catch (IllegalArgumentException badSigOrTime) {
             // from verifier: missing/stale timestamp, bad signature, unknown token, etc.
+            // These are client-side authentication failures -> 401.
             throw toFault(new OAuth1Exception(401, "invalid_signature"));
         } catch (Exception e) {
-            throw toFault(new OAuth1Exception(401, "oauth_authentication_failed"));
+            // Anything else is an unexpected server-side failure (e.g. a data-access error),
+            // NOT an authentication problem. Log the cause for diagnosis but return a generic
+            // 500 so genuine outages are not masked as "bad credentials", and so the client
+            // body reveals nothing about the internal failure.
+            logger.error("Unexpected error during OAuth1 authentication", e);
+            throw toFault(new OAuth1Exception(500, "oauth_processing_error"));
         }
     }
 
