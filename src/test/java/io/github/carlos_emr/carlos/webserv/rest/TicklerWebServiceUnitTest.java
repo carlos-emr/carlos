@@ -142,6 +142,19 @@ class TicklerWebServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @Tag("delete")
+    @DisplayName("should deny deletion when the caller lacks tickler update privilege")
+    void shouldDenyDeletion_whenCallerLacksTicklerUpdatePrivilege() {
+        when(securityInfoManager.hasPrivilege(any(), eq("_tickler"), eq("u"), any()))
+                .thenReturn(false);
+
+        assertThatThrownBy(() -> service.deleteTicklers(payload("{\"ticklers\":[1]}")))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Access Denied");
+        verify(ticklerManager, never()).deleteTickler(any(), any(), any());
+    }
+
+    @Test
     @Tag("update")
     @DisplayName("should return an error when the ticklers field is missing")
     void shouldReturnError_whenTicklersFieldMissing() throws Exception {
