@@ -276,8 +276,8 @@ public class TicklerWebService extends AbstractServiceImpl {
 
         ArrayNode ticklerIds = (ArrayNode) json.get("ticklers");
 
-        for (Object id : ticklerIds) {
-            int ticklerNo = (Integer) id;
+        for (JsonNode id : ticklerIds) {
+            int ticklerNo = id.asInt();
             ticklerManager.completeTickler(getLoggedInInfo(), ticklerNo, getLoggedInInfo().getLoggedInProviderNo());
         }
 
@@ -298,8 +298,8 @@ public class TicklerWebService extends AbstractServiceImpl {
 
         ArrayNode ticklerIds = (ArrayNode) json.get("ticklers");
 
-        for (Object id : ticklerIds) {
-            int ticklerNo = (Integer) id;
+        for (JsonNode id : ticklerIds) {
+            int ticklerNo = id.asInt();
             ticklerManager.deleteTickler(getLoggedInInfo(), ticklerNo, getLoggedInInfo().getLoggedInProviderNo());
         }
 
