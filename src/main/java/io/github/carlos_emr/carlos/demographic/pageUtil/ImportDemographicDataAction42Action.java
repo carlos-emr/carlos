@@ -3417,12 +3417,19 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             return true;
         }
 
-        if (normalizedPath.startsWith("/") || normalizedPath.startsWith("\\")) {
+        if (normalizedPath.startsWith("/") || normalizedPath.startsWith("\\")
+                || hasWindowsDriveLetterAbsolutePrefix(normalizedPath)) {
             return true;
         }
 
-        // Explicit drive-letter pattern for extra defensive checking
-        return normalizedPath.matches("^[A-Za-z]:[/\\\\].*");
+        return false;
+    }
+
+    private boolean hasWindowsDriveLetterAbsolutePrefix(String normalizedPath) {
+        return normalizedPath.length() >= 3
+                && Character.isLetter(normalizedPath.charAt(0))
+                && normalizedPath.charAt(1) == ':'
+                && isReportPathSeparator(normalizedPath.charAt(2));
     }
 
     private File makeImportLog(ArrayList<String[]> demo, String dir) throws IOException {
