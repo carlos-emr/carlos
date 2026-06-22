@@ -25,7 +25,7 @@ CARLOS maintains backward compatibility with legacy SHA hashes:
 - **Write policy**: New SHA/SHA-1 password hashes must not be created; all new password writes use
   `PasswordHashHelper`/`EncryptionUtils.hash()` and produce `{bcrypt}` hashes.
 - **Static-analysis handling**: The remaining SHA-1 digest call is intentionally limited to the legacy
-  password verifier and carries FindSecBugs/Semgrep suppressions with justification.
+  password verifier and carries FindSecBugs/Semgrep/Sonar suppressions with justification.
 
 ## Database Schema
 
