@@ -33,6 +33,7 @@ package io.github.carlos_emr.carlos.form.pdfservlet;
 import java.io.*;
 
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -295,10 +296,11 @@ public class FrmCustomedPDFServlet extends HttpServlet {
     }
 
     private void writePdfFileIfMissing(Path filepath, ByteArrayOutputStream baosPDF) throws IOException {
-        if (!Files.exists(filepath)) {
-            try (java.io.OutputStream fileOut = Files.newOutputStream(filepath)) {
-                baosPDF.writeTo(fileOut); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- PDF bytes written to file, not HTTP response
-            }
+        try (java.io.OutputStream fileOut = Files.newOutputStream(filepath,
+                StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+            baosPDF.writeTo(fileOut); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- PDF bytes written to file, not HTTP response
+        } catch (FileAlreadyExistsException e) {
+            // Preserve the existing PDF if another request created it first.
         }
     }
 

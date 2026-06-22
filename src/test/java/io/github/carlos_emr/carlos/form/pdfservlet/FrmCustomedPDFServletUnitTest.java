@@ -32,6 +32,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockServletConfig;
 import org.springframework.mock.web.MockServletContext;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
@@ -127,6 +128,47 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
             assertThat(documentDir.resolve("prescription_rx-123.pdf")).exists();
             assertThat(faxDir.resolve("prescription_rx-123.pdf")).exists();
+            assertThat(faxDir.resolve("prescription_rx-123.txt")).hasContent("4165551212");
+            verify(faxConfigDao).findAll(any(), any());
+            verify(faxJobDao, never()).persist(any());
+        } finally {
+            restoreProperty("DOCUMENT_DIR", previousDocumentDir);
+            restoreProperty("fax_file_location", previousFaxFileLocation);
+        }
+    }
+
+    @Test
+    @DisplayName("should preserve existing prescription PDF when document file already exists")
+    void shouldPreserveExistingPrescriptionPdf_whenDocumentFileAlreadyExists(@TempDir Path tempDir) throws Exception {
+        String previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String previousFaxFileLocation = CarlosProperties.getInstance().getProperty("fax_file_location");
+        Path documentDir = Files.createDirectory(tempDir.resolve("documents"));
+        Path faxDir = Files.createDirectory(tempDir.resolve("fax"));
+        Path existingPdf = documentDir.resolve("prescription_rx-123.pdf");
+        Files.writeString(existingPdf, "existing pdf", StandardCharsets.UTF_8);
+        MockHttpServletRequest request = createFaxRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        when(faxConfigDao.findAll(any(), any())).thenReturn(Collections.emptyList());
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
+             MockedStatic<PrescriptionQrCodeUIBean> qrCodeMock = mockStatic(PrescriptionQrCodeUIBean.class)) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            qrCodeMock.when(() -> PrescriptionQrCodeUIBean.isPrescriptionQrCodeEnabledForProvider("999998"))
+                    .thenReturn(false);
+            CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir.toString());
+            CarlosProperties.getInstance().setProperty("fax_file_location", faxDir.toString());
+
+            FrmCustomedPDFServlet servlet = new FrmCustomedPDFServlet();
+            servlet.init(new MockServletConfig(new MockServletContext()));
+
+            servlet.service(request, response);
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+            assertThat(existingPdf).hasContent("existing pdf");
+            assertThat(faxDir.resolve("prescription_rx-123.pdf")).hasContent("existing pdf");
             assertThat(faxDir.resolve("prescription_rx-123.txt")).hasContent("4165551212");
             verify(faxConfigDao).findAll(any(), any());
             verify(faxJobDao, never()).persist(any());
