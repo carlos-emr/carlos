@@ -79,7 +79,7 @@ public class Deprecated_SHA_PasswordEncoder implements PasswordEncoder {
                     + "encode() rejects SHA-1 creation and new hashes use BCrypt")
     private String encodeShaPassword(String password) throws Exception {
 
-        MessageDigest md = MessageDigest.getInstance("SHA-1");
+        MessageDigest md = MessageDigest.getInstance("SHA-1"); // nosemgrep: java.lang.security.audit.crypto.use-of-sha1.use-of-sha1 -- legacy prefixless password rows require SHA-1 verification; new hashes use BCrypt
 
         StringBuilder sbTemp = new StringBuilder();
         byte[] btNewPasswd = md.digest(password.getBytes());
