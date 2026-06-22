@@ -55,7 +55,8 @@ import org.springframework.stereotype.Component;
 @Component
 @GZIP(threshold = AbstractWs.GZIP_THRESHOLD)
 public class DocumentWs extends AbstractWs {
-    private Logger logger = MiscUtils.getLogger();
+    private static final Logger logger = MiscUtils.getLogger();
+    private static final String EDOC_OBJECT = "_edoc";
 
     @Autowired
     private DocumentManager documentManager;
@@ -64,7 +65,7 @@ public class DocumentWs extends AbstractWs {
     private ProgramManager programManager;
 
     public DocumentTransfer getDocument(Integer documentId) {
-        requirePrivilege("_edoc", "r");
+        requirePrivilege(EDOC_OBJECT, "r");
         try {
             LoggedInInfo loggedInInfo = getLoggedInInfo();
             Document document = documentManager.getDocument(loggedInInfo, documentId);
@@ -77,14 +78,14 @@ public class DocumentWs extends AbstractWs {
     }
 
     public DocumentTransfer[] getDocumentsUpdateAfterDate(Date updatedAfterThisDateExclusive, int itemsToReturn) {
-        requirePrivilege("_edoc", "r");
+        requirePrivilege(EDOC_OBJECT, "r");
         LoggedInInfo loggedInInfo = getLoggedInInfo();
         List<Document> documents = documentManager.getDocumentsUpdateAfterDate(loggedInInfo, updatedAfterThisDateExclusive, itemsToReturn);
         return (DocumentTransfer.getTransfers(loggedInInfo, documents));
     }
 
     public DocumentTransfer[] getDocumentsByProgramProviderDemographicDate(Integer programId, String providerNo, Integer demographicId, Calendar updatedAfterThisDateExclusive, int itemsToReturn) {
-        requirePrivilege("_edoc", "r");
+        requirePrivilege(EDOC_OBJECT, "r");
         LoggedInInfo loggedInInfo = getLoggedInInfo();
         List<Document> documents = documentManager.getDocumentsByProgramProviderDemographicDate(loggedInInfo, programId, providerNo, demographicId, updatedAfterThisDateExclusive, itemsToReturn);
         logger.debug("programId=" + programId + ", providerNo=" + providerNo + ", demographicId=" + demographicId + ", updatedAfterThisDateExclusive=" + DateFormatUtils.ISO_DATETIME_FORMAT.format(updatedAfterThisDateExclusive) + ", itemsToReturn=" + itemsToReturn + ", results=" + documents.size());
@@ -92,7 +93,7 @@ public class DocumentWs extends AbstractWs {
     }
 
     public DocumentTransfer[] getDocumentsByDemographicIdAfter(@WebParam(name = "lastUpdate") Calendar lastUpdate, @WebParam(name = "demographicId") Integer demographicId) {
-        requirePrivilege("_edoc", "r");
+        requirePrivilege(EDOC_OBJECT, "r");
         LoggedInInfo loggedInInfo = getLoggedInInfo();
         List<Document> documents = documentManager.getDocumentsByDemographicIdUpdateAfterDate(loggedInInfo, demographicId, lastUpdate.getTime());
         return (DocumentTransfer.getTransfers(loggedInInfo, documents));

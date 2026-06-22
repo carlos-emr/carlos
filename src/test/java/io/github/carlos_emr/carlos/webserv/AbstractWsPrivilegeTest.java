@@ -1,7 +1,6 @@
 package io.github.carlos_emr.carlos.webserv;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -32,7 +31,7 @@ class AbstractWsPrivilegeTest {
     void shouldThrowSecurityException_whenAccessIsMissing() {
         SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
         LoggedInInfo loggedInInfo = loggedInInfo("101");
-        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_appointment"), eq("r"), eq((String) null)))
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "r", null))
                 .thenReturn(false);
 
         TestAbstractWs service = new TestAbstractWs(loggedInInfo, securityInfoManager);
@@ -48,7 +47,7 @@ class AbstractWsPrivilegeTest {
         SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
         ScheduleManager scheduleManager = mock(ScheduleManager.class);
         LoggedInInfo loggedInInfo = loggedInInfo("101");
-        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_appointment"), eq("r"), eq((String) null)))
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "r", null))
                 .thenReturn(true);
         when(scheduleManager.getAppointmentTypes()).thenReturn(Collections.emptyList());
 
@@ -67,7 +66,7 @@ class AbstractWsPrivilegeTest {
         SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
         ScheduleManager scheduleManager = mock(ScheduleManager.class);
         LoggedInInfo loggedInInfo = loggedInInfo("101");
-        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_appointment"), eq("r"), eq((String) null)))
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "r", null))
                 .thenReturn(false);
 
         TestScheduleWs service = new TestScheduleWs(loggedInInfo, securityInfoManager);
@@ -87,7 +86,7 @@ class AbstractWsPrivilegeTest {
         SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
         ProviderManager2 providerManager = mock(ProviderManager2.class);
         LoggedInInfo loggedInInfo = loggedInInfo("101");
-        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_pref"), eq("r"), eq((String) null)))
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_pref", "r", null))
                 .thenReturn(true);
         when(providerManager.getProviderProperties(loggedInInfo, "101", "faxnumber"))
                 .thenReturn(List.of(new Property()));
@@ -107,7 +106,7 @@ class AbstractWsPrivilegeTest {
         SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
         ProviderManager2 providerManager = mock(ProviderManager2.class);
         LoggedInInfo loggedInInfo = loggedInInfo("101");
-        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_admin"), eq("r"), eq((String) null)))
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null))
                 .thenReturn(false);
 
         TestProviderWs service = new TestProviderWs(loggedInInfo, securityInfoManager);
@@ -125,7 +124,7 @@ class AbstractWsPrivilegeTest {
     void shouldFallbackToAdminCheck_whenSessionIsMissing() {
         SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
         ProviderManager2 providerManager = mock(ProviderManager2.class);
-        when(securityInfoManager.hasPrivilege(eq((LoggedInInfo) null), eq("_admin"), eq("r"), eq((String) null)))
+        when(securityInfoManager.hasPrivilege((LoggedInInfo) null, "_admin", "r", null))
                 .thenReturn(false);
 
         TestProviderWs service = new TestProviderWs(null, securityInfoManager);
@@ -145,7 +144,7 @@ class AbstractWsPrivilegeTest {
         SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
         DemographicManager demographicManager = mock(DemographicManager.class);
         LoggedInInfo loggedInInfo = loggedInInfo("101");
-        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_demographic"), eq("r"), eq((String) null)))
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null))
                 .thenReturn(false);
 
         TestDemographicWs service = new TestDemographicWs(loggedInInfo, securityInfoManager);
