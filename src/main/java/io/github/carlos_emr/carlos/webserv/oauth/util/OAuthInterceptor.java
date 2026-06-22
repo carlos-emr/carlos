@@ -158,13 +158,25 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
             req.setAttribute(info.getLoggedInInfoKey(), info);
 
         } catch (OAuth1Exception e) {
-            throw new Fault(e);
+            throw toFault(e);
         } catch (IllegalArgumentException badSigOrTime) {
             // from verifier: missing/stale timestamp, bad signature, unknown token, etc.
-            throw new Fault(new OAuth1Exception(401, "invalid_signature"));
+            throw toFault(new OAuth1Exception(401, "invalid_signature"));
         } catch (Exception e) {
-            throw new Fault(new OAuth1Exception(401, "oauth_authentication_failed"));
+            throw toFault(new OAuth1Exception(401, "oauth_authentication_failed"));
         }
+    }
+
+    /**
+     * Wraps an {@link OAuth1Exception} in a CXF {@link Fault} that carries the intended
+     * HTTP status code. Without {@link Fault#setStatusCode(int)} CXF discards the OAuth
+     * status and defaults an in-interceptor fault to HTTP 500, so a 400/401 authentication
+     * failure would surface to API callers as a server error.
+     */
+    private static Fault toFault(OAuth1Exception e) {
+        Fault fault = new Fault(e);
+        fault.setStatusCode(e.getHttpCode());
+        return fault;
     }
 
     @Override public void handleFault(Message message) { /* no-op */ }

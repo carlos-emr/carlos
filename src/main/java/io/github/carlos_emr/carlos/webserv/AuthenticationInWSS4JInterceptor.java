@@ -35,6 +35,7 @@ import java.util.HashMap;
 import javax.security.auth.callback.Callback;
 import javax.security.auth.callback.CallbackHandler;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.cxf.binding.soap.SoapFault;
 import org.apache.cxf.binding.soap.SoapMessage;
@@ -104,6 +105,12 @@ public class AuthenticationInWSS4JInterceptor extends WSS4JInInterceptor impleme
             oscarLog.setAction("WS_LOGIN_FAILURE");
             oscarLog.setIp(ip);
             LogAction.addLogSynchronous(oscarLog);
+
+            // WS-Security processing failures here are authentication failures (bad/missing
+            // credentials). Mark the SOAP fault with HTTP 401 so the Soap*FaultOutInterceptor
+            // propagates it as the response code; otherwise CXF defaults the fault to HTTP 500
+            // and bad credentials read to callers as a server error.
+            e.setStatusCode(HttpServletResponse.SC_UNAUTHORIZED);
 
             throw (e);
         }
