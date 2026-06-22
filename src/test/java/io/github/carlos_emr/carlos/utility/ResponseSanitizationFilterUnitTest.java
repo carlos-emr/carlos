@@ -975,9 +975,12 @@ class ResponseSanitizationFilterUnitTest {
         }
 
         @Test
-        @DisplayName("should return true when request URI contains /ws/")
-        void shouldReturnTrue_whenRequestUriContainsWs() {
+        @DisplayName("should return true when context-relative request URI is under /ws/")
+        void shouldReturnTrue_whenContextRelativeUriIsUnderWs() {
+            // No servlet path populated — exercises the context-relative URI fallback.
             MockHttpServletRequest request = new MockHttpServletRequest();
+            request.setContextPath("/carlos");
+            request.setServletPath("");
             request.setRequestURI("/carlos/ws/rs/demographics/1");
             assertThat(ResponseSanitizationFilter.isWebServiceRequest(request)).isTrue();
         }
@@ -997,6 +1000,18 @@ class ResponseSanitizationFilterUnitTest {
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/news/list");
             request.setRequestURI("/carlos/news/list");
             request.setServletPath("/news/list");
+            assertThat(ResponseSanitizationFilter.isWebServiceRequest(request)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should not match a deeper path that merely contains /ws/ as a later segment")
+        void shouldReturnFalse_whenWsAppearsAsLaterPathSegment() {
+            // Fallback path: servlet path empty, URI has /ws/ deep in the path but not at the
+            // context-relative root. A substring match would wrongly classify this as a /ws route.
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/proxy/ws/foo");
+            request.setContextPath("/carlos");
+            request.setServletPath("");
+            request.setRequestURI("/carlos/proxy/ws/foo");
             assertThat(ResponseSanitizationFilter.isWebServiceRequest(request)).isFalse();
         }
     }

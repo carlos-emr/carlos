@@ -408,7 +408,7 @@ public class ResponseSanitizationFilter implements Filter {
         if (status < 400) {
             return false;
         }
-        if (containsStackTrace(body)) {
+        if (body != null && containsStackTrace(body)) {
             return true;
         }
         return webServiceRequest && status >= 500;
@@ -422,14 +422,18 @@ public class ResponseSanitizationFilter implements Filter {
      * @return {@code "stack-trace-marker"} or {@code "web-service-5xx-partial-body"}
      */
     private static String sanitizationReason(String body) {
-        return containsStackTrace(body) ? "stack-trace-marker" : "web-service-5xx-partial-body";
+        return (body != null && containsStackTrace(body))
+                ? "stack-trace-marker" : "web-service-5xx-partial-body";
     }
 
     /**
      * Determines whether the request targets a CXF web-service route. The CXF servlet is mapped at
      * {@code /ws/*} (see {@code web.xml}); {@link HttpServletRequest#getServletPath()} therefore
-     * returns {@code /ws} for these requests. The request URI is checked as a fallback for
-     * forwarded/wrapped requests where the servlet path may not be populated.
+     * returns {@code /ws} for these requests. As a fallback for forwarded/wrapped requests where the
+     * servlet path may not be populated, the <em>context-relative</em> request URI is matched with
+     * an exact/prefix check ({@code /ws} or {@code /ws/...}). A substring match is deliberately
+     * avoided so unrelated paths that merely contain {@code /ws/} (e.g. {@code /proxy/ws/foo}) are
+     * not misclassified as web-service requests.
      *
      * @param request HttpServletRequest the incoming request
      * @return boolean {@code true} if the request path is under {@code /ws/}
@@ -440,7 +444,14 @@ public class ResponseSanitizationFilter implements Filter {
             return true;
         }
         String uri = request.getRequestURI();
-        return uri != null && (uri.contains("/ws/") || uri.endsWith("/ws"));
+        if (uri == null) {
+            return false;
+        }
+        String contextPath = request.getContextPath();
+        String path = (contextPath != null && !contextPath.isEmpty() && uri.startsWith(contextPath))
+                ? uri.substring(contextPath.length())
+                : uri;
+        return path.equals("/ws") || path.startsWith("/ws/");
     }
 
     /**
