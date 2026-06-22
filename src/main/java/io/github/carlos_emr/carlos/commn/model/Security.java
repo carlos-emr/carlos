@@ -238,12 +238,17 @@ public class Security extends AbstractModel<Integer> {
             return false;
         }
 
-        if (PasswordHashHelper.matches(inputedPassword, password)) {
-            return (true);
-        } else {
+        try {
+            if (PasswordHashHelper.matches(inputedPassword, password)) {
+                return (true);
+            }
+        } catch (IllegalArgumentException e) {
             throttleOnFailedLogin();
-            return (false);
+            return false;
         }
+
+        throttleOnFailedLogin();
+        return (false);
     }
 
     protected void throttleOnFailedLogin() {
