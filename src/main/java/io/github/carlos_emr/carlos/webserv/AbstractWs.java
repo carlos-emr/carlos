@@ -73,11 +73,18 @@ public abstract class AbstractWs {
     }
 
     protected void requirePrivilege(String objectName, String privilege) {
-        requirePrivilege(objectName, privilege, null);
+        requirePrivilege(getLoggedInInfo(), objectName, privilege, null);
     }
 
     protected void requirePrivilege(String objectName, String privilege, String demographicNo) {
-        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        requirePrivilege(getLoggedInInfo(), objectName, privilege, demographicNo);
+    }
+
+    protected void requirePrivilege(LoggedInInfo loggedInInfo, String objectName, String privilege) {
+        requirePrivilege(loggedInInfo, objectName, privilege, null);
+    }
+
+    protected void requirePrivilege(LoggedInInfo loggedInInfo, String objectName, String privilege, String demographicNo) {
         if (!getSecurityInfoManager().hasPrivilege(loggedInInfo, objectName, privilege, demographicNo)) {
             throw new SecurityException("missing required sec object (" + objectName + ")");
         }
