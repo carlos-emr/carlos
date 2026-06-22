@@ -40,7 +40,7 @@ public abstract class BaseEFormView2Action extends ActionSupport {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
 
-        if (!isMethodAllowed(request.getMethod())) {
+        if (!isMethodAllowed(request)) {
             response.setHeader("Allow", "GET, HEAD");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
@@ -97,9 +97,17 @@ public abstract class BaseEFormView2Action extends ActionSupport {
         return NONE;
     }
 
+    /**
+     * Returns whether the current request method is allowed for this view route.
+     * Subclasses may allow narrowly scoped POST bridges for non-mutating legacy flows.
+     */
+    protected boolean isMethodAllowed(HttpServletRequest request) {
+        return isReadMethod(request.getMethod());
+    }
+
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    private boolean isMethodAllowed(String method) {
+    private boolean isReadMethod(String method) {
         return "GET".equalsIgnoreCase(method) || "HEAD".equalsIgnoreCase(method);
     }
 }

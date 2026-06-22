@@ -133,6 +133,20 @@ class ViewEFormPage2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldForwardGeneratorBridge_whenManagerEditPostsGeneratedHtml() throws Exception {
+        when(mockRequest.getMethod()).thenReturn("POST");
+        when(mockRequest.getParameter("formHtmlG")).thenReturn("<html></html>");
+        when(mockRequest.getRequestDispatcher("/WEB-INF/jsp/eform/efmformmanageredit.jsp"))
+                .thenReturn(mockDispatcher);
+        ActionContext.of().withActionName("eform/efmformmanageredit").bind();
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        verify(mockDispatcher).forward(mockRequest, mockResponse);
+    }
+
+    @Test
     void shouldThrowWhenReadPrivilegeDenied() {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_eform"), eq("r"), isNull()))
                 .thenReturn(false);

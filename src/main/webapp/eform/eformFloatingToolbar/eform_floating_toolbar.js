@@ -9,6 +9,7 @@ document.addEventListener("DOMContentLoaded", function(){
     addNavElement();
     disableTextareaResize();
     moveSubjectReverse();
+    hideAdminPreviewSaveButton();
 
     // Add eForm attachments
     addEFormAttachments();
@@ -56,6 +57,18 @@ window.onerror = function uncaughtExceptionHandler(message, source, lineNumber, 
     eform.error = message;
     let context = document.getElementById("context").value;
     jQuery.post(context + "/eform/logEformError", eform);
+}
+
+function hideAdminPreviewSaveButton() {
+    const demographicNo = document.getElementById("demographicNo");
+    if (!demographicNo || demographicNo.value !== "-1") {
+        return;
+    }
+
+    const remoteSubmitButton = document.getElementById("remoteSubmitButton");
+    if (remoteSubmitButton) {
+        remoteSubmitButton.style.display = "none";
+    }
 }
 
 function getEForm() {
