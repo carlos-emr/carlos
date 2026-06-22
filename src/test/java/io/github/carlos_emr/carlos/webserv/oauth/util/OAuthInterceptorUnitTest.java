@@ -35,6 +35,8 @@ import static org.mockito.Mockito.when;
 @Tag("security")
 class OAuthInterceptorUnitTest {
 
+    private static final String TEST_CONSUMER_KEY = "consumer-key";
+
     @Test
     @DisplayName("should raise fault with HTTP 400 when consumer key is missing")
     void shouldRaiseFault_withHttp400WhenConsumerKeyMissing() {
@@ -71,13 +73,13 @@ class OAuthInterceptorUnitTest {
     @DisplayName("should raise fault with HTTP 401 when signature verification fails")
     void shouldRaiseFault_withHttp401WhenSignatureVerificationFails() {
         OscarOAuthDataProvider dataProvider = mock(OscarOAuthDataProvider.class);
-        when(dataProvider.getClient(anyConsumer())).thenReturn(mock(Client.class));
+        when(dataProvider.getClient(TEST_CONSUMER_KEY)).thenReturn(mock(Client.class));
 
         OAuthInterceptor interceptor = new OAuthInterceptor();
         ReflectionTestUtils.setField(interceptor, "oauthDataProvider", dataProvider);
 
         MockHttpServletRequest request = oauthRequestWithoutCredentials();
-        request.addParameter("oauth_consumer_key", anyConsumer());
+        request.addParameter("oauth_consumer_key", TEST_CONSUMER_KEY);
         request.addParameter("oauth_token", "some-token");
         Message message = messageWith(request);
 
@@ -87,10 +89,6 @@ class OAuthInterceptorUnitTest {
 
         assertThat(fault).isNotNull();
         assertThat(fault.getStatusCode()).isEqualTo(401);
-    }
-
-    private static String anyConsumer() {
-        return "consumer-key";
     }
 
     /** A request that looks like OAuth1 (has an Authorization header) but carries no usable params. */
