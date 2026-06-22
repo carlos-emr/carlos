@@ -37,9 +37,10 @@ class EFormBackgroundImagePreservationUnitTest extends CarlosUnitTestBase {
         eform.addHiddenInputElement("fdid", "123");
 
         String rendered = eform.getFormHtml();
-        assertThat(rendered).contains("id=\"BGImage1\"");
-        assertThat(rendered).contains("/carlos/eform/displayImage?imagefile=background.png");
-        assertThat(rendered).contains("/carlos/library/jquery/jquery-3.7.1.min.js");
-        assertThat(rendered).contains("id=\"fdid\"");
+        assertThat(rendered)
+            .contains("id=\"BGImage1\"")
+            .contains("/carlos/eform/displayImage?imagefile=background.png")
+            .contains("/carlos/library/jquery/jquery-3.7.1.min.js")
+            .contains("id=\"fdid\"");
     }
 }
