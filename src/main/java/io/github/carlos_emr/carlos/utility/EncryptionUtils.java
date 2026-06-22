@@ -43,6 +43,9 @@ import java.util.Objects;
 
 
 public final class EncryptionUtils {
+    private static final int AES_128_KEY_BYTES = 16;
+    private static final int AES_192_KEY_BYTES = 24;
+    private static final int AES_256_KEY_BYTES = 32;
     private static final QueueCacheValueCloner<byte[]> byteArrayCloner = new QueueCacheValueCloner<byte[]>() {
         public byte[] cloneBean(byte[] original) {
             return (byte[]) original.clone();
@@ -53,7 +56,7 @@ public final class EncryptionUtils {
     private static final QueueCache<String, byte[]> sha1Cache;
     private static final int MAX_SHA_KEY_CACHE_SIZE = 2048;
     public static final String SECRET_KEY_ENV_VAR = "encryption.util.secret.key";
-    private static SecretKeySpec SECRET_KEY_SPEC;
+    private static volatile SecretKeySpec SECRET_KEY_SPEC;
     private static final String ENCRYPTION_PREFIX = "{ENC}";
 
     public EncryptionUtils() {
@@ -123,7 +126,7 @@ public final class EncryptionUtils {
      **/
     public static byte[] encrypt(byte[] input) throws Exception {
         if (Objects.isNull(SECRET_KEY_SPEC)) {
-            throw new Exception("Secret key not found in environment variables.");
+            throw new IllegalStateException("Secret key not found in CarlosProperties.");
         }
 
         byte[] iv = new byte[12];
@@ -161,7 +164,7 @@ public final class EncryptionUtils {
      **/
     public static byte[] decrypt(byte[] cipherBytes) throws Exception {
         if (Objects.isNull(SECRET_KEY_SPEC)) {
-            throw new Exception("Secret key not found in environment variables.");
+            throw new IllegalStateException("Secret key not found in CarlosProperties.");
         }
 
         ByteBuffer byteBuffer = ByteBuffer.wrap(cipherBytes);
@@ -266,16 +269,55 @@ public final class EncryptionUtils {
      * <p>
      * This method retrieves the secret key from the CarlosProperties, decodes it from Base64,
      * and initializes the SECRET_KEY_SPEC with the decoded key.
-     * If the secret key is not found in the properties, an error is logged.
+     * <p>
+     * The cached SECRET_KEY_SPEC is unconditionally reset to {@code null} before re-deriving it,
+     * so a missing or invalid key always clears any previously cached spec rather than leaving a
+     * stale value in place.
+     * <p>
+     * Failure modes:
+     * <ul>
+     *   <li>A missing or blank key is treated as "not configured": a warning is logged and the
+     *       method returns with SECRET_KEY_SPEC left {@code null} (non-fatal, no exception). This
+     *       is the expected early-class-load state; Startup re-prepares the key once properties
+     *       are available.</li>
+     *   <li>An invalid key (not valid Base64, or not a 16/24/32-byte AES key) is fatal and throws.</li>
+     * </ul>
+     *
+     * @throws IllegalArgumentException if the configured key is not valid Base64 or does not
+     *                                  decode to a 16/24/32-byte (AES-128/192/256) key
      */
     public static void prepareSecretKeySpec() {
         String key = CarlosProperties.getInstance().getProperty(SECRET_KEY_ENV_VAR);
-        if (Objects.isNull(key)) {
-            logger.error("Secret key not found in environment variables.");
+        if (key != null) {
+            // Base64.getDecoder() rejects any whitespace, and CarlosProperties does not trim
+            // values. Normalize incidental surrounding whitespace (e.g. a manual properties edit)
+            // so a usable key is not rejected at startup. Base64 never legitimately contains
+            // surrounding whitespace, so trimming cannot mask or corrupt a real key.
+            key = key.trim();
+        }
+        SECRET_KEY_SPEC = null;
+        if (Objects.isNull(key) || key.isBlank()) {
+            // Expected during early class-load before properties are read (the static initializer
+            // documents this); Startup re-prepares once a key exists. Warn, not error, so this
+            // normal boot path does not raise false-positive monitoring alerts.
+            logger.warn("Secret key not found in CarlosProperties.");
             return;
         }
 
-        byte[] keyBytes = Base64.getDecoder().decode(key);
+        byte[] keyBytes;
+        try {
+            keyBytes = Base64.getDecoder().decode(key);
+        } catch (IllegalArgumentException e) {
+            // Use a sanitized message (the JDK detail message can name the offending character) but
+            // keep the original exception as the cause so operators retain the stack trace for
+            // diagnosis. The cause surfaces only in boot-time server logs, never to the browser.
+            throw new IllegalArgumentException("encryption key is not valid Base64", e);
+        }
+        if (keyBytes.length != AES_128_KEY_BYTES
+                && keyBytes.length != AES_192_KEY_BYTES
+                && keyBytes.length != AES_256_KEY_BYTES) {
+            throw new IllegalArgumentException("Invalid AES key length: " + keyBytes.length + " bytes");
+        }
         SECRET_KEY_SPEC = new SecretKeySpec(keyBytes, "AES");
     }
 
@@ -317,7 +359,26 @@ public final class EncryptionUtils {
 
     static {
         sha1Cache = new QueueCache(4, 2048, byteArrayCloner);
-        prepareSecretKeySpec();
+        /*
+         * EncryptionUtils is frequently class-loaded before application properties are read, so
+         * the key may be absent (or, after a bad edit, invalid) at this point. Never let key
+         * preparation abort class loading - an exception here would surface as
+         * ExceptionInInitializerError and leave the class permanently unusable. Startup is
+         * authoritative: it re-prepares and validates the key once properties are available, and
+         * fails fast there if the key is invalid. Leaving the spec null mirrors the missing-key state.
+         * This deferral assumes the servlet Startup listener runs; non-servlet entry points (CLI,
+         * batch jobs, tests) do not re-validate the key and will see a null spec until they prepare it.
+         */
+        try {
+            prepareSecretKeySpec();
+        } catch (RuntimeException e) {
+            SECRET_KEY_SPEC = null;
+            // A missing/blank key does NOT reach here - prepareSecretKeySpec returns after logging.
+            // This only fires when an actually-invalid key is present at class-load (bad Base64 /
+            // wrong AES length). Warn rather than error: Startup re-prepares and fails fast there if
+            // the key is still invalid, so this class-load attempt is not the authoritative check.
+            logger.warn("Deferred encryption key initialization; it will be prepared at startup.", e);
+        }
     }
 }
 
