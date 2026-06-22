@@ -284,7 +284,7 @@
 
         var docSubClassList = [
             <% for (int i=0; i<subClasses.size(); i++) { %>
-            "<carlos:encode value='<%= subClasses.get(i) %>' context='javaScriptBlock'/>"<%=(i<subClasses.size()-1)?",":""%>
+            "<carlos:encode value='<%= subClasses.get(i) %>' context='javaScript'/>"<%=(i<subClasses.size()-1)?",":""%>
             <% } %>
         ];
 
