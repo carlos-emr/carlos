@@ -72,7 +72,9 @@ public class ProviderWs extends AbstractWs {
 
     public ProviderPropertyTransfer[] getProviderProperties(String providerNo, String propertyName) {
         LoggedInInfo loggedInInfo = getLoggedInInfo();
-        boolean selfRequest = providerNo != null && providerNo.equals(loggedInInfo.getLoggedInProviderNo());
+        boolean selfRequest = loggedInInfo != null
+                && providerNo != null
+                && providerNo.equals(loggedInInfo.getLoggedInProviderNo());
         if (selfRequest) {
             requirePrivilege("_pref", "r");
         } else {

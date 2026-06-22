@@ -66,13 +66,13 @@ public class DemographicWs extends AbstractWs {
     private PatientConsentManager patientConsentManager;
 
     public DemographicTransfer getDemographic(Integer demographicId) {
-        requirePrivilege("_demographic", "r", String.valueOf(demographicId));
+        requirePrivilege("_demographic", "r", demographicId != null ? String.valueOf(demographicId) : null);
         Demographic demographic = demographicManager.getDemographicWithExt(getLoggedInInfo(), demographicId);
         return (DemographicTransfer.toTransfer(demographic));
     }
 
     public DemographicTransfer2 getDemographic2(Integer demographicId) {
-        requirePrivilege("_demographic", "r", String.valueOf(demographicId));
+        requirePrivilege("_demographic", "r", demographicId != null ? String.valueOf(demographicId) : null);
         Demographic demographic = demographicManager.getDemographic(getLoggedInInfo(), demographicId);
         return (DemographicTransfer2.toTransfer(demographic));
     }
