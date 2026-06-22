@@ -504,6 +504,10 @@ public final class ConvertToEdoc {
      * Parses runtime eForm HTML into a Jsoup DOM without stripping unresolved resource tags.
      * Runtime eForms intentionally reference application-served assets such as
      * /eform/displayImage?imagefile=... and should keep those authored elements intact.
+     *
+     * @param documentString raw HTML to parse
+     * @return parsed Jsoup DOM configured for runtime HTML handling
+     * @throws IllegalArgumentException if {@code documentString} is null, empty, or blank
      */
     public static Document parseDocument(String documentString) {
         if (StringUtils.isBlank(documentString)) {

@@ -85,8 +85,7 @@ function validateBaseUrl(rawBaseUrl) {
 
   const host = parsed.hostname.toLowerCase();
   const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
-  if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
+  if (!localHosts.has(host) && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
 
@@ -506,25 +505,6 @@ async function assertSavedFormState(page, expectedState, expectedFdid, screensho
   await screenshot(page, screenshotName);
 }
 
-async function openConsultationList(context) {
-  const page = await context.newPage();
-  wirePage(page, 'consult-list');
-  await gotoApp(page, `/encounter/oscarConsultationRequest/ViewDisplayDemographicConsultationRequests?de=${encodeURIComponent(demographicNo)}`);
-  await page.waitForLoadState('domcontentloaded', { timeout: 30000 });
-  await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-  return page;
-}
-
-async function collectConsultRequestIds(page) {
-  return page.evaluate(() => Array.from(document.querySelectorAll('a[href*="popupConsultation"], a[onclick*="requestId="]'))
-    .map((anchor) => anchor.getAttribute('onclick') || anchor.getAttribute('href') || '')
-    .map((text) => {
-      const match = text.match(/requestId=([^&'"]+)/);
-      return match ? decodeURIComponent(match[1]) : '';
-    })
-    .filter((value) => /^\d+$/.test(value)));
-}
-
 async function openNewConsultation(context) {
   const page = await context.newPage();
   await page.addInitScript(() => {
@@ -587,26 +567,6 @@ async function openConsultAttachmentPanelAndAttachEform(page, fdid) {
   await screenshot(page, 'consultation-linked-open');
 }
 
-async function submitConsultation(page, submitMode) {
-  if (submitMode === 'programmatic') {
-    await Promise.all([
-      page.waitForLoadState('domcontentloaded').catch(() => {}),
-      page.evaluate(() => {
-        const form = document.forms.EctConsultationFormRequest2Form;
-        form.submission.value = 'Submit Consultation Request';
-        form.submit();
-      }),
-    ]);
-  } else {
-    await Promise.all([
-      page.waitForLoadState('domcontentloaded').catch(() => {}),
-      page.locator('input[name="submitSaveOnly"]').click(),
-    ]);
-  }
-  await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-  await page.waitForTimeout(1000);
-}
-
 (async () => {
   const fixture = createFixtureFiles();
   const timestamp = Date.now();
@@ -667,7 +627,7 @@ async function submitConsultation(page, submitMode) {
     await patientListPopup.close();
 
     const newConsultationPage = await openNewConsultation(context);
-    const consultSubmitMode = await prepareConsultationForm(newConsultationPage);
+    await prepareConsultationForm(newConsultationPage);
     await openConsultAttachmentPanelAndAttachEform(newConsultationPage, fdid);
     await newConsultationPage.close();
 
