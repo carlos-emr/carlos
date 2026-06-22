@@ -56,6 +56,13 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * a correlation ID. Logs include status, route, and correlation ID, but never response-body
  * excerpts because error pages can contain PHI even after control-character sanitization.</p>
  *
+ * <p>For web-service routes ({@code /ws/*}, the CXF servlet), the body of any {@code 5xx}
+ * response is replaced regardless of stack-trace content. A mid-stream Jackson/JAXB
+ * serialization failure leaves a clean, well-formed JSON/XML prefix (e.g. patient demographics)
+ * already written; that prefix does not match the stack-trace heuristic but still leaks PHI.
+ * A web-service {@code 5xx} carries no client-meaningful entity body, so suppressing it closes
+ * the exposure without breaking an API contract. See issue #2953.</p>
+ *
  * <h3>Detection</h3>
  * <p>Stack trace detection uses a {@link Pattern} that matches common Java stack trace markers:
  * {@code at pkg.Class.method(File.java:nn)}, {@code Caused by:}, {@code java.lang.},
@@ -249,6 +256,7 @@ public class ResponseSanitizationFilter implements Filter {
         }
 
         HttpServletResponse httpResponse = (HttpServletResponse) response;
+        boolean webServiceRequest = isWebServiceRequest((HttpServletRequest) request);
         CapturingResponseWrapper wrapper = new CapturingResponseWrapper(httpResponse);
 
         try {
@@ -309,13 +317,14 @@ public class ResponseSanitizationFilter implements Filter {
             int status = wrapper.getStatus();
             byte[] capturedBytes = wrapper.getCapturedOutput();
             String capturedBody = new String(capturedBytes, StandardCharsets.UTF_8);
-            if (status >= 400 && containsStackTrace(capturedBody)) {
+            if (shouldSanitizeErrorBody(status, capturedBody, webServiceRequest)) {
                 String correlationId = generateCorrelationId();
-                LOGGER.error("Stack trace detected in output-stream error response "
-                                + "[status={} uri={} correlationId={}]",
+                LOGGER.error("Sanitizing output-stream error response body "
+                                + "[status={} uri={} correlationId={} reason={}]",
                         status,
                         LogSafe.sanitizeUri(((HttpServletRequest) request).getRequestURI()),
-                        correlationId);
+                        correlationId,
+                        sanitizationReason(capturedBody));
                 sendSanitizedError(httpResponse, status, correlationId);
             } else {
                 writeBytesToResponse(httpResponse, capturedBytes);
@@ -339,14 +348,16 @@ public class ResponseSanitizationFilter implements Filter {
         int status = wrapper.getStatus();
         String capturedBody = wrapper.getCapturedContent();
 
-        if (status >= 400 && containsStackTrace(capturedBody)) {
-            // Stack trace detected: log correlation details only and send a sanitized replacement.
+        if (shouldSanitizeErrorBody(status, capturedBody, webServiceRequest)) {
+            // Tainted (stack trace) or web-service 5xx partial body: log correlation details
+            // only and send a sanitized replacement.
             String correlationId = generateCorrelationId();
-            LOGGER.error("Stack trace detected in error response "
-                    + "[status={} uri={} correlationId={}]",
+            LOGGER.error("Sanitizing error response body "
+                    + "[status={} uri={} correlationId={} reason={}]",
                     status,
                     LogSafe.sanitizeUri(((HttpServletRequest) request).getRequestURI()),
-                    correlationId);
+                    correlationId,
+                    sanitizationReason(capturedBody));
             sendSanitizedError(httpResponse, status, correlationId);
         } else {
             // Safe response — write captured content through to the real response.
@@ -366,6 +377,70 @@ public class ResponseSanitizationFilter implements Filter {
             return false;
         }
         return STACK_TRACE_PATTERN.matcher(body).find();
+    }
+
+    /**
+     * Decides whether a captured error-response body must be replaced with a generic page.
+     *
+     * <p>Two independent triggers, both scoped to error status codes ({@code >= 400}):
+     * <ul>
+     *   <li>The body contains Java stack trace markers (any error route) — the original
+     *       CWE-209 protection.</li>
+     *   <li>The request targets a web-service route ({@code /ws/*}) and the status is a server
+     *       error ({@code >= 500}). A mid-stream Jackson/JAXB serialization failure commonly
+     *       leaves a clean, well-formed JSON/XML prefix already written — patient demographics,
+     *       names, phone numbers — that the stack-trace heuristic does not match. Web-service
+     *       5xx responses carry no client-meaningful entity body, so suppressing it removes the
+     *       PHI exposure without breaking an API contract. See issue #2953.</li>
+     * </ul>
+     *
+     * <p>Client errors ({@code 4xx}) on web-service routes are intentionally left to the
+     * stack-trace check alone, because REST endpoints legitimately return structured JSON error
+     * payloads (validation messages, {@code 401}/{@code 403}/{@code 404} envelopes) that callers
+     * depend on.</p>
+     *
+     * @param status             int the response status code
+     * @param body               String the captured response body; may be {@code null}/empty
+     * @param webServiceRequest  boolean {@code true} if the request targeted a {@code /ws/*} route
+     * @return {@code true} if the body must be replaced with a sanitized error page
+     */
+    static boolean shouldSanitizeErrorBody(int status, String body, boolean webServiceRequest) {
+        if (status < 400) {
+            return false;
+        }
+        if (containsStackTrace(body)) {
+            return true;
+        }
+        return webServiceRequest && status >= 500;
+    }
+
+    /**
+     * Returns a short, log-safe reason code describing why a body was sanitized. Never includes
+     * any portion of the response body itself (which can carry PHI even after the decision).
+     *
+     * @param body String the captured body used only to distinguish the trigger
+     * @return {@code "stack-trace-marker"} or {@code "web-service-5xx-partial-body"}
+     */
+    private static String sanitizationReason(String body) {
+        return containsStackTrace(body) ? "stack-trace-marker" : "web-service-5xx-partial-body";
+    }
+
+    /**
+     * Determines whether the request targets a CXF web-service route. The CXF servlet is mapped at
+     * {@code /ws/*} (see {@code web.xml}); {@link HttpServletRequest#getServletPath()} therefore
+     * returns {@code /ws} for these requests. The request URI is checked as a fallback for
+     * forwarded/wrapped requests where the servlet path may not be populated.
+     *
+     * @param request HttpServletRequest the incoming request
+     * @return boolean {@code true} if the request path is under {@code /ws/}
+     */
+    static boolean isWebServiceRequest(HttpServletRequest request) {
+        String servletPath = request.getServletPath();
+        if (servletPath != null && (servletPath.equals("/ws") || servletPath.startsWith("/ws/"))) {
+            return true;
+        }
+        String uri = request.getRequestURI();
+        return uri != null && (uri.contains("/ws/") || uri.endsWith("/ws"));
     }
 
     /**
