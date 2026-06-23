@@ -88,7 +88,7 @@ public class AuthenticationInWSS4JInterceptor extends WSS4JInInterceptor impleme
         message.put("ws-security.ut.validator", oscarUsernameTokenValidator);
 
         try {
-            super.handleMessage(message);
+            performSecurityCheck(message);
 
             // if it gets here that means it succeeded
             LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromRequest(request);
@@ -116,6 +116,15 @@ public class AuthenticationInWSS4JInterceptor extends WSS4JInInterceptor impleme
 
             throw e;
         }
+    }
+
+    /**
+     * Runs the inbound WS-Security processing (delegates to {@link WSS4JInInterceptor}).
+     * Extracted as a seam so the surrounding authentication logging and HTTP status
+     * mapping can be unit-tested without standing up a full CXF/WSS4J SOAP pipeline.
+     */
+    protected void performSecurityCheck(SoapMessage message) {
+        super.handleMessage(message);
     }
 
     /**
