@@ -34,9 +34,10 @@ import jakarta.persistence.UniqueConstraint;
 
 /**
  * A single OAuth 1.0a request nonce that has already been consumed. The unique
- * constraint on (consumerKey, tokenId, nonce) lets the database reject a
- * duplicate insert, which is what stops a captured request from being replayed
- * while its oauth_timestamp is still inside the accepted skew window.
+ * constraint on nonceKeyHash (a hash of the canonical consumerKey/tokenId/nonce
+ * tuple) lets the database reject a duplicate insert, which is what stops a
+ * captured request from being replayed while its oauth_timestamp is still
+ * inside the accepted skew window.
  */
 @Entity
 @Table(name = "ServiceOAuthNonce",

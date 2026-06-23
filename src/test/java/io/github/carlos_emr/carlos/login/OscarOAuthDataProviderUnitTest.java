@@ -286,6 +286,19 @@ class OscarOAuthDataProviderUnitTest {
     }
 
     @Test
+    @DisplayName("should reject consumption when the retention window is not positive")
+    void shouldRejectNonce_whenRetentionWindowNotPositive() {
+        ServiceOAuthNonceDao nonceDao = mock(ServiceOAuthNonceDao.class);
+        OscarOAuthDataProvider provider = providerWithNonceDao(nonceDao);
+
+        assertThatThrownBy(() -> provider.consumeNonce("consumer", "token", "abc", 1000L, 0L))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        verify(nonceDao, never()).deleteOlderThan(org.mockito.ArgumentMatchers.anyLong());
+        verify(nonceDao, never()).persist(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
     @DisplayName("should reject a nonce field that exceeds the stored column length")
     void shouldRejectNonce_whenFieldExceedsMaxLength() {
         ServiceOAuthNonceDao nonceDao = mock(ServiceOAuthNonceDao.class);

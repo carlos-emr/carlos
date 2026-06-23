@@ -280,6 +280,11 @@ public class OscarOAuthDataProvider {
      */
     public void consumeNonce(String consumerKey, String tokenId, String nonce,
             long oauthTimestamp, long retentionSeconds) throws OAuth1Exception {
+        // A non-positive retention would set the prune cutoff at/after "now" and
+        // delete still-replayable nonces, silently disabling replay protection.
+        if (retentionSeconds <= 0) {
+            throw new IllegalArgumentException("retentionSeconds must be positive");
+        }
         // consumerKey and nonce are mandatory; only tokenId may be absent (the
         // token-initiate step carries no oauth_token). Reject blanks explicitly
         // rather than silently coalescing, so a replay key is never built from

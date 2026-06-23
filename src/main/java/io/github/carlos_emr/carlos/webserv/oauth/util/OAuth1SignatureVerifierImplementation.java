@@ -35,6 +35,7 @@
 package io.github.carlos_emr.carlos.webserv.oauth.util;
 
 import java.util.Map;
+import java.util.Objects;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.login.AppOAuth1Config;
@@ -53,7 +54,7 @@ public class OAuth1SignatureVerifierImplementation implements OAuth1SignatureVer
 
     @Autowired
     public OAuth1SignatureVerifierImplementation(OscarOAuthDataProvider dataProvider) {
-        this.dataProvider = dataProvider;
+        this.dataProvider = Objects.requireNonNull(dataProvider, "dataProvider");
     }
 
     // ★ NEW: configurable clock skew (seconds)
