@@ -270,6 +270,22 @@ class OscarOAuthDataProviderUnitTest {
     }
 
     @Test
+    @DisplayName("should reject consumption when a mandatory parameter is blank")
+    void shouldRejectNonce_whenMandatoryParameterBlank() {
+        ServiceOAuthNonceDao nonceDao = mock(ServiceOAuthNonceDao.class);
+        OscarOAuthDataProvider provider = providerWithNonceDao(nonceDao);
+
+        assertThatThrownBy(() -> provider.consumeNonce("", "token", "abc", 1000L, 600L))
+                .isInstanceOf(OAuth1Exception.class)
+                .hasMessage("invalid_oauth_parameters");
+        assertThatThrownBy(() -> provider.consumeNonce("consumer", "token", null, 1000L, 600L))
+                .isInstanceOf(OAuth1Exception.class)
+                .hasMessage("invalid_oauth_parameters");
+
+        verify(nonceDao, never()).persist(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
     @DisplayName("should reject a nonce field that exceeds the stored column length")
     void shouldRejectNonce_whenFieldExceedsMaxLength() {
         ServiceOAuthNonceDao nonceDao = mock(ServiceOAuthNonceDao.class);

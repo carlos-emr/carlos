@@ -280,9 +280,16 @@ public class OscarOAuthDataProvider {
      */
     public void consumeNonce(String consumerKey, String tokenId, String nonce,
             long oauthTimestamp, long retentionSeconds) throws OAuth1Exception {
-        String key = consumerKey == null ? "" : consumerKey;
+        // consumerKey and nonce are mandatory; only tokenId may be absent (the
+        // token-initiate step carries no oauth_token). Reject blanks explicitly
+        // rather than silently coalescing, so a replay key is never built from
+        // empty values.
+        if (consumerKey == null || consumerKey.isEmpty() || nonce == null || nonce.isEmpty()) {
+            throw new OAuth1Exception(400, "invalid_oauth_parameters");
+        }
+        String key = consumerKey;
         String token = tokenId == null ? "" : tokenId;
-        String nonceValue = nonce == null ? "" : nonce;
+        String nonceValue = nonce;
 
         // Reject oversized values up front so they fail with a clean OAuth error
         // instead of a DB-level fault, and so the only integrity violation the
