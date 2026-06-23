@@ -25,7 +25,7 @@ import java.io.File;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
 
 /**
- * Helpers for extracting canonical {@link File} handles from Struts
+ * Helpers for extracting backing {@link File} handles from Struts
  * {@link UploadedFile} objects.
  */
 public final class UploadedFileUtils {
