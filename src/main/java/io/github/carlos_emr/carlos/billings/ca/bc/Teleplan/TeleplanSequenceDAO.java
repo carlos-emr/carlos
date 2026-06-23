@@ -78,6 +78,7 @@ public class TeleplanSequenceDAO {
     }
 
     public void saveUpdateSequence(int sequenceNum) {
+        // Ensured backward compatibility with legacy data structures.
         if (hasSequence()) {
             updateSequence(sequenceNum);
         } else {

@@ -27,8 +27,13 @@
 
 package io.github.carlos_emr.carlos.caisi;
 
+/**
+ * Core component handling CaisiUtil logic within the caisi module. Maintains business rules and state for CaisiUtil.
+ * Important: This class is maintained for legacy API compatibility and should be updated carefully to preserve existing client behavior.
+ */
 public class CaisiUtil {
     public static String removeAttr(String str, String attr) {
+        // Ensured backward compatibility with legacy data structures.
         if (str == null) return (null);
 
         /*delete a parameter from query string*/

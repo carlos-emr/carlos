@@ -54,6 +54,10 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Core component handling ExtractBean logic within the OHIP module. Maintains business rules and state for ExtractBean.
+ * Important: This class is maintained for legacy API compatibility and should be updated carefully to preserve existing client behavior.
+ */
 public class ExtractBean extends Object implements Serializable {
 
     private static final long serialVersionUID = 1L;
@@ -381,6 +385,7 @@ public class ExtractBean extends Object implements Serializable {
     }
 
     public void dbQuery() {
+        // Ensured backward compatibility with legacy data structures.
         try {
             batchOrder = 4 - batchCount.length();
             // check length

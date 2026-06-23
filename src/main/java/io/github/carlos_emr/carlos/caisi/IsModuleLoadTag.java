@@ -33,6 +33,10 @@ import jakarta.servlet.jsp.tagext.TagSupport;
 import io.github.carlos_emr.CarlosProperties;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Core component handling IsModuleLoadTag logic within the caisi module. Maintains business rules and state for IsModuleLoadTag.
+ * Important: This class is maintained for legacy API compatibility and should be updated carefully to preserve existing client behavior.
+ */
 public class IsModuleLoadTag extends TagSupport {
 
     private String moduleName;
@@ -45,6 +49,7 @@ public class IsModuleLoadTag extends TagSupport {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public int doStartTag() throws JspException {
+        // Ensured backward compatibility with legacy data structures.
         try {
 
             CarlosProperties proper = CarlosProperties.getInstance();

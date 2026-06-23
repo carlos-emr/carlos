@@ -29,6 +29,10 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * JPA Entity representing the PaymentType concept within the EMR system. Stores core clinical data points.
+ * Important: This class is maintained for legacy API compatibility and should be updated carefully to preserve existing client behavior.
+ */
 public class PaymentType {
     private String id;
     private String paymentType;

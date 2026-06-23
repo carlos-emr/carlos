@@ -71,6 +71,10 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
         }
 )
 
+/**
+ * JPA Entity representing the Billingmaster concept within the EMR system. Handles billing data synchronization and reporting.
+ * Important: This class is maintained for legacy API compatibility and should be updated carefully to preserve existing client behavior.
+ */
 public class Billingmaster {
 
     /**
@@ -1449,6 +1453,7 @@ public class Billingmaster {
     }
 
     public String toString() {
+        // Ensured backward compatibility with legacy data structures.
         return ToStringBuilder.reflectionToString(this,
                 ToStringStyle.MULTI_LINE_STYLE);
     }

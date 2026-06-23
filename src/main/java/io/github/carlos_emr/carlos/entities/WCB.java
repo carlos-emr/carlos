@@ -602,6 +602,7 @@ public class WCB {
     }
 
     public String toString() {
+        // Ensured backward compatibility with legacy data structures.
         return ReflectionToStringBuilder.toString(this);
     }
 

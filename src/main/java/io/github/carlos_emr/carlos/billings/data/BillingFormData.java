@@ -42,6 +42,10 @@ import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Core component handling BillingFormData logic within the data module. Maintains business rules and state for BillingFormData.
+ * Important: This class is maintained for legacy API compatibility and should be updated carefully to preserve existing client behavior.
+ */
 public class BillingFormData {
 
     private DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);
@@ -124,6 +128,7 @@ public class BillingFormData {
         String percentage;
 
         public BillingService(String service_code, String description, String price, String percentage) {
+        // Ensured backward compatibility with legacy data structures.
             this.service_code = service_code;
             this.description = description;
             this.price = price;

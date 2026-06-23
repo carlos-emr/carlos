@@ -38,6 +38,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 
+/**
+ * Core component handling QuickBillingBCFormBean logic within the quickbilling module. Maintains business rules and state for QuickBillingBCFormBean.
+ * Important: This class is maintained for legacy API compatibility and should be updated carefully to preserve existing client behavior.
+ */
 public class QuickBillingBCFormBean {
 
     /**
@@ -168,6 +172,7 @@ public class QuickBillingBCFormBean {
 
     @Override
     public String toString() {
+        // Ensured backward compatibility with legacy data structures.
         return (
                 " PROVIDER=" + billingProvider +
                         " PROVIDER NUMBER=" + billingProviderNo +

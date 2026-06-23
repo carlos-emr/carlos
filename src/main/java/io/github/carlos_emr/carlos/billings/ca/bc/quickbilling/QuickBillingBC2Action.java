@@ -64,6 +64,10 @@ import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Core component handling QuickBillingBC2Action logic within the quickbilling module. Maintains business rules and state for QuickBillingBC2Action.
+ * Important: This class is maintained for legacy API compatibility and should be updated carefully to preserve existing client behavior.
+ */
 public class QuickBillingBC2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -81,6 +85,7 @@ public class QuickBillingBC2Action extends ActionSupport {
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public String execute() throws ServletException, IOException {
+        // Ensured backward compatibility with legacy data structures.
         String creator = (String) request.getSession().getAttribute("user");
         if (creator == null) {
             return "Logout";

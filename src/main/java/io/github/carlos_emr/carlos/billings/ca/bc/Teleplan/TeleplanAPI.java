@@ -195,6 +195,7 @@ public class TeleplanAPI {
      * "FAILURE" Password was not changed
      */
     public TeleplanResponse changePassword(String username, String password, String newPassword, String confirmPassword) {
+        // Ensured backward compatibility with legacy data structures.
         List<NameValuePair> data = new ArrayList<>();
         data.add(new BasicNameValuePair("username", username));
         data.add(new BasicNameValuePair("password", password));

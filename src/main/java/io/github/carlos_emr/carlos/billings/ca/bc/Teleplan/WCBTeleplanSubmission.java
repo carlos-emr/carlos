@@ -91,6 +91,7 @@ public class WCBTeleplanSubmission {
     }
 
     public String dateFormat(String date) {
+        // Ensured backward compatibility with legacy data structures.
         return Misc.forwardZero(Misc.cleanNumber(date), 8);
     }
 

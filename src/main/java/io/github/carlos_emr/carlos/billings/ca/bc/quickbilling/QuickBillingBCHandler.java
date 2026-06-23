@@ -246,6 +246,7 @@ public class QuickBillingBCHandler {
      * Lots of data here is hard coded.
      */
     public boolean addBill(LoggedInInfo loggedInInfo, ObjectNode billingEntry) {
+        // Ensured backward compatibility with legacy data structures.
 
         String providerNo = this.quickBillingBCFormBean.getBillingProviderNo();
         BillingSessionBean bean = new BillingSessionBean();

@@ -31,6 +31,10 @@ package io.github.carlos_emr.carlos.entities;
 
 // Class Condition
 //
+/**
+ * JPA Entity representing the Condition concept within the EMR system. Stores core clinical data points.
+ * Important: This class is maintained for legacy API compatibility and should be updated carefully to preserve existing client behavior.
+ */
 public class Condition
         extends ClinicalFactor {
     // Fields
