@@ -143,33 +143,27 @@ public class AuthenticationInWSS4JInterceptor extends WSS4JInInterceptor impleme
         if (wss == null) {
             return HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
         }
-        switch (wss.getErrorCode()) {
-            case FAILED_AUTHENTICATION:
-            case SECURITY_TOKEN_UNAVAILABLE:
-                return HttpServletResponse.SC_UNAUTHORIZED;
-            case MESSAGE_EXPIRED:
-            case INVALID_SECURITY:
-            case INVALID_SECURITY_TOKEN:
-            case UNSUPPORTED_SECURITY_TOKEN:
-            case UNSUPPORTED_ALGORITHM:
+        return switch (wss.getErrorCode()) {
+            case FAILED_AUTHENTICATION, SECURITY_TOKEN_UNAVAILABLE ->
+                    HttpServletResponse.SC_UNAUTHORIZED;
             // FAILED_CHECK is "the signature or decryption was invalid" -- i.e. inbound
             // verification of client-supplied data failed. Mapped to 400 (not 401)
             // deliberately: it avoids disclosing whether the credentials were structurally
             // invalid versus recognized-but-wrong.
-            case FAILED_CHECK:
-                return HttpServletResponse.SC_BAD_REQUEST;
-            default:
-                // FAILED_SIGNATURE ("Signature creation failed"), FAILED_ENCRYPTION, FAILURE,
-                // SECURITY_ERROR and anything else are server-side or not reliably attributable
-                // to the request -> treat as an unexpected server error.
-                return HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
-        }
+            case MESSAGE_EXPIRED, INVALID_SECURITY, INVALID_SECURITY_TOKEN,
+                 UNSUPPORTED_SECURITY_TOKEN, UNSUPPORTED_ALGORITHM, FAILED_CHECK ->
+                    HttpServletResponse.SC_BAD_REQUEST;
+            // FAILED_SIGNATURE ("Signature creation failed"), FAILED_ENCRYPTION, FAILURE,
+            // SECURITY_ERROR and anything else are server-side or not reliably attributable
+            // to the request -> treat as an unexpected server error.
+            default -> HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
+        };
     }
 
     private static WSSecurityException findWssCause(Throwable t) {
         for (Throwable cause = t; cause != null; cause = cause.getCause()) {
-            if (cause instanceof WSSecurityException) {
-                return (WSSecurityException) cause;
+            if (cause instanceof WSSecurityException wss) {
+                return wss;
             }
         }
         return null;
