@@ -48,6 +48,7 @@ import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.documentManager.IncomingDocUtil;
+import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
@@ -145,7 +146,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
                     }
                 }
                 if (docFile != null) {
-                    docFile.delete();
+                    deleteValidatedUploadTempFile(docFile);
                     docFile = null;
                 }
 
@@ -222,12 +223,23 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             map.put("size", docFile.length());
 
             if (docFile != null) {
-                docFile.delete();
+                deleteValidatedUploadTempFile(docFile);
                 docFile = null;
             }
         }
         writeUploadResponse(map);
         return null;
+    }
+
+    private void deleteValidatedUploadTempFile(File uploadFile) {
+        try {
+            File validatedUpload = PathValidationUtils.validateUpload(uploadFile);
+            if (!SpringUtils.getBean(NioFileManager.class).deleteTempFile(validatedUpload.getPath())) { // codeql[java/path-injection] validateUpload canonicalizes and restricts uploads to approved temp dirs before delegated cleanup.
+                logger.debug("Upload temp file cleanup did not delete a file");
+            }
+        } catch (SecurityException e) {
+            logger.warn("Skipped cleanup for invalid upload temp file");
+        }
     }
 
     private void writeUploadResponse(HashMap<String, Object> map) throws IOException {
