@@ -23,10 +23,12 @@ package io.github.carlos_emr.carlos.webserv.rest;
 
 import java.util.List;
 
+import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -36,12 +38,17 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import io.github.carlos_emr.carlos.appointment.search.FilterDefinition;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentSearchDao;
 import io.github.carlos_emr.carlos.commn.model.AppointmentSearch;
+import io.github.carlos_emr.carlos.managers.AppointmentManager;
+import io.github.carlos_emr.carlos.managers.ScheduleManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.AppointmentTo1;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.NewAppointmentTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.SearchConfigTo1;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -50,6 +57,7 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -70,6 +78,12 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
     private SecurityInfoManager securityInfoManager;
 
     @Mock
+    private AppointmentManager appointmentManager;
+
+    @Mock
+    private ScheduleManager scheduleManager;
+
+    @Mock
     private AppointmentSearchDao appointmentSearchDao;
 
     private ScheduleService service;
@@ -86,6 +100,8 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
         };
 
         injectDependency(service, "securityInfoManager", securityInfoManager);
+        injectDependency(service, "appointmentManager", appointmentManager);
+        injectDependency(service, "scheduleManager", scheduleManager);
         injectDependency(service, "appointmentSearchDao", appointmentSearchDao);
 
         // Lenient: some tests exercise paths that short-circuit before the privilege check
@@ -147,5 +163,90 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
         String unknownFilter = service.findUnknownFilter(List.of(filterDefinition));
 
         assertThat(unknownFilter).isEqualTo("<missing filterClassName>");
+    }
+
+    /** Authorization rejection tests for appointment mutator endpoints. */
+    @Nested
+    @DisplayName("appointment mutator authorization")
+    @Tag("security")
+    class AppointmentMutatorAuthorizationTest {
+
+        @BeforeEach
+        void denyPrivilege() {
+            when(securityInfoManager.hasPrivilege(any(), eq("_appointment"), eq("w"), any())).thenReturn(false);
+        }
+
+        /** Confirms the mutator gated on the {@code _appointment} write privilege before rejecting. */
+        private void verifyWritePrivilegeChecked() {
+            verify(securityInfoManager).hasPrivilege(eq(loggedInInfo), eq("_appointment"), eq("w"), isNull());
+        }
+
+        @Test
+        @DisplayName("should throw 403 and not persist when caller lacks write privilege on addAppointment")
+        void shouldThrow403_whenCallerLacksWritePrivilegeOnAddAppointment() {
+            assertThatThrownBy(() -> service.addAppointment(new NewAppointmentTo1()))
+                    .isInstanceOf(WebApplicationException.class)
+                    .satisfies(ex -> assertThat(((WebApplicationException) ex).getResponse().getStatus())
+                            .isEqualTo(Response.Status.FORBIDDEN.getStatusCode()));
+            verifyNoInteractions(appointmentManager);
+            verifyWritePrivilegeChecked();
+        }
+
+        @Test
+        @DisplayName("should return 403 and not delete when caller lacks write privilege on deleteAppointment")
+        void shouldReturn403_whenCallerLacksWritePrivilegeOnDeleteAppointment() {
+            AppointmentTo1 apptTo = new AppointmentTo1();
+            apptTo.setId(42);
+
+            Response response = service.deleteAppointment(apptTo);
+
+            assertThat(response.getStatus()).isEqualTo(Response.Status.FORBIDDEN.getStatusCode());
+            verifyNoInteractions(appointmentManager);
+            verifyWritePrivilegeChecked();
+        }
+
+        @Test
+        @DisplayName("should throw 403 and not update when caller lacks write privilege on updateAppointment")
+        void shouldThrow403_whenCallerLacksWritePrivilegeOnUpdateAppointment() {
+            assertThatThrownBy(() -> service.updateAppointment(new AppointmentTo1()))
+                    .isInstanceOf(WebApplicationException.class)
+                    .satisfies(ex -> assertThat(((WebApplicationException) ex).getResponse().getStatus())
+                            .isEqualTo(Response.Status.FORBIDDEN.getStatusCode()));
+            verifyNoInteractions(scheduleManager);
+            verifyWritePrivilegeChecked();
+        }
+
+        @Test
+        @DisplayName("should throw 403 and not update when caller lacks write privilege on updateAppointmentStatus")
+        void shouldThrow403_whenCallerLacksWritePrivilegeOnUpdateAppointmentStatus() {
+            assertThatThrownBy(() -> service.updateAppointmentStatus(99, new AppointmentTo1()))
+                    .isInstanceOf(WebApplicationException.class)
+                    .satisfies(ex -> assertThat(((WebApplicationException) ex).getResponse().getStatus())
+                            .isEqualTo(Response.Status.FORBIDDEN.getStatusCode()));
+            verifyNoInteractions(appointmentManager);
+            verifyWritePrivilegeChecked();
+        }
+
+        @Test
+        @DisplayName("should throw 403 and not update when caller lacks write privilege on updateAppointmentType")
+        void shouldThrow403_whenCallerLacksWritePrivilegeOnUpdateAppointmentType() {
+            assertThatThrownBy(() -> service.updateAppointmentType(99, new AppointmentTo1()))
+                    .isInstanceOf(WebApplicationException.class)
+                    .satisfies(ex -> assertThat(((WebApplicationException) ex).getResponse().getStatus())
+                            .isEqualTo(Response.Status.FORBIDDEN.getStatusCode()));
+            verifyNoInteractions(appointmentManager);
+            verifyWritePrivilegeChecked();
+        }
+
+        @Test
+        @DisplayName("should throw 403 and not update when caller lacks write privilege on updateAppointmentUrgency")
+        void shouldThrow403_whenCallerLacksWritePrivilegeOnUpdateAppointmentUrgency() {
+            assertThatThrownBy(() -> service.updateAppointmentUrgency(99, new AppointmentTo1()))
+                    .isInstanceOf(WebApplicationException.class)
+                    .satisfies(ex -> assertThat(((WebApplicationException) ex).getResponse().getStatus())
+                            .isEqualTo(Response.Status.FORBIDDEN.getStatusCode()));
+            verifyNoInteractions(appointmentManager);
+            verifyWritePrivilegeChecked();
+        }
     }
 }
