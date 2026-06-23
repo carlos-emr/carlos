@@ -1,3 +1,24 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
 package io.github.carlos_emr.carlos.webserv.rest.util;
 
 import com.fasterxml.jackson.core.JsonParser;
@@ -54,8 +75,10 @@ public class SmartDateDeserializer extends JsonDeserializer<Date> {
             return null;
         }
 
-        // Epoch-millis timestamp, as written for date+time values.
-        if (token == JsonToken.VALUE_NUMBER_INT || token == JsonToken.VALUE_NUMBER_FLOAT) {
+        // Epoch-millis timestamp, as written for date+time values. Only integer tokens are
+        // accepted; a fractional number is not a valid epoch-millis value and is rejected below
+        // (via handleUnexpectedToken) rather than silently truncated to a long.
+        if (token == JsonToken.VALUE_NUMBER_INT) {
             return new Date(p.getLongValue());
         }
 
@@ -81,7 +104,9 @@ public class SmartDateDeserializer extends JsonDeserializer<Date> {
             try {
                 return new StdDateFormat().parse(text);
             } catch (ParseException e) {
-                throw new IOException("Unparseable date: \"" + text + "\"", e);
+                // Do not echo the raw request value in the message — it is untrusted and may be
+                // PHI-adjacent in a healthcare API. The chained cause carries parser detail.
+                throw new IOException("Unparseable date value", e);
             }
         }
 
@@ -94,7 +119,9 @@ public class SmartDateDeserializer extends JsonDeserializer<Date> {
             LocalTime time = LocalTime.parse(text, TIME_FORMATTER);
             return Date.from(time.atDate(LocalDate.of(1970, 1, 1)).atZone(ZoneId.systemDefault()).toInstant());
         } catch (DateTimeParseException e) {
-            throw new IOException("Unparseable time: \"" + text + "\"", e);
+            // Do not echo the raw request value (untrusted / possibly PHI-adjacent); the chained
+            // cause retains parser detail for diagnosis.
+            throw new IOException("Unparseable time value", e);
         }
     }
 
@@ -103,7 +130,9 @@ public class SmartDateDeserializer extends JsonDeserializer<Date> {
             LocalDate date = LocalDate.parse(text, DATE_FORMATTER);
             return Date.from(date.atStartOfDay(ZoneId.systemDefault()).toInstant());
         } catch (DateTimeParseException e) {
-            throw new IOException("Unparseable date: \"" + text + "\"", e);
+            // Do not echo the raw request value (untrusted / possibly PHI-adjacent); the chained
+            // cause retains parser detail for diagnosis.
+            throw new IOException("Unparseable date value", e);
         }
     }
 }

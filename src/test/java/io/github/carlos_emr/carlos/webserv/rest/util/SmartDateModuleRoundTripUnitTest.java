@@ -121,9 +121,19 @@ class SmartDateModuleRoundTripUnitTest {
     }
 
     @Test
-    @DisplayName("should fail with an IOException for an unparseable date string")
-    void shouldThrowIoException_forUnparseableString() {
-        assertThatThrownBy(() -> mapper.readValue("\"not-a-date\"", Date.class))
+    @DisplayName("should fail with an IOException that does not echo the raw value for an unparseable string")
+    void shouldThrowIoException_withoutEchoingRawValue_forUnparseableString() {
+        assertThatThrownBy(() -> mapper.readValue("\"not-a-date-SECRET\"", Date.class))
+                .isInstanceOf(IOException.class)
+                // The untrusted request value must not be echoed into the thrown message (PHI hygiene).
+                .satisfies(ex -> assertThat(ex.getMessage()).doesNotContain("not-a-date-SECRET"));
+    }
+
+    @Test
+    @DisplayName("should reject a fractional number rather than truncate it to an epoch long")
+    void shouldRejectFractionalNumber_ratherThanTruncate() {
+        // A non-integer number is not a valid epoch-millis value; it must not be silently truncated.
+        assertThatThrownBy(() -> mapper.readValue("123.45", Date.class))
                 .isInstanceOf(IOException.class);
     }
 

@@ -560,9 +560,15 @@ public class ScheduleService extends AbstractServiceImpl {
     }
 
     /**
-     * Coerce a single-character JDBC column value to {@link Character}. CHAR columns are
-     * commonly returned as {@code String} by the driver, so a {@code (Character) cast} would
-     * throw; treat empty/blank as {@code null}.
+     * Coerce a JDBC status column value to {@link Character}. CHAR columns are commonly returned
+     * as {@code String} by the driver, so a {@code (Character) cast} would throw; treat
+     * empty/blank as {@code null}.
+     *
+     * <p>The {@code appointment.status} column is {@code char(2)} (a primary status code plus an
+     * optional sub-flag), but {@link AppointmentExtTo} carries status as a single
+     * {@code Character}. The leading character is the primary status code, so taking the first
+     * character is intentional: it preserves the value this list/calendar DTO is shaped to hold
+     * and keeps {@code fetchDays} working for two-character statuses rather than rejecting them.</p>
      */
     private static Character toCharacter(Object value) {
         if (value == null) {
