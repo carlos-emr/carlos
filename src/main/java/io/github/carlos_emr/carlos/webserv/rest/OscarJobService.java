@@ -53,6 +53,7 @@ import io.github.carlos_emr.carlos.webserv.rest.to.OscarJobResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.OscarJobTypeResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.OscarJobTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.OscarJobTypeTo1;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.support.CronTrigger;
@@ -73,6 +74,11 @@ public class OscarJobService extends AbstractServiceImpl {
     @GET
     @Path("/types/current")
     @Produces("application/json")
+    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
+    // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
+    @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
+            justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
+                    "known CARLOS types; no user-controlled property name reaches the sink")
     public OscarJobTypeResponse getCurrentlyAvailableJobTypes() {
         List<OscarJobType> results = oscarJobManager.getCurrentlyAvaliableJobTypes();
 
@@ -88,6 +94,11 @@ public class OscarJobService extends AbstractServiceImpl {
     @GET
     @Path("/types/all")
     @Produces("application/json")
+    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
+    // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
+    @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
+            justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
+                    "known CARLOS types; no user-controlled property name reaches the sink")
     public OscarJobTypeResponse getAllJobTypes() {
         List<OscarJobType> results = oscarJobManager.getAllJobTypes();
 
@@ -105,6 +116,11 @@ public class OscarJobService extends AbstractServiceImpl {
     @GET
     @Path("/all")
     @Produces("application/json")
+    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
+    // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
+    @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
+            justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
+                    "known CARLOS types; no user-controlled property name reaches the sink")
     public OscarJobResponse getAllJobs() {
         List<OscarJob> results = oscarJobManager.getAllJobs(getLoggedInInfo());
 
@@ -132,6 +148,11 @@ public class OscarJobService extends AbstractServiceImpl {
     @GET
     @Path("/job/{jobId}")
     @Produces("application/json")
+    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
+    // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
+    @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
+            justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
+                    "known CARLOS types; no user-controlled property name reaches the sink")
     public OscarJobResponse getJob(@PathParam("jobId") Integer jobId) {
         OscarJob result = oscarJobManager.getJob(getLoggedInInfo(), jobId);
 
@@ -290,6 +311,11 @@ public class OscarJobService extends AbstractServiceImpl {
     @GET
     @Path("/jobType/{jobTypeId}")
     @Produces("application/json")
+    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
+    // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
+    @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
+            justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
+                    "known CARLOS types; no user-controlled property name reaches the sink")
     public OscarJobTypeResponse getJobType(@PathParam("jobTypeId") Integer jobTypeId) {
         OscarJobType result = oscarJobManager.getJobType(getLoggedInInfo(), jobTypeId);
 

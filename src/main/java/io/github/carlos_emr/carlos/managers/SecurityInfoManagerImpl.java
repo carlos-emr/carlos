@@ -34,6 +34,7 @@ package io.github.carlos_emr.carlos.managers;
 import java.util.*;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -130,7 +131,11 @@ public class SecurityInfoManagerImpl implements SecurityInfoManager {
                 List<String> roleInObj = (List<String>) v.get(1);
 
                 for (String objRole : roleInObj) {
-                    if (roleNames.toLowerCase().contains(objRole.toLowerCase().trim())) {
+                    String trimmedObjRole = StringUtils.trim(objRole);
+                    boolean matchedRole = Arrays.stream(roleNames.split(","))
+                        .map(StringUtils::trim)
+                        .anyMatch(roleName -> Strings.CI.equals(roleName, trimmedObjRole));
+                    if (matchedRole) {
                         noMatchingRoleToSpecificPatient = false;
                         break;
                     }

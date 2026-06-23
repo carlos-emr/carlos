@@ -111,6 +111,8 @@
 <%@ page import="io.github.carlos_emr.carlos.managers.ConsultationManager" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.data.EctFormData" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.PathValidationUtils" %>
+<%@ page import="java.io.File" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
@@ -1116,36 +1118,55 @@
             });
         }
 
+        function appendAutoImportedClinicalSection(target, label, note) {
+            if (!note || note.trim().length === 0) return;
+            var section = "**" + label + ":** " + note.trim();
+            var current = jQuery(target).val();
+            if (current && current.trim().length > 0) {
+                jQuery(target).val(current + "\n" + section);
+            } else {
+                jQuery(target).val(section);
+            }
+        }
+
         /**
-         * Auto-pulls Medical, Social, and Family History into the clinical
+         * Auto-pulls configured CPP history sections into the clinical
          * information textarea for new consultations.
          */
         function autoImportClinicalHistory(demographicNo) {
             var target = "#clinicalInformation";
-            var issueTypes = ["MedHistory", "SocHistory", "FamHistory"];
+            var issueTypes = [];
+            <% if ("true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_PAST_MEDICAL_HISTORY", "false"))) { %>
+            issueTypes.push({issueType: "MedHistory", label: "Past Medical History"});
+            <% } %>
+            <% if ("true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_SOCIAL_HISTORY", "false"))) { %>
+            issueTypes.push({issueType: "SocHistory", label: "Social History"});
+            <% } %>
+            <% if ("true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_FAMILY_HISTORY", "false"))) { %>
+            issueTypes.push({issueType: "FamHistory", label: "Family History"});
+            <% } %>
+            <% if ("true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_ONGOING_CONCERNS", "false"))) { %>
+            issueTypes.push({issueType: "Concerns", label: "Ongoing Concerns"});
+            <% } %>
+            <% if ("true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_REMINDERS", "false"))) { %>
+            issueTypes.push({issueType: "Reminders", label: "Reminders"});
+            <% } %>
             var idx = 0;
 
             function fetchNext() {
                 if (idx >= issueTypes.length) return;
-                var issueType = issueTypes[idx];
+                var section = issueTypes[idx];
                 idx++;
                 jQuery.ajax({
                     method: "POST",
                     url: "${ pageContext.request.contextPath }/oscarConsultationRequest/consultationClinicalData",
-                    data: { method: "fetchIssueNote", issueType: issueType, demographicNo: demographicNo },
+                    data: { method: "fetchIssueNote", issueType: section.issueType, demographicNo: demographicNo },
                     dataType: 'JSON',
                     success: function (data) {
-                        if (data.note && data.note.trim().length > 0) {
-                            var current = jQuery(target).val();
-                            if (current && current.trim().length > 0) {
-                                jQuery(target).val(current + "\n" + data.note);
-                            } else {
-                                jQuery(target).val(data.note);
-                            }
-                        }
+                        appendAutoImportedClinicalSection(target, section.label, data.note);
                         fetchNext();
                     },
-                    error: function () { console.warn('Failed to auto-import ' + issueType + ' for consultation'); fetchNext(); }
+                    error: function () { console.warn('Failed to auto-import ' + section.issueType + ' for consultation'); fetchNext(); }
                 });
             }
 
@@ -1244,8 +1265,8 @@
                 getClinicalData(data, target)
             });
 
-            // Auto-import Medical and Social History for new consultations
-            <% if (requestId == null && demo != null) { %>
+            // Auto-import configured CPP history sections for new consultations
+            <% if (requestId == null && demo != null && request.getAttribute("validateError") == null) { %>
             var clinical = jQuery("#clinicalInformation").val();
             if (!clinical || clinical.trim().length === 0) {
                 autoImportClinicalHistory(<carlos:encode value='<%= demo %>' context="javaScript"/>);
@@ -2160,7 +2181,7 @@ if (userAgent != null) {
         <%-- Page Header --%>
         <div class="page-header-bar d-flex align-items-center justify-content-between">
             <h4 class="page-header-title mb-0">
-                <i class="fa-solid fa-file-medical me-2"></i>Consultation Request
+                <i class="fa-solid fa-file-medical me-2"></i><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.title"/>
             </h4>
             <div class="d-flex align-items-center gap-2">
                 <span class="badge bg-light text-dark border" style="font-size:0.85rem;">
@@ -2432,8 +2453,8 @@ if (userAgent != null) {
                                         <div class="row g-2" style="font-size:0.85rem;">
                                             <div class="col-md-4">
                                                 <small class="text-muted"><fmt:setBundle basename="oscarResources"/><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgAddress"/></small><br>
-                                                <div style="white-space: pre-line;">
-                                                <carlos:encode value='<%= thisForm.getPatientAddress() %>' context="html"/>
+                                                <div>
+                                                <%= SafeEncode.forHtml(thisForm.getPatientAddress()).replace("&lt;br /&gt;","<br>") %>
                                                 </div>
                                             </div>
                                             <div class="col-md-4">
@@ -3061,9 +3082,22 @@ if (userAgent != null) {
 
                         <%
                             if (props.isConsultationSignatureEnabled()) {
-                                // Check for provider signature stamp
-                                UserProperty consultSigProp = userPropertyDAO.getProp(providerNo, UserProperty.PROVIDER_CONSULT_SIGNATURE);
-                                boolean hasStampSignature = (consultSigProp != null && consultSigProp.getValue() != null && !consultSigProp.getValue().trim().isEmpty());
+                                String signatureProviderNo = providerNo;
+                                if (props.isConsultationFaxEnabled() && CarlosProperties.getInstance().isPropertyActive("consultation_dynamic_labelling_enabled")) {
+                                    if (consultUtil.providerNo != null && !consultUtil.providerNo.trim().isEmpty()) {
+                                        signatureProviderNo = consultUtil.providerNo.trim();
+                                    } else if (referringProviderDefault != null && !referringProviderDefault.trim().isEmpty()) {
+                                        signatureProviderNo = referringProviderDefault.trim();
+                                    }
+                                }
+                                boolean hasStampSignature = false;
+                                try {
+                                    File imageFolder = new File(CarlosProperties.getInstance().getEformImageDirectory());
+                                    File consultSigFile = PathValidationUtils.validatePath(UserProperty.CONSULT_SIGNATURE_PREFIX + signatureProviderNo + ".png", imageFolder);
+                                    hasStampSignature = consultSigFile.isFile();
+                                } catch (SecurityException e) {
+                                    MiscUtils.getLogger().warn("Blocked unexpected consultation signature stamp path for provider {}", signatureProviderNo, e);
+                                }
                         %>
                         <div class="consult-section-heading"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.formSignature"/></div>
                         <div>
@@ -3076,7 +3110,7 @@ if (userAgent != null) {
                                 <% if (hasStampSignature) { %>
                                 <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.altProviderSig" var="providerSigAlt"/>
                                 <div id="signatureShow" style="display: block;">
-                                    <img id="signatureImgTag" src="<%=request.getContextPath()%>/provider/providerSignatureImage"
+                                    <img id="signatureImgTag" src="<%=request.getContextPath()%>/provider/providerSignatureImage?providerNo=<%=SafeEncode.forUriComponent(signatureProviderNo)%>"
                                          alt="${carlos:forHtmlAttribute(providerSigAlt)}" style="max-height:120px;"/>
                                 </div>
                                 <div id="signatureFrame" style="display: none;">

@@ -600,6 +600,8 @@ public class MDSHandler implements MessageHandler {
         }
     }
 
+    // FindSecBugs POTENTIAL_XML_INJECTION: MDS comments must remain raw in the parser; direct lab/PDF/measurement display sinks encode or render as plain text.
+    @SuppressFBWarnings(value = "POTENTIAL_XML_INJECTION", justification = "MDS parser returns raw HL7 comment text; direct lab/PDF/measurement display sinks encode or render as plain text, so parser-layer escaping double-encodes clinical comments")
     public String getOBXComment(int i, int j, int k) {
         try {
             // For MDS messages with RESPONSE group structure

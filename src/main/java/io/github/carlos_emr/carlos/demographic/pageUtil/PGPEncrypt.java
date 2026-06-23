@@ -35,6 +35,8 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
@@ -65,6 +67,9 @@ public class PGPEncrypt {
             MiscUtils.getLogger().debug("Warning: PGP environment variable (PGP_ENV) not set!");
     }
 
+    // FindSecBugs COMMAND_INJECTION: only static touch and configured PGP argv arrays run in a validated directory.
+    // Do not add request-controlled command fragments under this suppression.
+    @SuppressFBWarnings(value = "COMMAND_INJECTION", justification = "only a static touch command and configured PGP argv arrays run in a PathValidationUtils-validated directory; no request-controlled command fragments")
     public boolean check(String dirName) throws Exception {
         if (!Util.checkDir(dirName)) {
             MiscUtils.getLogger().debug("Error! Cannot write to directory [" + dirName + "]");
@@ -109,6 +114,9 @@ public class PGPEncrypt {
         return rtrn;
     }
 
+    // FindSecBugs COMMAND_INJECTION: PGP invocation uses an argv array from trusted configuration in a validated work directory.
+    // Do not add request-controlled command fragments under this suppression.
+    @SuppressFBWarnings(value = "COMMAND_INJECTION", justification = "PGP invocation uses an argv array from trusted configuration in a PathValidationUtils-validated work directory; no shell expansion")
     boolean encrypt(String srcFile, String workDir) throws Exception {
         if (!Util.checkDir(workDir)) {
             MiscUtils.getLogger().debug("Error! Cannot write to directory [" + workDir + "]");

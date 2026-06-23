@@ -72,6 +72,8 @@ public final class UnauthenticatedRejectionResolver {
      * of login HTML. JSON-preferring status routes receive {@code application/json}; other
      * status-code routes receive {@code text/plain}.</p>
      */
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public static void rejectUnauthenticatedRequest(
             HttpServletRequest request,
             HttpServletResponse response) throws IOException {

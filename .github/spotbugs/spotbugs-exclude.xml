@@ -348,6 +348,795 @@
         <Method name="withUploadedFiles"/>
     </Match>
 
+
+    <!--
+      Generated JSP classes call Spring BeanUtils.copyProperties between fixed CARLOS model/archive
+      types. No request-controlled property name reaches the sink; request parameters only select
+      the already-loaded provider/demographic context around the copy.
+    -->
+    <Match>
+        <Bug pattern="BEAN_PROPERTY_INJECTION"/>
+        <Class name="jsp.WEB_002dINF.jsp.admin.providerupdate_jsp"/>
+        <Method name="_jspService"/>
+    </Match>
+    <Match>
+        <Bug pattern="BEAN_PROPERTY_INJECTION"/>
+        <Class name="jsp.WEB_002dINF.jsp.demographic.demographicappthistory_jsp"/>
+        <Method name="_jspService"/>
+    </Match>
+
+    <!-- ================================================================
+         ISSUE #2724 CONFIRMED FALSE POSITIVES
+         These filters cover only the independently validated false-positive
+         set from https://github.com/carlos-emr/carlos/issues/2724#issuecomment-4643722595.
+         Do not add the report's keep-out / needs-action findings here.
+         Keep entries method-scoped so future findings in the same classes remain visible.
+         ================================================================ -->
+
+    <!-- FilenameUtils results are followed by PathValidationUtils containment checks,
+         equality rejection, allowlist lookup, validated child-path construction, or
+         non-filesystem use. -->
+    <Match>
+        <Bug pattern="WEAK_FILENAMEUTILS"/>
+        <Class name="io.github.carlos_emr.DocumentUploadServlet"/>
+        <Method name="service"/>
+    </Match>
+    <Match>
+        <Bug pattern="WEAK_FILENAMEUTILS"/>
+        <Class name="io.github.carlos_emr.carlos.billings.ca.on.web.BillingDocumentErrorReportUpload2Action"/>
+        <Method name="execute"/>
+    </Match>
+    <Match>
+        <Bug pattern="WEAK_FILENAMEUTILS"/>
+        <Class name="io.github.carlos_emr.carlos.billings.ca.on.web.BillingDocumentErrorReportUpload2Action"/>
+        <Method name="requiresPost"/>
+    </Match>
+    <Match>
+        <Bug pattern="WEAK_FILENAMEUTILS"/>
+        <Class name="io.github.carlos_emr.carlos.billings.ca.on.web.BillingLegacyReport2Action"/>
+        <Method name="execute"/>
+    </Match>
+    <Match>
+        <Bug pattern="WEAK_FILENAMEUTILS"/>
+        <Class name="io.github.carlos_emr.carlos.billings.ca.on.web.MoveMohFiles2Action"/>
+        <Method name="buildViewModel"/>
+    </Match>
+    <Match>
+        <Bug pattern="WEAK_FILENAMEUTILS"/>
+        <Class name="io.github.carlos_emr.carlos.billings.ca.on.web.MoveMohFiles2Action"/>
+        <Method name="getFile"/>
+    </Match>
+    <Match>
+        <Bug pattern="WEAK_FILENAMEUTILS"/>
+        <Class name="io.github.carlos_emr.carlos.demographic.pageUtil.ImportLogDownload2Action"/>
+        <Method name="execute"/>
+    </Match>
+    <Match>
+        <Bug pattern="WEAK_FILENAMEUTILS"/>
+        <Class name="io.github.carlos_emr.carlos.demographic.pageUtil.Util"/>
+        <Method name="cleanFile"/>
+    </Match>
+    <Match>
+        <Bug pattern="WEAK_FILENAMEUTILS"/>
+        <Class name="io.github.carlos_emr.carlos.demographic.pageUtil.Util"/>
+        <Method name="downloadFile"/>
+    </Match>
+    <Match>
+        <Bug pattern="WEAK_FILENAMEUTILS"/>
+        <Class name="io.github.carlos_emr.carlos.documentManager.ConvertToEdoc"/>
+        <Method name="filterFileType"/>
+    </Match>
+    <Match>
+        <Bug pattern="WEAK_FILENAMEUTILS"/>
+        <Class name="io.github.carlos_emr.carlos.documentManager.actions.AddEditDocument2Action"/>
+        <Method name="resolveFallbackUploadFileName"/>
+    </Match>
+    <Match>
+        <Bug pattern="WEAK_FILENAMEUTILS"/>
+        <Class name="io.github.carlos_emr.carlos.documentManager.actions.AddEditDocument2Action"/>
+        <Method name="resolveSanitizedUploadedFileName"/>
+    </Match>
+    <Match>
+        <Bug pattern="WEAK_FILENAMEUTILS"/>
+        <Class name="io.github.carlos_emr.carlos.documentManager.actions.AddEditDocument2Action"/>
+        <Method name="safeExtension"/>
+    </Match>
+    <Match>
+        <Bug pattern="WEAK_FILENAMEUTILS"/>
+        <Class name="io.github.carlos_emr.carlos.documentManager.actions.DocumentUpload2Action"/>
+        <Method name="sanitizeFileNameForIncomingDocs"/>
+    </Match>
+    <Match>
+        <Bug pattern="WEAK_FILENAMEUTILS"/>
+        <Class name="io.github.carlos_emr.carlos.documentManager.actions.ManageDocument2Action"/>
+        <Method name="createIncomingCacheVersion"/>
+    </Match>
+    <Match>
+        <Bug pattern="WEAK_FILENAMEUTILS"/>
+        <Class name="io.github.carlos_emr.carlos.documentManager.actions.ManageDocument2Action"/>
+        <Method name="displayIncomingDocs"/>
+    </Match>
+    <Match>
+        <Bug pattern="WEAK_FILENAMEUTILS"/>
+        <Class name="io.github.carlos_emr.carlos.documentManager.actions.ManageDocument2Action"/>
+        <Method name="viewIncomingDocPageAsImage"/>
+    </Match>
+    <Match>
+        <Bug pattern="WEAK_FILENAMEUTILS"/>
+        <Class name="io.github.carlos_emr.carlos.documentManager.actions.ManageDocument2Action"/>
+        <Method name="viewIncomingDocPageAsPdf"/>
+    </Match>
+    <Match>
+        <Bug pattern="WEAK_FILENAMEUTILS"/>
+        <Class name="io.github.carlos_emr.carlos.eform.actions.DelImage2Action"/>
+        <Method name="execute"/>
+    </Match>
+    <Match>
+        <Bug pattern="WEAK_FILENAMEUTILS"/>
+        <Class name="io.github.carlos_emr.carlos.eform.actions.DisplayImage2Action"/>
+        <Method name="validateRequestedFileName"/>
+    </Match>
+    <Match>
+        <Bug pattern="WEAK_FILENAMEUTILS"/>
+        <Class name="io.github.carlos_emr.carlos.eform.util.EFormPDFServlet"/>
+        <Method name="loadGraphicCfg"/>
+    </Match>
+    <Match>
+        <Bug pattern="WEAK_FILENAMEUTILS"/>
+        <Class name="io.github.carlos_emr.carlos.eform.util.EFormPDFServlet"/>
+        <Method name="loadPrintCfg"/>
+    </Match>
+    <Match>
+        <Bug pattern="WEAK_FILENAMEUTILS"/>
+        <Class name="io.github.carlos_emr.carlos.fax.action.Fax2Action"/>
+        <Method name="getPreview"/>
+    </Match>
+    <Match>
+        <Bug pattern="WEAK_FILENAMEUTILS"/>
+        <Class name="io.github.carlos_emr.carlos.form.pdfservlet.FrmPDFServlet"/>
+        <Method name="generatePDFDocumentBytes"/>
+    </Match>
+    <Match>
+        <Bug pattern="WEAK_FILENAMEUTILS"/>
+        <Class name="io.github.carlos_emr.carlos.form.pdfservlet.FrmPDFServlet"/>
+        <Method name="getCfgProp"/>
+    </Match>
+    <Match>
+        <Bug pattern="WEAK_FILENAMEUTILS"/>
+        <Class name="io.github.carlos_emr.carlos.login.LoginResourceAction"/>
+        <Method name="doGet"/>
+    </Match>
+    <Match>
+        <Bug pattern="WEAK_FILENAMEUTILS"/>
+        <Class name="io.github.carlos_emr.carlos.managers.NioFileManagerImpl"/>
+        <Method name="copyFileToOscarDocuments"/>
+    </Match>
+    <Match>
+        <Bug pattern="WEAK_FILENAMEUTILS"/>
+        <Class name="io.github.carlos_emr.carlos.report.pageUtil.printLabDaySheet2Action"/>
+        <Method name="execute"/>
+    </Match>
+    <Match>
+        <Bug pattern="WEAK_FILENAMEUTILS"/>
+        <Class name="io.github.carlos_emr.carlos.utility.PathValidationUtils"/>
+        <Method name="sanitizeFileName"/>
+    </Match>
+    <Match>
+        <Bug pattern="WEAK_FILENAMEUTILS"/>
+        <Class name="io.github.carlos_emr.carlos.utility.PathValidationUtils"/>
+        <Method name="validatePathComponent"/>
+    </Match>
+
+    <!-- String equality does not compare passwords, auth tokens, HMACs, CSRF tokens,
+         session secrets, or other timing-sensitive secret material. -->
+    <Match>
+        <Bug pattern="UNSAFE_HASH_EQUALS"/>
+        <Class name="io.github.carlos_emr.carlos.demographic.pageUtil.Util"/>
+        <Method name="setPreventionTypes"/>
+    </Match>
+    <Match>
+        <Bug pattern="UNSAFE_HASH_EQUALS"/>
+        <Class name="io.github.carlos_emr.carlos.flowsheet.Flowsheet2Action"/>
+        <Method name="removeTarget"/>
+    </Match>
+    <Match>
+        <Bug pattern="UNSAFE_HASH_EQUALS"/>
+        <Class name="io.github.carlos_emr.carlos.flowsheet.Flowsheet2Action"/>
+        <Method name="removeWarning"/>
+    </Match>
+    <Match>
+        <Bug pattern="UNSAFE_HASH_EQUALS"/>
+        <Class name="io.github.carlos_emr.carlos.lab.ca.all.util.LabVersionComparator"/>
+        <Method name="isLabDuplicate"/>
+    </Match>
+    <Match>
+        <Bug pattern="UNSAFE_HASH_EQUALS"/>
+        <Class name="io.github.carlos_emr.carlos.lab.ca.all.util.LabVersionComparator"/>
+        <Method name="lambda$0"/>
+    </Match>
+    <Match>
+        <Bug pattern="UNSAFE_HASH_EQUALS"/>
+        <Class name="io.github.carlos_emr.carlos.prevention.PreventionData"/>
+        <Method name="getPreventionDataFromExt"/>
+    </Match>
+    <Match>
+        <Bug pattern="UNSAFE_HASH_EQUALS"/>
+        <Class name="io.github.carlos_emr.carlos.prevention.PreventionData"/>
+        <Method name="getProviderName"/>
+    </Match>
+    <Match>
+        <Bug pattern="UNSAFE_HASH_EQUALS"/>
+        <Class name="io.github.carlos_emr.carlos.prevention.PreventionDisplayConfig"/>
+        <Method name="display"/>
+    </Match>
+    <Match>
+        <Bug pattern="UNSAFE_HASH_EQUALS"/>
+        <Class name="io.github.carlos_emr.carlos.prevention.PreventionDisplayConfig"/>
+        <Method name="getDisplay"/>
+    </Match>
+    <Match>
+        <Bug pattern="UNSAFE_HASH_EQUALS"/>
+        <Class name="io.github.carlos_emr.carlos.report.ClinicalReports.ClinicalReportManager"/>
+        <Method name="getNumeratorById"/>
+    </Match>
+
+    <!-- Post-match string changes are parser/normalization steps for prescription,
+         dose, or decision-support text, not validation-before-security-sink flows. -->
+    <Match>
+        <Bug pattern="MODIFICATION_AFTER_VALIDATION"/>
+        <Class name="io.github.carlos_emr.carlos.decisionSupport.model.conditionValue.DSValue"/>
+        <Method name="createDSValue"/>
+    </Match>
+    <Match>
+        <Bug pattern="MODIFICATION_AFTER_VALIDATION"/>
+        <Class name="io.github.carlos_emr.carlos.integration.fhir.model.Immunization"/>
+        <Method name="setDose"/>
+    </Match>
+    <Match>
+        <Bug pattern="MODIFICATION_AFTER_VALIDATION"/>
+        <Class name="io.github.carlos_emr.carlos.prescript.util.RxUtil"/>
+        <Method name="findDuration"/>
+    </Match>
+    <Match>
+        <Bug pattern="MODIFICATION_AFTER_VALIDATION"/>
+        <Class name="io.github.carlos_emr.carlos.prescript.util.RxUtil"/>
+        <Method name="getDurationUnitFromQuantityText"/>
+    </Match>
+    <Match>
+        <Bug pattern="MODIFICATION_AFTER_VALIDATION"/>
+        <Class name="io.github.carlos_emr.carlos.prescript.util.RxUtil"/>
+        <Method name="getUnitNameFromQuantityText"/>
+    </Match>
+    <Match>
+        <Bug pattern="MODIFICATION_AFTER_VALIDATION"/>
+        <Class name="io.github.carlos_emr.carlos.prescript.util.RxUtil"/>
+        <Method name="isMitte"/>
+    </Match>
+    <Match>
+        <Bug pattern="MODIFICATION_AFTER_VALIDATION"/>
+        <Class name="io.github.carlos_emr.carlos.prescript.util.RxUtil"/>
+        <Method name="isStringToNumber"/>
+    </Match>
+    <Match>
+        <Bug pattern="MODIFICATION_AFTER_VALIDATION"/>
+        <Class name="io.github.carlos_emr.carlos.prescript.util.RxUtil"/>
+        <Method name="setResultSpecialQuantityRepeat"/>
+    </Match>
+    <Match>
+        <Bug pattern="MODIFICATION_AFTER_VALIDATION"/>
+        <Class name="io.github.carlos_emr.carlos.prescript.util.RxUtil"/>
+        <Method name="trimSpecial"/>
+    </Match>
+    <Match>
+        <Bug pattern="MODIFICATION_AFTER_VALIDATION"/>
+        <Class name="io.github.carlos_emr.carlos.prescription.util.RxUtil"/>
+        <Method name="trimSpecial"/>
+    </Match>
+
+    <!-- Random values are non-secret UI/cache/correlation/provider-number values;
+         temp-file and generic-helper findings remain unsuppressed. -->
+    <Match>
+        <Bug pattern="PREDICTABLE_RANDOM"/>
+        <Class name="io.github.carlos_emr.Misc"/>
+        <Method name="getRandomNumber"/>
+    </Match>
+    <Match>
+        <Bug pattern="PREDICTABLE_RANDOM"/>
+        <Class name="io.github.carlos_emr.carlos.demographic.pageUtil.ImportDemographicDataAction42Action"/>
+        <Method name="generateRandomColor"/>
+    </Match>
+    <Match>
+        <Bug pattern="PREDICTABLE_RANDOM"/>
+        <Class name="io.github.carlos_emr.carlos.encounter.pageUtil.NavBarDisplayDAO"/>
+        <Method name="main"/>
+    </Match>
+    <Match>
+        <Bug pattern="PREDICTABLE_RANDOM"/>
+        <Class name="io.github.carlos_emr.carlos.prescript.pageUtil.RxRePrescribe2Action"/>
+        <Method name="repcbAllLongTerm"/>
+    </Match>
+    <Match>
+        <Bug pattern="PREDICTABLE_RANDOM"/>
+        <Class name="io.github.carlos_emr.carlos.prescript.pageUtil.RxRePrescribe2Action"/>
+        <Method name="represcribe2"/>
+    </Match>
+    <Match>
+        <Bug pattern="PREDICTABLE_RANDOM"/>
+        <Class name="io.github.carlos_emr.carlos.prescript.pageUtil.RxRePrescribe2Action"/>
+        <Method name="represcribeMultiple"/>
+    </Match>
+    <Match>
+        <Bug pattern="PREDICTABLE_RANDOM"/>
+        <Class name="io.github.carlos_emr.carlos.prescript.pageUtil.RxRePrescribe2Action"/>
+        <Method name="saveReRxDrugIdToStash"/>
+    </Match>
+    <Match>
+        <Bug pattern="PREDICTABLE_RANDOM"/>
+        <Class name="io.github.carlos_emr.carlos.prescript.util.RxUtil"/>
+        <Method name="createKeyValPair"/>
+    </Match>
+    <Match>
+        <Bug pattern="PREDICTABLE_RANDOM"/>
+        <Class name="io.github.carlos_emr.carlos.utility.CustomInterfaceTag"/>
+        <Method name="doStartTag"/>
+    </Match>
+
+    <!-- XML/HTML builder values are already escaped by xmlText, SafeEncode, OWASP
+         Encode, or constrained to fixed numeric/date/base64 serialization. -->
+    <Match>
+        <Bug pattern="POTENTIAL_XML_INJECTION"/>
+        <Class name="io.github.carlos_emr.carlos.billings.ca.on.service.BillingShortcutPg2Service"/>
+        <Method name="calculate"/>
+    </Match>
+    <Match>
+        <Bug pattern="POTENTIAL_XML_INJECTION"/>
+        <Class name="io.github.carlos_emr.carlos.billings.ca.on.service.RaDescriptionFileParser"/>
+        <Method name="transactionRowsXml"/>
+    </Match>
+    <Match>
+        <Bug pattern="POTENTIAL_XML_INJECTION"/>
+        <Class name="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConTitlebar"/>
+        <Method name="estBar"/>
+    </Match>
+    <Match>
+        <Bug pattern="POTENTIAL_XML_INJECTION"/>
+        <Class name="io.github.carlos_emr.carlos.prescript.util.SimpleXmlRpcClient"/>
+        <Method name="serializeValue"/>
+    </Match>
+    <Match>
+        <Bug pattern="POTENTIAL_XML_INJECTION"/>
+        <Class name="io.github.carlos_emr.carlos.report.data.RptResultStruct"/>
+        <Method name="getStructure"/>
+    </Match>
+
+    <!-- Case-folded comparisons are fixed-token/domain checks, not authorization
+         or trust-boundary decisions. -->
+    <Match>
+        <Bug pattern="IMPROPER_UNICODE"/>
+        <Class name="io.github.carlos_emr.carlos.documentManager.actions.AddEditDocument2Action"/>
+        <Method name="html5MultiUpload"/>
+    </Match>
+    <Match>
+        <Bug pattern="IMPROPER_UNICODE"/>
+        <Class name="io.github.carlos_emr.carlos.documentManager.actions.AddEditDocument2Action"/>
+        <Method name="resolveFallbackUploadFileName"/>
+    </Match>
+    <Match>
+        <Bug pattern="IMPROPER_UNICODE"/>
+        <Class name="io.github.carlos_emr.carlos.form.FrmRecordHelp"/>
+        <Method name="lastInsertedIdSql"/>
+    </Match>
+    <Match>
+        <Bug pattern="IMPROPER_UNICODE"/>
+        <Class name="io.github.carlos_emr.carlos.util.JDBCUtil"/>
+        <Method name="isImportTargetManagedField"/>
+    </Match>
+    <Match>
+        <Bug pattern="IMPROPER_UNICODE"/>
+        <Class name="io.github.carlos_emr.carlos.util.JDBCUtil"/>
+        <Method name="lambda$0"/>
+    </Match>
+
+    <!-- MD5 is used only as non-cryptographic duplicate-detection/fingerprint
+         metadata, never for passwords, signatures, or integrity trust. -->
+    <Match>
+        <Bug pattern="WEAK_MESSAGE_DIGEST_MD5"/>
+        <Class name="io.github.carlos_emr.carlos.demographic.pageUtil.ImportDemographicDataAction42Action"/>
+        <Method name="importXML"/>
+    </Match>
+    <Match>
+        <Bug pattern="WEAK_MESSAGE_DIGEST_MD5"/>
+        <Class name="io.github.carlos_emr.carlos.lab.FileUploadCheck"/>
+        <Method name="addFile"/>
+    </Match>
+    <Match>
+        <Bug pattern="WEAK_MESSAGE_DIGEST_MD5"/>
+        <Class name="io.github.carlos_emr.carlos.lab.FileUploadCheck"/>
+        <Method name="hasFileBeenUploadedByFileLocation"/>
+    </Match>
+
+    <!-- Request content type values are used for multipart negotiation only,
+         not authorization or raw output. -->
+    <Match>
+        <Bug pattern="SERVLET_CONTENT_TYPE"/>
+        <Class name="io.github.carlos_emr.carlos.app.CarlosCsrfGuardFilter"/>
+        <Method name="isMultipartContent"/>
+    </Match>
+
+    <!-- Session id APIs are used only for presence checks, never to log or trust
+         the session id value. -->
+    <Match>
+        <Bug pattern="SERVLET_SESSION_ID"/>
+        <Class name="io.github.carlos_emr.carlos.app.HttpMethodGuardFilter"/>
+        <Method name="blockRequest"/>
+    </Match>
+
+    <!-- Request headers are used for negotiation, presence checks, or sanitized
+         diagnostics only, not authorization or raw output. -->
+    <Match>
+        <Bug pattern="SERVLET_HEADER"/>
+        <Class name="io.github.carlos_emr.carlos.app.RateLimitFilter"/>
+        <Method name="warnIfForwardedAddressWasNotApplied"/>
+    </Match>
+    <Match>
+        <Bug pattern="SERVLET_HEADER"/>
+        <Class name="io.github.carlos_emr.carlos.casemgmt.web.CaseManagementView2Action"/>
+        <Method name="listNotes"/>
+    </Match>
+    <Match>
+        <Bug pattern="SERVLET_HEADER"/>
+        <Class name="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayAction"/>
+        <Method name="execute"/>
+    </Match>
+    <Match>
+        <Bug pattern="SERVLET_HEADER"/>
+        <Class name="io.github.carlos_emr.carlos.login.Login2Action"/>
+        <Method name="execute"/>
+    </Match>
+    <Match>
+        <Bug pattern="SERVLET_HEADER"/>
+        <Class name="io.github.carlos_emr.carlos.sec.UnauthenticatedRejectionResolver"/>
+        <Method name="prefersStructuredResponse"/>
+    </Match>
+    <Match>
+        <Bug pattern="SERVLET_HEADER"/>
+        <Class name="io.github.carlos_emr.carlos.sec.UnauthenticatedRejectionResolver"/>
+        <Method name="rejectUnauthenticatedRequest"/>
+    </Match>
+    <Match>
+        <Bug pattern="SERVLET_HEADER"/>
+        <Class name="io.github.carlos_emr.carlos.utility.RequestNegotiation"/>
+        <Method name="acceptsJson"/>
+    </Match>
+    <Match>
+        <Bug pattern="SERVLET_HEADER"/>
+        <Class name="io.github.carlos_emr.carlos.utility.RequestNegotiation"/>
+        <Method name="isAjax"/>
+    </Match>
+
+    <!-- User-Agent values are reduced to fixed categories or mobile detection,
+         not trusted as authority or emitted raw. -->
+    <Match>
+        <Bug pattern="SERVLET_HEADER_USER_AGENT"/>
+        <Class name="io.github.carlos_emr.carlos.eform.util.EFormViewForPdfGenerationServlet"/>
+        <Method name="doGet"/>
+    </Match>
+    <Match>
+        <Bug pattern="SERVLET_HEADER_USER_AGENT"/>
+        <Class name="io.github.carlos_emr.carlos.login.Login2Action"/>
+        <Method name="execute"/>
+    </Match>
+
+    <!-- Query strings are sanitized before diagnostics and never emitted raw. -->
+    <Match>
+        <Bug pattern="SERVLET_QUERY_STRING"/>
+        <Class name="io.github.carlos_emr.carlos.ui.servlet.ContentRenderingServlet"/>
+        <Method name="doGet"/>
+    </Match>
+    <Match>
+        <Bug pattern="SERVLET_QUERY_STRING"/>
+        <Class name="io.github.carlos_emr.carlos.ui.servlet.ImageRenderingServlet"/>
+        <Method name="doGet"/>
+    </Match>
+
+
+    <!-- ================================================================
+         ISSUE #2833 CONFIRMED SCANNER-ONLY FALSE POSITIVES
+         https://github.com/carlos-emr/carlos/issues/2833
+
+         These are method-scoped filters for alerts revalidated on
+         2026-06-11 as scanner/model gaps. Keep this section focused on
+         the exact safe abstractions documented in the issue: trusted SQL
+         wrappers, secure XmlUtils parser factories, no-shell Runtime.exec
+         arrays, deletion cookies, ObjectInputFilter guarded reads,
+         non-secret randomness, encoded or validated redirects, and
+         servlet metadata used only for routing/canonicalization.
+         ================================================================ -->
+
+    <!-- SQL wrapper methods resolve server-owned query templates, allowlisted fragments,
+         or pass-through JDBC wrapper calls; runtime values are bound separately. -->
+    <Match>
+        <Bug pattern="SQL_INJECTION_SPRING_JDBC"/>
+        <Class name="io.github.carlos_emr.carlos.dao.OscarSuperDao"/>
+        <Method name="executeSelectQuery"/>
+    </Match>
+    <Match>
+        <Bug pattern="SQL_INJECTION_SPRING_JDBC"/>
+        <Class name="io.github.carlos_emr.carlos.dao.OscarSuperDao"/>
+        <Method name="executeRowMappedSelectQuery"/>
+    </Match>
+    <Match>
+        <Bug pattern="SQL_INJECTION_JDBC"/>
+        <Class name="io.github.carlos_emr.carlos.db.LegacyJdbcQuery"/>
+        <Method name="getPreparedResultSetLegacyRaw"/>
+    </Match>
+    <Match>
+        <Bug pattern="SQL_INJECTION_JDBC"/>
+        <Class name="io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader"/>
+        <Method name="providerRouteReport"/>
+    </Match>
+    <Match>
+        <Bug pattern="SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"/>
+        <Class name="io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader"/>
+        <Method name="providerRouteReport"/>
+    </Match>
+    <Match>
+        <Bug pattern="SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"/>
+        <Class name="io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader"/>
+        <Method name="patientRouteReport"/>
+    </Match>
+    <Match>
+        <Bug pattern="SQL_INJECTION_JDBC"/>
+        <Class name="io.github.carlos_emr.carlos.lab.ca.on.CML.ABCDParser"/>
+        <Method name="executePatientLookup"/>
+    </Match>
+    <Match>
+        <Bug pattern="SQL_INJECTION_JDBC"/>
+        <Class name="io.github.carlos_emr.carlos.utility.OscarTrackingBasicDataSource$TrackingJdbcConnection"/>
+        <Method name="nativeSQL"/>
+    </Match>
+    <Match>
+        <Bug pattern="SQL_INJECTION_JDBC"/>
+        <Class name="io.github.carlos_emr.carlos.utility.OscarTrackingBasicDataSource$TrackingJdbcConnection"/>
+        <Method name="prepareCall"/>
+    </Match>
+    <Match>
+        <Bug pattern="SQL_INJECTION_JDBC"/>
+        <Class name="io.github.carlos_emr.carlos.utility.OscarTrackingBasicDataSource$TrackingJdbcConnection"/>
+        <Method name="prepareStatement"/>
+    </Match>
+    <Match>
+        <Bug pattern="EXTERNAL_CONFIG_CONTROL"/>
+        <Class name="io.github.carlos_emr.carlos.utility.OscarTrackingBasicDataSource$TrackingJdbcConnection"/>
+        <Method name="setCatalog"/>
+    </Match>
+
+    <!-- XML parsers, schema factories, validators, and JAXB sources all flow through
+         XmlUtils secure helpers that disable DTD/external entity access or fail closed. -->
+    <Match>
+        <Bug pattern="XXE_XMLREADER"/>
+        <Class name="io.github.carlos_emr.OBChecklist_99_12"/>
+        <Method name="doStuff"/>
+    </Match>
+    <Match>
+        <Bug pattern="XXE_XMLREADER"/>
+        <Class name="io.github.carlos_emr.OBRisks_99_12"/>
+        <Method name="doStuff"/>
+    </Match>
+    <Match>
+        <Bug pattern="XXE_XMLREADER"/>
+        <Class name="io.github.carlos_emr.OBRisks_99_12"/>
+        <Method name="getRiskName"/>
+    </Match>
+    <Match>
+        <Bug pattern="XXE_DOCUMENT"/>
+        <Class name="io.github.carlos_emr.carlos.dashboard.handler.IndicatorTemplateHandler"/>
+        <Method name="byteToDocument"/>
+    </Match>
+    <Match>
+        <Bug pattern="XXE_SCHEMA_FACTORY"/>
+        <Class name="io.github.carlos_emr.carlos.dashboard.handler.IndicatorTemplateHandler"/>
+        <Method name="setSchema"/>
+    </Match>
+    <Match>
+        <Bug pattern="XXE_VALIDATOR"/>
+        <Class name="io.github.carlos_emr.carlos.dashboard.handler.IndicatorTemplateHandler"/>
+        <Method name="validateXML"/>
+    </Match>
+    <Match>
+        <Bug pattern="XXE_SAXPARSER"/>
+        <Class name="io.github.carlos_emr.carlos.decision.DesAnnualReviewPlannerChecklist"/>
+        <Method name="doStuff"/>
+    </Match>
+    <Match>
+        <Bug pattern="XXE_SAXPARSER"/>
+        <Class name="io.github.carlos_emr.carlos.decision.DesAnnualReviewPlannerRisk"/>
+        <Method name="doStuff"/>
+    </Match>
+    <Match>
+        <Bug pattern="XXE_SAXPARSER"/>
+        <Class name="io.github.carlos_emr.carlos.decision.DesAnnualReviewPlannerRisk"/>
+        <Method name="getRiskName"/>
+    </Match>
+    <Match>
+        <Bug pattern="XXE_XMLREADER"/>
+        <Class name="io.github.carlos_emr.carlos.decision.DesAntenatalPlannerChecklist_99_12"/>
+        <Method name="doStuff"/>
+    </Match>
+    <Match>
+        <Bug pattern="XXE_XMLREADER"/>
+        <Class name="io.github.carlos_emr.carlos.decision.DesAntenatalPlannerRisks_99_12"/>
+        <Method name="doStuff"/>
+    </Match>
+    <Match>
+        <Bug pattern="XXE_XMLREADER"/>
+        <Class name="io.github.carlos_emr.carlos.decision.DesAntenatalPlannerRisks_99_12"/>
+        <Method name="getRiskName"/>
+    </Match>
+    <Match>
+        <Bug pattern="XXE_DOCUMENT"/>
+        <Class name="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicExportAction42Action"/>
+        <Method name="validateExport"/>
+    </Match>
+    <Match>
+        <Bug pattern="XXE_SCHEMA_FACTORY"/>
+        <Class name="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicExportAction42Action"/>
+        <Method name="validateExport"/>
+    </Match>
+    <Match>
+        <Bug pattern="XXE_VALIDATOR"/>
+        <Class name="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicExportAction42Action"/>
+        <Method name="validateExport"/>
+    </Match>
+    <Match>
+        <Bug pattern="XXE_DOCUMENT"/>
+        <Class name="io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.IHAPOIHandler"/>
+        <Method name="parseXml"/>
+    </Match>
+    <Match>
+        <Bug pattern="XXE_DOCUMENT"/>
+        <Class name="io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.MEDITECHHandler"/>
+        <Method name="parseXml"/>
+    </Match>
+    <Match>
+        <Bug pattern="XXE_DOCUMENT"/>
+        <Class name="io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.PATHL7Handler"/>
+        <Method name="parse"/>
+    </Match>
+    <Match>
+        <Bug pattern="XXE_DOCUMENT"/>
+        <Class name="io.github.carlos_emr.carlos.lab.ca.bc.PathNet.Connection"/>
+        <Method name="CreateDocument"/>
+    </Match>
+    <Match>
+        <Bug pattern="XXE_DOCUMENT"/>
+        <Class name="io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.DefaultHandler"/>
+        <Method name="getXML"/>
+    </Match>
+    <Match>
+        <Bug pattern="XXE_DOCUMENT"/>
+        <Class name="io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.ExcellerisOntarioHandler"/>
+        <Method name="parse"/>
+    </Match>
+    <Match>
+        <Bug pattern="XXE_DOCUMENT"/>
+        <Class name="io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.IHAHandler"/>
+        <Method name="getXML"/>
+    </Match>
+    <Match>
+        <Bug pattern="XXE_SCHEMA_FACTORY"/>
+        <Class name="io.github.carlos_emr.carlos.hospitalReportManager.HRMReportParser"/>
+        <Method name="parseReport" params="io.github.carlos_emr.carlos.utility.LoggedInInfo,java.lang.String,java.util.List"/>
+    </Match>
+    <Match>
+        <Bug pattern="XXE_DOCUMENT"/>
+        <Class name="io.github.carlos_emr.carlos.messenger.docxfer.util.MsgCommxml"/>
+        <Method name="parseXML"/>
+    </Match>
+    <Match>
+        <Bug pattern="XXE_DOCUMENT"/>
+        <Class name="io.github.carlos_emr.carlos.messenger.docxfer.util.MsgCommxml"/>
+        <Method name="parseXMLFile"/>
+    </Match>
+    <Match>
+        <Bug pattern="XXE_DOCUMENT"/>
+        <Class name="io.github.carlos_emr.carlos.messenger.util.Msgxml"/>
+        <Method name="parseXML"/>
+    </Match>
+    <Match>
+        <Bug pattern="XXE_DOCUMENT"/>
+        <Class name="io.github.carlos_emr.carlos.prescript.util.SimpleXmlRpcClient"/>
+        <Method name="parseResponse"/>
+    </Match>
+    <Match>
+        <Bug pattern="XXE_DOCUMENT"/>
+        <Class name="io.github.carlos_emr.carlos.prescript.util.xml"/>
+        <Method name="parseXML"/>
+    </Match>
+    <Match>
+        <Bug pattern="XXE_DOCUMENT"/>
+        <Class name="io.github.carlos_emr.carlos.util.UtilXML"/>
+        <Method name="parseXML"/>
+    </Match>
+    <Match>
+        <Bug pattern="XXE_DOCUMENT"/>
+        <Class name="io.github.carlos_emr.carlos.util.UtilXML"/>
+        <Method name="parseXMLFile"/>
+    </Match>
+    <Match>
+        <Bug pattern="XXE_DOCUMENT"/>
+        <Class name="io.github.carlos_emr.carlos.utility.XmlUtils"/>
+        <Method name="toDocument"/>
+    </Match>
+
+    <!-- Redirect host is a hardcoded external constant (resource.oscarmcmaster.org);
+         only a URL-encoded query parameter is appended, so the destination is not
+         attacker-controllable. -->
+    <Match>
+        <Bug pattern="UNVALIDATED_REDIRECT"/>
+        <Class name="io.github.carlos_emr.carlos.prescript.pageUtil.RxDrugInfo2Action"/>
+        <Method name="execute"/>
+    </Match>
+
+    <!-- Servlet metadata is used for multipart parsing, AJAX detection, OAuth
+         canonicalization, or encoded reload URL propagation, not authorization
+         or raw response output. -->
+    <Match>
+        <Bug pattern="SERVLET_CONTENT_TYPE"/>
+        <Class name="io.github.carlos_emr.carlos.billings.MSP.DocumentTeleplanReportUploadServlet"/>
+        <Method name="service"/>
+    </Match>
+    <Match>
+        <Bug pattern="SERVLET_QUERY_STRING"/>
+        <Class name="io.github.carlos_emr.carlos.casemgmt.web.CaseManagementView2Action"/>
+        <Method name="listNotes"/>
+    </Match>
+    <Match>
+        <Bug pattern="SERVLET_HEADER"/>
+        <Class name="io.github.carlos_emr.carlos.commn.printing.PrivacyStatementAppendingFilter"/>
+        <Method name="doFilter"/>
+    </Match>
+    <Match>
+        <Bug pattern="SERVLET_QUERY_STRING"/>
+        <Class name="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayAction"/>
+        <Method name="execute"/>
+    </Match>
+    <Match>
+        <Bug pattern="SERVLET_CONTENT_TYPE"/>
+        <Class name="io.github.carlos_emr.carlos.webserv.oauth.util.OAuth1ParamParser"/>
+        <Method name="parseFromRequest"/>
+    </Match>
+    <Match>
+        <Bug pattern="SERVLET_HEADER"/>
+        <Class name="io.github.carlos_emr.carlos.webserv.oauth.util.OAuth1ParamParser"/>
+        <Method name="parseFromRequest"/>
+    </Match>
+    <Match>
+        <Bug pattern="SERVLET_QUERY_STRING"/>
+        <Class name="io.github.carlos_emr.carlos.webserv.oauth.util.OAuth1ParamParser"/>
+        <Method name="parseFromRequest"/>
+    </Match>
+    <Match>
+        <Bug pattern="SERVLET_CONTENT_TYPE"/>
+        <Class name="io.github.carlos_emr.carlos.webserv.oauth.util.OAuth1SignatureVerifierImplementation"/>
+        <Method name="verifySignature"/>
+    </Match>
+    <Match>
+        <Bug pattern="SERVLET_QUERY_STRING"/>
+        <Class name="io.github.carlos_emr.carlos.webserv.oauth.util.OAuth1SignatureVerifierImplementation"/>
+        <Method name="verifySignature"/>
+    </Match>
+    <Match>
+        <Bug pattern="SERVLET_SERVER_NAME"/>
+        <Class name="io.github.carlos_emr.carlos.webserv.oauth.util.OAuth1SignatureVerifierImplementation"/>
+        <Method name="verifySignature"/>
+    </Match>
+    <Match>
+        <Bug pattern="SERVLET_HEADER"/>
+        <Class name="io.github.carlos_emr.carlos.webserv.oauth.util.OAuthRequestParser"/>
+        <Method name="isOAuth1Request"/>
+    </Match>
+
     <!-- ================================================================
          PATH_TRAVERSAL_IN — PURE FALSE POSITIVES (no file operations)
          SpotBugs traces HTTP taint through these classes but the flagged
@@ -579,6 +1368,75 @@
          ================================================================ -->
     <Match>
         <Bug pattern="CRLF_INJECTION_LOGS"/>
+    </Match>
+
+
+    <!-- ================================================================
+         HARD_CODE_PASSWORD FALSE POSITIVES
+         SpotBugs HARD_CODE_PASSWORD fires whenever a String literal is
+         passed to (or compared with) a method whose name contains
+         "password". Three structural patterns recur in this codebase
+         that are never real credentials:
+
+           1. Field-clear pattern: setPassword("") clears an email/form
+              field before sending. The empty literal is not a credential.
+
+           2. WS-Security protocol-type constant: the string "PasswordText"
+              (aliased as WSS4JConstants.PW_TEXT / WSConstants.PW_TEXT) is
+              a WS-Security UsernameToken mechanism URI, not a password value.
+              Any method that configures a WS-Security interceptor property
+              map will trigger this detector.
+
+           3. UI mask sentinel: PASSWORD_MASK_SENTINEL = "**********" is
+              compared against a submitted form field to detect "unchanged"
+              password submissions. It is not a stored or usable credential.
+
+         Each entry below is method-scoped. If you encounter the same
+         pattern in a new method, add a method-scoped entry here rather
+         than annotating the call site.
+         ================================================================ -->
+
+    <!-- setPassword("") calls inside sanitizeEmailFields clear the email
+         DTO's credential fields when encryption is not being used. -->
+    <Match>
+        <Bug pattern="HARD_CODE_PASSWORD"/>
+        <Class name="io.github.carlos_emr.carlos.managers.EmailManager"/>
+        <Method name="sanitizeEmailFields"/>
+    </Match>
+
+    <!-- properties.put(WSHandlerConstants.PASSWORD_TYPE, WSS4JConstants.PW_TEXT)
+         configures the WS-Security UsernameToken mechanism. PW_TEXT is a
+         protocol-type URI string, not a password value. -->
+    <Match>
+        <Bug pattern="HARD_CODE_PASSWORD"/>
+        <Class name="io.github.carlos_emr.carlos.webserv.AuthenticationInWSS4JInterceptor"/>
+        <Method name="initialize"/>
+    </Match>
+
+    <!-- Same WS-Security protocol-type constant set in the outbound interceptor
+         constructor. SpotBugs uses &lt;init&gt; (bytecode name) for constructors. -->
+    <Match>
+        <Bug pattern="HARD_CODE_PASSWORD"/>
+        <Class name="io.github.carlos_emr.carlos.utility.AuthenticationOutWSS4JInterceptor"/>
+        <Method name="&lt;init&gt;"/>
+    </Match>
+
+    <!-- Same WS-Security protocol-type constant in the EDT billing client
+         WS-Security outbound property map builder. -->
+    <Match>
+        <Bug pattern="HARD_CODE_PASSWORD"/>
+        <Class name="io.github.carlos_emr.carlos.integration.ebs.client.ng.EdtClientBuilder"/>
+        <Method name="newWSSOutInterceptorConfiguration"/>
+    </Match>
+
+    <!-- PASSWORD_MASK_SENTINEL = "**********" is the UI placeholder shown
+         in password fields when a credential is already stored. This method
+         checks whether a submitted value equals the sentinel (meaning the
+         admin left the field blank/unchanged). It is not a credential comparison. -->
+    <Match>
+        <Bug pattern="HARD_CODE_PASSWORD"/>
+        <Class name="io.github.carlos_emr.carlos.fax.admin.ConfigureFax2Action"/>
+        <Method name="isPasswordUnchanged"/>
     </Match>
 
 </FindBugsFilter>

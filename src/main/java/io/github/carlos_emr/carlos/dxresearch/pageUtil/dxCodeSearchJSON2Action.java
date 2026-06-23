@@ -28,9 +28,7 @@
  */
 package io.github.carlos_emr.carlos.dxresearch.pageUtil;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.util.List;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -46,6 +44,7 @@ import io.github.carlos_emr.carlos.commn.model.Icd9;
 import io.github.carlos_emr.carlos.managers.CodingSystemManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.JsonUtil;
+import io.github.carlos_emr.carlos.utility.JsonResponseWriter;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -62,7 +61,7 @@ public class dxCodeSearchJSON2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private static final ObjectMapper objectMapper = new ObjectMapper();
     private static Logger logger = MiscUtils.getLogger();
 
     public String execute() {
@@ -166,8 +165,6 @@ public class dxCodeSearchJSON2Action extends ActionSupport {
         return null;
     }
 
-    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
-    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     @SuppressWarnings("unused")
     public String validateCode() {
 
@@ -180,10 +177,8 @@ public class dxCodeSearchJSON2Action extends ActionSupport {
         ObjectNode jsonResponse = objectMapper.createObjectNode();
         jsonResponse.put("dxvalid", dxvalid);
 
-        response.setContentType("application/json");
-
-        try (PrintWriter pout = response.getWriter()) {
-            pout.write(jsonResponse.toString());
+        try {
+            JsonResponseWriter.write(response, jsonResponse);
         } catch (IOException e) {
             logger.error("JSON Error", e);
         }
@@ -191,8 +186,6 @@ public class dxCodeSearchJSON2Action extends ActionSupport {
         return null;
     }
 
-    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
-    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     @SuppressWarnings("unused")
     public String getDescription() {
 
@@ -209,10 +202,8 @@ public class dxCodeSearchJSON2Action extends ActionSupport {
         jsonResponse.put("description", description);
         jsonResponse.put("code", code);
 
-        response.setContentType("application/json");
-
-        try (PrintWriter pout = response.getWriter()) {
-            pout.write(jsonResponse.toString());
+        try {
+            JsonResponseWriter.write(response, jsonResponse);
         } catch (IOException e) {
             logger.error("JSON Error", e);
         }
@@ -220,26 +211,16 @@ public class dxCodeSearchJSON2Action extends ActionSupport {
         return null;
     }
 
-    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
-    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     private static void jsonify(final List<?> classList,
                                 final HttpServletResponse response, String[] ignoreMethods) throws IOException {
 
-        response.setContentType("application/json");
-
-        String jsonstring = null;
+        String jsonString = "{}";
 
         if (classList != null && !classList.isEmpty()) {
-            jsonstring = JsonUtil.pojoCollectionToJson(classList, ignoreMethods);
+            jsonString = JsonUtil.pojoCollectionToJson(classList, ignoreMethods);
         }
 
-        if (jsonstring == null) {
-            jsonstring = "{}";
-        }
-
-        try (PrintWriter pout = response.getWriter()) {
-            pout.write(jsonstring); // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep -- JSON API response with application/json content-type
-        }
+        JsonResponseWriter.write(response, jsonString);
     }
 
 

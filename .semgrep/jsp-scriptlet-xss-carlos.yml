@@ -42,7 +42,7 @@ rules:
       - pattern-not-regex: '(?m)^.*<%=.*request\s*\.\s*getParameter\s*\([^)]*\)\s*==\s*null.*%>.*$'
       - pattern-not-regex: '(?m)^.*<%=.*"true"\s*\.\s*equals\s*\(\s*request\s*\.\s*getParameter\s*\([^)]*\)\s*\).*%>.*$'
       - pattern-not-regex: '(?m)^.*<%=.*\?\s*"[^"]*"\s*:\s*"[^"]*"\s*%>.*$'
-      - pattern-not-regex: '(?m)^.*<%=.*\?[^%]*"selected"[^%]*:[^%]*""[^%]*%>.*$'
+      - pattern-not-regex: '(?m)^.*<%=.*\?[^%]*"\s*selected"[^%]*:[^%]*""[^%]*%>.*$'
       - pattern-not-regex: '(?m)^.*<%=.*\?[^%]*request\s*\.\s*getContextPath\s*\(\s*\)[^%]*:\s*"[^"]*"\s*%>.*$'
       - pattern-not-regex: '(?m)^.*<%=.*\?\s*bundle\.getString\s*\([^)]*\)\s*:\s*bundle\.getString\s*\([^)]*\)\s*%>.*$'
       - pattern-not-regex: '(?m)^.*<caisirole:SecurityAccess\b.*$'
