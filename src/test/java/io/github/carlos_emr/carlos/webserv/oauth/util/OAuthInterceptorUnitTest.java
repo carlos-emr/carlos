@@ -29,7 +29,7 @@ import static org.mockito.Mockito.when;
 /**
  * Pins the CXF status-code propagation for OAuth 1.0a authentication failures
  * (issue #2954). Without {@code Fault.setStatusCode(...)} CXF defaults an
- * in-interceptor fault to HTTP 500, so bad credentials would read to API callers
+ * in-interceptor fault to HTTP 500, so bad credentials would appear to API callers
  * as a server error instead of a clean 400/401.
  */
 @DisplayName("OAuthInterceptor auth-failure status codes")
