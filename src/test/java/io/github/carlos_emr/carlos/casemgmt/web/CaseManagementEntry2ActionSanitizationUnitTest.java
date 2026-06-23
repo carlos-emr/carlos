@@ -27,6 +27,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -205,6 +208,128 @@ class CaseManagementEntry2ActionSanitizationUnitTest {
         void shouldDrop_alphanumericMixed() {
             assertThat(CaseManagementEntry2Action.sanitizeIdFilterArray(new String[]{"1abc", "abc1"}))
                     .isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("isValidInternalRedirect")
+    class IsValidInternalRedirect {
+
+        @ParameterizedTest(name = "null or empty redirect: {0}")
+        @NullAndEmptySource
+        @DisplayName("should reject null and empty URLs")
+        void shouldReject_whenUrlNullOrEmpty(String url) {
+            assertThat(CaseManagementEntry2Action.isValidInternalRedirect(url)).isFalse();
+        }
+
+        @ParameterizedTest(name = "valid relative redirect: {0}")
+        @ValueSource(strings = {
+                "/provider/providercontrol.jsp",
+                "/carlos/provider/providercontrol.jsp",
+                "/billing?billRegion=ON&demographic_no=42"
+        })
+        @DisplayName("should accept slash-prefixed relative URLs")
+        void shouldAccept_whenSlashPrefixedRelativeUrls(String url) {
+            assertThat(CaseManagementEntry2Action.isValidInternalRedirect(url)).isTrue();
+        }
+
+        @ParameterizedTest(name = "absolute redirect: {0}")
+        @ValueSource(strings = {
+                "https://carlos.example/provider/providercontrol.jsp",
+                "http://carlos.example:8080/carlos/provider/providercontrol.jsp",
+                "https://carlos.example/carlos/provider/providercontrol.jsp"
+        })
+        @DisplayName("should reject absolute URLs even when they use the application host")
+        void shouldReject_whenAbsoluteUrlsUseApplicationHost(String url) {
+            assertThat(CaseManagementEntry2Action.isValidInternalRedirect(url)).isFalse();
+        }
+
+        @ParameterizedTest(name = "invalid redirect: {0}")
+        @ValueSource(strings = {
+                "provider/providercontrol.jsp",
+                "//evil.example/path",
+                "/\\evil.example",
+                "/../admin"
+        })
+        @DisplayName("should reject non-slash-prefixed and unsafe relative URLs")
+        void shouldReject_whenRelativeUrlsUnsafe(String url) {
+            assertThat(CaseManagementEntry2Action.isValidInternalRedirect(url)).isFalse();
+        }
+    }
+
+    @Nested
+    @DisplayName("sanitizeInternalRedirect")
+    class SanitizeInternalRedirect {
+
+        @Test
+        @DisplayName("should return trimmed safe redirect target")
+        void shouldReturnTrimmedUrl_whenUrlHasOuterWhitespace() {
+            assertThat(CaseManagementEntry2Action.sanitizeInternalRedirect(" \t/provider/providercontrol.jsp \n"))
+                    .isEqualTo("/provider/providercontrol.jsp");
+        }
+
+        @ParameterizedTest(name = "blank redirect: [{0}]")
+        @NullAndEmptySource
+        @ValueSource(strings = {" ", "\t", "\n"})
+        @DisplayName("should return null for blank URLs")
+        void shouldReturnNull_whenUrlBlank(String url) {
+            assertThat(CaseManagementEntry2Action.sanitizeInternalRedirect(url)).isNull();
+        }
+
+        @ParameterizedTest(name = "unsafe redirect: {0}")
+        @ValueSource(strings = {
+                "https://carlos.example/provider/providercontrol.jsp",
+                "//evil.example/path",
+                "/\\evil.example",
+                "/../admin"
+        })
+        @DisplayName("should return null for unsafe URLs")
+        void shouldReturnNull_whenUrlUnsafe(String url) {
+            assertThat(CaseManagementEntry2Action.sanitizeInternalRedirect(url)).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("sanitizeChainResultName")
+    class SanitizeChainResultName {
+
+        @ParameterizedTest(name = "safe chain result: {0}")
+        @ValueSource(strings = {
+                "list",
+                "view",
+                "issueList_ajax"
+        })
+        @DisplayName("should return whitelisted chain result names")
+        void shouldReturn_whenResultNameWhitelisted(String chain) {
+            assertThat(CaseManagementEntry2Action.sanitizeChainResultName(chain)).isEqualTo(chain);
+        }
+
+        @Test
+        @DisplayName("should return trimmed whitelisted chain result name")
+        void shouldReturn_whenResultNameHasOuterWhitespace() {
+            assertThat(CaseManagementEntry2Action.sanitizeChainResultName(" \tlist \n")).isEqualTo("list");
+        }
+
+        @ParameterizedTest(name = "blank chain result: [{0}]")
+        @NullAndEmptySource
+        @ValueSource(strings = {" ", "\t", "\n"})
+        @DisplayName("should return null for blank chain result names")
+        void shouldReturnNull_whenResultNameBlank(String chain) {
+            assertThat(CaseManagementEntry2Action.sanitizeChainResultName(chain)).isNull();
+        }
+
+        @ParameterizedTest(name = "unsafe chain result: {0}")
+        @ValueSource(strings = {
+                "listCPPNotes",
+                "windowClose",
+                "https://evil.example",
+                "/provider/providercontrol.jsp",
+                "../admin",
+                "list;listCPPNotes"
+        })
+        @DisplayName("should return null for untrusted chain result names")
+        void shouldReturnNull_whenResultNameUntrusted(String chain) {
+            assertThat(CaseManagementEntry2Action.sanitizeChainResultName(chain)).isNull();
         }
     }
 

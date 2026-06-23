@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.scratch;
 
 import io.github.carlos_emr.carlos.commn.dao.ScratchPadDao;
 import io.github.carlos_emr.carlos.commn.model.ScratchPad;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -130,6 +131,36 @@ class Scratch2ActionUnitTest extends CarlosUnitTestBase {
     void shouldRejectSave_whenSessionUserIsAbsent() {
         assertThat(Scratch2Action.isRequestForSessionProvider(null, null)).isFalse();
         assertThat(Scratch2Action.isRequestForSessionProvider(" ", null)).isFalse();
+    }
+
+    @Test
+    @DisplayName("should omit provider values when rejecting mismatched save")
+    void shouldOmitProviderValues_whenRejectingMismatchedSave() throws Exception {
+        HttpServletRequest request = mockRequest("POST", "999998\r\nforged-session");
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        StringWriter json = new StringWriter();
+        when(request.getParameter("providerNo")).thenReturn("123456\r\nforged-provider");
+        when(response.getWriter()).thenReturn(new PrintWriter(json));
+
+        try (LogCapture capture = LogCapture.forLogger(Scratch2Action.class)) {
+            Scratch2Action action = createAction(request, response);
+
+            assertThat(action.execute()).isNull();
+
+            verify(response).setStatus(HttpServletResponse.SC_FORBIDDEN);
+            verifyNoInteractions(scratchPadDao);
+            assertThat(json.toString()).contains("\"success\":false", "\"message\":\"Provider mismatch\"");
+            assertThat(capture.messages()).hasSize(1);
+            String logged = capture.messages().get(0);
+            assertThat(logged).doesNotContain("\r").doesNotContain("\n");
+            assertThat(logged).doesNotContain(
+                    "123456\r\nforged-provider",
+                    "999998\r\nforged-session",
+                    "123456\\r\\nforged-provider",
+                    "999998\\r\\nforged-session",
+                    "forged-provider",
+                    "forged-session");
+        }
     }
 
     /**

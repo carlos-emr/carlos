@@ -127,7 +127,9 @@ public class FormForward2Action extends ActionSupport {
          */
         String actionPath = FormViewRoutes.resolveActionPath(formPath[0]);
         if (actionPath == null) {
-            logger.warn("Failed to resolve action path for form {}", strFrm);
+            if (logger.isWarnEnabled()) {
+                logger.warn("Failed to resolve action path for requested form; form name omitted from log");
+            }
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid form path");
             return NONE;
         }

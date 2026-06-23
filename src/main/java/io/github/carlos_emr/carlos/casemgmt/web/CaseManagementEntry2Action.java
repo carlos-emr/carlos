@@ -140,6 +140,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             "observation_date_asc", "observation_date_desc",
             "providerName", "programName", "roleName", "update_date");
 
+    private static final String ISSUE_LIST_AJAX_RESULT = "issueList_ajax";
+    private static final Set<String> ALLOWED_CHAIN_RESULT_NAMES = Set.of("list", "view", ISSUE_LIST_AJAX_RESULT);
+
     public String execute() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
@@ -535,12 +538,16 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         mySessionMap.put(frmName, cform);
 
         String fwd, finalFwd = null;
-        if (chain != null && chain.length() > 0) {
-            fwd = chain;
+        String chainResult = sanitizeChainResultName(chain);
+        if (chainResult != null) {
+            fwd = chainResult;
         } else {
+            if (StringUtils.isNotBlank(chain)) {
+                logger.warn("Rejected invalid chain result target");
+            }
             String ajax = request.getParameter("ajax");
             if (ajax != null && ajax.equalsIgnoreCase("true")) {
-                fwd = "issueList_ajax";
+                fwd = ISSUE_LIST_AJAX_RESULT;
             } else {
                 fwd = "view";
             }
@@ -1725,9 +1732,12 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         /* prepare the message */
         addActionMessage(getText("note.saved"));
         String chain = request.getParameter("chain");
+        String chainResult = sanitizeChainResultName(chain);
 
-        if (chain != null && !chain.equals("")) {
-            return chain;
+        if (chainResult != null) {
+            return chainResult;
+        } else if (StringUtils.isNotBlank(chain)) {
+            logger.warn("Rejected invalid chain result target");
         }
 
         return "view";
@@ -1916,7 +1926,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), logAction, LogConst.CON_CME_NOTE, String.valueOf(note.getId()), request.getRemoteAddr(), demo, note.getAuditString());
 
-        return "issueList_ajax";
+        return ISSUE_LIST_AJAX_RESULT;
     }
 
     /**
@@ -2076,6 +2086,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             logger.debug("Redirecting to billing form for appointment_no={}, demographic_no={}",
                     appointmentNo, demoNo);
             sendBillingRedirect(url);
+            return NONE;
         }
 
         String chain = request.getParameter("chain");
@@ -2084,7 +2095,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             if (isAllowedInternalRedirectChain(chain)) {
                 sendCaseManagementListRedirect(response, request.getContextPath());
             } else {
-                logger.warn("Attempted redirect to invalid URL: {}", LogSafe.sanitize(chain));
+                logger.warn("Rejected invalid chain redirect target");
                 // Fall through to return "windowClose" without redirect
             }
         }
@@ -2391,7 +2402,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String ajax = request.getParameter("ajax");
         if (ajax != null && ajax.equalsIgnoreCase("true")) {
             request.setAttribute("caseManagementEntryForm", sessionFrm);
-            return "issueList_ajax";
+            return ISSUE_LIST_AJAX_RESULT;
         } else return "view";
     }
 
@@ -2511,7 +2522,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
         request.setAttribute("caseManagementEntryForm", sessionFrm);
 
-        return "issueList_ajax";
+        return ISSUE_LIST_AJAX_RESULT;
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
@@ -2575,7 +2586,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String ajax = request.getParameter("ajax");
         if (ajax != null && ajax.equalsIgnoreCase("true")) {
             request.setAttribute("caseManagementEntryForm", sessionFrm);
-            return "issueList_ajax";
+            return ISSUE_LIST_AJAX_RESULT;
         } else return "view";
     }
 
@@ -2659,7 +2670,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String ajax = request.getParameter("ajax");
         if (ajax != null && ajax.equalsIgnoreCase("true")) {
             request.setAttribute("caseManagementEntryForm", sessionFrm);
-            return "issueList_ajax";
+            return ISSUE_LIST_AJAX_RESULT;
         } else return "view";
     }
 
@@ -3936,6 +3947,48 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     private static void sendCaseManagementListRedirect(HttpServletResponse response, String contextPath)
             throws IOException {
         response.sendRedirect(caseManagementListRedirectUrl(contextPath));
+    }
+
+    /**
+     * Returns a normalized internal redirect target, or {@code null} when unsafe.
+     *
+     * @param url The URL to validate
+     * @return trimmed safe redirect URL, or null when unsafe
+     */
+    static String sanitizeInternalRedirect(String url) {
+        String trimmedUrl = StringUtils.trimToNull(url);
+        if (trimmedUrl == null || !isValidInternalRedirect(trimmedUrl)) {
+            return null;
+        }
+        return trimmedUrl;
+    }
+
+    /**
+     * Returns a whitelisted Struts result name for the legacy {@code chain} parameter.
+     *
+     * @param chain raw requested result name
+     * @return safe result name, or null when absent or unsafe
+     */
+    static String sanitizeChainResultName(String chain) {
+        String trimmedChain = StringUtils.trimToNull(chain);
+        if (trimmedChain == null || !ALLOWED_CHAIN_RESULT_NAMES.contains(trimmedChain)) {
+            return null;
+        }
+        return trimmedChain;
+    }
+
+    /**
+     * Validates that a redirect URL is safe and points to an internal application URL.
+     * This prevents open redirect vulnerabilities.
+     *
+     * @param url The URL to validate
+     * @return true if the URL is safe for redirect, false otherwise
+     */
+    static boolean isValidInternalRedirect(String url) {
+        if (url == null || url.isEmpty()) {
+            return false;
+        }
+        return url.startsWith("/") && RedirectValidationUtils.isValidRelativeRedirect(url);
     }
 
     /**
