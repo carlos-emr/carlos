@@ -40,7 +40,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * @see LogSanitizer
  * @see LogSafe
- * @since 2026
+ * @since 2026-06-21
  */
 @Tag("unit")
 @Tag("fast")
