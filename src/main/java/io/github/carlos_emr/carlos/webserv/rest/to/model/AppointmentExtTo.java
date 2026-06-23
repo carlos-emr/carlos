@@ -237,6 +237,4 @@ public class AppointmentExtTo {
     public String toString() {
         return "AppointmentExtTo[appointmentNo=" + appointmentNo + "]";
     }
-
-
 }
