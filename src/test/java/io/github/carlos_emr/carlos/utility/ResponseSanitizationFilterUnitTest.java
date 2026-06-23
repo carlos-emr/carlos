@@ -949,6 +949,74 @@ class ResponseSanitizationFilterUnitTest {
                     .doesNotContain("io.github.carlos_emr")
                     .contains("Reference ID:");
         }
+
+        @Test
+        @DisplayName("should enlarge the response buffer for a /ws request")
+        void shouldEnlargeResponseBuffer_forWebServiceRequest() throws Exception {
+            MockHttpServletRequest request = wsRequest("GET");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            int defaultBuffer = response.getBufferSize();
+
+            FilterChain chain = (req, res) -> ((HttpServletResponse) res).setStatus(200);
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getBufferSize())
+                    .isGreaterThanOrEqualTo(ResponseSanitizationFilter.WEB_SERVICE_RESPONSE_BUFFER_BYTES)
+                    .isGreaterThan(defaultBuffer);
+        }
+
+        @Test
+        @DisplayName("should not enlarge the response buffer for a non-/ws request")
+        void shouldNotEnlargeResponseBuffer_forNonWebServiceRequest() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/provider/providercontrol");
+            request.setRequestURI("/carlos/provider/providercontrol");
+            request.setServletPath("/provider/providercontrol");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            int defaultBuffer = response.getBufferSize();
+
+            FilterChain chain = (req, res) -> ((HttpServletResponse) res).setStatus(200);
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getBufferSize()).isEqualTo(defaultBuffer);
+        }
+
+        @Test
+        @DisplayName("should sanitize a /ws 500 partial body that would otherwise exceed the default buffer and commit")
+        void shouldSanitizePartialBody_whenLargerThanDefaultBufferOnWebServiceRoute() throws Exception {
+            MockHttpServletRequest request = wsRequest("POST");
+            // MockHttpServletResponse commits once written content exceeds its buffer size (as a
+            // real container does). A partial PHI body larger than the default buffer would commit
+            // and become unrecoverable (the #2994 leak); enlarging the /ws buffer keeps it
+            // uncommitted so the existing pass-through sanitization can replace it.
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            int defaultBuffer = response.getBufferSize();
+            StringBuilder sb = new StringBuilder(
+                    "{\"appointmentNo\":1234,\"demographic\":{\"firstName\":\"Jane\",\"phone\":\"250-555-0143\"");
+            while (sb.length() <= defaultBuffer * 2) {
+                sb.append(",\"note\":\"Jane Doe clinical note padding\"");
+            }
+            String partialPhiJson = sb.toString();
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                // Stream opened while status is still 200 (pass-through), partial body written,
+                // then a mid-serialization failure flips the status to 500.
+                httpRes.setContentType("application/json");
+                res.getOutputStream().write(partialPhiJson.getBytes(StandardCharsets.UTF_8));
+                httpRes.setStatus(500);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getStatus()).isEqualTo(500);
+            String body = response.getContentAsString();
+            assertThat(body)
+                    .doesNotContain("Jane")
+                    .doesNotContain("250-555-0143")
+                    .contains("Reference ID:");
+        }
     }
 
     @Nested

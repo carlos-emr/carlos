@@ -146,6 +146,16 @@ public class ResponseSanitizationFilter implements Filter {
     static final int MAX_CAPTURE_CHARS = 512 * 1024;
 
     /**
+     * Response buffer size (bytes) applied to web-service ({@code /ws/*}) requests so a partial
+     * entity body written before a late 5xx stays uncommitted — and therefore replaceable — up to
+     * this size. Web-service responses serialize via {@code getOutputStream()} while the status is
+     * still 200 (the filter's pass-through path); the container's small default buffer (~8 KB on
+     * Tomcat) otherwise commits the partial body before a mid-serialization failure flips the status
+     * to 5xx, leaking PHI. Aligned with {@link #MAX_CAPTURE_CHARS}. See issue #2994.
+     */
+    static final int WEB_SERVICE_RESPONSE_BUFFER_BYTES = 512 * 1024;
+
+    /**
      * Regex that matches Java stack trace markers commonly found in unhandled error responses.
      *
      * <p>Patterns matched:
@@ -257,6 +267,9 @@ public class ResponseSanitizationFilter implements Filter {
 
         HttpServletResponse httpResponse = (HttpServletResponse) response;
         boolean webServiceRequest = isWebServiceRequest((HttpServletRequest) request);
+        if (webServiceRequest) {
+            enlargeWebServiceResponseBuffer(httpResponse);
+        }
         CapturingResponseWrapper wrapper = new CapturingResponseWrapper(httpResponse);
 
         try {
@@ -467,6 +480,36 @@ public class ResponseSanitizationFilter implements Filter {
                 ? uri.substring(contextPath.length())
                 : uri;
         return path.equals("/ws") || path.startsWith("/ws/");
+    }
+
+    /**
+     * Enlarges the response buffer for web-service ({@code /ws/*}) requests so a partial entity body
+     * written before a late 5xx stays uncommitted — and therefore replaceable by
+     * {@link #sendSanitizedError} — up to {@link #WEB_SERVICE_RESPONSE_BUFFER_BYTES}.
+     *
+     * <p>Why this is needed: CXF/JAX-RS serializes responses via {@code getOutputStream()} while the
+     * status is still 200, so the wrapper leaves the stream in pass-through mode. With the container's
+     * small default buffer (~8 KB on Tomcat), a partial body larger than that is flushed and committed
+     * before a mid-serialization failure sets a 5xx — at which point the body can no longer be
+     * suppressed and PHI leaks (issue #2994). Keeping the response uncommitted within the buffer lets
+     * the existing pass-through sanitization run.</p>
+     *
+     * <p>Scope/limits: only applied to {@code /ws/*}; the buffer is bounded. Handlers that explicitly
+     * {@code flush()} (e.g. genuine streaming) still commit as before, so streamed responses are
+     * unaffected. Partial bodies larger than the buffer still commit and remain a known residual.</p>
+     *
+     * @param response HttpServletResponse the real (unwrapped) response
+     */
+    private static void enlargeWebServiceResponseBuffer(HttpServletResponse response) {
+        try {
+            if (response.getBufferSize() < WEB_SERVICE_RESPONSE_BUFFER_BYTES) {
+                response.setBufferSize(WEB_SERVICE_RESPONSE_BUFFER_BYTES);
+            }
+        } catch (IllegalStateException e) {
+            // Content already written / response committed — the buffer can no longer be resized.
+            // The existing capture and pass-through logic still applies; nothing more to do here.
+            LOGGER.debug("Cannot enlarge web-service response buffer (already committed or written)", e);
+        }
     }
 
     /**
