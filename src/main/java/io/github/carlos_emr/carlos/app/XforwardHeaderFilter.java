@@ -207,6 +207,110 @@ public class XforwardHeaderFilter implements Filter {
             String clientIp = extractClientIp(forwardedFor, trustedProxyIps, trustedProxyCidrs);
             return clientIp != null ? clientIp : remoteAddr;
         }
+
+        @Override
+        public String getScheme() {
+            String proto = forwardedProto();
+            return proto != null ? proto : super.getScheme();
+        }
+
+        @Override
+        public boolean isSecure() {
+            String proto = forwardedProto();
+            return proto != null ? "https".equals(proto) : super.isSecure();
+        }
+
+        @Override
+        public String getServerName() {
+            String host = forwardedHostName();
+            return host != null ? host : super.getServerName();
+        }
+
+        @Override
+        public int getServerPort() {
+            if (!peerIsTrusted()) {
+                return super.getServerPort();
+            }
+            Integer explicitPort = parsePort(firstToken(super.getHeader("X-Forwarded-Port")));
+            if (explicitPort != null) {
+                return explicitPort;
+            }
+            Integer hostPort = parsePort(hostPortPart(firstToken(super.getHeader("X-Forwarded-Host"))));
+            if (hostPort != null) {
+                return hostPort;
+            }
+            String proto = forwardedProto();
+            if (proto != null) {
+                return "https".equals(proto) ? 443 : 80;
+            }
+            return super.getServerPort();
+        }
+
+        private boolean peerIsTrusted() {
+            return isTrustedProxy(super.getRemoteAddr(), trustedProxyIps, trustedProxyCidrs);
+        }
+
+        /**
+         * @return the lowercased {@code X-Forwarded-Proto} value ({@code http} or {@code https})
+         *         when the peer is trusted and the header is present and valid, otherwise {@code null}.
+         */
+        private String forwardedProto() {
+            if (!peerIsTrusted()) {
+                return null;
+            }
+            String proto = firstToken(super.getHeader("X-Forwarded-Proto"));
+            if (proto == null) {
+                return null;
+            }
+            proto = proto.toLowerCase(Locale.ROOT);
+            return ("http".equals(proto) || "https".equals(proto)) ? proto : null;
+        }
+
+        /**
+         * @return the host portion (port stripped) of {@code X-Forwarded-Host} when the peer is
+         *         trusted and the header is present, otherwise {@code null}.
+         */
+        private String forwardedHostName() {
+            if (!peerIsTrusted()) {
+                return null;
+            }
+            String host = firstToken(super.getHeader("X-Forwarded-Host"));
+            if (host == null) {
+                return null;
+            }
+            int colon = host.indexOf(':');
+            String name = (colon >= 0) ? host.substring(0, colon).trim() : host;
+            return name.isEmpty() ? null : name;
+        }
+
+        private static String hostPortPart(String host) {
+            if (host == null) {
+                return null;
+            }
+            int colon = host.indexOf(':');
+            return (colon >= 0 && colon < host.length() - 1) ? host.substring(colon + 1).trim() : null;
+        }
+
+        private static String firstToken(String header) {
+            if (header == null) {
+                return null;
+            }
+            int comma = header.indexOf(',');
+            String token = (comma >= 0 ? header.substring(0, comma) : header).trim();
+            return token.isEmpty() ? null : token;
+        }
+
+        private static Integer parsePort(String value) {
+            if (value == null) {
+                return null;
+            }
+            try {
+                int port = Integer.parseInt(value);
+                return (port >= 1 && port <= 65535) ? port : null;
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
     }
 
     static final class CidrRange {

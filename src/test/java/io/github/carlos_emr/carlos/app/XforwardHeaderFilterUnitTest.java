@@ -107,6 +107,112 @@ class XforwardHeaderFilterUnitTest {
     }
 
     @Test
+    @DisplayName("should reflect forwarded scheme, host and port when peer is trusted")
+    void shouldReflectForwardedSchemeHostAndPort_whenPeerIsTrusted() throws Exception {
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getRemoteAddr()).thenReturn("127.0.0.1");
+        when(request.getHeader("X-Forwarded-Proto")).thenReturn("https");
+        when(request.getHeader("X-Forwarded-Host")).thenReturn("clinic.example.ca");
+        when(request.getHeader("X-Forwarded-Port")).thenReturn("443");
+
+        XforwardHeaderFilter.ModifyRemoteAddress wrapper =
+                new XforwardHeaderFilter.ModifyRemoteAddress(
+                        request, Set.of("127.0.0.1"), Set.of());
+
+        assertThat(wrapper.getScheme()).isEqualTo("https");
+        assertThat(wrapper.isSecure()).isTrue();
+        assertThat(wrapper.getServerName()).isEqualTo("clinic.example.ca");
+        assertThat(wrapper.getServerPort()).isEqualTo(443);
+    }
+
+    @Test
+    @DisplayName("should ignore forwarded scheme, host and port when peer is not trusted")
+    void shouldIgnoreForwardedSchemeHostAndPort_whenPeerIsNotTrusted() throws Exception {
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getRemoteAddr()).thenReturn("203.0.113.10");
+        when(request.getScheme()).thenReturn("http");
+        when(request.isSecure()).thenReturn(false);
+        when(request.getServerName()).thenReturn("internal-host");
+        when(request.getServerPort()).thenReturn(8080);
+
+        XforwardHeaderFilter.ModifyRemoteAddress wrapper =
+                new XforwardHeaderFilter.ModifyRemoteAddress(
+                        request, Set.of("127.0.0.1"), Set.of());
+
+        assertThat(wrapper.getScheme()).isEqualTo("http");
+        assertThat(wrapper.isSecure()).isFalse();
+        assertThat(wrapper.getServerName()).isEqualTo("internal-host");
+        assertThat(wrapper.getServerPort()).isEqualTo(8080);
+    }
+
+    @Test
+    @DisplayName("should derive host and port from X-Forwarded-Host when port header is absent")
+    void shouldDeriveHostAndPortFromForwardedHost_whenPortHeaderAbsent() throws Exception {
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getRemoteAddr()).thenReturn("127.0.0.1");
+        when(request.getHeader("X-Forwarded-Proto")).thenReturn("https");
+        when(request.getHeader("X-Forwarded-Host")).thenReturn("clinic.example.ca:8443");
+
+        XforwardHeaderFilter.ModifyRemoteAddress wrapper =
+                new XforwardHeaderFilter.ModifyRemoteAddress(
+                        request, Set.of("127.0.0.1"), Set.of());
+
+        assertThat(wrapper.getServerName()).isEqualTo("clinic.example.ca");
+        assertThat(wrapper.getServerPort()).isEqualTo(8443);
+    }
+
+    @Test
+    @DisplayName("should infer default port from forwarded scheme when no port is supplied")
+    void shouldInferDefaultPortFromScheme_whenNoPortSupplied() throws Exception {
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getRemoteAddr()).thenReturn("127.0.0.1");
+        when(request.getHeader("X-Forwarded-Proto")).thenReturn("https");
+        when(request.getHeader("X-Forwarded-Host")).thenReturn("clinic.example.ca");
+
+        XforwardHeaderFilter.ModifyRemoteAddress wrapper =
+                new XforwardHeaderFilter.ModifyRemoteAddress(
+                        request, Set.of("127.0.0.1"), Set.of());
+
+        assertThat(wrapper.getServerPort()).isEqualTo(443);
+    }
+
+    @Test
+    @DisplayName("should use first hop from comma-separated forwarded headers")
+    void shouldUseFirstHop_whenForwardedHeadersAreCommaSeparated() throws Exception {
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getRemoteAddr()).thenReturn("127.0.0.1");
+        when(request.getHeader("X-Forwarded-Proto")).thenReturn("https, http");
+        when(request.getHeader("X-Forwarded-Host")).thenReturn("clinic.example.ca, internal");
+        when(request.getHeader("X-Forwarded-Port")).thenReturn("443, 8080");
+
+        XforwardHeaderFilter.ModifyRemoteAddress wrapper =
+                new XforwardHeaderFilter.ModifyRemoteAddress(
+                        request, Set.of("127.0.0.1"), Set.of());
+
+        assertThat(wrapper.getScheme()).isEqualTo("https");
+        assertThat(wrapper.getServerName()).isEqualTo("clinic.example.ca");
+        assertThat(wrapper.getServerPort()).isEqualTo(443);
+    }
+
+    @Test
+    @DisplayName("should fall back to peer scheme and port when forwarded values are invalid")
+    void shouldFallbackToPeerValues_whenForwardedValuesAreInvalid() throws Exception {
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getRemoteAddr()).thenReturn("127.0.0.1");
+        when(request.getScheme()).thenReturn("http");
+        when(request.getServerPort()).thenReturn(8080);
+        when(request.getHeader("X-Forwarded-Proto")).thenReturn("ftp");
+        when(request.getHeader("X-Forwarded-Port")).thenReturn("not-a-port");
+
+        XforwardHeaderFilter.ModifyRemoteAddress wrapper =
+                new XforwardHeaderFilter.ModifyRemoteAddress(
+                        request, Set.of("127.0.0.1"), Set.of());
+
+        assertThat(wrapper.getScheme()).isEqualTo("http");
+        assertThat(wrapper.getServerPort()).isEqualTo(8080);
+    }
+
+    @Test
     @DisplayName("filter should wrap HTTP requests before continuing the chain")
     void shouldWrapHttpRequests() throws Exception {
         XforwardHeaderFilter filter = new XforwardHeaderFilter();
