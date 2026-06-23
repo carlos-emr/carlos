@@ -30,6 +30,7 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.util.Date;
 import java.util.HashMap;
@@ -236,6 +237,8 @@ public final class RxDeleteRx2Action extends ActionSupport {
      * @return null (writes JSON response with drug ID directly to output stream)
      * @throws IOException if response writing fails
      */
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String DeleteRxOnCloseRxBox()
             throws IOException {
 
@@ -348,6 +351,8 @@ public final class RxDeleteRx2Action extends ActionSupport {
      * @throws IOException if response writing fails
      */
     //STILL NEED TO SAVE REASON AND COMMENT "would like to create a summary note in the echart"
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String Discontinue() throws IOException {
         checkPrivilege(request, PRIVILEGE_UPDATE);
 

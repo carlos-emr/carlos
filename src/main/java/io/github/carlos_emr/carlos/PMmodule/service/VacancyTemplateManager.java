@@ -32,10 +32,12 @@
 
 package io.github.carlos_emr.carlos.PMmodule.service;
 
+import io.github.carlos_emr.carlos.utility.SafeEncode;
+
+import java.util.Locale;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.owasp.encoder.Encode;
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.PMmodule.dao.CriteriaDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.CriteriaSelectionOptionDao;
@@ -147,6 +149,15 @@ public interface VacancyTemplateManager {
         return criteriaTypeDAO.find(id);
     }
 
+    /**
+     * Stable form-field key shared by the generated vacancy-template controls
+     * and {@link io.github.carlos_emr.carlos.PMmodule.web.admin.ProgramManager2Action}
+     * request parsing.
+     */
+    public static String criteriaFieldKey(String fieldName) {
+        return fieldName.toLowerCase(Locale.ROOT).replace(" ", "_");
+    }
+
     public static Vacancy getVacancyById(Integer id) {
         return vacancyDAO.find(id);
     }
@@ -190,6 +201,11 @@ public interface VacancyTemplateManager {
         //get type
         CriteriaType ctype = criteriaTypeDAO.find(typeId);
         String type = ctype.getFieldName();
+        String fieldKey = criteriaFieldKey(type);
+        String attrFieldKey = SafeEncode.forHtmlAttribute(fieldKey);
+        String htmlType = SafeEncode.forHtmlContent(type);
+        String jsType = SafeEncode.forJavaScriptAttribute(type);
+        String jsFieldKey = SafeEncode.forJavaScript(fieldKey);
         List<CriteriaTypeOption> options = criteriaTypeOptionDAO.getCriteriaTypeOptionByTypeId(typeId);
 
         StringBuilder sb = new StringBuilder();
@@ -197,7 +213,7 @@ public interface VacancyTemplateManager {
         sb.append("<table width=\"100%\" border=\"1\" cellspacing=\"2\" cellpadding=\"3\"> ");
         sb.append("<tr class=\"b\">");
         sb.append("<td width=\"30%\" class=\"beright\">Requires ");
-        sb.append(type);
+        sb.append(htmlType);
         sb.append(":</td>");
 	/*
 		sb.append("<td><input type=\"checkbox\" value=\"on\" ");
@@ -211,7 +227,7 @@ public interface VacancyTemplateManager {
             sb.append("<input type=\"radio\" value=\"");
             sb.append(String.valueOf(ii));
             sb.append("\" name=\"");
-            sb.append(type.toLowerCase().replaceAll(" ", "_"));  //
+            sb.append(attrFieldKey);
             sb.append("Required\" ");
             if (criteria != null && criteria.getCanBeAdhoc() == ii)
                 sb.append("checked ");
@@ -231,12 +247,12 @@ public interface VacancyTemplateManager {
         if (ctype.getFieldType().equalsIgnoreCase("number")) {
             sb.append("<tr class=\"b\">");
             sb.append("<td class=\"beright\">");
-            sb.append(type);
+            sb.append(htmlType);
             sb.append(" Value:</td>");
-            sb.append("<td><input type=\"text\" size=\"50\" maxlength=\"50\" value=\" ");
-            sb.append(value);
+            sb.append("<td><input type=\"text\" size=\"50\" maxlength=\"50\" value=\"");
+            sb.append(SafeEncode.forHtmlAttribute(value));
             sb.append("\" name=\"");
-            sb.append(type.toLowerCase().replaceAll(" ", "_"));
+            sb.append(attrFieldKey);
             sb.append("Number\"");
             sb.append(required);
             sb.append("></td>");
@@ -250,13 +266,13 @@ public interface VacancyTemplateManager {
             sb.append("<td colspan=\"2\" style=\"padding-left: 10%;\">");
             sb.append("<div class=\"horizonton\">");
             sb.append("<div style=\"margin-bottom: 3px;\">");
-            sb.append(type);
+            sb.append(htmlType);
             sb.append(" List</div>");
             sb.append("<div>");
             sb.append("<select id=\"sourceOf");
-            sb.append(type.toLowerCase().replaceAll(" ", "_"));
+            sb.append(attrFieldKey);
             sb.append("\" name=\"sourceOf");
-            sb.append(type.toLowerCase().replaceAll(" ", "_"));
+            sb.append(attrFieldKey);
             sb.append("\"");
 
             if (ctype.getFieldType().equalsIgnoreCase("select_multiple") || ctype.getFieldType().equalsIgnoreCase("select_multiple_narrowing")) {
@@ -264,7 +280,7 @@ public interface VacancyTemplateManager {
             }
 
             sb.append(" onchange='changeVacancyTemplateType(this,\"");
-            sb.append(type);
+            sb.append(jsType);
             sb.append("\");' style=\"width: 200px;\" ");
             sb.append(required);
             sb.append(">");
@@ -275,8 +291,8 @@ public interface VacancyTemplateManager {
             for (CriteriaTypeOption option : options) {
                 boolean skip = false;
                 String label = option.getOptionLabel();
-                String htmlEscapedLabel = Encode.forHtml(label);
-                String attrEscapedLabel = Encode.forHtmlAttribute(label);
+                String htmlEscapedLabel = SafeEncode.forHtml(label);
+                String attrEscapedLabel = SafeEncode.forHtmlAttribute(label);
                 String selectedOrNot = "";
                 if (option.getOptionValue() != null && option.getOptionValue().equalsIgnoreCase(value))
                     //if(option.getId()!=null && String.valueOf(option.getId()).equalsIgnoreCase(value))
@@ -295,7 +311,7 @@ public interface VacancyTemplateManager {
                 if (skip)
                     continue;
 
-                sb.append("<option " + selectedOrNot + " value=\"" + Encode.forHtmlAttribute(option.getOptionValue()) + "\" title=\"" + attrEscapedLabel + "\">" + htmlEscapedLabel + "</option>");
+                sb.append("<option " + selectedOrNot + " value=\"" + SafeEncode.forHtmlAttribute(option.getOptionValue()) + "\" title=\"" + attrEscapedLabel + "\">" + htmlEscapedLabel + "</option>");
 
             }
 
@@ -311,32 +327,32 @@ public interface VacancyTemplateManager {
             if (criteria != null) {
                 //results from selection of type will go into this block
                 sb.append("<div id=\"block_");
-                sb.append(type.toLowerCase().replaceAll(" ", "_"));
+                sb.append(attrFieldKey);
                 sb.append("\">");
                 sb.append("<div id=\"block_vacancyType_");
-                sb.append(type.toLowerCase().replaceAll(" ", "_"));
+                sb.append(attrFieldKey);
                 sb.append("\">");
                 sb.append("<table>");
                 sb.append("<tr class=\"b\">");
                 sb.append("<td class=\"beright\">");
-                sb.append(type);
+                sb.append(htmlType);
                 sb.append(" Range Minimum:</td>");
                 sb.append("<td><input type=\"text\" size=\"50\" maxlength=\"50\" value=\"");
-                sb.append(min);
+                sb.append(SafeEncode.forHtmlAttribute(min));
                 sb.append("\" name=\"");
-                sb.append(type.toLowerCase().replaceAll(" ", "_"));
+                sb.append(attrFieldKey);
                 sb.append("Minimum\" ");
                 sb.append(required);
                 sb.append("></td>");
                 sb.append("</tr>");
                 sb.append("<tr class=\"b\">");
                 sb.append("<td class=\"beright\">");
-                sb.append(type);
+                sb.append(htmlType);
                 sb.append(" Range Maximum:</td>");
                 sb.append("<td><input type=\"text\" size=\"50\" maxlength=\"50\" value=\"");
-                sb.append(max);
+                sb.append(SafeEncode.forHtmlAttribute(max));
                 sb.append("\" name=\"");
-                sb.append(type.toLowerCase().replaceAll(" ", "_"));
+                sb.append(attrFieldKey);
                 sb.append("Maximum\" ");
                 sb.append(required);
                 sb.append("></td>");
@@ -347,7 +363,7 @@ public interface VacancyTemplateManager {
             } else {
                 //results from selection of type will go into this block
                 sb.append("<div id=\"block_");
-                sb.append(type.toLowerCase().replaceAll(" ", "_"));
+                sb.append(attrFieldKey);
                 sb.append("\">");
                 sb.append("</div>");
             }
@@ -356,18 +372,18 @@ public interface VacancyTemplateManager {
             sb.append("<div class=\"horizonton\" style=\"padding-top: 40px;\">");
             sb.append("<div>");
             sb.append("<input type=\"button\" id=\"add_");
-            sb.append(type.toLowerCase().replaceAll(" ", "_"));
+            sb.append(attrFieldKey);
             sb.append("\" name=\"add_");
-            sb.append(type.toLowerCase().replaceAll(" ", "_"));
+            sb.append(attrFieldKey);
             sb.append("\" value=\">>\" ");
             sb.append(required);
             sb.append(">");
             sb.append("</div>");
             sb.append("<div>");
             sb.append("<input type=\"button\" id=\"remove_");
-            sb.append(type.toLowerCase().replaceAll(" ", "_"));
+            sb.append(attrFieldKey);
             sb.append("\" name=\"remove_");
-            sb.append(type.toLowerCase().replaceAll(" ", "_"));
+            sb.append(attrFieldKey);
             sb.append("\" value=\"<<\" ");
             sb.append(required);
             sb.append(">");
@@ -376,13 +392,13 @@ public interface VacancyTemplateManager {
 
             sb.append("<div class=\"horizonton\">");
             sb.append("<div style=\"margin-bottom: 3px;\">Required ");
-            sb.append(type);
+            sb.append(htmlType);
             sb.append("</div>");
             sb.append("<div>");
             sb.append("<select id=\"targetOf");
-            sb.append(type.toLowerCase().replaceAll(" ", "_"));
+            sb.append(attrFieldKey);
             sb.append("\" name=\"targetOf");
-            sb.append(type.toLowerCase().replaceAll(" ", "_"));
+            sb.append(attrFieldKey);
             sb.append("\" multiple=\"multiple\" size=\"7\" ");
             sb.append("style=\"width: 200px;\" ");
             sb.append(required);
@@ -396,11 +412,11 @@ public interface VacancyTemplateManager {
                 //value in criteria_selection_option is the id in criteria_type_option, this makes more sense as the value may not be unique or may be null
                 //CriteriaTypeOption option2 = criteriaTypeOptionDAO.getCriteriaTypeOptionByOptionId(Integer.parseInt(cso.getOptionValue()));
                 String label = option2.getOptionLabel();
-                String htmlEscapedLabel = Encode.forHtml(label);
-                String attrEscapedLabel = Encode.forHtmlAttribute(label);
+                String htmlEscapedLabel = SafeEncode.forHtml(label);
+                String attrEscapedLabel = SafeEncode.forHtmlAttribute(label);
                 //String selected = (CdsClientFormData.containsAnswer(existingAnswers, option.getCdsDataCategory()) ? "selected=\"selected\"" : "");
                 String selected = "selected";
-                sb.append("<option " + selected + " value=\"" + Encode.forHtmlAttribute(option2.getOptionValue()) + "\" title=\"" + attrEscapedLabel + "\">" + htmlEscapedLabel + "</option>");
+                sb.append("<option " + selected + " value=\"" + SafeEncode.forHtmlAttribute(option2.getOptionValue()) + "\" title=\"" + attrEscapedLabel + "\">" + htmlEscapedLabel + "</option>");
             }
 
             sb.append("</select>");
@@ -418,29 +434,27 @@ public interface VacancyTemplateManager {
             sb.append("<script type=\"text/javascript\">");
             sb.append(" $(document).ready(");
             sb.append("function () { ");
-            sb.append("$('#");
-            sb.append("remove_");
-            sb.append(type.toLowerCase().replaceAll(" ", "_"));
-            sb.append("').click(");
+            sb.append("$(document.getElementById('remove_");
+            sb.append(jsFieldKey);
+            sb.append("')).click(");
             sb.append("function (e) {");
-            sb.append("$('#targetOf");
-            sb.append(type.toLowerCase().replaceAll(" ", "_"));
-            sb.append(" > option:selected').appendTo('#sourceOf");
-            sb.append(type.toLowerCase().replaceAll(" ", "_"));
-            sb.append("');");
+            sb.append("$(document.getElementById('targetOf");
+            sb.append(jsFieldKey);
+            sb.append("')).find('option:selected').appendTo(document.getElementById('sourceOf");
+            sb.append(jsFieldKey);
+            sb.append("'));");
             sb.append("e.preventDefault();");
             sb.append("});");
 
-            sb.append("$('#");
-            sb.append("add_");
-            sb.append(type.toLowerCase().replaceAll(" ", "_"));
-            sb.append("').click(");
+            sb.append("$(document.getElementById('add_");
+            sb.append(jsFieldKey);
+            sb.append("')).click(");
             sb.append("function (e) {");
-            sb.append("$('#sourceOf");
-            sb.append(type.toLowerCase().replaceAll(" ", "_"));
-            sb.append(" > option:selected').appendTo('#targetOf");
-            sb.append(type.toLowerCase().replaceAll(" ", "_"));
-            sb.append("');");
+            sb.append("$(document.getElementById('sourceOf");
+            sb.append(jsFieldKey);
+            sb.append("')).find('option:selected').appendTo(document.getElementById('targetOf");
+            sb.append(jsFieldKey);
+            sb.append("'));");
             sb.append("e.preventDefault();");
             sb.append("});");
 

@@ -1,0 +1,42 @@
+<%--
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    CARLOS EMR Project
+    https://github.com/carlos-emr/carlos
+--%>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%
+    boolean showScheduleNav = "1".equals(request.getParameter("scheduleNav"));
+    String scheduleNavQuerySuffix = showScheduleNav ? "&scheduleNav=1" : "";
+    String scheduleNavFirstQuerySuffix = showScheduleNav ? "?scheduleNav=1" : "";
+    String messengerScheduleNavigationMode = UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP;
+
+    if (showScheduleNav) {
+        Object messengerProvider = session.getAttribute("user");
+        if (messengerProvider instanceof String) {
+            String messengerProviderNo = (String) messengerProvider;
+            UserPropertyDAO messengerUserPropertyDao = SpringUtils.getBean(UserPropertyDAO.class);
+            UserProperty messengerNavProp = messengerUserPropertyDao.getProp(
+                    messengerProviderNo,
+                    UserProperty.SCHEDULE_NAVIGATION_MODE);
+            UserProperty messengerLegacyTabProp = messengerUserPropertyDao.getProp(
+                    messengerProviderNo,
+                    UserProperty.ENCOUNTER_OPEN_IN_TAB);
+
+            messengerScheduleNavigationMode = UserProperty.resolveScheduleNavigationMode(
+                    messengerNavProp != null ? messengerNavProp.getValue() : null,
+                    messengerLegacyTabProp != null && "yes".equalsIgnoreCase(messengerLegacyTabProp.getValue()));
+        }
+    }
+
+    boolean showMessengerExitButton = !showScheduleNav
+            || !UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED.equals(messengerScheduleNavigationMode);
+%>

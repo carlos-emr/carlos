@@ -486,7 +486,7 @@
     <form name="ReProcessBillingForm" method="post" action="reprocessBill">
 
         <input type="hidden" id="hiddenFilterType" name="hiddenFilterType"
-               value="<carlos:encode value='<%= request.getParameter("billTypes") != null ? request.getParameter("billTypes") : "" %>' context="htmlAttribute"/>">
+               value="<carlos:encode value='<%= request.getParameter("billTypes") != null ? request.getParameter("billTypes") : "" %>' context="htmlAttribute"/>"><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
 
 
         <table class="table table-striped table-sm sortable" id="resultsTable">
