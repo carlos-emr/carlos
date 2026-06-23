@@ -93,6 +93,26 @@ class JspJavaScriptEncodingRegressionTest {
     }
 
     @Test
+    void shouldDeriveDocumentReportCurrentUserFromSession_andGuardOpenerRefresh() throws Exception {
+        String addDocumentJsp = readJsp("documentManager/addDocument.jsp");
+        String documentReportJsp = readJsp("documentManager/documentReport.jsp");
+
+        // Assert intent (whitespace-tolerant patterns), not exact source formatting. The
+        // doesNotContain guards are the durable regression net: curUser must not be read from a
+        // request parameter, and the opener URL map must not be dereferenced unguarded.
+        assertThat(addDocumentJsp)
+                .containsPattern("curUser\\s*=\\s*user_no\\s*!=\\s*null")
+                .doesNotContain("request.getParameter(\"curUser\")");
+        assertThat(documentReportJsp)
+                .containsPattern("curUser\\s*=\\s*LoggedInInfo\\.getLoggedInInfoFromSession\\(request\\)\\.getLoggedInProviderNo\\(\\)")
+                .containsPattern("hasOwnProperty\\.call\\(\\s*window\\.opener\\.URLs")
+                // Gate forwards the validated lowercased function token; the JSP must prefer it so a
+                // mixed-case "function" param cannot skip the case-sensitive "demographic" branch.
+                .containsPattern("getAttribute\\(\\s*\"normalizedFunction\"\\s*\\)")
+                .doesNotContain("var Url = window.opener.URLs;");
+    }
+
+    @Test
     void shouldUseGuardedIpAddressVariable_forChartNotesAjax() throws Exception {
         String chartNotesJsp = readJsp("casemgmt/ChartNotesAjax.jsp");
         int declarationStart = chartNotesJsp.indexOf("String noteLockIpAddress");
@@ -192,6 +212,58 @@ class JspJavaScriptEncodingRegressionTest {
                     .containsPattern(SAFE_TEXTAREA_RENDER_PATTERN)
                     .doesNotContainPattern(RAW_TEXTAREA_RENDER_PATTERN);
         }
+    }
+
+    @Test
+    @DisplayName("should encode billing settings custom clinic info textarea in HTML body context")
+    @Tag("security")
+    void shouldEncodeBillingSettingsCustomClinicInfoTextarea_inHtmlBodyContext() throws Exception {
+        String billingSettingsJsp = readJsp("admin/billingSettings.jsp");
+
+        assertThat(billingSettingsJsp)
+                .contains("${carlos:forHtmlContent(\"on\" eq dataBean[\"invoice_use_custom_clinic_info\"] ? dataBean[\"invoice_custom_clinic_info\"] : clinicData.label)}")
+                .doesNotContain("${\"on\" eq dataBean[\"invoice_use_custom_clinic_info\"] ? dataBean[\"invoice_custom_clinic_info\"] : clinicData.label }");
+    }
+
+    @Test
+    @DisplayName("should render MOH archive session messages on the MOH files page")
+    @Tag("security")
+    void shouldRenderMohMessages_onViewMohFilesPage() throws Exception {
+        String jsp = readJsp("billing/CA/ON/viewMOHFiles.jsp");
+
+        assertThat(jsp)
+                .contains("WebUtils.popErrorAndInfoMessagesAsHtml(session)")
+                .doesNotContain("WebUtils.popErrorMessagesAsAlert(session)");
+    }
+
+    @Test
+    @DisplayName("should encode measurement data cells in HTML body context")
+    @Tag("security")
+    void shouldEncodeMeasurementData_onDisplayHistoryPage() throws Exception {
+        String jsp = readJsp("encounter/oscarMeasurements/DisplayHistory.jsp");
+
+        assertThat(jsp)
+                .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
+                .contains("${carlos:forHtmlContent(data.dataField)}")
+                .contains("${carlos:forHtmlContent(data.comments)}")
+                .doesNotContain("${data.dataField}</td>")
+                .doesNotContain("${data.comments}</td>")
+                .doesNotContain("${carlos:forHtml(data.dataField)}")
+                .doesNotContain("${carlos:forHtml(data.comments)}");
+    }
+
+    @Test
+    @DisplayName("should render Teleplan eligibility lines without storing HTML in Msgs")
+    @Tag("security")
+    void shouldRenderTeleplanEligibilityLines_onCheckEligibilityPage() throws Exception {
+        String jsp = readJsp("billing/CA/BC/checkEligibility.jsp");
+
+        assertThat(jsp)
+                .contains("List<String> msgLines")
+                .contains("request.getAttribute(\"MsgsLines\")")
+                .contains("<span style=\"color:red; font-weight:bold;\">")
+                .contains("<carlos:encode value='<%= safeLine %>' context=\"html\"/>")
+                .contains("<carlos:encode value='<%= msgs %>' context=\"html\"/>");
     }
 
     private static String readJsp(String relativePath) throws Exception {

@@ -21,12 +21,18 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.SxmlMisc;
 import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
 import io.github.carlos_emr.carlos.billings.ca.on.command.BillingCorrectionLineCommand;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingCorrectionReviewDraft;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingCorrectionReviewItemDraft;
 import io.github.carlos_emr.carlos.billings.ca.on.command.BillingCorrectionValidationCommand;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingCorrectionCodedTokenValidator;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
+import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,6 +41,7 @@ import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /**
  * Builds the typed ON correction review payload from submitted form data.
@@ -43,12 +50,24 @@ import java.util.Map;
 @Transactional(readOnly = true)
 public class BillingCorrectionReviewPreparationService {
 
+    private static final Logger LOGGER = MiscUtils.getLogger();
+    private static final Pattern XML_ELEMENT_NAME = Pattern.compile("^[A-Za-z_][A-Za-z0-9_.-]*$");
+
     private final ServiceCodeLoader serviceCodeLoader;
 
     public BillingCorrectionReviewPreparationService(ServiceCodeLoader serviceCodeLoader) {
         this.serviceCodeLoader = serviceCodeLoader;
     }
 
+    /**
+     * Builds the review draft (including the persisted-format content blob)
+     * from the submitted correction form.
+     *
+     * @throws BillingValidationException if a coded MOH token ({@code rdohip},
+     *         {@code hctype}, {@code demosex}) fails its allowlist or money
+     *         fields are malformed; the message is operator-facing and the
+     *         caller is expected to render it (see {@code BillingCorrectionValid2Action})
+     */
     public BillingCorrectionReviewDraft prepareReviewDraft(BillingCorrectionValidationCommand command) {
         BigDecimal billingunit = BillingMoney.zeroAmount();
         BigDecimal percentPremium = BillingMoney.zeroAmount();
@@ -209,21 +228,39 @@ public class BillingCorrectionReviewPreparationService {
 
     private String buildContent(BillingCorrectionValidationCommand command) {
         StringBuilder content = new StringBuilder();
-        content.append("<rdohip>").append(command.referralDoctorOhip()).append("</rdohip>")
-                .append("<rd>").append(command.referralDoctor()).append("</rd>");
-        content.append("<xml_referral>").append(command.referralChecked() ? "checked" : "").append("</xml_referral>")
-                .append("<mreview>").append(command.manualReview() ? "checked" : "").append("</mreview>");
-        content.append("<hctype>").append(command.hcType()).append("</hctype>")
-                .append("<demosex>").append(command.hcSex()).append("</demosex>");
-        content.append("<specialty>").append(command.specialty()).append("</specialty>");
-        content.append("<xml_roster>").append(command.rosterStatus()).append("</xml_roster>");
+        // Keep this fixed element list in sync with BillingCorrectionCodedTokenValidator.FIXED_CONTENT_ELEMENTS.
+        appendCodedXmlElement(content, "rdohip", command.referralDoctorOhip());
+        appendEscapedXmlElement(content, "rd", command.referralDoctor());
+        appendEscapedXmlElement(content, "xml_referral", command.referralChecked() ? "checked" : "");
+        appendEscapedXmlElement(content, "mreview", command.manualReview() ? "checked" : "");
+        appendCodedXmlElement(content, "hctype", command.hcType());
+        appendCodedXmlElement(content, "demosex", command.hcSex());
+        appendEscapedXmlElement(content, "specialty", command.specialty());
+        appendEscapedXmlElement(content, "xml_roster", command.rosterStatus());
 
         for (Map.Entry<String, String> entry : command.xmlParameters().entrySet()) {
-            content.append("<").append(entry.getKey()).append(">")
-                    .append(SxmlMisc.replaceHTMLContent(entry.getValue()))
-                    .append("</").append(entry.getKey()).append(">");
+            appendEscapedXmlElement(content, entry.getKey(), entry.getValue());
         }
         return content.toString();
+    }
+
+    private static void appendEscapedXmlElement(StringBuilder content, String elementName, String value) {
+        if (elementName == null || !XML_ELEMENT_NAME.matcher(elementName).matches()) {
+            LOGGER.warn("Skipping invalid billing correction XML element name {}", LogSafe.sanitize(elementName));
+            return;
+        }
+        content.append("<").append(elementName).append(">")
+                .append(SxmlMisc.replaceHTMLContent(value == null ? "" : value))
+                .append("</").append(elementName).append(">");
+    }
+
+    // FindSecBugs POTENTIAL_XML_INJECTION: element names are fixed by callers and values are regex-validated coded MOH tokens; XML escaping these fields corrupts fixed-width extraction.
+    @SuppressFBWarnings(value = "POTENTIAL_XML_INJECTION", justification = "OHIP extract fields are fixed element names and regex-validated coded values; entity escaping corrupts fixed-width MOH output because the extractor does not unescape")
+    private static void appendCodedXmlElement(StringBuilder content, String elementName, String value) {
+        String safeValue = BillingCorrectionCodedTokenValidator.validate(elementName, value);
+        content.append("<").append(elementName).append(">")
+                .append(safeValue)
+                .append("</").append(elementName).append(">");
     }
 
     private io.github.carlos_emr.carlos.billings.ca.on.dto.BillingCodeAttribute loadServiceCode(String serviceCode) {

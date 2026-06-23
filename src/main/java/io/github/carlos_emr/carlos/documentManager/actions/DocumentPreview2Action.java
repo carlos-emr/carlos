@@ -63,6 +63,11 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  */
 public class DocumentPreview2Action extends ActionSupport {
     private static final String FETCH_CONSULT_DOCUMENTS = "fetchConsultDocuments";
+    private static final String EDOC_PDF_RENDER_FAILURE_MESSAGE = "Failed to render document PDF.";
+    private static final String EFORM_PDF_RENDER_FAILURE_MESSAGE = "Failed to render eForm PDF.";
+    private static final String HRM_PDF_RENDER_FAILURE_MESSAGE = "Failed to render HRM PDF.";
+    private static final String LAB_PDF_RENDER_FAILURE_MESSAGE = "Failed to render lab PDF.";
+    private static final String FORM_PDF_RENDER_FAILURE_MESSAGE = "Failed to render form PDF.";
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -131,7 +136,7 @@ public class DocumentPreview2Action extends ActionSupport {
                 requirePrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE);
                 return fetchConsultDocuments();
             default:
-                logger.warn("Unsupported previewDocs method requested: {}", LogSafe.sanitize(method));
+                logger.warn("Unsupported previewDocs method requested.");
                 response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                 return NONE;
         }
@@ -168,7 +173,7 @@ public class DocumentPreview2Action extends ActionSupport {
             generateResponse(response, docPDFPath);
         } catch (PDFGenerationException e) {
             logger.error("Error occurred while rendering eDoc. " + e.getMessage(), e);
-            generateResponse(response, e.getMessage());
+            generateResponse(response, EDOC_PDF_RENDER_FAILURE_MESSAGE);
         }
     }
 
@@ -197,7 +202,7 @@ public class DocumentPreview2Action extends ActionSupport {
             generateResponse(response, eFormPDFPath);
         } catch (PDFGenerationException e) {
             logger.error("Error occurred while rendering eForm. " + e.getMessage(), e);
-            generateResponse(response, e.getMessage());
+            generateResponse(response, EFORM_PDF_RENDER_FAILURE_MESSAGE);
         }
     }
 
@@ -226,7 +231,7 @@ public class DocumentPreview2Action extends ActionSupport {
             generateResponse(response, hrmPDFPath);
         } catch (PDFGenerationException e) {
             logger.error("Error occurred while rendering HRM. " + e.getMessage(), e);
-            generateResponse(response, e.getMessage());
+            generateResponse(response, HRM_PDF_RENDER_FAILURE_MESSAGE);
         }
     }
 
@@ -254,7 +259,7 @@ public class DocumentPreview2Action extends ActionSupport {
             generateResponse(response, labPDFPath);
         } catch (PDFGenerationException e) {
             logger.error("Error occurred while rendering Lab. " + e.getMessage(), e);
-            generateResponse(response, e.getMessage());
+            generateResponse(response, LAB_PDF_RENDER_FAILURE_MESSAGE);
         }
     }
 
@@ -276,7 +281,7 @@ public class DocumentPreview2Action extends ActionSupport {
             generateResponse(response, formPDFPath);
         } catch (PDFGenerationException e) {
             logger.error("Error occurred while rendering Form. " + e.getMessage(), e);
-            generateResponse(response, e.getMessage());
+            generateResponse(response, FORM_PDF_RENDER_FAILURE_MESSAGE);
         }
     }
 
