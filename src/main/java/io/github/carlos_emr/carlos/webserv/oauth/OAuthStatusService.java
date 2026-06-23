@@ -130,7 +130,10 @@ public class OAuthStatusService extends AbstractServiceImpl {
             // 4) build JSON exactly as before
 
             ObjectNode obj = objectMapper.createObjectNode();
-            obj.set("providers", objectMapper.valueToTree(provider));
+            obj.put("providerNo", provider.getProviderNo());
+            obj.put("firstName", provider.getFirstName());
+            obj.put("lastName", provider.getLastName());
+            obj.put("specialty", provider.getSpecialty());
             obj.put("login", provider.getProviderNo());
             obj.set("roles", objectMapper.valueToTree(roles));
 
