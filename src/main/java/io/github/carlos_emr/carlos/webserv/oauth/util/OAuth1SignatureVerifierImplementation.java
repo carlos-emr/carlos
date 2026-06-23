@@ -49,8 +49,12 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Service
 public class OAuth1SignatureVerifierImplementation implements OAuth1SignatureVerifier {
+    private final OscarOAuthDataProvider dataProvider;
+
     @Autowired
-    private OscarOAuthDataProvider dataProvider;
+    public OAuth1SignatureVerifierImplementation(OscarOAuthDataProvider dataProvider) {
+        this.dataProvider = dataProvider;
+    }
 
     // ★ NEW: configurable clock skew (seconds)
     private static final long ALLOWED_SKEW_SECONDS = 300L;
