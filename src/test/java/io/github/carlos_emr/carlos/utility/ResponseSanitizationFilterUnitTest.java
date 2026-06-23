@@ -31,6 +31,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
@@ -43,9 +45,11 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
@@ -163,6 +167,37 @@ class ResponseSanitizationFilterUnitTest {
             assertThat(ResponseSanitizationFilter.containsStackTrace(body)).isTrue();
         }
 
+        @ParameterizedTest
+        @DisplayName("should return true for stack frame line variations")
+        @ValueSource(strings = {
+                "Error\r\nat io.github.carlos_emr.carlos.SomeClass.method(SomeClass.java:42)",
+                "Error\r\n\tat io.github.carlos_emr.carlos.SomeClass.method(SomeClass.java:42)"
+        })
+        void shouldReturnTrue_forStackFrameLineVariations(String body) {
+            assertThat(ResponseSanitizationFilter.containsStackTrace(body)).isTrue();
+        }
+
+        @Test
+        @DisplayName("should return true for body starting with stack frame line")
+        void shouldReturnTrue_forLeadingStackFrameLine() {
+            String body = "at io.github.carlos_emr.carlos.SomeClass.method(SomeClass.java:42)";
+            assertThat(ResponseSanitizationFilter.containsStackTrace(body)).isTrue();
+        }
+
+        @Test
+        @DisplayName("should return true for body starting with whitespace before stack frame line")
+        void shouldReturnTrue_forLeadingWhitespaceStackFrameLine() {
+            String body = "  \tat io.github.carlos_emr.carlos.SomeClass.method(SomeClass.java:42)";
+            assertThat(ResponseSanitizationFilter.containsStackTrace(body)).isTrue();
+        }
+
+        @Test
+        @DisplayName("should return true for constructor stack frame line")
+        void shouldReturnTrue_forConstructorStackFrameLine() {
+            String body = "Error\n\tat ca.example.SomeClass.<init>(SomeClass.java:42)";
+            assertThat(ResponseSanitizationFilter.containsStackTrace(body)).isTrue();
+        }
+
         @Test
         @DisplayName("should return true for body containing Caused by:")
         void shouldReturnTrue_forCausedByMarker() {
@@ -225,12 +260,46 @@ class ResponseSanitizationFilterUnitTest {
             assertThat(ResponseSanitizationFilter.containsStackTrace(body)).isTrue();
         }
 
-        @Test
-        @DisplayName("should return false for word 'at' in normal prose text")
-        void shouldReturnFalse_forWordAtInNormalText() {
-            // "at" in plain text (without a preceding newline) should not match the stack frame pattern
-            String body = "An error occurred at line 10 of the configuration file.";
+        @ParameterizedTest
+        @DisplayName("should return false for plain text stack trace near misses")
+        @ValueSource(strings = {
+                "An error occurred at line 10 of the configuration file.",
+                "notjava.lang.Exception is just prose",
+                "notCaused by: this is ordinary text",
+                "foo_java.lang.Exception is part of an identifier",
+                "1java.lang.Exception is part of a token",
+                "foo_Caused by: is embedded in a larger word",
+                "1Caused by: is embedded in a larger token"
+        })
+        void shouldReturnFalse_forPlainTextNearMisses(String body) {
             assertThat(ResponseSanitizationFilter.containsStackTrace(body)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should complete in time for adversarial stack frame near miss")
+        void shouldCompleteInTime_forAdversarialStackFrameNearMiss() {
+            String body = "\nat "
+                    + "a.".repeat(ResponseSanitizationFilter.MAX_CAPTURE_CHARS / 4)
+                    + "method("
+                    + "x".repeat(ResponseSanitizationFilter.MAX_CAPTURE_CHARS / 4);
+
+            boolean result = assertTimeoutPreemptively(Duration.ofSeconds(2),
+                    () -> ResponseSanitizationFilter.containsStackTrace(body));
+
+            assertThat(result).isFalse();
+        }
+
+        @Test
+        @DisplayName("should complete in time for repeated stack frame prefixes")
+        void shouldCompleteInTime_forRepeatedStackFramePrefixes() {
+            // Exercises the repeated-line path where each candidate exits before an open paren.
+            String body = ("\nat " + "a".repeat(80) + ".method\n")
+                    .repeat(ResponseSanitizationFilter.MAX_CAPTURE_CHARS / 90);
+
+            boolean result = assertTimeoutPreemptively(Duration.ofSeconds(2),
+                    () -> ResponseSanitizationFilter.containsStackTrace(body));
+
+            assertThat(result).isFalse();
         }
     }
 
