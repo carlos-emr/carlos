@@ -259,10 +259,10 @@ public class XforwardHeaderFilter implements Filter {
                 return null;
             }
             String proto = firstToken(super.getHeader("X-Forwarded-Proto"));
-            if ("https".equalsIgnoreCase(proto)) {
+            if (equalsAsciiIgnoreCase(proto, "https")) {
                 return "https";
             }
-            if ("http".equalsIgnoreCase(proto)) {
+            if (equalsAsciiIgnoreCase(proto, "http")) {
                 return "http";
             }
             return null;
@@ -284,7 +284,9 @@ public class XforwardHeaderFilter implements Filter {
             String name;
             if (host.startsWith("[")) {
                 int close = host.indexOf(']');
-                name = (close >= 0) ? host.substring(0, close + 1).trim() : host;
+                // A bracketed value with no closing bracket is malformed; ignore it so it
+                // cannot override the server name (an empty name falls back to the peer below).
+                name = (close >= 0) ? host.substring(0, close + 1).trim() : "";
             } else {
                 int colon = host.indexOf(':');
                 // Only treat as host:port when there is a single colon (IPv4 / hostname); an
@@ -334,6 +336,32 @@ public class XforwardHeaderFilter implements Filter {
             } catch (NumberFormatException e) {
                 return null;
             }
+        }
+
+        /**
+         * ASCII-only case-insensitive equality against a known lowercase token. This deliberately
+         * avoids {@link String#equalsIgnoreCase} / {@link String#toLowerCase}, whose Unicode case
+         * folding trips the Find Security Bugs IMPROPER_UNICODE rule, while still matching the
+         * small fixed set of expected scheme tokens.
+         *
+         * @param value             the candidate value (may be {@code null})
+         * @param asciiLowerTarget  the target token, expected to be ASCII lowercase
+         * @return {@code true} when {@code value} equals the target ignoring ASCII letter case
+         */
+        private static boolean equalsAsciiIgnoreCase(String value, String asciiLowerTarget) {
+            if (value == null || value.length() != asciiLowerTarget.length()) {
+                return false;
+            }
+            for (int i = 0; i < value.length(); i++) {
+                char c = value.charAt(i);
+                if (c >= 'A' && c <= 'Z') {
+                    c += 32;
+                }
+                if (c != asciiLowerTarget.charAt(i)) {
+                    return false;
+                }
+            }
+            return true;
         }
     }
 

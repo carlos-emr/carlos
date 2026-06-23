@@ -262,6 +262,23 @@ class XforwardHeaderFilterUnitTest {
     }
 
     @Test
+    @DisplayName("should ignore a malformed bracketed forwarded host that has no closing bracket")
+    void shouldIgnoreMalformedBracketedHost_withNoClosingBracket() throws Exception {
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getRemoteAddr()).thenReturn("127.0.0.1");
+        when(request.getServerName()).thenReturn("internal-host");
+        when(request.getServerPort()).thenReturn(8080);
+        when(request.getHeader("X-Forwarded-Host")).thenReturn("[2001:db8::1");
+
+        XforwardHeaderFilter.ModifyRemoteAddress wrapper =
+                new XforwardHeaderFilter.ModifyRemoteAddress(
+                        request, Set.of("127.0.0.1"), Set.of());
+
+        assertThat(wrapper.getServerName()).isEqualTo("internal-host");
+        assertThat(wrapper.getServerPort()).isEqualTo(8080);
+    }
+
+    @Test
     @DisplayName("should accept mixed-case forwarded proto without locale-sensitive lowercasing")
     void shouldAcceptMixedCaseForwardedProto_withoutLocaleLowercasing() throws Exception {
         HttpServletRequest request = mock(HttpServletRequest.class);
