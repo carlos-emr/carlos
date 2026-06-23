@@ -310,6 +310,28 @@ class ScheduleNavigationAssetRegressionTest {
                 .contains("popupAction(targetUrl);");
     }
 
+    @Test
+    @DisplayName("should expose appointment hover details on schedule entries")
+    void shouldExposeAppointmentHoverDetails_onScheduleEntries() throws IOException {
+        String appointmentProviderDay = Files.readString(APPOINTMENT_PROVIDER_DAY_JSP, StandardCharsets.UTF_8);
+        String scheduleScript = Files.readString(SCHEDULE_PAGE_SCRIPT, StandardCharsets.UTF_8);
+
+        assertThat(appointmentProviderDay)
+                .contains("appendTooltipLine(appointmentTooltipSummaryBuilder, \"Reason\", reasonCodeName);")
+                .contains("appendTooltipLine(appointmentTooltipFullBuilder, \"Appointment notes\", notes);")
+                .contains("appendTooltipLine(appointmentTooltipFullBuilder, \"Ticklers\", tickler_note);")
+                .contains("appendTooltipLine(appointmentTooltipFullBuilder, \"Demographic alerts\", demographicAlert);")
+                .contains("appendTooltipLine(appointmentTooltipFullBuilder, \"Demographic notes\", demographicNotes);")
+                .contains("appendTooltipLine(appointmentTooltipFullBuilder, \"Prevention alerts\", preventionWarning);")
+                .contains("class=\"appt<%= isCancelled ? \" Cancelled\" : \"\" %><%= showTooltip ?"
+                        + " \" appt-reason-tooltip appt-tooltip-provider-\" + curProvider_no[nProvider] : \"\" %>\"")
+                .contains("data-title-full=\\\"\" + appointmentTooltipFull + \"\\\"")
+                .contains("data-title-short=\\\"\" + appointmentTooltipSummary + \"\\\"");
+        assertThat(scheduleScript)
+                .contains("updateTooltipsForProvider(providerNo, showReason);")
+                .contains("const titleAttr = showReason ? el.dataset.titleFull : el.dataset.titleShort;");
+    }
+
     /**
      * Collapses JSP whitespace sequences to single spaces so assertions focus
      * on defaulting behavior instead of indentation or line wrapping.
