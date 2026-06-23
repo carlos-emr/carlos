@@ -204,11 +204,11 @@ selected</c:if>><fmt:message key="tickler.ticklerMain.priority.low"/></option>
 				<div id="AlertBanner"
 					 class="alert alert-success alert-dismissible"
 					 role="alert">
-					<span id="AlertText"><fmt:message key="<%=providermsgSuccess%>"/></span>
+					<span id="AlertText"><%=providermsgSuccess%>"/></span>
 					<button type="button"
 							class="btn-close"
 							onclick="this.closest('.alert').style.display='none'"
-							aria-label="Close"></button>
+							aria-label="<fmt:message key="global.btnCancel"/>"></button>
 				</div>
         <br/><br/>
                 <input type="button" class="btn btn-primary btn-sm" value="<fmt:message key="global.btnClose"/>" onclick="window.close();"/>
