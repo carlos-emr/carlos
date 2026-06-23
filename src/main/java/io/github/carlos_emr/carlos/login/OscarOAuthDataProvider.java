@@ -29,6 +29,10 @@
 package io.github.carlos_emr.carlos.login;
 
 
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
@@ -53,11 +57,11 @@ import io.github.carlos_emr.carlos.webserv.oauth.RequestToken;
 import io.github.carlos_emr.carlos.webserv.oauth.RequestTokenRegistration;
 import io.github.carlos_emr.carlos.webserv.oauth.UserSubject;
 
-import java.util.*;
-
 @Component
 @Transactional
 public class OscarOAuthDataProvider {
+
+    private static final String OOB_CALLBACK = "oob";
 
     private final org.apache.logging.log4j.Logger logger = MiscUtils.getLogger();
 
@@ -69,13 +73,16 @@ public class OscarOAuthDataProvider {
         logger.debug("getClient({})", consumerKey);
         ServiceClient sc = serviceClientDao.findByKey(consumerKey);
         if (sc != null) {
-            return new Client(sc.getKey(), sc.getSecret(), sc.getName(), sc.getUri());
+            Client client = new Client(sc.getKey(), sc.getSecret(), sc.getName(), sc.getUri());
+            client.setCallbackUri(sc.getUri());
+            return client;
         }
         return null;
     }
 
     public RequestToken createRequestToken(RequestTokenRegistration reg) {
         logger.debug("createRequestToken() called");
+        validateCallbackAllowed(reg);
         String tokenId = UUID.randomUUID().toString();
         String tokenSecret = UUID.randomUUID().toString();
 
@@ -118,6 +125,7 @@ public class OscarOAuthDataProvider {
 
         ServiceClient sc = serviceClientDao.find(srt.getClientId());
         Client client = new Client(sc.getKey(), sc.getSecret(), sc.getName(), sc.getUri());
+        client.setCallbackUri(sc.getUri());
 
         RequestToken rt = new RequestToken(client, srt.getTokenId(), srt.getTokenSecret());
         List<OAuth1Permission> perms = new ArrayList<>();
@@ -261,6 +269,103 @@ public class OscarOAuthDataProvider {
             return true;
         }
         return System.currentTimeMillis() / 1000 >= expiresAt;
+    }
+
+    private static void validateCallbackAllowed(RequestTokenRegistration reg) {
+        Client client = reg.getClient();
+        String registeredCallback = client == null ? null : client.getCallbackUri();
+        String requestedCallback = reg.getCallback();
+        if (requestedCallback == null || requestedCallback.isBlank()) {
+            return;
+        }
+        if (registeredCallback == null || registeredCallback.isBlank()) {
+            throw new OAuth1Exception(400, "callback_uri not allowed");
+        }
+
+        if (isOutOfBandCallback(registeredCallback)) {
+            if (!isOutOfBandCallback(requestedCallback)) {
+                throw new OAuth1Exception(400, "callback_uri not allowed");
+            }
+            return;
+        }
+        if (isOutOfBandCallback(requestedCallback)) {
+            throw new OAuth1Exception(400, "callback_uri not allowed");
+        }
+
+        String registered = normalizeCallbackForComparison(registeredCallback);
+        String requested = normalizeCallbackForComparison(requestedCallback);
+        if (!isCallbackPrefixAllowed(requested, registered)) {
+            throw new OAuth1Exception(400, "callback_uri not allowed");
+        }
+    }
+
+    private static boolean isCallbackPrefixAllowed(String requested, String registered) {
+        if (!requested.startsWith(registered)) {
+            return false;
+        }
+        if (requested.length() == registered.length()) {
+            return true;
+        }
+        char next = requested.charAt(registered.length());
+        if (registered.contains("?")) {
+            return next == '&' || next == '#';
+        }
+        if (registered.contains("#")) {
+            return false;
+        }
+        return registered.endsWith("/") || next == '/' || next == '?' || next == '#';
+    }
+
+    private static String normalizeCallbackForComparison(String callback) {
+        try {
+            URI uri = URI.create(callback).normalize();
+            String scheme = normalizeScheme(uri);
+            if (!isHttpScheme(scheme)) {
+                throw new OAuth1Exception(400, "invalid_callback_scheme");
+            }
+            String host = uri.getHost();
+            if (host == null || host.isBlank()) {
+                throw new OAuth1Exception(400, "invalid_callback");
+            }
+            host = toAsciiLowerCase(host);
+            int port = uri.getPort();
+            if ((port == 80 && "http".equals(scheme))
+                    || (port == 443 && "https".equals(scheme))) {
+                port = -1;
+            }
+            String path = (uri.getPath() == null || uri.getPath().isEmpty()) ? "/" : uri.getPath();
+            return new URI(scheme, uri.getUserInfo(), host, port, path, uri.getQuery(), uri.getFragment()).toString();
+        } catch (OAuth1Exception e) {
+            throw e;
+        } catch (IllegalArgumentException | URISyntaxException e) {
+            throw new OAuth1Exception(400, "invalid_callback");
+        }
+    }
+
+    private static boolean isOutOfBandCallback(String callback) {
+        return asciiEqualsIgnoreCase(callback, OOB_CALLBACK);
+    }
+
+    private static String normalizeScheme(URI uri) {
+        String scheme = uri.getScheme();
+        return scheme == null ? null : toAsciiLowerCase(scheme);
+    }
+
+    private static boolean isHttpScheme(String scheme) {
+        return "http".equals(scheme) || "https".equals(scheme);
+    }
+
+    private static boolean asciiEqualsIgnoreCase(String actual, String expected) {
+        return actual != null && toAsciiLowerCase(actual).equals(expected);
+    }
+
+    private static String toAsciiLowerCase(String value) {
+        StringBuilder lowered = new StringBuilder(value.length());
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            lowered.append(c >= 'A' && c <= 'Z' ? (char) (c + ('a' - 'A')) : c);
+        }
+        return lowered.toString();
     }
 
 }
