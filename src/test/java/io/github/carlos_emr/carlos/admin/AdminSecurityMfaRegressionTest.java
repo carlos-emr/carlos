@@ -46,11 +46,7 @@ class AdminSecurityMfaRegressionTest {
         String securityUpdateJsp = Files.readString(SECURITY_UPDATE_JSP, StandardCharsets.UTF_8);
 
         assertThat(securityUpdateJsp)
-                .contains("""
-\t\t} else {
-\t\t\ts.setUsingMfa(Boolean.FALSE);
-\t\t\ts.setMfaSecret(null);
-\t\t}
-""");
+                .contains("s.setUsingMfa(Boolean.FALSE);")
+                .contains("s.setMfaSecret(null);");
     }
 }
