@@ -24,6 +24,8 @@ function assert(condition, message) {
   }
 }
 
+// nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
+// __dirname is a Node.js built-in constant for this script's directory, not user-controlled input
 const navJspPath = `${__dirname}/../src/main/webapp/WEB-INF/jsp/eform/efmTopNav.jspf`;
 const editorJspPath = `${__dirname}/../src/main/webapp/WEB-INF/jsp/eform/efmformmanageredit.jsp`;
 const bootstrapJsPath = `${__dirname}/../src/main/webapp/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js`;
@@ -76,6 +78,8 @@ function appPathFromHref(href) {
     });
     page.on('pageerror', (error) => consoleIssues.push(error.stack || error.message));
 
+    // nosemgrep: javascript.playwright.security.audit.playwright-setcontent-injection.playwright-setcontent-injection
+    // setContent receives a hardcoded HTML skeleton, not user-supplied data
     await page.setContent(`<!doctype html>
 <html>
 <head>
@@ -83,8 +87,12 @@ function appPathFromHref(href) {
 </head>
 <body><div id="fixture-root"></div></body>
 </html>`, { waitUntil: 'domcontentloaded' });
+    // nosemgrep: javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag
+    // bootstrapCssPath and bootstrapJsPath are repo-local file paths derived from __dirname, not user input
     await page.addStyleTag({ path: bootstrapCssPath });
     await page.addScriptTag({ path: bootstrapJsPath });
+    // nosemgrep: javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag
+    // navHtml is derived from reading a local JSP file via fs.readFileSync and regex-stripping JSP tags
     await page.locator('#fixture-root').evaluate((root, html) => {
       root.innerHTML = html;
     }, navHtml);
