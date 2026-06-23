@@ -172,11 +172,11 @@ public class OAuth1SignatureVerifierImplementation implements OAuth1SignatureVer
         if (nonce == null || nonce.isEmpty()) {
             throw new IllegalArgumentException("Missing oauth_nonce");
         }
-        if (dataProvider != null) {
-            dataProvider.consumeNonce(pctDecode(oauth.get("oauth_consumer_key")),
-                    token == null ? null : pctDecode(token), pctDecode(nonce),
-                    ts, 2L * ALLOWED_SKEW_SECONDS);
-        }
+        // Always enforced (no null-guard) so replay protection cannot silently
+        // fail open if the dependency is ever unset.
+        dataProvider.consumeNonce(pctDecode(oauth.get("oauth_consumer_key")),
+                token == null ? null : pctDecode(token), pctDecode(nonce),
+                ts, 2L * ALLOWED_SKEW_SECONDS);
 
         return token; // unchanged contract
     }

@@ -9545,6 +9545,8 @@ CREATE TABLE IF NOT EXISTS `ServiceOAuthNonce` (
   `nonce` varchar(255) NOT NULL,
   `oauthTimestamp` bigint(20) NOT NULL,
   `dateCreated` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `lastUpdateUser` varchar(20) DEFAULT NULL,
+  `lastUpdateDate` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_service_oauth_nonce` (`nonceKeyHash`),
   KEY `idx_service_oauth_nonce_ts` (`oauthTimestamp`)

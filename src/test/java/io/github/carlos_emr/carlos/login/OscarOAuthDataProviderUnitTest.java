@@ -270,6 +270,20 @@ class OscarOAuthDataProviderUnitTest {
     }
 
     @Test
+    @DisplayName("should reject a nonce field that exceeds the stored column length")
+    void shouldRejectNonce_whenFieldExceedsMaxLength() {
+        ServiceOAuthNonceDao nonceDao = mock(ServiceOAuthNonceDao.class);
+        OscarOAuthDataProvider provider = providerWithNonceDao(nonceDao);
+        String tooLong = "x".repeat(256);
+
+        assertThatThrownBy(() -> provider.consumeNonce("consumer", "token", tooLong, 1000L, 600L))
+                .isInstanceOf(OAuth1Exception.class)
+                .hasMessage("oauth_parameter_too_long");
+
+        verify(nonceDao, never()).persist(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
     @DisplayName("should derive a stable hash for the same tuple and distinct hashes for different tuples")
     void shouldDeriveStableHash_whenSameTupleConsumed() {
         String hashAbc1 = capturedKeyHash("consumer", "token", "abc");

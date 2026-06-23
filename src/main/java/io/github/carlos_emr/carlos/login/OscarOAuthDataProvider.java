@@ -82,6 +82,10 @@ public class OscarOAuthDataProvider {
     private static final long NONCE_PRUNE_INTERVAL_SECONDS = 10L;
     private volatile long lastNoncePruneEpochSeconds = 0L;
 
+    // Matches the varchar(255) columns of ServiceOAuthNonce; a legitimate
+    // consumer key cannot exceed the ServiceClient key length either.
+    private static final int MAX_NONCE_FIELD_LENGTH = 255;
+
     public Client getClient(String consumerKey) {
         logger.debug("getClient({})", consumerKey);
         ServiceClient sc = serviceClientDao.findByKey(consumerKey);
@@ -278,6 +282,16 @@ public class OscarOAuthDataProvider {
             long oauthTimestamp, long retentionSeconds) throws OAuth1Exception {
         String key = consumerKey == null ? "" : consumerKey;
         String token = tokenId == null ? "" : tokenId;
+        String nonceValue = nonce == null ? "" : nonce;
+
+        // Reject oversized values up front so they fail with a clean OAuth error
+        // instead of a DB-level fault, and so the only integrity violation the
+        // insert below can raise is the unique-key duplicate (a replay).
+        if (key.length() > MAX_NONCE_FIELD_LENGTH
+                || token.length() > MAX_NONCE_FIELD_LENGTH
+                || nonceValue.length() > MAX_NONCE_FIELD_LENGTH) {
+            throw new OAuth1Exception(400, "oauth_parameter_too_long");
+        }
 
         // Drop nonces that can no longer pass the timestamp freshness window so
         // the table stays bounded. Throttled so this DELETE does not run on
@@ -288,7 +302,7 @@ public class OscarOAuthDataProvider {
             serviceOAuthNonceDao.deleteOlderThan(now - retentionSeconds);
         }
 
-        String keyHash = nonceKeyHash(key, token, nonce);
+        String keyHash = nonceKeyHash(key, token, nonceValue);
         if (serviceOAuthNonceDao.findByNonceKeyHash(keyHash) != null) {
             throw new OAuth1Exception(401, "nonce_replayed");
         }
@@ -297,7 +311,7 @@ public class OscarOAuthDataProvider {
         consumed.setNonceKeyHash(keyHash);
         consumed.setConsumerKey(key);
         consumed.setTokenId(token);
-        consumed.setNonce(nonce);
+        consumed.setNonce(nonceValue);
         consumed.setOauthTimestamp(oauthTimestamp);
         consumed.setDateCreated(new Date());
         try {

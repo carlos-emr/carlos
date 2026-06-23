@@ -49,9 +49,9 @@ public class ServiceOAuthNonce extends AbstractModel<Integer> {
     private Integer id;
 
     // Fixed-length hash of the canonical (consumerKey, tokenId, nonce) tuple.
-    // Uniqueness is enforced on this column so the index stays small and the
-    // descriptive columns below can hold arbitrary-length values without
-    // truncation or index key-length limits.
+    // Uniqueness is enforced on this column so the unique index stays small and
+    // independent of the descriptive column lengths, avoiding index key-length
+    // limits.
     private String nonceKeyHash;
 
     private String consumerKey;
