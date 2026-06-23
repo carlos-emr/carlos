@@ -33,7 +33,7 @@ public class ViewEFormPage2Action extends BaseEFormView2Action {
             return true;
         }
 
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        if (!"POST".equals(request.getMethod())) {
             return false;
         }
 
