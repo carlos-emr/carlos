@@ -33,13 +33,11 @@ public class ServiceOAuthNonceDaoImpl extends AbstractDaoImpl<ServiceOAuthNonce>
     }
 
     @Override
-    public ServiceOAuthNonce findByConsumerTokenNonce(String consumerKey, String tokenId, String nonce) {
+    public ServiceOAuthNonce findByNonceKeyHash(String nonceKeyHash) {
         Query query = this.entityManager.createQuery(
-                "SELECT x FROM ServiceOAuthNonce x WHERE x.consumerKey = ?1 AND x.tokenId = ?2 AND x.nonce = ?3",
+                "SELECT x FROM ServiceOAuthNonce x WHERE x.nonceKeyHash = ?1",
                 ServiceOAuthNonce.class);
-        query.setParameter(1, consumerKey);
-        query.setParameter(2, tokenId);
-        query.setParameter(3, nonce);
+        query.setParameter(1, nonceKeyHash);
         return this.getSingleResultOrNull(query);
     }
 

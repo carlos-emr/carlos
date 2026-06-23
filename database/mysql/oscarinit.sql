@@ -9539,13 +9539,14 @@ CREATE TABLE IF NOT EXISTS `ServiceClient` (
 
 CREATE TABLE IF NOT EXISTS `ServiceOAuthNonce` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
-  `consumerKey` varchar(80) NOT NULL,
-  `tokenId` varchar(80) NOT NULL DEFAULT '',
-  `nonce` varchar(80) NOT NULL,
+  `nonceKeyHash` char(64) NOT NULL,
+  `consumerKey` varchar(255) NOT NULL,
+  `tokenId` varchar(255) NOT NULL DEFAULT '',
+  `nonce` varchar(255) NOT NULL,
   `oauthTimestamp` bigint(20) NOT NULL,
   `dateCreated` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_service_oauth_nonce` (`consumerKey`,`tokenId`,`nonce`),
+  UNIQUE KEY `uq_service_oauth_nonce` (`nonceKeyHash`),
   KEY `idx_service_oauth_nonce_ts` (`oauthTimestamp`)
 );
 

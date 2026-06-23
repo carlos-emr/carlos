@@ -41,12 +41,18 @@ import jakarta.persistence.UniqueConstraint;
 @Entity
 @Table(name = "ServiceOAuthNonce",
         uniqueConstraints = @UniqueConstraint(name = "uq_service_oauth_nonce",
-                columnNames = {"consumerKey", "tokenId", "nonce"}))
+                columnNames = {"nonceKeyHash"}))
 public class ServiceOAuthNonce extends AbstractModel<Integer> {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
+
+    // Fixed-length hash of the canonical (consumerKey, tokenId, nonce) tuple.
+    // Uniqueness is enforced on this column so the index stays small and the
+    // descriptive columns below can hold arbitrary-length values without
+    // truncation or index key-length limits.
+    private String nonceKeyHash;
 
     private String consumerKey;
 
@@ -66,6 +72,14 @@ public class ServiceOAuthNonce extends AbstractModel<Integer> {
 
     public void setId(Integer id) {
         this.id = id;
+    }
+
+    public String getNonceKeyHash() {
+        return nonceKeyHash;
+    }
+
+    public void setNonceKeyHash(String nonceKeyHash) {
+        this.nonceKeyHash = nonceKeyHash;
     }
 
     public String getConsumerKey() {

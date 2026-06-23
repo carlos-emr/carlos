@@ -46,7 +46,10 @@ import io.github.carlos_emr.carlos.commn.model.ServiceClient;
 import io.github.carlos_emr.carlos.commn.model.ServiceOAuthNonce;
 import io.github.carlos_emr.carlos.commn.model.ServiceRequestToken;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import jakarta.persistence.PersistenceException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
@@ -285,11 +288,13 @@ public class OscarOAuthDataProvider {
             serviceOAuthNonceDao.deleteOlderThan(now - retentionSeconds);
         }
 
-        if (serviceOAuthNonceDao.findByConsumerTokenNonce(key, token, nonce) != null) {
+        String keyHash = nonceKeyHash(key, token, nonce);
+        if (serviceOAuthNonceDao.findByNonceKeyHash(keyHash) != null) {
             throw new OAuth1Exception(401, "nonce_replayed");
         }
 
         ServiceOAuthNonce consumed = new ServiceOAuthNonce();
+        consumed.setNonceKeyHash(keyHash);
         consumed.setConsumerKey(key);
         consumed.setTokenId(token);
         consumed.setNonce(nonce);
@@ -299,10 +304,37 @@ public class OscarOAuthDataProvider {
             serviceOAuthNonceDao.persist(consumed);
             // Force the INSERT now so a concurrent request that passed the
             // find check above and raced us to the unique key is rejected as a
-            // replay here, rather than surfacing as a 500 at commit time.
+            // replay here, rather than surfacing as a 500 at commit time. Only a
+            // constraint violation is treated as a replay; other failures
+            // propagate so a real DB fault is not masked as a 401.
             serviceOAuthNonceDao.flush();
-        } catch (DataIntegrityViolationException | PersistenceException duplicate) {
+        } catch (DataIntegrityViolationException | ConstraintViolationException duplicate) {
             throw new OAuth1Exception(401, "nonce_replayed");
+        }
+    }
+
+    /**
+     * Derives the unique-key hash for a consumed nonce. Hashing a
+     * length-prefixed encoding of the canonical tuple keeps the unique index
+     * fixed-size and avoids both index key-length limits and ambiguity between
+     * field boundaries (e.g. ("ab","c") vs ("a","bc")).
+     */
+    private static String nonceKeyHash(String consumerKey, String tokenId, String nonce) {
+        String encoded = consumerKey.length() + ":" + consumerKey
+                + "|" + tokenId.length() + ":" + tokenId
+                + "|" + nonce.length() + ":" + nonce;
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(encoded.getBytes(StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder(hash.length * 2);
+            for (byte b : hash) {
+                hex.append(Character.forDigit((b >> 4) & 0xF, 16));
+                hex.append(Character.forDigit(b & 0xF, 16));
+            }
+            return hex.toString();
+        } catch (NoSuchAlgorithmException e) {
+            // SHA-256 is mandated by the Java platform, so this cannot happen.
+            throw new IllegalStateException("SHA-256 not available", e);
         }
     }
 

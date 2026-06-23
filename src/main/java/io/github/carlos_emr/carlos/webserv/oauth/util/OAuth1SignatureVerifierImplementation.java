@@ -164,13 +164,17 @@ public class OAuth1SignatureVerifierImplementation implements OAuth1SignatureVer
 
         // --- 8) Anti-replay: reject a re-used nonce within the freshness window.
         // Done only after the signature is verified so an unauthenticated caller
-        // cannot pre-seed nonces and lock out a legitimate client.
+        // cannot pre-seed nonces and lock out a legitimate client. The nonce key
+        // is built from the same percent-decoded values that feed the signature
+        // base string, so a replay cannot evade detection by re-encoding a
+        // parameter (e.g. "abc" vs "%61bc") into the same valid signature.
         final String nonce = oauth.get("oauth_nonce");
         if (nonce == null || nonce.isEmpty()) {
             throw new IllegalArgumentException("Missing oauth_nonce");
         }
         if (dataProvider != null) {
-            dataProvider.consumeNonce(oauth.get("oauth_consumer_key"), token, nonce,
+            dataProvider.consumeNonce(pctDecode(oauth.get("oauth_consumer_key")),
+                    token == null ? null : pctDecode(token), pctDecode(nonce),
                     ts, 2L * ALLOWED_SKEW_SECONDS);
         }
 

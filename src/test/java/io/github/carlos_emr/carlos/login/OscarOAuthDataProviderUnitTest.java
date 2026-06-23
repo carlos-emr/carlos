@@ -28,6 +28,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -221,7 +222,7 @@ class OscarOAuthDataProviderUnitTest {
     @DisplayName("should persist a consumed nonce when seen for the first time")
     void shouldPersistConsumedNonce_whenSeenForFirstTime() {
         ServiceOAuthNonceDao nonceDao = mock(ServiceOAuthNonceDao.class);
-        when(nonceDao.findByConsumerTokenNonce("consumer", "token", "abc")).thenReturn(null);
+        when(nonceDao.findByNonceKeyHash(anyString())).thenReturn(null);
         OscarOAuthDataProvider provider = providerWithNonceDao(nonceDao);
 
         provider.consumeNonce("consumer", "token", "abc", 1000L, 600L);
@@ -234,14 +235,15 @@ class OscarOAuthDataProviderUnitTest {
         assertThat(stored.getNonce()).isEqualTo("abc");
         assertThat(stored.getOauthTimestamp()).isEqualTo(1000L);
         assertThat(stored.getDateCreated()).isNotNull();
+        // A SHA-256 hex digest is 64 lowercase hex characters.
+        assertThat(stored.getNonceKeyHash()).matches("[0-9a-f]{64}");
     }
 
     @Test
     @DisplayName("should reject a replayed nonce when the combination was already consumed")
     void shouldRejectReplayedNonce_whenAlreadyConsumed() {
         ServiceOAuthNonceDao nonceDao = mock(ServiceOAuthNonceDao.class);
-        when(nonceDao.findByConsumerTokenNonce("consumer", "token", "abc"))
-                .thenReturn(new ServiceOAuthNonce());
+        when(nonceDao.findByNonceKeyHash(anyString())).thenReturn(new ServiceOAuthNonce());
         OscarOAuthDataProvider provider = providerWithNonceDao(nonceDao);
 
         assertThatThrownBy(() -> provider.consumeNonce("consumer", "token", "abc", 1000L, 600L))
@@ -255,7 +257,7 @@ class OscarOAuthDataProviderUnitTest {
     @DisplayName("should reject a replayed nonce when a concurrent insert hits the unique key")
     void shouldRejectReplayedNonce_whenConcurrentInsertViolatesUniqueKey() {
         ServiceOAuthNonceDao nonceDao = mock(ServiceOAuthNonceDao.class);
-        when(nonceDao.findByConsumerTokenNonce("consumer", "token", "abc")).thenReturn(null);
+        when(nonceDao.findByNonceKeyHash(anyString())).thenReturn(null);
         // A racing request inserted the same nonce after our find check, so the
         // flush trips the unique constraint.
         org.mockito.Mockito.doThrow(new DataIntegrityViolationException("duplicate"))
@@ -265,6 +267,21 @@ class OscarOAuthDataProviderUnitTest {
         assertThatThrownBy(() -> provider.consumeNonce("consumer", "token", "abc", 1000L, 600L))
                 .isInstanceOf(OAuth1Exception.class)
                 .hasMessage("nonce_replayed");
+    }
+
+    @Test
+    @DisplayName("should derive a stable hash for the same tuple and distinct hashes for different tuples")
+    void shouldDeriveStableHash_whenSameTupleConsumed() {
+        String hashAbc1 = capturedKeyHash("consumer", "token", "abc");
+        String hashAbc2 = capturedKeyHash("consumer", "token", "abc");
+        String hashOther = capturedKeyHash("consumer", "token", "xyz");
+        // Field boundaries must not be ambiguous: ("ab","c",..) != ("a","bc",..).
+        String hashSplitA = capturedKeyHash("ab", "c", "abc");
+        String hashSplitB = capturedKeyHash("a", "bc", "abc");
+
+        assertThat(hashAbc1).isEqualTo(hashAbc2);
+        assertThat(hashOther).isNotEqualTo(hashAbc1);
+        assertThat(hashSplitA).isNotEqualTo(hashSplitB);
     }
 
     @Test
@@ -295,7 +312,16 @@ class OscarOAuthDataProviderUnitTest {
         ArgumentCaptor<ServiceOAuthNonce> captor = ArgumentCaptor.forClass(ServiceOAuthNonce.class);
         verify(nonceDao).persist(captor.capture());
         assertThat(captor.getValue().getTokenId()).isEmpty();
-        verify(nonceDao).findByConsumerTokenNonce("consumer", "", "abc");
+    }
+
+    /** Runs consumeNonce and returns the hash it looked up / stored. */
+    private static String capturedKeyHash(String consumerKey, String tokenId, String nonce) {
+        ServiceOAuthNonceDao nonceDao = mock(ServiceOAuthNonceDao.class);
+        when(nonceDao.findByNonceKeyHash(anyString())).thenReturn(null);
+        providerWithNonceDao(nonceDao).consumeNonce(consumerKey, tokenId, nonce, 1000L, 600L);
+        ArgumentCaptor<String> hash = ArgumentCaptor.forClass(String.class);
+        verify(nonceDao).findByNonceKeyHash(hash.capture());
+        return hash.getValue();
     }
 
     private static OscarOAuthDataProvider providerWithNonceDao(ServiceOAuthNonceDao nonceDao) {
