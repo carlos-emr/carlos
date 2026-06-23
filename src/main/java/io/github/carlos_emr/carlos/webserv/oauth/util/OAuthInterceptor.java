@@ -82,16 +82,24 @@ import org.springframework.stereotype.Component;
 import io.github.carlos_emr.carlos.login.OscarOAuthDataProvider;
 import io.github.carlos_emr.carlos.login.AppOAuth1Config;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1SignatureVerifier;
 
 @Component
 public class OAuthInterceptor implements PhaseInterceptor<Message> {
 
-    @Autowired 
+    /** OscarLog action recorded on a successful REST OAuth authentication (parity with SOAP WS_LOGIN_SUCCESS). */
+    private static final String OAUTH_LOGIN_SUCCESS = "OAUTH_LOGIN_SUCCESS";
+    /** OscarLog action recorded on a rejected REST OAuth authentication (parity with SOAP WS_LOGIN_FAILURE). */
+    private static final String OAUTH_LOGIN_FAILURE = "OAUTH_LOGIN_FAILURE";
+
+    @Autowired
     private OscarOAuthDataProvider oauthDataProvider;
 
-    @Autowired 
+    @Autowired
     private ProviderDao providerDao;
 
     @Resource
@@ -110,10 +118,14 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
             return;
         }
 
+        // Hoisted so the audit on both success and the auth-failure paths can record them.
+        String ip = req.getRemoteAddr();
+        String consumerKey = null;
+
         try {
             // 2) Pull oauth params
             Map<String, String> oauth = OAuthRequestParser.extractOAuthParameters(req);
-            String consumerKey = oauth.get("oauth_consumer_key");
+            consumerKey        = oauth.get("oauth_consumer_key");
             String token       = oauth.get("oauth_token");
 
             if (consumerKey == null || consumerKey.isEmpty()) {
@@ -157,14 +169,63 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
             info.setLoggedInProvider(provider);
             req.setAttribute(info.getLoggedInInfoKey(), info);
 
+            // 6) Audit the successful authentication (parity with SOAP WS_LOGIN_SUCCESS).
+            auditAuthSuccess(providerNo, ip, consumerKey);
+
         } catch (OAuth1Exception e) {
+            // Auth rejected: missing params (400) or invalid consumer/token/signature/provider (401).
+            auditAuthFailure(ip, consumerKey);
             throw new Fault(e);
         } catch (IllegalArgumentException badSigOrTime) {
             // from verifier: missing/stale timestamp, bad signature, unknown token, etc.
+            auditAuthFailure(ip, consumerKey);
             throw new Fault(new OAuth1Exception(401, "invalid_signature"));
         } catch (Exception e) {
+            // Unexpected server error: kept distinct from an auth failure, so it is not recorded
+            // as an OAUTH_LOGIN_FAILURE in the audit trail.
             throw new Fault(new OAuth1Exception(401, "oauth_authentication_failed"));
         }
+    }
+
+    /**
+     * Records a successful REST OAuth authentication in the sanctioned OscarLog audit trail,
+     * mirroring {@code AuthenticationInWSS4JInterceptor}'s WS_LOGIN_SUCCESS entry.
+     *
+     * <p>Only safe identifiers are persisted: the resolved providerNo, the remote IP, and the
+     * consumer key. The oauth_token (bearer credential), consumer secret, and signature are
+     * never logged.
+     */
+    private void auditAuthSuccess(String providerNo, String ip, String consumerKey) {
+        OscarLog oscarLog = new OscarLog();
+        oscarLog.setProviderNo(providerNo);
+        oscarLog.setAction(OAUTH_LOGIN_SUCCESS);
+        oscarLog.setIp(ip);
+        oscarLog.setContent(safeConsumerKey(consumerKey));
+        LogAction.addLogSynchronous(oscarLog);
+    }
+
+    /**
+     * Records a rejected REST OAuth authentication in the sanctioned OscarLog audit trail,
+     * mirroring {@code AuthenticationInWSS4JInterceptor}'s WS_LOGIN_FAILURE entry. No providerNo
+     * is recorded because the request never resolved to an authenticated provider.
+     */
+    private void auditAuthFailure(String ip, String consumerKey) {
+        OscarLog oscarLog = new OscarLog();
+        oscarLog.setAction(OAUTH_LOGIN_FAILURE);
+        oscarLog.setIp(ip);
+        oscarLog.setContent(safeConsumerKey(consumerKey));
+        LogAction.addLogSynchronous(oscarLog);
+    }
+
+    /**
+     * The consumer key is a client-supplied identifier; sanitize it before it enters the audit
+     * trail. Returns {@code null} when no consumer key was supplied so no content is recorded.
+     */
+    private static String safeConsumerKey(String consumerKey) {
+        if (consumerKey == null || consumerKey.isEmpty()) {
+            return null;
+        }
+        return LogSafe.sanitize(consumerKey);
     }
 
     @Override public void handleFault(Message message) { /* no-op */ }
