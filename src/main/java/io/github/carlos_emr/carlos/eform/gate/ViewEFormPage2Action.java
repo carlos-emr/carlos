@@ -50,7 +50,12 @@ public class ViewEFormPage2Action extends BaseEFormView2Action {
     protected String executeView(
             HttpServletRequest request,
             HttpServletResponse response) throws ServletException, IOException {
-        String actionName = ActionContext.getContext().getActionName();
+        ActionContext ctx = ActionContext.getContext();
+        if (ctx == null) {
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return NONE;
+        }
+        String actionName = ctx.getActionName();
         EFormViewRoutes.Route route = EFormViewRoutes.resolve(actionName);
         if (route == null) {
             response.sendError(HttpServletResponse.SC_NOT_FOUND);

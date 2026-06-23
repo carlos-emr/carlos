@@ -183,4 +183,13 @@ class ViewEFormPage2ActionTest extends CarlosUnitTestBase {
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_admin.eform");
     }
+
+    @Test
+    void shouldReturn500WhenActionContextIsNull() throws Exception {
+        // No ActionContext bound — getContext() returns null outside Struts request scope
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        verify(mockResponse).sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+    }
 }
