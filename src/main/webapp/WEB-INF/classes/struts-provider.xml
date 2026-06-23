@@ -115,6 +115,9 @@
         <action name="DocumentDescriptionTemplate" class="io.github.carlos_emr.carlos.provider.web.DocumentDescriptionTemplate2Action"/>
         <action name="PrinterList" class="io.github.carlos_emr.carlos.printer.PrinterList2Action"/>
         <action name="saveWorkView" class="io.github.carlos_emr.carlos.provider.web.ProviderView2Action" method="execute"/>
+        <!-- Toggles the showPersonal session flag and returns the reserved "none" result
+             (ActionSupport.NONE), so Struts renders no result body. No <result> mapping is
+             intentional: any mapping here would emit unwanted markup after the no-op response. -->
         <action name="Provider/showPersonal" class="io.github.carlos_emr.carlos.provider.web.DisplayPersonalInfoAppointment2Action"/>
 
 
