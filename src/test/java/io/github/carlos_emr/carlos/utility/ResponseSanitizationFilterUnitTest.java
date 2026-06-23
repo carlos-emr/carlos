@@ -790,6 +790,295 @@ class ResponseSanitizationFilterUnitTest {
     }
 
     // -------------------------------------------------------------------------
+    // doFilter() — web-service (/ws) 5xx partial-body leak (issue #2953)
+    // -------------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("web-service (/ws) error responses")
+    class WebServiceErrors {
+
+        private MockHttpServletRequest wsRequest(String method) {
+            MockHttpServletRequest request = new MockHttpServletRequest(method, "/carlos/ws/rs/schedule/getAppointment");
+            request.setRequestURI("/carlos/ws/rs/schedule/getAppointment");
+            request.setServletPath("/ws");
+            request.setPathInfo("/rs/schedule/getAppointment");
+            return request;
+        }
+
+        @Test
+        @DisplayName("should sanitize 500 partial-JSON body without stack trace on /ws route")
+        void shouldSanitizePartialJsonBody_whenStatusIs500OnWebServiceRoute() throws Exception {
+            MockHttpServletRequest request = wsRequest("POST");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            // Mid-stream Jackson failure: a clean, well-formed JSON prefix with PHI is already
+            // written, then the status flips to 500. No stack-trace markers are present.
+            String partialPhiJson = "{\"appointmentNo\":1234,\"demographic\":{\"firstName\":\"Jane\","
+                    + "\"lastName\":\"Doe\",\"phone\":\"250-555-0143\",\"patientStatus\":\"AC\"}";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(500);
+                httpRes.setContentType("application/json");
+                res.getWriter().write(partialPhiJson);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getStatus()).isEqualTo(500);
+            String sanitized = response.getContentAsString();
+            assertThat(sanitized)
+                    .doesNotContain("Jane")
+                    .doesNotContain("Doe")
+                    .doesNotContain("250-555-0143")
+                    .doesNotContain("patientStatus")
+                    .contains("Reference ID:");
+        }
+
+        @Test
+        @DisplayName("should sanitize 500 partial-JSON body written through output stream on /ws route")
+        void shouldSanitizePartialJsonBody_whenWrittenThroughOutputStreamAfterStatus500() throws Exception {
+            MockHttpServletRequest request = wsRequest("POST");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String partialPhiJson = "{\"demographic\":{\"firstName\":\"Jane\",\"hin\":\"9999999999\"}";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(500);
+                httpRes.setContentType("application/json;charset=UTF-8");
+                res.getOutputStream().write(partialPhiJson.getBytes(StandardCharsets.UTF_8));
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getStatus()).isEqualTo(500);
+            String sanitized = response.getContentAsString();
+            assertThat(sanitized)
+                    .doesNotContain("Jane")
+                    .doesNotContain("9999999999")
+                    .contains("Reference ID:");
+        }
+
+        @Test
+        @DisplayName("should pass through 400 JSON error body on /ws route unchanged")
+        void shouldPassThrough_whenStatusIs400OnWebServiceRoute() throws Exception {
+            MockHttpServletRequest request = wsRequest("POST");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            // Legitimate REST client-error envelope — must NOT be blanked, callers depend on it.
+            String errorEnvelope = "{\"error\":\"validation_failed\",\"field\":\"appointmentNo\"}";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(400);
+                httpRes.setContentType("application/json");
+                res.getWriter().write(errorEnvelope);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(response.getContentAsString()).isEqualTo(errorEnvelope);
+        }
+
+        @Test
+        @DisplayName("should pass through 200 JSON body on /ws route unchanged")
+        void shouldPassThrough_whenStatusIs200OnWebServiceRoute() throws Exception {
+            MockHttpServletRequest request = wsRequest("GET");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String okJson = "{\"appointmentNo\":1234,\"status\":\"booked\"}";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(200);
+                httpRes.setContentType("application/json");
+                res.getWriter().write(okJson);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(response.getContentAsString()).isEqualTo(okJson);
+        }
+
+        @Test
+        @DisplayName("should pass through 500 body without stack trace on a non-/ws route")
+        void shouldPassThrough_when500WithoutStackTraceOnNonWebServiceRoute() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/provider/providercontrol");
+            request.setRequestURI("/carlos/provider/providercontrol");
+            request.setServletPath("/provider/providercontrol");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            // A normal (non web-service) 500 HTML page with no stack trace keeps its existing
+            // pass-through behaviour — this change is scoped to /ws routes only.
+            String htmlError = "<html><body><h1>An error occurred</h1></body></html>";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(500);
+                httpRes.setContentType("text/html");
+                res.getWriter().write(htmlError);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getStatus()).isEqualTo(500);
+            assertThat(response.getContentAsString()).isEqualTo(htmlError);
+        }
+
+        @Test
+        @DisplayName("should sanitize 500 stack-trace body on /ws route through the full filter")
+        void shouldSanitizeStackTraceBody_whenStatusIs500OnWebServiceRoute() throws Exception {
+            MockHttpServletRequest request = wsRequest("POST");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            // A /ws 500 carrying an actual stack trace must be sanitized via the stack-trace
+            // trigger, exactly as it would on any other route — verified end-to-end here.
+            String stackTraceBody = "java.lang.NullPointerException\n"
+                    + "\tat io.github.carlos_emr.carlos.ws.rs.ScheduleService.getAppointment(ScheduleService.java:88)";
+
+            FilterChain chain = (req, res) -> {
+                HttpServletResponse httpRes = (HttpServletResponse) res;
+                httpRes.setStatus(500);
+                httpRes.setContentType("application/json");
+                res.getWriter().write(stackTraceBody);
+            };
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getStatus()).isEqualTo(500);
+            String sanitized = response.getContentAsString();
+            assertThat(sanitized)
+                    .doesNotContain("NullPointerException")
+                    .doesNotContain("io.github.carlos_emr")
+                    .contains("Reference ID:");
+        }
+    }
+
+    @Nested
+    @DisplayName("sanitizationReason()")
+    class SanitizationReason {
+
+        @Test
+        @DisplayName("should report stack-trace reason for any error status with markers")
+        void shouldReportStackTraceReason_forAnyErrorWithMarkers() {
+            String body = "java.lang.NullPointerException\n\tat io.github.carlos_emr.carlos.Foo.bar(Foo.java:1)";
+            assertThat(ResponseSanitizationFilter.sanitizationReason(404, body, false))
+                    .isEqualTo(ResponseSanitizationFilter.REASON_STACK_TRACE);
+            assertThat(ResponseSanitizationFilter.sanitizationReason(500, body, true))
+                    .isEqualTo(ResponseSanitizationFilter.REASON_STACK_TRACE);
+        }
+
+        @Test
+        @DisplayName("should report web-service 5xx reason for clean /ws 5xx body")
+        void shouldReportWebService5xxReason_forCleanWebService5xxBody() {
+            assertThat(ResponseSanitizationFilter.sanitizationReason(500, "{\"phi\":\"x\"}", true))
+                    .isEqualTo(ResponseSanitizationFilter.REASON_WEB_SERVICE_5XX);
+            assertThat(ResponseSanitizationFilter.sanitizationReason(503, null, true))
+                    .isEqualTo(ResponseSanitizationFilter.REASON_WEB_SERVICE_5XX);
+        }
+
+        @Test
+        @DisplayName("should return null when the body must not be sanitized")
+        void shouldReturnNull_whenBodyMustNotBeSanitized() {
+            // Successful status, /ws 4xx without stack trace, and non-/ws 5xx without stack trace.
+            assertThat(ResponseSanitizationFilter.sanitizationReason(200, "{\"phi\":\"x\"}", true)).isNull();
+            assertThat(ResponseSanitizationFilter.sanitizationReason(404, "{\"error\":\"x\"}", true)).isNull();
+            assertThat(ResponseSanitizationFilter.sanitizationReason(500, "plain page", false)).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("shouldSanitizeErrorBody()")
+    class ShouldSanitizeErrorBody {
+
+        @Test
+        @DisplayName("should sanitize web-service 5xx regardless of stack-trace content")
+        void shouldSanitize_forWebService5xxWithoutStackTrace() {
+            assertThat(ResponseSanitizationFilter.shouldSanitizeErrorBody(500, "{\"phi\":\"x\"}", true)).isTrue();
+            assertThat(ResponseSanitizationFilter.shouldSanitizeErrorBody(503, "clean body", true)).isTrue();
+        }
+
+        @Test
+        @DisplayName("should not sanitize web-service 4xx without stack trace")
+        void shouldNotSanitize_forWebService4xxWithoutStackTrace() {
+            assertThat(ResponseSanitizationFilter.shouldSanitizeErrorBody(400, "{\"error\":\"x\"}", true)).isFalse();
+            assertThat(ResponseSanitizationFilter.shouldSanitizeErrorBody(404, "not found", true)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should not sanitize non-web-service 5xx without stack trace")
+        void shouldNotSanitize_forNonWebService5xxWithoutStackTrace() {
+            assertThat(ResponseSanitizationFilter.shouldSanitizeErrorBody(500, "plain page", false)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should sanitize any error status with stack-trace markers")
+        void shouldSanitize_forAnyErrorWithStackTrace() {
+            String body = "java.lang.NullPointerException\n\tat io.github.carlos_emr.carlos.Foo.bar(Foo.java:1)";
+            assertThat(ResponseSanitizationFilter.shouldSanitizeErrorBody(404, body, false)).isTrue();
+            assertThat(ResponseSanitizationFilter.shouldSanitizeErrorBody(500, body, false)).isTrue();
+        }
+
+        @Test
+        @DisplayName("should not sanitize successful responses")
+        void shouldNotSanitize_forSuccessfulResponses() {
+            assertThat(ResponseSanitizationFilter.shouldSanitizeErrorBody(200, "{\"phi\":\"x\"}", true)).isFalse();
+            assertThat(ResponseSanitizationFilter.shouldSanitizeErrorBody(302, "", true)).isFalse();
+        }
+    }
+
+    @Nested
+    @DisplayName("isWebServiceRequest()")
+    class IsWebServiceRequest {
+
+        @Test
+        @DisplayName("should return true when servlet path is /ws")
+        void shouldReturnTrue_whenServletPathIsWs() {
+            MockHttpServletRequest request = new MockHttpServletRequest("POST", "/carlos/ws/rs/schedule/getAppointment");
+            request.setServletPath("/ws");
+            assertThat(ResponseSanitizationFilter.isWebServiceRequest(request)).isTrue();
+        }
+
+        @Test
+        @DisplayName("should return true when context-relative request URI is under /ws/")
+        void shouldReturnTrue_whenContextRelativeUriIsUnderWs() {
+            // No servlet path populated — exercises the context-relative URI fallback.
+            MockHttpServletRequest request = new MockHttpServletRequest();
+            request.setContextPath("/carlos");
+            request.setServletPath("");
+            request.setRequestURI("/carlos/ws/rs/demographics/1");
+            assertThat(ResponseSanitizationFilter.isWebServiceRequest(request)).isTrue();
+        }
+
+        @Test
+        @DisplayName("should return false for a non-web-service route")
+        void shouldReturnFalse_forNonWebServiceRoute() {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/provider/providercontrol");
+            request.setRequestURI("/carlos/provider/providercontrol");
+            request.setServletPath("/provider/providercontrol");
+            assertThat(ResponseSanitizationFilter.isWebServiceRequest(request)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should not match an unrelated path that merely contains the letters ws")
+        void shouldReturnFalse_forUnrelatedPathContainingWs() {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/news/list");
+            request.setRequestURI("/carlos/news/list");
+            request.setServletPath("/news/list");
+            assertThat(ResponseSanitizationFilter.isWebServiceRequest(request)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should not match a deeper path that merely contains /ws/ as a later segment")
+        void shouldReturnFalse_whenWsAppearsAsLaterPathSegment() {
+            // Fallback path: servlet path empty, URI has /ws/ deep in the path but not at the
+            // context-relative root. A substring match would wrongly classify this as a /ws route.
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/proxy/ws/foo");
+            request.setContextPath("/carlos");
+            request.setServletPath("");
+            request.setRequestURI("/carlos/proxy/ws/foo");
+            assertThat(ResponseSanitizationFilter.isWebServiceRequest(request)).isFalse();
+        }
+    }
+
+    // -------------------------------------------------------------------------
     // doFilter() — committed response (sendError / sendRedirect)
     // -------------------------------------------------------------------------
 

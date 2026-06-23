@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao;
 import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -95,6 +96,26 @@ class DiagCodeDescriptionPersisterUnitTest {
                 .isInstanceOf(DiagDescriptionUpdateException.class)
                 .hasMessageContaining("001")
                 .hasCauseInstanceOf(RuntimeException.class);
+    }
+
+    @Test
+    @DisplayName("should omit diagnostic code before logging")
+    void shouldOmitDiagnosticCode_whenDaoLookupFails() {
+        DiagnosticCodeDao dao = mock(DiagnosticCodeDao.class);
+        DiagCodeDescriptionPersister persister = new DiagCodeDescriptionPersister(dao);
+        when(dao.findByDiagnosticCode("1\r\n")).thenThrow(new RuntimeException("lock\r\nforged-exception"));
+
+        try (LogCapture capture = LogCapture.forLogger(DiagCodeDescriptionPersister.class)) {
+            assertThatThrownBy(() -> persister.updateDescription("update1\r\n", "Acute infection"))
+                    .isInstanceOf(DiagDescriptionUpdateException.class);
+
+            assertThat(capture.messages()).hasSize(1);
+            String logged = capture.messages().get(0);
+            assertThat(logged).doesNotContain("\r").doesNotContain("\n");
+            assertThat(logged).contains(RuntimeException.class.getName());
+            assertThat(logged).doesNotContain("1\r\n", "1\\r\\n", "lock\r\nforged-exception",
+                    "lock\\r\\nforged-exception", "forged-exception");
+        }
     }
 
     @Test

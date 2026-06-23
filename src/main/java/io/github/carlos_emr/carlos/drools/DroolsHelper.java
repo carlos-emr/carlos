@@ -25,9 +25,12 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 import org.apache.commons.io.IOUtils;
@@ -118,7 +121,10 @@ public final class DroolsHelper {
      * Loads DRL rules from a URL and returns a compiled KieBase.
      *
      * <p>Opens a stream to the URL, reads the content as UTF-8 text, and compiles
-     * the DRL. The stream is automatically closed via try-with-resources.</p>
+     * the DRL. The stream is automatically closed via try-with-resources. Only
+     * local classpath/filesystem URLs are accepted: {@code file:} and
+     * {@code jar:file:}. Network-backed URL schemes are rejected before opening
+     * the stream.</p>
      *
      * <p>Typically used to load DRL files from the classpath, e.g.:
      * {@code DroolsHelper.loadFromUrl(getClass().getResource("/oscar/prevention/prevention.drl"))}</p>
@@ -127,12 +133,69 @@ public final class DroolsHelper {
      * @return KieBase compiled rule base ready for creating KieSessions
      * @throws DroolsCompilationException if the URL cannot be read or rule compilation fails
      */
+    // FindSecBugs URLCONNECTION_SSRF_FD: validateLocalDrlUrl rejects network-backed URL schemes before openStream.
+    @SuppressFBWarnings(value = "URLCONNECTION_SSRF_FD", justification = "validateLocalDrlUrl only allows file: and jar:file: DRL resources before opening the stream")
     public static KieBase loadFromUrl(URL url) throws DroolsCompilationException {
+        validateLocalDrlUrl(url);
         try (InputStream is = url.openStream()) {
             String drl = IOUtils.toString(is, StandardCharsets.UTF_8);
             return createKieBaseFromDrl(drl);
         } catch (IOException e) {
             throw new DroolsCompilationException("Failed to read DRL from URL", e);
+        }
+    }
+
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of parsed ASCII URL schemes in fail-closed local DRL validation")
+    private static void validateLocalDrlUrl(URL url) throws DroolsCompilationException {
+        if (url == null) {
+            throw new DroolsCompilationException("DRL URL must not be null");
+        }
+
+        String protocol = url.getProtocol();
+        if ("file".equalsIgnoreCase(protocol)) {
+            validateLocalFileUrl(url.toString());
+            return;
+        }
+
+        if ("jar".equalsIgnoreCase(protocol)) {
+            validateLocalJarUrl(url);
+            return;
+        }
+
+        throw new DroolsCompilationException("Unsupported DRL URL protocol: " + protocol);
+    }
+
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-folding parsed ASCII jar URL scheme before local file validation")
+    private static void validateLocalJarUrl(URL url) throws DroolsCompilationException {
+        String spec = url.getFile();
+        int separator = spec.indexOf("!/");
+        if (separator < 0) {
+            throw new DroolsCompilationException("Invalid DRL jar URL: missing resource separator");
+        }
+
+        String jarFileUrl = spec.substring(0, separator);
+        if (!jarFileUrl.toLowerCase(Locale.ROOT).startsWith("file:")) {
+            throw new DroolsCompilationException("Unsupported DRL jar URL protocol");
+        }
+        validateLocalFileUrl(jarFileUrl);
+    }
+
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of parsed ASCII file URL scheme/localhost in fail-closed local file validation")
+    private static void validateLocalFileUrl(String rawUrl) throws DroolsCompilationException {
+        try {
+            URI uri = new URI(rawUrl);
+            if (!"file".equalsIgnoreCase(uri.getScheme())) {
+                throw new DroolsCompilationException("Unsupported DRL file URL protocol: " + uri.getScheme());
+            }
+
+            String host = uri.getHost();
+            String path = uri.getPath();
+            if ((host != null && !host.isEmpty() && !"localhost".equalsIgnoreCase(host))
+                    || (host == null && path != null && path.startsWith("//"))) {
+                throw new DroolsCompilationException("DRL file URL must not target a remote host");
+            }
+        } catch (URISyntaxException e) {
+            throw new DroolsCompilationException("Invalid DRL URL", e);
         }
     }
 
