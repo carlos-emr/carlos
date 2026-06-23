@@ -152,15 +152,16 @@ public class AuthenticationInWSS4JInterceptor extends WSS4JInInterceptor impleme
             case INVALID_SECURITY_TOKEN:
             case UNSUPPORTED_SECURITY_TOKEN:
             case UNSUPPORTED_ALGORITHM:
-            // FAILED_CHECK / FAILED_SIGNATURE are signature/digest verification failures.
-            // Mapped to 400 (not 401) deliberately: it avoids disclosing whether the
-            // credentials were structurally invalid versus recognized-but-wrong.
+            // FAILED_CHECK is "the signature or decryption was invalid" -- i.e. inbound
+            // verification of client-supplied data failed. Mapped to 400 (not 401)
+            // deliberately: it avoids disclosing whether the credentials were structurally
+            // invalid versus recognized-but-wrong.
             case FAILED_CHECK:
-            case FAILED_SIGNATURE:
                 return HttpServletResponse.SC_BAD_REQUEST;
             default:
-                // FAILURE / FAILED_ENCRYPTION / SECURITY_ERROR and anything else are not
-                // reliably client-side -> treat as an unexpected server error.
+                // FAILED_SIGNATURE ("Signature creation failed"), FAILED_ENCRYPTION, FAILURE,
+                // SECURITY_ERROR and anything else are server-side or not reliably attributable
+                // to the request -> treat as an unexpected server error.
                 return HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
         }
     }

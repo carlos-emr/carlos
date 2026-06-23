@@ -79,6 +79,24 @@ class AuthenticationInWSS4JInterceptorUnitTest {
     }
 
     @Test
+    @DisplayName("should map an invalid signature/decryption check to HTTP 400")
+    void shouldMapFault_toHttp400WhenFailedCheck() {
+        SoapFault fault = soapFaultCausedBy(WSSecurityException.ErrorCode.FAILED_CHECK);
+
+        assertThat(AuthenticationInWSS4JInterceptor.resolveFaultStatusCode(fault)).isEqualTo(400);
+    }
+
+    @Test
+    @DisplayName("should map a server-side signature-creation failure to HTTP 500")
+    void shouldMapFault_toHttp500WhenFailedSignature() {
+        // WSS4J FAILED_SIGNATURE is "Signature creation failed" -- a server-side operation,
+        // not a client request error, so it must not be reported as a 4xx.
+        SoapFault fault = soapFaultCausedBy(WSSecurityException.ErrorCode.FAILED_SIGNATURE);
+
+        assertThat(AuthenticationInWSS4JInterceptor.resolveFaultStatusCode(fault)).isEqualTo(500);
+    }
+
+    @Test
     @DisplayName("should map a generic WS-Security failure to HTTP 500")
     void shouldMapFault_toHttp500WhenGenericFailure() {
         SoapFault fault = soapFaultCausedBy(WSSecurityException.ErrorCode.FAILURE);
