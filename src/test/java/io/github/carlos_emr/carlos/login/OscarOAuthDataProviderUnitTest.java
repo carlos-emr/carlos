@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -248,6 +249,22 @@ class OscarOAuthDataProviderUnitTest {
                 .hasMessage("nonce_replayed");
 
         verify(nonceDao, never()).persist(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    @DisplayName("should reject a replayed nonce when a concurrent insert hits the unique key")
+    void shouldRejectReplayedNonce_whenConcurrentInsertViolatesUniqueKey() {
+        ServiceOAuthNonceDao nonceDao = mock(ServiceOAuthNonceDao.class);
+        when(nonceDao.findByConsumerTokenNonce("consumer", "token", "abc")).thenReturn(null);
+        // A racing request inserted the same nonce after our find check, so the
+        // flush trips the unique constraint.
+        org.mockito.Mockito.doThrow(new DataIntegrityViolationException("duplicate"))
+                .when(nonceDao).flush();
+        OscarOAuthDataProvider provider = providerWithNonceDao(nonceDao);
+
+        assertThatThrownBy(() -> provider.consumeNonce("consumer", "token", "abc", 1000L, 600L))
+                .isInstanceOf(OAuth1Exception.class)
+                .hasMessage("nonce_replayed");
     }
 
     @Test

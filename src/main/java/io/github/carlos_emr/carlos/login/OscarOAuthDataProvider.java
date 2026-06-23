@@ -46,7 +46,9 @@ import io.github.carlos_emr.carlos.commn.model.ServiceClient;
 import io.github.carlos_emr.carlos.commn.model.ServiceOAuthNonce;
 import io.github.carlos_emr.carlos.commn.model.ServiceRequestToken;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import jakarta.persistence.PersistenceException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -71,6 +73,11 @@ public class OscarOAuthDataProvider {
     @Autowired private ServiceAccessTokenDao serviceAccessTokenDao;
     @Autowired private ServiceClientDao serviceClientDao;
     @Autowired private ServiceOAuthNonceDao serviceOAuthNonceDao;
+
+    // Throttle stale-nonce pruning so a DELETE does not run on every signed
+    // request; once per interval is enough to keep the table bounded.
+    private static final long NONCE_PRUNE_INTERVAL_SECONDS = 10L;
+    private volatile long lastNoncePruneEpochSeconds = 0L;
 
     public Client getClient(String consumerKey) {
         logger.debug("getClient({})", consumerKey);
@@ -270,9 +277,13 @@ public class OscarOAuthDataProvider {
         String token = tokenId == null ? "" : tokenId;
 
         // Drop nonces that can no longer pass the timestamp freshness window so
-        // the table stays bounded.
-        long cutoff = (System.currentTimeMillis() / 1000) - retentionSeconds;
-        serviceOAuthNonceDao.deleteOlderThan(cutoff);
+        // the table stays bounded. Throttled so this DELETE does not run on
+        // every signed request.
+        long now = System.currentTimeMillis() / 1000;
+        if (now - lastNoncePruneEpochSeconds >= NONCE_PRUNE_INTERVAL_SECONDS) {
+            lastNoncePruneEpochSeconds = now;
+            serviceOAuthNonceDao.deleteOlderThan(now - retentionSeconds);
+        }
 
         if (serviceOAuthNonceDao.findByConsumerTokenNonce(key, token, nonce) != null) {
             throw new OAuth1Exception(401, "nonce_replayed");
@@ -284,7 +295,15 @@ public class OscarOAuthDataProvider {
         consumed.setNonce(nonce);
         consumed.setOauthTimestamp(oauthTimestamp);
         consumed.setDateCreated(new Date());
-        serviceOAuthNonceDao.persist(consumed);
+        try {
+            serviceOAuthNonceDao.persist(consumed);
+            // Force the INSERT now so a concurrent request that passed the
+            // find check above and raced us to the unique key is rejected as a
+            // replay here, rather than surfacing as a 500 at commit time.
+            serviceOAuthNonceDao.flush();
+        } catch (DataIntegrityViolationException | PersistenceException duplicate) {
+            throw new OAuth1Exception(401, "nonce_replayed");
+        }
     }
 
     private ServiceAccessToken findUnexpiredAccessToken(String accessTokenId) {
