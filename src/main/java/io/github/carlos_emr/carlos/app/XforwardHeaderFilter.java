@@ -259,16 +259,19 @@ public class XforwardHeaderFilter implements Filter {
                 return null;
             }
             String proto = firstToken(super.getHeader("X-Forwarded-Proto"));
-            if (proto == null) {
-                return null;
+            if ("https".equalsIgnoreCase(proto)) {
+                return "https";
             }
-            proto = proto.toLowerCase(Locale.ROOT);
-            return ("http".equals(proto) || "https".equals(proto)) ? proto : null;
+            if ("http".equalsIgnoreCase(proto)) {
+                return "http";
+            }
+            return null;
         }
 
         /**
          * @return the host portion (port stripped) of {@code X-Forwarded-Host} when the peer is
-         *         trusted and the header is present, otherwise {@code null}.
+         *         trusted and the header is present, otherwise {@code null}. A bracketed IPv6
+         *         literal keeps its brackets so it remains valid in a reconstructed URL.
          */
         private String forwardedHostName() {
             if (!peerIsTrusted()) {
@@ -278,8 +281,17 @@ public class XforwardHeaderFilter implements Filter {
             if (host == null) {
                 return null;
             }
-            int colon = host.indexOf(':');
-            String name = (colon >= 0) ? host.substring(0, colon).trim() : host;
+            String name;
+            if (host.startsWith("[")) {
+                int close = host.indexOf(']');
+                name = (close >= 0) ? host.substring(0, close + 1).trim() : host;
+            } else {
+                int colon = host.indexOf(':');
+                // Only treat as host:port when there is a single colon (IPv4 / hostname); an
+                // unbracketed value with multiple colons is a bare IPv6 literal, so keep it whole.
+                name = (colon >= 0 && host.indexOf(':', colon + 1) < 0)
+                        ? host.substring(0, colon).trim() : host;
+            }
             return name.isEmpty() ? null : name;
         }
 
@@ -287,8 +299,20 @@ public class XforwardHeaderFilter implements Filter {
             if (host == null) {
                 return null;
             }
+            if (host.startsWith("[")) {
+                int close = host.indexOf(']');
+                if (close >= 0 && close + 1 < host.length() && host.charAt(close + 1) == ':') {
+                    String port = host.substring(close + 2).trim();
+                    return port.isEmpty() ? null : port;
+                }
+                return null;
+            }
             int colon = host.indexOf(':');
-            return (colon >= 0 && colon < host.length() - 1) ? host.substring(colon + 1).trim() : null;
+            // A single colon delimits host:port; multiple colons mean a bare IPv6 literal (no port).
+            if (colon >= 0 && colon < host.length() - 1 && host.indexOf(':', colon + 1) < 0) {
+                return host.substring(colon + 1).trim();
+            }
+            return null;
         }
 
         private static String firstToken(String header) {
