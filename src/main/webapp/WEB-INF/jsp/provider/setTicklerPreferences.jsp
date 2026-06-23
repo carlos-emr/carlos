@@ -184,7 +184,7 @@
 		<div id="AlertBanner"
 			class="alert alert-success alert-dismissible"
 			role="alert">
-			<span id="AlertText"><fmt:message key="${providerMsg}"/></span>
+			<span id="AlertText"><%=providerMsg %></span>
 			<button type="button"
 			class="btn-close"
 			onclick="this.closest('.alert').style.display='none'"
