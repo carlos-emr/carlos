@@ -23,6 +23,7 @@
 package io.github.carlos_emr.carlos.webserv;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -79,8 +80,9 @@ class AbstractWsPrivilegeTest extends CarlosUnitTestBase {
 
         service.getAppointmentTypes();
 
-        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_appointment", "r", (String) null);
-        verify(scheduleManager).getAppointmentTypes();
+        var inOrder = inOrder(securityInfoManager, scheduleManager);
+        inOrder.verify(securityInfoManager).hasPrivilege(loggedInInfo, "_appointment", "r", (String) null);
+        inOrder.verify(scheduleManager).getAppointmentTypes();
     }
 
     @Test
