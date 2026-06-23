@@ -141,14 +141,14 @@
 			<div class="form-check">
                     	<input type="radio" id="taskAssigneeProvider" name="taskAssigneeMRP.value" 
                     	value="provider"
-                        <c:if test="${taskAssigneeMRPValue == 'providers'}">checked</c:if> onclick="checkAssignee()" /> <fmt:message key="provider.setTicklerPreferences.setProviderOption"/>
+                        <c:if test="${taskAssigneeMRPValue == 'provider'}">checked</c:if> onclick="checkAssignee()" /> <fmt:message key="provider.setTicklerPreferences.setProviderOption"/>
 
                     	<input type="hidden" id="taskAssignee" name="taskAssigneeSelection.value" />
 			</div>
                     </div>
                     <div class="mb-3">
                         <div style="display:none;" id="taskAssigneeDefaultContainer">
-                            <span><%=bundle.getString("provider.setTicklerPreferences.noPreference")%></span>
+                            <span><fmt:message key="provider.setTicklerPreferences.noPreference"/></span>
                         </div>
 
                         <div style="display:none;" id="taskAssigneeMRPContainer">
@@ -158,7 +158,7 @@
                         <div style="display:none;" id="taskAssigneeProviderContainer">
                             <span><fmt:message key="provider.setTicklerPreferences.providerDescription"/></span>
                             <br>
-                            <select name="taskAssigneeSelection.value" onchange="updateTaskAssignee(this.value)" class="form-select form-select-sm" title="<fmt:message key="admin.jobs.choose"/>"
+                            <select name="taskAssigneeSelection.value" id="assigneeSelect" onchange="updateTaskAssignee(this.value)" class="form-select form-select-sm" title="<fmt:message key='admin.jobs.choose'/>">
                                 <c:forEach var="provider" items="${providerSelect}">
                                     <option value="${carlos:forHtmlAttribute(provider.value)}"
                                         <c:if test="${fn:trim(selectedProvider) == fn:trim(provider.value)}">selected</c:if>>
@@ -184,11 +184,11 @@
 		<div id="AlertBanner"
 			class="alert alert-success alert-dismissible"
 			role="alert">
-			<span id="AlertText"><fmt:message key="<%=providerMsg%>"/></span>
+			<span id="AlertText"><fmt:message key="${providerMsg}"/></span>
 			<button type="button"
 			class="btn-close"
 			onclick="this.closest('.alert').style.display='none'"
-			aria-label="Close"></button>
+			aria-label="<fmt:message key="global.btnClose"/>"></button>
 		</div>
         <br/><br/>
                 <input type="button" class="btn btn-primary btn-sm" value="<fmt:message key="global.btnClose"/>" onclick="window.close();"/>
@@ -198,6 +198,7 @@
         function checkAssignee() {
             one = document.getElementById("taskAssigneeDefault");
             divDefault = document.getElementById("taskAssigneeDefaultContainer");
+            const mySelect = document.getElementById("assigneeSelect");
 
             if (one.checked) {
                 divDefault.style.display = "block";
@@ -221,8 +222,10 @@
 
             if (provider.checked) {
                 divProvider.style.display = "block";
+                mySelect.disabled = false;
             } else {
                 divProvider.style.display = "none";
+                mySelect.disabled = true;
             }
         }
 
