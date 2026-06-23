@@ -1,8 +1,8 @@
 package io.github.carlos_emr.carlos.managers;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -40,7 +40,9 @@ import io.github.carlos_emr.carlos.email.util.EmailNoteUtil;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.PDFEncryptionUtil;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.owasp.encoder.Encode;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -500,10 +502,12 @@ public class EmailManager {
      * @param password String the password to protect the PDFs with
      * @throws EmailSendingException if PDF encryption fails for any attachment
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     private void encryptAttachments(List<EmailAttachment> encryptableAttachments, String password) throws EmailSendingException {
         for (EmailAttachment attachment : encryptableAttachments) {
             try {
-                Path attachmentPDFPath = Paths.get(attachment.getFilePath());
+                Path attachmentPDFPath = PathValidationUtils.resolveTrustedPath(new File(attachment.getFilePath())).toPath();
                 attachmentPDFPath = PDFEncryptionUtil.encryptPDF(attachmentPDFPath, password);
                 attachment.setFilePath(attachmentPDFPath.toString());
             } catch (IOException e) {

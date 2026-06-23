@@ -31,6 +31,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingDiskCreationService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnDiskService;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Mutation gate for {@code billing/CA/ON/ongenreport.jsp}. The legacy JSP
@@ -53,6 +54,8 @@ public class ViewOnReportGeneration2Action extends ActionSupport {
         this.securityInfoManager = securityInfoManager;
         this.onBillingDiskService = onBillingDiskService;
     }
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();

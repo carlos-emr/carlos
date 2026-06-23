@@ -71,6 +71,7 @@ import java.util.ResourceBundle;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class BillingSaveBilling2Action extends ActionSupport {
     private static final String BILLING_SESSION_EXPIRED_KEY = "billing.billingSave.sessionExpired";
@@ -93,6 +94,8 @@ public class BillingSaveBilling2Action extends ActionSupport {
 
     private BillingmasterDAO billingmasterDAO = SpringUtils.getBean(BillingmasterDAO.class);
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String execute() throws IOException, ServletException {
         HttpServletRequest request = ServletActionContext.getRequest();
@@ -670,6 +673,8 @@ public class BillingSaveBilling2Action extends ActionSupport {
      * @return parsed appointment number, or {@code 0} when the request has no appointment link
      * @throws IllegalArgumentException when a non-empty appointment value is not numeric
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static int parseOptionalAppointmentNo(String raw) {
         if (raw == null || raw.trim().isEmpty() || raw.trim().equalsIgnoreCase("null")) {
             return 0;

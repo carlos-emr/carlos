@@ -28,6 +28,7 @@ import io.github.carlos_emr.carlos.util.LabelValueBean;
 
 import java.util.ArrayList;
 import java.util.List;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Read-only filter for the bill-status screens — turns the operator's form
@@ -75,6 +76,8 @@ public class BillingStatusLoader {
         return getBillsWithSorting(billType, statusType, providerNo, startDate, endDate, demoNo, serviceCodeParams, dx, visitType, billingForm, visitLocation, null, null, paymentStartDate, paymentEndDate, null);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public List<BillingClaimHeaderDto> getBillsWithSorting(String[] billType, String statusType, String providerNo, String startDate, String endDate,
                                                              String demoNo, String serviceCodeParams, String dx, String visitType, String billingForm, String visitLocation, String sortName, String sortOrder,
                                                              String paymentStartDate, String paymentEndDate, String claimNo) {

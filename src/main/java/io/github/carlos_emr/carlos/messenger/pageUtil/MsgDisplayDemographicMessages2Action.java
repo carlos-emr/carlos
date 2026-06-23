@@ -32,6 +32,8 @@ package io.github.carlos_emr.carlos.messenger.pageUtil;
 
 import java.io.IOException;
 
+import org.apache.logging.log4j.Logger;
+
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -158,7 +160,10 @@ public class MsgDisplayDemographicMessages2Action extends ActionSupport {
 
             // Validate demographicNo is numeric before storing in session bean
             if (!demographicNo.matches("\\d+")) {
-                MiscUtils.getLogger().error("Invalid non-numeric demographic_no: {}", LogSafe.sanitize(demographicNo));
+                Logger logger = MiscUtils.getLogger();
+                if (logger.isErrorEnabled()) {
+                    logger.error("Invalid non-numeric demographic_no received; value omitted from log");
+                }
                 // Clear any stale session bean to prevent PHI leakage from a previous request
                 request.getSession().removeAttribute("msgSessionBean");
                 return "error";
@@ -171,7 +176,11 @@ public class MsgDisplayDemographicMessages2Action extends ActionSupport {
 
             // demographicNo validated as numeric; userName is unsanitized — JSPs must use OWASP encoding
             request.getSession().setAttribute("msgSessionBean", bean); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-            MiscUtils.getLogger().debug("Created new MsgSessionBean for providers: " + providerNo);
+            Logger logger = MiscUtils.getLogger();
+            if (logger.isDebugEnabled()) {
+                String safeProvider = LogSafe.sanitize(providerNo);
+                logger.debug("Created new MsgSessionBean for providers: {}", safeProvider);
+            }
         }
 
         // Process message unlinking if requested

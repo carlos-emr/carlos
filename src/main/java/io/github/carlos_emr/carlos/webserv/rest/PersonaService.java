@@ -38,6 +38,8 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
+
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import jakarta.ws.rs.FormParam;
 import jakarta.ws.rs.QueryParam;
 
@@ -76,6 +78,7 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.NavBarMenuTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.PatientListConfigTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ProgramProviderTo1;
 import org.springframework.beans.factory.annotation.Autowired;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 
 @Path("/persona")
@@ -253,7 +256,7 @@ public class PersonaService extends AbstractServiceImpl {
 
         MenuTo1 moreMenuList = new MenuTo1()
                 .addWithState(idCounter++, bundle.getString("navbar.menu.reports"), null, "reports")
-                .add(idCounter++, bundle.getString("navbar.menu.documents"), null, "../documentManager/ViewDocumentReport?function=providers&functionid=" + provider.getPractitionerNo(), "edocView");
+                .add(idCounter++, bundle.getString("navbar.menu.documents"), null, "../documentManager/ViewDocumentReport?function=providers&functionid=" + SafeEncode.forUriComponent(String.valueOf(provider.getPractitionerNo())), "edocView");
 
 
         List<Dashboard> dashboards = dashboardManager.getDashboards(getLoggedInInfo());
@@ -393,6 +396,8 @@ public class PersonaService extends AbstractServiceImpl {
      * @return PersonaResponse containing dashboard preferences
      * @since 2026-02-10
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @POST
     @Path("/preferences")
     @Produces("application/json")

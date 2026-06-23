@@ -38,6 +38,7 @@ import javax.sql.rowset.serial.SerialBlob;
 import org.apache.commons.codec.binary.Base64;
 import io.github.carlos_emr.carlos.model.BaseObject;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @jakarta.persistence.Entity
 @jakarta.persistence.Table(name = "client_image")
@@ -113,6 +114,8 @@ public class ClientImage extends BaseObject {
      * @return String the normalized renderable subtype ({@code "jpeg"} or {@code "gif"}),
      *         or {@code null} when the value is unsupported
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static String getRenderableImageType(String imageType) {
         if (imageType == null) {
             return null;

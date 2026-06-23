@@ -766,7 +766,7 @@
     <% if (showScheduleNav) { %>
         <jsp:include page="/WEB-INF/jsp/provider/mainMenu.jsp"/>
     <% } %>
-    <div class="container">
+    <div class="container-fluid carlos-content-shell">
         <div class="searchBox">
 
             <div class="page-header-bar">

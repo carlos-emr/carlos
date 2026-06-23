@@ -68,11 +68,10 @@ public class BillingCorrectionSubmit2Action extends ActionSupport {
             submissionService.submit(loggedInInfo, toCommand(request));
             return SUCCESS;
         } catch (BillingValidationException e) {
-            // Surface the validation message so the JSP can render the
-            // specific cause ("billing_date is missing or not yyyy-MM-dd",
-            // "invalid item count", etc.) instead of a generic banner. The
-            // message is operator-facing and contains no PHI.
-            MiscUtils.getLogger().warn("Billing correction submit rejected: {}", e.getMessage(), e);
+            // Surface the validation message to the JSP, but do not log the
+            // raw message because malformed hidden fields can contain PHI.
+            MiscUtils.getLogger().warn("Billing correction submit rejected by validation: {}",
+                    e.getClass().getSimpleName());
             request.setAttribute("correctionError", Boolean.TRUE);
             request.setAttribute("correctionErrorMessage", e.getMessage());
             return ERROR;

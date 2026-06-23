@@ -35,6 +35,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action to add clinic billing locations for Ontario billing.
@@ -74,6 +75,8 @@ public class ManageBillingLocationSave2Action extends ActionSupport {
      * @return {@link #NONE} after redirecting, or if the request method is not POST
      * @throws SecurityException if the user lacks {@code _admin.billing} write privilege
      */
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     @Override
     public String execute() throws Exception {
         if (!BillingRequestGuards.requirePost(request, response)) {

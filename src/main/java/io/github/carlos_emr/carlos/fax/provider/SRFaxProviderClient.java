@@ -49,6 +49,7 @@ import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Component;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Fax provider client implementation for direct SRFax API integration.
@@ -90,6 +91,8 @@ public class SRFaxProviderClient implements FaxProviderClient {
      * with a warning log and the default is used instead. This prevents SSRF or credential
      * theft via admin-configured URLs.</p>
      */
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     private String getSrfaxApiUrl() {
         String configured = CarlosProperties.getInstance().getProperty("srfax.api.url");
         if (configured != null && !configured.trim().isEmpty()) {
@@ -508,6 +511,8 @@ public class SRFaxProviderClient implements FaxProviderClient {
     /**
      * Ensures provider response indicates success.
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private void ensureSuccess(JsonNode root, String errorMessage) throws FaxProviderException {
         // Per SRFax spec, Status is always at the top level of the JSON response.
         String status = textAt(root, "Status");

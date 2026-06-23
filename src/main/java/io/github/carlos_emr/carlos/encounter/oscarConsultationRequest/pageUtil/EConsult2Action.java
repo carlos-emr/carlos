@@ -98,7 +98,7 @@ public class EConsult2Action extends ActionSupport {
         
         // Validate task parameter to prevent URL injection
         if (!isValidTask(task)) {
-            MiscUtils.getLogger().error("Invalid task parameter provided: " + task);
+            MiscUtils.getLogger().error("Invalid task parameter provided");
             return "error";
         }
         
@@ -119,7 +119,7 @@ public class EConsult2Action extends ActionSupport {
         if (demographicNo != null && !demographicNo.isEmpty()) {
             // Validate demographicNo to ensure it's numeric
             if (!demographicNo.matches("^\\d+$")) {
-                MiscUtils.getLogger().error("Invalid demographicNo parameter: " + demographicNo);
+                MiscUtils.getLogger().error("Invalid demographicNo parameter");
                 return "error";
             }
             stringBuilder.append(String.format("?%1$s=%2$s", "patient_id", demographicNo));
