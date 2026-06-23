@@ -107,9 +107,13 @@ public final class SelectFacility2Action extends BaseLoginPageView2Action {
         String nextResult = request.getParameter("nextPage");
         if (nextResult != null && !nextResult.isEmpty() && !ALLOWED_NEXT_RESULTS.contains(nextResult)) {
             // Validate navigation intent before mutating facility state; invalid values are retryable.
-            LOGGER.warn("Rejected /select_facility nextPage before facility mutation: provider={}, nextPage={}, remote={}",
-                    LogSafe.sanitize(providerNo), LogSafe.sanitize(nextResult),
-                    LogSafe.sanitize(request.getRemoteAddr()));
+            if (LOGGER.isWarnEnabled()) {
+                String safeProviderNo = LogSafe.sanitize(providerNo);
+                String safeNextResult = LogSafe.sanitize(nextResult);
+                String safeRemoteAddr = LogSafe.sanitize(request.getRemoteAddr());
+                LOGGER.warn("Rejected /select_facility nextPage before facility mutation: provider={}, nextPage={}, remote={}",
+                        safeProviderNo, safeNextResult, safeRemoteAddr);
+            }
             return redirectToFacilitySelection(request, response);
         }
 
@@ -133,7 +137,7 @@ public final class SelectFacility2Action extends BaseLoginPageView2Action {
         LoggedInInfo loggedInInfo = LoggedInUserFilter.generateLoggedInInfoFromSession(request);
         LoggedInInfo.setLoggedInInfoIntoSession(session, loggedInInfo);
         LogAction.addLog(providerNo, LogConst.LOGIN, LogConst.CON_LOGIN,
-                "facilityId=" + facilityId, request.getRemoteAddr());
+                "facilityId=" + facilityId, LogSafe.sanitize(request.getRemoteAddr()));
 
         if (nextResult == null || nextResult.isEmpty()) {
             return "provider";

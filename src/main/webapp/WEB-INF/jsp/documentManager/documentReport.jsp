@@ -755,7 +755,7 @@
                         value="<fmt:message key='dms.documentReport.btnDoneClose'/>"
                         onclick="window.closeWindow()"/>
                 <input type="button" value="<fmt:message key='dms.documentReport.btnCombinePDF'/>" class="btn btn-secondary"
-                       onclick="return submitForm('<rewrite:reWrite jspPage="combinePDFs"/>');"/>
+                       onclick="return submitForm('<rewrite:reWrite jspPage="combinePDFs" context="javaScriptAttribute"/>');"/>
             </div>
 
         </form>
