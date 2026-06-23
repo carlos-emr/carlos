@@ -33,6 +33,7 @@
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
 <%@page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@page import="io.github.carlos_emr.carlos.managers.CodingSystemManager" %>
 
 <%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
@@ -151,13 +152,13 @@
             = new RxPrescriptionData().getFavorites(bean2.getProviderNo());
 
         for (int j=0; j<favorites.length; j++){
-            String favoriteName = StringUtils.noNull(favorites[j].getFavoriteName());%>
+            String favoriteName = StringUtils.noNull(favorites[j].getFavoriteName());
+            String favoriteTitle = SafeEncode.forHtmlAttribute(favoriteName);
+            String favoriteDisplayName = favoriteName.length() > 13 ? favoriteName.substring(0, 10) + "..." : favoriteName;%>
 
     <p class="PropSheetMenuItemLevel1"><a
             href="javascript:void(0);" onclick="useFav2('<%= favorites[j].getFavoriteId() %>');"
-            title="<carlos:encode value='<%= favoriteName %>' context="htmlAttribute"/>"><%if (favoriteName.length() > 13) {%>
-        <carlos:encode value='<%= favoriteName.substring(0, 10) + "..." %>' context="html"/> <%} else {%>
-        <carlos:encode value='<%= favoriteName %>' context="html"/> <%}%></a></p>
+            title="<%= favoriteTitle %>"><%= SafeEncode.forHtmlContent(favoriteDisplayName) %></a></p>
     <%}%>
 
 </div>

@@ -74,12 +74,14 @@ class RxPrintFlowRegressionTest {
         String sideLinksEditFavorites2Jsp = Files.readString(SIDE_LINKS_EDIT_FAVORITES_2_JSP, StandardCharsets.UTF_8);
 
         assertThat(sideLinksEditFavorites2Jsp)
-                .contains("title=\"<carlos:encode")
-                .contains("context=\"htmlAttribute\"")
-                .contains("context=\"html\"")
-                .contains("substring(0, 10) + \"...\"")
+                .contains("String favoriteTitle = SafeEncode.forHtmlAttribute(favoriteName);")
+                .contains("String favoriteDisplayName = favoriteName.length() > 13 ? favoriteName.substring(0, 10) + \"...\" : favoriteName;")
+                .contains("title=\"<%= favoriteTitle %>\"")
+                .contains("<%= SafeEncode.forHtmlContent(favoriteDisplayName) %>")
                 .doesNotContain("title=\"<%= favorites[j].getFavoriteName() %>\"")
                 .doesNotContain("<%= favorites[j].getFavoriteName().substring(0, 10) + \"...\" %>")
-                .doesNotContain("<%= favorites[j].getFavoriteName() %>");
+                .doesNotContain("<%= favorites[j].getFavoriteName() %>")
+                .doesNotContain("title=\"<%= favoriteName %>\"")
+                .doesNotContain("><%= favoriteName %></a>");
     }
 }
