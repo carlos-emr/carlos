@@ -286,10 +286,10 @@ public class OscarOAuthDataProvider {
             throw new IllegalArgumentException("retentionSeconds must be positive");
         }
         // consumerKey and nonce are mandatory; only tokenId may be absent (the
-        // token-initiate step carries no oauth_token). Reject blanks explicitly
-        // rather than silently coalescing, so a replay key is never built from
-        // empty values.
-        if (consumerKey == null || consumerKey.isEmpty() || nonce == null || nonce.isEmpty()) {
+        // token-initiate step carries no oauth_token). Reject blank (including
+        // whitespace-only) values explicitly rather than silently coalescing, so
+        // a replay key is never built from empty values.
+        if (consumerKey == null || consumerKey.isBlank() || nonce == null || nonce.isBlank()) {
             throw new OAuth1Exception(400, "invalid_oauth_parameters");
         }
         String key = consumerKey;

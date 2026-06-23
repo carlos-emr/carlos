@@ -281,6 +281,13 @@ class OscarOAuthDataProviderUnitTest {
         assertThatThrownBy(() -> provider.consumeNonce("consumer", "token", null, 1000L, 600L))
                 .isInstanceOf(OAuth1Exception.class)
                 .hasMessage("invalid_oauth_parameters");
+        // Whitespace-only values are blank too and must not become replay keys.
+        assertThatThrownBy(() -> provider.consumeNonce("   ", "token", "abc", 1000L, 600L))
+                .isInstanceOf(OAuth1Exception.class)
+                .hasMessage("invalid_oauth_parameters");
+        assertThatThrownBy(() -> provider.consumeNonce("consumer", "token", " ", 1000L, 600L))
+                .isInstanceOf(OAuth1Exception.class)
+                .hasMessage("invalid_oauth_parameters");
 
         verify(nonceDao, never()).persist(org.mockito.ArgumentMatchers.any());
     }
