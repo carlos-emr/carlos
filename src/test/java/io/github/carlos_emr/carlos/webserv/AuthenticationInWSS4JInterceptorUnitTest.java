@@ -18,19 +18,18 @@ import org.apache.wss4j.common.ext.WSSecurityException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.times;
 
 /**
@@ -42,7 +41,7 @@ import static org.mockito.Mockito.times;
 @DisplayName("AuthenticationInWSS4JInterceptor fault status mapping")
 @Tag("unit")
 @Tag("security")
-class AuthenticationInWSS4JInterceptorUnitTest {
+class AuthenticationInWSS4JInterceptorUnitTest extends CarlosUnitTestBase {
 
     private static final QName RECEIVER = Soap11.getInstance().getReceiver();
 
@@ -137,12 +136,10 @@ class AuthenticationInWSS4JInterceptorUnitTest {
         TestInterceptor interceptor = new TestInterceptor(null);
         SoapMessage message = new SoapMessage(new MessageImpl()); // no HTTP_REQUEST set
 
-        try (MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
-            interceptor.handleMessage(message); // must not throw
+        interceptor.handleMessage(message); // must not throw
 
-            assertThat(interceptor.securityCheckCalls).isZero();
-            logAction.verifyNoInteractions();
-        }
+        assertThat(interceptor.securityCheckCalls).isZero();
+        logActionMock.verifyNoInteractions();
     }
 
     @Test
@@ -157,14 +154,12 @@ class AuthenticationInWSS4JInterceptorUnitTest {
                 mock(OscarUsernameTokenValidator.class));
         SoapMessage message = messageWithRequest(new MockHttpServletRequest());
 
-        try (MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
-            SoapFault thrown =
-                    catchThrowableOfType(() -> interceptor.handleMessage(message), SoapFault.class);
+        SoapFault thrown =
+                catchThrowableOfType(() -> interceptor.handleMessage(message), SoapFault.class);
 
-            assertThat(thrown).isSameAs(authFailure);
-            assertThat(thrown.getStatusCode()).isEqualTo(401);
-            logAction.verify(() -> LogAction.addLogSynchronous(any(OscarLog.class)), times(1));
-        }
+        assertThat(thrown).isSameAs(authFailure);
+        assertThat(thrown.getStatusCode()).isEqualTo(401);
+        logActionMock.verify(() -> LogAction.addLogSynchronous(any(OscarLog.class)), times(1));
     }
 
     @Test
@@ -179,13 +174,11 @@ class AuthenticationInWSS4JInterceptorUnitTest {
         request.setAttribute(loggedInInfo.getLoggedInInfoKey(), loggedInInfo);
         SoapMessage message = messageWithRequest(request);
 
-        try (MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
-            interceptor.handleMessage(message);
+        interceptor.handleMessage(message);
 
-            assertThat(interceptor.securityCheckCalls).isEqualTo(1);
-            assertThat(message.get("ws-security.ut.validator")).isSameAs(validator);
-            logAction.verify(() -> LogAction.addLogSynchronous(any(OscarLog.class)), times(1));
-        }
+        assertThat(interceptor.securityCheckCalls).isEqualTo(1);
+        assertThat(message.get("ws-security.ut.validator")).isSameAs(validator);
+        logActionMock.verify(() -> LogAction.addLogSynchronous(any(OscarLog.class)), times(1));
     }
 
     private static SoapMessage messageWithRequest(HttpServletRequest request) {
