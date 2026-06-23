@@ -122,7 +122,7 @@ class SmartDateModuleRoundTripUnitTest {
 
     @Test
     @DisplayName("should fail with an IOException that does not echo the raw value for an unparseable string")
-    void shouldThrowIoException_withoutEchoingRawValue_forUnparseableString() {
+    void shouldThrowIoExceptionWithoutEchoingRawValue_forUnparseableString() {
         assertThatThrownBy(() -> mapper.readValue("\"not-a-date-SECRET\"", Date.class))
                 .isInstanceOf(IOException.class)
                 // The untrusted request value must not be echoed into the thrown message (PHI hygiene).

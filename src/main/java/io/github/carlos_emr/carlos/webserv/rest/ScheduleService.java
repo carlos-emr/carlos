@@ -366,6 +366,13 @@ public class ScheduleService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public SchedulingResponse updateAppointmentUrgency(@PathParam("id") Integer id, AppointmentTo1 appt) {
+        // This route was previously unrouted (missing @POST); now that it is reachable, guard a
+        // null/empty request body rather than NPE-ing on appt.getUrgency().
+        if (appt == null) {
+            throw new WebApplicationException(Response.status(Status.BAD_REQUEST)
+                    .entity("Appointment payload is required").build());
+        }
+
         SchedulingResponse response = new SchedulingResponse();
         AppointmentConverter converter = new AppointmentConverter();
         String urgency = appt.getUrgency();
@@ -577,8 +584,11 @@ public class ScheduleService extends AbstractServiceImpl {
         if (value instanceof Character character) {
             return character;
         }
-        String s = value.toString().trim();
-        return s.isEmpty() ? null : s.charAt(0);
+        if (value instanceof String s) {
+            String trimmed = s.trim();
+            return trimmed.isEmpty() ? null : trimmed.charAt(0);
+        }
+        throw new IllegalArgumentException("Unsupported status type: " + value.getClass().getName());
     }
 
 

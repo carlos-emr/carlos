@@ -55,6 +55,7 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.SearchConfigTo1;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
@@ -238,5 +239,16 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
                         .isEqualTo(Response.Status.NOT_FOUND.getStatusCode()));
 
         verify(scheduleManager, never()).updateAppointment(any(), any());
+    }
+
+    @Test
+    @DisplayName("should reject updateUrgency with bad request when the request body is null")
+    void shouldRejectUpdateUrgency_whenBodyIsNull() {
+        assertThatThrownBy(() -> service.updateAppointmentUrgency(99, null))
+                .isInstanceOf(WebApplicationException.class)
+                .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus())
+                        .isEqualTo(Response.Status.BAD_REQUEST.getStatusCode()));
+
+        verify(appointmentManager, never()).updateAppointmentUrgency(any(), anyInt(), any());
     }
 }

@@ -25,9 +25,9 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.util.StdDateFormat;
 
 import java.io.IOException;
+import java.text.DateFormat;
 import java.text.ParseException;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -53,8 +53,8 @@ import java.util.Date;
  *
  * <p>Because this is registered on the shared REST {@code ObjectMapper}, it must also
  * remain backward compatible with what Jackson's default deserializer accepted before
- * it existed — epoch-millis-as-string and ISO-8601 — which is handled via the
- * {@link StdDateFormat} fallback.</p>
+ * it existed — epoch-millis-as-string and ISO-8601 — which is handled by delegating to the
+ * mapper's configured {@code DateFormat} (Jackson's {@code StdDateFormat} by default).</p>
  *
  * <p>The {@code "HH:mm:ss"} and {@code "yyyy-MM-dd"} shapes are parsed in the JVM default
  * time zone to mirror {@code SmartDateSerializer}, which formats them with a default-zone
@@ -100,9 +100,12 @@ public class SmartDateDeserializer extends JsonDeserializer<Date> {
             }
 
             // Backward compatibility: epoch-millis-as-string and ISO-8601 — the shapes Jackson's
-            // default Date deserializer (StdDateFormat) accepted before this module existed.
+            // default Date deserializer accepted before this module existed. Use the mapper's
+            // configured DateFormat (StdDateFormat by default) so any mapper-level date-format or
+            // timezone configuration is honored; clone it because DateFormat is not thread-safe.
+            DateFormat dateFormat = (DateFormat) ctxt.getConfig().getDateFormat().clone();
             try {
-                return new StdDateFormat().parse(text);
+                return dateFormat.parse(text);
             } catch (ParseException e) {
                 // Do not echo the raw request value in the message — it is untrusted and may be
                 // PHI-adjacent in a healthcare API. The chained cause carries parser detail.

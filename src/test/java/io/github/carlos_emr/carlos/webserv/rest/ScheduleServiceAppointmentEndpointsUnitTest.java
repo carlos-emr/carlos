@@ -104,4 +104,15 @@ class ScheduleServiceAppointmentEndpointsUnitTest {
         assertThat(toCharacter.invoke(null, "   ")).isNull();
         assertThat(toCharacter.invoke(null, new Object[]{null})).isNull();
     }
+
+    @Test
+    @DisplayName("should throw IllegalArgumentException when toCharacter is given an unsupported type")
+    void shouldThrow_whenToCharacterGivenUnsupportedType() throws Exception {
+        Method toCharacter = ScheduleService.class.getDeclaredMethod("toCharacter", Object.class);
+        toCharacter.setAccessible(true);
+
+        assertThatThrownBy(() -> toCharacter.invoke(null, 123))
+                .isInstanceOf(InvocationTargetException.class)
+                .hasCauseInstanceOf(IllegalArgumentException.class);
+    }
 }
