@@ -826,11 +826,12 @@ class ResponseSanitizationFilterUnitTest {
 
             assertThat(response.getStatus()).isEqualTo(500);
             String sanitized = response.getContentAsString();
-            assertThat(sanitized).doesNotContain("Jane");
-            assertThat(sanitized).doesNotContain("Doe");
-            assertThat(sanitized).doesNotContain("250-555-0143");
-            assertThat(sanitized).doesNotContain("patientStatus");
-            assertThat(sanitized).contains("Reference ID:");
+            assertThat(sanitized)
+                    .doesNotContain("Jane")
+                    .doesNotContain("Doe")
+                    .doesNotContain("250-555-0143")
+                    .doesNotContain("patientStatus")
+                    .contains("Reference ID:");
         }
 
         @Test
@@ -851,9 +852,10 @@ class ResponseSanitizationFilterUnitTest {
 
             assertThat(response.getStatus()).isEqualTo(500);
             String sanitized = response.getContentAsString();
-            assertThat(sanitized).doesNotContain("Jane");
-            assertThat(sanitized).doesNotContain("9999999999");
-            assertThat(sanitized).contains("Reference ID:");
+            assertThat(sanitized)
+                    .doesNotContain("Jane")
+                    .doesNotContain("9999999999")
+                    .contains("Reference ID:");
         }
 
         @Test
@@ -942,9 +944,10 @@ class ResponseSanitizationFilterUnitTest {
 
             assertThat(response.getStatus()).isEqualTo(500);
             String sanitized = response.getContentAsString();
-            assertThat(sanitized).doesNotContain("NullPointerException");
-            assertThat(sanitized).doesNotContain("io.github.carlos_emr");
-            assertThat(sanitized).contains("Reference ID:");
+            assertThat(sanitized)
+                    .doesNotContain("NullPointerException")
+                    .doesNotContain("io.github.carlos_emr")
+                    .contains("Reference ID:");
         }
     }
 
