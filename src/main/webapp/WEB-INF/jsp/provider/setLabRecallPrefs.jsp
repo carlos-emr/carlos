@@ -208,7 +208,7 @@ selected</c:if>><fmt:message key="tickler.ticklerMain.priority.low"/></option>
 					<button type="button"
 							class="btn-close"
 							onclick="this.closest('.alert').style.display='none'"
-							aria-label="<fmt:message key="global.btnCancel"/>"></button>
+							aria-label="<fmt:message key="global.btnClose"/>"></button>
 				</div>
         <br/><br/>
                 <input type="button" class="btn btn-primary btn-sm" value="<fmt:message key="global.btnClose"/>" onclick="window.close();"/>
