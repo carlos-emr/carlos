@@ -80,7 +80,6 @@ class RxPrintFlowRegressionTest {
                 .contains("substring(0, 10) + \"...\"")
                 .doesNotContain("title=\"<%= favorites[j].getFavoriteName() %>\"")
                 .doesNotContain("<%= favorites[j].getFavoriteName().substring(0, 10) + \"...\" %>")
-                .doesNotContain("\n        <%= favorites[j].getFavoriteName() %>")
-                .doesNotContain("\r\n        <%= favorites[j].getFavoriteName() %>");
+                .doesNotContain("<%= favorites[j].getFavoriteName() %>");
     }
 }
