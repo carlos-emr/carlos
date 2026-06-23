@@ -133,6 +133,44 @@ class ResponseSanitizationFilterUnitTest {
     }
 
     @Nested
+    @DisplayName("web-service buffer size parsing")
+    class WebServiceBufferParsing {
+
+        @Test
+        @DisplayName("should use the configured value when a positive integer is provided")
+        void shouldUseConfiguredValue_whenPositiveIntegerProvided() {
+            assertThat(ResponseSanitizationFilter.parseBufferBytes("131072")).isEqualTo(131072);
+            assertThat(ResponseSanitizationFilter.parseBufferBytes("  262144 ")).isEqualTo(262144);
+        }
+
+        @Test
+        @DisplayName("should fall back to the default when value is absent or blank")
+        void shouldFallBackToDefault_whenAbsentOrBlank() {
+            int expected = ResponseSanitizationFilter.DEFAULT_WEB_SERVICE_RESPONSE_BUFFER_BYTES;
+            assertThat(ResponseSanitizationFilter.parseBufferBytes(null)).isEqualTo(expected);
+            assertThat(ResponseSanitizationFilter.parseBufferBytes("")).isEqualTo(expected);
+            assertThat(ResponseSanitizationFilter.parseBufferBytes("   ")).isEqualTo(expected);
+        }
+
+        @Test
+        @DisplayName("should warn and fall back to the default when value is non-positive or non-numeric")
+        void shouldWarnAndFallBackToDefault_whenNonPositiveOrNonNumeric() {
+            int expected = ResponseSanitizationFilter.DEFAULT_WEB_SERVICE_RESPONSE_BUFFER_BYTES;
+            try (LogCapture capture = LogCapture.forLogger(ResponseSanitizationFilter.class)) {
+                assertThat(ResponseSanitizationFilter.parseBufferBytes("0")).isEqualTo(expected);
+                assertThat(ResponseSanitizationFilter.parseBufferBytes("-1")).isEqualTo(expected);
+                assertThat(ResponseSanitizationFilter.parseBufferBytes("abc")).isEqualTo(expected);
+
+                assertThat(capture.events()).anySatisfy(event -> {
+                    assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                    assertThat(event.getMessage().getFormattedMessage())
+                            .contains("Unrecognized response.sanitization.ws.buffer.bytes value");
+                });
+            }
+        }
+    }
+
+    @Nested
     @DisplayName("containsStackTrace()")
     class ContainsStackTrace {
 
@@ -962,7 +1000,7 @@ class ResponseSanitizationFilterUnitTest {
             filter.doFilter(request, response, chain);
 
             assertThat(response.getBufferSize())
-                    .isGreaterThanOrEqualTo(ResponseSanitizationFilter.WEB_SERVICE_RESPONSE_BUFFER_BYTES)
+                    .isGreaterThanOrEqualTo(ResponseSanitizationFilter.DEFAULT_WEB_SERVICE_RESPONSE_BUFFER_BYTES)
                     .isGreaterThan(defaultBuffer);
         }
 
@@ -986,10 +1024,13 @@ class ResponseSanitizationFilterUnitTest {
         @DisplayName("should sanitize a /ws 500 partial body that would otherwise exceed the default buffer and commit")
         void shouldSanitizePartialBody_whenLargerThanDefaultBufferOnWebServiceRoute() throws Exception {
             MockHttpServletRequest request = wsRequest("POST");
-            // MockHttpServletResponse commits once written content exceeds its buffer size (as a
-            // real container does). A partial PHI body larger than the default buffer would commit
-            // and become unrecoverable (the #2994 leak); enlarging the /ws buffer keeps it
-            // uncommitted so the existing pass-through sanitization can replace it.
+            // MockHttpServletResponse commits once written content exceeds its buffer size, like a
+            // real container: its ResponseServletOutputStream.write(int) calls
+            // setCommittedIfBufferSizeExceeded(), and bulk writes route through that per-byte path.
+            // So without the /ws buffer enlargement this partial body (> default buffer) commits and
+            // becomes unrecoverable (the #2994 leak) and this test fails; with it, the body stays
+            // uncommitted and the existing pass-through sanitization replaces it. (Hence this is a
+            // true regression test, not a false positive.)
             MockHttpServletResponse response = new MockHttpServletResponse();
             int defaultBuffer = response.getBufferSize();
             StringBuilder sb = new StringBuilder(
