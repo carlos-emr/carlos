@@ -31,6 +31,7 @@ import java.text.DateFormat;
 import java.text.ParseException;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.Month;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -120,7 +121,7 @@ public class SmartDateDeserializer extends JsonDeserializer<Date> {
     private static Date parseTime(String text) throws IOException {
         try {
             LocalTime time = LocalTime.parse(text, TIME_FORMATTER);
-            return Date.from(time.atDate(LocalDate.of(1970, 1, 1)).atZone(ZoneId.systemDefault()).toInstant());
+            return Date.from(time.atDate(LocalDate.of(1970, Month.JANUARY, 1)).atZone(ZoneId.systemDefault()).toInstant());
         } catch (DateTimeParseException e) {
             // Do not echo the raw request value (untrusted / possibly PHI-adjacent); the chained
             // cause retains parser detail for diagnosis.

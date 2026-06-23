@@ -26,6 +26,7 @@ import java.lang.reflect.Method;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Month;
 import java.util.Date;
 
 import jakarta.ws.rs.POST;
@@ -69,12 +70,12 @@ class ScheduleServiceAppointmentEndpointsUnitTest {
         Method toDate = ScheduleService.class.getDeclaredMethod("toDate", Object.class);
         toDate.setAccessible(true);
 
-        assertThat(toDate.invoke(null, LocalDate.of(2026, 6, 22)))
-                .isEqualTo(java.sql.Date.valueOf(LocalDate.of(2026, 6, 22)));
+        assertThat(toDate.invoke(null, LocalDate.of(2026, Month.JUNE, 22)))
+                .isEqualTo(java.sql.Date.valueOf(LocalDate.of(2026, Month.JUNE, 22)));
         assertThat(toDate.invoke(null, LocalTime.of(9, 30, 0)))
                 .isEqualTo(java.sql.Time.valueOf(LocalTime.of(9, 30, 0)));
-        assertThat(toDate.invoke(null, LocalDateTime.of(2026, 6, 22, 9, 30, 0)))
-                .isEqualTo(java.sql.Timestamp.valueOf(LocalDateTime.of(2026, 6, 22, 9, 30, 0)));
+        assertThat(toDate.invoke(null, LocalDateTime.of(2026, Month.JUNE, 22, 9, 30, 0)))
+                .isEqualTo(java.sql.Timestamp.valueOf(LocalDateTime.of(2026, Month.JUNE, 22, 9, 30, 0)));
 
         Date util = new Date(0);
         assertThat(toDate.invoke(null, util)).isSameAs(util);

@@ -99,7 +99,7 @@ class AppointmentConverterUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should apply only editable fields onto an existing appointment, preserving audit fields")
-    void shouldApplyEditableFields_ontoExistingAppointment() throws Exception {
+    void shouldApplyEditableFields_ontoExistingAppointment() {
         Date originalCreate = new Date(1_000_000_000_000L);
         Appointment existing = new Appointment();
         existing.setId(42);
