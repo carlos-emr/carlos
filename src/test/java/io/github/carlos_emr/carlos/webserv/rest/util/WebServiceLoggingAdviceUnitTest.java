@@ -92,7 +92,7 @@ class WebServiceLoggingAdviceUnitTest {
 
     @Test
     @DisplayName("returns the proceed result and logs only the service.method name at DEBUG")
-    void shouldReturnProceedResult_andLogMethodNameOnlyAtDebug() throws Throwable {
+    void shouldReturnProceedResultAndLogMethodNameOnly_whenLoggingAtDebug() throws Throwable {
         ProceedingJoinPoint joinpoint = mockJoinPoint("getPharmacies");
         Object expected = new Object();
         when(joinpoint.proceed()).thenReturn(expected);
