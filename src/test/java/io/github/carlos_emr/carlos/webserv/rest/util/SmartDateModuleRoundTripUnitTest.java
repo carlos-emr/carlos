@@ -138,6 +138,17 @@ class SmartDateModuleRoundTripUnitTest {
     }
 
     @Test
+    @DisplayName("should reject an impossible calendar date rather than clamp it")
+    void shouldRejectImpossibleDate_ratherThanClamp() {
+        // Default SMART resolution would silently clamp these (2026-02-30 -> 2026-02-28); STRICT
+        // resolution rejects them so an invalid request value is not coerced into a wrong date.
+        assertThatThrownBy(() -> mapper.readValue("\"2026-02-30\"", Date.class))
+                .isInstanceOf(IOException.class);
+        assertThatThrownBy(() -> mapper.readValue("\"2025-02-29\"", Date.class))
+                .isInstanceOf(IOException.class);
+    }
+
+    @Test
     @DisplayName("should round-trip an appointment's startTime/endTime/appointmentDate through the DTO")
     void shouldRoundTripAppointmentDtoDates_throughSerializer() throws Exception {
         AppointmentTo1 appt = new AppointmentTo1();

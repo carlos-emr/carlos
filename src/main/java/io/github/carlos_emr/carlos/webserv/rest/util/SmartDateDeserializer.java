@@ -35,6 +35,7 @@ import java.time.Month;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.time.format.ResolverStyle;
 import java.util.Date;
 
 /**
@@ -65,8 +66,15 @@ import java.util.Date;
  */
 public class SmartDateDeserializer extends JsonDeserializer<Date> {
 
-    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss");
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    // STRICT resolution rejects impossible values (e.g. 2026-02-30, 25:00:00) instead of the
+    // default SMART style, which silently clamps them (2026-02-30 -> 2026-02-28). The date pattern
+    // uses proleptic-year "uuuu" because STRICT resolution requires it (year-of-era "yyyy" would
+    // demand an era field); for the positive years this API handles, it matches the serializer's
+    // "yyyy-MM-dd" output exactly.
+    private static final DateTimeFormatter TIME_FORMATTER =
+            DateTimeFormatter.ofPattern("HH:mm:ss").withResolverStyle(ResolverStyle.STRICT);
+    private static final DateTimeFormatter DATE_FORMATTER =
+            DateTimeFormatter.ofPattern("uuuu-MM-dd").withResolverStyle(ResolverStyle.STRICT);
 
     @Override
     public Date deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
