@@ -176,6 +176,11 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
             when(securityInfoManager.hasPrivilege(any(), eq("_appointment"), eq("w"), any())).thenReturn(false);
         }
 
+        /** Confirms the mutator gated on the {@code _appointment} write privilege before rejecting. */
+        private void verifyWritePrivilegeChecked() {
+            verify(securityInfoManager).hasPrivilege(eq(loggedInInfo), eq("_appointment"), eq("w"), isNull());
+        }
+
         @Test
         @DisplayName("should throw 403 and not persist when caller lacks write privilege on addAppointment")
         void shouldThrow403_whenCallerLacksWritePrivilegeOnAddAppointment() {
@@ -184,6 +189,7 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
                     .satisfies(ex -> assertThat(((WebApplicationException) ex).getResponse().getStatus())
                             .isEqualTo(Response.Status.FORBIDDEN.getStatusCode()));
             verifyNoInteractions(appointmentManager);
+            verifyWritePrivilegeChecked();
         }
 
         @Test
@@ -196,6 +202,7 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
 
             assertThat(response.getStatus()).isEqualTo(Response.Status.FORBIDDEN.getStatusCode());
             verifyNoInteractions(appointmentManager);
+            verifyWritePrivilegeChecked();
         }
 
         @Test
@@ -206,6 +213,7 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
                     .satisfies(ex -> assertThat(((WebApplicationException) ex).getResponse().getStatus())
                             .isEqualTo(Response.Status.FORBIDDEN.getStatusCode()));
             verifyNoInteractions(scheduleManager);
+            verifyWritePrivilegeChecked();
         }
 
         @Test
@@ -216,6 +224,7 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
                     .satisfies(ex -> assertThat(((WebApplicationException) ex).getResponse().getStatus())
                             .isEqualTo(Response.Status.FORBIDDEN.getStatusCode()));
             verifyNoInteractions(appointmentManager);
+            verifyWritePrivilegeChecked();
         }
 
         @Test
@@ -226,6 +235,7 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
                     .satisfies(ex -> assertThat(((WebApplicationException) ex).getResponse().getStatus())
                             .isEqualTo(Response.Status.FORBIDDEN.getStatusCode()));
             verifyNoInteractions(appointmentManager);
+            verifyWritePrivilegeChecked();
         }
 
         @Test
@@ -236,6 +246,7 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
                     .satisfies(ex -> assertThat(((WebApplicationException) ex).getResponse().getStatus())
                             .isEqualTo(Response.Status.FORBIDDEN.getStatusCode()));
             verifyNoInteractions(appointmentManager);
+            verifyWritePrivilegeChecked();
         }
     }
 }

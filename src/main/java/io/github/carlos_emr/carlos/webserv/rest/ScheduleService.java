@@ -205,7 +205,7 @@ public class ScheduleService extends AbstractServiceImpl {
     @Consumes("application/json")
     public SchedulingResponse addAppointment(NewAppointmentTo1 appointmentTo) {
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_appointment", "w", null)) {
-            throw new WebApplicationException(Response.status(Status.FORBIDDEN).build());
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
         }
 
         SchedulingResponse response = new SchedulingResponse();
@@ -245,7 +245,7 @@ public class ScheduleService extends AbstractServiceImpl {
     @Produces("application/json")
     public Response deleteAppointment(AppointmentTo1 appointmentTo) {
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_appointment", "w", null)) {
-            return Response.status(Status.FORBIDDEN).build();
+            return Response.status(Response.Status.FORBIDDEN).build();
         }
 
         appointmentManager.deleteAppointment(getLoggedInInfo(), appointmentTo.getId());
@@ -259,7 +259,7 @@ public class ScheduleService extends AbstractServiceImpl {
     @Produces("application/json")
     public SchedulingResponse updateAppointment(AppointmentTo1 appointmentTo) {
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_appointment", "w", null)) {
-            throw new WebApplicationException(Response.status(Status.FORBIDDEN).build());
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
         }
 
         SchedulingResponse response = new SchedulingResponse();
@@ -329,7 +329,7 @@ public class ScheduleService extends AbstractServiceImpl {
     @Consumes("application/json")
     public SchedulingResponse updateAppointmentStatus(@PathParam("id") Integer id, AppointmentTo1 appt) {
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_appointment", "w", null)) {
-            throw new WebApplicationException(Response.status(Status.FORBIDDEN).build());
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
         }
 
         SchedulingResponse response = new SchedulingResponse();
@@ -349,7 +349,7 @@ public class ScheduleService extends AbstractServiceImpl {
     @Consumes("application/json")
     public SchedulingResponse updateAppointmentType(@PathParam("id") Integer id, AppointmentTo1 appt) {
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_appointment", "w", null)) {
-            throw new WebApplicationException(Response.status(Status.FORBIDDEN).build());
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
         }
 
         SchedulingResponse response = new SchedulingResponse();
@@ -369,7 +369,7 @@ public class ScheduleService extends AbstractServiceImpl {
     @Consumes("application/json")
     public SchedulingResponse updateAppointmentUrgency(@PathParam("id") Integer id, AppointmentTo1 appt) {
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_appointment", "w", null)) {
-            throw new WebApplicationException(Response.status(Status.FORBIDDEN).build());
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
         }
 
         SchedulingResponse response = new SchedulingResponse();
