@@ -39,9 +39,11 @@ import java.util.UUID;
 
 import io.github.carlos_emr.carlos.commn.dao.ServiceAccessTokenDao;
 import io.github.carlos_emr.carlos.commn.dao.ServiceClientDao;
+import io.github.carlos_emr.carlos.commn.dao.ServiceOAuthNonceDao;
 import io.github.carlos_emr.carlos.commn.dao.ServiceRequestTokenDao;
 import io.github.carlos_emr.carlos.commn.model.ServiceAccessToken;
 import io.github.carlos_emr.carlos.commn.model.ServiceClient;
+import io.github.carlos_emr.carlos.commn.model.ServiceOAuthNonce;
 import io.github.carlos_emr.carlos.commn.model.ServiceRequestToken;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -68,6 +70,7 @@ public class OscarOAuthDataProvider {
     @Autowired private ServiceRequestTokenDao serviceRequestTokenDao;
     @Autowired private ServiceAccessTokenDao serviceAccessTokenDao;
     @Autowired private ServiceClientDao serviceClientDao;
+    @Autowired private ServiceOAuthNonceDao serviceOAuthNonceDao;
 
     public Client getClient(String consumerKey) {
         logger.debug("getClient({})", consumerKey);
@@ -243,6 +246,45 @@ public class OscarOAuthDataProvider {
     public String getRequestTokenSecret(String requestTokenId) {
         ServiceRequestToken srt = serviceRequestTokenDao.findByTokenId(requestTokenId);
         return srt != null ? srt.getTokenSecret() : null;
+    }
+
+    /**
+     * Records an OAuth 1.0a request nonce as consumed, rejecting it as a replay
+     * if the same (consumerKey, tokenId, nonce) combination has already been
+     * seen. Callers must only invoke this after the request signature has been
+     * verified, so an attacker cannot poison the store for a legitimate client.
+     *
+     * @param consumerKey     the request's oauth_consumer_key (required).
+     * @param tokenId         the request's oauth_token, or null for the token
+     *                        initiate step; stored as an empty string when absent.
+     * @param nonce           the request's oauth_nonce (required).
+     * @param oauthTimestamp  the request's oauth_timestamp, retained for pruning.
+     * @param retentionSeconds how long a consumed nonce must be remembered; older
+     *                        entries are pruned because their timestamp can no
+     *                        longer pass the freshness check and cannot be replayed.
+     * @throws OAuth1Exception 401 when the nonce has already been consumed.
+     */
+    public void consumeNonce(String consumerKey, String tokenId, String nonce,
+            long oauthTimestamp, long retentionSeconds) throws OAuth1Exception {
+        String key = consumerKey == null ? "" : consumerKey;
+        String token = tokenId == null ? "" : tokenId;
+
+        // Drop nonces that can no longer pass the timestamp freshness window so
+        // the table stays bounded.
+        long cutoff = (System.currentTimeMillis() / 1000) - retentionSeconds;
+        serviceOAuthNonceDao.deleteOlderThan(cutoff);
+
+        if (serviceOAuthNonceDao.findByConsumerTokenNonce(key, token, nonce) != null) {
+            throw new OAuth1Exception(401, "nonce_replayed");
+        }
+
+        ServiceOAuthNonce consumed = new ServiceOAuthNonce();
+        consumed.setConsumerKey(key);
+        consumed.setTokenId(token);
+        consumed.setNonce(nonce);
+        consumed.setOauthTimestamp(oauthTimestamp);
+        consumed.setDateCreated(new Date());
+        serviceOAuthNonceDao.persist(consumed);
     }
 
     private ServiceAccessToken findUnexpiredAccessToken(String accessTokenId) {

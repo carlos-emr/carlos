@@ -7,9 +7,11 @@ package io.github.carlos_emr.carlos.login;
 
 import io.github.carlos_emr.carlos.commn.dao.ServiceAccessTokenDao;
 import io.github.carlos_emr.carlos.commn.dao.ServiceClientDao;
+import io.github.carlos_emr.carlos.commn.dao.ServiceOAuthNonceDao;
 import io.github.carlos_emr.carlos.commn.dao.ServiceRequestTokenDao;
 import io.github.carlos_emr.carlos.commn.model.ServiceAccessToken;
 import io.github.carlos_emr.carlos.commn.model.ServiceClient;
+import io.github.carlos_emr.carlos.commn.model.ServiceOAuthNonce;
 import io.github.carlos_emr.carlos.webserv.oauth.Client;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1Exception;
 import io.github.carlos_emr.carlos.webserv.oauth.RequestToken;
@@ -20,11 +22,13 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -210,6 +214,77 @@ class OscarOAuthDataProviderUnitTest {
 
         assertThat(rt).isNotNull();
         assertThat(rt.getCallback()).isEqualTo(expectedCallback);
+    }
+
+    @Test
+    @DisplayName("should persist a consumed nonce when seen for the first time")
+    void shouldPersistConsumedNonce_whenSeenForFirstTime() {
+        ServiceOAuthNonceDao nonceDao = mock(ServiceOAuthNonceDao.class);
+        when(nonceDao.findByConsumerTokenNonce("consumer", "token", "abc")).thenReturn(null);
+        OscarOAuthDataProvider provider = providerWithNonceDao(nonceDao);
+
+        provider.consumeNonce("consumer", "token", "abc", 1000L, 600L);
+
+        ArgumentCaptor<ServiceOAuthNonce> captor = ArgumentCaptor.forClass(ServiceOAuthNonce.class);
+        verify(nonceDao).persist(captor.capture());
+        ServiceOAuthNonce stored = captor.getValue();
+        assertThat(stored.getConsumerKey()).isEqualTo("consumer");
+        assertThat(stored.getTokenId()).isEqualTo("token");
+        assertThat(stored.getNonce()).isEqualTo("abc");
+        assertThat(stored.getOauthTimestamp()).isEqualTo(1000L);
+        assertThat(stored.getDateCreated()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("should reject a replayed nonce when the combination was already consumed")
+    void shouldRejectReplayedNonce_whenAlreadyConsumed() {
+        ServiceOAuthNonceDao nonceDao = mock(ServiceOAuthNonceDao.class);
+        when(nonceDao.findByConsumerTokenNonce("consumer", "token", "abc"))
+                .thenReturn(new ServiceOAuthNonce());
+        OscarOAuthDataProvider provider = providerWithNonceDao(nonceDao);
+
+        assertThatThrownBy(() -> provider.consumeNonce("consumer", "token", "abc", 1000L, 600L))
+                .isInstanceOf(OAuth1Exception.class)
+                .hasMessage("nonce_replayed");
+
+        verify(nonceDao, never()).persist(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    @DisplayName("should prune nonces older than the retention window before recording")
+    void shouldPruneNonces_whenRetentionWindowGiven() {
+        ServiceOAuthNonceDao nonceDao = mock(ServiceOAuthNonceDao.class);
+        OscarOAuthDataProvider provider = providerWithNonceDao(nonceDao);
+
+        long retentionSeconds = 600L;
+        long before = System.currentTimeMillis() / 1000;
+        provider.consumeNonce("consumer", "token", "abc", 1000L, retentionSeconds);
+        long after = System.currentTimeMillis() / 1000;
+
+        ArgumentCaptor<Long> cutoff = ArgumentCaptor.forClass(Long.class);
+        verify(nonceDao).deleteOlderThan(cutoff.capture());
+        assertThat(cutoff.getValue())
+                .isBetween(before - retentionSeconds, after - retentionSeconds);
+    }
+
+    @Test
+    @DisplayName("should store an empty token id when the request carries no oauth_token")
+    void shouldStoreEmptyTokenId_whenTokenIsNull() {
+        ServiceOAuthNonceDao nonceDao = mock(ServiceOAuthNonceDao.class);
+        OscarOAuthDataProvider provider = providerWithNonceDao(nonceDao);
+
+        provider.consumeNonce("consumer", null, "abc", 1000L, 600L);
+
+        ArgumentCaptor<ServiceOAuthNonce> captor = ArgumentCaptor.forClass(ServiceOAuthNonce.class);
+        verify(nonceDao).persist(captor.capture());
+        assertThat(captor.getValue().getTokenId()).isEmpty();
+        verify(nonceDao).findByConsumerTokenNonce("consumer", "", "abc");
+    }
+
+    private static OscarOAuthDataProvider providerWithNonceDao(ServiceOAuthNonceDao nonceDao) {
+        OscarOAuthDataProvider provider = new OscarOAuthDataProvider();
+        ReflectionTestUtils.setField(provider, "serviceOAuthNonceDao", nonceDao);
+        return provider;
     }
 
     private static OscarOAuthDataProvider provider(ServiceAccessTokenDao accessTokenDao) {
