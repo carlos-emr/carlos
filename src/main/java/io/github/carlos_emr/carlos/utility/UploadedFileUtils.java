@@ -27,6 +27,10 @@ import org.apache.struts2.dispatcher.multipart.UploadedFile;
 /**
  * Helpers for extracting backing {@link File} handles from Struts
  * {@link UploadedFile} objects.
+ *
+ * <p><strong>Important:</strong> The returned {@link File} must still be validated (for example via
+ * {@link PathValidationUtils#validateUpload(File)} or {@link PathValidationUtils#validateUploadContent(Object)})
+ * before performing any file operations.</p>
  */
 public final class UploadedFileUtils {
 
