@@ -474,7 +474,8 @@ class RxWebServiceUnitTest {
         @DisplayName("should return longterm drugs when caller is authorized for the demographic")
         void shouldReturnLongtermDrugs_whenAuthorized() {
             DrugSearchResponse resp = service.getLongtermDrugs(1);
-            assertThat(resp.getContent()).isNotNull();
+            assertThat(resp.getContent()).hasSize(1);
+            assertThat(resp.getContent().get(0).getBrandName()).isEqualTo("Tylenol");
         }
 
         @Test
