@@ -136,10 +136,6 @@
             <bean class="io.github.carlos_emr.carlos.webserv.oauth.OAuth1ExceptionMapper"/>
         </jaxrs:providers>
 
-        <jaxrs:features>
-            <cxf:logging/>
-        </jaxrs:features>
-
         <jaxrs:extensionMappings>
             <entry key="xml"  value="application/xml"/>
             <entry key="json" value="application/json"/>

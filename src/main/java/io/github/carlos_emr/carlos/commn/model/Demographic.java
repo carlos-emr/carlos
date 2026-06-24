@@ -775,8 +775,11 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     }
     @jakarta.persistence.Transient
 
+    // The family_physician column is frequently null. Coalesce to "" before matching
+    // (mirroring getFamilyDoctor()'s null handling) so these transient parse getters
+    // never NPE — e.g. when Jackson serializes a Demographic over the REST API.
     public String getFamilyPhysicianLastName() {
-        Matcher m = FD_LAST_NAME.matcher(getFamilyPhysician());
+        Matcher m = FD_LAST_NAME.matcher(StringUtils.trimToEmpty(getFamilyPhysician()));
         if (m.find()) {
             return m.group(2);
         }
@@ -785,7 +788,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     @jakarta.persistence.Transient
 
     public String getFamilyPhysicianFirstName() {
-        Matcher m = FD_FIRST_NAME.matcher(getFamilyPhysician());
+        Matcher m = FD_FIRST_NAME.matcher(StringUtils.trimToEmpty(getFamilyPhysician()));
         if (m.find()) {
             return m.group(2);
         }
@@ -794,7 +797,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     @jakarta.persistence.Transient
 
     public String getFamilyPhysicianFullName() {
-        Matcher m = FD_FULL_NAME.matcher(getFamilyPhysician());
+        Matcher m = FD_FULL_NAME.matcher(StringUtils.trimToEmpty(getFamilyPhysician()));
         if (m.find()) {
             return m.group(2);
         }
@@ -803,7 +806,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     @jakarta.persistence.Transient
 
     public String getFamilyPhysicianNumber() {
-        Matcher m = FD_OHIP.matcher(getFamilyPhysician());
+        Matcher m = FD_OHIP.matcher(StringUtils.trimToEmpty(getFamilyPhysician()));
         if (m.find()) {
             return m.group(2);
         }
