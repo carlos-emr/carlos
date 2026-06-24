@@ -471,6 +471,13 @@ class RxWebServiceUnitTest {
         }
 
         @Test
+        @DisplayName("should return longterm drugs when caller is authorized for the demographic")
+        void shouldReturnLongtermDrugs_whenAuthorized() {
+            DrugSearchResponse resp = service.getLongtermDrugs(1);
+            assertThat(resp.getContent()).isNotNull();
+        }
+
+        @Test
         @DisplayName("should deny access to all drugs for unauthorized demographic")
         void shouldDenyAllDrugs_forUnauthorizedDemographic() {
             assertThatThrownBy(() -> service.getAllDrugs(6))
@@ -571,6 +578,11 @@ class RxWebServiceUnitTest {
                 if (!d.isArchived()) toReturn.add(d);
             }
             return toReturn;
+        }
+
+        @Override
+        public List<Drug> getLongTermDrugs(LoggedInInfo info, int demographicNo) {
+            return getCurrentDrugs(info, demographicNo);
         }
 
         private List<Drug> getArchivedDrugs(LoggedInInfo info, int id) {
