@@ -36,6 +36,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.Collections;
 
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.core.Response;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -100,6 +101,26 @@ class DiseaseRegistryServiceUnitTest {
 
         verify(dxresearchDao, never()).activeEntryExists(6, "icd9", "250");
         verify(dxresearchDao, never()).persist(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    @DisplayName("should reject adding to the disease registry when demographicNo is missing without persisting")
+    void shouldRejectAddToDiseaseRegistry_whenDemographicNoMissing() {
+        IssueTo1 issue = new IssueTo1();
+        issue.setType("icd9");
+        issue.setCode("250");
+
+        assertThatThrownBy(() -> service.addToDiseaseRegistry(null, issue))
+                .isInstanceOf(BadRequestException.class);
+
+        verify(dxresearchDao, never()).persist(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    @DisplayName("should reject reading the disease registry when demographicNo is missing")
+    void shouldRejectDiseaseRegistry_whenDemographicNoMissing() {
+        assertThatThrownBy(() -> service.getDiseaseRegistry(null))
+                .isInstanceOf(BadRequestException.class);
     }
 
     /** Mock SecurityInfoManager that grants access only for demographicNo &lt; 5. */

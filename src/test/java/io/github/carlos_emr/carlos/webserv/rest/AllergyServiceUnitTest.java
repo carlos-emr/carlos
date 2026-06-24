@@ -34,6 +34,8 @@ import static org.mockito.Mockito.when;
 
 import java.util.Collections;
 
+import jakarta.ws.rs.BadRequestException;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -82,6 +84,13 @@ class AllergyServiceUnitTest {
     void shouldDenyActiveAllergies_forUnauthorizedDemographic() {
         assertThatThrownBy(() -> service.getCurrentAllergies(6))
                 .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("should reject the request when demographicNo is missing")
+    void shouldRejectActiveAllergies_whenDemographicNoMissing() {
+        assertThatThrownBy(() -> service.getCurrentAllergies(null))
+                .isInstanceOf(BadRequestException.class);
     }
 
     /** Mock SecurityInfoManager that grants access only for demographicNo &lt; 5. */

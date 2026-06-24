@@ -126,6 +126,9 @@ public class DiseaseRegistryService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public Response addToDiseaseRegistry(@PathParam("demographicNo") Integer demographicNo, IssueTo1 issue) {
+        if (demographicNo == null) {
+            throw new BadRequestException("demographicNo is required");
+        }
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_dxresearch", SecurityInfoManager.WRITE, demographicNo)) {
             throw new AccessDeniedException("_dxresearch", SecurityInfoManager.WRITE, demographicNo);
         }
@@ -152,6 +155,9 @@ public class DiseaseRegistryService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public Response getDiseaseRegistry(@QueryParam("demographicNo") Integer demographicNo) {
+        if (demographicNo == null) {
+            throw new BadRequestException("demographicNo is required");
+        }
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_dxresearch", SecurityInfoManager.READ, demographicNo)) {
             throw new AccessDeniedException("_dxresearch", SecurityInfoManager.READ, demographicNo);
         }

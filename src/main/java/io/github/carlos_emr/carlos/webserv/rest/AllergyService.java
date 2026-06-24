@@ -30,6 +30,7 @@ package io.github.carlos_emr.carlos.webserv.rest;
 
 import java.util.List;
 
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
@@ -63,6 +64,9 @@ public class AllergyService extends AbstractServiceImpl {
     @Path("/active")
     @Produces("application/json")
     public AllergyResponse getCurrentAllergies(@QueryParam("demographicNo") Integer demographicNo) {
+        if (demographicNo == null) {
+            throw new BadRequestException("demographicNo is required");
+        }
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_allergy", SecurityInfoManager.READ, demographicNo)) {
             throw new AccessDeniedException("_allergy", SecurityInfoManager.READ, demographicNo);
         }
