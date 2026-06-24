@@ -56,6 +56,10 @@ class EFormJspMigrationRegressionTest {
             Path.of("src/main/webapp/WEB-INF/classes/struts-form.xml");
     private static final Path STRUTS_XML =
             Path.of("src/main/webapp/WEB-INF/classes/struts.xml");
+    private static final Path EFORM_TOP_NAV_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/eform/efmTopNav.jspf");
+    private static final Path EFORM_MANAGER_EDIT_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/eform/efmformmanageredit.jsp");
     private static final Pattern STRUTS_ACTION_EXCLUDE_PATTERN = Pattern.compile(
             "<constant name=\"struts\\.action\\.excludePattern\" value=\"([^\"]+)\"\\s*/>");
 
@@ -102,6 +106,29 @@ class EFormJspMigrationRegressionTest {
 
         assertThat(jsp).contains("eForm.setImagePath(request.getContextPath());")
                 .doesNotContain("eForm.setImagePath();");
+    }
+
+    @Test
+    @DisplayName("eForm admin nav should use a Bootstrap button dropdown for Create eForm")
+    void shouldUseBootstrapButtonDropdown_whenRenderingEFormTopNav() throws IOException {
+        String jsp = Files.readString(EFORM_TOP_NAV_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("<button type=\"button\"")
+                .contains("data-bs-toggle=\"dropdown\"")
+                .contains("aria-haspopup=\"true\"")
+                .contains("aria-expanded=\"false\"")
+                .doesNotContain("<a href=\"javascript:void(0);\" class=\"dropdown-toggle\"");
+    }
+
+    @Test
+    @DisplayName("eForm editor save should return the popup to the library without navigating the main CARLOS window")
+    void shouldRedirectCurrentWindow_whenAdminEditorSaveSucceeds() throws IOException {
+        String jsp = Files.readString(EFORM_MANAGER_EDIT_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("window.location.href = '<%=request.getContextPath()%>/eform/efmformmanager';")
+                .doesNotContain("window.opener.location.href = '<%=request.getContextPath()%>/administration?show=Forms';");
     }
 
     @Test

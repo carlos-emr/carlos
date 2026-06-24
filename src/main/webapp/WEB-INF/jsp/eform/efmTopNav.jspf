@@ -38,10 +38,9 @@
     <li><a href="<%= request.getContextPath() %>/eform/efmmanageformgroups" class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.groups.name"/></a></li>
     <!-- <li><a href="#">eForm Emporium</a></li> -->
 	<li class="dropdown">
-		<a href="javascript:void(0);" class="dropdown-toggle" data-bs-toggle="dropdown">
+		<button type="button" class="dropdown-toggle btn btn-link nav-link border-0 p-0 text-decoration-none" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
 		Create eForm
-
-		</a>
+		</button>
 		<ul class="dropdown-menu">
 
 		<li><a href='<%= request.getContextPath() %>/eform/visualEformEditor' onclick="window.open(this.href, '_blank'); return false;" class="dropdown-item"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.visual.editor.title"/></a></li>
