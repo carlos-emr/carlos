@@ -428,7 +428,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             }
             newDoc.setContentType(this.docFileContentType);
 
-            if (fileName2.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
+            if (fileName2 != null && fileName2.regionMatches(true, fileName2.length() - 4, ".pdf", 0, 4)) {
                 newDoc.setContentType("application/pdf");
                 int numberOfPages = countNumOfPages(fileName2);
                 newDoc.setNumberOfPages(numberOfPages);
@@ -635,7 +635,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
                     addActionError(getText("dms.error.uploadError"));
                     throw new IOException("Failed to write uploaded document");
                 }
-                if (fileName.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
+                if (fileName != null && fileName.regionMatches(true, fileName.length() - 4, ".pdf", 0, 4)) {
                     newDoc.setContentType("application/pdf");
                     int numberOfPages = countNumOfPages(fileName);
                     newDoc.setNumberOfPages(numberOfPages);

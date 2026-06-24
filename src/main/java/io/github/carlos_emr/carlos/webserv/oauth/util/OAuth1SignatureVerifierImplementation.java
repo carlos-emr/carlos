@@ -132,7 +132,7 @@ public class OAuth1SignatureVerifierImplementation implements OAuth1SignatureVer
 
         // c) Body params (x-www-form-urlencoded)
         String ctype = req.getContentType();
-        if (ctype != null && ctype.toLowerCase(Locale.ROOT).startsWith("application/x-www-form-urlencoded")) {
+        if (ctype != null && ctype.regionMatches(true, 0, "application/x-www-form-urlencoded", 0, 33)) {
             req.getParameterMap().forEach((k, vals) -> {
                 if (!k.startsWith("oauth_")) for (String v : vals) all.add(new NameValue(k, v));
             });

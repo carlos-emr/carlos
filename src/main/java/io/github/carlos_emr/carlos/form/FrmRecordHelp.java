@@ -123,7 +123,7 @@ public class FrmRecordHelp {
                     String value;
 
                     String colTypeName = md.getColumnTypeName(i);
-                    if (colTypeName.regionMatches(true, 0, "TINYINT", 0, 7) || colTypeName.equalsIgnoreCase("bit")) {
+                    if (colTypeName != null && (colTypeName.regionMatches(true, 0, "TINYINT", 0, 7) || colTypeName.equalsIgnoreCase("bit"))) {
                         if (rs.getInt(i) == 1)
                             value = "checked='checked'";
                         else
@@ -300,7 +300,7 @@ public class FrmRecordHelp {
             String value = props.getProperty(name, null);
 
             String colTypeName = md.getColumnTypeName(i);
-            if (colTypeName.regionMatches(true, 0, "TINYINT", 0, 7) || colTypeName.equalsIgnoreCase("bit")) {
+            if (colTypeName != null && (colTypeName.regionMatches(true, 0, "TINYINT", 0, 7) || colTypeName.equalsIgnoreCase("bit"))) {
                 if (value != null) {
                     if (value.equalsIgnoreCase("on") || value.equalsIgnoreCase("checked='checked'")) {
                         rs.updateInt(name, 1);
@@ -449,7 +449,7 @@ public class FrmRecordHelp {
             String value;
 
             String colTypeName = md.getColumnTypeName(i);
-            if ((colTypeName.regionMatches(true, 0, "TINYINT", 0, 7) || colTypeName.equalsIgnoreCase("bit")) && md.getScale(i) == 1) {
+            if (colTypeName != null && (colTypeName.regionMatches(true, 0, "TINYINT", 0, 7) || colTypeName.equalsIgnoreCase("bit")) && md.getScale(i) == 1) {
                 if (rs.getInt(i) == 1)
                     value = "on";
                 else
