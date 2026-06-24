@@ -110,10 +110,10 @@ class EFormJspMigrationRegressionTest {
         String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/eform/efmshowform_data.jsp"), StandardCharsets.UTF_8);
 
         assertThat(jsp).containsPattern(
-                "(?s)eForm = new EForm\\(fdid\\);\\s*"
-                        + "eForm\\.setContextPath\\(request\\.getContextPath\\(\\)\\);\\s*"
-                        + "eForm\\.setOscarOPEN\\(request\\.getRequestURI\\(\\)\\);\\s*"
-                        + "eForm\\.setImagePath\\(request\\.getContextPath\\(\\)\\);");
+                "(?s)eForm\\s*=\\s*new\\s+EForm\\(\\s*fdid\\s*\\);\\s*"
+                        + "eForm\\.setContextPath\\(\\s*request\\.getContextPath\\(\\s*\\)\\s*\\);\\s*"
+                        + "eForm\\.setOscarOPEN\\(\\s*request\\.getRequestURI\\(\\s*\\)\\s*\\);\\s*"
+                        + "eForm\\.setImagePath\\(\\s*request\\.getContextPath\\(\\s*\\)\\s*\\);");
     }
 
     @Test
