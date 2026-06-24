@@ -153,6 +153,23 @@ class EFormJspMigrationRegressionTest {
     }
 
     @Test
+    @DisplayName("struts global config should let rendering servlet routes reach web.xml mappings")
+    void shouldExcludeRenderingServletRoutes_whenReadingStrutsGlobalConfig() throws IOException {
+        String globalStruts = Files.readString(STRUTS_XML, StandardCharsets.UTF_8);
+        Matcher matcher = STRUTS_ACTION_EXCLUDE_PATTERN.matcher(globalStruts);
+
+        assertThat(matcher.find()).isTrue();
+
+        Pattern excludePattern = Pattern.compile(matcher.group(1));
+        assertThat(excludePattern.matcher("/imageRenderingServlet").matches()).isTrue();
+        assertThat(excludePattern.matcher("/carlos/imageRenderingServlet").matches()).isTrue();
+        assertThat(excludePattern.matcher("/EFormSignatureViewForPdfGenerationServlet").matches()).isTrue();
+        assertThat(excludePattern.matcher("/carlos/EFormSignatureViewForPdfGenerationServlet").matches()).isTrue();
+        assertThat(excludePattern.matcher("/contentRenderingServlet/document/1").matches()).isTrue();
+        assertThat(excludePattern.matcher("/carlos/contentRenderingServlet/document/1").matches()).isTrue();
+    }
+
+    @Test
     @DisplayName("struts form config should forward only to internal WEB-INF views, not invented WEB-INF .do routes")
     void strutsFormConfigShouldNotForwardToWebInfDoRoutes() throws IOException {
         String struts = Files.readString(STRUTS_FORM_XML, StandardCharsets.UTF_8);
