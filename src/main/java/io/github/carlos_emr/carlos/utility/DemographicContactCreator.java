@@ -42,7 +42,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Locale;
+
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
@@ -350,11 +350,15 @@ public class DemographicContactCreator {
     /**
      * Sort Contacts Alpha
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (last-name sort); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (last-name sort); not a security or authorization decision")
     public static Comparator<Contact> byLastName = new Comparator<Contact>() {
         public int compare(Contact contact1, Contact contact2) {
-            String lastname1 = contact1.getLastName().toUpperCase(Locale.ROOT);
-            String lastname2 = contact2.getLastName().toUpperCase(Locale.ROOT);
-            return lastname1.compareTo(lastname2);
+            String lastname1 = contact1.getLastName();
+            String lastname2 = contact2.getLastName();
+            if (lastname1 == null) return (lastname2 == null) ? 0 : -1;
+            if (lastname2 == null) return 1;
+            return lastname1.compareToIgnoreCase(lastname2);
         }
     };
 

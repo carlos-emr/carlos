@@ -35,7 +35,7 @@ import java.util.Date;
 import java.util.GregorianCalendar;
 
 import io.github.carlos_emr.MyDateFormat;
-import java.util.Locale;
+
 import io.github.carlos_emr.carlos.PMmodule.model.FieldDefinition;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -111,7 +111,7 @@ public class Utility {
 
         String delim = "/";
 
-        if ("TODAY".equals(pDate.toUpperCase(Locale.ROOT))) {
+        if ("TODAY".equalsIgnoreCase(pDate)) {
             return new Date();
         } else {
             try {
@@ -152,7 +152,7 @@ public class Utility {
             return c1.getTime();
         }
 
-        if ("TODAY".equals(pDate.toUpperCase(Locale.ROOT))) return new Date();
+        if ("TODAY".equalsIgnoreCase(pDate)) return new Date();
 
         try {
             int day = Integer.parseInt(pDate.substring(0, 2));
@@ -174,7 +174,7 @@ public class Utility {
             return SetDate(2999, 12, 31);
         }
 
-        if ("TODAY".equals(pDate.toUpperCase(Locale.ROOT))) return new Date();
+        if ("TODAY".equalsIgnoreCase(pDate)) return new Date();
 
         try {
             int day = Integer.parseInt(pDate.substring(0, 2));

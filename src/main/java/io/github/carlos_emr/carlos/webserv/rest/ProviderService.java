@@ -73,7 +73,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import java.util.Locale;
+
 
 
 /**
@@ -294,9 +294,9 @@ public class ProviderService extends AbstractServiceImpl {
                 if (activeNode.isBoolean()) {
                     active = activeNode.asBoolean();
                 } else if (activeNode.isTextual()) {
-                    String s = activeNode.asText().trim().toLowerCase(Locale.ROOT);
-                    if ("true".equals(s))      active = true;
-                    else if ("false".equals(s)) active = false;
+                    String s = activeNode.asText().trim();
+                    if ("true".equalsIgnoreCase(s))      active = true;
+                    else if ("false".equalsIgnoreCase(s)) active = false;
                     else throw new WebApplicationException(
                         "Invalid 'active' value", Response.Status.BAD_REQUEST);
                 } else {
