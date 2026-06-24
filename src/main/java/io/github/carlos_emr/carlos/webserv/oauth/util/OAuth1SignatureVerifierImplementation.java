@@ -92,7 +92,7 @@ public class OAuth1SignatureVerifierImplementation implements OAuth1SignatureVer
         final boolean hasVerifier = oauth.containsKey("oauth_verifier");
 
         String tokenSecret = "";
-        if (!isInitiate && token != null && !token.isEmpty() && dataProvider != null) {
+        if (!isInitiate && token != null && !token.isEmpty()) {
             if (isAccessEndpoint || hasVerifier) {
                 tokenSecret = dataProvider.getRequestTokenSecret(token);
             } else {
