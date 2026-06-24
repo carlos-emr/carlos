@@ -158,6 +158,20 @@
     private String selectedSite = null;
     private HashMap<String, String> siteBgColor = new HashMap<String, String>();
     private HashMap<String, String> CurrentSiteMap = new HashMap<String, String>();
+
+    private void appendTooltipLine(StringBuilder tooltip, String label, String value) {
+        if (value == null) {
+            return;
+        }
+        String trimmedValue = value.trim();
+        if (trimmedValue.isEmpty() || "null".equalsIgnoreCase(trimmedValue)) {
+            return;
+        }
+        tooltip.append("&#013;&#010;")
+                .append(SafeEncode.forHtmlAttribute(label))
+                .append(": ")
+                .append(SafeEncode.forHtmlAttribute(trimmedValue));
+    }
 %>
 <%
     if (bMultisites) {
@@ -1966,10 +1980,10 @@
                                                                 }
                                                               }
 
-                                                                      String reason = String.valueOf(appointment.getReason()).trim();
-                                                                      String notes = String.valueOf(appointment.getNotes()).trim();
-                                                                      String status = String.valueOf(appointment.getStatus()).trim();
-                                                                      String sitename = String.valueOf(appointment.getLocation()).trim();
+                                                                      String reason = appointment.getReason() != null ? appointment.getReason().trim() : "";
+                                                                      String notes = appointment.getNotes() != null ? appointment.getNotes().trim() : "";
+                                                                      String status = appointment.getStatus() != null ? appointment.getStatus().trim() : "";
+                                                                      String sitename = appointment.getLocation() != null ? appointment.getLocation().trim() : "";
                                                                       String type = appointment.getType() != null ? appointment.getType() : "";
                                                                       String urgency = appointment.getUrgency();
                                                                       String reasonCodeName = "";
@@ -1990,6 +2004,31 @@
                                                                                 + reasonCodeName;
                                                                       }
 
+                                                                  String demographicAlert = dCust != null && dCust.getAlert() != null ? dCust.getAlert() : "";
+                                                                  String demographicNotes = dCust != null && dCust.getNotes() != null
+                                                                          ? SxmlMisc.getXmlContent(dCust.getNotes(), "<unotes>", "</unotes>")
+                                                                          : "";
+                                                                  String preventionWarning = "";
+                                                                  if (!providerPreventionManager.isDisabled() && demographic_no != 0) {
+                                                                      preventionWarning = providerPreventionManager.getWarnings(loggedInInfo1, String.valueOf(demographic_no));
+                                                                  }
+                                                                  String timeRange = iS + ":" + (iSm >= 10 ? "" : "0") + iSm + "-" + iE + ":" + (iEm >= 10 ? "" : "0") + iEm;
+                                                                  StringBuilder appointmentTooltipSummaryBuilder = new StringBuilder();
+                                                                  appointmentTooltipSummaryBuilder.append(SafeEncode.forHtmlAttribute(timeRange))
+                                                                          .append(" ")
+                                                                          .append(SafeEncode.forHtmlAttribute(name));
+                                                                  appendTooltipLine(appointmentTooltipSummaryBuilder, "Reason", reasonCodeName);
+                                                                  String appointmentTooltipSummary = appointmentTooltipSummaryBuilder.toString();
+                                                                  StringBuilder appointmentTooltipFullBuilder = new StringBuilder(appointmentTooltipSummary);
+                                                                  appendTooltipLine(appointmentTooltipFullBuilder, "Type", type);
+                                                                  appendTooltipLine(appointmentTooltipFullBuilder, "Appointment notes", notes);
+                                                                  appendTooltipLine(appointmentTooltipFullBuilder, "Ticklers", tickler_note);
+                                                                  appendTooltipLine(appointmentTooltipFullBuilder, "Demographic alerts", demographicAlert);
+                                                                  appendTooltipLine(appointmentTooltipFullBuilder, "Demographic notes", demographicNotes);
+                                                                  appendTooltipLine(appointmentTooltipFullBuilder, "Prevention alerts", preventionWarning);
+                                                                  String appointmentTooltipFull = appointmentTooltipFullBuilder.toString();
+                                                                  boolean showTooltip = CarlosProperties.getInstance().getBooleanProperty("SHOW_APPT_REASON_TOOLTIP", "yes");
+
                                                                   bFirstTimeRs=true;
                                                             as.setApptStatus(status);
 
@@ -1998,8 +2037,9 @@
                                                         // Check if this is a cancelled appointment (C, CS, CV, N, NS, NV)
                                                         boolean isCancelled = noCountStatus.contains(status);
                                                     %>
-                                                    <td class="appt<%= isCancelled ? " Cancelled" : "" %>" bgcolor='<%=as.getBgColor()%>'
+                                                    <td class="appt<%= isCancelled ? " Cancelled" : "" %><%= showTooltip ? " appt-reason-tooltip appt-tooltip-provider-" + curProvider_no[nProvider] : "" %>" bgcolor='<%=as.getBgColor()%>'
                                                         rowspan="<%=iRows%>"
+                                                        <%= showTooltip ? "data-title-full=\"" + appointmentTooltipFull + "\" data-title-short=\"" + appointmentTooltipSummary + "\" title=\"" + appointmentTooltipFull + "\"" : "" %>
                                                         nowrap>
                                                         <!-- multisites : add colour-coded to the "location" value of that appointment. -->
                                                         <%if (bMultisites) {%>
@@ -2093,20 +2133,8 @@
                                                         %>
 
 
-                                                        <%
-                                                            // Build tooltip variants for privacy-compliant display (dot-name format)
-                                                            // Always show reason/notes labels, but handle "null" string from String.valueOf(null)
-                                                            String timeRange = iS + ":" + (iSm >= 10 ? "" : "0") + iSm + "-" + iE + ":" + (iEm >= 10 ? "" : "0") + iEm;
-                                                            String dotTooltipShort = timeRange + " " + SafeEncode.forHtmlAttribute(name) + ((type != null && !type.isEmpty()) ? "&#013;&#010;type: " + SafeEncode.forHtmlAttribute(type) : "");
-                                                            String dotReasonDisplay = (reason != null && !"null".equals(reason)) ? reason : "";
-                                                            String dotNotesDisplay = (notes != null && !"null".equals(notes)) ? notes : "";
-                                                            String dotTooltipFull = dotTooltipShort + "&#013;&#010;reason: " + SafeEncode.forHtmlAttribute(dotReasonDisplay) + "&#013;&#010;notes: " + SafeEncode.forHtmlAttribute(dotNotesDisplay);
-
-                                                            // Check if tooltips should be shown (defaults to true if property not set)
-                                                            boolean showTooltipDot = CarlosProperties.getInstance().getBooleanProperty("SHOW_APPT_REASON_TOOLTIP", "yes");
-                                                        %>
                                                         <a href="javascript:void(0)"
-                                                           class="<%= showTooltipDot ? "appt-reason-tooltip appt-tooltip-provider-" + curProvider_no[nProvider] : "" %>"
+                                                           class="<%= showTooltip ? "appt-reason-tooltip appt-tooltip-provider-" + curProvider_no[nProvider] : "" %>"
                                                            <c:set var="__enc_8"><carlos:encode value='<%= String.valueOf(appointment.getId()) %>' context="uriComponent"/></c:set>
                                                            <c:set var="__enc_9"><carlos:encode value='<%= curProvider_no[nProvider] %>' context="uriComponent"/></c:set>
                                                            <c:set var="__enc_10"><carlos:encode value='<%= String.valueOf(year) %>' context="uriComponent"/></c:set>
@@ -2114,7 +2142,7 @@
                                                            <c:set var="__enc_12"><carlos:encode value='<%= String.valueOf(day) %>' context="uriComponent"/></c:set>
                                                            <c:set var="__enc_13"><carlos:encode value='<%= iS+":"+iSm %>' context="uriComponent"/></c:set>
                                                            onClick="popupPage(600,780,'<%= request.getContextPath() %>/appointment/editappointment?appointment_no=<carlos:encode value='${__enc_8}' context="javaScriptAttribute"/>&provider_no=<carlos:encode value='${__enc_9}' context="javaScriptAttribute"/>&year=<carlos:encode value='${__enc_10}' context="javaScriptAttribute"/>&month=<carlos:encode value='${__enc_11}' context="javaScriptAttribute"/>&day=<carlos:encode value='${__enc_12}' context="javaScriptAttribute"/>&start_time=<carlos:encode value='${__enc_13}' context="javaScriptAttribute"/>&demographic_no=0&dboperation=search');return false;"
-                                                           <%= showTooltipDot ? "data-title-full=\"" + dotTooltipFull + "\" data-title-short=\"" + dotTooltipShort + "\" title=\"" + dotTooltipFull + "\"" : "" %>>
+                                                           <%= showTooltip ? "data-title-full=\"" + appointmentTooltipFull + "\" data-title-short=\"" + appointmentTooltipSummary + "\" title=\"" + appointmentTooltipFull + "\"" : "" %>>
                                                             <span>
                                                             .<%=(view == 0 && numAvailProvider != 1) ? (name.length() > len ? name.substring(0, len).toUpperCase() : SafeEncode.forHtmlContent(name.toUpperCase())) : SafeEncode.forHtmlContent(name.toUpperCase())%>
                                                             </span>
@@ -2179,13 +2207,12 @@
                                                         <!-- doctor code block 2 -->
                                                         <c:if test="${not isPreventionWarningDisabled}">
                                                             <%
-                                                                String warning = providerPreventionManager.getWarnings(loggedInInfo1, String.valueOf(demographic_no));
-                                                                if (!warning.isEmpty()) {
+                                                                if (!preventionWarning.isEmpty()) {
                                                             %>
                                                             <img src="${pageContext.servletContext.contextPath}/images/stop_sign.png"
                                                                  width="14px" height="14px"
                                                                  style="margin-bottom: 3px;margin-left: 3px;"
-                                                                 title="<carlos:encode value='<%= warning %>' context="htmlAttribute"/>"/>&nbsp;
+                                                                 title="<carlos:encode value='<%= preventionWarning %>' context="htmlAttribute"/>"/>&nbsp;
                                                             <% } %>
                                                         </c:if>
                                                         <%
@@ -2201,17 +2228,6 @@
                                                             start_time += iSm + ":00";
                                                         %>
 
-                                                        <%
-                                                            // Build tooltip variants for privacy-compliant display
-                                                            // Always show reason/notes labels, but handle "null" string from String.valueOf(null)
-                                                            String tooltipShort = SafeEncode.forHtmlAttribute(name) + ((type != null && !type.isEmpty()) ? "&#013;&#010;type: " + SafeEncode.forHtmlAttribute(type) : "");
-                                                            String reasonDisplay = (reason != null && !"null".equals(reason)) ? reason : "";
-                                                            String notesDisplay = (notes != null && !"null".equals(notes)) ? notes : "";
-                                                            String tooltipFull = tooltipShort + "&#013;&#010;reason: " + SafeEncode.forHtmlAttribute(reasonDisplay) + "&#013;&#010;notes: " + SafeEncode.forHtmlAttribute(notesDisplay);
-
-                                                            // Check if tooltips should be shown (defaults to true if property not set)
-                                                            boolean showTooltip = CarlosProperties.getInstance().getBooleanProperty("SHOW_APPT_REASON_TOOLTIP", "yes");
-                                                        %>
                                                         <a class="apptLink<%= showTooltip ? " appt-reason-tooltip appt-tooltip-provider-" + curProvider_no[nProvider] : "" %>" href="javascript:void(0)"
                                                            <c:set var="__enc_14"><carlos:encode value='<%= String.valueOf(appointment.getId()) %>' context="uriComponent"/></c:set>
                                                            <c:set var="__enc_15"><carlos:encode value='<%= curProvider_no[nProvider] %>' context="uriComponent"/></c:set>
@@ -2221,7 +2237,7 @@
                                                            <c:set var="__enc_19"><carlos:encode value='<%= iS+":"+iSm %>' context="uriComponent"/></c:set>
                                                            <c:set var="__enc_20"><carlos:encode value='<%= String.valueOf(demographic_no) %>' context="uriComponent"/></c:set>
                                                            onClick="popupPage(535,860,'<%= request.getContextPath() %>/appointment/editappointment?appointment_no=<carlos:encode value='${__enc_14}' context="javaScriptAttribute"/>&provider_no=<carlos:encode value='${__enc_15}' context="javaScriptAttribute"/>&year=<carlos:encode value='${__enc_16}' context="javaScriptAttribute"/>&month=<carlos:encode value="${__enc_17}" context="javaScriptAttribute"/>&day=<carlos:encode value='${__enc_18}' context="javaScriptAttribute"/>&start_time=<carlos:encode value='${__enc_19}' context="javaScriptAttribute"/>&demographic_no=<carlos:encode value='${__enc_20}' context="javaScriptAttribute"/>&dboperation=search');return false;"
-                                                           <%= showTooltip ? "data-title-full=\"" + tooltipFull + "\" data-title-short=\"" + tooltipShort + "\" title=\"" + tooltipFull + "\"" : "" %> >
+                                                           <%= showTooltip ? "data-title-full=\"" + appointmentTooltipFull + "\" data-title-short=\"" + appointmentTooltipSummary + "\" title=\"" + appointmentTooltipFull + "\"" : "" %> >
                                                             <%=(name.length() > len ? SafeEncode.forHtmlContent(name.substring(0, len)) : SafeEncode.forHtmlContent(name))%>
                                                         </a>
                                                         <% if (len == lenLimitedL || view != 0 || numAvailProvider == 1) {%>
