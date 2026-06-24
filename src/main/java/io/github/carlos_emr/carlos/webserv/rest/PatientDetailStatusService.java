@@ -73,7 +73,7 @@ public class PatientDetailStatusService extends AbstractServiceImpl {
     @Path("/getStatus")
     public PatientDetailStatusTo1 getStatus(@QueryParam("demographicNo") Integer demographicNo) {
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_demographic", "r", null)) {
-            throw new RuntimeException("Access Denied");
+            throw new SecurityException("missing required sec object (_demographic)");
         }
         PatientDetailStatusTo1 status = new PatientDetailStatusTo1();
 
@@ -93,7 +93,7 @@ public class PatientDetailStatusService extends AbstractServiceImpl {
     @Path("/validateHC")
     public HCValidationResult validateHC(ValidateHCRequestTo1 request) {
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_demographic", "r", null)) {
-            throw new RuntimeException("Access Denied");
+            throw new SecurityException("missing required sec object (_demographic)");
         }
         if (request == null || request.getHin() == null || request.getHin().trim().isEmpty()) {
             HCValidationResult error = new HCValidationResult();
@@ -132,7 +132,7 @@ public class PatientDetailStatusService extends AbstractServiceImpl {
     @Path("/isUniqueHC")
     public RestResponse<String> isUniqueHC(@QueryParam("hin") String healthCardNo, @QueryParam("demographicNo") Integer demographicNo) {
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_demographic", "r", null)) {
-            return RestResponse.errorResponse("Access Denied");
+            throw new SecurityException("missing required sec object (_demographic)");
         }
         if (healthCardNo != null && !healthCardNo.trim().isEmpty() && demographicNo != null) {
             List<Demographic> demos = demographicManager.searchByHealthCard(getLoggedInInfo(), healthCardNo);

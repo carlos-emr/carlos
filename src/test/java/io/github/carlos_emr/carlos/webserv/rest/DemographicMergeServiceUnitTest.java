@@ -127,8 +127,8 @@ class DemographicMergeServiceUnitTest extends CarlosUnitTestBase {
         when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any())).thenReturn(false);
 
         assertThatThrownBy(() -> service.getMergedDemographicIds(5))
-            .isInstanceOf(RuntimeException.class)
-            .hasMessage("Access Denied");
+            .isInstanceOf(SecurityException.class)
+            .hasMessage("missing required sec object (_demographic)");
 
         verify(mockDemographicManager, never()).getMergedDemographics(any(), anyInt());
     }
@@ -151,8 +151,8 @@ class DemographicMergeServiceUnitTest extends CarlosUnitTestBase {
         when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any())).thenReturn(false);
 
         assertThatThrownBy(() -> service.mergeDemographic(1, 2))
-            .isInstanceOf(RuntimeException.class)
-            .hasMessage("Access Denied");
+            .isInstanceOf(SecurityException.class)
+            .hasMessage("missing required sec object (_demographic)");
 
         verify(mockDemographicManager, never()).mergeDemographics(any(), anyInt(), anyList());
     }
@@ -164,8 +164,8 @@ class DemographicMergeServiceUnitTest extends CarlosUnitTestBase {
         when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any())).thenReturn(false);
 
         assertThatThrownBy(() -> service.unmergeDemographic(1, 2))
-            .isInstanceOf(RuntimeException.class)
-            .hasMessage("Access Denied");
+            .isInstanceOf(SecurityException.class)
+            .hasMessage("missing required sec object (_demographic)");
 
         verify(mockDemographicManager, never()).unmergeDemographics(any(), anyInt(), anyList());
     }

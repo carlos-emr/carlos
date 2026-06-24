@@ -75,7 +75,7 @@ public class DiseaseRegistryService extends AbstractServiceImpl {
     @Produces("application/json")
     public List<DxQuickList> getQuickLists() {
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_newCasemgmt.DxRegistry", "r", null)) {
-            throw new RuntimeException("Access Denied");
+            throw new SecurityException("missing required sec object (_newCasemgmt.DxRegistry)");
         }
 
         Map<String, DxQuickList> quickListMap = new HashMap<String, DxQuickList>();
@@ -111,7 +111,7 @@ public class DiseaseRegistryService extends AbstractServiceImpl {
     @Consumes("application/json")
     public Response findLikeIssues(DiagnosisTo1 dx) {
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_newCasemgmt.DxRegistry", "r", null)) {
-            return Response.status(Response.Status.FORBIDDEN).build();
+            throw new SecurityException("missing required sec object (_newCasemgmt.DxRegistry)");
         }
         Issue issue = issueDao.findIssueByTypeAndCode(dx.getCodingSystem(), dx.getCode());
         IssueTo1 returnIssue = new IssueTo1();
@@ -132,7 +132,7 @@ public class DiseaseRegistryService extends AbstractServiceImpl {
     @Consumes("application/json")
     public Response addToDiseaseRegistry(@PathParam("demographicNo") Integer demographicNo, IssueTo1 issue) {
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_newCasemgmt.DxRegistry", "w", null)) {
-            return Response.status(Response.Status.FORBIDDEN).build();
+            throw new SecurityException("missing required sec object (_newCasemgmt.DxRegistry)");
         }
         boolean activeEntryExists = dxresearchDao.activeEntryExists(demographicNo, issue.getType(), issue.getCode());
 
@@ -157,7 +157,7 @@ public class DiseaseRegistryService extends AbstractServiceImpl {
     @Consumes("application/json")
     public Response getDiseaseRegistry(@QueryParam("demographicNo") Integer demographicNo) {
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_newCasemgmt.DxRegistry", "r", null)) {
-            return Response.status(Response.Status.FORBIDDEN).build();
+            throw new SecurityException("missing required sec object (_newCasemgmt.DxRegistry)");
         }
         List<Dxresearch> dxresearchList = dxresearchDao.getByDemographicNo(demographicNo);
         return Response.ok(dxresearchList).build();

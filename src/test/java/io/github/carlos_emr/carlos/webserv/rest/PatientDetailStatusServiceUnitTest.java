@@ -111,8 +111,8 @@ class PatientDetailStatusServiceUnitTest extends CarlosUnitTestBase {
         when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any())).thenReturn(false);
 
         assertThatThrownBy(() -> service.getStatus(1))
-            .isInstanceOf(RuntimeException.class)
-            .hasMessage("Access Denied");
+            .isInstanceOf(SecurityException.class)
+            .hasMessage("missing required sec object (_demographic)");
     }
 
     @Test
@@ -125,8 +125,8 @@ class PatientDetailStatusServiceUnitTest extends CarlosUnitTestBase {
         request.setHin("1234567890");
 
         assertThatThrownBy(() -> service.validateHC(request))
-            .isInstanceOf(RuntimeException.class)
-            .hasMessage("Access Denied");
+            .isInstanceOf(SecurityException.class)
+            .hasMessage("missing required sec object (_demographic)");
     }
 
     @Test
@@ -149,9 +149,10 @@ class PatientDetailStatusServiceUnitTest extends CarlosUnitTestBase {
     void shouldDenyUniquenessCheck_whenCallerLacksReadPrivilege() {
         when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any())).thenReturn(false);
 
-        RestResponse<String> response = service.isUniqueHC("1234567890", 5);
+        assertThatThrownBy(() -> service.isUniqueHC("1234567890", 5))
+            .isInstanceOf(SecurityException.class)
+            .hasMessage("missing required sec object (_demographic)");
 
-        assertThat(response.getStatus()).isEqualTo(ResponseStatus.ERROR);
         verify(mockDemographicManager, never()).searchByHealthCard(any(), anyString());
     }
 }

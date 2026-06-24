@@ -73,7 +73,7 @@ public class DemographicMergeService extends AbstractServiceImpl {
     @Path("/{parentId}")
     public OscarSearchResponse<DemographicMergedTo1> getMergedDemographicIds(@PathParam("parentId") Integer parentId) {
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_demographic", "r", null)) {
-            throw new RuntimeException("Access Denied");
+            throw new SecurityException("missing required sec object (_demographic)");
         }
         DemographicMergedConverter converter = new DemographicMergedConverter();
         List<DemographicMerged> children = demographicManager.getMergedDemographics(getLoggedInInfo(), parentId);
@@ -95,7 +95,7 @@ public class DemographicMergeService extends AbstractServiceImpl {
     @Path("/")
     public void mergeDemographic(@QueryParam("parentId") Integer parentId, @QueryParam("childId") Integer childId) {
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_demographic", "w", null)) {
-            throw new RuntimeException("Access Denied");
+            throw new SecurityException("missing required sec object (_demographic)");
         }
         List<Integer> children = new ArrayList<Integer>();
         children.add(childId);
@@ -113,7 +113,7 @@ public class DemographicMergeService extends AbstractServiceImpl {
     @Path("/")
     public void unmergeDemographic(@QueryParam("parentId") Integer parentId, @QueryParam("childsId") Integer childId) {
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_demographic", "w", null)) {
-            throw new RuntimeException("Access Denied");
+            throw new SecurityException("missing required sec object (_demographic)");
         }
         List<Integer> children = new ArrayList<Integer>();
         children.add(childId);

@@ -139,33 +139,35 @@ class DiseaseRegistryServiceUnitTest extends CarlosUnitTestBase {
         when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any())).thenReturn(false);
 
         assertThatThrownBy(() -> service.getQuickLists())
-            .isInstanceOf(RuntimeException.class)
-            .hasMessage("Access Denied");
+            .isInstanceOf(SecurityException.class)
+            .hasMessage("missing required sec object (_newCasemgmt.DxRegistry)");
 
         verify(mockQuickListDao, never()).findAll();
     }
 
     @Test
-    @DisplayName("should return forbidden for findLikeIssues when caller lacks DxRegistry read privilege")
+    @DisplayName("should deny findLikeIssues when caller lacks DxRegistry read privilege")
     @Tag("read")
-    void shouldReturnForbiddenForFindLikeIssues_whenCallerLacksReadPrivilege() {
+    void shouldDenyFindLikeIssues_whenCallerLacksReadPrivilege() {
         when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any())).thenReturn(false);
 
-        Response response = service.findLikeIssues(new DiagnosisTo1());
+        assertThatThrownBy(() -> service.findLikeIssues(new DiagnosisTo1()))
+            .isInstanceOf(SecurityException.class)
+            .hasMessage("missing required sec object (_newCasemgmt.DxRegistry)");
 
-        assertThat(response.getStatus()).isEqualTo(Response.Status.FORBIDDEN.getStatusCode());
         verify(mockIssueDao, never()).findIssueByTypeAndCode(anyString(), anyString());
     }
 
     @Test
-    @DisplayName("should return forbidden for add when caller lacks DxRegistry write privilege")
+    @DisplayName("should deny add when caller lacks DxRegistry write privilege")
     @Tag("create")
-    void shouldReturnForbiddenForAdd_whenCallerLacksWritePrivilege() {
+    void shouldDenyAdd_whenCallerLacksWritePrivilege() {
         when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any())).thenReturn(false);
 
-        Response response = service.addToDiseaseRegistry(123, new IssueTo1());
+        assertThatThrownBy(() -> service.addToDiseaseRegistry(123, new IssueTo1()))
+            .isInstanceOf(SecurityException.class)
+            .hasMessage("missing required sec object (_newCasemgmt.DxRegistry)");
 
-        assertThat(response.getStatus()).isEqualTo(Response.Status.FORBIDDEN.getStatusCode());
         verify(mockDxresearchDao, never()).activeEntryExists(anyInt(), anyString(), anyString());
         verify(mockDxresearchDao, never()).persist(any());
     }
@@ -184,14 +186,15 @@ class DiseaseRegistryServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should return forbidden for disease registry when caller lacks DxRegistry read privilege")
+    @DisplayName("should deny disease registry when caller lacks DxRegistry read privilege")
     @Tag("read")
-    void shouldReturnForbiddenForDiseaseRegistry_whenCallerLacksReadPrivilege() {
+    void shouldDenyDiseaseRegistry_whenCallerLacksReadPrivilege() {
         when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any())).thenReturn(false);
 
-        Response response = service.getDiseaseRegistry(123);
+        assertThatThrownBy(() -> service.getDiseaseRegistry(123))
+            .isInstanceOf(SecurityException.class)
+            .hasMessage("missing required sec object (_newCasemgmt.DxRegistry)");
 
-        assertThat(response.getStatus()).isEqualTo(Response.Status.FORBIDDEN.getStatusCode());
         verify(mockDxresearchDao, never()).getByDemographicNo(anyInt());
     }
 }

@@ -122,8 +122,8 @@ class RxLookupServiceUnitTest extends CarlosUnitTestBase {
         when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any())).thenReturn(false);
 
         assertThatThrownBy(() -> service.search("aspirin"))
-            .isInstanceOf(RuntimeException.class)
-            .hasMessage("Access Denied");
+            .isInstanceOf(SecurityException.class)
+            .hasMessage("missing required sec object (_rx)");
 
         verify(mockDrugLookUpManager, never()).search(anyString());
     }
@@ -135,8 +135,8 @@ class RxLookupServiceUnitTest extends CarlosUnitTestBase {
         when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any())).thenReturn(false);
 
         assertThatThrownBy(() -> service.details("42"))
-            .isInstanceOf(RuntimeException.class)
-            .hasMessage("Access Denied");
+            .isInstanceOf(SecurityException.class)
+            .hasMessage("missing required sec object (_rx)");
 
         verify(mockDrugLookUpManager, never()).details(anyString());
     }
@@ -148,7 +148,7 @@ class RxLookupServiceUnitTest extends CarlosUnitTestBase {
         when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any())).thenReturn(false);
 
         assertThatThrownBy(() -> service.parseInstructions("1 tab po daily"))
-            .isInstanceOf(RuntimeException.class)
-            .hasMessage("Access Denied");
+            .isInstanceOf(SecurityException.class)
+            .hasMessage("missing required sec object (_rx)");
     }
 }

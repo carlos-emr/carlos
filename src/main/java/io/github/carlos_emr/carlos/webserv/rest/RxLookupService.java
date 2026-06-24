@@ -77,7 +77,7 @@ public class RxLookupService extends AbstractServiceImpl {
     @Produces("application/json")
     public DrugLookupResponse search(@QueryParam("string") String s) {
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_rx", "r", null)) {
-            throw new RuntimeException("Access Denied");
+            throw new SecurityException("missing required sec object (_rx)");
         }
 
         DrugLookupResponse resp = new DrugLookupResponse();
@@ -121,7 +121,7 @@ public class RxLookupService extends AbstractServiceImpl {
     @Produces("application/json")
     public DrugLookupResponse details(@QueryParam("id") String s) {
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_rx", "r", null)) {
-            throw new RuntimeException("Access Denied");
+            throw new SecurityException("missing required sec object (_rx)");
         }
 
         DrugLookupResponse resp = new DrugLookupResponse();
@@ -170,7 +170,7 @@ public class RxLookupService extends AbstractServiceImpl {
     @Produces
     public DrugResponse parseInstructions(@QueryParam("input") String instructions) {
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_rx", "r", null)) {
-            throw new RuntimeException("Access Denied");
+            throw new SecurityException("missing required sec object (_rx)");
         }
 
         // the providers no, demographic no, etc... for this drug do not matter.
