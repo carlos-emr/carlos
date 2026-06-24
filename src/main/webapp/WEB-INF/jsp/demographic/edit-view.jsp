@@ -285,7 +285,7 @@
                                                                         <span class="info"><carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getGender()) %>' context="html"/></span>
                                                                     </li>
                                                                     <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.msgDemoAge"/>:</span>
-                                                                        <span class="info"><%= demographic.getAgeAsOf(new Date(), request.getLocale()) %>&nbsp;(
+                                                                        <span class="info"><carlos:encode value='<%= demographic.getAgeAsOf(new Date(), request.getLocale()) %>' context="html"/>&nbsp;(
 	                                                        <fmt:message key="demographic.demographiceditdemographic.formDOB"/>: <%=birthYear%>-<%=birthMonth%>-<%=birthDate%>)
                                                         </span>
                                                                     </li>
