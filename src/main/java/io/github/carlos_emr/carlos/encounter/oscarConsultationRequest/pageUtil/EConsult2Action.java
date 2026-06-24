@@ -38,7 +38,6 @@ import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
-import java.util.Locale;
 import java.util.regex.Pattern;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -220,12 +219,16 @@ public class EConsult2Action extends ActionSupport {
         try {
             URI uri = new URI(configuredBaseUrl.trim());
 
-            String scheme = uri.getScheme();
-            if (scheme == null) {
-                return null;
-            }
-            scheme = scheme.toLowerCase(Locale.ROOT);
-            if (!"http".equals(scheme) && !"https".equals(scheme)) {
+            // URI schemes are ASCII and case-insensitive (RFC 3986). Match with the
+            // locale-independent equalsIgnoreCase and emit a literal lowercase scheme rather
+            // than case-folding the input, which is sensitive to locale/Unicode mappings.
+            String rawScheme = uri.getScheme();
+            String scheme;
+            if ("https".equalsIgnoreCase(rawScheme)) {
+                scheme = "https";
+            } else if ("http".equalsIgnoreCase(rawScheme)) {
+                scheme = "http";
+            } else {
                 return null;
             }
 
@@ -266,7 +269,10 @@ public class EConsult2Action extends ActionSupport {
                 }
             }
 
-            if (host.isEmpty()) {
+            // Reject a malformed authority (e.g. extra ':') that would otherwise yield an
+            // origin with a colon in the host part. Bracketed IPv6 hosts never reach this
+            // fallback because URI#getHost() resolves them.
+            if (host.isEmpty() || host.indexOf(':') >= 0) {
                 return null;
             }
 

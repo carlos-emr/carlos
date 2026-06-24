@@ -143,5 +143,12 @@ class EConsult2ActionUnitTest extends CarlosUnitTestBase {
     @DisplayName("Accepts an uppercase scheme regardless of default locale")
     void shouldBuildReturnUrl_withUppercaseScheme() {
         assertThat(EConsult2Action.buildSsoReturnUrl("HTTPS://emr.example.com", "/carlos")).isEqualTo("https://emr.example.com/carlos/econsultSSOLogin");
+        assertThat(EConsult2Action.buildSsoReturnUrl("HtTp://emr.example.com", "/carlos")).isEqualTo("http://emr.example.com/carlos/econsultSSOLogin");
+    }
+
+    @Test
+    @DisplayName("Rejects a malformed multi-colon authority on an underscore hostname")
+    void shouldFailClosed_whenUnderscoreHostnameAuthorityHasExtraColon() {
+        assertThat(EConsult2Action.buildSsoReturnUrl("https://emr_dev.example.com:8080:9090", "/carlos")).isNull();
     }
 }
