@@ -166,6 +166,13 @@ function releaseDirtyFlag() {
   return { tempDir, imagePath, htmlPath };
 }
 
+function cleanupFixtureFiles(fixture) {
+  if (!fixture || !fixture.tempDir) {
+    return;
+  }
+  fs.rmSync(fixture.tempDir, { recursive: true, force: true });
+}
+
 function isExpectedMissingAsset(status, responseUrl) {
   return status === 404 && (
     /\/favicon\.ico$/.test(responseUrl)
@@ -584,6 +591,7 @@ async function openConsultAttachmentPanelAndAttachEform(page, fdid) {
   let managerPage = null;
   let libraryFid = null;
   let libraryRuntimeProbe = null;
+  let browser = null;
 
   const launchOptions = {
     headless: true,
@@ -593,8 +601,8 @@ async function openConsultAttachmentPanelAndAttachEform(page, fdid) {
     launchOptions.executablePath = chromePath;
   }
 
-  const browser = await chromium.launch(launchOptions);
   try {
+    browser = await chromium.launch(launchOptions);
     const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1600 } });
     const landingPage = await login(context);
     await landingPage.close();
@@ -647,7 +655,10 @@ async function openConsultAttachmentPanelAndAttachEform(page, fdid) {
     if (managerPage && !managerPage.isClosed()) {
       await managerPage.close().catch(() => {});
     }
-    await browser.close();
+    if (browser) {
+      await browser.close();
+    }
+    cleanupFixtureFiles(fixture);
   }
 })().catch((error) => {
   console.error('FAIL eForm consultation acceptance Playwright check');

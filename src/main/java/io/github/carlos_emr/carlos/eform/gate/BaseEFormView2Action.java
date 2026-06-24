@@ -41,7 +41,7 @@ public abstract class BaseEFormView2Action extends ActionSupport {
         HttpServletResponse response = ServletActionContext.getResponse();
 
         if (!isMethodAllowed(request)) {
-            response.setHeader("Allow", "GET, HEAD");
+            response.setHeader("Allow", allowedMethods(request));
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
@@ -103,6 +103,14 @@ public abstract class BaseEFormView2Action extends ActionSupport {
      */
     protected boolean isMethodAllowed(HttpServletRequest request) {
         return isReadMethod(request.getMethod());
+    }
+
+    /**
+     * Returns the RFC 7231 Allow header value for this route.
+     * Subclasses that accept additional methods should override this to keep 405 responses accurate.
+     */
+    protected String allowedMethods(HttpServletRequest request) {
+        return "GET, HEAD";
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md

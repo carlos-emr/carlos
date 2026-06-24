@@ -133,6 +133,18 @@ class ViewEFormPage2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldAdvertisePostBridge_whenManagerEditPostIsRejected() throws Exception {
+        when(mockRequest.getMethod()).thenReturn("POST");
+        ActionContext.of().withActionName("eform/efmformmanageredit").bind();
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        verify(mockResponse).setHeader("Allow", "GET, HEAD, POST");
+        verify(mockResponse).sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+    }
+
+    @Test
     void shouldForwardGeneratorBridge_whenManagerEditPostsGeneratedHtml() throws Exception {
         when(mockRequest.getMethod()).thenReturn("POST");
         when(mockRequest.getParameter("formHtmlG")).thenReturn("<html></html>");
