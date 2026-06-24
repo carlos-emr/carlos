@@ -2094,6 +2094,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         if (chain != null && !chain.equals("")) {
             if (isAllowedInternalRedirectChain(chain)) {
                 sendCaseManagementListRedirect(response, request.getContextPath());
+                return NONE;
             } else {
                 logger.warn("Rejected invalid chain redirect target");
                 // Fall through to return "windowClose" without redirect
