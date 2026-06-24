@@ -77,7 +77,7 @@ class ConsultationSignatureServiceIntegrationTest extends CarlosTestBase {
 
     @Test
     @DisplayName("persists a consultation stamp as a decryptable DigitalSignature")
-    void shouldPersistConsultationStampToDigitalSignatureTable() throws Exception {
+    void shouldPersistConsultationStamp_toDigitalSignatureTable() throws Exception {
         byte[] stampBytes = new byte[] {10, 20, 30, 40};
         Files.write(tempDir.resolve("consult_sig_999998.png"), stampBytes);
 

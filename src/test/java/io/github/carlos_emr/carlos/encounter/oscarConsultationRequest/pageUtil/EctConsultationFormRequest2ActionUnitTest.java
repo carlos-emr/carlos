@@ -4,8 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -17,6 +19,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestExtDao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
+import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
+import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
+import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.managers.ConsultationSignatureService;
@@ -38,6 +43,7 @@ import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @DisplayName("EctConsultationFormRequest2Action")
 @Tag("unit")
@@ -57,6 +63,8 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
     private ConsultationSignatureService consultationSignatureService;
     private DocumentAttachmentManager documentAttachmentManager;
     private DemographicManager demographicManager;
+    private DigitalSignatureManager digitalSignatureManager;
+    private ConsultationRequestDao consultationRequestDao;
     private EctConsultationFormRequest2Action action;
 
     @BeforeEach
@@ -69,14 +77,16 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         consultationSignatureService = mock(ConsultationSignatureService.class);
         documentAttachmentManager = mock(DocumentAttachmentManager.class);
         demographicManager = mock(DemographicManager.class);
+        digitalSignatureManager = mock(DigitalSignatureManager.class);
+        consultationRequestDao = mock(ConsultationRequestDao.class);
 
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(ConsultationManager.class, mock(ConsultationManager.class));
         registerMock(DocumentAttachmentManager.class, documentAttachmentManager);
         registerMock(FaxManager.class, mock(FaxManager.class));
-        registerMock(DigitalSignatureManager.class, mock(DigitalSignatureManager.class));
+        registerMock(DigitalSignatureManager.class, digitalSignatureManager);
         registerMock(ConsultationSignatureService.class, consultationSignatureService);
-        registerMock(ConsultationRequestDao.class, mock(ConsultationRequestDao.class));
+        registerMock(ConsultationRequestDao.class, consultationRequestDao);
         registerMock(ConsultationRequestExtDao.class, mock(ConsultationRequestExtDao.class));
         registerMock(ProfessionalSpecialistDao.class, mock(ProfessionalSpecialistDao.class));
         registerMock(DemographicManager.class, demographicManager);
@@ -132,7 +142,8 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void directPrintPreviewReturnsJsonPdfAndSignatureOverride() throws Exception {
+    @DisplayName("returns the base64 PDF JSON and sets the signature override for a direct print preview")
+    void shouldReturnJsonPdfWithSignatureOverride_forDirectPrintPreview() throws Exception {
         String result = action.execute();
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
@@ -142,5 +153,98 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute(ConsultationSignatureService.SIGNATURE_IMAGE_OVERRIDE_ATTRIBUTE))
                 .isEqualTo(SIGNATURE_BYTES);
         verify(documentAttachmentManager).renderConsultationFormWithAttachments(request, response);
+    }
+
+    @Test
+    @DisplayName("reuses the stored signature id when a manual re-sign produces no new signature on update")
+    void shouldReuseStoredSignatureId_whenManualReSignReturnsNullOnUpdate() throws Exception {
+        ConsultationRequest existing = new ConsultationRequest();
+        // AbstractDao has find(Object) and find(int); the action calls find(Integer), so stub the Object overload.
+        when(consultationRequestDao.find(Integer.valueOf(9))).thenReturn(existing);
+
+        action.setSubmission("Update");
+        action.setRequestId("9");
+        action.setService("1");
+        action.setSpecialist("0");
+        action.setSignatureImg("123");
+        request.setParameter("newSignature", "true");
+
+        when(consultationSignatureService.resolveManualSignatureRequestId(eq("123"), eq("sig-request")))
+                .thenReturn("sig-request");
+        when(consultationSignatureService.isStoredSignatureId("123")).thenReturn(true);
+        when(digitalSignatureManager.processAndSaveDigitalSignature(
+                eq(loggedInInfo), eq("sig-request"), eq(1), eq(ModuleType.CONSULTATION)))
+                .thenReturn(null);
+
+        action.execute();
+
+        assertThat(existing.getSignatureImg()).isEqualTo("123");
+        verify(consultationRequestDao).merge(existing);
+        verify(consultationSignatureService, never()).saveConsultationStamp(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("saves a stamp for the selected signature provider when an update has no stored signature")
+    void shouldSaveStampForSelectedProvider_whenUpdateHasNoStoredSignature() throws Exception {
+        ConsultationRequest existing = new ConsultationRequest();
+        // AbstractDao has find(Object) and find(int); the action calls find(Integer), so stub the Object overload.
+        when(consultationRequestDao.find(Integer.valueOf(9))).thenReturn(existing);
+
+        DigitalSignature savedStamp = mock(DigitalSignature.class);
+        when(savedStamp.getId()).thenReturn(55);
+
+        action.setSubmission("Update");
+        action.setRequestId("9");
+        action.setService("1");
+        action.setSpecialist("0");
+        action.setSignatureImg("");
+        request.setParameter("newSignature", "false");
+
+        when(consultationSignatureService.isStoredSignatureId("")).thenReturn(false);
+        when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
+                .thenReturn(savedStamp);
+
+        action.execute();
+
+        assertThat(existing.getSignatureImg()).isEqualTo("55");
+        verify(consultationSignatureService).saveConsultationStamp(loggedInInfo, "999998", 1);
+        verify(consultationRequestDao).merge(existing);
+    }
+
+    /**
+     * Pins the intended create/update asymmetry: unlike the update branch, a new consultation has no
+     * stored-id fallback, so a manual re-sign that yields no DigitalSignature persists a null signatureImg
+     * (and never falls back to a stamp).
+     */
+    @Test
+    @DisplayName("persists a null signature without a stored-id fallback when a manual sign yields nothing on create")
+    void shouldPersistNullSignature_whenManualSignYieldsNothingOnCreate() throws Exception {
+        ConsultationRequest[] persisted = new ConsultationRequest[1];
+        doAnswer(invocation -> {
+            ConsultationRequest consult = invocation.getArgument(0);
+            // ConsultationRequest#id is a generated @Id with no setter; assign it so the action's
+            // post-persist Integer.parseInt(requestId) does not throw.
+            ReflectionTestUtils.setField(consult, "id", 7);
+            persisted[0] = consult;
+            return null;
+        }).when(consultationRequestDao).persist(org.mockito.ArgumentMatchers.any(ConsultationRequest.class));
+
+        action.setSubmission("Submit");
+        action.setService("1");
+        action.setSpecialist("0");
+        action.setSignatureImg("123");
+        request.setParameter("newSignature", "true");
+
+        when(consultationSignatureService.resolveManualSignatureRequestId(eq("123"), eq("sig-request")))
+                .thenReturn("sig-request");
+        when(digitalSignatureManager.processAndSaveDigitalSignature(
+                eq(loggedInInfo), eq("sig-request"), eq(1), eq(ModuleType.CONSULTATION)))
+                .thenReturn(null);
+
+        action.execute();
+
+        assertThat(persisted[0]).isNotNull();
+        assertThat(persisted[0].getSignatureImg()).isNull();
+        verify(consultationSignatureService, never()).saveConsultationStamp(any(), any(), any());
     }
 }

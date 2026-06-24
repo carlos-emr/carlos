@@ -746,26 +746,8 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
      * @param pdfPTable PdfPTable the main consultation request table to append the signature to
      */
     private void addSignature(PdfPTable pdfPTable) {
-        byte[] signatureImage = signatureImageOverride;
-        String signatureImageId = reqFrm.getSignatureImg();
-
-        if ((signatureImage == null || signatureImage.length == 0) && signatureImageId != null && !signatureImageId.isEmpty()) {
-            /*
-             *  This is not the preferred way to handle a potential NFE. Unfortunately
-             *  this entire thread was not designed well from the beginning.
-             *  Now maintainers are required to insert
-             *  odd patches in order to save valuable time on a full refactor.
-             */
-            try {
-                DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
-                DigitalSignature digitalSignature = digitalSignatureManager.getDigitalSignature(Integer.parseInt(signatureImageId));
-                if (digitalSignature != null) {
-                    signatureImage = digitalSignature.getSignatureImage();
-                }
-            } catch (Exception e) {
-                logger.warn("Consultation digital signature {} was not found or the identifier was incorrect", signatureImageId);
-            }
-        }
+        DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
+        byte[] signatureImage = resolveSignatureBytes(signatureImageOverride, reqFrm.getSignatureImg(), digitalSignatureManager);
 
         if (signatureImage != null && signatureImage.length > 0) {
             float[] tableWidths = new float[]{0.55f, 2.75f};
@@ -794,6 +776,43 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
             }
 
             addTable(pdfPTable, table);
+        }
+    }
+
+    /**
+     * Resolves the signature image bytes to render, preferring a non-mutating preview override over the
+     * persisted signature.
+     *
+     * <p>When {@code signatureImageOverride} is non-empty it is returned as-is and {@code mgr} is not
+     * consulted (this is the print-preview path that renders freshly-selected stamp/manual bytes without
+     * persisting a {@link DigitalSignature}). Otherwise the stored {@link DigitalSignature} is looked up
+     * by id.</p>
+     *
+     * @param signatureImageOverride non-mutating preview bytes, or {@code null}/empty when none
+     * @param signatureImageId       the persisted {@code DigitalSignature} id, or {@code null}/empty
+     * @param mgr                    manager used to load the persisted signature when no override is present
+     * @return the chosen signature bytes, or {@code null} when none are available, the id is blank/invalid,
+     *         or the signature cannot be loaded
+     */
+    static byte[] resolveSignatureBytes(byte[] signatureImageOverride, String signatureImageId, DigitalSignatureManager mgr) {
+        if (signatureImageOverride != null && signatureImageOverride.length > 0) {
+            return signatureImageOverride;
+        }
+        if (signatureImageId == null || signatureImageId.isEmpty()) {
+            return null;
+        }
+        /*
+         *  This is not the preferred way to handle a potential NFE. Unfortunately
+         *  this entire thread was not designed well from the beginning.
+         *  Now maintainers are required to insert
+         *  odd patches in order to save valuable time on a full refactor.
+         */
+        try {
+            DigitalSignature digitalSignature = mgr.getDigitalSignature(Integer.parseInt(signatureImageId));
+            return digitalSignature != null ? digitalSignature.getSignatureImage() : null;
+        } catch (Exception e) {
+            logger.warn("Consultation digital signature {} was not found or the identifier was incorrect", signatureImageId);
+            return null;
         }
     }
 

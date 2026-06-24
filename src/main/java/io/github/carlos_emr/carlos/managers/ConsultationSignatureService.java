@@ -41,10 +41,23 @@ public class ConsultationSignatureService {
         this.securityInfoManager = securityInfoManager;
     }
 
+    /**
+     * Reports whether {@code value} is a persisted {@code DigitalSignature} id (a 1-9 digit number)
+     * rather than a manual signature-pad request id or stamp marker.
+     *
+     * @param value the candidate signature reference (nullable)
+     * @return {@code true} when {@code value} is a stored signature id, {@code false} otherwise
+     */
     public boolean isStoredSignatureId(String value) {
         return StringUtils.trimToEmpty(value).matches("\\d{1,9}");
     }
 
+    /**
+     * Resolves the provider whose stamp should sign the consultation, taking the first numeric value of
+     * (submitted signature provider, submitted form provider, logged-in provider).
+     *
+     * @return the first numeric provider number, or an empty string when none is numeric (logged as a warning)
+     */
     public String resolveSignatureProviderNo(String submittedSignatureProviderNo, String submittedProviderNo, String loggedInProviderNo) {
         String providerNo = firstNumeric(submittedSignatureProviderNo, submittedProviderNo, loggedInProviderNo);
         if (StringUtils.isBlank(providerNo)) {
@@ -53,6 +66,12 @@ public class ConsultationSignatureService {
         return providerNo;
     }
 
+    /**
+     * Resolves the temp-file request id for a manual (signature-pad) signature: the submitted value when it
+     * is a non-blank, non-stored marker, otherwise the freshly captured {@code newSignatureImg}.
+     *
+     * @return the manual signature request id, or an empty string when neither value supplies one
+     */
     public String resolveManualSignatureRequestId(String submittedSignatureImg, String newSignatureImg) {
         String submitted = StringUtils.trimToEmpty(submittedSignatureImg);
         if (StringUtils.isNotBlank(submitted) && !isStoredSignatureId(submitted)) {
@@ -91,6 +110,20 @@ public class ConsultationSignatureService {
         }
     }
 
+    /**
+     * Resolves the signature image bytes to embed in a non-mutating print preview, without persisting a
+     * {@code DigitalSignature}.
+     *
+     * <p>Branching: a request that already references a stored signature id (stamp mode, not re-signing)
+     * returns {@code null} so the normal PDF path renders the persisted signature; a manual re-sign returns
+     * the captured temp-file bytes; a stamp re-sign returns the selected provider's stamp bytes.</p>
+     *
+     * @param newSignature          whether the form is supplying a freshly captured signature
+     * @param submittedSignatureImg the current signature reference on the form (stored id or marker)
+     * @param newSignatureImg       the manual signature-pad request id, when present
+     * @param signatureProviderNo   the resolved provider whose stamp is used in stamp mode
+     * @return the preview signature bytes, or {@code null} when the persisted-signature path should be used
+     */
     public byte[] resolvePreviewSignatureImage(boolean newSignature, String submittedSignatureImg,
                                                String newSignatureImg, String signatureProviderNo) {
         if (!newSignature && isStoredSignatureId(submittedSignatureImg)) {

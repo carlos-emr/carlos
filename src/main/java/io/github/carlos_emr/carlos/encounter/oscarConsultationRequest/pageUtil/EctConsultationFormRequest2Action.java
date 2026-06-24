@@ -196,7 +196,9 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                     if (signature != null) {
                         signatureId = "" + signature.getId();
                     } else {
-                        MiscUtils.getLogger().debug("Stamp signature could not be applied for provider {} on new consultation", signatureProviderNo);
+                        // The consultation is still persisted but without a signature; warn so a
+                        // non-applied stamp is visible in production logs (INFO default).
+                        MiscUtils.getLogger().warn("Stamp signature could not be applied for provider {} on new consultation", signatureProviderNo);
                     }
                 }
 
@@ -356,7 +358,9 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                     if (signature != null) {
                         signatureId = "" + signature.getId();
                     } else {
-                        MiscUtils.getLogger().debug("Stamp signature could not be applied for provider {} on consultation update (requestId={})", signatureProviderNo, requestId);
+                        // The consultation update is still persisted but without a signature; warn so a
+                        // non-applied stamp is visible in production logs (INFO default).
+                        MiscUtils.getLogger().warn("Stamp signature could not be applied for provider {} on consultation update (requestId={})", signatureProviderNo, requestId);
                     }
                 } else {
                     // Already has a DigitalSignature ID - keep it
@@ -489,8 +493,10 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                     renderConsultationFormWithAttachments(request, response, requestId, demographicNo);
                 }
             } catch (RuntimeException e) {
+                // Log the full exception server-side only; do not surface e.getMessage() to the
+                // browser (it can carry internal/identifier detail and renders "null" when absent).
                 logger.error("Error generating consultation print preview for requestId={}", requestId, e);
-                request.setAttribute("errorMessage", "A print preview of this consultation could not be generated. \n\n" + e.getMessage());
+                request.setAttribute("errorMessage", "A print preview of this consultation could not be generated. Please try again or contact support.");
             }
             generatePDFResponse(request, response);
             return NONE;
@@ -633,9 +639,10 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
             Path pdfPath = documentAttachmentManager.renderConsultationFormWithAttachments(request, response);
             base64PDF = documentAttachmentManager.convertPDFToBase64(pdfPath);
         } catch (PDFGenerationException e) {
+            // Log the full exception server-side only; the browser-facing message must not echo
+            // e.getMessage() (internal/identifier leakage, and renders "null" when absent).
             logger.error(e.getMessage(), e);
-            String errorMessage = "A print preview of this consultation could not be generated. \\n\\n" + e.getMessage();
-            request.setAttribute("errorMessage", errorMessage);
+            request.setAttribute("errorMessage", "A print preview of this consultation could not be generated. Please try again or contact support.");
             return false;
         }
 
@@ -666,10 +673,19 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
             response.setContentType("application/json;charset=UTF-8");
             response.getWriter().write(json.toString());
             response.getWriter().flush();
-        } catch (IOException e) {
-            logger.error(e.getMessage(), e);
-        } catch (IllegalStateException e) {
+        } catch (IOException | IllegalStateException e) {
+            // IOException: write/flush failed (often a client disconnect). IllegalStateException:
+            // a response-pipeline state bug or a post-commit client disconnect.
             logger.error("Unable to write consultation print preview JSON response", e);
+            // Own the error response: if nothing has been committed yet, send a real 500 so the
+            // client's response.json() handler surfaces the failure instead of a truncated 200.
+            if (!response.isCommitted()) {
+                try {
+                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                } catch (IOException | IllegalStateException sendErrorException) {
+                    logger.error("Unable to send error response for consultation print preview", sendErrorException);
+                }
+            }
         }
     }
 

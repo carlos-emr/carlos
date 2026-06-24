@@ -146,7 +146,7 @@ class ConsultationSignatureServiceUnitTest {
 
     @Test
     @DisplayName("resolves only numeric provider numbers for consultation stamps")
-    void shouldResolveOnlyNumericProviderNumbers() {
+    void shouldResolveOnlyNumericProviderNumbers_fromSubmittedValues() {
         assertThat(service.resolveSignatureProviderNo("../123", "abc", "999998")).isEqualTo("999998");
         assertThat(service.resolveSignatureProviderNo("123456", "999998", "999998")).isEqualTo("123456");
     }
