@@ -21,7 +21,6 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
-import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -91,5 +90,17 @@ class AddEForm2ActionPdfWarningTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("errorMessage")).isNull();
         assertThat(request.getAttribute("eFormPDF")).isEqualTo("");
         assertThat(request.getAttribute("eFormPDFName")).isEqualTo("" + new java.text.SimpleDateFormat("yyyy_MM_dd").format(new java.util.Date()) + "_Doe.pdf");
+    }
+
+    @Test
+    @DisplayName("should fall back to a generic preview filename when demographic number is invalid")
+    void shouldUseFallbackPreviewFilenameWhenDemographicNumberIsInvalid() {
+        AddEForm2Action action = new AddEForm2Action();
+
+        String result = action.closeWithPdfPreview(loggedInInfo, "abc", "42");
+
+        assertThat(result).isEqualTo("close");
+        assertThat(request.getAttribute("eFormPDFName")).isEqualTo("" + new java.text.SimpleDateFormat("yyyy_MM_dd").format(new java.util.Date()) + "_eform.pdf");
+        assertThat(request.getAttribute("warningMessage").toString()).contains("saved").contains("render failed");
     }
 }

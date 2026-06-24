@@ -81,6 +81,9 @@ public class AddEForm2Action extends ActionSupport {
     private static final String INVALID_FILENAME_MESSAGE_KEY = "dms.error.invalidFilename";
     private static final String PDF_DOWNLOAD_FAILURE_MESSAGE = "This eForm (and attachments, if applicable) could not be downloaded.";
     private static final String PDF_PREVIEW_WARNING_MESSAGE = "This eForm was saved, but its PDF preview could not be generated.";
+    private static final String ERROR_MESSAGE_ATTRIBUTE = "errorMessage";
+    private static final String WARNING_MESSAGE_ATTRIBUTE = "warningMessage";
+    private static final String PDF_PREVIEW_FALLBACK_SUFFIX = "_eform.pdf";
 
     /**
      * Validates the eform_link parameter format to prevent session attribute injection (CWE-501).
@@ -204,7 +207,7 @@ public class AddEForm2Action extends ActionSupport {
         try {
             validatedTemplateFileName = validateTemplateFileName(curForm.getFormFileName());
         } catch (FileValidationException e) {
-            request.setAttribute("errorMessage", getInvalidFilenameMessage());
+            request.setAttribute(ERROR_MESSAGE_ATTRIBUTE, getInvalidFilenameMessage());
             logger.warn("Rejected invalid eForm template filename");
             return ERROR;
         }
@@ -295,7 +298,7 @@ public class AddEForm2Action extends ActionSupport {
                 } catch (PDFGenerationException e) {
                     logger.error(e.getMessage(), e);
                     String errorMessage = "This eForm (and attachments, if applicable) could not be added to this patient’s documents. \\n\\n" + e.getMessage();
-                    request.setAttribute("errorMessage", errorMessage);
+                    request.setAttribute(ERROR_MESSAGE_ATTRIBUTE, errorMessage);
                     return "error";
                 }
             }
@@ -412,7 +415,7 @@ public class AddEForm2Action extends ActionSupport {
                 } catch (PDFGenerationException e) {
                     logger.error(e.getMessage(), e);
                     String errorMessage = "This eForm (and attachments, if applicable) could not be added to this patient’s documents. \\n\\n" + e.getMessage();
-                    request.setAttribute("errorMessage", errorMessage);
+                    request.setAttribute(ERROR_MESSAGE_ATTRIBUTE, errorMessage);
                     return "error";
                 }
             }
@@ -491,21 +494,30 @@ public class AddEForm2Action extends ActionSupport {
         }
 
         request.setAttribute("eFormPDF", pdfBase64);
-        request.setAttribute("eFormPDFName", generateFileName(loggedInInfo, Integer.parseInt(demographicNo)));
+        request.setAttribute("eFormPDFName", buildPdfPreviewName(loggedInInfo, demographicNo));
         request.setAttribute("isSuccess_Autoclose", "true");
         request.setAttribute("fdid", fdid);
         request.setAttribute("parentAjaxId", "eforms");
         return "close";
     }
 
+    private String buildPdfPreviewName(LoggedInInfo loggedInInfo, String demographicNo) {
+        try {
+            return generateFileName(loggedInInfo, Integer.parseInt(demographicNo));
+        } catch (NumberFormatException e) {
+            logger.warn("Falling back to a generic PDF preview filename for invalid demographic number: {}", LogSafe.sanitize(demographicNo), e);
+            return new SimpleDateFormat("yyyy_MM_dd").format(new Date()) + PDF_PREVIEW_FALLBACK_SUFFIX;
+        }
+    }
+
     private void setPdfError(String message, PDFGenerationException e) {
         logger.error(e.getMessage(), e);
-        request.setAttribute("errorMessage", message + " \n\n" + e.getMessage());
+        request.setAttribute(ERROR_MESSAGE_ATTRIBUTE, message + " \n\n" + e.getMessage());
     }
 
     private void setPdfWarning(String message, PDFGenerationException e) {
         logger.error(e.getMessage(), e);
-        request.setAttribute("warningMessage", message + " \n\n" + e.getMessage());
+        request.setAttribute(WARNING_MESSAGE_ATTRIBUTE, message + " \n\n" + e.getMessage());
     }
 
     private String getInvalidFilenameMessage() {

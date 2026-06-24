@@ -107,6 +107,7 @@ public final class ConvertToEdoc {
     private static final String SYSTEM_ID = "-1";
     private static final String DEFAULT_WKHTMLTOPDF_COMMAND = "/usr/bin/wkhtmltopdf";
     private static final String DEFAULT_WKHTMLTOPDF_ARGS = "--enable-local-file-access --minimum-font-size 10 --print-media-type --encoding utf-8 -T 10mm -L 8mm -R 8mm --disable-javascript";
+    private static final String STYLE_ATTRIBUTE = "style";
     private static final Pattern CSS_URL_PATTERN = Pattern.compile("url\\((['\"]?)([^\\\"\")]+)\\1\\)", Pattern.CASE_INSENSITIVE);
     
     private static String realPath;
@@ -624,13 +625,13 @@ public final class ConvertToEdoc {
     }
 
     private static void translateInlineStylePaths(Document document) {
-        for (Element element : document.select("[style]")) {
-            element.attr("style", rewriteCssResourceUrls(element.attr("style")));
+        for (Element element : document.select("[" + STYLE_ATTRIBUTE + "]")) {
+            element.attr(STYLE_ATTRIBUTE, rewriteCssResourceUrls(element.attr(STYLE_ATTRIBUTE)));
         }
     }
 
     private static void translateEmbeddedStylesheetPaths(Document document) {
-        for (Element styleElement : document.getElementsByTag("style")) {
+        for (Element styleElement : document.getElementsByTag(STYLE_ATTRIBUTE)) {
             styleElement.text(rewriteCssResourceUrls(styleElement.data()));
         }
     }
