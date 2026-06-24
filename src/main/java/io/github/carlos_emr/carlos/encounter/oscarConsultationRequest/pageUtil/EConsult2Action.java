@@ -169,7 +169,7 @@ public class EConsult2Action extends ActionSupport {
 
         try {
             stringBuilder.append(String.format("?%1$s=%2$s", "oscarReturnURL", URLEncoder.encode(oscarReturnUrl, StandardCharsets.UTF_8.toString())));
-            stringBuilder.append(String.format("?%1$s=%2$s", "loginStart", new Date().getTime() / 1000));
+            stringBuilder.append(String.format("&%1$s=%2$s", "loginStart", new Date().getTime() / 1000));
             response.sendRedirect(stringBuilder.toString());
         } catch (IOException e) {
             MiscUtils.getLogger().error("There was a problem with the redirect of " + stringBuilder.toString(), e);
