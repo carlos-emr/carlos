@@ -73,11 +73,36 @@ class ConsultationPDFCreatorUnitTest {
     }
 
     @Test
+    @DisplayName("trims whitespace around the stored signature id before loading it")
+    void shouldReturnStoredBytes_whenStoredIdHasIncidentalWhitespace() {
+        DigitalSignatureManager mgr = mock(DigitalSignatureManager.class);
+        DigitalSignature stored = new DigitalSignature();
+        stored.setSignatureImage(STORED_BYTES);
+        when(mgr.getDigitalSignature(5)).thenReturn(stored);
+
+        byte[] result = ConsultationPDFCreator.resolveSignatureBytes(null, " 5 \n", mgr);
+
+        assertThat(result).containsExactly(STORED_BYTES);
+        verify(mgr).getDigitalSignature(5);
+    }
+
+    @Test
     @DisplayName("returns null when an empty override and a blank id leave nothing to render")
     void shouldReturnNull_whenNoOverrideAndBlankId() {
         DigitalSignatureManager mgr = mock(DigitalSignatureManager.class);
 
         byte[] result = ConsultationPDFCreator.resolveSignatureBytes(new byte[0], "", mgr);
+
+        assertThat(result).isNull();
+        verify(mgr, never()).getDigitalSignature(anyInt());
+    }
+
+    @Test
+    @DisplayName("returns null when the stored signature id contains only whitespace")
+    void shouldReturnNull_whenStoredIdWhitespaceOnly() {
+        DigitalSignatureManager mgr = mock(DigitalSignatureManager.class);
+
+        byte[] result = ConsultationPDFCreator.resolveSignatureBytes(null, " \n\t ", mgr);
 
         assertThat(result).isNull();
         verify(mgr, never()).getDigitalSignature(anyInt());

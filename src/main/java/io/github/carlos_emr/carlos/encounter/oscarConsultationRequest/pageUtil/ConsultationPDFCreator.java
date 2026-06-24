@@ -791,14 +791,15 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
      * @param signatureImageOverride non-mutating preview bytes, or {@code null}/empty when none
      * @param signatureImageId       the persisted {@code DigitalSignature} id, or {@code null}/empty
      * @param mgr                    manager used to load the persisted signature when no override is present
-     * @return the chosen signature bytes, or {@code null} when none are available, the id is blank/invalid,
-     *         or the signature cannot be loaded
+     * @return the chosen signature bytes, or {@code null} when none are available, the id is blank/invalid
+     *         after trimming, or the signature cannot be loaded
      */
     static byte[] resolveSignatureBytes(byte[] signatureImageOverride, String signatureImageId, DigitalSignatureManager mgr) {
         if (signatureImageOverride != null && signatureImageOverride.length > 0) {
             return signatureImageOverride;
         }
-        if (signatureImageId == null || signatureImageId.isEmpty()) {
+        String normalizedSignatureImageId = signatureImageId == null ? "" : signatureImageId.strip();
+        if (normalizedSignatureImageId.isEmpty()) {
             return null;
         }
         /*
@@ -808,7 +809,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
          *  odd patches in order to save valuable time on a full refactor.
          */
         try {
-            DigitalSignature digitalSignature = mgr.getDigitalSignature(Integer.parseInt(signatureImageId));
+            DigitalSignature digitalSignature = mgr.getDigitalSignature(Integer.parseInt(normalizedSignatureImageId));
             return digitalSignature != null ? digitalSignature.getSignatureImage() : null;
         } catch (Exception e) {
             logger.warn("Consultation digital signature {} was not found or the identifier was incorrect", signatureImageId);
