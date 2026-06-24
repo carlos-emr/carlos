@@ -44,7 +44,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
-import java.util.regex.Pattern;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
@@ -56,11 +55,19 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * a correlation ID. Logs include status, route, and correlation ID, but never response-body
  * excerpts because error pages can contain PHI even after control-character sanitization.</p>
  *
+ * <p>For web-service routes ({@code /ws/*}, the CXF servlet), the body of any {@code 5xx}
+ * response is replaced regardless of stack-trace content. A mid-stream Jackson/JAXB
+ * serialization failure leaves a clean, well-formed JSON/XML prefix (e.g. patient demographics)
+ * already written; that prefix does not match the stack-trace heuristic but still leaks PHI.
+ * A web-service {@code 5xx} carries no client-meaningful entity body, so suppressing it closes
+ * the exposure without breaking an API contract. See issue #2953.</p>
+ *
  * <h3>Detection</h3>
- * <p>Stack trace detection uses a {@link Pattern} that matches common Java stack trace markers:
- * {@code at pkg.Class.method(File.java:nn)}, {@code Caused by:}, {@code java.lang.},
- * {@code jakarta.servlet.}, and class name prefixes for Tomcat, Spring, Hibernate, and
- * the CARLOS application itself.</p>
+ * <p>Stack trace detection uses literal marker checks and deterministic line parsing for common
+ * Java stack trace markers: {@code at pkg.Class.method(File.java:nn)}, {@code Caused by:},
+ * {@code java.lang.}, {@code jakarta.servlet.}, and class name prefixes for Tomcat, Spring,
+ * Hibernate, and the CARLOS application itself. Stack-frame lines are detected at the beginning
+ * of the captured body as well as after line breaks so first-line stack traces are sanitized.</p>
  *
  * <h3>Scope</h3>
  * <p>Captures responses written via {@link PrintWriter} (text content). Output-stream error
@@ -139,34 +146,18 @@ public class ResponseSanitizationFilter implements Filter {
     static final int MAX_CAPTURE_CHARS = 512 * 1024;
 
     /**
-     * Regex that matches Java stack trace markers commonly found in unhandled error responses.
-     *
-     * <p>Patterns matched:
-     * <ul>
-     *   <li>{@code \n   at pkg.Class.method(File.java:nn)} — standard stack frame line</li>
-     *   <li>{@code Caused by:} — chained exception marker</li>
-     *   <li>{@code java.lang.} — JDK core exception class names (e.g. NullPointerException)</li>
-     *   <li>{@code io.github.carlos_emr.} — CARLOS application class names</li>
-     *   <li>{@code jakarta.servlet.} — Jakarta Servlet API exception class names</li>
-     *   <li>{@code org.apache.} — Apache Tomcat / Struts / Commons class names</li>
-     *   <li>{@code org.springframework.} — Spring Framework class names</li>
-     *   <li>{@code org.hibernate.} — Hibernate ORM class names</li>
-     * </ul>
-     *
-     * <p>The {@code at} frame pattern uses a preceding newline anchor so it does not match
-     * the word "at" in normal English text (e.g. "error at line"). Class name patterns use
-     * a word boundary {@code \b} for the same reason.</p>
+     * Class-name markers commonly found in Java error responses. Callers check these with a
+     * word-boundary equivalent so normal prose containing a marker-like suffix does not match.
      */
-    static final Pattern STACK_TRACE_PATTERN = Pattern.compile(
-            "(?:[\r\n]\\s*at\\s+[\\w.$]+\\.[\\w$<>]+\\([^)]*\\))" // stack frame: \n   at pkg.Class.method(File.java:nn)
-            + "|(?:\\bCaused by:)"                                   // chained exception
-            + "|(?:\\bjava\\.lang\\.)"                               // JDK exception class names
-            + "|(?:\\bio\\.github\\.carlos_emr\\.)"                  // CARLOS class names
-            + "|(?:\\bjakarta\\.servlet\\.)"                         // Servlet API exceptions
-            + "|(?:\\borg\\.apache\\.)"                              // Tomcat / Struts / Commons
-            + "|(?:\\borg\\.springframework\\.)"                     // Spring Framework
-            + "|(?:\\borg\\.hibernate\\.)"                           // Hibernate ORM
-    );
+    private static final String[] STACK_TRACE_MARKERS = {
+            "Caused by:",
+            "java.lang.",
+            "io.github.carlos_emr.",
+            "jakarta.servlet.",
+            "org.apache.",
+            "org.springframework.",
+            "org.hibernate."
+    };
 
     private boolean enabled;
 
@@ -249,6 +240,7 @@ public class ResponseSanitizationFilter implements Filter {
         }
 
         HttpServletResponse httpResponse = (HttpServletResponse) response;
+        boolean webServiceRequest = isWebServiceRequest((HttpServletRequest) request);
         CapturingResponseWrapper wrapper = new CapturingResponseWrapper(httpResponse);
 
         try {
@@ -309,13 +301,15 @@ public class ResponseSanitizationFilter implements Filter {
             int status = wrapper.getStatus();
             byte[] capturedBytes = wrapper.getCapturedOutput();
             String capturedBody = new String(capturedBytes, StandardCharsets.UTF_8);
-            if (status >= 400 && containsStackTrace(capturedBody)) {
+            String reason = sanitizationReason(status, capturedBody, webServiceRequest);
+            if (reason != null) {
                 String correlationId = generateCorrelationId();
-                LOGGER.error("Stack trace detected in output-stream error response "
-                                + "[status={} uri={} correlationId={}]",
+                LOGGER.error("Sanitizing output-stream error response body "
+                                + "[status={} uri={} correlationId={} reason={}]",
                         status,
                         LogSafe.sanitizeUri(((HttpServletRequest) request).getRequestURI()),
-                        correlationId);
+                        correlationId,
+                        reason);
                 sendSanitizedError(httpResponse, status, correlationId);
             } else {
                 writeBytesToResponse(httpResponse, capturedBytes);
@@ -339,14 +333,17 @@ public class ResponseSanitizationFilter implements Filter {
         int status = wrapper.getStatus();
         String capturedBody = wrapper.getCapturedContent();
 
-        if (status >= 400 && containsStackTrace(capturedBody)) {
-            // Stack trace detected: log correlation details only and send a sanitized replacement.
+        String reason = sanitizationReason(status, capturedBody, webServiceRequest);
+        if (reason != null) {
+            // Tainted (stack trace) or web-service 5xx partial body: log correlation details
+            // only and send a sanitized replacement.
             String correlationId = generateCorrelationId();
-            LOGGER.error("Stack trace detected in error response "
-                    + "[status={} uri={} correlationId={}]",
+            LOGGER.error("Sanitizing error response body "
+                    + "[status={} uri={} correlationId={} reason={}]",
                     status,
                     LogSafe.sanitizeUri(((HttpServletRequest) request).getRequestURI()),
-                    correlationId);
+                    correlationId,
+                    reason);
             sendSanitizedError(httpResponse, status, correlationId);
         } else {
             // Safe response — write captured content through to the real response.
@@ -359,13 +356,241 @@ public class ResponseSanitizationFilter implements Filter {
      * Package-private to allow direct unit testing without a servlet container.
      *
      * @param body String the response body to inspect; may be {@code null} or empty
-     * @return {@code true} if the body matches one or more stack trace patterns
+     * @return {@code true} if the body contains one or more stack trace markers
      */
     static boolean containsStackTrace(String body) {
         if (body == null || body.isEmpty()) {
             return false;
         }
-        return STACK_TRACE_PATTERN.matcher(body).find();
+        for (String marker : STACK_TRACE_MARKERS) {
+            if (containsWithWordBoundary(body, marker)) {
+                return true;
+            }
+        }
+        return containsJavaStackFrame(body);
+    }
+
+    private static boolean containsWithWordBoundary(String body, String marker) {
+        int searchFrom = 0;
+        while (searchFrom < body.length()) {
+            int markerIndex = body.indexOf(marker, searchFrom);
+            if (markerIndex < 0) {
+                return false;
+            }
+            if (hasWordBoundaries(body, markerIndex, marker.length())) {
+                return true;
+            }
+            searchFrom = markerIndex + 1;
+        }
+        return false;
+    }
+
+    private static boolean hasWordBoundaries(String body, int markerIndex, int markerLength) {
+        int markerEnd = markerIndex + markerLength;
+        boolean hasLeftBoundary = markerIndex == 0 || !isWordCharacter(body.charAt(markerIndex - 1));
+        boolean hasRightBoundary = !isWordCharacter(body.charAt(markerEnd - 1))
+                || markerEnd == body.length()
+                || !isWordCharacter(body.charAt(markerEnd));
+        return hasLeftBoundary && hasRightBoundary;
+    }
+
+    private static boolean containsJavaStackFrame(String body) {
+        int lineStart = 0;
+        while (lineStart < body.length()) {
+            int lineEnd = lineStart;
+            while (lineEnd < body.length()
+                    && body.charAt(lineEnd) != '\r'
+                    && body.charAt(lineEnd) != '\n') {
+                lineEnd++;
+            }
+            if (isJavaStackFrameLine(body, lineStart, lineEnd)) {
+                return true;
+            }
+            if (lineEnd < body.length()
+                    && body.charAt(lineEnd) == '\r'
+                    && lineEnd + 1 < body.length()
+                    && body.charAt(lineEnd + 1) == '\n') {
+                lineEnd++;
+            }
+            lineStart = lineEnd + 1;
+        }
+        return false;
+    }
+
+    private static boolean isJavaStackFrameLine(String body, int lineStart, int lineEnd) {
+        int prefixStart = skipWhitespace(body, lineStart, lineEnd);
+        if (!hasStackFramePrefix(body, prefixStart, lineEnd)) {
+            return false;
+        }
+
+        int symbolStart = skipWhitespace(body, prefixStart + 2, lineEnd);
+        int openParen = indexOf(body, '(', symbolStart, lineEnd);
+        if (openParen < 0) {
+            return false;
+        }
+        int closeParen = indexOf(body, ')', openParen + 1, lineEnd);
+        return closeParen >= 0 && isJavaStackFrameSymbol(body, symbolStart, openParen);
+    }
+
+    private static int skipWhitespace(String body, int fromIndex, int toIndexExclusive) {
+        int index = fromIndex;
+        while (index < toIndexExclusive && Character.isWhitespace(body.charAt(index))) {
+            index++;
+        }
+        return index;
+    }
+
+    private static boolean hasStackFramePrefix(String body, int index, int lineEnd) {
+        return index + 2 < lineEnd
+                && body.charAt(index) == 'a'
+                && body.charAt(index + 1) == 't'
+                && Character.isWhitespace(body.charAt(index + 2));
+    }
+
+    private static boolean isJavaStackFrameSymbol(String body, int symbolStart, int openParen) {
+        int lastDot = lastIndexOf(body, '.', symbolStart, openParen);
+        return lastDot > symbolStart
+                && lastDot < openParen - 1
+                && containsOnlyJavaClassNameCharacters(body, symbolStart, lastDot)
+                && containsOnlyJavaMethodNameCharacters(body, lastDot + 1, openParen);
+    }
+
+    private static int lastIndexOf(String body, char target, int fromIndex, int toIndexExclusive) {
+        for (int i = toIndexExclusive - 1; i >= fromIndex; i--) {
+            if (body.charAt(i) == target) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private static boolean containsOnlyJavaClassNameCharacters(
+            String body, int fromIndex, int toIndexExclusive) {
+        for (int i = fromIndex; i < toIndexExclusive; i++) {
+            if (!isJavaClassNameCharacter(body.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean containsOnlyJavaMethodNameCharacters(
+            String body, int fromIndex, int toIndexExclusive) {
+        for (int i = fromIndex; i < toIndexExclusive; i++) {
+            if (!isJavaMethodNameCharacter(body.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static int indexOf(String body, char target, int fromIndex, int toIndexExclusive) {
+        for (int i = fromIndex; i < toIndexExclusive; i++) {
+            if (body.charAt(i) == target) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private static boolean isWordCharacter(char c) {
+        return c == '_' || Character.isLetterOrDigit(c);
+    }
+
+    private static boolean isJavaClassNameCharacter(char c) {
+        return c == '.' || c == '$' || isWordCharacter(c);
+    }
+
+    private static boolean isJavaMethodNameCharacter(char c) {
+        return c == '$' || c == '<' || c == '>' || isWordCharacter(c);
+    }
+
+    /** Reason code logged when an error body is replaced because it carries a stack trace. */
+    static final String REASON_STACK_TRACE = "stack-trace-marker";
+
+    /** Reason code logged when a web-service 5xx partial entity body is replaced. */
+    static final String REASON_WEB_SERVICE_5XX = "web-service-5xx-partial-body";
+
+    /**
+     * Determines whether a captured error-response body must be replaced with a generic page and,
+     * if so, why. Returns a short, log-safe reason code, or {@code null} when the body may pass
+     * through unchanged. The reason never includes any portion of the response body itself (which
+     * can carry PHI even after the decision).
+     *
+     * <p>Two independent triggers, both scoped to error status codes ({@code >= 400}):
+     * <ul>
+     *   <li>{@link #REASON_STACK_TRACE} — the body contains Java stack trace markers (any error
+     *       route); the original CWE-209 protection.</li>
+     *   <li>{@link #REASON_WEB_SERVICE_5XX} — the request targets a web-service route
+     *       ({@code /ws/*}) and the status is a server error ({@code >= 500}). A mid-stream
+     *       Jackson/JAXB serialization failure commonly leaves a clean, well-formed JSON/XML prefix
+     *       already written — patient demographics, names, phone numbers — that the stack-trace
+     *       heuristic does not match. Web-service 5xx responses carry no client-meaningful entity
+     *       body, so suppressing it removes the PHI exposure without breaking an API contract. See
+     *       issue #2953.</li>
+     * </ul>
+     *
+     * <p>Client errors ({@code 4xx}) on web-service routes are intentionally left to the
+     * stack-trace check alone, because REST endpoints legitimately return structured JSON error
+     * payloads (validation messages, {@code 401}/{@code 403}/{@code 404} envelopes) that callers
+     * depend on.</p>
+     *
+     * @param status             int the response status code
+     * @param body               String the captured response body; may be {@code null}/empty
+     * @param webServiceRequest  boolean {@code true} if the request targeted a {@code /ws/*} route
+     * @return a log-safe reason code, or {@code null} if the body must not be sanitized
+     */
+    static String sanitizationReason(int status, String body, boolean webServiceRequest) {
+        if (status < 400) {
+            return null;
+        }
+        if (body != null && containsStackTrace(body)) {
+            return REASON_STACK_TRACE;
+        }
+        if (webServiceRequest && status >= 500) {
+            return REASON_WEB_SERVICE_5XX;
+        }
+        return null;
+    }
+
+    /**
+     * Convenience predicate over {@link #sanitizationReason(int, String, boolean)}.
+     *
+     * @param status             int the response status code
+     * @param body               String the captured response body; may be {@code null}/empty
+     * @param webServiceRequest  boolean {@code true} if the request targeted a {@code /ws/*} route
+     * @return {@code true} if the body must be replaced with a sanitized error page
+     */
+    static boolean shouldSanitizeErrorBody(int status, String body, boolean webServiceRequest) {
+        return sanitizationReason(status, body, webServiceRequest) != null;
+    }
+
+    /**
+     * Determines whether the request targets a CXF web-service route. The CXF servlet is mapped at
+     * {@code /ws/*} (see {@code web.xml}); {@link HttpServletRequest#getServletPath()} therefore
+     * returns {@code /ws} for these requests. As a fallback for forwarded/wrapped requests where the
+     * servlet path may not be populated, the <em>context-relative</em> request URI is matched with
+     * an exact/prefix check ({@code /ws} or {@code /ws/...}). A substring match is deliberately
+     * avoided so unrelated paths that merely contain {@code /ws/} (e.g. {@code /proxy/ws/foo}) are
+     * not misclassified as web-service requests.
+     *
+     * @param request HttpServletRequest the incoming request
+     * @return boolean {@code true} if the request path is under {@code /ws/}
+     */
+    static boolean isWebServiceRequest(HttpServletRequest request) {
+        String servletPath = request.getServletPath();
+        if (servletPath != null && (servletPath.equals("/ws") || servletPath.startsWith("/ws/"))) {
+            return true;
+        }
+        String uri = request.getRequestURI();
+        if (uri == null) {
+            return false;
+        }
+        String contextPath = request.getContextPath();
+        String path = (contextPath != null && !contextPath.isEmpty() && uri.startsWith(contextPath))
+                ? uri.substring(contextPath.length())
+                : uri;
+        return path.equals("/ws") || path.startsWith("/ws/");
     }
 
     /**
