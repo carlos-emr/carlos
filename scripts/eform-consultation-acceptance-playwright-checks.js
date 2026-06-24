@@ -167,7 +167,7 @@ function releaseDirtyFlag() {
 }
 
 function cleanupFixtureFiles(fixture) {
-  if (!fixture || !fixture.tempDir) {
+  if (!fixture.tempDir) {
     return;
   }
   fs.rmSync(fixture.tempDir, { recursive: true, force: true });

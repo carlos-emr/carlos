@@ -61,7 +61,7 @@ window.onerror = function uncaughtExceptionHandler(message, source, lineNumber, 
 
 function hideAdminPreviewSaveButton() {
     const demographicNo = document.getElementById("demographicNo");
-    if (!demographicNo || demographicNo.value !== "-1") {
+    if (demographicNo?.value !== "-1") {
         return;
     }
 

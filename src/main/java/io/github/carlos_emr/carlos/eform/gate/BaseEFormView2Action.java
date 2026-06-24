@@ -41,7 +41,7 @@ public abstract class BaseEFormView2Action extends ActionSupport {
         HttpServletResponse response = ServletActionContext.getResponse();
 
         if (!isMethodAllowed(request)) {
-            response.setHeader("Allow", allowedMethods(request));
+            response.setHeader("Allow", allowedMethods());
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
@@ -109,7 +109,7 @@ public abstract class BaseEFormView2Action extends ActionSupport {
      * Returns the RFC 7231 Allow header value for this route.
      * Subclasses that accept additional methods should override this to keep 405 responses accurate.
      */
-    protected String allowedMethods(HttpServletRequest request) {
+    protected String allowedMethods() {
         return "GET, HEAD";
     }
 

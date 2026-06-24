@@ -47,12 +47,12 @@ public class ViewEFormPage2Action extends BaseEFormView2Action {
     }
 
     @Override
-    protected String allowedMethods(HttpServletRequest request) {
+    protected String allowedMethods() {
         ActionContext ctx = ActionContext.getContext();
         if (ctx != null && "eform/efmformmanageredit".equals(ctx.getActionName())) {
             return "GET, HEAD, POST";
         }
-        return super.allowedMethods(request);
+        return super.allowedMethods();
     }
 
     @Override
