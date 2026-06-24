@@ -56,6 +56,7 @@ import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationServiceDao;
 import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
+import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
 import io.github.carlos_emr.carlos.commn.model.ConsultResponseDoc;
@@ -74,6 +75,7 @@ import io.github.carlos_emr.carlos.consultations.ConsultationResponseSearchFilte
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.DocumentManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -143,6 +145,9 @@ public class ConsultationWebService extends AbstractServiceImpl {
 
     @Autowired
     ConsultationServiceDao consultationServiceDao;
+
+    @Autowired
+    private SecurityInfoManager securityInfoManager;
 
     private ConsultationRequestConverter requestConverter = new ConsultationRequestConverter();
     private ConsultationRequestExtConverter consultationRequestExtConverter = new ConsultationRequestExtConverter();
@@ -350,15 +355,21 @@ public class ConsultationWebService extends AbstractServiceImpl {
 
         if (responseId > 0) {
             ConsultationResponse responseD = consultationManager.getResponse(getLoggedInInfo(), responseId);
-            response = responseConverter.getAsTransferObject(getLoggedInInfo(), responseD);
 
+            // Authorize against the demographic the response actually belongs to, not the
+            // caller-supplied demographicNo, so the response cannot be read for a patient the
+            // caller is not entitled to by pairing a foreign responseId with an authorized demographicNo.
             demographicNo = responseD.getDemographicNo();
+            requireConsultationReadPrivilege(demographicNo);
+
+            response = responseConverter.getAsTransferObject(getLoggedInInfo(), responseD);
 
             ProfessionalSpecialist referringDoctorD = consultationManager.getProfessionalSpecialist(responseD.getReferringDocId());
             response.setReferringDoctor(specialistConverter.getAsTransferObject(getLoggedInInfo(), referringDoctorD));
 
             response.setAttachments(getResponseAttachments(responseId, demographicNo, ConsultationAttachmentTo1.ATTACHED));
         } else {
+            requireConsultationReadPrivilege(demographicNo);
             response.setProviderNo(getLoggedInInfo().getLoggedInProviderNo());
             RxInformation rx = new RxInformation();
             String info = rx.getAllergies(getLoggedInInfo(), demographicNo.toString());
@@ -382,6 +393,7 @@ public class ConsultationWebService extends AbstractServiceImpl {
     @Path("/getResponseAttachments")
     @Produces(MediaType.APPLICATION_JSON)
     public List<ConsultationAttachmentTo1> getResponseAttachments(@QueryParam("responseId") Integer responseId, @QueryParam("demographicNo") Integer demographicNoInt, @QueryParam("attached") boolean attached) {
+        requireConsultationReadPrivilege(demographicNoInt);
         List<ConsultationAttachmentTo1> attachments = new ArrayList<ConsultationAttachmentTo1>();
         String demographicNo = demographicNoInt.toString();
 
@@ -481,6 +493,8 @@ public class ConsultationWebService extends AbstractServiceImpl {
     @Path("/getEReferAttachments")
     @Produces(MediaType.APPLICATION_JSON)
     public Response getEReferAttachments(@QueryParam("demographicNo") Integer demographicNo, @Context HttpServletRequest httpServletRequest, @Context HttpServletResponse httpServletResponse) {
+        // Authorize before the try block so a denial is not reclassified as a 500 by the catch.
+        requireConsultationReadPrivilege(demographicNo);
         Response response;
         try {
             /*
@@ -501,6 +515,23 @@ public class ConsultationWebService extends AbstractServiceImpl {
     /*******************
      * private methods *
      *******************/
+
+    /**
+     * Enforces patient-level read access to consultation data for the given demographic.
+     *
+     * <p>Guards the consultation response and attachment endpoints so a patient's
+     * consultation responses, attached documents and eReferral attachments cannot be
+     * read by supplying an arbitrary {@code demographicNo}.
+     *
+     * @param demographicNo the demographic whose consultation data is being requested.
+     * @throws AccessDeniedException if the current user lacks {@code _con} read access to this patient.
+     */
+    private void requireConsultationReadPrivilege(Integer demographicNo) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_con", "r", demographicNo)) {
+            throw new AccessDeniedException("_con", "r", demographicNo);
+        }
+    }
+
     private Date convertJSONDate(String val) {
         try {
             return jakarta.xml.bind.DatatypeConverter.parseDateTime(val).getTime();
