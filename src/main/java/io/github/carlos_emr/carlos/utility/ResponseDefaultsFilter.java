@@ -58,6 +58,7 @@ import jakarta.servlet.http.HttpServletResponse;
  *   <li>{@code X-Frame-Options: SAMEORIGIN} — clickjack protection (replaces the removed ESAPI ClickjackFilter)</li>
  *   <li>{@code X-Permitted-Cross-Domain-Policies: none} — blocks Flash/Acrobat cross-domain data loading</li>
  *   <li>{@code Permissions-Policy: camera=(), microphone=(), geolocation=()} — restricts unused browser APIs</li>
+ *   <li>{@code Referrer-Policy: same-origin} — prevents leaking EMR paths to cross-origin destinations</li>
  *   <li>{@code X-Content-Type-Options: nosniff} — prevents MIME type sniffing attacks</li>
  * </ul>
  *
@@ -210,6 +211,9 @@ public final class ResponseDefaultsFilter implements Filter {
 
         // Restrict browser features not used by this application
         response.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+
+        // Prevent EMR URL paths/query parameters from being sent to cross-origin resources
+        response.setHeader("Referrer-Policy", "same-origin");
 
         // Prevent MIME type sniffing (defense-in-depth for content-type handling)
         response.setHeader("X-Content-Type-Options", "nosniff");

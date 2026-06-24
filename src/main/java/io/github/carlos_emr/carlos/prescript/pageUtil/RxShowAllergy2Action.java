@@ -310,6 +310,9 @@ public final class RxShowAllergy2Action extends ActionSupport {
      */
     private void reorder(HttpServletRequest request) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_allergy", "u", null)) {
+            throw new SecurityException("missing required sec object (_allergy)");
+        }
 
         String direction = request.getParameter("direction");
         if (direction == null || (!"up".equals(direction) && !"down".equals(direction))) {

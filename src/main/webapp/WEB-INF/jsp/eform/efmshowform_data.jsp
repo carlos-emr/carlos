@@ -111,7 +111,7 @@
         eForm = new EForm(fid, "-1"); //form cannot be submitted, demographic_no "-1" indicate this specialty
         eForm.setContextPath(request.getContextPath());
         eForm.setOscarOPEN(request.getRequestURI());
-        eForm.setImagePath();
+        eForm.setImagePath(request.getContextPath());
         eForm.setFdid("");
     }
 
@@ -141,8 +141,9 @@
     eForm.addHiddenInputElement("fid", eForm.getFid());
 
     // Add EForm error message
-    eForm.addHiddenInputElement("error", request.getParameter("error"));
+    eForm.addHiddenInputElement("error", request.getParameter("error") != null ? request.getParameter("error") : (String) request.getAttribute("error"));
     eForm.addHiddenInputElement("errorMessage", (String) request.getAttribute("errorMessage"));
+    eForm.addHiddenInputElement("warningMessage", (String) request.getAttribute("warningMessage"));
 
     // Add EForm properties for handling download operation
     eForm.addHiddenInputElement("eFormPDFName", (String) request.getAttribute("eFormPDFName"));

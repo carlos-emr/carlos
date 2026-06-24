@@ -51,6 +51,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -175,6 +176,8 @@ class UploadLoginText2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
         assertThat(request.getAttribute("error")).isEqualTo(true);
+
+        assertThat(action.getImportFile()).isEqualTo(uploadFile.toFile().getCanonicalFile());
     }
 
     @ParameterizedTest
@@ -306,8 +309,8 @@ class UploadLoginText2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should set error when import file is missing")
-    void shouldSetError_whenImportFileMissing() throws Exception {
+    @DisplayName("should return success when import file is missing")
+    void shouldReturnSuccess_whenImportFileMissing() throws Exception {
         Property latestProperty = new Property();
         latestProperty.setValue("2026-06-10");
         acceptableUseAgreementManagerStatic.when(AcceptableUseAgreementManager::findLatestProperty)
@@ -320,9 +323,37 @@ class UploadLoginText2ActionUnitTest extends CarlosUnitTestBase {
         String result = new UploadLoginText2Action(securityInfoManager).execute();
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        assertThat(request.getAttribute("error")).isEqualTo(true);
+        assertThat(request.getAttribute("error")).isEqualTo(false);
         verify(carlosProperties, never()).getProperty("DOCUMENT_DIR");
         verify(propertyDao, never()).persist(any(Property.class));
+    }
+
+    @Test
+    @DisplayName("should preserve login text when upload read fails")
+    void shouldPreserveLoginText_whenUploadReadFails() throws Exception {
+        Path documentDir = Files.createDirectory(tempDir.resolve("document"));
+        Path existingLoginText = documentDir.resolve("OSCARloginText.txt");
+        Files.writeString(existingLoginText, "existing login text");
+        Path uploadFile = Files.writeString(tempDir.resolve("login-upload.txt"), "updated login text");
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)).thenReturn(true);
+        when(carlosProperties.getProperty("DOCUMENT_DIR")).thenReturn(documentDir.toString());
+        request.setMethod("POST");
+        request.addParameter("validDurationNumber", "1");
+        request.addParameter("validDurationPeriod", "year");
+        UploadLoginText2Action action = new UploadLoginText2Action(securityInfoManager);
+        action.setImportFile(uploadFile.toFile());
+        Files.delete(uploadFile);
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(request.getAttribute("error")).isEqualTo(true);
+        assertThat(existingLoginText).hasContent("existing login text");
+        try (Stream<Path> documentFiles = Files.list(documentDir)) {
+            assertThat(documentFiles)
+                    .extracting(path -> path.getFileName().toString())
+                    .containsExactly("OSCARloginText.txt");
+        }
     }
 
     @Test

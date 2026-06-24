@@ -21,7 +21,16 @@
  */
 package io.github.carlos_emr.carlos.admin.web;
 
-import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import io.github.carlos_emr.carlos.security.CarlosMethodSecurity;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+
+import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * Security gate for the Add Security Record admin page.
@@ -32,9 +41,35 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
  *
  * @since 2026-04-05
  */
-public class SecurityAddSecurity2Action extends AdminSecurityMutator2Action {
+public class SecurityAddSecurity2Action extends ActionSupport {
 
-    public SecurityAddSecurity2Action(SecurityInfoManager securityInfoManager) {
-        super(securityInfoManager);
+    private final transient CarlosMethodSecurity methodSecurity;
+
+    public SecurityAddSecurity2Action() {
+        this(SpringUtils.getBean(CarlosMethodSecurity.class));
+    }
+
+    @Autowired
+    public SecurityAddSecurity2Action(CarlosMethodSecurity methodSecurity) {
+        this.methodSecurity = methodSecurity;
+    }
+
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    @Override
+    public String execute() throws Exception {
+        HttpServletRequest request = ServletActionContext.getRequest();
+        HttpServletResponse response = ServletActionContext.getResponse();
+
+        if (!methodSecurity.hasAdminWrite()) {
+            throw new SecurityException("missing required sec object (_admin or _admin.userAdmin)");
+        }
+
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
+
+        return SUCCESS;
     }
 }

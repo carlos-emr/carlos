@@ -31,15 +31,11 @@
 package io.github.carlos_emr.carlos.login;
 
 import io.github.carlos_emr.CarlosProperties;
-import org.apache.struts2.ActionSupport;
-import org.apache.logging.log4j.Logger;
-import org.apache.struts2.ServletActionContext;
-import org.apache.struts2.action.UploadedFilesAware;
-import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import io.github.carlos_emr.carlos.commn.dao.PropertyDao;
 import io.github.carlos_emr.carlos.commn.model.Property;
 import io.github.carlos_emr.carlos.commn.service.AcceptableUseAgreementManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -47,14 +43,26 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+
+import org.apache.logging.log4j.Logger;
+import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.action.UploadedFilesAware;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
+
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
-import io.github.carlos_emr.carlos.utility.LogSafe;
 
 public class UploadLoginText2Action extends ActionSupport implements UploadedFilesAware {
+    private static final String LOGIN_TEXT_FILE_NAME = "OSCARloginText.txt";
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -145,22 +153,51 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
     }
 
     private boolean uploadLoginText() {
-        if (importFile == null) {
-            return true;
-        }
-
+        boolean error = false;
         try {
-            File documentDir = PathValidationUtils.resolveConfiguredDirectory(
-                    CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
-            File loginTextFile = PathValidationUtils.validateGeneratedChildPath("OSCARloginText.txt", documentDir);
-            File validatedImportFile = PathValidationUtils.validateUpload(importFile);
-            Files.copy(validatedImportFile.toPath(), loginTextFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            if (importFile == null) {
+                _logger.warn("No file uploaded; skipping login text write");
+            } else if (!importFile.getName().isEmpty()) {
+                writeLoginTextFile();
+                error = false;
+            }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
-            return true;
+            error = true;
         }
+        return error;
+    }
 
-        return false;
+    private void writeLoginTextFile() throws IOException {
+        File documentDir = PathValidationUtils.validateConfiguredDirectory(
+                CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
+        File saveFile = PathValidationUtils.validateGeneratedChildPath(LOGIN_TEXT_FILE_NAME, documentDir);
+        Path tempFile = Files.createTempFile(documentDir.toPath(), "OSCARloginText-", ".tmp");
+        boolean moved = false;
+        try {
+            try (InputStream fis = Files.newInputStream(importFile.toPath());
+                 OutputStream fos = Files.newOutputStream(tempFile)) {
+                byte[] buf = new byte[128 * 1024];
+                int i;
+                while ((i = fis.read(buf)) != -1) {
+                    fos.write(buf, 0, i);
+                }
+            }
+            moveLoginTextFile(tempFile, saveFile.toPath());
+            moved = true;
+        } finally {
+            if (!moved) {
+                Files.deleteIfExists(tempFile);
+            }
+        }
+    }
+
+    private void moveLoginTextFile(Path tempFile, Path saveFile) throws IOException {
+        try {
+            Files.move(tempFile, saveFile, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        } catch (AtomicMoveNotSupportedException e) {
+            Files.move(tempFile, saveFile, StandardCopyOption.REPLACE_EXISTING);
+        }
     }
 
     private File importFile;
