@@ -56,6 +56,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.commn.model.Hl7TextMessage;
 import io.github.carlos_emr.carlos.managers.LabManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -79,15 +80,19 @@ public class LabService extends AbstractServiceImpl {
 	private static Logger logger = MiscUtils.getLogger();
 
     @Autowired
-	private LabManager labManager;
+	protected LabManager labManager;
 	@Autowired
-	private SecurityInfoManager securityInfoManager;
+	protected SecurityInfoManager securityInfoManager;
 
     @GET
     @Path("/hl7LabsByDemographicNo")
     @Produces("application/json")
     public LabResponse getHl7LabsByDemographicNo(@QueryParam("demographicNo") int demographicNo, @QueryParam("offset") int offset, @QueryParam("limit") int limit) {
 //	public LabResponse getHl7LabsByDemographicNo() {
+
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_lab", SecurityInfoManager.READ, demographicNo)) {
+            throw new AccessDeniedException("_lab", SecurityInfoManager.READ, demographicNo);
+        }
 
         LabResponse response = new LabResponse();
 

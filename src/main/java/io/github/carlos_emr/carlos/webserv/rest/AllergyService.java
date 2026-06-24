@@ -37,8 +37,10 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 
+import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.managers.AllergyManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.AllergyConverter;
 import io.github.carlos_emr.carlos.webserv.rest.to.AllergyResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.AllergyTo1;
@@ -52,12 +54,19 @@ import org.springframework.stereotype.Component;
 public class AllergyService extends AbstractServiceImpl {
 
     @Autowired
-    private AllergyManager allergyManager;
+    protected AllergyManager allergyManager;
+
+    @Autowired
+    protected SecurityInfoManager securityInfoManager;
 
     @GET
     @Path("/active")
     @Produces("application/json")
     public AllergyResponse getCurrentAllergies(@QueryParam("demographicNo") Integer demographicNo) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_allergy", SecurityInfoManager.READ, demographicNo)) {
+            throw new AccessDeniedException("_allergy", SecurityInfoManager.READ, demographicNo);
+        }
+
         List<Allergy> allergies = allergyManager.getActiveAllergies(getLoggedInInfo(), demographicNo);
 
         List<AllergyTo1> allergiesT = new AllergyConverter().getAllAsTransferObjects(getLoggedInInfo(), allergies);
