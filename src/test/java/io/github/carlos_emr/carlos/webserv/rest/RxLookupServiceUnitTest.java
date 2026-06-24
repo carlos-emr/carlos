@@ -129,6 +129,19 @@ class RxLookupServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should return details when caller has _rx read privilege")
+    @Tag("read")
+    void shouldReturnDetails_whenCallerHasReadPrivilege() throws Exception {
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), eq("r"), any())).thenReturn(true);
+        when(mockDrugLookUpManager.details("42")).thenReturn(mock(DrugSearchTo1.class));
+
+        DrugLookupResponse response = service.details("42");
+
+        assertThat(response.isSuccess()).isTrue();
+        verify(mockDrugLookUpManager).details("42");
+    }
+
+    @Test
     @DisplayName("should deny details when caller lacks _rx read privilege")
     @Tag("read")
     void shouldDenyDetails_whenCallerLacksReadPrivilege() throws Exception {

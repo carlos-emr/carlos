@@ -158,6 +158,17 @@ class DemographicMergeServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should unmerge when caller has _demographic write privilege")
+    @Tag("update")
+    void shouldUnmerge_whenCallerHasWritePrivilege() {
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_demographic"), eq("w"), any())).thenReturn(true);
+
+        service.unmergeDemographic(1, 2);
+
+        verify(mockDemographicManager).unmergeDemographics(any(), eq(1), anyList());
+    }
+
+    @Test
     @DisplayName("should deny unmerge when caller lacks _demographic write privilege")
     @Tag("update")
     void shouldDenyUnmerge_whenCallerLacksWritePrivilege() {
