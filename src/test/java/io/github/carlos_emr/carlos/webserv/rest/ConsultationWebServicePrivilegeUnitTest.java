@@ -25,6 +25,7 @@ import java.util.Collections;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -45,6 +46,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -155,5 +157,54 @@ class ConsultationWebServicePrivilegeUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(Response.Status.OK.getStatusCode());
         verify(securityInfoManager).hasPrivilege(eq(loggedInInfo), eq("_con"), eq("r"), eq(7));
         verify(consultationManager).getEReferAttachments(any(), any(), any(), eq(7));
+    }
+
+    @Test
+    @DisplayName("should return not found when responseId has no stored consultation response")
+    void shouldReturnNotFound_whenResponseIdHasNoStoredResponse() {
+        when(consultationManager.getResponse(any(), eq(123))).thenReturn(null);
+
+        assertThatThrownBy(() -> service.getResponse(123, 7))
+                .isInstanceOf(WebApplicationException.class)
+                .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus())
+                        .isEqualTo(Response.Status.NOT_FOUND.getStatusCode()));
+
+        verify(securityInfoManager, never()).hasPrivilege(any(), any(), any(), anyInt());
+    }
+
+    @Test
+    @DisplayName("should return bad request when demographicNo is missing for a new response")
+    void shouldReturnBadRequest_whenDemographicNoMissingForNewResponse() {
+        assertThatThrownBy(() -> service.getResponse(0, null))
+                .isInstanceOf(WebApplicationException.class)
+                .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus())
+                        .isEqualTo(Response.Status.BAD_REQUEST.getStatusCode()));
+
+        verify(securityInfoManager, never()).hasPrivilege(any(), any(), any(), anyInt());
+    }
+
+    @Test
+    @DisplayName("should return bad request when demographicNo is missing for response attachments")
+    void shouldReturnBadRequest_whenDemographicNoMissingForResponseAttachments() {
+        assertThatThrownBy(() -> service.getResponseAttachments(5, null, true))
+                .isInstanceOf(WebApplicationException.class)
+                .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus())
+                        .isEqualTo(Response.Status.BAD_REQUEST.getStatusCode()));
+
+        verify(securityInfoManager, never()).hasPrivilege(any(), any(), any(), anyInt());
+    }
+
+    @Test
+    @DisplayName("should return bad request when demographicNo is missing for eReferral attachments")
+    void shouldReturnBadRequest_whenDemographicNoMissingForEReferAttachments() throws Exception {
+        HttpServletRequest request = org.mockito.Mockito.mock(HttpServletRequest.class);
+        HttpServletResponse httpResponse = org.mockito.Mockito.mock(HttpServletResponse.class);
+
+        assertThatThrownBy(() -> service.getEReferAttachments(null, request, httpResponse))
+                .isInstanceOf(WebApplicationException.class)
+                .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus())
+                        .isEqualTo(Response.Status.BAD_REQUEST.getStatusCode()));
+
+        verify(consultationManager, never()).getEReferAttachments(any(), any(), any(), any());
     }
 }

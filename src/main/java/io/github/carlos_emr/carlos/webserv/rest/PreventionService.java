@@ -36,6 +36,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.WebApplicationException;
 
 import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.managers.PreventionManager;
@@ -48,6 +49,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 
 
 @Path("/preventions/")
@@ -98,6 +100,10 @@ public class PreventionService extends AbstractServiceImpl {
      * @throws AccessDeniedException if the current user lacks {@code _prevention} read access to this patient.
      */
     private void requirePreventionReadPrivilege(Integer demographicNo) {
+        if (demographicNo == null) {
+            throw new WebApplicationException(
+                    Response.status(Response.Status.BAD_REQUEST).entity("demographicNo is required").build());
+        }
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_prevention", "r", demographicNo)) {
             throw new AccessDeniedException("_prevention", "r", demographicNo);
         }

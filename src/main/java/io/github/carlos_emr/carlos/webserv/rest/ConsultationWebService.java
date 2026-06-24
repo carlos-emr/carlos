@@ -45,6 +45,7 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -355,6 +356,10 @@ public class ConsultationWebService extends AbstractServiceImpl {
 
         if (responseId > 0) {
             ConsultationResponse responseD = consultationManager.getResponse(getLoggedInInfo(), responseId);
+            if (responseD == null) {
+                throw new WebApplicationException(
+                        Response.status(Response.Status.NOT_FOUND).entity("Consultation response not found").build());
+            }
 
             // Authorize against the demographic the response actually belongs to, not the
             // caller-supplied demographicNo, so the response cannot be read for a patient the
@@ -527,6 +532,10 @@ public class ConsultationWebService extends AbstractServiceImpl {
      * @throws AccessDeniedException if the current user lacks {@code _con} read access to this patient.
      */
     private void requireConsultationReadPrivilege(Integer demographicNo) {
+        if (demographicNo == null) {
+            throw new WebApplicationException(
+                    Response.status(Response.Status.BAD_REQUEST).entity("demographicNo is required").build());
+        }
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_con", "r", demographicNo)) {
             throw new AccessDeniedException("_con", "r", demographicNo);
         }

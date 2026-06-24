@@ -23,6 +23,9 @@ package io.github.carlos_emr.carlos.webserv.rest;
 
 import java.util.Collections;
 
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.Response;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -41,6 +44,7 @@ import io.github.carlos_emr.carlos.webserv.rest.to.PreventionResponse;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -132,5 +136,17 @@ class PreventionServiceUnitTest extends CarlosUnitTestBase {
         assertThat(response).isNotNull();
         assertThat(response.getPreventions()).isEmpty();
         verify(preventionManager).getImmunizationsByDemographic(eq(loggedInInfo), eq(7));
+    }
+
+    @Test
+    @DisplayName("should return bad request when demographicNo is missing for active preventions")
+    void shouldReturnBadRequest_whenDemographicNoMissingForActivePreventions() {
+        assertThatThrownBy(() -> service.getCurrentPreventions(null))
+                .isInstanceOf(WebApplicationException.class)
+                .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus())
+                        .isEqualTo(Response.Status.BAD_REQUEST.getStatusCode()));
+
+        verify(securityInfoManager, never()).hasPrivilege(any(), any(), any(), anyInt());
+        verify(preventionManager, never()).getPreventionsByDemographicNo(any(), any());
     }
 }
