@@ -164,7 +164,7 @@ public class ConsultationSignatureService {
 
     // FindSecBugs PATH_TRAVERSAL_IN: filename is constrained to a numeric provider stamp name and validated against the eForm image directory.
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "filename is constrained to a numeric provider stamp name and validated against the eForm image directory")
-    public byte[] readProviderStampImage(String providerNo) {
+    private byte[] readProviderStampImage(String providerNo) {
         if (!isNumericProviderNo(providerNo)) {
             MiscUtils.getLogger().warn("Rejected consultation signature stamp for non-numeric provider {}", providerNo);
             return null;
@@ -192,7 +192,7 @@ public class ConsultationSignatureService {
 
     // FindSecBugs PATH_TRAVERSAL_IN: DigitalSignatureUtils and PathValidationUtils constrain the temp signature path to java.io.tmpdir.
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "DigitalSignatureUtils and PathValidationUtils constrain the temp signature path to java.io.tmpdir")
-    public byte[] readTempSignatureImage(String signatureRequestId) {
+    private byte[] readTempSignatureImage(String signatureRequestId) {
         if (StringUtils.isBlank(signatureRequestId)) {
             return null;
         }
