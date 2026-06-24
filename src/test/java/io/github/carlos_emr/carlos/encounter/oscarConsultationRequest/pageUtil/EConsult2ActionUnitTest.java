@@ -113,4 +113,19 @@ class EConsult2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(EConsult2Action.buildSsoReturnUrl("https://emr.example.com?x=1", "/carlos")).isNull();
         assertThat(EConsult2Action.buildSsoReturnUrl("https://emr.example.com#frag", "/carlos")).isNull();
     }
+
+    @Test
+    @DisplayName("Accepts an internal hostname containing an underscore")
+    void shouldBuildReturnUrl_withUnderscoreHostname() {
+        assertThat(EConsult2Action.buildSsoReturnUrl("https://emr_dev.example.com", "/carlos")).isEqualTo("https://emr_dev.example.com/carlos/econsultSSOLogin");
+        assertThat(EConsult2Action.buildSsoReturnUrl("https://emr_dev.example.com:8443", "/carlos")).isEqualTo("https://emr_dev.example.com:8443/carlos/econsultSSOLogin");
+    }
+
+    @Test
+    @DisplayName("Still rejects credentials and bad ports on an underscore hostname")
+    void shouldFailClosed_whenUnderscoreHostnameIsUnsafe() {
+        assertThat(EConsult2Action.buildSsoReturnUrl("https://user:pass@emr_dev.example.com", "/carlos")).isNull();
+        assertThat(EConsult2Action.buildSsoReturnUrl("https://emr_dev.example.com:notaport", "/carlos")).isNull();
+        assertThat(EConsult2Action.buildSsoReturnUrl("https://emr_dev.example.com?x=1", "/carlos")).isNull();
+    }
 }

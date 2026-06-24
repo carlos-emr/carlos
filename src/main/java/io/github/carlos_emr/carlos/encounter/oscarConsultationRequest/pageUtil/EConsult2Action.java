@@ -218,26 +218,61 @@ public class EConsult2Action extends ActionSupport {
 
         try {
             URI uri = new URI(configuredBaseUrl.trim());
-            String scheme = uri.getScheme();
-            String host = uri.getHost();
 
-            if (scheme == null || host == null || host.isEmpty()) {
+            String scheme = uri.getScheme();
+            if (scheme == null) {
                 return null;
             }
-
             scheme = scheme.toLowerCase();
             if (!"http".equals(scheme) && !"https".equals(scheme)) {
                 return null;
             }
 
-            // The base must be a bare origin: reject embedded credentials, query, or fragment.
-            if (uri.getUserInfo() != null || uri.getQuery() != null || uri.getFragment() != null) {
+            // The base must be a bare origin: reject query or fragment.
+            if (uri.getQuery() != null || uri.getFragment() != null) {
+                return null;
+            }
+
+            String authority = uri.getAuthority();
+            if (authority == null || authority.isEmpty()) {
+                return null;
+            }
+            // Reject embedded credentials. Checked on the authority directly because
+            // URI#getUserInfo() returns null when the host is not RFC 2396-compliant
+            // (e.g. contains an underscore), which would otherwise slip credentials through.
+            if (authority.indexOf('@') >= 0) {
+                return null;
+            }
+
+            String host = uri.getHost();
+            int port = uri.getPort();
+
+            // URI#getHost() returns null when the host contains characters that are invalid
+            // per RFC 2396 (e.g. an underscore, common in internal/dev hostnames). Fall back
+            // to the authority so such a configured base is still accepted; credentials were
+            // already rejected above.
+            if (host == null) {
+                int portSeparator = authority.lastIndexOf(':');
+                if (portSeparator >= 0) {
+                    host = authority.substring(0, portSeparator);
+                    try {
+                        port = Integer.parseInt(authority.substring(portSeparator + 1));
+                    } catch (NumberFormatException e) {
+                        return null;
+                    }
+                } else {
+                    host = authority;
+                    port = -1;
+                }
+            }
+
+            if (host.isEmpty()) {
                 return null;
             }
 
             StringBuilder origin = new StringBuilder(scheme).append("://").append(host);
-            if (uri.getPort() != -1) {
-                origin.append(':').append(uri.getPort());
+            if (port != -1) {
+                origin.append(':').append(port);
             }
 
             return origin.toString();
