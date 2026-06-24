@@ -36,7 +36,6 @@ import java.util.List;
 import java.util.ListIterator;
 import java.util.ResourceBundle;
 import java.util.StringTokenizer;
-import java.util.Date;
 import java.util.Locale;
 import java.util.MissingResourceException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -515,34 +514,22 @@ public class Utility {
     /**
      * Retrieves the CARLOS resource bundle for the specified locale with automatic fallback.
      *
-     * <p>This method implements a three-tier fallback strategy for localized message resources:
+     * <p>This method provides the localized message resources:
      * <ol>
      *   <li>Attempts to load "oscarResources" bundle for the requested locale</li>
-     *   <li>Falls back to English (Locale.ENGLISH) if the requested locale is unavailable</li>
-     *   <li>Falls back to the default bundle locale if English is also unavailable</li>
+     *   <li>Falls back to LocaleContextHolder if the requested locale is null</li>
+     *   <li>ResourceBundle handles the usual fallbacks if the resource is not available</li>
      * </ol>
      *
-     * @param locale the desired locale for the resource bundle; if null, uses the system default locale
+     * @param locale the desired locale for the resource bundle; if null, uses the current request's locale
      * @return the resource bundle for the requested locale, or the best available fallback bundle
      */
     public static ResourceBundle getOscarBundle(Locale locale) {
-
         if (locale == null) {
-            locale = Locale.getDefault();
+            locale = org.springframework.context.i18n.LocaleContextHolder.getLocale();
         }
-
-        try {
-            return ResourceBundle.getBundle("oscarResources", locale);
-        }
-        catch (MissingResourceException e) {
-            try {
-                return ResourceBundle.getBundle("oscarResources", Locale.ENGLISH);
-            }
-            catch (MissingResourceException e2) {
-                return ResourceBundle.getBundle("oscarResources");
-            }
-        }
-    }  
+        return ResourceBundle.getBundle("oscarResources", locale);
+    } 
     
     // ###################################################################################
     public static String toCurrency(double money) {
@@ -710,7 +697,11 @@ public class Utility {
         GregorianCalendar gregoriancalendar = new GregorianCalendar(i, j, k);
         return gregoriancalendar.getTime();
     }
-
+    
+    public static String calcAge(Date DOB) {
+        return calcAgeAtDate(DOB, new GregorianCalendar().getTime());
+    }
+    
     public static String calcAgeAtDate(Date DOB, Date pointInTime) {
         return calcAgeAtDate(DOB, pointInTime, null);
     }
@@ -737,6 +728,10 @@ public class Utility {
 
         if (DOB == null) {
             return null;
+        }
+        
+        if (pointInTime == null) {
+            pointInTime = new Date();
         }
     
         ResourceBundle bundle = getOscarBundle(locale);
