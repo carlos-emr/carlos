@@ -38,6 +38,7 @@ import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.Locale;
 import java.util.regex.Pattern;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -223,7 +224,7 @@ public class EConsult2Action extends ActionSupport {
             if (scheme == null) {
                 return null;
             }
-            scheme = scheme.toLowerCase();
+            scheme = scheme.toLowerCase(Locale.ROOT);
             if (!"http".equals(scheme) && !"https".equals(scheme)) {
                 return null;
             }
@@ -255,9 +256,8 @@ public class EConsult2Action extends ActionSupport {
                 int portSeparator = authority.lastIndexOf(':');
                 if (portSeparator >= 0) {
                     host = authority.substring(0, portSeparator);
-                    try {
-                        port = Integer.parseInt(authority.substring(portSeparator + 1));
-                    } catch (NumberFormatException e) {
+                    port = parsePort(authority.substring(portSeparator + 1));
+                    if (port == -1) {
                         return null;
                     }
                 } else {
@@ -279,6 +279,34 @@ public class EConsult2Action extends ActionSupport {
         } catch (URISyntaxException e) {
             MiscUtils.getLogger().error("Invalid 'carlosBaseUrl' property configured for the eConsult SSO return URL", e);
             return null;
+        }
+    }
+
+    /**
+     * Parses a URI authority port component, accepting only a non-empty run of ASCII digits
+     * within the valid 0-65535 range. Returns {@code -1} for anything else (empty, signed,
+     * non-numeric, or out of range) so the caller can fail closed. The explicit digit check
+     * is required because {@code Integer.parseInt} alone would tolerate a leading
+     * {@code +}/{@code -} sign and so accept a malformed port.
+     *
+     * @param portValue the raw port text following the authority's {@code ':'} separator
+     * @return the parsed port, or {@code -1} when the value is not a valid port
+     */
+    private static int parsePort(String portValue) {
+        if (portValue.isEmpty()) {
+            return -1;
+        }
+        for (int i = 0; i < portValue.length(); i++) {
+            char c = portValue.charAt(i);
+            if (c < '0' || c > '9') {
+                return -1;
+            }
+        }
+        try {
+            int port = Integer.parseInt(portValue);
+            return (port >= 0 && port <= 65535) ? port : -1;
+        } catch (NumberFormatException e) {
+            return -1;
         }
     }
 

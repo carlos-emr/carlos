@@ -128,4 +128,20 @@ class EConsult2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(EConsult2Action.buildSsoReturnUrl("https://emr_dev.example.com:notaport", "/carlos")).isNull();
         assertThat(EConsult2Action.buildSsoReturnUrl("https://emr_dev.example.com?x=1", "/carlos")).isNull();
     }
+
+    @Test
+    @DisplayName("Rejects signed, empty, or out-of-range fallback ports")
+    void shouldFailClosed_whenUnderscoreHostnamePortIsMalformed() {
+        // Integer.parseInt would tolerate the leading sign; the validator must not.
+        assertThat(EConsult2Action.buildSsoReturnUrl("https://emr_dev.example.com:-443", "/carlos")).isNull();
+        assertThat(EConsult2Action.buildSsoReturnUrl("https://emr_dev.example.com:+443", "/carlos")).isNull();
+        assertThat(EConsult2Action.buildSsoReturnUrl("https://emr_dev.example.com:", "/carlos")).isNull();
+        assertThat(EConsult2Action.buildSsoReturnUrl("https://emr_dev.example.com:99999", "/carlos")).isNull();
+    }
+
+    @Test
+    @DisplayName("Accepts an uppercase scheme regardless of default locale")
+    void shouldBuildReturnUrl_withUppercaseScheme() {
+        assertThat(EConsult2Action.buildSsoReturnUrl("HTTPS://emr.example.com", "/carlos")).isEqualTo("https://emr.example.com/carlos/econsultSSOLogin");
+    }
 }
