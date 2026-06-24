@@ -33,15 +33,6 @@ public class ServiceOAuthNonceDaoImpl extends AbstractDaoImpl<ServiceOAuthNonce>
     }
 
     @Override
-    public ServiceOAuthNonce findByNonceKeyHash(String nonceKeyHash) {
-        Query query = this.entityManager.createQuery(
-                "SELECT x FROM ServiceOAuthNonce x WHERE x.nonceKeyHash = ?1",
-                ServiceOAuthNonce.class);
-        query.setParameter(1, nonceKeyHash);
-        return this.getSingleResultOrNull(query);
-    }
-
-    @Override
     public int deleteOlderThan(long oauthTimestampCutoff) {
         Query query = this.entityManager.createQuery(
                 "DELETE FROM ServiceOAuthNonce x WHERE x.oauthTimestamp < ?1");

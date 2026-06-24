@@ -28,7 +28,6 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -226,7 +225,6 @@ class OscarOAuthDataProviderUnitTest {
     @DisplayName("should persist a consumed nonce when seen for the first time")
     void shouldPersistConsumedNonce_whenSeenForFirstTime() {
         ServiceOAuthNonceDao nonceDao = mock(ServiceOAuthNonceDao.class);
-        when(nonceDao.findByNonceKeyHash(anyString())).thenReturn(null);
         OscarOAuthDataProvider provider = providerWithNonceDao(nonceDao);
 
         provider.consumeNonce("consumer", "token", "abc", 1000L, 600L);
@@ -244,26 +242,11 @@ class OscarOAuthDataProviderUnitTest {
     }
 
     @Test
-    @DisplayName("should reject a replayed nonce when the combination was already consumed")
-    void shouldRejectReplayedNonce_whenAlreadyConsumed() {
+    @DisplayName("should reject a replayed nonce when the unique key is already persisted")
+    void shouldRejectReplayedNonce_whenNonceKeyAlreadyPersisted() {
         ServiceOAuthNonceDao nonceDao = mock(ServiceOAuthNonceDao.class);
-        when(nonceDao.findByNonceKeyHash(anyString())).thenReturn(new ServiceOAuthNonce());
-        OscarOAuthDataProvider provider = providerWithNonceDao(nonceDao);
-
-        assertThatThrownBy(() -> provider.consumeNonce("consumer", "token", "abc", 1000L, 600L))
-                .isInstanceOf(OAuth1Exception.class)
-                .hasMessage("nonce_replayed");
-
-        verify(nonceDao, never()).persist(org.mockito.ArgumentMatchers.any());
-    }
-
-    @Test
-    @DisplayName("should reject a replayed nonce when a concurrent insert hits the unique key")
-    void shouldRejectReplayedNonce_whenConcurrentInsertViolatesUniqueKey() {
-        ServiceOAuthNonceDao nonceDao = mock(ServiceOAuthNonceDao.class);
-        when(nonceDao.findByNonceKeyHash(anyString())).thenReturn(null);
-        // A racing request inserted the same nonce after our find check, so the
-        // flush trips the unique constraint.
+        // The unique key on nonceKeyHash is the sole replay detector: a duplicate
+        // (a prior or a concurrent request) trips it on flush, sequential or racing.
         org.mockito.Mockito.doThrow(new DataIntegrityViolationException("duplicate"))
                 .when(nonceDao).flush();
         OscarOAuthDataProvider provider = providerWithNonceDao(nonceDao);
@@ -368,14 +351,13 @@ class OscarOAuthDataProviderUnitTest {
         assertThat(captor.getValue().getTokenId()).isEmpty();
     }
 
-    /** Runs consumeNonce and returns the hash it looked up / stored. */
+    /** Runs consumeNonce and returns the nonceKeyHash it stored. */
     private static String capturedKeyHash(String consumerKey, String tokenId, String nonce) {
         ServiceOAuthNonceDao nonceDao = mock(ServiceOAuthNonceDao.class);
-        when(nonceDao.findByNonceKeyHash(anyString())).thenReturn(null);
         providerWithNonceDao(nonceDao).consumeNonce(consumerKey, tokenId, nonce, 1000L, 600L);
-        ArgumentCaptor<String> hash = ArgumentCaptor.forClass(String.class);
-        verify(nonceDao).findByNonceKeyHash(hash.capture());
-        return hash.getValue();
+        ArgumentCaptor<ServiceOAuthNonce> stored = ArgumentCaptor.forClass(ServiceOAuthNonce.class);
+        verify(nonceDao).persist(stored.capture());
+        return stored.getValue().getNonceKeyHash();
     }
 
     private static OscarOAuthDataProvider providerWithNonceDao(ServiceOAuthNonceDao nonceDao) {

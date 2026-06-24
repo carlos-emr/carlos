@@ -314,13 +314,8 @@ public class OscarOAuthDataProvider {
             serviceOAuthNonceDao.deleteOlderThan(now - retentionSeconds);
         }
 
-        String keyHash = nonceKeyHash(key, token, nonceValue);
-        if (serviceOAuthNonceDao.findByNonceKeyHash(keyHash) != null) {
-            throw new OAuth1Exception(401, "nonce_replayed");
-        }
-
         ServiceOAuthNonce consumed = new ServiceOAuthNonce();
-        consumed.setNonceKeyHash(keyHash);
+        consumed.setNonceKeyHash(nonceKeyHash(key, token, nonceValue));
         consumed.setConsumerKey(key);
         consumed.setTokenId(token);
         consumed.setNonce(nonceValue);
@@ -328,11 +323,11 @@ public class OscarOAuthDataProvider {
         consumed.setDateCreated(new Date());
         try {
             serviceOAuthNonceDao.persist(consumed);
-            // Force the INSERT now so a concurrent request that passed the
-            // find check above and raced us to the unique key is rejected as a
-            // replay here, rather than surfacing as a 500 at commit time. Only a
-            // constraint violation is treated as a replay; other failures
-            // propagate so a real DB fault is not masked as a 401.
+            // Force the INSERT now: the unique key on nonceKeyHash is the single
+            // source of truth for replay detection, so a duplicate (sequential or
+            // concurrent) is rejected here as a replay rather than surfacing as a
+            // 500 at commit time. Only a constraint violation is treated as a
+            // replay; other failures propagate so a real DB fault is not masked.
             serviceOAuthNonceDao.flush();
         } catch (DataIntegrityViolationException | ConstraintViolationException duplicate) {
             throw new OAuth1Exception(401, "nonce_replayed");

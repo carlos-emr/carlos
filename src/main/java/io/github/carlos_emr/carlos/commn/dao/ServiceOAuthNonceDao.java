@@ -26,12 +26,6 @@ import io.github.carlos_emr.carlos.commn.model.ServiceOAuthNonce;
 public interface ServiceOAuthNonceDao extends AbstractDao<ServiceOAuthNonce> {
 
     /**
-     * @return the stored nonce whose canonical-tuple hash matches, or
-     *         {@code null} when this nonce has not been seen before.
-     */
-    ServiceOAuthNonce findByNonceKeyHash(String nonceKeyHash);
-
-    /**
      * Removes nonces whose oauth_timestamp is older than the given cutoff so the
      * table only retains entries that could still be replayed.
      *
