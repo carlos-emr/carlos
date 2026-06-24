@@ -398,9 +398,23 @@ public class ConsultationWebService extends AbstractServiceImpl {
     @Path("/getResponseAttachments")
     @Produces(MediaType.APPLICATION_JSON)
     public List<ConsultationAttachmentTo1> getResponseAttachments(@QueryParam("responseId") Integer responseId, @QueryParam("demographicNo") Integer demographicNoInt, @QueryParam("attached") boolean attached) {
-        requireConsultationReadPrivilege(demographicNoInt);
+        if (responseId == null || responseId <= 0) {
+            throw new WebApplicationException(
+                    Response.status(Response.Status.BAD_REQUEST).entity("responseId is required").build());
+        }
+        // Resolve the demographic from the response itself and authorize against it, rather than
+        // trusting the caller-supplied demographicNo, so a forged responseId cannot expose another
+        // patient's attached consultation documents.
+        ConsultationResponse responseD = consultationManager.getResponse(getLoggedInInfo(), responseId);
+        if (responseD == null) {
+            throw new WebApplicationException(
+                    Response.status(Response.Status.NOT_FOUND).entity("Consultation response not found").build());
+        }
+        Integer resolvedDemographicNo = responseD.getDemographicNo();
+        requireConsultationReadPrivilege(resolvedDemographicNo);
+
         List<ConsultationAttachmentTo1> attachments = new ArrayList<ConsultationAttachmentTo1>();
-        String demographicNo = demographicNoInt.toString();
+        String demographicNo = resolvedDemographicNo.toString();
 
         List<EDoc> edocList = EDocUtil.listResponseDocs(getLoggedInInfo(), demographicNo, responseId.toString(), attached);
         getDocuments(edocList, attached, attachments);

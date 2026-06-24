@@ -119,14 +119,32 @@ class ConsultationWebServicePrivilegeUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should deny getResponseAttachments when caller lacks consultation read privilege")
-    void shouldDenyGetResponseAttachments_whenCallerLacksReadPrivilege() {
-        when(securityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), eq(99))).thenReturn(false);
+    @DisplayName("should deny getResponseAttachments using the response's own demographic when caller lacks privilege")
+    void shouldDenyGetResponseAttachments_usingResponseDemographicWhenCallerLacksPrivilege() {
+        ConsultationResponse stored = new ConsultationResponse();
+        stored.setDemographicNo(50);
+        when(consultationManager.getResponse(any(), eq(5))).thenReturn(stored);
+        when(securityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), eq(50))).thenReturn(false);
 
-        assertThatThrownBy(() -> service.getResponseAttachments(5, 99, true))
+        // A forged responseId (belongs to demographic 50) paired with an otherwise-authorized
+        // demographicNo (7) must still be denied because authorization uses the response's demographic.
+        assertThatThrownBy(() -> service.getResponseAttachments(5, 7, true))
                 .isInstanceOf(AccessDeniedException.class);
 
-        verify(securityInfoManager).hasPrivilege(eq(loggedInInfo), eq("_con"), eq("r"), eq(99));
+        verify(securityInfoManager).hasPrivilege(eq(loggedInInfo), eq("_con"), eq("r"), eq(50));
+    }
+
+    @Test
+    @DisplayName("should return not found when getResponseAttachments responseId has no stored response")
+    void shouldReturnNotFound_whenResponseAttachmentsResponseUnknown() {
+        when(consultationManager.getResponse(any(), eq(5))).thenReturn(null);
+
+        assertThatThrownBy(() -> service.getResponseAttachments(5, 7, true))
+                .isInstanceOf(WebApplicationException.class)
+                .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus())
+                        .isEqualTo(Response.Status.NOT_FOUND.getStatusCode()));
+
+        verify(securityInfoManager, never()).hasPrivilege(any(), any(), any(), anyInt());
     }
 
     @Test
@@ -184,13 +202,14 @@ class ConsultationWebServicePrivilegeUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should return bad request when demographicNo is missing for response attachments")
-    void shouldReturnBadRequest_whenDemographicNoMissingForResponseAttachments() {
-        assertThatThrownBy(() -> service.getResponseAttachments(5, null, true))
+    @DisplayName("should return bad request when responseId is missing for response attachments")
+    void shouldReturnBadRequest_whenResponseIdMissingForResponseAttachments() {
+        assertThatThrownBy(() -> service.getResponseAttachments(null, 7, true))
                 .isInstanceOf(WebApplicationException.class)
                 .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus())
                         .isEqualTo(Response.Status.BAD_REQUEST.getStatusCode()));
 
+        verify(consultationManager, never()).getResponse(any(), any());
         verify(securityInfoManager, never()).hasPrivilege(any(), any(), any(), anyInt());
     }
 
