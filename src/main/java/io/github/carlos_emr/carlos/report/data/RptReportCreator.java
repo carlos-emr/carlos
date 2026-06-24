@@ -64,8 +64,8 @@ public final class RptReportCreator {
         }
         while (rs.next()) {
             String caption = DBHelp.getString(rs, "caption");
-            ret.append((ret.length() < 8 ? " " : ", ") + validateReportIdentifier(DBHelp.getString(rs, "table_name"))
-                    + "." + validateReportIdentifier(DBHelp.getString(rs, "name")));
+            ret.append((ret.length() < 8 ? " " : ", ") + requireValidReportIdentifier(DBHelp.getString(rs, "table_name"))
+                    + "." + requireValidReportIdentifier(DBHelp.getString(rs, "name")));
             if (caption != null && caption.length() > 0) {
                 ret.append(" as " + quoteSqlStringLiteral(caption));
             }
@@ -116,7 +116,7 @@ public final class RptReportCreator {
         return ret;
     }
 
-    static String validateReportIdentifier(String identifier) {
+    static String requireValidReportIdentifier(String identifier) {
         if (!SqlIdentifierValidator.isValidIdentifier(identifier)) {
             MiscUtils.getLogger().error("Invalid report SQL identifier rejected");
             throw new SecurityException("Invalid report SQL identifier");
@@ -129,6 +129,8 @@ public final class RptReportCreator {
             MiscUtils.getLogger().error("Invalid report SQL alias rejected");
             throw new SecurityException("Invalid report SQL alias");
         }
+        // Escape backslashes first so later single-quote escaping cannot be changed
+        // by MySQL's default backslash escape handling.
         return "'" + value.replace("\\", "\\\\").replace("'", "''") + "'";
     }
 

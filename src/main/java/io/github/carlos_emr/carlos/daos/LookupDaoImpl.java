@@ -117,13 +117,13 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
             for (int j = 0; j < fields.size(); j++) {
                 FieldDefValue fdef = (FieldDefValue) fields.get(j);
                 if (fdef.getGenericIdx() == i) {
-                    String fieldSql = validateFieldSql(fdef.getFieldSQL());
-                    if (fieldSql.indexOf('(') >= 0) {
+                    String fieldSqlExpression = validateFieldSql(fdef.getFieldSQL());
+                    if (fieldSqlExpression.indexOf('(') >= 0) {
                         String fieldName = validateSqlAlias(fdef.getFieldName());
-                        sSQL += fieldSql + " " + fieldName + ",";
+                        sSQL += fieldSqlExpression + " " + fieldName + ",";
                         fieldNames[i - 1] = fieldName;
                     } else {
-                        String fieldName = validateSqlAlias(fieldSql);
+                        String fieldName = validateSqlAlias(fieldSqlExpression);
                         sSQL += "s." + fieldName + ",";
                         fieldNames[i - 1] = fieldName;
                     }

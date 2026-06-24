@@ -27,13 +27,13 @@ class RptReportCreatorTest {
     @Test
     @DisplayName("should accept report SQL identifiers when identifier is valid")
     void shouldAcceptReportSqlIdentifiers_whenIdentifierIsValid() {
-        assertThat(RptReportCreator.validateReportIdentifier("schema.formBCAR")).isEqualTo("schema.formBCAR");
+        assertThat(RptReportCreator.requireValidReportIdentifier("schema.formBCAR")).isEqualTo("schema.formBCAR");
     }
 
     @Test
     @DisplayName("should reject report SQL identifiers when identifier contains injection")
     void shouldRejectReportSqlIdentifiers_whenIdentifierContainsInjection() {
-        assertThatThrownBy(() -> RptReportCreator.validateReportIdentifier("formBCAR;drop"))
+        assertThatThrownBy(() -> RptReportCreator.requireValidReportIdentifier("formBCAR;drop"))
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("Invalid report SQL identifier");
     }
