@@ -32,8 +32,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.api.MethodOrderer;
-import org.junit.jupiter.api.TestMethodOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -65,9 +63,7 @@ import static org.mockito.Mockito.when;
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-@TestMethodOrder(MethodOrderer.MethodName.class)
 @DisplayName("RecordUxService clinical-summary authorization")
-@Tag("unit")
 @Tag("read")
 class RecordUxServiceUnitTest extends CarlosUnitTestBase {
 
@@ -102,7 +98,7 @@ class RecordUxServiceUnitTest extends CarlosUnitTestBase {
 
         assertThatThrownBy(() -> service.getFullSummmary(DEMOGRAPHIC_NO, SummaryTo1.ALLERGIES))
                 .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("(_eChart)");
+                .hasMessage("missing required sec object (_eChart)");
 
         // Bean lookup for the summary must never happen once access is denied.
         springUtilsMock.verify(() -> SpringUtils.getBean(anyString()), never());
