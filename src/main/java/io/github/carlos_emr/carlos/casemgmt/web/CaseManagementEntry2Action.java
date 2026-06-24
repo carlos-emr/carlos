@@ -3951,20 +3951,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     }
 
     /**
-     * Returns a normalized internal redirect target, or {@code null} when unsafe.
-     *
-     * @param url The URL to validate
-     * @return trimmed safe redirect URL, or null when unsafe
-     */
-    static String sanitizeInternalRedirect(String url) {
-        String trimmedUrl = StringUtils.trimToNull(url);
-        if (trimmedUrl == null || !isValidInternalRedirect(trimmedUrl)) {
-            return null;
-        }
-        return trimmedUrl;
-    }
-
-    /**
      * Returns a whitelisted Struts result name for the legacy {@code chain} parameter.
      *
      * @param chain raw requested result name
@@ -3976,20 +3962,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             return null;
         }
         return trimmedChain;
-    }
-
-    /**
-     * Validates that a redirect URL is safe and points to an internal application URL.
-     * This prevents open redirect vulnerabilities.
-     *
-     * @param url The URL to validate
-     * @return true if the URL is safe for redirect, false otherwise
-     */
-    static boolean isValidInternalRedirect(String url) {
-        if (url == null || url.isEmpty()) {
-            return false;
-        }
-        return url.startsWith("/") && RedirectValidationUtils.isValidRelativeRedirect(url);
     }
 
     /**
