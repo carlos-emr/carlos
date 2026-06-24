@@ -134,10 +134,6 @@
             <bean class="org.apache.cxf.jaxrs.provider.FormEncodingProvider"/>
         </jaxrs:providers>
 
-        <jaxrs:features>
-            <cxf:logging/>
-        </jaxrs:features>
-
         <jaxrs:extensionMappings>
             <entry key="xml"  value="application/xml"/>
             <entry key="json" value="application/json"/>
