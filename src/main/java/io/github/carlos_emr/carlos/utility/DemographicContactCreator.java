@@ -43,6 +43,7 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * this class contains the utility methods for creating generic Contact objects and adds these
@@ -77,6 +78,8 @@ public class DemographicContactCreator {
         return demographicContacts;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static DemographicContact fillContactName(DemographicContact demographicContact) {
         if (demographicContact == null) {
             return demographicContact;

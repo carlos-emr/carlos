@@ -26,6 +26,7 @@
 package io.github.carlos_emr.carlos.utils;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileReader;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -34,9 +35,11 @@ import java.util.Date;
 import java.util.GregorianCalendar;
 
 import io.github.carlos_emr.MyDateFormat;
+import java.util.Locale;
 import io.github.carlos_emr.carlos.PMmodule.model.FieldDefinition;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import java.util.Locale;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class Utility {
     public static boolean IsEmpty(String pStr) {
@@ -88,6 +91,8 @@ public class Utility {
     }
 
     // Convert dd/mm/yyyy d/m/yyyy to System format
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static Date GetSysDate(String pDate) // throws Exception
     {
         Date date;
@@ -138,6 +143,8 @@ public class Utility {
     }
 
     // Convert dd/mm/yyyy to System format
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static Date GetSysDateMin(String pDate) throws Exception {
         if (IsEmpty(pDate)) {
             Calendar c1 = Calendar.getInstance();
@@ -160,6 +167,8 @@ public class Utility {
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static Date GetSysDateMax(String pDate) throws Exception {
         if (IsEmpty(pDate)) {
             return SetDate(2999, 12, 31);
@@ -320,15 +329,15 @@ public class Utility {
     }
 
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public static ArrayList getTemplate(String pathLoc, String dir, String filename) {
         FieldDefinition fDev = null; // clientImageMgr.getClientImage(demoNo);
         ArrayList list = new ArrayList();
         String fileDir = pathLoc + "/" + dir + "/" + filename;
         try {
 
-            BufferedReader in = null;
-            try {
-                in = new BufferedReader(new FileReader(fileDir));
+            try (BufferedReader in = new BufferedReader(new FileReader(PathValidationUtils.resolveTrustedPath(new File(fileDir))))) {
                 String str;
                 if (fileDir.indexOf("/in/") > -1) {
                     while ((str = in.readLine()) != null) {
@@ -350,13 +359,9 @@ public class Utility {
                         list.add(fDev);
                     }
                 }
-                in.close();
 
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Uh oh, got an IOException error!", e);
-            } finally {
-                if (in != null)
-                    in.close();
             }
 
         } catch (Exception e) {
