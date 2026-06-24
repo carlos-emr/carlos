@@ -57,7 +57,6 @@ class RxDeleteAllergy2ActionTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
-    private MockedStatic<LogAction> logActionMock;
     private AutoCloseable mocks;
 
     @Mock
@@ -94,16 +93,11 @@ class RxDeleteAllergy2ActionTest extends CarlosUnitTestBase {
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(mockRequest);
         servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(mockResponse);
 
-        logActionMock = mockStatic(LogAction.class);
-
         action = new RxDeleteAllergy2Action();
     }
 
     @AfterEach
     void tearDown() throws Exception {
-        if (logActionMock != null) {
-            logActionMock.close();
-        }
         if (servletActionContextMock != null) {
             servletActionContextMock.close();
         }
