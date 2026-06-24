@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.webserv.rest;
 
 import io.github.carlos_emr.carlos.casemgmt.dao.IssueDAO;
+import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 import io.github.carlos_emr.carlos.commn.dao.DxresearchDAO;
 import io.github.carlos_emr.carlos.commn.dao.QuickListDao;
 import io.github.carlos_emr.carlos.commn.model.Dxresearch;
@@ -144,6 +145,22 @@ class DiseaseRegistryServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should return matching issue when caller has DxRegistry read privilege")
+    @Tag("read")
+    void shouldReturnMatchingIssue_whenCallerHasReadPrivilege() {
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq(DX_REGISTRY), eq("r"), any())).thenReturn(true);
+        when(mockIssueDao.findIssueByTypeAndCode("icd9", "250")).thenReturn(mock(Issue.class));
+
+        DiagnosisTo1 dx = new DiagnosisTo1();
+        dx.setCodingSystem("icd9");
+        dx.setCode("250");
+        Response response = service.findLikeIssues(dx);
+
+        assertThat(response.getStatus()).isEqualTo(Response.Status.OK.getStatusCode());
+        verify(mockIssueDao).findIssueByTypeAndCode("icd9", "250");
+    }
+
+    @Test
     @DisplayName("should deny findLikeIssues when caller lacks DxRegistry read privilege")
     @Tag("read")
     void shouldDenyFindLikeIssues_whenCallerLacksReadPrivilege() {
@@ -154,6 +171,38 @@ class DiseaseRegistryServiceUnitTest extends CarlosUnitTestBase {
             .hasMessage("missing required sec object (_newCasemgmt.DxRegistry)");
 
         verify(mockIssueDao, never()).findIssueByTypeAndCode(anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("should persist new entry when caller has DxRegistry write privilege")
+    @Tag("create")
+    void shouldPersistNewEntry_whenCallerHasWritePrivilege() {
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq(DX_REGISTRY), eq("w"), any())).thenReturn(true);
+        when(mockDxresearchDao.activeEntryExists(123, "icd9", "250")).thenReturn(false);
+
+        IssueTo1 issue = new IssueTo1();
+        issue.setType("icd9");
+        issue.setCode("250");
+        Response response = service.addToDiseaseRegistry(123, issue);
+
+        assertThat(response.getStatus()).isEqualTo(Response.Status.OK.getStatusCode());
+        verify(mockDxresearchDao).persist(any(Dxresearch.class));
+    }
+
+    @Test
+    @DisplayName("should not persist duplicate entry when an active entry already exists")
+    @Tag("create")
+    void shouldNotPersistDuplicate_whenActiveEntryAlreadyExists() {
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq(DX_REGISTRY), eq("w"), any())).thenReturn(true);
+        when(mockDxresearchDao.activeEntryExists(123, "icd9", "250")).thenReturn(true);
+
+        IssueTo1 issue = new IssueTo1();
+        issue.setType("icd9");
+        issue.setCode("250");
+        Response response = service.addToDiseaseRegistry(123, issue);
+
+        assertThat(response.getStatus()).isEqualTo(Response.Status.OK.getStatusCode());
+        verify(mockDxresearchDao, never()).persist(any());
     }
 
     @Test

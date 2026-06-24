@@ -27,6 +27,7 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.DrugLookupResponse;
+import io.github.carlos_emr.carlos.webserv.rest.to.DrugResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DrugSearchTo1;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -161,5 +162,17 @@ class RxLookupServiceUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(() -> service.parseInstructions("1 tab po daily"))
             .isInstanceOf(SecurityException.class)
             .hasMessage("missing required sec object (_rx)");
+    }
+
+    @Test
+    @DisplayName("should parse instructions when caller has _rx read privilege")
+    @Tag("read")
+    void shouldParseInstructions_whenCallerHasReadPrivilege() {
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), eq("r"), any())).thenReturn(true);
+
+        DrugResponse response = service.parseInstructions("1 tab po daily");
+
+        assertThat(response).isNotNull();
+        assertThat(response.getDrug()).isNotNull();
     }
 }

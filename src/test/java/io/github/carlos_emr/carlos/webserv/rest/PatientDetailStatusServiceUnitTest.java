@@ -21,6 +21,9 @@
  */
 package io.github.carlos_emr.carlos.webserv.rest;
 
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.integration.mchcv.HCValidationResult;
+import io.github.carlos_emr.carlos.integration.mchcv.HCValidator;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
@@ -29,6 +32,7 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.GenericRestResponse.ResponseStatus;
 import io.github.carlos_emr.carlos.webserv.rest.to.RestResponse;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.PatientDetailStatusTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ValidateHCRequestTo1;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -74,6 +78,9 @@ class PatientDetailStatusServiceUnitTest extends CarlosUnitTestBase {
     @Mock
     private SecurityInfoManager mockSecurityInfoManager;
 
+    @Mock
+    private CarlosProperties mockProperties;
+
     private PatientDetailStatusService service;
 
     @BeforeEach
@@ -111,6 +118,35 @@ class PatientDetailStatusServiceUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(() -> service.getStatus(1))
             .isInstanceOf(SecurityException.class)
             .hasMessage("missing required sec object (_demographic)");
+    }
+
+    @Test
+    @DisplayName("should return status when caller has _demographic read privilege")
+    @Tag("read")
+    void shouldReturnStatus_whenCallerHasReadPrivilege() throws Exception {
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_demographic"), eq("r"), any())).thenReturn(true);
+        when(mockProperties.getProperty(anyString(), anyString())).thenReturn("BC");
+        inject("oscarProperties", mockProperties);
+
+        PatientDetailStatusTo1 status = service.getStatus(1);
+
+        assertThat(status).isNotNull();
+        assertThat(status.getBillregion()).isEqualTo("BC");
+        assertThat(status.isConformanceFeaturesEnabled()).isFalse();
+    }
+
+    @Test
+    @DisplayName("should return invalid result for blank health card when caller has _demographic read privilege")
+    @Tag("read")
+    void shouldReturnInvalidResult_whenHealthCardBlankAndCallerHasReadPrivilege() {
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_demographic"), eq("r"), any())).thenReturn(true);
+
+        ValidateHCRequestTo1 request = new ValidateHCRequestTo1();
+
+        HCValidationResult result = service.validateHC(request);
+
+        assertThat(result).isNotNull();
+        assertThat(result.getResponseCode()).isEqualTo(HCValidator.NOT_VALID_RESPONSE_CODE);
     }
 
     @Test
