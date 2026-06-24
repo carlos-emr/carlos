@@ -134,6 +134,27 @@ class EFormJspMigrationRegressionTest {
     }
 
     @Test
+    @DisplayName("saved eForm previews should resolve image placeholders through the active request context")
+    void shouldResolveImagePath_whenSavedEFormPreviewRenders() throws IOException {
+        String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/eform/efmshowform_data.jsp"), StandardCharsets.UTF_8);
+
+        assertThat(jsp).containsPattern(
+                "(?s)eForm\\s*=\\s*new\\s+EForm\\(\\s*fdid\\s*\\);\\s*"
+                        + "eForm\\.setContextPath\\(\\s*request\\.getContextPath\\(\\s*\\)\\s*\\);\\s*"
+                        + "eForm\\.setOscarOPEN\\(\\s*request\\.getRequestURI\\(\\s*\\)\\s*\\);\\s*"
+                        + "eForm\\.setImagePath\\(\\s*request\\.getContextPath\\(\\s*\\)\\s*\\);");
+    }
+
+    @Test
+    @DisplayName("consultation request eForm links should keep using the shared saved-form route")
+    void shouldUseSharedShowFormRoute_whenConsultationRequestLinksSavedEforms() throws IOException {
+        String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp"),
+                StandardCharsets.UTF_8);
+
+        assertThat(jsp).contains("/eform/efmshowform_data?fdid=");
+    }
+
+    @Test
     @DisplayName("struts eForm config should keep both extensionless and legacy displayImage routes")
     void shouldKeepDisplayImageCompatibilityRoutes_whenReadingStrutsEFormConfig() throws IOException {
         String struts = Files.readString(STRUTS_EFORM_XML, StandardCharsets.UTF_8);
