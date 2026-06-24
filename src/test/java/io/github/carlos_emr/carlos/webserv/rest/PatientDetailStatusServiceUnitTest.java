@@ -81,9 +81,7 @@ class PatientDetailStatusServiceUnitTest extends CarlosUnitTestBase {
         Provider provider = mock(Provider.class);
         when(provider.getProviderNo()).thenReturn("101");
         LoggedInInfo loggedInInfo = new LoggedInInfo();
-        Field providerField = LoggedInInfo.class.getDeclaredField("loggedInProvider");
-        providerField.setAccessible(true);
-        providerField.set(loggedInInfo, provider);
+        loggedInInfo.setLoggedInProvider(provider);
         loggedInInfo.setIp("127.0.0.1");
 
         final LoggedInInfo capturedInfo = loggedInInfo;
