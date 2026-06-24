@@ -73,7 +73,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
-import io.github.carlos_emr.carlos.utility.JsDateSerializer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.ServiceAccessToken;
@@ -95,7 +94,6 @@ public class OAuthStatusService extends AbstractServiceImpl {
 
     static {
         SimpleModule module = new SimpleModule();
-        module.addSerializer(java.sql.Date.class, new JsDateSerializer());
         objectMapper.registerModule(module);
     }
 
@@ -127,7 +125,8 @@ public class OAuthStatusService extends AbstractServiceImpl {
                 }
             }
 
-            // 4) build JSON exactly as before
+            // 4) build a minimal provider payload (providerNo, firstName, lastName, specialty only)
+            //    to avoid over-disclosing sensitive fields such as OHIP/billing numbers.
 
             ObjectNode obj = objectMapper.createObjectNode();
             ObjectNode providerNode = objectMapper.createObjectNode();
