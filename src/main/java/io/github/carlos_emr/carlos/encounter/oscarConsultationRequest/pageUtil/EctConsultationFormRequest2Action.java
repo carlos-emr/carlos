@@ -105,6 +105,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
     private FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
 
     private final DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
+    private final ConsultationSignatureService consultationSignatureService = SpringUtils.getBean(ConsultationSignatureService.class);
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -123,6 +124,8 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
     @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "UNVALIDATED_REDIRECT"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     @Override
     public String execute() throws ServletException, IOException {
+        request = ServletActionContext.getRequest();
+        response = ServletActionContext.getResponse();
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_con", "w", null)) {
             throw new SecurityException("missing required sec object (_con)");
@@ -154,13 +157,11 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 
         boolean newSignature = request.getParameter("newSignature") != null && request.getParameter("newSignature").equalsIgnoreCase("true");
         String signatureId = null;
-        String signatureImg = this.getSignatureImg();
-        if (StringUtils.isBlank(signatureImg)) {
-            signatureImg = request.getParameter("newSignatureImg");
-            if (signatureImg == null) {
-                signatureImg = "";
-            }
-        }
+        String signatureImg = StringUtils.trimToEmpty(this.getSignatureImg());
+        String newSignatureImg = StringUtils.trimToEmpty(request.getParameter("newSignatureImg"));
+        String manualSignatureRequestId = consultationSignatureService.resolveManualSignatureRequestId(signatureImg, newSignatureImg);
+        String signatureProviderNo = consultationSignatureService.resolveSignatureProviderNo(
+                request.getParameter("signatureProviderNo"), providerNo, loggedInInfo.getLoggedInProviderNo());
 
         ConsultationRequestDao consultationRequestDao = (ConsultationRequestDao) SpringUtils.getBean(ConsultationRequestDao.class);
         ConsultationRequestExtDao consultationRequestExtDao = (ConsultationRequestExtDao) SpringUtils.getBean(ConsultationRequestExtDao.class);
@@ -183,19 +184,19 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 
                 if (newSignature) {
                     // Manual signature from tablet/signature pad
-                    DigitalSignature signature = digitalSignatureManager.processAndSaveDigitalSignature(loggedInInfo, signatureImg, demographicId, ModuleType.CONSULTATION);
+                    DigitalSignature signature = digitalSignatureManager.processAndSaveDigitalSignature(loggedInInfo, manualSignatureRequestId, demographicId, ModuleType.CONSULTATION);
                     if (signature != null) {
                         signatureId = "" + signature.getId();
                     }
                 } else {
-                    // Stamp signature — attempt to create immutable copy from provider's stamp file
+                    // Stamp signature - create immutable copy from the selected consultation provider's stamp file.
                     // (returns null if digital signatures are disabled, stamp file is missing, or an error occurs)
-                    DigitalSignature signature = digitalSignatureManager.saveStampSignature(
-                            loggedInInfo, loggedInInfo.getLoggedInProviderNo(), demographicId, ModuleType.CONSULTATION);
+                    DigitalSignature signature = consultationSignatureService.saveConsultationStamp(
+                            loggedInInfo, signatureProviderNo, demographicId);
                     if (signature != null) {
                         signatureId = "" + signature.getId();
                     } else {
-                        MiscUtils.getLogger().debug("Stamp signature could not be applied for provider {} on new consultation", loggedInInfo.getLoggedInProviderNo());
+                        MiscUtils.getLogger().debug("Stamp signature could not be applied for provider {} on new consultation", signatureProviderNo);
                     }
                 }
 
@@ -339,24 +340,26 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 
                 if (newSignature) {
                     // Manual re-sign from tablet/signature pad
-                    DigitalSignature signature = digitalSignatureManager.processAndSaveDigitalSignature(loggedInInfo, signatureImg, demographicId, ModuleType.CONSULTATION);
+                    DigitalSignature signature = digitalSignatureManager.processAndSaveDigitalSignature(loggedInInfo, manualSignatureRequestId, demographicId, ModuleType.CONSULTATION);
                     if (signature != null) {
                         signatureId = "" + signature.getId();
+                    } else if (consultationSignatureService.isStoredSignatureId(signatureImg)) {
+                        signatureId = signatureImg;
                     } else {
                         signatureId = null;
                     }
-                } else if (signatureImg == null || signatureImg.isEmpty()) {
-                    // Stamp signature with no existing DigitalSignature — attempt to create immutable copy
+                } else if (!consultationSignatureService.isStoredSignatureId(signatureImg)) {
+                    // Stamp signature with no existing DigitalSignature - create immutable copy.
                     // (returns null if digital signatures are disabled, stamp file is missing, or an error occurs)
-                    DigitalSignature signature = digitalSignatureManager.saveStampSignature(
-                            loggedInInfo, loggedInInfo.getLoggedInProviderNo(), demographicId, ModuleType.CONSULTATION);
+                    DigitalSignature signature = consultationSignatureService.saveConsultationStamp(
+                            loggedInInfo, signatureProviderNo, demographicId);
                     if (signature != null) {
                         signatureId = "" + signature.getId();
                     } else {
-                        MiscUtils.getLogger().debug("Stamp signature could not be applied for provider {} on consultation update (requestId={})", loggedInInfo.getLoggedInProviderNo(), requestId);
+                        MiscUtils.getLogger().debug("Stamp signature could not be applied for provider {} on consultation update (requestId={})", signatureProviderNo, requestId);
                     }
                 } else {
-                    // Already has a DigitalSignature ID — keep it
+                    // Already has a DigitalSignature ID - keep it
                     signatureId = signatureImg;
                 }
 
@@ -473,9 +476,24 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
             request.setAttribute("transType", "1");
 
         } else if (submission.equalsIgnoreCase("And Print Preview")) {
-            renderConsultationFormWithAttachments(request, response, this.getRequestId(), demographicNo);
+            requestId = this.getRequestId();
+            try {
+                if (StringUtils.isBlank(requestId)) {
+                    request.setAttribute("errorMessage", "A print preview of this consultation could not be generated. \n\nMissing consultation request id.");
+                } else {
+                    byte[] signatureImageOverride = consultationSignatureService.resolvePreviewSignatureImage(
+                            newSignature, signatureImg, newSignatureImg, signatureProviderNo);
+                    if (signatureImageOverride != null && signatureImageOverride.length > 0) {
+                        request.setAttribute(ConsultationSignatureService.SIGNATURE_IMAGE_OVERRIDE_ATTRIBUTE, signatureImageOverride);
+                    }
+                    renderConsultationFormWithAttachments(request, response, requestId, demographicNo);
+                }
+            } catch (RuntimeException e) {
+                logger.error("Error generating consultation print preview for requestId={}", requestId, e);
+                request.setAttribute("errorMessage", "A print preview of this consultation could not be generated. \n\n" + e.getMessage());
+            }
             generatePDFResponse(request, response);
-            return null;
+            return NONE;
         }
 
 
@@ -640,11 +658,18 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         json.put("consultPDF", (String) request.getAttribute("consultPDF"));
         json.put("consultPDFName", (String) request.getAttribute("consultPDFName"));
         json.put("errorMessage", (String) request.getAttribute("errorMessage"));
-        response.setContentType("application/json;charset=UTF-8");
         try {
+            if (!response.isCommitted()) {
+                response.resetBuffer();
+            }
+            response.setCharacterEncoding("UTF-8");
+            response.setContentType("application/json;charset=UTF-8");
             response.getWriter().write(json.toString());
+            response.getWriter().flush();
         } catch (IOException e) {
             logger.error(e.getMessage(), e);
+        } catch (IllegalStateException e) {
+            logger.error("Unable to write consultation print preview JSON response", e);
         }
     }
 
