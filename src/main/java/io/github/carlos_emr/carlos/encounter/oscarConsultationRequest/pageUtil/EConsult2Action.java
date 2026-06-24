@@ -267,12 +267,16 @@ public class EConsult2Action extends ActionSupport {
                     host = authority;
                     port = -1;
                 }
+                // The fallback host was split out of a non-RFC2396 authority by hand; reject a
+                // leftover ':' from a malformed multi-colon authority (e.g. host:8080:9090).
+                // This check stays inside the fallback so bracketed IPv6 hosts resolved by
+                // URI#getHost() (which legitimately contain ':') are not rejected.
+                if (host.indexOf(':') >= 0) {
+                    return null;
+                }
             }
 
-            // Reject a malformed authority (e.g. extra ':') that would otherwise yield an
-            // origin with a colon in the host part. Bracketed IPv6 hosts never reach this
-            // fallback because URI#getHost() resolves them.
-            if (host.isEmpty() || host.indexOf(':') >= 0) {
+            if (host.isEmpty()) {
                 return null;
             }
 

@@ -151,4 +151,11 @@ class EConsult2ActionUnitTest extends CarlosUnitTestBase {
     void shouldFailClosed_whenUnderscoreHostnameAuthorityHasExtraColon() {
         assertThat(EConsult2Action.buildSsoReturnUrl("https://emr_dev.example.com:8080:9090", "/carlos")).isNull();
     }
+
+    @Test
+    @DisplayName("Accepts a bracketed IPv6 configured base")
+    void shouldBuildReturnUrl_withIpv6Host() {
+        assertThat(EConsult2Action.buildSsoReturnUrl("https://[::1]", "/carlos")).isEqualTo("https://[::1]/carlos/econsultSSOLogin");
+        assertThat(EConsult2Action.buildSsoReturnUrl("https://[2001:db8::1]:9443", "/carlos")).isEqualTo("https://[2001:db8::1]:9443/carlos/econsultSSOLogin");
+    }
 }
