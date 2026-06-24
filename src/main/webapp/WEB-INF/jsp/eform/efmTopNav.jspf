@@ -39,7 +39,7 @@
     <!-- <li><a href="#">eForm Emporium</a></li> -->
 	<li class="dropdown">
 		<button type="button" class="dropdown-toggle btn btn-link nav-link border-0 p-0 text-decoration-none" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-		Create eForm
+		<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.create"/>
 		</button>
 		<ul class="dropdown-menu">
 

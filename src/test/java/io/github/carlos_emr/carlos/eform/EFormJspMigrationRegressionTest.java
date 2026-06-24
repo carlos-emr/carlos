@@ -118,6 +118,8 @@ class EFormJspMigrationRegressionTest {
                 .contains("data-bs-toggle=\"dropdown\"")
                 .contains("aria-haspopup=\"true\"")
                 .contains("aria-expanded=\"false\"")
+                .contains("<fmt:message key=\"eform.create\"/>")
+                .doesNotContain("Create eForm")
                 .doesNotContain("<a href=\"javascript:void(0);\" class=\"dropdown-toggle\"");
     }
 
