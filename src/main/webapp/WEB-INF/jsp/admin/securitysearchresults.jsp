@@ -169,8 +169,7 @@
                 <a href='${pageContext.request.contextPath}/admin/ViewSecurityUpdateSecurity?keyword=<%=securityRecord.getId()%>'><carlos:encode value='<%= securityRecord.getUserName() %>' context="html"/>
                 </a></td>
             <td style="text-align:center">*********</td>
-            <td style="text-align:center"><%= securityRecord.getProviderNo() %>
-            </td>
+            <td style="text-align:center"><carlos:encode value='<%= securityRecord.getProviderNo() %>' context="html"/></td>
             <td style="text-align:center">****</td>
         </tr>
         <%

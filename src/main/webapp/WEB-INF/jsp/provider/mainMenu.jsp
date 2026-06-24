@@ -103,7 +103,7 @@
     // Build menu destinations once so same-tab navigation and popup fallbacks cannot drift apart.
     String messengerUrl = request.getContextPath() + "/messenger/DisplayMessages?providerNo=" + curUser_no + "&userName=" + encodedUserName;
     String consultationUrl = request.getContextPath() + "/encounter/IncomingConsultation?providerNo=" + curUser_no + "&userName=" + encodedUserName;
-    String documentReportUrl = request.getContextPath() + "/documentManager/ViewDocumentReport?function=providers&functionid=" + curUser_no + "&curUser=" + curUser_no;
+    String documentReportUrl = request.getContextPath() + "/documentManager/ViewDocumentReport?function=providers&functionid=" + SafeEncode.forUriComponent(curUser_no);
     String reportIndexUrl = request.getContextPath() + "/report/ViewReportindex";
     String ticklerUrl = request.getContextPath() + "/tickler/ViewTicklerMain";
     String administrationUrl = request.getContextPath() + "/administration";
