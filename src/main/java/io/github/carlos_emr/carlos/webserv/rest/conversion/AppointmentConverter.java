@@ -39,6 +39,17 @@ import org.springframework.beans.BeanUtils;
 
 public class AppointmentConverter extends AbstractConverter<Appointment, AppointmentTo1> {
 
+    /**
+     * Identity and server-managed audit fields that must never be taken from a client-supplied
+     * transfer object. Copying these from the DTO would allow over-posting (e.g. spoofing
+     * {@code creator}/{@code lastUpdateUser}) and would clobber the original {@code createDateTime}
+     * with the DTO's {@code new Date()} default on every update.
+     */
+    private static final String[] SERVER_MANAGED_PROPERTIES = {
+            "id", "createDateTime", "updateDateTime", "creator", "creatorSecurityId",
+            "lastUpdateUser", "bookingSource"
+    };
+
     private boolean includeDemographic;
     private boolean includeProvider;
 
@@ -55,8 +66,38 @@ public class AppointmentConverter extends AbstractConverter<Appointment, Appoint
     }
 
     @Override
+    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
+    // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
+    @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
+            justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
+                    "known CARLOS types; no user-controlled property name reaches the sink")
     public Appointment getAsDomainObject(LoggedInInfo loggedInInfo, AppointmentTo1 t) throws ConversionException {
-        return null;
+        if (t == null) {
+            return null;
+        }
+        // Inverse of getAsTransferObject(): copy the client-editable JavaBean properties onto a
+        // domain Appointment. Identity and audit fields are excluded (see applyEditableProperties)
+        // so a caller cannot over-post them. The DTO-only fields (demographic, provider,
+        // billingDetail) have no counterpart on Appointment and are ignored by copyProperties.
+        // Without this, callers such as updateAppointment received a null Appointment and failed.
+        Appointment d = new Appointment();
+        applyEditableProperties(t, d);
+        return d;
+    }
+
+    /**
+     * Copies only the client-editable properties from {@code source} onto {@code target}, leaving
+     * the target's identity and server-managed audit fields ({@link #SERVER_MANAGED_PROPERTIES})
+     * untouched. Used by the update flow to apply changes onto a loaded appointment without
+     * over-posting or corrupting audit data.
+     */
+    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
+    // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
+    @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
+            justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
+                    "known CARLOS types; no user-controlled property name reaches the sink")
+    public void applyEditableProperties(AppointmentTo1 source, Appointment target) {
+        BeanUtils.copyProperties(source, target, SERVER_MANAGED_PROPERTIES);
     }
 
     @Override
