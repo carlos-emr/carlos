@@ -33,6 +33,41 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
         assertThat(document.outerHtml()).doesNotContain("bad -- comment--");
     }
 
+
+    @Test
+    @DisplayName("should remove unresolved external background and css urls during tidy")
+    void shouldRemoveUnresolvedExternalBackgroundAndCssUrlsDuringTidy() {
+        String html = "<html><body background=\"https://evil.example/tracker.png\" style=\"background-image:url('https://evil.example/tracker.png')\">x</body></html>";
+
+        String tidied = ConvertToEdoc.tidyDocument(html);
+
+        assertThat(tidied).doesNotContain("https://evil.example/tracker.png");
+        assertThat(tidied).doesNotContain("background=\"https://evil.example/tracker.png\"");
+        assertThat(tidied).contains("background-image:url('')");
+    }
+
+    @Test
+    @DisplayName("should preserve embedded data resource urls during tidy")
+    void shouldPreserveEmbeddedDataResourceUrlsDuringTidy() {
+        String html = "<html><body background=\"data:image/png;base64,abc\" style=\"background-image:url('data:image/png;base64,abc')\">x</body></html>";
+
+        String tidied = ConvertToEdoc.tidyDocument(html);
+
+        assertThat(tidied).contains("data:image/png;base64,abc");
+    }
+
+    @Test
+    @DisplayName("should strip unresolved absolute file paths during tidy")
+    void shouldStripUnresolvedAbsoluteFilePathsDuringTidy() throws Exception {
+        Path tempDir = Files.createTempDirectory("convert-edoc-paths");
+        String html = "<html><body><img src=\"/etc/passwd\"><div background=\"/etc/passwd\">x</div></body></html>";
+
+        String tidied = ConvertToEdoc.tidyDocument(html, tempDir.toString());
+
+        assertThat(tidied).doesNotContain("/etc/passwd");
+        assertThat(tidied).doesNotContain("background=\"/etc/passwd\"");
+    }
+
     @Test
     @DisplayName("should translate inline background asset paths during tidy")
     void shouldTranslateInlineBackgroundAssetPathsDuringTidy() throws Exception {

@@ -85,6 +85,7 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
         mockitoMocks = MockitoAnnotations.openMocks(this);
 
         mockRequest = new MockHttpServletRequest();
+        mockRequest.setMethod("POST");
         mockResponse = new MockHttpServletResponse();
 
         // Explicitly register only the Spring beans this test expects to use.
@@ -148,6 +149,19 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
         if (loggedInInfoMock != null) loggedInInfoMock.close();
         if (servletActionContextMock != null) servletActionContextMock.close();
         if (mockitoMocks != null) mockitoMocks.close();
+    }
+
+    @Test
+    @DisplayName("should reject GET requests before saving")
+    void shouldRejectGetRequestsBeforeSaving() {
+        mockRequest.setMethod("GET");
+
+        AddEForm2Action action = new AddEForm2Action();
+        String result = action.execute();
+
+        assertThat(result).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(jakarta.servlet.http.HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        verify(mockEformDataManager, never()).saveEformData(any(), any());
     }
 
     @Test

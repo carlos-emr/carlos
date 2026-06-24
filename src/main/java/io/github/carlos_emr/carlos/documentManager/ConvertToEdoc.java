@@ -56,6 +56,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
@@ -107,6 +108,7 @@ public final class ConvertToEdoc {
     private static final String SYSTEM_ID = "-1";
     private static final String DEFAULT_WKHTMLTOPDF_COMMAND = "/usr/bin/wkhtmltopdf";
     private static final String DEFAULT_WKHTMLTOPDF_ARGS = "--enable-local-file-access --minimum-font-size 10 --print-media-type --encoding utf-8 -T 10mm -L 8mm -R 8mm --disable-javascript";
+    private static final String BACKGROUND_ATTRIBUTE = "background";
     private static final String STYLE_ATTRIBUTE = "style";
     private static final Pattern CSS_URL_PATTERN = Pattern.compile("url\\((['\"]?)([^\\\"\")]+)\\1\\)", Pattern.CASE_INSENSITIVE);
     
@@ -446,6 +448,10 @@ public final class ConvertToEdoc {
     }
 
     private static void normalizeHtmlCommentsForXml(Node root) {
+        if (root == null) {
+            return;
+        }
+
         for (Node child : root.childNodes()) {
             if (child instanceof Comment comment) {
                 String normalized = comment.getData().replace("--", "- -");
@@ -630,10 +636,13 @@ public final class ConvertToEdoc {
     }
 
     private static void translateBackgroundAttributes(Document document) {
-        for (Element element : document.select("[background]")) {
-            String translatedPath = translateSingleResourcePath(element.attr("background"));
+        for (Element element : document.select("[" + BACKGROUND_ATTRIBUTE + "]")) {
+            String originalPath = element.attr(BACKGROUND_ATTRIBUTE);
+            String translatedPath = translateSingleResourcePath(originalPath);
             if (translatedPath != null) {
-                element.attr("background", translatedPath);
+                element.attr(BACKGROUND_ATTRIBUTE, translatedPath);
+            } else if (!isEmbeddedDataResourcePath(originalPath)) {
+                element.removeAttr(BACKGROUND_ATTRIBUTE);
             }
         }
     }
@@ -656,12 +665,18 @@ public final class ConvertToEdoc {
         }
 
         Matcher matcher = CSS_URL_PATTERN.matcher(cssText);
-        StringBuffer rewrittenCss = new StringBuffer();
+        StringBuilder rewrittenCss = new StringBuilder();
         while (matcher.find()) {
-            String translatedPath = translateSingleResourcePath(matcher.group(2).trim());
-            String replacement = translatedPath == null
-                    ? matcher.group(0)
-                    : Matcher.quoteReplacement("url('" + translatedPath + "')");
+            String originalPath = matcher.group(2).trim();
+            String translatedPath = translateSingleResourcePath(originalPath);
+            String replacement;
+            if (translatedPath != null) {
+                replacement = Matcher.quoteReplacement("url('" + translatedPath + "')");
+            } else if (isEmbeddedDataResourcePath(originalPath)) {
+                replacement = Matcher.quoteReplacement(matcher.group(0));
+            } else {
+                replacement = "url('')";
+            }
             matcher.appendReplacement(rewrittenCss, replacement);
         }
         matcher.appendTail(rewrittenCss);
@@ -669,46 +684,57 @@ public final class ConvertToEdoc {
     }
 
     private static String translateSingleResourcePath(String path) {
+        if (isEmbeddedDataResourcePath(path)) {
+            return path;
+        }
         return validateLink(collectPotentialFilePaths(path));
     }
 
     private static List<String> collectPotentialFilePaths(String path) {
-        String parameters = null;
-        String[] parameterList = null;
         List<String> potentialFilePaths = new ArrayList<>();
 
-        if (StringUtils.isBlank(path)) {
-            return potentialFilePaths;
-        }
-
-        if (path.startsWith("http") || path.startsWith("HTTP")) {
+        if (!isTranslatableResourcePath(path)) {
             return potentialFilePaths;
         }
 
         if (path.contains("?")) {
-            parameters = path.split("\\?", 2)[1];
+            String basePath = path.split("\\?", 2)[0];
+            collectRealPathCandidates(basePath, potentialFilePaths);
+            collectImageDirectoryCandidates(path, potentialFilePaths);
         } else {
-            String realPath = getRealPath(path);
-            if (!realPath.isEmpty()) {
-                potentialFilePaths.add(realPath);
-            }
-        }
-
-        if (parameters != null && parameters.contains("&")) {
-            parameterList = parameters.split("&");
-        }
-
-        if (parameterList != null) {
-            for (String parameter : parameterList) {
-                if (parameter.contains("=")) {
-                    potentialFilePaths.add(buildImageDirectoryPath(parameter.split("=", 2)[1]));
-                }
-            }
-        } else if (parameters != null && parameters.contains("=")) {
-            potentialFilePaths.add(buildImageDirectoryPath(parameters.split("=", 2)[1]));
+            collectRealPathCandidates(path, potentialFilePaths);
         }
 
         return potentialFilePaths;
+    }
+
+    private static boolean isTranslatableResourcePath(String path) {
+        return StringUtils.isNotBlank(path) && !isDisallowedResourcePath(path);
+    }
+
+    private static void collectRealPathCandidates(String path, List<String> potentialFilePaths) {
+        String resolvedPath = getRealPath(path);
+        if (!resolvedPath.isEmpty()) {
+            potentialFilePaths.add(resolvedPath);
+        }
+    }
+
+    private static void collectImageDirectoryCandidates(String path, List<String> potentialFilePaths) {
+        String parameters = path.split("\\?", 2)[1];
+        for (String parameter : parameters.split("&")) {
+            String candidate = buildImageDirectoryCandidate(parameter);
+            if (!candidate.isEmpty()) {
+                potentialFilePaths.add(candidate);
+            }
+        }
+    }
+
+    private static String buildImageDirectoryCandidate(String parameter) {
+        if (!parameter.contains("=")) {
+            return "";
+        }
+
+        return buildImageDirectoryPath(parameter.split("=", 2)[1]);
     }
 
     /**
@@ -724,29 +750,54 @@ public final class ConvertToEdoc {
      */
     private static void translatePaths(Elements nodeList, ElementAttribute pathAttribute, Map<List<String>, Element> pathTranslationMap) {
         for (Element element : nodeList) {
-            // go no further if there is no link attribute.
-            if (!element.hasAttr(pathAttribute.name())) {
-                continue;
+            if (element.hasAttr(pathAttribute.name())) {
+                String path = element.attributes().get(pathAttribute.name());
+                if (isExternalResourcePath(path)) {
+                    element.remove();
+                } else if (!isEmbeddedDataResourcePath(path)) {
+                    List<String> potentialFilePaths = collectPotentialFilePaths(path);
+                    if (!potentialFilePaths.isEmpty()) {
+                        pathTranslationMap.put(potentialFilePaths, element);
+                    } else {
+                        element.remove();
+                    }
+                }
             }
+        }
+    }
 
-            String path = element.attributes().get(pathAttribute.name());
+    private static boolean isExternalResourcePath(String path) {
+        String normalized = StringUtils.trimToEmpty(path).toLowerCase(Locale.ROOT);
+        return normalized.startsWith("http://")
+                || normalized.startsWith("https://")
+                || normalized.startsWith("//")
+                || normalized.startsWith("ftp://")
+                || normalized.startsWith("file:");
+    }
 
-            /*
-             * NO EXTERNAL LINKS. These are removed.
-             * eForms are often imported from unknown sources.
-             * Developers tend to use insecure CDN's, links to images, tracking tokens,
-             * and advertisements.
-             */
-            if (path.startsWith("http") || path.startsWith("HTTP")) {
-                element.remove();
-                continue;
-            }
+    private static boolean isEmbeddedDataResourcePath(String path) {
+        return StringUtils.trimToEmpty(path).toLowerCase(Locale.ROOT).startsWith("data:");
+    }
 
-            List<String> potentialFilePaths = collectPotentialFilePaths(path);
+    private static boolean isDisallowedResourcePath(String path) {
+        if (isExternalResourcePath(path)) {
+            return true;
+        }
 
-            if (!potentialFilePaths.isEmpty()) {
-                pathTranslationMap.put(potentialFilePaths, element);
-            }
+        if (isEmbeddedDataResourcePath(path)) {
+            return false;
+        }
+
+        String normalized = StringUtils.trimToEmpty(path);
+        if (normalized.isEmpty()) {
+            return false;
+        }
+
+        try {
+            return Path.of(normalized).isAbsolute();
+        } catch (InvalidPathException e) {
+            logger.debug("Skipping malformed resource path", e);
+            return true;
         }
     }
 
@@ -789,10 +840,8 @@ public final class ConvertToEdoc {
 						.findFirst()
 						.orElse(null);
 
-					if (found != null) { 
-						contextRealPath = found.toAbsolutePath().toString(); 
-					} else {
-						contextRealPath = uri;
+					if (found != null) {
+						contextRealPath = PathValidationUtils.validateExistingPath(found.toFile(), basePath.toFile()).getAbsolutePath();
 					}
 				}
 			} catch (Exception e) {

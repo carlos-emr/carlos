@@ -129,6 +129,12 @@ public class AddEForm2Action extends ActionSupport {
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() {
 
+        String method = request.getMethod();
+        if ("GET".equalsIgnoreCase(method) || "HEAD".equalsIgnoreCase(method)) {
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eform", "w", null)) {
             throw new SecurityException("missing required sec object (_eform)");
         }
@@ -296,9 +302,7 @@ public class AddEForm2Action extends ActionSupport {
                 try {
                     documentAttachmentManager.saveEFormAsEDoc(request, response);
                 } catch (PDFGenerationException e) {
-                    logger.error(e.getMessage(), e);
-                    String errorMessage = "This eForm (and attachments, if applicable) could not be added to this patient’s documents. \\n\\n" + e.getMessage();
-                    request.setAttribute(ERROR_MESSAGE_ATTRIBUTE, errorMessage);
+                    setPdfError("This eForm (and attachments, if applicable) could not be added to this patient’s documents.", e);
                     return "error";
                 }
             }
@@ -413,9 +417,7 @@ public class AddEForm2Action extends ActionSupport {
                 try {
                     documentAttachmentManager.saveEFormAsEDoc(request, response);
                 } catch (PDFGenerationException e) {
-                    logger.error(e.getMessage(), e);
-                    String errorMessage = "This eForm (and attachments, if applicable) could not be added to this patient’s documents. \\n\\n" + e.getMessage();
-                    request.setAttribute(ERROR_MESSAGE_ATTRIBUTE, errorMessage);
+                    setPdfError("This eForm (and attachments, if applicable) could not be added to this patient’s documents.", e);
                     return "error";
                 }
             }
@@ -484,13 +486,15 @@ public class AddEForm2Action extends ActionSupport {
     }
 
     String closeWithPdfPreview(LoggedInInfo loggedInInfo, String demographicNo, String fdid) {
-        String pdfBase64;
+        String pdfBase64 = "";
         try {
             Path eFormPdfPath = documentAttachmentManager.renderEFormWithAttachments(request, response);
+            if (eFormPdfPath == null) {
+                throw new PDFGenerationException("eForm PDF preview path was not generated");
+            }
             pdfBase64 = documentAttachmentManager.convertPDFToBase64(eFormPdfPath);
-        } catch (PDFGenerationException e) {
+        } catch (Exception e) {
             setPdfWarning(PDF_PREVIEW_WARNING_MESSAGE, e);
-            pdfBase64 = "";
         }
 
         request.setAttribute("eFormPDF", pdfBase64);
@@ -510,14 +514,14 @@ public class AddEForm2Action extends ActionSupport {
         }
     }
 
-    private void setPdfError(String message, PDFGenerationException e) {
-        logger.error(e.getMessage(), e);
-        request.setAttribute(ERROR_MESSAGE_ATTRIBUTE, message + " \n\n" + e.getMessage());
+    private void setPdfError(String message, Exception e) {
+        logger.error(message, e);
+        request.setAttribute(ERROR_MESSAGE_ATTRIBUTE, message);
     }
 
-    private void setPdfWarning(String message, PDFGenerationException e) {
-        logger.error(e.getMessage(), e);
-        request.setAttribute(WARNING_MESSAGE_ATTRIBUTE, message + " \n\n" + e.getMessage());
+    private void setPdfWarning(String message, Exception e) {
+        logger.warn(message, e);
+        request.setAttribute(WARNING_MESSAGE_ATTRIBUTE, message);
     }
 
     private String getInvalidFilenameMessage() {
