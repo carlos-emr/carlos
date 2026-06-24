@@ -36,7 +36,9 @@ import java.util.List;
 import java.util.ListIterator;
 import java.util.ResourceBundle;
 import java.util.StringTokenizer;
-
+import java.util.Date;
+import java.util.Locale;
+import java.util.MissingResourceException;
 import jakarta.servlet.http.HttpServletRequest;
 
 import org.apache.logging.log4j.Logger;
@@ -510,7 +512,25 @@ public class Utility {
     }
 
     // ################################################################################
-
+    public static ResourceBundle getOscarBundle(Locale locale) {
+    
+        if (locale == null) {
+            locale = Locale.getDefault();
+        }
+    
+        try {
+            return ResourceBundle.getBundle("oscarResources", locale);
+        }
+        catch (MissingResourceException e) {
+            try {
+                return ResourceBundle.getBundle("oscarResources", Locale.ENGLISH);
+            }
+            catch (MissingResourceException e2) {
+                return ResourceBundle.getBundle("oscarResources");
+            }
+        }
+    }  
+    
     // ###################################################################################
     public static String toCurrency(double money) {
         double rtn = (Math.round(money * 100)) / 100.00;
@@ -678,8 +698,8 @@ public class Utility {
         return gregoriancalendar.getTime();
     }
 
-    public static String calcAge(Date DOB) {
-        return calcAgeAtDate(DOB, new GregorianCalendar().getTime());
+    public static String calcAgeAtDate(Date DOB, Date pointInTime) {
+        return calcAgeAtDate(DOB, pointInTime, null);
     }
 
     /**
@@ -691,12 +711,16 @@ public class Utility {
      * @param pointInTime The date you would like to calculate there age at.
      * @return age string ( ie 2 months, 4 years .etc )
      */
-    public static String calcAgeAtDate(Date DOB, Date pointInTime) {
-        if (DOB == null) return (null);
+    public static String calcAgeAtDate(Date DOB, Date pointInTime, Locale locale) {
 
-        // If as of date is before birth, return "Not born"
+        if (DOB == null) {
+            return null;
+        }
+    
+        ResourceBundle bundle = getOscarBundle(locale);
+    
         if (pointInTime.before(DOB)) {
-            return ResourceBundle.getBundle("oscarResources").getString("global.notBorn");
+            return bundle.getString("global.notBorn");
         }
 
         GregorianCalendar now = new GregorianCalendar();
@@ -714,22 +738,19 @@ public class Utility {
         int ageInYears = curYear - birthYear;
         String result = ageInYears
                 + " "
-                + ResourceBundle.getBundle("oscarResources").getString(
-                "global.years");
+                + bundle.getString("global.years");
 
         if (curMonth > birthMonth || curMonth == birthMonth
                 && curDay >= birthDay) {
             ageInYears = curYear - birthYear;
             result = ageInYears
                     + " "
-                    + ResourceBundle.getBundle("oscarResources").getString(
-                    "global.years");
+                    + bundle.getString("global.years");
         } else {
             ageInYears = curYear - birthYear - 1;
             result = ageInYears
                     + " "
-                    + ResourceBundle.getBundle("oscarResources").getString(
-                    "global.years");
+                    + bundle.getString("global.years");
         }
         if (ageInYears < 2) {
             int yearDiff = curYear - birthYear;
@@ -750,19 +771,16 @@ public class Utility {
                 result = ageInDays
                         / 30
                         + " "
-                        + ResourceBundle.getBundle("oscarResources").getString(
-                        "global.months");
+                        + bundle.getString("global.months");
             } else if (ageInDays >= 14) {
                 result = ageInDays
                         / 7
                         + " "
-                        + ResourceBundle.getBundle("oscarResources").getString(
-                        "global.weeks");
+                        + bundle.getString("global.weeks");
             } else {
                 result = ageInDays
                         + " "
-                        + ResourceBundle.getBundle("oscarResources").getString(
-                        "global.days");
+                        + bundle.getString("global.days");
             }
         }
         return result;
