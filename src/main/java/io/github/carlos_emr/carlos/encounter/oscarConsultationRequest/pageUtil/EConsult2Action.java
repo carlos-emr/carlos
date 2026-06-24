@@ -33,6 +33,8 @@ package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
@@ -64,9 +66,15 @@ public class EConsult2Action extends ActionSupport {
     // Maximum length for task parameter to prevent excessive input
     private static final int MAX_TASK_LENGTH = 100;
 
+    // Fixed eConsult SSO return endpoint on this CARLOS instance.
+    private static final String ECONSULT_SSO_LOGIN_PATH = "econsultSSOLogin";
+
     private final CarlosProperties oscarProperties = CarlosProperties.getInstance();
     private final String frontendEconsultUrl = oscarProperties.getProperty("frontendEconsultUrl");
     private final String backendEconsultUrl = oscarProperties.getProperty("backendEconsultUrl");
+    // Trusted, configured public base URL of this CARLOS instance. Used to build the
+    // eConsult SSO return URL so it never reflects a spoofable request Host header.
+    private final String carlosBaseUrl = oscarProperties.getProperty("carlosBaseUrl");
 
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -139,16 +147,16 @@ public class EConsult2Action extends ActionSupport {
      */
     public String login() {
 
-        //Gets the request URL
-        StringBuffer oscarUrl = request.getRequestURL();
-
-        //Determines the initial length by subtracting the length of the servlet path from the full url's length
-        Integer urlLength = oscarUrl.length() - request.getServletPath().length();
-
-        //Sets the length of the URL, found by subtracting the length of the servlet path from the length of the full URL, that way it only gets up to the context path
-        oscarUrl.setLength(urlLength);
-
-        oscarUrl.append(String.format("%1$s%2$s", File.separator, "econsultSSOLogin"));
+        // The SSO return URL must NOT be derived from the client-controlled request Host
+        // (Host / X-Forwarded-Host can be spoofed). Build it from the configured, trusted
+        // public base URL of this CARLOS instance so the post-login return - and any token
+        // material the eConsult side reflects back to it - cannot be steered to an attacker
+        // origin.
+        String oscarReturnUrl = buildSsoReturnUrl(carlosBaseUrl, request.getContextPath());
+        if (oscarReturnUrl == null) {
+            MiscUtils.getLogger().error("Cannot build eConsult SSO return URL: the 'carlosBaseUrl' property is missing or invalid; refusing to fall back to the request Host.");
+            return "error";
+        }
 
         StringBuilder stringBuilder = new StringBuilder(backendEconsultUrl);
 
@@ -159,7 +167,7 @@ public class EConsult2Action extends ActionSupport {
         stringBuilder.append("SAML2/login");
 
         try {
-            stringBuilder.append(String.format("?%1$s=%2$s", "oscarReturnURL", URLEncoder.encode(oscarUrl.toString(), StandardCharsets.UTF_8.toString())));
+            stringBuilder.append(String.format("?%1$s=%2$s", "oscarReturnURL", URLEncoder.encode(oscarReturnUrl, StandardCharsets.UTF_8.toString())));
             stringBuilder.append(String.format("?%1$s=%2$s", "loginStart", new Date().getTime() / 1000));
             response.sendRedirect(stringBuilder.toString());
         } catch (IOException e) {
@@ -167,6 +175,76 @@ public class EConsult2Action extends ActionSupport {
         }
 
         return null;
+    }
+
+    /**
+     * Builds the eConsult SSO return URL from the configured public base URL of this
+     * CARLOS instance plus this deployment's context path and the fixed
+     * {@code /econsultSSOLogin} endpoint.
+     * <p>
+     * Returns {@code null} when no trusted base URL is configured, so the caller can fail
+     * closed instead of emitting a return URL whose host reflects a spoofable request Host
+     * header.
+     *
+     * @param configuredBaseUrl the configured {@code carlosBaseUrl} property value
+     * @param contextPath       this deployment's servlet context path (server-derived, not
+     *                          Host-derived); may be {@code null} or empty for the root context
+     * @return the absolute return URL, or {@code null} when no trusted base URL is configured
+     */
+    static String buildSsoReturnUrl(String configuredBaseUrl, String contextPath) {
+        String trustedOrigin = normalizedConfiguredOrigin(configuredBaseUrl);
+        if (trustedOrigin == null) {
+            return null;
+        }
+
+        String normalizedContextPath = (contextPath == null) ? "" : contextPath;
+
+        return trustedOrigin + normalizedContextPath + "/" + ECONSULT_SSO_LOGIN_PATH;
+    }
+
+    /**
+     * Validates a configured base URL and returns its origin ({@code scheme://host[:port]}),
+     * or {@code null} when it is absent or not a safe absolute http(s) origin. Any path,
+     * query, fragment, or embedded credentials cause the value to be ignored or rejected;
+     * only the scheme, host, and port are trusted.
+     *
+     * @param configuredBaseUrl the configured base URL value to validate
+     * @return the normalized origin, or {@code null} if it is missing or unsafe
+     */
+    private static String normalizedConfiguredOrigin(String configuredBaseUrl) {
+        if (configuredBaseUrl == null || configuredBaseUrl.trim().isEmpty()) {
+            return null;
+        }
+
+        try {
+            URI uri = new URI(configuredBaseUrl.trim());
+            String scheme = uri.getScheme();
+            String host = uri.getHost();
+
+            if (scheme == null || host == null || host.isEmpty()) {
+                return null;
+            }
+
+            scheme = scheme.toLowerCase();
+            if (!"http".equals(scheme) && !"https".equals(scheme)) {
+                return null;
+            }
+
+            // The base must be a bare origin: reject embedded credentials, query, or fragment.
+            if (uri.getUserInfo() != null || uri.getQuery() != null || uri.getFragment() != null) {
+                return null;
+            }
+
+            StringBuilder origin = new StringBuilder(scheme).append("://").append(host);
+            if (uri.getPort() != -1) {
+                origin.append(':').append(uri.getPort());
+            }
+
+            return origin.toString();
+        } catch (URISyntaxException e) {
+            MiscUtils.getLogger().error("Invalid 'carlosBaseUrl' property configured for the eConsult SSO return URL", e);
+            return null;
+        }
     }
 
     /**
