@@ -512,12 +512,25 @@ public class Utility {
     }
 
     // ################################################################################
+    /**
+     * Retrieves the CARLOS resource bundle for the specified locale with automatic fallback.
+     *
+     * <p>This method implements a three-tier fallback strategy for localized message resources:
+     * <ol>
+     *   <li>Attempts to load "oscarResources" bundle for the requested locale</li>
+     *   <li>Falls back to English (Locale.ENGLISH) if the requested locale is unavailable</li>
+     *   <li>Falls back to the default bundle locale if English is also unavailable</li>
+     * </ol>
+     *
+     * @param locale the desired locale for the resource bundle; if null, uses the system default locale
+     * @return the resource bundle for the requested locale, or the best available fallback bundle
+     */
     public static ResourceBundle getOscarBundle(Locale locale) {
-    
+
         if (locale == null) {
             locale = Locale.getDefault();
         }
-    
+
         try {
             return ResourceBundle.getBundle("oscarResources", locale);
         }
@@ -703,13 +716,22 @@ public class Utility {
     }
 
     /**
-     * This returns the Patients Age string at a point in time. IE. How old the
-     * patient will be right now or how old will they be on march.31 of this
-     * year.
+     * Calculates the patient's age at a specific point in time as a localized string.
      *
-     * @param DOB         Demographics Date of birth
-     * @param pointInTime The date you would like to calculate there age at.
-     * @return age string ( ie 2 months, 4 years .etc )
+     * <p>This method computes the age difference between the patient's date of birth and the
+     * specified reference date, returning a human-readable age string such as "2 months",
+     * "4 years", or "not born yet" based on the provided locale.
+     *
+     * <p>The age is calculated using calendar year/month/day arithmetic and formatted using
+     * localized resource strings retrieved via {@link #getOscarBundle(Locale)}.
+     *
+     * @param DOB the patient's date of birth; if null, returns null
+     * @param pointInTime the reference date for age calculation (e.g., current date or a future appointment date);
+     *                    if before DOB, returns a localized "not born yet" message
+     * @param locale the locale for formatting age strings; if null, falls back to the system default locale,
+     *               then English, then the default bundle locale (see {@link #getOscarBundle(Locale)})
+     * @return formatted age string at the specified date (e.g., "45 years", "3 months", "not born yet"),
+     *         or null if DOB is null
      */
     public static String calcAgeAtDate(Date DOB, Date pointInTime, Locale locale) {
 
