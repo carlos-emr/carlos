@@ -111,6 +111,29 @@ class EFormJspMigrationRegressionTest {
     }
 
     @Test
+    @DisplayName("eForm admin nav should use a Bootstrap button dropdown for Create eForm")
+    void shouldUseBootstrapButtonDropdown_whenRenderingEFormTopNav() throws IOException {
+        String jsp = Files.readString(EFM_TOP_NAV_JSPF, StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("<button type=\"button\"")
+                .contains("data-bs-toggle=\"dropdown\"")
+                .contains("aria-haspopup=\"true\"")
+                .contains("aria-expanded=\"false\"")
+                .doesNotContain("<a href=\"javascript:void(0);\" class=\"dropdown-toggle\"");
+    }
+
+    @Test
+    @DisplayName("eForm editor save should return the popup to the library without navigating the main CARLOS window")
+    void shouldRedirectCurrentWindow_whenAdminEditorSaveSucceeds() throws IOException {
+        String jsp = Files.readString(EFM_FORM_MANAGER_EDIT_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("window.location.href = '<%=request.getContextPath()%>/eform/efmformmanager';")
+                .doesNotContain("window.opener.location.href = '<%=request.getContextPath()%>/administration?show=Forms';");
+    }
+
+    @Test
     @DisplayName("struts eForm config should keep both extensionless and legacy displayImage routes")
     void shouldKeepDisplayImageCompatibilityRoutes_whenReadingStrutsEFormConfig() throws IOException {
         String struts = Files.readString(STRUTS_EFORM_XML, StandardCharsets.UTF_8);
@@ -166,7 +189,9 @@ class EFormJspMigrationRegressionTest {
             .doesNotContain("javascript:void(0)")
             .containsPattern("<button[^>]*data-bs-toggle=\"dropdown\"")
             .containsPattern("<button[^>]*aria-haspopup=\"true\"")
-            .containsPattern("<button[^>]*aria-expanded=\"false\"");
+            .containsPattern("<button[^>]*aria-expanded=\"false\"")
+            .contains("<fmt:message key=\"eform.create\"/>")
+            .doesNotContain("Create eForm");
     }
 
     @Test
