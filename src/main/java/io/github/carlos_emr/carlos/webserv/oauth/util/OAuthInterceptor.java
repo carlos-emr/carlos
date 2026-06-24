@@ -72,8 +72,10 @@ import org.apache.cxf.message.Message;
 import org.apache.cxf.phase.Phase;
 import org.apache.cxf.phase.PhaseInterceptor;
 import org.apache.cxf.transport.http.AbstractHTTPDestination;
+import org.apache.logging.log4j.Logger;
 
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.webserv.oauth.Client;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1Exception;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -90,6 +92,8 @@ import io.github.carlos_emr.carlos.webserv.oauth.OAuth1SignatureVerifier;
 
 @Component
 public class OAuthInterceptor implements PhaseInterceptor<Message> {
+
+    private static final Logger logger = MiscUtils.getLogger();
 
     /** OscarLog action recorded on a successful REST OAuth authentication (parity with SOAP WS_LOGIN_SUCCESS). */
     private static final String OAUTH_LOGIN_SUCCESS = "OAUTH_LOGIN_SUCCESS";
@@ -173,17 +177,23 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
             auditAuthSuccess(providerNo, ip, consumerKey);
 
         } catch (OAuth1Exception e) {
-            // Auth rejected: missing params (400) or invalid consumer/token/signature/provider (401).
+            // Explicit auth outcome (e.g. 400 missing param, 401 invalid consumer/token):
+            // carries its own intended status code. Record the rejection in the audit trail.
             auditAuthFailure(ip, consumerKey);
-            throw new Fault(e);
+            throw toFault(e);
         } catch (IllegalArgumentException badSigOrTime) {
             // from verifier: missing/stale timestamp, bad signature, unknown token, etc.
+            // These are client-side authentication failures -> 401.
             auditAuthFailure(ip, consumerKey);
-            throw new Fault(new OAuth1Exception(401, "invalid_signature"));
+            throw toFault(new OAuth1Exception(401, "invalid_signature"));
         } catch (Exception e) {
-            // Unexpected server error: kept distinct from an auth failure, so it is not recorded
-            // as an OAUTH_LOGIN_FAILURE in the audit trail.
-            throw new Fault(new OAuth1Exception(401, "oauth_authentication_failed"));
+            // Anything else is an unexpected server-side failure (e.g. a data-access error),
+            // NOT an authentication problem. Log the cause for diagnosis but return a generic
+            // 500 so genuine outages are not masked as "bad credentials", and so the client
+            // body reveals nothing about the internal failure. Deliberately NOT recorded as an
+            // OAUTH_LOGIN_FAILURE so the audit trail stays distinct from genuine auth rejections.
+            logger.error("Unexpected error during OAuth1 authentication", e);
+            throw toFault(new OAuth1Exception(500, "oauth_processing_error"));
         }
     }
 
@@ -226,6 +236,18 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
             return null;
         }
         return LogSafe.sanitize(consumerKey);
+    }
+
+    /**
+     * Wraps an {@link OAuth1Exception} in a CXF {@link Fault} that carries the intended
+     * HTTP status code. Without {@link Fault#setStatusCode(int)} CXF discards the OAuth
+     * status and defaults an in-interceptor fault to HTTP 500, so a 400/401 authentication
+     * failure would surface to API callers as a server error.
+     */
+    private static Fault toFault(OAuth1Exception e) {
+        Fault fault = new Fault(e);
+        fault.setStatusCode(e.getHttpCode());
+        return fault;
     }
 
     @Override public void handleFault(Message message) { /* no-op */ }
