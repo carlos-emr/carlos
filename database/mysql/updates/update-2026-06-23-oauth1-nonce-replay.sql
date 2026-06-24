@@ -10,7 +10,7 @@
 -- so there is no pre-existing divergent ServiceOAuthNonce to silently skip; the
 -- UNIQUE KEY below is therefore guaranteed to be created on first apply.
 CREATE TABLE IF NOT EXISTS `ServiceOAuthNonce` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `nonceKeyHash` char(64) NOT NULL,
   `consumerKey` varchar(255) NOT NULL,
   `tokenId` varchar(255) NOT NULL DEFAULT '',
