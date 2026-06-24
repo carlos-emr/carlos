@@ -44,7 +44,6 @@ import java.util.Map;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.slf4j.Logger;
@@ -58,6 +57,7 @@ import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.tickler.dto.TicklerCommentDTO;
 import io.github.carlos_emr.carlos.tickler.dto.TicklerLinkDTO;
 import io.github.carlos_emr.carlos.tickler.dto.TicklerListDTO;
+import io.github.carlos_emr.carlos.utility.JsonResponseWriter;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -77,7 +77,6 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public class TicklerList2Action extends ActionSupport {
 
     private static final Logger logger = LoggerFactory.getLogger(TicklerList2Action.class);
-    private static final ObjectMapper objectMapper = new ObjectMapper();
     private static final int MAX_PAGE_SIZE = 500;
     private static final String DATE_FORMAT_PATTERN = "yyyy-MM-dd";
     private static final String TIME_FORMAT_PATTERN = "HH:mm";
@@ -90,9 +89,6 @@ public class TicklerList2Action extends ActionSupport {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-
-        response.setContentType("application/json");
-        response.setCharacterEncoding("UTF-8");
 
         if (loggedInInfo == null) {
             writeJsonError(response, HttpServletResponse.SC_UNAUTHORIZED, "Session expired");
@@ -156,8 +152,7 @@ public class TicklerList2Action extends ActionSupport {
             result.put("data", rows);
             result.put("comments", commentsMap);
 
-            String json = objectMapper.writeValueAsString(result);
-            response.getWriter().write(json);
+            JsonResponseWriter.write(response, result);
 
             LogAction.addLogSynchronous(loggedInInfo, "TicklerList2Action",
                     "draw=" + draw + ",start=" + start + ",length=" + length + ",total=" + totalRecords);
@@ -338,7 +333,7 @@ public class TicklerList2Action extends ActionSupport {
         error.put("recordsTotal", 0);
         error.put("recordsFiltered", 0);
         error.put("data", new ArrayList<>());
-        response.getWriter().write(objectMapper.writeValueAsString(error));
+        JsonResponseWriter.write(response, error);
     }
 
     /**

@@ -33,7 +33,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -64,6 +63,11 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  */
 public class DocumentPreview2Action extends ActionSupport {
     private static final String FETCH_CONSULT_DOCUMENTS = "fetchConsultDocuments";
+    private static final String EDOC_PDF_RENDER_FAILURE_MESSAGE = "Failed to render document PDF.";
+    private static final String EFORM_PDF_RENDER_FAILURE_MESSAGE = "Failed to render eForm PDF.";
+    private static final String HRM_PDF_RENDER_FAILURE_MESSAGE = "Failed to render HRM PDF.";
+    private static final String LAB_PDF_RENDER_FAILURE_MESSAGE = "Failed to render lab PDF.";
+    private static final String FORM_PDF_RENDER_FAILURE_MESSAGE = "Failed to render form PDF.";
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -132,7 +136,7 @@ public class DocumentPreview2Action extends ActionSupport {
                 requirePrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE);
                 return fetchConsultDocuments();
             default:
-                logger.warn("Unsupported previewDocs method requested: {}", LogSafe.sanitize(method));
+                logger.warn("Unsupported previewDocs method requested.");
                 response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                 return NONE;
         }
@@ -169,7 +173,7 @@ public class DocumentPreview2Action extends ActionSupport {
             generateResponse(response, docPDFPath);
         } catch (PDFGenerationException e) {
             logger.error("Error occurred while rendering eDoc. " + e.getMessage(), e);
-            generateResponse(response, e.getMessage());
+            generateResponse(response, EDOC_PDF_RENDER_FAILURE_MESSAGE);
         }
     }
 
@@ -198,7 +202,7 @@ public class DocumentPreview2Action extends ActionSupport {
             generateResponse(response, eFormPDFPath);
         } catch (PDFGenerationException e) {
             logger.error("Error occurred while rendering eForm. " + e.getMessage(), e);
-            generateResponse(response, e.getMessage());
+            generateResponse(response, EFORM_PDF_RENDER_FAILURE_MESSAGE);
         }
     }
 
@@ -227,7 +231,7 @@ public class DocumentPreview2Action extends ActionSupport {
             generateResponse(response, hrmPDFPath);
         } catch (PDFGenerationException e) {
             logger.error("Error occurred while rendering HRM. " + e.getMessage(), e);
-            generateResponse(response, e.getMessage());
+            generateResponse(response, HRM_PDF_RENDER_FAILURE_MESSAGE);
         }
     }
 
@@ -255,7 +259,7 @@ public class DocumentPreview2Action extends ActionSupport {
             generateResponse(response, labPDFPath);
         } catch (PDFGenerationException e) {
             logger.error("Error occurred while rendering Lab. " + e.getMessage(), e);
-            generateResponse(response, e.getMessage());
+            generateResponse(response, LAB_PDF_RENDER_FAILURE_MESSAGE);
         }
     }
 
@@ -277,7 +281,7 @@ public class DocumentPreview2Action extends ActionSupport {
             generateResponse(response, formPDFPath);
         } catch (PDFGenerationException e) {
             logger.error("Error occurred while rendering Form. " + e.getMessage(), e);
-            generateResponse(response, e.getMessage());
+            generateResponse(response, FORM_PDF_RENDER_FAILURE_MESSAGE);
         }
     }
 
@@ -305,6 +309,8 @@ public class DocumentPreview2Action extends ActionSupport {
      * Response: Streams PDF content directly with "application/pdf" content type, or sets
      * appropriate HTTP error status code if validation fails.
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void renderPDF() {
         String pdfPathString = StringUtils.isNullOrEmpty(request.getParameter("pdfPath")) ? "" : request.getParameter("pdfPath");
         
@@ -315,11 +321,27 @@ public class DocumentPreview2Action extends ActionSupport {
         }
         
         // Validate the PDF path to prevent path traversal attacks
-        Path pdfPath = Paths.get(pdfPathString);
+        Path pdfPath;
+        try {
+            pdfPath = new java.io.File(pdfPathString).toPath();
+        } catch (RuntimeException e) {
+            logger.error("Invalid PDF path provided: {}", LogSafe.sanitize(pdfPathString));
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return;
+        }
         
         try {
-            // Get the canonical path to resolve any path traversal attempts
-            Path canonicalPdfPath = pdfPath.toRealPath();
+            // Canonicalize first so no filesystem check runs on the raw, user-supplied path.
+            // toRealPath resolves symlinks and ".." and throws if the file does not exist;
+            // containment against the allowed roots is validated below before the file is read.
+            Path canonicalPdfPath;
+            try {
+                canonicalPdfPath = pdfPath.toRealPath();
+            } catch (IOException e) {
+                logger.error("PDF file not found: {}", LogSafe.sanitize(pdfPathString)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
+                response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                return;
+            }
             
             // Define allowed directories based on OSCAR configuration
             String[] allowedBasePaths = {
@@ -350,14 +372,14 @@ public class DocumentPreview2Action extends ActionSupport {
                 response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                 return;
             }
-            
-            // Additional check: ensure the file exists and is a regular file
-            if (!Files.exists(canonicalPdfPath) || !Files.isRegularFile(canonicalPdfPath)) {
-                logger.error("PDF file not found or is not a regular file: {}", LogSafe.sanitize(pdfPathString)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+
+            // Reject non-regular files (directories, devices) now that the path is validated.
+            if (!Files.isRegularFile(canonicalPdfPath)) {
+                logger.error("PDF path is not a regular file: {}", LogSafe.sanitize(pdfPathString)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                 response.setStatus(HttpServletResponse.SC_NOT_FOUND);
                 return;
             }
-            
+
             // Serve the validated PDF file
             response.setContentType("application/pdf");
             try (InputStream inputStream = Files.newInputStream(canonicalPdfPath);
@@ -467,6 +489,8 @@ public class DocumentPreview2Action extends ActionSupport {
      * @param pdfPath Path the file system path to the PDF file to encode
      * @throws PDFGenerationException if an error occurs during base64 conversion or writing the response
      */
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     private void generateResponse(HttpServletResponse response, Path pdfPath) throws PDFGenerationException {
         ObjectNode json = objectMapper.createObjectNode();
         String base64Data = documentAttachmentManager.convertPDFToBase64(pdfPath);
@@ -490,6 +514,8 @@ public class DocumentPreview2Action extends ActionSupport {
      * @param response HttpServletResponse the HTTP response object to write to
      * @param errorMessage String the error message describing the PDF generation failure
      */
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     private void generateResponse(HttpServletResponse response, String errorMessage) {
         ObjectNode json = objectMapper.createObjectNode();
         json.put("errorMessage", errorMessage);

@@ -158,7 +158,7 @@ public class BillingOnReviewValidator {
         Integer demoNoInt = parseDemoNo(demoNo);
         if (demoNoInt == null) {
             if (hasA003AAnnualGuardCandidate(request)) {
-                MiscUtils.getLogger().warn(
+                MiscUtils.getLogger().warn( // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                         "BillingOnReviewValidator: A003A guard failed — non-numeric demographic_no '{}'",
                         LogSafe.sanitize(demoNo));
                 messages.add(new Message(Message.Severity.ERROR,
@@ -182,7 +182,7 @@ public class BillingOnReviewValidator {
             try {
                 serviceDate = DateUtils.parseDate(request.getParameter("service_date"), request.getLocale());
             } catch (java.text.ParseException e) {
-                MiscUtils.getLogger().warn(
+                MiscUtils.getLogger().warn( // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                         "BillingOnReviewValidator: A003A guard failed — unparseable service_date '{}'",
                         LogSafe.sanitize(request.getParameter("service_date")), e);
                 messages.add(new Message(Message.Severity.ERROR,

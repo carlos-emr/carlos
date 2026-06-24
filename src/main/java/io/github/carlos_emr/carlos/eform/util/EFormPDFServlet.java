@@ -59,7 +59,9 @@ import io.github.carlos_emr.carlos.commn.printing.FontSettings;
 import io.github.carlos_emr.carlos.commn.printing.PdfWriterFactory;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.form.graphic.FrmGraphicFactory;
@@ -138,6 +140,7 @@ public class EFormPDFServlet extends HttpServlet {
         ByteArrayOutputStream baosPDF = null;
         FileInputStream fis = null;
         File tmpFile = null;
+        ArrayList<File> intermediateFiles = new ArrayList<File>();
 
         try {
 
@@ -145,17 +148,27 @@ public class EFormPDFServlet extends HttpServlet {
                 ArrayList<Object> files = new ArrayList<Object>();
                 for (int x = 0; x < Integer.parseInt(req.getParameter("multiple")); x++) {
                     baosPDF = generatePDFDocumentBytes(req, this.getServletContext(), x);
-                    tmpFile = File.createTempFile("formpdf", String.valueOf((int) Math.random() * 10000));
-                    baosPDF.writeTo(new FileOutputStream(tmpFile));
+                    tmpFile = PathValidationUtils.createSecureTempFile(PathValidationUtils.validateGeneratedFileName("formpdf"), ".pdf");
+                    try (FileOutputStream fos = new FileOutputStream(PathValidationUtils.resolveTrustedPath(tmpFile))) {
+                        baosPDF.writeTo(fos);
+                    }
                     files.add(tmpFile.getAbsolutePath());
-                    tmpFile.deleteOnExit();
+                    intermediateFiles.add(tmpFile);
                 }
-                tmpFile = File.createTempFile("formpdf", String.valueOf((int) Math.random() * 10000));
+                tmpFile = PathValidationUtils.createSecureTempFile(PathValidationUtils.validateGeneratedFileName("formpdf"), ".pdf");
                 ConcatPDF.concat(files, tmpFile.getAbsolutePath());
+                for (File intermediateFile : intermediateFiles) {
+                    if (!intermediateFile.delete()) {
+                        intermediateFile.deleteOnExit();
+                    }
+                }
+                intermediateFiles.clear();
             } else {
                 baosPDF = generatePDFDocumentBytes(req, this.getServletContext(), 0);
-                tmpFile = File.createTempFile("formpdf", String.valueOf((int) Math.random() * 10000));
-                baosPDF.writeTo(new FileOutputStream(tmpFile));
+                tmpFile = PathValidationUtils.createSecureTempFile(PathValidationUtils.validateGeneratedFileName("formpdf"), ".pdf");
+                try (FileOutputStream fos = new FileOutputStream(PathValidationUtils.resolveTrustedPath(tmpFile))) {
+                    baosPDF.writeTo(fos);
+                }
             }
             StringBuilder sbFilename = new StringBuilder();
             sbFilename.append("filename_");
@@ -199,7 +212,12 @@ public class EFormPDFServlet extends HttpServlet {
         } finally {
             if (baosPDF != null) baosPDF.close();
             if (fis != null) fis.close();
-            if (tmpFile != null) tmpFile.deleteOnExit();
+            for (File intermediateFile : intermediateFiles) {
+                if (!intermediateFile.delete()) {
+                    intermediateFile.deleteOnExit();
+                }
+            }
+            if (tmpFile != null && !tmpFile.delete()) tmpFile.deleteOnExit();
         }
     }
 
@@ -350,6 +368,8 @@ public class EFormPDFServlet extends HttpServlet {
      * @param cfgFilename String the configuration filename
      * @return Properties the parsed field layout entries, or empty Properties if not found
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     protected Properties getCfgProp(String cfgFilename) {
         Properties ret = new Properties();
         

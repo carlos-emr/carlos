@@ -33,6 +33,7 @@ package io.github.carlos_emr.carlos.util;
 import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FilterInputStream;
 import java.io.IOException;
@@ -41,7 +42,9 @@ import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
+import java.util.Locale;
 import java.util.Vector;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -50,6 +53,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Entities;
 import java.nio.charset.StandardCharsets;
@@ -57,6 +61,7 @@ import java.nio.charset.StandardCharsets;
 import io.github.carlos_emr.carlos.documentManager.LocalOnlyUserAgent;
 import org.xhtmlrenderer.pdf.ITextRenderer;
 import org.xhtmlrenderer.layout.SharedContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * HTML-to-PDF conversion utility using Flying Saucer's ITextRenderer.
@@ -77,6 +82,9 @@ import org.xhtmlrenderer.layout.SharedContext;
 @Deprecated
 public class Doc2PDF {
     private static Logger logger = MiscUtils.getLogger();
+    private static final int INTERNAL_FETCH_CONNECT_TIMEOUT_MS = 5000;
+    private static final int INTERNAL_FETCH_READ_TIMEOUT_MS = 30000;
+    private static final char[] HEX_DIGITS = "0123456789ABCDEF".toCharArray();
 
     /**
      * Sends an HTTP 500 error response if the response has not yet been committed.
@@ -161,7 +169,7 @@ public class Doc2PDF {
         try {
 
             // Fetch the rendered JSP page via HTTP and parse it into a clean XHTML document
-            BufferedInputStream in = GetInputFromURI(jsessionid, uri);
+            BufferedInputStream in = openValidatedInternalFetch(request, jsessionid, uri);
             if (in == null) {
                 throw new IOException("Failed to fetch JSP content from the given URI");
             }
@@ -249,8 +257,10 @@ public class Doc2PDF {
      * @param fileName String the output file path
      * @param docBin String the binary PDF data to write
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public static void SavePDF2File(String fileName, String docBin) {
-        try (FileOutputStream ostream = new FileOutputStream(fileName);
+        try (FileOutputStream ostream = new FileOutputStream(PathValidationUtils.resolveTrustedPath(new File(fileName)));
              ObjectOutputStream p = new ObjectOutputStream(ostream)) {
             p.writeBytes(docBin);
             p.flush();
@@ -260,24 +270,52 @@ public class Doc2PDF {
     }
 
     /**
-     * Opens an HTTP connection to the given URI with session authentication and returns the input stream.
+     * Opens an internal same-application HTTP(S) connection with session authentication.
+     *
+     * <p>This legacy path is used only for server-side rendering of application JSPs
+     * into PDF. The target URI must use {@code http} or {@code https}, target a
+     * loopback/current local connector host and port, and stay under the current
+     * servlet context path. External hosts, alternate schemes, fragments, user-info,
+     * and cross-context paths are rejected before opening a connection.</p>
      *
      * @param jsessionid String the session ID appended to the URI for authentication
      * @param uri String the target URI to fetch
      * @return BufferedInputStream the response body, or null if the connection fails
      */
     public static BufferedInputStream GetInputFromURI(String jsessionid, String uri) {
+        if (jsessionid == null && uri == null) {
+            logger.warn("Blocked legacy Doc2PDF server-side fetch without request context and target data");
+        } else {
+            logger.warn("Blocked legacy Doc2PDF server-side fetch without request context");
+        }
+        return null;
+    }
+
+    /**
+     * Opens an internal same-application HTTP(S) connection with session authentication.
+     *
+     * @param request HttpServletRequest providing the allowed server name, port, and context path
+     * @param jsessionid String the session ID appended to the URI for authentication
+     * @param uri String the target URI to fetch
+     * @return BufferedInputStream the response body, or null if the connection fails
+     */
+    // FindSecBugs URLCONNECTION_SSRF_FD: validateInternalFetchUri rejects external hosts/schemes before openConnection.
+    @SuppressFBWarnings(value = "URLCONNECTION_SSRF_FD", justification = "validateInternalFetchUri enforces same-application http(s) targets before opening a connection")
+    static BufferedInputStream openValidatedInternalFetch(HttpServletRequest request, String jsessionid, String uri) {
 
         HttpURLConnection conn = null;
         try {
             // Append jsessionid to the URL path because this is a server-side HTTP connection
             // that does not share the browser's session cookie; the session ID must be passed
             // via URL rewriting so the target JSP executes within the user's authenticated session.
-            URL url = new URI(uri + ";jsessionid=" + jsessionid).toURL();
+            URI validatedUri = validateInternalFetchUri(request, uri);
+            URL url = appendSessionId(validatedUri, jsessionid).toURL();
 
-            MiscUtils.getLogger().debug(" " + uri + ";jsessionid=" + jsessionid);
+            MiscUtils.getLogger().debug("Opening internal Doc2PDF fetch for validated same-application target");
 
             conn = (HttpURLConnection) url.openConnection();
+            conn.setConnectTimeout(INTERNAL_FETCH_CONNECT_TIMEOUT_MS);
+            conn.setReadTimeout(INTERNAL_FETCH_READ_TIMEOUT_MS);
 
             // Wrap the stream so that closing it also disconnects the HTTP connection,
             // preventing connection pool leaks when the caller closes the returned stream.
@@ -294,6 +332,15 @@ public class Doc2PDF {
             };
             return new BufferedInputStream(wrapped);
 
+        } catch (IllegalArgumentException e) {
+            logger.warn("Rejected internal Doc2PDF fetch due to validation constraints");
+            if (conn != null) {
+                conn.disconnect();
+            }
+            return null;
+        } catch (URISyntaxException e) {
+            logger.warn("Rejected internal Doc2PDF fetch due to invalid URI syntax");
+            return null;
         } catch (Exception e) {
             logger.error("Failed to open HTTP connection to fetch URI content", e);
             if (conn != null) {
@@ -301,6 +348,172 @@ public class Doc2PDF {
             }
             return null;
         }
+    }
+
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of parsed ASCII URL schemes/hosts in fail-closed SSRF validation")
+    private static URI validateInternalFetchUri(HttpServletRequest request, String uri)
+            throws URISyntaxException {
+        if (request == null) {
+            throw new IllegalArgumentException("Request context is required for internal Doc2PDF fetches");
+        }
+        if (uri == null || uri.trim().isEmpty()) {
+            throw new IllegalArgumentException("Internal Doc2PDF fetch URI must not be empty");
+        }
+
+        URI target = new URI(uri).normalize();
+        String scheme = target.getScheme();
+        if (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme)) {
+            throw new IllegalArgumentException("Internal Doc2PDF fetch URI must use http or https");
+        }
+        if (target.getRawUserInfo() != null) {
+            throw new IllegalArgumentException("Internal Doc2PDF fetch URI must not include user info");
+        }
+        if (target.getRawFragment() != null) {
+            throw new IllegalArgumentException("Internal Doc2PDF fetch URI must not include a fragment");
+        }
+
+        if (!isAllowedInternalHost(request, target.getHost())) {
+            throw new IllegalArgumentException("Internal Doc2PDF fetch URI must target the local application connector");
+        }
+
+        int targetPort = effectivePort(target.getScheme(), target.getPort());
+        int requestPort = effectivePort(request.getScheme(), getRequestLocalPort(request));
+        if (targetPort != requestPort) {
+            throw new IllegalArgumentException("Internal Doc2PDF fetch URI must target the local application connector port");
+        }
+
+        String contextPath = request.getContextPath();
+        if (contextPath == null) {
+            contextPath = "";
+        }
+        String targetPath = target.getPath();
+        if (targetPath == null || targetPath.isEmpty()) {
+            targetPath = "/";
+        }
+        if (containsDotSegment(targetPath)) {
+            throw new IllegalArgumentException("Internal Doc2PDF fetch URI must not contain path traversal");
+        }
+        if (!contextPath.isEmpty()
+                && !targetPath.equals(contextPath)
+                && !targetPath.startsWith(contextPath + "/")) {
+            throw new IllegalArgumentException("Internal Doc2PDF fetch URI must stay within the current context path");
+        }
+
+        return target;
+    }
+
+    private static boolean isAllowedInternalHost(HttpServletRequest request, String targetHost) {
+        if (targetHost == null || targetHost.trim().isEmpty()) {
+            return false;
+        }
+
+        String normalizedTarget = normalizeHost(targetHost);
+        if (isLoopbackHost(normalizedTarget)) {
+            return true;
+        }
+
+        return matchesHost(normalizedTarget, request.getLocalName())
+                || matchesHost(normalizedTarget, request.getLocalAddr());
+    }
+
+    private static boolean matchesHost(String normalizedTarget, String candidate) {
+        return candidate != null
+                && !candidate.trim().isEmpty()
+                && normalizedTarget.equals(normalizeHost(candidate));
+    }
+
+    private static boolean containsDotSegment(String path) {
+        for (String segment : path.split("/", -1)) {
+            if (".".equals(segment) || "..".equals(segment)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-folding parsed hostnames for same-connector comparison; not user identity or authorization")
+    private static String normalizeHost(String host) {
+        String normalized = host.trim().toLowerCase(Locale.ROOT);
+        if (normalized.startsWith("[") && normalized.endsWith("]")) {
+            return normalized.substring(1, normalized.length() - 1);
+        }
+        return normalized;
+    }
+
+    private static boolean isLoopbackHost(String normalizedHost) {
+        return "localhost".equals(normalizedHost)
+                || "127.0.0.1".equals(normalizedHost)
+                || "::1".equals(normalizedHost)
+                || "0:0:0:0:0:0:0:1".equals(normalizedHost);
+    }
+
+    private static int getRequestLocalPort(HttpServletRequest request) {
+        int localPort = request.getLocalPort();
+        if (localPort > 0) {
+            return localPort;
+        }
+        return request.getServerPort();
+    }
+
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-folding parsed ASCII URL schemes for default port selection")
+    private static int effectivePort(String scheme, int port) {
+        if (port > 0) {
+            return port;
+        }
+        String normalizedScheme = scheme == null ? "" : scheme.toLowerCase(Locale.ROOT);
+        if ("https".equals(normalizedScheme)) {
+            return 443;
+        }
+        if ("http".equals(normalizedScheme)) {
+            return 80;
+        }
+        return port;
+    }
+
+    private static URI appendSessionId(URI uri, String jsessionid) throws URISyntaxException {
+        if (jsessionid == null || jsessionid.trim().isEmpty()) {
+            throw new URISyntaxException(String.valueOf(uri), "JSESSIONID must not be empty");
+        }
+
+        String rawPath = uri.getRawPath();
+        if (rawPath == null || rawPath.isEmpty()) {
+            rawPath = "/";
+        }
+        String pathWithSession = rawPath + ";jsessionid=" + encodePathSegment(jsessionid);
+        StringBuilder rewrittenUri = new StringBuilder()
+                .append(uri.getScheme())
+                .append("://")
+                .append(uri.getRawAuthority())
+                .append(pathWithSession);
+        if (uri.getRawQuery() != null) {
+            rewrittenUri.append('?').append(uri.getRawQuery());
+        }
+        return new URI(rewrittenUri.toString());
+    }
+
+    private static String encodePathSegment(String value) {
+        StringBuilder encoded = new StringBuilder();
+        for (byte b : value.getBytes(StandardCharsets.UTF_8)) {
+            int c = b & 0xff;
+            if (isUnreservedPathByte(c)) {
+                encoded.append((char) c);
+            } else {
+                encoded.append('%');
+                encoded.append(HEX_DIGITS[(c >> 4) & 0x0f]);
+                encoded.append(HEX_DIGITS[c & 0x0f]);
+            }
+        }
+        return encoded.toString();
+    }
+
+    private static boolean isUnreservedPathByte(int c) {
+        return (c >= 'A' && c <= 'Z')
+                || (c >= 'a' && c <= 'z')
+                || (c >= '0' && c <= '9')
+                || c == '-'
+                || c == '.'
+                || c == '_'
+                || c == '~';
     }
 
     /**

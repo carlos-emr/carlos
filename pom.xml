@@ -93,7 +93,7 @@
         <!-- Apache CXF Version -->
         <cxf.version>4.1.5</cxf.version>
         <!-- Netty Version (for transitive dependency security fixes) -->
-        <netty.version>4.1.133.Final</netty.version>
+        <netty.version>4.1.135.Final</netty.version>
         <!-- Drools 10.x KIE API (upgraded from 7.74.1.Final for Jakarta EE compatibility) -->
         <drools.version>10.1.0</drools.version>
         <!-- Spring -->
@@ -125,6 +125,8 @@
         <owasp-encoder.version>1.4.0</owasp-encoder.version>
         <!-- OWASP CSRFGuard -->
         <csrfguard.version>4.5.0-jakarta</csrfguard.version>
+        <!-- JNA: pin transitive ultrabuk-htmltopdf-java range [5.12,) to the locked version -->
+        <jna.version>5.19.0</jna.version>
         <!-- HAPI HL7 v2 -->
         <hapi-hl7.version>1.0.1</hapi-hl7.version>
         <!-- Testing -->
@@ -208,6 +210,12 @@
                 <groupId>com.google.code.gson</groupId>
                 <artifactId>gson</artifactId>
                 <version>2.13.2</version>
+            </dependency>
+            <!-- Pin transitive JNA range from ultrabuk-htmltopdf-java to the dependency lock. -->
+            <dependency>
+                <groupId>net.java.dev.jna</groupId>
+                <artifactId>jna</artifactId>
+                <version>${jna.version}</version>
             </dependency>
             <!-- Force secure versions of ALL Netty modules to fix multiple CVEs:
                  - HTTP/2 DDoS (MadeYouReset) in netty-codec-http2
