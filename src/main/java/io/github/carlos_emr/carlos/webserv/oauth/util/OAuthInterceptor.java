@@ -158,13 +158,24 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
             req.setAttribute(info.getLoggedInInfoKey(), info);
 
         } catch (OAuth1Exception e) {
-            throw new Fault(e);
+            throw oauthFault(e);
         } catch (IllegalArgumentException badSigOrTime) {
             // from verifier: missing/stale timestamp, bad signature, unknown token, etc.
-            throw new Fault(new OAuth1Exception(401, "invalid_signature"));
+            throw oauthFault(new OAuth1Exception(401, "invalid_signature"));
         } catch (Exception e) {
-            throw new Fault(new OAuth1Exception(401, "oauth_authentication_failed"));
+            throw oauthFault(new OAuth1Exception(401, "oauth_authentication_failed"));
         }
+    }
+
+    /**
+     * Wraps an OAuth failure in a CXF Fault that carries the intended HTTP
+     * status, so a rejected resource call (e.g. a replayed nonce) returns that
+     * status rather than CXF's default 500 for an unmapped fault.
+     */
+    private static Fault oauthFault(OAuth1Exception e) {
+        Fault fault = new Fault(e);
+        fault.setStatusCode(e.getHttpCode());
+        return fault;
     }
 
     @Override public void handleFault(Message message) { /* no-op */ }
