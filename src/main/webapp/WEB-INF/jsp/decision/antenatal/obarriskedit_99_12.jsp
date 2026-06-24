@@ -36,6 +36,7 @@
 <%@ page import="java.util.*, java.sql.*, java.io.*, io.github.carlos_emr.*" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 
 <html>
@@ -84,7 +85,7 @@
                                                                            name='submit' value=' Save '> <input
                         type="button"
                         name="Button"
-                        value="&nbsp;<%=request.getParameter("submit")!=null?" Exit ":"Cancel"%>&nbsp;"
+                        value="&nbsp;<%=request.getParameter("submit")!=null?" Exit ":"Cancel"%>&nbsp;"<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                         onClick="onExit();">&nbsp;
                 </div>
             </th>
@@ -109,7 +110,7 @@
         while (true) {
             aline = raf.readLine();
             if (aline != null) {
-                out.println(aline);
+                out.println(SafeEncode.forHtml(aline));
             } else {
                 break;
             }

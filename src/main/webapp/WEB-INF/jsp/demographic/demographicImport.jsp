@@ -128,6 +128,7 @@
                         data: new FormData(formData[0]),
                         processData: false,
                         contentType: false,
+                        dataType: "text",
                         success: function (response) {
                             HideSpin();
                             const jsondata = JSON.parse(response.substring(response.indexOf('{'), response.indexOf('}') + 1));

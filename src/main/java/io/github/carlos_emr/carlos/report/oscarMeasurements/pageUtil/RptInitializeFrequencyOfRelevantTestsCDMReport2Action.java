@@ -50,6 +50,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -58,6 +59,8 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute() throws ServletException, IOException {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_report", "r", null)) {

@@ -89,7 +89,7 @@ public class GenerateRaDescriptionViewModelAssembler {
         GenerateRaDescriptionViewModel.Builder b = GenerateRaDescriptionViewModel.builder().raNo(nullToEmpty(raNoStr));
         if (raNo == null) {
             if (raNoStr != null && !raNoStr.isBlank()) {
-                MiscUtils.getLogger().warn("GenerateRaDescription: invalid RA number [{}]",
+                MiscUtils.getLogger().warn("GenerateRaDescription: invalid RA number [{}]", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                         LogSafe.sanitize(raNoStr));
                 b.raFileIncomplete(true)
                         .raFileWarning("Invalid RA number; no RA description file was loaded.");

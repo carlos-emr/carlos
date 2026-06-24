@@ -63,6 +63,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 
 <%-- Ordered by workflow: incoming → pending → uploads → create → config --%>
 <%-- Incoming Docs uses container-fluid, so it intentionally keeps a wider popup. --%>
+
+<!-- Preview button -->
+<input type="checkbox" class="btn-check btn-sm" name="viewMode2" id="btnViewMode2" autocomplete="off" onchange="fetchInboxhubDataByMode(this)" ${query.viewMode ? 'checked' : ''}>
+<label class="btn btn-secondary btn-sm" id="btnViewModeLabel" for="btnViewMode2"><c:choose><c:when test="${query.viewMode}"><fmt:message key="inboxhub.form.listMode"/></c:when><c:otherwise><fmt:message key="inboxhub.form.previewMode"/></c:otherwise></c:choose></label>
+
 <a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/documentManager/ViewIncomingDocs',800,1200)" class="nav-link"><fmt:message key="inboxmanager.document.incomingDocs"/></a>
 <a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/documentManager/inboxManage?method=getDocumentsInQueues',800,1000)" class="nav-link"><fmt:message key="inboxmanager.document.pendingDocs"/></a>
 <c:choose>

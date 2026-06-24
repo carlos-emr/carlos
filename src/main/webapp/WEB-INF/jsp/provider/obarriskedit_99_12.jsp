@@ -37,6 +37,7 @@
 %>
 <%@ page import="java.util.*, java.sql.*, java.io.*, io.github.carlos_emr.*"
          errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <% java.util.ResourceBundle bundle = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale()); %>
 
@@ -80,7 +81,7 @@
                                       onClick="popupPage(450,900,'ar1risk_99_12.htm')"><font
                         color="#FFFF66"><%= bundle.getString("provider.obarrisk.viewRiskNumber") %></font></a> <input type="button"
                                                                            name="Button"
-                                                                           value="&nbsp;<%=request.getParameter("submit")!=null?bundle.getString("provider.obarrisk.exit"):bundle.getString("provider.obarrisk.cancel")%>&nbsp;"
+                                                                           value="&nbsp;<%=SafeEncode.forHtmlAttribute(request.getParameter("submit")!=null?bundle.getString("provider.obarrisk.exit"):bundle.getString("provider.obarrisk.cancel"))%>&nbsp;"
                                                                            onClick="onExit();">&nbsp;
                 </div>
             </th>
@@ -101,7 +102,7 @@
         aline = raf.readLine();
         if (aline != null) {
 //					aline="<pre>" + aline + "</pre>"  ;
-            out.println(aline);
+            out.println(SafeEncode.forHtml(aline));
         } else {
             break;
         }

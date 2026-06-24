@@ -47,6 +47,7 @@
 
 
 <%@include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 <html>
@@ -273,7 +274,7 @@
             <select name="selectedStyle" id="style">
                 <option value="-1"><fmt:message key="admin.manageCodeStyles.NoneSelected"/></option>
                 <c:forEach items="${styles}" var="style">
-                    <option value="${style.style}">${style.name}</option>
+                    <option value="${carlos:forHtmlAttribute(style.style)}">${carlos:forHtml(style.name)}</option>
                 </c:forEach>
             </select>
 

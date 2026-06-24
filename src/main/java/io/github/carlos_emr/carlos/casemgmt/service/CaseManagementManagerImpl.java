@@ -70,6 +70,7 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Transactional
 public class CaseManagementManagerImpl implements CaseManagementManager {
@@ -464,6 +465,8 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     }
 
     /* return true if have the right to access issues */
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     @Override
     public boolean inAccessRight(String right, String issueAccessType, List accessRight) {
         boolean rt = false;
@@ -479,6 +482,8 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     }
 
     /* filter the issues by caisi role */
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     private List<CaseManagementIssue> filterIssueList(List<CaseManagementIssue> allIssue, List accessRight) {
         List<String> role = secRoleDao.findAllNames();
         List<CaseManagementIssue> filteredIssue = new ArrayList<CaseManagementIssue>();
@@ -764,6 +769,8 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         issueDAO.saveIssue(issue);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     @Override
     public List<Issue> getIssueInfoBySearch(String providerNo, String search, List accessRight) {
         List<Issue> issList = issueDAO.findIssueBySearch(search);
@@ -903,6 +910,8 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     }
 
     /* get the filtered Notes by caisi role */
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     @Override
     public List<CaseManagementIssue> getFilteredNotes(String providerNo, String demographic_no) {
         List<CaseManagementNote> allNotes = caseManagementNoteDAO.getNotesByDemographic(demographic_no);
@@ -967,6 +976,8 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         return false;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     @Override
     public boolean greaterEqualLevel(int level, String providerNo) {
         if (level < 1 || level > 4)
@@ -1073,6 +1084,8 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
             rt.add(at);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     @Override
     public boolean hasAccessRight(String accessName, String accessType, String providerNo, String demoNo, String pId) {
         if (accessName == null || accessType == null || !filled(pId))
@@ -1088,6 +1101,8 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         return false;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String getRoleName(String providerNo, String program_id) {
         String rt = "";
@@ -1593,6 +1608,8 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     /**
      * Filters a list of CaseManagementIssue objects based on role.
      */
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     @Override
     public List<CaseManagementIssue> filterIssues(LoggedInInfo loggedInInfo, String providerNo,
                                                   List<CaseManagementIssue> issues, String programId) {
@@ -2200,6 +2217,8 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
     }
 
     // Move this out of here.
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String updateApptStatus(String status, String type) {
         ApptStatusData as = new ApptStatusData();
         as.setApptStatus(status);

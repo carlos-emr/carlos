@@ -212,19 +212,15 @@ if ( !checkPatientStatus() ) return false;
 return(true);
 }
 
-function formatPhoneNum() {
-if (document.updatedelete.phone.value.length == 10) {
-document.updatedelete.phone.value = document.updatedelete.phone.value.substring(0,3) + "-" + document.updatedelete.phone.value.substring(3,6) + "-" + document.updatedelete.phone.value.substring(6);
-}
-if (document.updatedelete.phone.value.length == 11 && document.updatedelete.phone.value.charAt(3) == '-') {
-document.updatedelete.phone.value = document.updatedelete.phone.value.substring(0,3) + "-" + document.updatedelete.phone.value.substring(4,7) + "-" + document.updatedelete.phone.value.substring(7);
-}
-if (document.updatedelete.phone2.value.length == 10) {
-document.updatedelete.phone2.value = document.updatedelete.phone2.value.substring(0,3) + "-" + document.updatedelete.phone2.value.substring(3,6) + "-" + document.updatedelete.phone2.value.substring(6);
-}
-if (document.updatedelete.phone2.value.length == 11 && document.updatedelete.phone2.value.charAt(3) == '-') {
-document.updatedelete.phone2.value = document.updatedelete.phone2.value.substring(0,3) + "-" + document.updatedelete.phone2.value.substring(4,7) + "-" + document.updatedelete.phone2.value.substring(7);
-}
+function formatPhoneNum(el) {
+  if (!el || !el.value) return;
+  if (el.value.substring(0, 1) == "+") return; // do not reformat E.164 and similar + formatted strings
+  const digits = el.value.replace(/\D/g, ''); // strip formatting if any
+  if (digits.length === 10) { // test for Canadian pattern XXX-XXX-XXXX
+    el.value = digits.substring(0, 3) + "-" + digits.substring(3, 6) + "-" + digits.substring(6);
+  } else if (digits.length === 11 && digits.substring(0, 1) == "1") { // test for Canadian pattern 1-XXX-XXX-XXXX
+    el.value = digits.substring(0, 1) + "-" + digits.substring(1, 4) + "-" + digits.substring(4, 7) + "-" + digits.substring(7);
+  }
 }
 
 //
