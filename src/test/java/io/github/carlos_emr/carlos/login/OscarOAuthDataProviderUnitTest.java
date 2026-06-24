@@ -35,6 +35,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+// NOTE: this class predates the CarlosUnitTestBase convention and wires Mockito
+// mocks directly. The nonce tests added for issue #2955 follow that existing
+// style to avoid re-basing the pre-existing callback tests; migrating the whole
+// class onto CarlosUnitTestBase is left as a separate test-hygiene follow-up.
 @DisplayName("OscarOAuthDataProvider access token expiry")
 @Tag("unit")
 @Tag("security")

@@ -242,6 +242,15 @@ public class OAuth1SignatureVerifierImplementation implements OAuth1SignatureVer
         return r == 0 && a.length() == b.length();
     }
 
+    // NOTE: this decodes each %XX as one char (byte-as-char), so a multi-byte
+    // UTF-8 escape such as %C3%A9 yields "Ã©" rather than "é". This is a
+    // pre-existing trait of the signature base-string normalisation, not added
+    // by the nonce-replay work. Replay protection stays correct regardless: the
+    // nonce key is decoded with this same function, and pct() (the re-encoder)
+    // is injective, so the replay-key equivalence classes match the signature's
+    // exactly. Making this RFC 3986 UTF-8-aware would change the base string for
+    // every OAuth1 client and so is deferred to a dedicated, signature-tested
+    // change rather than bundled here.
     private static String pctDecode(String s) {
         if (s == null || s.isEmpty()) return s;
         int n = s.length(); StringBuilder out = new StringBuilder(n);

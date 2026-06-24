@@ -4,6 +4,11 @@
 -- hash of the canonical (consumerKey, tokenId, nonce) tuple, which keeps the
 -- index small and independent of the descriptive column lengths, avoiding
 -- index key-length limits. Issue #2955.
+--
+-- IF NOT EXISTS is used to match the existing Service* token-table migrations
+-- and to keep this script idempotent. The table is introduced by this change,
+-- so there is no pre-existing divergent ServiceOAuthNonce to silently skip; the
+-- UNIQUE KEY below is therefore guaranteed to be created on first apply.
 CREATE TABLE IF NOT EXISTS `ServiceOAuthNonce` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `nonceKeyHash` char(64) NOT NULL,
