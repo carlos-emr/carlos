@@ -512,17 +512,21 @@ public class Utility {
 
     // ################################################################################
     /**
-     * Retrieves the CARLOS resource bundle for the specified locale with automatic fallback.
+     * Retrieves the CARLOS resource bundle for the specified locale.
      *
-     * <p>This method provides the localized message resources:
+     * <p>This method loads localized message resources from the "oscarResources" bundle using the
+     * following resolution:
      * <ol>
-     *   <li>Attempts to load "oscarResources" bundle for the requested locale</li>
-     *   <li>Falls back to LocaleContextHolder if the requested locale is null</li>
-     *   <li>ResourceBundle handles the usual fallbacks if the resource is not available</li>
+     *   <li>If the provided locale is null, falls back to {@link org.springframework.context.i18n.LocaleContextHolder#getLocale()}</li>
+     *   <li>Delegates to {@link ResourceBundle#getBundle(String, Locale)} with the resolved locale</li>
+     *   <li>ResourceBundle applies its standard fallback chain (locale → language → default bundle)</li>
      * </ol>
      *
-     * @param locale the desired locale for the resource bundle; if null, uses the current request's locale
-     * @return the resource bundle for the requested locale, or the best available fallback bundle
+     * <p><strong>Note:</strong> There is no explicit English fallback. Locale resolution depends on
+     * the available resource bundles and ResourceBundle's standard fallback behavior.
+     *
+     * @param locale the desired locale for the resource bundle; if null, uses the current request's locale from LocaleContextHolder
+     * @return the resource bundle for the requested locale, or the best available bundle per ResourceBundle fallback rules
      */
     public static ResourceBundle getOscarBundle(Locale locale) {
         if (locale == null) {

@@ -1308,10 +1308,17 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
      * <p>This method constructs a birth date from the demographic's year, month, and day of birth fields
      * (using defaults if any component is missing), then calculates age relative to the given date.
      *
+     * <p>The age string is localized using resource bundles retrieved via
+     * {@link Utility#getOscarBundle(Locale)}, which applies the following resolution:
+     * <ol>
+     *   <li>If locale is null, falls back to {@code LocaleContextHolder.getLocale()}</li>
+     *   <li>Delegates to {@code ResourceBundle.getBundle(...)} with the resolved locale</li>
+     *   <li>ResourceBundle applies its standard fallback chain (locale → language → default bundle)</li>
+     * </ol>
+     *
      * @param asofDate the reference date for age calculation (must not be null)
      * @param locale the locale for formatting age strings (e.g., "2 years", "3 months");
-     *               if null, falls back to the system default locale, then English,
-     *               then the default bundle locale
+     *               if null, uses the current request's locale from LocaleContextHolder
      * @return formatted age string at the specified date (e.g., "45 years", "3 months", "not born yet"),
      *         or null if the birth date cannot be calculated
      */
