@@ -1955,7 +1955,7 @@ String storedImgUrl=request.getContextPath()+"/imageRenderingServlet?source="+Im
                 signatureFrame.style.display = 'block';
             };
             counter = counter + 1;
-            signatureImgTag.src = ctx + '/provider/providerSignatureImage?providerNo=' + encodeURIComponent(providerNo) + '&rand=' + counter;
+            signatureImgTag.src = '<%=request.getContextPath()%>' + '/provider/providerSignatureImage?providerNo=' + encodeURIComponent(providerNo) + '&rand=' + counter;
             return true;
         }
 

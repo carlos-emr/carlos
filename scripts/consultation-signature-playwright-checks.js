@@ -1,13 +1,39 @@
 #!/usr/bin/env node
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+
 /*
- * Browser regression check for consultation request signatures.
+ * Browser regression checks for consultation request signatures.
  *
- * The script opens an existing consultation request, verifies that the signature
- * image shown on the request page is a loaded image, then posts the same form to
- * the direct print-preview endpoint and verifies a PDF is returned.
+ * The script opens one or more existing consultation requests, verifies that
+ * the signature image shown on the request page is a loaded image, then posts
+ * the same form to the direct print-preview endpoint and verifies a PDF is
+ * returned with an embedded image when the scenario expects a signature.
  *
- * Required fixture:
+ * Required single fixture:
  *   CONSULT_REQUEST_ID=123 node scripts/consultation-signature-playwright-checks.js
+ *
+ * Optional multi-scenario fixture:
+ *   CONSULT_SIGNATURE_SCENARIOS='[{"name":"stored","requestId":"123","demographicNo":"1","expectSignature":true}]'
  *
  * Optional environment:
  *   BASE_URL=http://127.0.0.1:8080/carlos
@@ -28,13 +54,7 @@ const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
 const testPin = process.env.TEST_PIN || '2026';
 const consultRequestId = process.env.CONSULT_REQUEST_ID || '';
 const consultDemographicNo = process.env.CONSULT_DEMOGRAPHIC_NO || '';
-
-if (!/^\d+$/.test(consultRequestId)) {
-  throw new Error('CONSULT_REQUEST_ID must be set to an existing numeric consultation request id');
-}
-if (consultDemographicNo && !/^\d+$/.test(consultDemographicNo)) {
-  throw new Error('CONSULT_DEMOGRAPHIC_NO must be numeric when provided');
-}
+const scenarios = parseConsultSignatureScenarios();
 
 const findings = [];
 const visited = [];
@@ -53,6 +73,58 @@ function validateBaseUrl(rawBaseUrl) {
   }
   parsed.pathname = parsed.pathname.replace(/\/$/, '');
   return parsed;
+}
+
+function parseConsultSignatureScenarios() {
+  const rawScenarios = process.env.CONSULT_SIGNATURE_SCENARIOS || '';
+  if (!rawScenarios.trim()) {
+    if (!/^\d+$/.test(consultRequestId)) {
+      throw new Error('CONSULT_REQUEST_ID must be set to an existing numeric consultation request id');
+    }
+    if (consultDemographicNo && !/^\d+$/.test(consultDemographicNo)) {
+      throw new Error('CONSULT_DEMOGRAPHIC_NO must be numeric when provided');
+    }
+    return [normalizeScenario({
+      name: 'default',
+      requestId: consultRequestId,
+      demographicNo: consultDemographicNo,
+      expectSignature: true,
+    }, 0)];
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(rawScenarios);
+  } catch (error) {
+    throw new Error(`CONSULT_SIGNATURE_SCENARIOS must be valid JSON: ${error.message}`);
+  }
+  if (!Array.isArray(parsed) || parsed.length === 0) {
+    throw new Error('CONSULT_SIGNATURE_SCENARIOS must be a non-empty JSON array');
+  }
+  return parsed.map((scenario, index) => normalizeScenario(scenario, index));
+}
+
+function normalizeScenario(scenario, index) {
+  if (!scenario || typeof scenario !== 'object' || Array.isArray(scenario)) {
+    throw new Error(`CONSULT_SIGNATURE_SCENARIOS[${index}] must be an object`);
+  }
+
+  const requestId = String(scenario.requestId || scenario.consultRequestId || '').trim();
+  const demographicNo = scenario.demographicNo == null ? '' : String(scenario.demographicNo).trim();
+  const name = String(scenario.name || `scenario-${index + 1}`).trim();
+  const expectSignature = scenario.expectSignature !== false;
+
+  if (!/^\d+$/.test(requestId)) {
+    throw new Error(`CONSULT_SIGNATURE_SCENARIOS[${index}].requestId must be numeric`);
+  }
+  if (demographicNo && !/^\d+$/.test(demographicNo)) {
+    throw new Error(`CONSULT_SIGNATURE_SCENARIOS[${index}].demographicNo must be numeric when provided`);
+  }
+  if (!name) {
+    throw new Error(`CONSULT_SIGNATURE_SCENARIOS[${index}].name must not be blank`);
+  }
+
+  return { name, requestId, demographicNo, expectSignature };
 }
 
 function appUrl(appPath) {
@@ -129,27 +201,29 @@ async function login(context) {
   return page;
 }
 
-async function openConsultationRequest(page) {
-  const params = new URLSearchParams({ requestId: consultRequestId });
-  if (consultDemographicNo) {
-    params.set('de', consultDemographicNo);
+async function openConsultationRequest(page, scenario) {
+  const params = new URLSearchParams({ requestId: scenario.requestId });
+  if (scenario.demographicNo) {
+    params.set('de', scenario.demographicNo);
   }
   await gotoApp(page, `/encounter/ViewRequest?${params.toString()}`);
   await page.locator('#EctConsultationFormRequest2Form').waitFor({ state: 'attached', timeout: 30000 });
   await page.locator('#signatureImgTag').waitFor({ state: 'attached', timeout: 30000 });
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-  visited.push({ label: 'consultation-request', url: page.url() });
-  await assertNoErrorPage(page, 'consultation-request');
+  visited.push({ label: `${scenario.name}:consultation-request`, url: page.url() });
+  await assertNoErrorPage(page, `${scenario.name}:consultation-request`);
 }
 
-async function readSignatureState(page) {
-  await page.waitForFunction(() => {
-    const img = document.getElementById('signatureImgTag');
-    if (!img) return false;
-    const style = window.getComputedStyle(img);
-    return img.complete && img.naturalWidth > 0 && img.naturalHeight > 0
-      && style.display !== 'none' && style.visibility !== 'hidden';
-  }, { timeout: 15000 });
+async function readSignatureState(page, scenario) {
+  if (scenario.expectSignature) {
+    await page.waitForFunction(() => {
+      const img = document.getElementById('signatureImgTag');
+      if (!img) return false;
+      const style = window.getComputedStyle(img);
+      return img.complete && img.naturalWidth > 0 && img.naturalHeight > 0
+        && style.display !== 'none' && style.visibility !== 'hidden';
+    }, { timeout: 15000 });
+  }
 
   return page.evaluate(() => {
     const valueOf = (id) => {
@@ -157,6 +231,7 @@ async function readSignatureState(page) {
       return el ? el.value || '' : '';
     };
     const img = document.getElementById('signatureImgTag');
+    const style = img ? window.getComputedStyle(img) : null;
     return {
       signatureImg: valueOf('signatureImg'),
       newSignature: valueOf('newSignature'),
@@ -164,6 +239,9 @@ async function readSignatureState(page) {
       imageSrc: img ? img.src : '',
       imageWidth: img ? img.naturalWidth : 0,
       imageHeight: img ? img.naturalHeight : 0,
+      imageDisplay: style ? style.display : '',
+      imageVisibility: style ? style.visibility : '',
+      imageComplete: img ? img.complete : false,
     };
   });
 }
@@ -235,6 +313,24 @@ async function requestPrintPreview(page) {
   return { byteLength: pdfBytes.length, containsImage: /\/Subtype\s*\/Image/.test(pdfBytes.toString('latin1')) };
 }
 
+async function runScenario(context, scenario) {
+  const page = await context.newPage();
+  wirePage(page, `consultation-signature:${scenario.name}`);
+  try {
+    await openConsultationRequest(page, scenario);
+
+    const signatureState = await readSignatureState(page, scenario);
+    const pdf = await requestPrintPreview(page);
+    if (scenario.expectSignature && !pdf.containsImage) {
+      throw new Error(`${scenario.name}: print preview PDF did not contain an embedded image`);
+    }
+
+    return { scenario, signatureState, pdf };
+  } finally {
+    await page.close();
+  }
+}
+
 (async () => {
   const launchOptions = {
     headless: true,
@@ -247,18 +343,15 @@ async function requestPrintPreview(page) {
   const browser = await chromium.launch(launchOptions);
   try {
     const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } });
-    const page = await login(context);
-    wirePage(page, 'consultation-signature');
-    await openConsultationRequest(page);
+    const loginPage = await login(context);
+    await loginPage.close();
 
-    const signatureState = await readSignatureState(page);
-    const pdf = await requestPrintPreview(page);
-    const storedSignature = /^[0-9]{1,9}$/.test(signatureState.signatureImg);
-    if (!storedSignature && !pdf.containsImage) {
-      throw new Error('Stamp-mode print preview PDF did not contain an embedded image');
+    const results = [];
+    for (const scenario of scenarios) {
+      results.push(await runScenario(context, scenario));
     }
 
-    console.log(JSON.stringify({ visited, signatureState, pdf, findings }, null, 2));
+    console.log(JSON.stringify({ visited, scenarios: results, findings }, null, 2));
     const blockingFindings = findings.filter((finding) => finding.type !== 'dialog');
     if (blockingFindings.length) {
       process.exitCode = 1;

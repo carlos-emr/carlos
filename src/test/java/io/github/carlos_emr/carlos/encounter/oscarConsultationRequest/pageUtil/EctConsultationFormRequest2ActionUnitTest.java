@@ -1,3 +1,24 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -153,6 +174,22 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute(ConsultationSignatureService.SIGNATURE_IMAGE_OVERRIDE_ATTRIBUTE))
                 .isEqualTo(SIGNATURE_BYTES);
         verify(documentAttachmentManager).renderConsultationFormWithAttachments(request, response);
+    }
+
+    @Test
+    @DisplayName("keeps print preview errors generic when rendering fails")
+    void shouldReturnGenericErrorMessage_whenDirectPrintPreviewFails() throws Exception {
+        when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response))
+                .thenThrow(new RuntimeException("sensitive internal path /var/lib/OscarDocument/consult.pdf"));
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentType()).isEqualTo("application/json;charset=UTF-8");
+        assertThat(response.getContentAsString())
+                .contains("A print preview of this consultation could not be generated. Please try again or contact support.")
+                .doesNotContain("sensitive internal path")
+                .doesNotContain("/var/lib/OscarDocument");
     }
 
     @Test
