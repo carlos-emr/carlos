@@ -50,9 +50,12 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -136,6 +139,25 @@ class OAuthInterceptorAuditLoggingUnitTest extends CarlosUnitTestBase {
         assertThat(log.getProviderNo()).isEqualTo(PROVIDER_NO);
         assertThat(log.getIp()).isEqualTo(REMOTE_IP);
         assertThat(log.getContent()).isEqualTo(CONSUMER_KEY);
+    }
+
+    @Test
+    @DisplayName("keeps the request authenticated when the success audit write fails")
+    void shouldAuthenticate_whenSuccessAuditWriteFails() {
+        stubOAuthParameters(CONSUMER_KEY, ACCESS_TOKEN);
+        Client client = new Client(CONSUMER_KEY, "secret", "test-app", "http://localhost");
+        when(oauthDataProvider.getClient(CONSUMER_KEY)).thenReturn(client);
+        when(verifier.verifySignature(eq(request), any(AppOAuth1Config.class))).thenReturn(ACCESS_TOKEN);
+        when(oauthDataProvider.getProviderNoByAccessToken(ACCESS_TOKEN)).thenReturn(PROVIDER_NO);
+        when(providerDao.getProvider(PROVIDER_NO)).thenReturn(new Provider());
+        // The audit write blows up (e.g. the audit store is unavailable).
+        logActionMock.when(() -> LogAction.addLogSynchronous(any(OscarLog.class)))
+            .thenThrow(new RuntimeException("audit store unavailable"));
+
+        // The already-authenticated request must not be denied: no Fault propagates and the
+        // LoggedInInfo is still attached for downstream endpoints.
+        assertThatCode(() -> interceptor.handleMessage(message)).doesNotThrowAnyException();
+        verify(request).setAttribute(anyString(), any());
     }
 
     @Test

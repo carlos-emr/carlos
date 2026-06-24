@@ -206,12 +206,18 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
      * never logged.
      */
     private void auditAuthSuccess(String providerNo, String ip, String consumerKey) {
-        OscarLog oscarLog = new OscarLog();
-        oscarLog.setProviderNo(providerNo);
-        oscarLog.setAction(OAUTH_LOGIN_SUCCESS);
-        oscarLog.setIp(ip);
-        oscarLog.setContent(safeConsumerKey(consumerKey));
-        LogAction.addLogSynchronous(oscarLog);
+        // An audit-write hiccup must never deny an already-authenticated request, so guard the
+        // call locally instead of relying on LogAction's internal exception handling.
+        try {
+            OscarLog oscarLog = new OscarLog();
+            oscarLog.setProviderNo(providerNo);
+            oscarLog.setAction(OAUTH_LOGIN_SUCCESS);
+            oscarLog.setIp(ip);
+            oscarLog.setContent(safeConsumerKey(consumerKey));
+            LogAction.addLogSynchronous(oscarLog);
+        } catch (Exception e) {
+            logger.error("Failed to write OAUTH_LOGIN_SUCCESS audit entry", e);
+        }
     }
 
     /**
@@ -220,11 +226,17 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
      * is recorded because the request never resolved to an authenticated provider.
      */
     private void auditAuthFailure(String ip, String consumerKey) {
-        OscarLog oscarLog = new OscarLog();
-        oscarLog.setAction(OAUTH_LOGIN_FAILURE);
-        oscarLog.setIp(ip);
-        oscarLog.setContent(safeConsumerKey(consumerKey));
-        LogAction.addLogSynchronous(oscarLog);
+        // Guard the audit write so a logging failure cannot replace the intended 400/401 Fault
+        // with an unexpected error surfaced to the caller.
+        try {
+            OscarLog oscarLog = new OscarLog();
+            oscarLog.setAction(OAUTH_LOGIN_FAILURE);
+            oscarLog.setIp(ip);
+            oscarLog.setContent(safeConsumerKey(consumerKey));
+            LogAction.addLogSynchronous(oscarLog);
+        } catch (Exception e) {
+            logger.error("Failed to write OAUTH_LOGIN_FAILURE audit entry", e);
+        }
     }
 
     /**
