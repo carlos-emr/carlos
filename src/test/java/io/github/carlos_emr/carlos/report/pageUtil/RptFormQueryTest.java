@@ -36,9 +36,17 @@ import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
 class RptFormQueryTest {
 
     @Test
-    @DisplayName("should accept report table names with schema and aliases")
-    void shouldAcceptTableNames_withSchemaAndAliases() {
-        RptFormQuery.validateTableName("formBCAR f, schema.formBCNewBorn AS n");
+    @DisplayName("should accept report table names with schema")
+    void shouldAcceptTableNames_withSchema() {
+        RptFormQuery.validateTableName("schema.formBCAR");
+    }
+
+    @Test
+    @DisplayName("should reject report table aliases because columns are qualified later")
+    void shouldRejectTableAliases_whenColumnsAreQualifiedLater() {
+        assertThatThrownBy(() -> RptFormQuery.validateTableName("formBCAR f"))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("Invalid table name");
     }
 
     @Test

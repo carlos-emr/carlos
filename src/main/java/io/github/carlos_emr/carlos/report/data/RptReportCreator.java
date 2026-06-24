@@ -46,6 +46,7 @@ import org.apache.commons.lang3.time.DateFormatUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.login.DBHelp;
+import io.github.carlos_emr.carlos.util.SqlIdentifierValidator;
 
 /**
  * @author yilee18
@@ -63,9 +64,10 @@ public final class RptReportCreator {
         }
         while (rs.next()) {
             String caption = DBHelp.getString(rs, "caption");
-            ret.append((ret.length() < 8 ? " " : ", ") + DBHelp.getString(rs, "table_name") + "." + DBHelp.getString(rs, "name"));
+            ret.append((ret.length() < 8 ? " " : ", ") + validateReportIdentifier(DBHelp.getString(rs, "table_name"))
+                    + "." + validateReportIdentifier(DBHelp.getString(rs, "name")));
             if (caption != null && caption.length() > 0) {
-                ret.append(" as '" + DBHelp.getString(rs, "caption") + "'");
+                ret.append(" as " + quoteSqlStringLiteral(caption));
             }
         }
         rs.close();
@@ -112,6 +114,22 @@ public final class RptReportCreator {
         if (bDemo)
             ret = tableName + ".demographic_no=demographic.demographic_no";
         return ret;
+    }
+
+    static String validateReportIdentifier(String identifier) {
+        if (!SqlIdentifierValidator.isValidIdentifier(identifier)) {
+            MiscUtils.getLogger().error("Invalid report SQL identifier rejected");
+            throw new SecurityException("Invalid report SQL identifier");
+        }
+        return identifier;
+    }
+
+    static String quoteSqlStringLiteral(String value) {
+        if (value == null || value.indexOf('\0') >= 0) {
+            MiscUtils.getLogger().error("Invalid report SQL alias rejected");
+            throw new SecurityException("Invalid report SQL alias");
+        }
+        return "'" + value.replace("\\", "\\\\").replace("'", "''") + "'";
     }
 
     /**

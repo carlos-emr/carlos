@@ -109,6 +109,7 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
         DBPreparedHandlerParam[] params = new DBPreparedHandlerParam[100];
         String fieldNames[] = new String[17];
         String sSQL1 = "";
+        String tableName = validateSqlIdentifier(tableDef.getTableName());
         String sSQL = "select distinct ";
         boolean activeFieldExists = true;
         for (int i = 1; i <= 17; i++) {
@@ -116,12 +117,15 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
             for (int j = 0; j < fields.size(); j++) {
                 FieldDefValue fdef = (FieldDefValue) fields.get(j);
                 if (fdef.getGenericIdx() == i) {
-                    if (fdef.getFieldSQL().indexOf('(') >= 0) {
-                        sSQL += fdef.getFieldSQL() + " " + fdef.getFieldName() + ",";
-                        fieldNames[i - 1] = fdef.getFieldName();
+                    String fieldSql = validateFieldSql(fdef.getFieldSQL());
+                    if (fieldSql.indexOf('(') >= 0) {
+                        String fieldName = validateSqlAlias(fdef.getFieldName());
+                        sSQL += fieldSql + " " + fieldName + ",";
+                        fieldNames[i - 1] = fieldName;
                     } else {
-                        sSQL += "s." + fdef.getFieldSQL() + ",";
-                        fieldNames[i - 1] = fdef.getFieldSQL();
+                        String fieldName = validateSqlAlias(fieldSql);
+                        sSQL += "s." + fieldName + ",";
+                        fieldNames[i - 1] = fieldName;
                     }
                     ok = true;
                     break;
@@ -138,7 +142,7 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
             }
         }
         sSQL = sSQL.substring(0, sSQL.length() - 1);
-        sSQL += " from " + tableDef.getTableName();
+        sSQL += " from " + tableName;
         sSQL1 = Misc.replace(sSQL, "s.", "a.") + " a,";
         sSQL += " s where 1=1";
         int i = 0;
@@ -284,6 +288,14 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
             throw new IllegalArgumentException("Invalid SQL identifier in lookup configuration");
         }
         return identifier;
+    }
+
+    private String validateSqlAlias(String alias) {
+        if (!SqlIdentifierValidator.isValidIdentifier(alias) || alias.indexOf('.') >= 0) {
+            MiscUtils.getLogger().error("Invalid SQL alias rejected in lookup configuration");
+            throw new IllegalArgumentException("Invalid SQL alias in lookup configuration");
+        }
+        return alias;
     }
 
     /**

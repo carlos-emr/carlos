@@ -56,15 +56,16 @@ public class RptFormQuery {
     static String VARNAME_FORMAT = "startDate\\d|endDate\\d";
 
     /**
-     * Validates that a table name (or comma-separated list of table references)
-     * contains only supported safe SQL identifier forms. Prevents SQL injection
-     * via table name manipulation while allowing schema-qualified names and aliases.
+     * Validates that a report table name contains only supported safe SQL
+     * identifier forms. This report builder later qualifies columns with the
+     * table value, so aliases and comma-separated table references are rejected
+     * even though other legacy validators may accept them.
      *
      * @param tableName the table name string to validate
      * @throws SecurityException if the table name contains invalid characters
      */
     static void validateTableName(String tableName) {
-        if (!SqlIdentifierValidator.isValidTableReferenceList(tableName)) {
+        if (!SqlIdentifierValidator.isValidIdentifier(tableName)) {
             MiscUtils.getLogger().error("Invalid table name detected in report configuration");
             throw new SecurityException("Invalid table name in report configuration");
         }
@@ -110,7 +111,7 @@ public class RptFormQuery {
         // Security note (CodeQL java/Sqli #1240 false positive):
         // combinedWhere joins whereClause (ParameterizedSql with '?' placeholders and
         // bound params) with joinClause (table join conditions built from the
-        // regex-validated tableName). All user-supplied values are in subQueryParams
+        // deterministic-validator-checked tableName). All user-supplied values are in subQueryParams
         // as bind parameters — no user input is concatenated into the SQL string.
         // Build WHERE clause safely by joining non-empty predicates
         String joinClause = reportCreator.getWhereJoinClause(tableName, bDemo);
