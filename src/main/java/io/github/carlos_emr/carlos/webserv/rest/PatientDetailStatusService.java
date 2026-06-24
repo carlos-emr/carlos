@@ -45,6 +45,7 @@ import io.github.carlos_emr.carlos.integration.mchcv.HCValidationResult;
 import io.github.carlos_emr.carlos.integration.mchcv.HCValidator;
 import io.github.carlos_emr.carlos.integration.mchcv.OnlineHCValidator;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.webserv.rest.to.RestResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.PatientDetailStatusTo1;
@@ -61,6 +62,9 @@ public class PatientDetailStatusService extends AbstractServiceImpl {
     @Autowired
     private DemographicManager demographicManager;
 
+    @Autowired
+    private SecurityInfoManager securityInfoManager;
+
     private CarlosProperties oscarProperties = CarlosProperties.getInstance();
     private Logger logger = MiscUtils.getLogger();
 
@@ -68,6 +72,9 @@ public class PatientDetailStatusService extends AbstractServiceImpl {
     @GET
     @Path("/getStatus")
     public PatientDetailStatusTo1 getStatus(@QueryParam("demographicNo") Integer demographicNo) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_demographic", "r", null)) {
+            throw new RuntimeException("Access Denied");
+        }
         PatientDetailStatusTo1 status = new PatientDetailStatusTo1();
 
         //from carlos.properties
@@ -85,6 +92,9 @@ public class PatientDetailStatusService extends AbstractServiceImpl {
     @POST
     @Path("/validateHC")
     public HCValidationResult validateHC(ValidateHCRequestTo1 request) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_demographic", "r", null)) {
+            throw new RuntimeException("Access Denied");
+        }
         if (request == null || request.getHin() == null || request.getHin().trim().isEmpty()) {
             HCValidationResult error = new HCValidationResult();
             error.setResponseCode(HCValidator.NOT_VALID_RESPONSE_CODE);
@@ -121,6 +131,9 @@ public class PatientDetailStatusService extends AbstractServiceImpl {
     @GET
     @Path("/isUniqueHC")
     public RestResponse<String> isUniqueHC(@QueryParam("hin") String healthCardNo, @QueryParam("demographicNo") Integer demographicNo) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_demographic", "r", null)) {
+            return RestResponse.errorResponse("Access Denied");
+        }
         if (healthCardNo != null && !healthCardNo.trim().isEmpty() && demographicNo != null) {
             List<Demographic> demos = demographicManager.searchByHealthCard(getLoggedInInfo(), healthCardNo);
             if (demos != null) {

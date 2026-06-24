@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.commn.dao.DxresearchDAO;
 import io.github.carlos_emr.carlos.commn.dao.QuickListDao;
 import io.github.carlos_emr.carlos.commn.model.Dxresearch;
 import io.github.carlos_emr.carlos.commn.model.QuickList;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DiagnosisTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DxQuickList;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.IssueTo1;
@@ -66,10 +67,16 @@ public class DiseaseRegistryService extends AbstractServiceImpl {
     @Qualifier("IssueDAO")
     private IssueDAO issueDao;
 
+    @Autowired
+    private SecurityInfoManager securityInfoManager;
+
     @GET
     @Path("/quickLists")
     @Produces("application/json")
     public List<DxQuickList> getQuickLists() {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_newCasemgmt.DxRegistry", "r", null)) {
+            throw new RuntimeException("Access Denied");
+        }
 
         Map<String, DxQuickList> quickListMap = new HashMap<String, DxQuickList>();
 
@@ -103,6 +110,9 @@ public class DiseaseRegistryService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public Response findLikeIssues(DiagnosisTo1 dx) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_newCasemgmt.DxRegistry", "r", null)) {
+            return Response.status(Response.Status.FORBIDDEN).build();
+        }
         Issue issue = issueDao.findIssueByTypeAndCode(dx.getCodingSystem(), dx.getCode());
         IssueTo1 returnIssue = new IssueTo1();
         returnIssue.setCode(issue.getCode());
@@ -121,6 +131,9 @@ public class DiseaseRegistryService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public Response addToDiseaseRegistry(@PathParam("demographicNo") Integer demographicNo, IssueTo1 issue) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_newCasemgmt.DxRegistry", "w", null)) {
+            return Response.status(Response.Status.FORBIDDEN).build();
+        }
         boolean activeEntryExists = dxresearchDao.activeEntryExists(demographicNo, issue.getType(), issue.getCode());
 
         if (!activeEntryExists) {
@@ -143,6 +156,9 @@ public class DiseaseRegistryService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public Response getDiseaseRegistry(@QueryParam("demographicNo") Integer demographicNo) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_newCasemgmt.DxRegistry", "r", null)) {
+            return Response.status(Response.Status.FORBIDDEN).build();
+        }
         List<Dxresearch> dxresearchList = dxresearchDao.getByDemographicNo(demographicNo);
         return Response.ok(dxresearchList).build();
     }
