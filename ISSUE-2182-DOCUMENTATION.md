@@ -3,7 +3,7 @@
 **Contribution Number:** 2182  
 **Student:** Hana Ahmed 
 **Issue:** https://github.com/carlos-emr/carlos/issues/2182#event-25727024596
-**Status:** Phase III
+**Status:** Phase IV Complete
 
 ---
 
@@ -111,9 +111,9 @@ Evaluate: Run the smoke test again - warning should be gone or changed, director
 
 ### Unit Tests
 
-- [ ] Test case 1: [Description]
-- [ ] Test case 2: [Description]
-- [ ] Test case 3: [Description]
+- [ ] Test: verify directory is created when it does not exist
+- [ ] Test: verify deployment proceeds after directory is created
+- [ ] Test: verify error is logged when mkdirs() fails
 
 ### Integration Tests
 
@@ -139,6 +139,10 @@ Just getting started - cloned the fork, reading through issues, trying to locate
 
 Located EFormAssetDeployer.java as the source of the bug. Replaced the early return in the if (!targetDir.isDirectory()) block with a mkdirs() call that auto-creates the directory. Committed with DCO sign-off and pushed to working branch.
 
+### Week [4] Progress
+
+I have sent a pr request with the changes I implemented for the issue to be solved and waiting for the maintainer to reply and give me feedback
+
 ### Code Changes
 
 - **Files modified:** src/main/java/io/github/carlos_emr/carlos/eform/EFormAssetDeployer.java
@@ -152,13 +156,15 @@ Located EFormAssetDeployer.java as the source of the bug. Replaced the early ret
 PR Link:https://github.com/carlos-emr/carlos/pull/2971
 Status: Submitted — awaiting maintainer review
 
-PR Description: Will adapt this template once PR is ready
+PR Description:I fixed a startup bug where EFormAssetDeployer.java would log a warning 
+and skip deploying eForm assets if the images directory didn't exist. 
+The fix auto-creates the directory using mkdirs() before proceeding.
 
-Maintainer Feedback:
+Maintainer Feedback: Gemini bot suggested a race condition improvement: changing 
+!targetDir.mkdirs() to !targetDir.mkdirs() && !targetDir.isDirectory()
+Still Awaiting review from th maintainer.
 
-Pending - no reply to my comment on issue #2182 yet
-
-Status: Researching / Locating files
+Status:Awaiting Review
 
 ---
 
@@ -182,5 +188,5 @@ Maybe ask for file location earlier instead of guessing
 ## Resources Used
 
 Issue 2182 on carlos-emr/carlos
-
-CARLOS README and CONTRIBUTING.md (need to read more thoroughly)
+CARLOS README and CONTRIBUTING.md 
+Claude Ai 
