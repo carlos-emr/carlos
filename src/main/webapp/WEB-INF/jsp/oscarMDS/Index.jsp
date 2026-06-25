@@ -396,6 +396,8 @@ MDS.index.btnSearch"/>"
             src="${pageContext.servletContext.contextPath}/js/jquery.tablesorter.widgets.js"></script>
     <script type="text/javascript"
             src="${pageContext.servletContext.contextPath}/js/demographicProviderAutocomplete.js"></script>
+    <script type="text/javascript"
+            src="${pageContext.servletContext.contextPath}/js/carlosAutocomplete.js"></script>
 
     <script type="text/javascript" src="${pageContext.servletContext.contextPath}/js/global.js"></script>
     <script type="text/javascript" src="${pageContext.servletContext.contextPath}/share/javascript/Oscar.js"></script>

@@ -175,7 +175,7 @@ public final class LegacyJdbcQuery {
         PreparedStatement ps = null;
         try {
             // codeql[java/sql-injection] -- TrustedSql is constructed only after legacy SELECT validation; values are bound below.
-            ps = connection.prepareStatement(sql.sql, ResultSet.TYPE_SCROLL_SENSITIVE,
+            ps = connection.prepareStatement(sql.sql, ResultSet.TYPE_SCROLL_SENSITIVE, // nosemgrep: java.lang.security.audit.formatted-sql-string-deepsemgrep.formatted-sql-string-deepsemgrep -- TrustedSql is constructed only after legacy SELECT validation; values are bound below
                     updatable ? ResultSet.CONCUR_UPDATABLE : ResultSet.CONCUR_READ_ONLY);
             bindParams(ps, params);
             ResultSet rs = ps.executeQuery(); // NOSONAR javasecurity:S3649 -- parameterized query boundary
@@ -193,7 +193,7 @@ public final class LegacyJdbcQuery {
         PreparedStatement ps = null;
         try {
             // codeql[java/sql-injection] -- Raw legacy overload is restricted to caller-owned SQL shape; request-driven SQL uses TrustedSql or ParameterizedSql.
-            ps = connection.prepareStatement(sql, ResultSet.TYPE_SCROLL_SENSITIVE,
+            ps = connection.prepareStatement(sql, ResultSet.TYPE_SCROLL_SENSITIVE, // nosemgrep: java.lang.security.audit.formatted-sql-string-deepsemgrep.formatted-sql-string-deepsemgrep -- raw legacy overload is restricted to caller-owned SQL shape; values are bound below
                     updatable ? ResultSet.CONCUR_UPDATABLE : ResultSet.CONCUR_READ_ONLY);
             bindParams(ps, params);
             ResultSet rs = ps.executeQuery(); // NOSONAR javasecurity:S3649 -- parameterized query boundary

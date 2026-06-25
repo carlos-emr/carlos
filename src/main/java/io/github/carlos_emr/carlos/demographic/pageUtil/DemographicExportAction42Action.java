@@ -377,7 +377,8 @@ public class DemographicExportAction42Action extends ActionSupport {
 
         switch (template) {
             case CMS4:
-                if (!new File(tmpDir).mkdir() || !Util.checkDir(tmpDir)) {
+                File exportDirectory = createTemporaryExportDirectory(tmpDir);
+                if (exportDirectory == null) {
                     logger.debug("Error! Cannot write to TMP_DIR - Check carlos.properties or dir permissions. (" + tmpDir + ")");
                 } else {
                     XmlOptions options = new XmlOptions();
@@ -2089,9 +2090,7 @@ public class DemographicExportAction42Action extends ActionSupport {
 
                                 File f;
                                 try {
-                                    f = PathValidationUtils.validateExistingPath(
-                                            new File(edoc.getFilePath()),
-                                            new File(oscarProperties.getProperty("DOCUMENT_DIR")));
+                                    f = validateExportDocument(edoc);
                                 } catch (SecurityException e) {
                                     exportError.add("Error! Document \"" + Encode.forHtml(edoc.getFileName()) + "\" path is invalid or outside the allowed directory. Skipping.");
                                     logger.error("Path traversal attempt on document export: {}", Encode.forJava(edoc.getFilePath()));
@@ -2112,16 +2111,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     rpr.setFormat(cdsDt.ReportFormat.TEXT);
 
                                     cdsDt.ReportContent rpc = rpr.addNewContent();
-                                    InputStream in = new FileInputStream(f);
-                                    byte[] b = new byte[(int) f.length()];
-
-                                    int offset = 0, numRead = 0;
-                                    while ((numRead = in.read(b, offset, b.length - offset)) >= 0
-                                            && offset < b.length) offset += numRead;
-
-                                    if (offset < b.length)
-                                        throw new IOException("Could not completely read file " + f.getName());
-                                    in.close();
+                                    byte[] b = readExportDocumentBytes(f);
                                     if (edoc.getContentType() != null && edoc.getContentType().startsWith("text")) {
                                         String str = new String(b);
                                         rpc.setTextContent(str);
@@ -2194,30 +2184,22 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     String reportFile = hrmDoc.getReportFile();
                                     if (StringUtils.empty(reportFile)) continue;
 
-                                    File documentDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
-                                    File hrmFile = new File(reportFile);
-
-                                    //check the DOCUMENT_DIR
-                                    if (!hrmFile.exists()) {
-                                        reportFile = documentDir.getPath() + File.separator + reportFile;
-                                        hrmFile = new File(reportFile);
-                                    }
-
-                                    if (!hrmFile.exists()) {
-                                        exportError.add("Error! HRM report file '" + reportFile + "' does not exist! HRM report not exported.");
-                                        logger.error("Error! HRM report file '" + reportFile + "' does not exist! HRM report not exported.");
-                                        continue;
-                                    }
-
+                                    File hrmFile;
                                     try {
-                                        hrmFile = PathValidationUtils.validateExistingPath(hrmFile, documentDir);
+                                        hrmFile = resolveHrmReportFile(reportFile);
                                     } catch (SecurityException e) {
                                         exportError.add("Error! HRM report file '" + Encode.forHtml(reportFile) + "' is outside the allowed directory. HRM report not exported.");
                                         logger.error("HRM report file path traversal attempt: {}", Encode.forJava(reportFile));
                                         continue;
                                     }
 
-                                    ReadHRMFile hrm = new ReadHRMFile(reportFile);
+                                    if (hrmFile == null) {
+                                        exportError.add("Error! HRM report file '" + reportFile + "' does not exist! HRM report not exported.");
+                                        logger.error("Error! HRM report file '" + reportFile + "' does not exist! HRM report not exported.");
+                                        continue;
+                                    }
+
+                                    ReadHRMFile hrm = new ReadHRMFile(hrmFile.getPath());
                                     for (int i = 0; i < hrm.getReportsReceivedTotal(); i++) {
                                         Reports rpr = patientRec.addNewReports();
 
@@ -2610,7 +2592,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                         //export file to temp directory
                         int fileCountBefore = files.size();
                         try {
-                            File directory = new File(tmpDir);
+                            File directory = exportDirectory;
                             if (!directory.exists()) {
                                 //this would never happen
                                 throw new Exception("Temporary Export Directory does not exist!");
@@ -2625,7 +2607,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                             expFile += "_" + demographic.getDateOfBirth() + demographic.getMonthOfBirth() + demographic.getYearOfBirth();
                             // Compute both values before adding to either list so that if
                             // getProviderName() throws, neither list is modified (atomic add).
-                            File validatedFile = PathValidationUtils.validatePath(expFile + ".xml", directory);
+                            File validatedFile = validateExportFile(expFile + ".xml", directory);
                             String providerName = getProviderName(demographic.getProviderNo());
                             files.add(validatedFile);
                             dirs.add(providerName);
@@ -2639,10 +2621,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                             continue;
                         }
                         try {
-                            FileWriter fw = new FileWriter(files.get(files.size() - 1));
-                            omdCdsDoc.save(fw, options);
-                            fw.flush();
-                            fw.close();
+                            saveExportFile(omdCdsDoc, options, files.get(files.size() - 1));
 
                             //omdCdsDoc.save(files.get(files.size()-1), options);
 
@@ -2696,8 +2675,7 @@ public class DemographicExportAction42Action extends ActionSupport {
 //
 //	if (setName!=null) zipName = "export_"+setName.replace(" ","")+"_"+UtilDateUtilities.getToday("yyyyMMddHHmmss")+".pgp";
                     try {
-                        zipName = PathValidationUtils.validateGeneratedFileName(zipName);
-                        zipName = PathValidationUtils.validateUserFilePath(zipName, new File(tmpDir)).getName();
+                        zipName = validateExportZipName(zipName, exportDirectory);
                     } catch (FileValidationException e) {
                         logger.warn("Rejected invalid demographic export zip filename");
                         exportError.add("Error! Invalid export zip filename.");
@@ -2708,7 +2686,15 @@ public class DemographicExportAction42Action extends ActionSupport {
                         break;
                     }
                     if (!Util.zipFiles(files, dirs, zipName, tmpDir)) {
-                        logger.debug("Error! Failed to zip export files");
+                        // A failed zip must STOP the export: otherwise the code below encrypts/downloads a
+                        // missing/broken file while reporting success to the user.
+                        logger.error("Error! Failed to zip export files");
+                        exportError.add("Error! Failed to create the export zip.");
+                        setExportStatusHeader(response, "error");
+                        ffwd = "fail";
+                        Util.cleanFiles(files);
+                        Util.cleanFile(tmpDir);
+                        break;
                     }
 
                     if (pgpReady.equals("Yes")) {
@@ -2927,6 +2913,80 @@ public class DemographicExportAction42Action extends ActionSupport {
         return fileStreamed ? null : ffwd;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: temporary export directory path is derived from trusted TMP_DIR configuration plus a random suffix
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "temporary export directory path is derived from trusted TMP_DIR configuration plus a random suffix")
+    private File createTemporaryExportDirectory(String tmpDir) throws Exception {
+        File directory = new File(tmpDir);
+        if (!directory.mkdir() || !Util.checkDir(tmpDir)) {
+            return null;
+        }
+        return directory;
+    }
+
+    // FindSecBugs PATH_TRAVERSAL_IN: document file path is validated against DOCUMENT_DIR before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "document file path is validated against DOCUMENT_DIR before use")
+    private File validateExportDocument(EDoc edoc) {
+        return PathValidationUtils.validateExistingPath(
+                new File(edoc.getFilePath()),
+                new File(oscarProperties.getProperty("DOCUMENT_DIR")));
+    }
+
+    // FindSecBugs PATH_TRAVERSAL_IN: FileInputStream reads only from a previously PathValidationUtils-validated document path
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "FileInputStream reads only from a previously PathValidationUtils-validated document path")
+    private byte[] readExportDocumentBytes(File file) throws IOException {
+        byte[] bytes = new byte[(int) file.length()];
+        try (InputStream in = new FileInputStream(file)) {
+            int offset = 0;
+            int numRead;
+            while ((numRead = in.read(bytes, offset, bytes.length - offset)) >= 0
+                    && offset < bytes.length) {
+                offset += numRead;
+            }
+            if (offset < bytes.length) {
+                throw new IOException("Could not completely read file " + file.getName());
+            }
+        }
+        return bytes;
+    }
+
+    // FindSecBugs PATH_TRAVERSAL_IN: HRM report path is validated against DOCUMENT_DIR before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "HRM report path is validated against DOCUMENT_DIR before use")
+    private File resolveHrmReportFile(String reportFile) {
+        File documentDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
+        File hrmFile = new File(reportFile);
+        if (!hrmFile.exists()) {
+            hrmFile = new File(documentDir, reportFile);
+        }
+        if (!hrmFile.exists()) {
+            return null;
+        }
+        return PathValidationUtils.validateExistingPath(hrmFile, documentDir);
+    }
+
+    // FindSecBugs PATH_TRAVERSAL_IN: generated export file name is validated inside the temporary export directory before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "generated export file name is validated inside the temporary export directory before use")
+    private File validateExportFile(String generatedFileName, File directory) {
+        return PathValidationUtils.validatePath(generatedFileName, directory);
+    }
+
+    // FindSecBugs PATH_TRAVERSAL_IN: FileWriter writes only to a previously PathValidationUtils-validated export path
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "FileWriter writes only to a previously PathValidationUtils-validated export path")
+    private void saveExportFile(OmdCdsDocument omdCdsDoc, XmlOptions options, File exportFile) throws IOException {
+        try (FileWriter fw = new FileWriter(exportFile)) {
+            omdCdsDoc.save(fw, options);
+            fw.flush();
+        }
+    }
+
+    // FindSecBugs PATH_TRAVERSAL_IN: generated zip file name is validated inside the temporary export directory before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "generated zip file name is validated inside the temporary export directory before use")
+    private String validateExportZipName(String zipName, File exportDirectory) {
+        String safeZipName = PathValidationUtils.validateGeneratedFileName(zipName);
+        return PathValidationUtils.validateUserFilePath(safeZipName, exportDirectory).getName();
+    }
+
+    // FindSecBugs PATH_TRAVERSAL_IN: ReadMe path is generated inside the previously validated temporary export directory
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "ReadMe path is generated inside the previously validated temporary export directory")
     File makeReadMe(ArrayList<String> dirs, ArrayList<File> fs) throws IOException {
         ClinicData clinicData = new ClinicData();
         File readMe = new File(fs.get(0).getParentFile(), "ReadMe.txt");
@@ -2984,6 +3044,8 @@ public class DemographicExportAction42Action extends ActionSupport {
         return readMe;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: export log path is generated inside the previously validated temporary export directory
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "export log path is generated inside the previously validated temporary export directory")
     File makeExportLog(File dir) throws IOException {
         String[][] keyword = new String[2][16];
         keyword[0][0] = PATIENTID;

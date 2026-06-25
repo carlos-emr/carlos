@@ -70,6 +70,7 @@ class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
+    private AutoCloseable mockitoCloseable;
 
     @Mock private SecurityInfoManager mockSecurityInfoManager;
     @Mock private DigitalSignatureManager mockDigitalSignatureManager;
@@ -83,7 +84,7 @@ class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void setUp() {
-        MockitoAnnotations.openMocks(this);
+        mockitoCloseable = MockitoAnnotations.openMocks(this);
 
         // Fresh alphanumeric key per test so parallel runs don't collide on /tmp.
         signatureKey = VALID_KEY_PREFIX + UUID.randomUUID().toString().replace("-", "");
@@ -110,12 +111,15 @@ class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
     }
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws Exception {
         if (loggedInInfoMock != null) loggedInInfoMock.close();
         if (servletActionContextMock != null) servletActionContextMock.close();
         if (signatureKey != null) {
             new File(DigitalSignatureUtils.getTempFilePath(signatureKey)).delete();
         }
+        // Release the inline mock-maker state from openMocks(this); leaving it open across every
+        // test in the class accumulates registrations and corrupts later mockStatic stubbing.
+        if (mockitoCloseable != null) mockitoCloseable.close();
     }
 
     @Nested
@@ -239,7 +243,11 @@ class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
         void shouldReturn400_whenPathValidationThrows() throws Exception {
             mockRequest.setParameter(DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY, signatureKey);
 
-            try (MockedStatic<PathValidationUtils> pathValidationUtilsMock = mockStatic(PathValidationUtils.class)) {
+            // CALLS_REAL_METHODS: keep getTempFilePath's real PathValidationUtils calls working and
+            // override only validateExistingPath. A plain mockStatic stubs every method to null,
+            // so getTempFilePath NPEs before the validateExistingPath call this test targets - and
+            // whether that null surfaces is order-sensitive under the inline mock maker.
+            try (MockedStatic<PathValidationUtils> pathValidationUtilsMock = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS)) {
                 pathValidationUtilsMock.when(() -> PathValidationUtils.validateExistingPath(any(File.class), any(File.class)))
                         .thenThrow(new SecurityException("simulated traversal"));
 
@@ -465,7 +473,12 @@ class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
                     any(LoggedInInfo.class), eq(signatureKey), eq(42), eq(ModuleType.PRESCRIPTION)))
                     .thenReturn(saved);
 
-            try (MockedStatic<Encode> encodeMock = mockStatic(Encode.class)) {
+            // CALLS_REAL_METHODS: the action's logging path (LogSafe.sanitize -> Encode.forJava)
+            // legitimately calls other Encode methods. A blanket mockStatic nulls them out and NPEs
+            // inside LogSafe, so override only forHtmlAttribute and let the rest run for real. The
+            // output assertion below already proves forHtmlAttribute("777") was called (its stubbed
+            // value appears verbatim); a separate verify lambda would re-invoke the real method.
+            try (MockedStatic<Encode> encodeMock = mockStatic(Encode.class, CALLS_REAL_METHODS)) {
                 encodeMock.when(() -> Encode.forHtmlAttribute("777")).thenReturn("encoded-777");
 
                 action.execute();
@@ -474,7 +487,6 @@ class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
                 assertThat(mockResponse.getContentType()).startsWith("text/html");
                 assertThat(mockResponse.getContentAsString()).isEqualTo(
                         "<input type=\"hidden\" name=\"signatureId\" value=\"encoded-777\"/>");
-                encodeMock.verify(() -> Encode.forHtmlAttribute("777"));
             }
         }
     }

@@ -14,6 +14,8 @@ package io.github.carlos_emr.carlos.demographic.gate;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -45,6 +47,9 @@ public final class ViewPrintDemoChartLabel2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
+        String demographicNo = request.getParameter("demographic_no");
+        LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.READ, LogConst.CON_DEMOGRAPHIC,
+                demographicNo, request.getRemoteAddr(), demographicNo);
 
         return SUCCESS;
     }
