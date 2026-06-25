@@ -38,6 +38,7 @@ import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -69,6 +70,10 @@ public class EConsult2Action extends ActionSupport {
     // Fixed eConsult SSO return endpoint on this CARLOS instance.
     private static final String ECONSULT_SSO_LOGIN_PATH = "econsultSSOLogin";
 
+    // Emit the "eConsult configured but carlosBaseUrl missing" warning at most once per JVM
+    // (this Struts action is instantiated per request, so an instance flag would spam logs).
+    private static final AtomicBoolean ECONSULT_BASE_URL_WARNING_EMITTED = new AtomicBoolean(false);
+
     private final CarlosProperties oscarProperties = CarlosProperties.getInstance();
     private final String frontendEconsultUrl = oscarProperties.getProperty("frontendEconsultUrl");
     private final String backendEconsultUrl = oscarProperties.getProperty("backendEconsultUrl");
@@ -81,6 +86,8 @@ public class EConsult2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", "w", null)) {
             throw new SecurityException("missing required sec object (_con)");
         }
+
+        warnIfEconsultBaseUrlMissing();
 
         if ("login".equals(request.getParameter("method"))) {
             return login();
@@ -175,6 +182,35 @@ public class EConsult2Action extends ActionSupport {
         }
 
         return null;
+    }
+
+    /**
+     * Logs a one-time warning when eConsult is configured (a backend eConsult URL is set) but
+     * the trusted {@code carlosBaseUrl} is missing/blank, so an operator discovers the new
+     * requirement from the logs rather than only when a user's SSO login fails closed.
+     */
+    private void warnIfEconsultBaseUrlMissing() {
+        if (econsultBaseUrlMisconfigured(backendEconsultUrl, carlosBaseUrl)
+                && ECONSULT_BASE_URL_WARNING_EMITTED.compareAndSet(false, true)) {
+            MiscUtils.getLogger().warn("eConsult is configured (backendEconsultUrl set) but 'carlosBaseUrl' is missing or blank; "
+                    + "eConsult SSO login will fail closed until carlosBaseUrl is set to this instance's public base URL (scheme://host[:port]).");
+        }
+    }
+
+    /**
+     * Returns whether eConsult is in use (a backend eConsult URL is configured) while no
+     * trusted public base URL is configured for building the SSO return URL.
+     *
+     * @param backendEconsultUrl the configured {@code backendEconsultUrl} property value
+     * @param carlosBaseUrl      the configured {@code carlosBaseUrl} property value
+     * @return {@code true} when eConsult is configured but {@code carlosBaseUrl} is missing or blank
+     */
+    static boolean econsultBaseUrlMisconfigured(String backendEconsultUrl, String carlosBaseUrl) {
+        return !isBlank(backendEconsultUrl) && isBlank(carlosBaseUrl);
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 
     /**

@@ -158,4 +158,20 @@ class EConsult2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(EConsult2Action.buildSsoReturnUrl("https://[::1]", "/carlos")).isEqualTo("https://[::1]/carlos/econsultSSOLogin");
         assertThat(EConsult2Action.buildSsoReturnUrl("https://[2001:db8::1]:9443", "/carlos")).isEqualTo("https://[2001:db8::1]:9443/carlos/econsultSSOLogin");
     }
+
+    @Test
+    @DisplayName("Flags misconfiguration when eConsult is set but the base URL is missing")
+    void shouldReportMisconfigured_whenEconsultConfiguredWithoutBaseUrl() {
+        assertThat(EConsult2Action.econsultBaseUrlMisconfigured("https://econsult.example.com", null)).isTrue();
+        assertThat(EConsult2Action.econsultBaseUrlMisconfigured("https://econsult.example.com", "")).isTrue();
+        assertThat(EConsult2Action.econsultBaseUrlMisconfigured("https://econsult.example.com", "   ")).isTrue();
+    }
+
+    @Test
+    @DisplayName("Does not flag misconfiguration when the base URL is set or eConsult is unused")
+    void shouldNotReportMisconfigured_whenBaseUrlPresentOrEconsultUnused() {
+        assertThat(EConsult2Action.econsultBaseUrlMisconfigured("https://econsult.example.com", "https://emr.example.com")).isFalse();
+        assertThat(EConsult2Action.econsultBaseUrlMisconfigured(null, null)).isFalse();
+        assertThat(EConsult2Action.econsultBaseUrlMisconfigured("", "")).isFalse();
+    }
 }
