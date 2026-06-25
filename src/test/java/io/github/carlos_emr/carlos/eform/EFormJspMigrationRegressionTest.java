@@ -179,10 +179,10 @@ class EFormJspMigrationRegressionTest {
 
         Pattern createTogglePattern = Pattern.compile(
             "<li class=\"nav-item dropdown\">\\s*"
-                + "<button[^>]*type=\"button\"[^>]*>\\s*Create eForm",
+                + "<button[^>]*type=\"button\"[^>]*>\\s*(?:<fmt:setBundle[^>]*/>)?\\s*<fmt:message key=\"eform.create\"/>",
             Pattern.DOTALL);
         Pattern toggleClassPattern = Pattern.compile(
-            "<button[^>]*class=\"(?=[^\"]*\\bcontentLink\\b)(?=[^\"]*\\bnav-link\\b)(?=[^\"]*\\bdropdown-toggle\\b)[^\"]*\"[^>]*>\\s*Create eForm",
+            "<button[^>]*class=\"(?=[^\"]*\\bcontentLink\\b)(?=[^\"]*\\bnav-link\\b)(?=[^\"]*\\bdropdown-toggle\\b)[^\"]*\"[^>]*>\\s*(?:<fmt:setBundle[^>]*/>)?\\s*<fmt:message key=\"eform.create\"/>",
             Pattern.DOTALL);
 
         assertThat(createTogglePattern.matcher(nav).find()).isTrue();
