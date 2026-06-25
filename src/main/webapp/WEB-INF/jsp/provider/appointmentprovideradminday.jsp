@@ -159,19 +159,16 @@
     private HashMap<String, String> siteBgColor = new HashMap<String, String>();
     private HashMap<String, String> CurrentSiteMap = new HashMap<String, String>();
 
-    private void appendTooltipLine(StringBuilder tooltip, String label, String value) {
-        if (value == null) {
-            return;
-        }
-        String trimmedValue = value.trim();
-        if (trimmedValue.isEmpty() || "null".equalsIgnoreCase(trimmedValue)) {
-            return;
-        }
-        tooltip.append("&#013;&#010;")
-                .append(SafeEncode.forHtmlAttribute(label))
-                .append(": ")
-                .append(SafeEncode.forHtmlAttribute(trimmedValue));
-    }
+   private void appendTooltipLine(StringBuilder tooltip, String labelHtml, String value) {
+    if (value == null) return;
+    String trimmedValue = value.trim(); 
+    if (trimmedValue.isEmpty() || "null".equalsIgnoreCase(trimmedValue)) return;
+    tooltip.append("&#013;&#010;")
+      .append(labelHtml) // <-- DO NOT escape; it's icon HTML you generate
+      .append(" ")
+      .append(SafeEncode.forHtmlAttribute(trimmedValue))
+      .append("<br>"); 
+  }                                                                                                                                                                                                                                                                                                                                                                                                                   private static String faIcon(String className) {                                                                                                                                                              return "<i class='fa-solid " + className + " me-2' aria-hidden='true'></i>";                                                                                                                          }              
 %>
 <%
     if (bMultisites) {
@@ -469,6 +466,7 @@
     <head>
         <title><%=WordUtils.capitalize(userlastname + ", " + org.apache.commons.lang3.StringUtils.substring(userfirstname, 0, 1)) + "-"%><fmt:message key="provider.appointmentProviderAdminDay.title"/></title>
         <script type="text/javascript" src="${pageContext.servletContext.contextPath}/js/global.js"></script>
+        <script type="text/javascript" src="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script> 
         <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <link rel="stylesheet"
               href="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css"
@@ -2016,18 +2014,25 @@
                                                                   StringBuilder appointmentTooltipSummaryBuilder = new StringBuilder();
                                                                   appointmentTooltipSummaryBuilder.append(SafeEncode.forHtmlAttribute(timeRange))
                                                                           .append(" ")
-                                                                          .append(SafeEncode.forHtmlAttribute(name));
-                                                                  appendTooltipLine(appointmentTooltipSummaryBuilder, "Reason", reasonCodeName);
+                                                                          .append(SafeEncode.forHtmlAttribute(name))
+																		  .append(" ")
+																		  .append(SafeEncode.forHtmlAttribute(reasonCodeName));
+
                                                                   String appointmentTooltipSummary = appointmentTooltipSummaryBuilder.toString();
-                                                                  StringBuilder appointmentTooltipFullBuilder = new StringBuilder(appointmentTooltipSummary);
-                                                                  appendTooltipLine(appointmentTooltipFullBuilder, "Type", type);
-                                                                  appendTooltipLine(appointmentTooltipFullBuilder, "Appointment notes", notes);
-                                                                  appendTooltipLine(appointmentTooltipFullBuilder, "Ticklers", tickler_note);
-                                                                  appendTooltipLine(appointmentTooltipFullBuilder, "Demographic alerts", demographicAlert);
-                                                                  appendTooltipLine(appointmentTooltipFullBuilder, "Demographic notes", demographicNotes);
-                                                                  appendTooltipLine(appointmentTooltipFullBuilder, "Prevention alerts", preventionWarning);
+
+                                                                  StringBuilder appointmentTooltipFullBuilder = new StringBuilder();
+                                                                  appendTooltipLine(appointmentTooltipFullBuilder, "<i class='fa-solid fa-person' aria-hidden='true'></i>", name);
+                                                                  appendTooltipLine(appointmentTooltipFullBuilder, "<i class='fa-regular fa-clock' aria-hidden='true'></i>", timeRange);
+                                                                  appendTooltipLine(appointmentTooltipFullBuilder, "<i class='fa-regular fa-user me-2' aria-hidden='true'></i>", type);
+                                                                  appendTooltipLine(appointmentTooltipFullBuilder, "<i class='fa-regular fa-circle-question' aria-hidden='true'></i>", reasonCodeName);
+                                                                  appendTooltipLine(appointmentTooltipFullBuilder, "<i class='fa-regular fa-note-sticky' aria-hidden='true'></i>", notes);
+                                                                  appendTooltipLine(appointmentTooltipFullBuilder, "<i class='fa-solid fa-triangle-exclamation' aria-hidden='true'></i>", tickler_note);
+                                                                  appendTooltipLine(appointmentTooltipFullBuilder, "<i class='fa-solid fa-circle-exclamation me-2' aria-hidden='true'></i>", demographicAlert);
+                                                                  appendTooltipLine(appointmentTooltipFullBuilder, "<i class='fa-regular fa-comment' aria-hidden='true'></i>", demographicNotes);
+                                                                  appendTooltipLine(appointmentTooltipFullBuilder, "<i class='fa-regular fa-bell' aria-hidden='true'></i>", preventionWarning);
+
                                                                   String appointmentTooltipFull = appointmentTooltipFullBuilder.toString();
-                                                                  boolean showTooltip = CarlosProperties.getInstance().getBooleanProperty("SHOW_APPT_REASON_TOOLTIP", "yes");
+                                                                  boolean showTooltip = !CarlosProperties.getInstance().getBooleanProperty("SHOW_APPT_REASON_TOOLTIP", "no");
 
                                                                   bFirstTimeRs=true;
                                                             as.setApptStatus(status);
@@ -2142,7 +2147,12 @@
                                                            <c:set var="__enc_12"><carlos:encode value='<%= String.valueOf(day) %>' context="uriComponent"/></c:set>
                                                            <c:set var="__enc_13"><carlos:encode value='<%= iS+":"+iSm %>' context="uriComponent"/></c:set>
                                                            onClick="popupPage(600,780,'<%= request.getContextPath() %>/appointment/editappointment?appointment_no=<carlos:encode value='${__enc_8}' context="javaScriptAttribute"/>&provider_no=<carlos:encode value='${__enc_9}' context="javaScriptAttribute"/>&year=<carlos:encode value='${__enc_10}' context="javaScriptAttribute"/>&month=<carlos:encode value='${__enc_11}' context="javaScriptAttribute"/>&day=<carlos:encode value='${__enc_12}' context="javaScriptAttribute"/>&start_time=<carlos:encode value='${__enc_13}' context="javaScriptAttribute"/>&demographic_no=0&dboperation=search');return false;"
-                                                           <%= showTooltip ? "data-title-full=\"" + appointmentTooltipFull + "\" data-title-short=\"" + appointmentTooltipSummary + "\" title=\"" + appointmentTooltipFull + "\"" : "" %>>
+                                                            <%= showTooltip
+                                                            ? "data-bs-toggle=\"tooltip\""
+                                                              + " data-title-full=\"" + SafeEncode.forHtmlAttribute(appointmentTooltipFull) + "\""
+                                                              + " data-title-short=\"" + SafeEncode.forHtmlAttribute(appointmentTooltipSummary) + "\""
+                                                              + " title=\"" + SafeEncode.forHtmlAttribute(appointmentTooltipFull) + "\""
+                                                            : "" %>>
                                                             <span>
                                                             .<%=(view == 0 && numAvailProvider != 1) ? (name.length() > len ? name.substring(0, len).toUpperCase() : SafeEncode.forHtmlContent(name.toUpperCase())) : SafeEncode.forHtmlContent(name.toUpperCase())%>
                                                             </span>
@@ -2237,7 +2247,12 @@
                                                            <c:set var="__enc_19"><carlos:encode value='<%= iS+":"+iSm %>' context="uriComponent"/></c:set>
                                                            <c:set var="__enc_20"><carlos:encode value='<%= String.valueOf(demographic_no) %>' context="uriComponent"/></c:set>
                                                            onClick="popupPage(535,860,'<%= request.getContextPath() %>/appointment/editappointment?appointment_no=<carlos:encode value='${__enc_14}' context="javaScriptAttribute"/>&provider_no=<carlos:encode value='${__enc_15}' context="javaScriptAttribute"/>&year=<carlos:encode value='${__enc_16}' context="javaScriptAttribute"/>&month=<carlos:encode value="${__enc_17}" context="javaScriptAttribute"/>&day=<carlos:encode value='${__enc_18}' context="javaScriptAttribute"/>&start_time=<carlos:encode value='${__enc_19}' context="javaScriptAttribute"/>&demographic_no=<carlos:encode value='${__enc_20}' context="javaScriptAttribute"/>&dboperation=search');return false;"
-                                                           <%= showTooltip ? "data-title-full=\"" + appointmentTooltipFull + "\" data-title-short=\"" + appointmentTooltipSummary + "\" title=\"" + appointmentTooltipFull + "\"" : "" %> >
+                                                            <%= showTooltip
+															? "data-bs-toggle=\"tooltip\""
+															  + " data-title-full=\"" + SafeEncode.forHtmlAttribute(appointmentTooltipFull) + "\""
+															  + " data-title-short=\"" + SafeEncode.forHtmlAttribute(appointmentTooltipSummary) + "\""
+															  + " title=\"" + SafeEncode.forHtmlAttribute(appointmentTooltipFull) + "\""
+															: "" %> >
                                                             <%=(name.length() > len ? SafeEncode.forHtmlContent(name.substring(0, len)) : SafeEncode.forHtmlContent(name))%>
                                                         </a>
                                                         <% if (len == lenLimitedL || view != 0 || numAvailProvider == 1) {%>
@@ -3066,7 +3081,24 @@
             popupPage(360, 780, popupUrl);
         });
     })();
+	window.onload = function (){
+		document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
+			const full = el.getAttribute('data-title-full') || '';
+			el.setAttribute('title', full);
+			
+			new bootstrap.Tooltip(el, {
+				html: true
+
+			});
+		});
+	};
+
+
     </script>
+<style>
+.tooltip .tooltip-inner { text-align: left !important; }
+.tooltip .tooltip-inner br { line-height: 1.2; }
+</style>
 
     </body>
 </html>
