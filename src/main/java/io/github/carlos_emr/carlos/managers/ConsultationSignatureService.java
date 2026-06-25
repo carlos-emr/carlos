@@ -66,7 +66,7 @@ public class ConsultationSignatureService {
      * @return {@code true} when {@code value} is a stored signature id, {@code false} otherwise
      */
     public boolean isStoredSignatureId(String value) {
-        return StringUtils.trimToEmpty(value).matches("\\d{1,9}");
+        return SignatureReference.isStoredId(value);
     }
 
     /**
@@ -90,40 +90,65 @@ public class ConsultationSignatureService {
      * @return the manual signature request id, or an empty string when neither value supplies one
      */
     public String resolveManualSignatureRequestId(String submittedSignatureImg, String newSignatureImg) {
-        String submitted = StringUtils.trimToEmpty(submittedSignatureImg);
-        if (StringUtils.isNotBlank(submitted) && !isStoredSignatureId(submitted)) {
-            return submitted;
-        }
-        return StringUtils.trimToEmpty(newSignatureImg);
+        return SignatureReference.parse(true, submittedSignatureImg, newSignatureImg).value();
     }
 
-    public DigitalSignature saveConsultationStamp(LoggedInInfo loggedInInfo, String providerNo, Integer demographicNo) {
+    /**
+     * Reports whether a manual signature was actually captured for {@code signatureRequestId} (a
+     * non-empty temp file is present), so the caller can distinguish a genuine "captured but failed to
+     * persist" outcome from the benign "provider did not sign" case.
+     *
+     * @param signatureRequestId the manual signature-pad request id
+     * @return {@code true} when a non-empty captured signature file exists for the request id
+     */
+    public boolean wasManualSignatureCaptured(String signatureRequestId) {
+        byte[] captured = readTempSignatureImage(signatureRequestId);
+        return captured != null && captured.length > 0;
+    }
+
+    /**
+     * Persists an immutable copy of the selected provider's stamp as the consultation signature.
+     *
+     * @return a {@link ConsultationStampOutcome} categorizing the result so the caller can warn the
+     *         provider on a genuine failure while staying silent for benign disabled/no-session states
+     */
+    public ConsultationStampOutcome saveConsultationStamp(LoggedInInfo loggedInInfo, String providerNo, Integer demographicNo) {
         if (loggedInInfo == null || loggedInInfo.getCurrentFacility() == null) {
-            return null;
+            MiscUtils.getLogger().debug("No facility in session - consultation stamp not saved");
+            return ConsultationStampOutcome.of(ConsultationStampOutcome.Status.NO_SESSION);
         }
         if (!loggedInInfo.getCurrentFacility().isEnableDigitalSignatures()) {
             MiscUtils.getLogger().debug("Digital signatures disabled for facility - consultation stamp not saved");
-            return null;
+            return ConsultationStampOutcome.of(ConsultationStampOutcome.Status.SIGNATURES_DISABLED);
         }
         if (!canUseProviderStamp(loggedInInfo, providerNo)) {
-            return null;
+            // canUseProviderStamp logs the specific reason (non-numeric / missing _con write) at error.
+            return ConsultationStampOutcome.of(ConsultationStampOutcome.Status.NOT_PERMITTED);
         }
 
         byte[] imageData = readProviderStampImage(providerNo);
         if (imageData == null || imageData.length == 0) {
-            return null;
+            // The provider expected a stamp but none could be read; surface at error so it is visible
+            // at the production default root level and the provider can be warned.
+            MiscUtils.getLogger().error("Consultation stamp signature could not be read for provider {}", providerNo);
+            return ConsultationStampOutcome.of(ConsultationStampOutcome.Status.STAMP_FILE_MISSING);
         }
 
         try {
-            return digitalSignatureManager.saveDigitalSignature(
+            DigitalSignature saved = digitalSignatureManager.saveDigitalSignature(
                     loggedInInfo.getCurrentFacility().getId(),
                     providerNo,
                     demographicNo,
                     imageData,
                     ModuleType.CONSULTATION);
+            if (saved == null) {
+                MiscUtils.getLogger().error("Consultation stamp persistence returned no signature for provider {}", providerNo);
+                return ConsultationStampOutcome.of(ConsultationStampOutcome.Status.ERROR);
+            }
+            return ConsultationStampOutcome.saved(saved);
         } catch (RuntimeException e) {
             MiscUtils.getLogger().error("Error persisting consultation stamp signature for provider {}", providerNo, e);
-            return null;
+            return ConsultationStampOutcome.of(ConsultationStampOutcome.Status.ERROR);
         }
     }
 
@@ -133,17 +158,20 @@ public class ConsultationSignatureService {
      *
      * <p>Branching: a request that already references a stored signature id (stamp mode, not re-signing)
      * returns {@code null} so the normal PDF path renders the persisted signature; a manual re-sign returns
-     * the captured temp-file bytes; a stamp re-sign returns the selected provider's stamp bytes.</p>
+     * the captured temp-file bytes; a stamp re-sign returns the selected provider's stamp bytes — but only
+     * after the same per-provider authorization the save path enforces, so a preview cannot embed another
+     * provider's stamp bytes that {@link #saveConsultationStamp} would reject.</p>
      *
+     * @param loggedInInfo          the current session, used to authorize a cross-provider stamp preview
      * @param newSignature          whether the form is supplying a freshly captured signature
      * @param submittedSignatureImg the current signature reference on the form (stored id or marker)
      * @param newSignatureImg       the manual signature-pad request id, when present
      * @param signatureProviderNo   the resolved provider whose stamp is used in stamp mode
      * @return the preview signature bytes, or {@code null} when the persisted-signature path should be used
      */
-    public byte[] resolvePreviewSignatureImage(boolean newSignature, String submittedSignatureImg,
+    public byte[] resolvePreviewSignatureImage(LoggedInInfo loggedInInfo, boolean newSignature, String submittedSignatureImg,
                                                String newSignatureImg, String signatureProviderNo) {
-        if (!newSignature && isStoredSignatureId(submittedSignatureImg)) {
+        if (!newSignature && SignatureReference.isStoredId(submittedSignatureImg)) {
             return null;
         }
 
@@ -152,10 +180,14 @@ public class ConsultationSignatureService {
             if (manualSignature != null && manualSignature.length > 0) {
                 return manualSignature;
             }
-            if (isStoredSignatureId(submittedSignatureImg)) {
+            if (SignatureReference.isStoredId(submittedSignatureImg)) {
                 return null;
             }
         } else {
+            // Stamp preview: enforce the same authorization as saveConsultationStamp before reading bytes.
+            if (loggedInInfo == null || !canUseProviderStamp(loggedInInfo, signatureProviderNo)) {
+                return null;
+            }
             return readProviderStampImage(signatureProviderNo);
         }
 
@@ -222,7 +254,7 @@ public class ConsultationSignatureService {
 
     private boolean canUseProviderStamp(LoggedInInfo loggedInInfo, String providerNo) {
         if (!isNumericProviderNo(providerNo)) {
-            MiscUtils.getLogger().warn("Rejected consultation stamp save for non-numeric provider {}", providerNo);
+            MiscUtils.getLogger().error("Rejected consultation stamp for non-numeric provider {}", providerNo);
             return false;
         }
 
@@ -233,7 +265,7 @@ public class ConsultationSignatureService {
 
         boolean allowed = securityInfoManager.hasPrivilege(loggedInInfo, "_con", "w", null);
         if (!allowed) {
-            MiscUtils.getLogger().warn("Provider {} attempted to save consultation stamp for provider {} without _con write access",
+            MiscUtils.getLogger().error("Provider {} attempted to use consultation stamp for provider {} without _con write access",
                     loggedInProviderNo, providerNo);
         }
         return allowed;

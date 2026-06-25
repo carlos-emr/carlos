@@ -27,6 +27,7 @@ import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
 import io.github.carlos_emr.carlos.utility.DigitalSignatureUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -43,8 +44,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -107,9 +112,10 @@ class ConsultationSignatureServiceUnitTest {
         when(digitalSignatureManager.saveDigitalSignature(eq(11), eq("123456"), eq(44), eq(stampBytes), eq(ModuleType.CONSULTATION)))
                 .thenReturn(saved);
 
-        DigitalSignature result = service.saveConsultationStamp(loggedInInfo, "123456", 44);
+        ConsultationStampOutcome result = service.saveConsultationStamp(loggedInInfo, "123456", 44);
 
-        assertThat(result).isSameAs(saved);
+        assertThat(result.isSaved()).isTrue();
+        assertThat(result.signature()).isSameAs(saved);
         verify(digitalSignatureManager).saveDigitalSignature(11, "123456", 44, stampBytes, ModuleType.CONSULTATION);
     }
 
@@ -119,11 +125,53 @@ class ConsultationSignatureServiceUnitTest {
         Files.write(tempDir.resolve("consult_sig_123456.png"), new byte[] {1, 2, 3});
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_con"), eq("w"), isNull())).thenReturn(false);
 
-        DigitalSignature result = service.saveConsultationStamp(loggedInInfo, "123456", 44);
+        ConsultationStampOutcome result = service.saveConsultationStamp(loggedInInfo, "123456", 44);
 
-        assertThat(result).isNull();
+        assertThat(result.status()).isEqualTo(ConsultationStampOutcome.Status.NOT_PERMITTED);
         verify(digitalSignatureManager, never()).saveDigitalSignature(
                 eq(11), eq("123456"), eq(44), org.mockito.ArgumentMatchers.any(), eq(ModuleType.CONSULTATION));
+    }
+
+    @Test
+    @DisplayName("rejects a non-numeric provider without consulting the signature manager or privilege check")
+    void shouldRejectStamp_forNonNumericProvider() {
+        ConsultationStampOutcome result = service.saveConsultationStamp(loggedInInfo, "../999998", 44);
+
+        assertThat(result.status()).isEqualTo(ConsultationStampOutcome.Status.NOT_PERMITTED);
+        verify(securityInfoManager, never()).hasPrivilege(any(LoggedInInfo.class), anyString(), anyString(), any());
+        verify(digitalSignatureManager, never()).saveDigitalSignature(
+                anyInt(), anyString(), anyInt(), any(), any(ModuleType.class));
+    }
+
+    @Test
+    @DisplayName("returns SIGNATURES_DISABLED when the facility has digital signatures off")
+    void shouldReturnDisabled_whenFacilitySignaturesOff() {
+        loggedInInfo.getCurrentFacility().setEnableDigitalSignatures(false);
+
+        ConsultationStampOutcome result = service.saveConsultationStamp(loggedInInfo, "999998", 44);
+
+        assertThat(result.status()).isEqualTo(ConsultationStampOutcome.Status.SIGNATURES_DISABLED);
+        assertThat(result.isGenuineFailure()).isFalse();
+    }
+
+    @Test
+    @DisplayName("returns NO_SESSION when there is no logged-in session or facility")
+    void shouldReturnNoSession_whenSessionOrFacilityMissing() {
+        assertThat(service.saveConsultationStamp(null, "999998", 44).status())
+                .isEqualTo(ConsultationStampOutcome.Status.NO_SESSION);
+
+        when(loggedInInfo.getCurrentFacility()).thenReturn(null);
+        assertThat(service.saveConsultationStamp(loggedInInfo, "999998", 44).status())
+                .isEqualTo(ConsultationStampOutcome.Status.NO_SESSION);
+    }
+
+    @Test
+    @DisplayName("returns STAMP_FILE_MISSING when the provider has no stamp file")
+    void shouldReturnStampFileMissing_whenNoStampOnDisk() {
+        ConsultationStampOutcome result = service.saveConsultationStamp(loggedInInfo, "999998", 44);
+
+        assertThat(result.status()).isEqualTo(ConsultationStampOutcome.Status.STAMP_FILE_MISSING);
+        assertThat(result.isGenuineFailure()).isTrue();
     }
 
     @Test
@@ -131,7 +179,7 @@ class ConsultationSignatureServiceUnitTest {
     void shouldNotCreatePreviewOverride_forStoredSignatureId() throws Exception {
         Files.write(tempDir.resolve("consult_sig_999998.png"), new byte[] {1, 2, 3});
 
-        byte[] override = service.resolvePreviewSignatureImage(false, "123", "", "999998");
+        byte[] override = service.resolvePreviewSignatureImage(loggedInInfo, false, "123", "", "999998");
 
         assertThat(override).isNull();
     }
@@ -142,9 +190,51 @@ class ConsultationSignatureServiceUnitTest {
         byte[] stampBytes = new byte[] {3, 2, 1};
         Files.write(tempDir.resolve("consult_sig_999998.png"), stampBytes);
 
-        byte[] override = service.resolvePreviewSignatureImage(false, "", "9999981000", "999998");
+        byte[] override = service.resolvePreviewSignatureImage(loggedInInfo, false, "", "9999981000", "999998");
 
         assertThat(override).containsExactly(stampBytes);
+    }
+
+    @Test
+    @DisplayName("denies a stamp preview for another provider without consultation write access")
+    void shouldDenyPreviewOverride_forCrossProviderStampWithoutWrite() throws Exception {
+        Files.write(tempDir.resolve("consult_sig_123456.png"), new byte[] {3, 2, 1});
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_con"), eq("w"), isNull())).thenReturn(false);
+
+        byte[] override = service.resolvePreviewSignatureImage(loggedInInfo, false, "", "", "123456");
+
+        assertThat(override).isNull();
+    }
+
+    @Test
+    @DisplayName("returns no preview override when stamp mode has no stamp file on disk")
+    void shouldReturnNoOverride_forStampModeWithoutStampFile() {
+        byte[] override = service.resolvePreviewSignatureImage(loggedInInfo, false, "", "", "999998");
+
+        assertThat(override).isNull();
+    }
+
+    @Test
+    @DisplayName("returns no preview override when a manual re-sign has no captured bytes")
+    void shouldReturnNoOverride_whenManualReSignHasNoCapturedBytes() {
+        byte[] override = service.resolvePreviewSignatureImage(loggedInInfo, true, "123", "", "999998");
+
+        assertThat(override).isNull();
+    }
+
+    @Test
+    @DisplayName("returns null and reads no bytes when path validation blocks the stamp read")
+    void shouldReturnNoOverride_whenPathValidationBlocksStampRead() throws Exception {
+        Files.write(tempDir.resolve("consult_sig_999998.png"), new byte[] {9, 9, 9});
+
+        try (var pathValidation = mockStatic(PathValidationUtils.class)) {
+            pathValidation.when(() -> PathValidationUtils.validatePath(anyString(), any()))
+                    .thenThrow(new SecurityException("blocked traversal"));
+
+            byte[] override = service.resolvePreviewSignatureImage(loggedInInfo, false, "", "", "999998");
+
+            assertThat(override).isNull();
+        }
     }
 
     @Test
@@ -156,12 +246,58 @@ class ConsultationSignatureServiceUnitTest {
         Files.write(tempSignature, manualBytes);
 
         try {
-            byte[] override = service.resolvePreviewSignatureImage(true, requestId, requestId, "999998");
+            byte[] override = service.resolvePreviewSignatureImage(loggedInInfo, true, requestId, requestId, "999998");
 
             assertThat(override).containsExactly(manualBytes);
         } finally {
             Files.deleteIfExists(tempSignature);
         }
+    }
+
+    @Test
+    @DisplayName("returns ERROR when stamp persistence yields no signature")
+    void shouldReturnError_whenPersistenceReturnsNull() throws Exception {
+        Files.write(tempDir.resolve("consult_sig_999998.png"), new byte[] {1, 2, 3});
+        when(digitalSignatureManager.saveDigitalSignature(eq(11), eq("999998"), eq(44), any(), eq(ModuleType.CONSULTATION)))
+                .thenReturn(null);
+
+        ConsultationStampOutcome result = service.saveConsultationStamp(loggedInInfo, "999998", 44);
+
+        assertThat(result.status()).isEqualTo(ConsultationStampOutcome.Status.ERROR);
+        assertThat(result.isGenuineFailure()).isTrue();
+    }
+
+    @Test
+    @DisplayName("returns ERROR when stamp persistence throws")
+    void shouldReturnError_whenPersistenceThrows() throws Exception {
+        Files.write(tempDir.resolve("consult_sig_999998.png"), new byte[] {1, 2, 3});
+        when(digitalSignatureManager.saveDigitalSignature(eq(11), eq("999998"), eq(44), any(), eq(ModuleType.CONSULTATION)))
+                .thenThrow(new RuntimeException("db down"));
+
+        ConsultationStampOutcome result = service.saveConsultationStamp(loggedInInfo, "999998", 44);
+
+        assertThat(result.status()).isEqualTo(ConsultationStampOutcome.Status.ERROR);
+    }
+
+    @Test
+    @DisplayName("reports a captured manual signature when a non-empty temp file is present")
+    void shouldReportManualCaptured_whenTempFilePresent() throws Exception {
+        String requestId = "9999982000";
+        Path tempSignature = Path.of(DigitalSignatureUtils.getTempFilePath(requestId));
+        Files.write(tempSignature, new byte[] {1, 2, 3});
+
+        try {
+            assertThat(service.wasManualSignatureCaptured(requestId)).isTrue();
+        } finally {
+            Files.deleteIfExists(tempSignature);
+        }
+    }
+
+    @Test
+    @DisplayName("reports no captured manual signature when the temp file is absent or the id blank")
+    void shouldReportNoManualCapture_whenTempFileAbsent() {
+        assertThat(service.wasManualSignatureCaptured("9999983000")).isFalse();
+        assertThat(service.wasManualSignatureCaptured("")).isFalse();
     }
 
     @Test

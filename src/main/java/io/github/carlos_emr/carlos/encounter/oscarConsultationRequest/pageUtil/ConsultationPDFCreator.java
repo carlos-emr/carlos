@@ -808,11 +808,21 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
          *  Now maintainers are required to insert
          *  odd patches in order to save valuable time on a full refactor.
          */
+        int parsedId;
         try {
-            DigitalSignature digitalSignature = mgr.getDigitalSignature(Integer.parseInt(normalizedSignatureImageId));
+            parsedId = Integer.parseInt(normalizedSignatureImageId);
+        } catch (NumberFormatException e) {
+            // Malformed id is benign (the field is upstream-validated); render unsigned.
+            logger.debug("Consultation signature id {} is not a valid number", normalizedSignatureImageId);
+            return null;
+        }
+        try {
+            DigitalSignature digitalSignature = mgr.getDigitalSignature(parsedId);
             return digitalSignature != null ? digitalSignature.getSignatureImage() : null;
-        } catch (Exception e) {
-            logger.warn("Consultation digital signature {} was not found or the identifier was incorrect", signatureImageId);
+        } catch (RuntimeException e) {
+            // A real lookup fault (DB/infra) - log WITH the stack trace rather than mislabel it
+            // "not found"; stay fail-soft so a transient blip renders unsigned instead of blanking the PDF.
+            logger.error("Error loading consultation digital signature {}", parsedId, e);
             return null;
         }
     }

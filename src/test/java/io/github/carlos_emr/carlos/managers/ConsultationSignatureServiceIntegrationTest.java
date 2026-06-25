@@ -101,9 +101,11 @@ class ConsultationSignatureServiceIntegrationTest extends CarlosTestBase {
         DigitalSignatureManagerImpl digitalSignatureManager = new DigitalSignatureManagerImpl(digitalSignatureDao);
         ConsultationSignatureService service = new ConsultationSignatureService(digitalSignatureManager, mock(SecurityInfoManager.class));
 
-        DigitalSignature saved = service.saveConsultationStamp(loggedInInfo("999998"), "999998", 123);
+        ConsultationStampOutcome outcome = service.saveConsultationStamp(loggedInInfo("999998"), "999998", 123);
         digitalSignatureDao.flush();
 
+        assertThat(outcome.isSaved()).isTrue();
+        DigitalSignature saved = outcome.signature();
         assertThat(saved).isNotNull();
         assertThat(saved.getId()).isPositive();
         DigitalSignature found = digitalSignatureManager.getDigitalSignature(saved.getId());

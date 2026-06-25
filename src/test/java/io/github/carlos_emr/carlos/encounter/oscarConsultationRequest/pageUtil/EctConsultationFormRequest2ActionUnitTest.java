@@ -36,6 +36,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestExtDao;
@@ -46,6 +47,7 @@ import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.managers.ConsultationSignatureService;
+import io.github.carlos_emr.carlos.managers.ConsultationStampOutcome;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.DigitalSignatureManager;
 import io.github.carlos_emr.carlos.managers.FaxManager;
@@ -127,7 +129,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
                 .thenReturn("sig-request");
         when(consultationSignatureService.resolveSignatureProviderNo(eq("999998"), eq("999998"), eq("999998")))
                 .thenReturn("999998");
-        when(consultationSignatureService.resolvePreviewSignatureImage(false, "", "sig-request", "999998"))
+        when(consultationSignatureService.resolvePreviewSignatureImage(loggedInInfo, false, "", "sig-request", "999998"))
                 .thenReturn(SIGNATURE_BYTES);
         when(demographicManager.getDemographicFormattedName(loggedInInfo, 1)).thenReturn("Patient, Test");
 
@@ -208,7 +210,6 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
 
         when(consultationSignatureService.resolveManualSignatureRequestId(eq("123"), eq("sig-request")))
                 .thenReturn("sig-request");
-        when(consultationSignatureService.isStoredSignatureId("123")).thenReturn(true);
         when(digitalSignatureManager.processAndSaveDigitalSignature(
                 eq(loggedInInfo), eq("sig-request"), eq(1), eq(ModuleType.CONSULTATION)))
                 .thenReturn(null);
@@ -237,9 +238,8 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         action.setSignatureImg("");
         request.setParameter("newSignature", "false");
 
-        when(consultationSignatureService.isStoredSignatureId("")).thenReturn(false);
         when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
-                .thenReturn(savedStamp);
+                .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.SAVED, savedStamp));
 
         action.execute();
 
@@ -282,6 +282,161 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(persisted[0]).isNotNull();
         assertThat(persisted[0].getSignatureImg()).isNull();
+        verify(consultationSignatureService, never()).saveConsultationStamp(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("rejects GET with 405 and performs no persistence")
+    void shouldRejectGet_withMethodNotAllowed() throws Exception {
+        request.setMethod("GET");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        verify(consultationRequestDao, never()).persist(any());
+        verify(consultationRequestDao, never()).merge(any());
+        verify(consultationSignatureService, never()).saveConsultationStamp(any(), any(), any());
+        verify(documentAttachmentManager, never()).renderConsultationFormWithAttachments(any(), any());
+    }
+
+    @Test
+    @DisplayName("warns the provider but still saves when a stamp cannot be applied on create")
+    void shouldWarnButStillSave_whenStampFailsOnCreate() throws Exception {
+        ConsultationRequest[] persisted = new ConsultationRequest[1];
+        doAnswer(invocation -> {
+            ConsultationRequest consult = invocation.getArgument(0);
+            ReflectionTestUtils.setField(consult, "id", 7);
+            persisted[0] = consult;
+            return null;
+        }).when(consultationRequestDao).persist(org.mockito.ArgumentMatchers.any(ConsultationRequest.class));
+
+        action.setSubmission("Submit");
+        action.setService("1");
+        action.setSpecialist("0");
+        action.setSignatureImg("");
+        request.setParameter("newSignature", "false");
+
+        when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
+                .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.STAMP_FILE_MISSING, null));
+
+        action.execute();
+
+        assertThat(persisted[0]).isNotNull();
+        assertThat(persisted[0].getSignatureImg()).isNull();
+        assertThat(request.getAttribute("signatureNotApplied")).isEqualTo(Boolean.TRUE);
+    }
+
+    @Test
+    @DisplayName("warns the provider but still saves when a manual signature cannot be persisted on create")
+    void shouldWarnButStillSave_whenManualFailsOnCreate() throws Exception {
+        ConsultationRequest[] persisted = new ConsultationRequest[1];
+        doAnswer(invocation -> {
+            ConsultationRequest consult = invocation.getArgument(0);
+            ReflectionTestUtils.setField(consult, "id", 7);
+            persisted[0] = consult;
+            return null;
+        }).when(consultationRequestDao).persist(org.mockito.ArgumentMatchers.any(ConsultationRequest.class));
+
+        action.setSubmission("Submit");
+        action.setService("1");
+        action.setSpecialist("0");
+        action.setSignatureImg("");
+        request.setParameter("newSignature", "true");
+
+        when(consultationSignatureService.resolveManualSignatureRequestId(eq(""), eq("sig-request")))
+                .thenReturn("sig-request");
+        when(consultationSignatureService.wasManualSignatureCaptured("sig-request")).thenReturn(true);
+        when(digitalSignatureManager.processAndSaveDigitalSignature(
+                eq(loggedInInfo), eq("sig-request"), eq(1), eq(ModuleType.CONSULTATION)))
+                .thenReturn(null);
+
+        action.execute();
+
+        assertThat(persisted[0]).isNotNull();
+        assertThat(request.getAttribute("signatureNotApplied")).isEqualTo(Boolean.TRUE);
+        verify(consultationSignatureService, never()).saveConsultationStamp(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("does not warn when no manual signature was collected on create")
+    void shouldNotWarn_whenNoManualSignatureCollectedOnCreate() throws Exception {
+        ConsultationRequest[] persisted = new ConsultationRequest[1];
+        doAnswer(invocation -> {
+            ConsultationRequest consult = invocation.getArgument(0);
+            ReflectionTestUtils.setField(consult, "id", 7);
+            persisted[0] = consult;
+            return null;
+        }).when(consultationRequestDao).persist(org.mockito.ArgumentMatchers.any(ConsultationRequest.class));
+
+        action.setSubmission("Submit");
+        action.setService("1");
+        action.setSpecialist("0");
+        action.setSignatureImg("");
+        request.setParameter("newSignature", "true");
+
+        when(consultationSignatureService.resolveManualSignatureRequestId(eq(""), eq("sig-request")))
+                .thenReturn("sig-request");
+        when(consultationSignatureService.wasManualSignatureCaptured("sig-request")).thenReturn(false);
+        when(digitalSignatureManager.processAndSaveDigitalSignature(
+                eq(loggedInInfo), eq("sig-request"), eq(1), eq(ModuleType.CONSULTATION)))
+                .thenReturn(null);
+
+        action.execute();
+
+        assertThat(persisted[0]).isNotNull();
+        assertThat(persisted[0].getSignatureImg()).isNull();
+        assertThat(request.getAttribute("signatureNotApplied")).isNull();
+    }
+
+    @Test
+    @DisplayName("warns the provider but still saves when a stamp cannot be applied on update")
+    void shouldWarnButStillSave_whenStampFailsOnUpdate() throws Exception {
+        ConsultationRequest existing = new ConsultationRequest();
+        when(consultationRequestDao.find(Integer.valueOf(9))).thenReturn(existing);
+
+        action.setSubmission("Update");
+        action.setRequestId("9");
+        action.setService("1");
+        action.setSpecialist("0");
+        action.setSignatureImg("");
+        request.setParameter("newSignature", "false");
+
+        when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
+                .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.STAMP_FILE_MISSING, null));
+
+        action.execute();
+
+        assertThat(existing.getSignatureImg()).isNull();
+        assertThat(request.getAttribute("signatureNotApplied")).isEqualTo(Boolean.TRUE);
+        verify(consultationRequestDao).merge(existing);
+    }
+
+    @Test
+    @DisplayName("warns the provider but still saves when a collected manual signature fails to persist on update")
+    void shouldWarnButStillSave_whenCapturedManualFailsOnUpdate() throws Exception {
+        ConsultationRequest existing = new ConsultationRequest();
+        when(consultationRequestDao.find(Integer.valueOf(9))).thenReturn(existing);
+
+        action.setSubmission("Update");
+        action.setRequestId("9");
+        action.setService("1");
+        action.setSpecialist("0");
+        action.setSignatureImg("");
+        request.setParameter("newSignature", "true");
+
+        when(consultationSignatureService.resolveManualSignatureRequestId(eq(""), eq("sig-request")))
+                .thenReturn("sig-request");
+        when(consultationSignatureService.wasManualSignatureCaptured("sig-request")).thenReturn(true);
+        when(digitalSignatureManager.processAndSaveDigitalSignature(
+                eq(loggedInInfo), eq("sig-request"), eq(1), eq(ModuleType.CONSULTATION)))
+                .thenReturn(null);
+
+        action.execute();
+
+        assertThat(existing.getSignatureImg()).isNull();
+        assertThat(request.getAttribute("signatureNotApplied")).isEqualTo(Boolean.TRUE);
+        verify(consultationRequestDao).merge(existing);
         verify(consultationSignatureService, never()).saveConsultationStamp(any(), any(), any());
     }
 }

@@ -127,6 +127,13 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         request = ServletActionContext.getRequest();
         response = ServletActionContext.getResponse();
 
+        // Mutator: every legitimate entry (form submit and the AJAX print-preview fetch) is a POST.
+        // Reject GET/HEAD before any side effect fires. See MutatorActionGetRejectionContractTest.
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_con", "w", null)) {
             throw new SecurityException("missing required sec object (_con)");
         }
@@ -160,6 +167,8 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         String signatureImg = StringUtils.trimToEmpty(this.getSignatureImg());
         String newSignatureImg = StringUtils.trimToEmpty(request.getParameter("newSignatureImg"));
         String manualSignatureRequestId = consultationSignatureService.resolveManualSignatureRequestId(signatureImg, newSignatureImg);
+        // Classify the overloaded signatureImg field once (stored id / manual re-sign / stamp).
+        SignatureReference signatureRef = SignatureReference.parse(newSignature, signatureImg, newSignatureImg);
         String signatureProviderNo = consultationSignatureService.resolveSignatureProviderNo(
                 request.getParameter("signatureProviderNo"), providerNo, loggedInInfo.getLoggedInProviderNo());
 
@@ -183,22 +192,34 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 }
 
                 if (newSignature) {
-                    // Manual signature from tablet/signature pad
+                    // Manual signature from tablet/signature pad. Capture intent up front: a null result
+                    // is a genuine failure only when a signature was actually collected (a stamp-less
+                    // provider who simply did not sign is the benign, common case).
+                    boolean manualCaptured = consultationSignatureService.wasManualSignatureCaptured(manualSignatureRequestId);
                     DigitalSignature signature = digitalSignatureManager.processAndSaveDigitalSignature(loggedInInfo, manualSignatureRequestId, demographicId, ModuleType.CONSULTATION);
                     if (signature != null) {
                         signatureId = "" + signature.getId();
+                    } else if (manualCaptured) {
+                        // A signature was collected but could not be persisted; the consultation is still
+                        // saved. Log at error so it surfaces at the production default root level and warn
+                        // the provider that the consultation saved without a signature.
+                        logger.error("Captured manual signature could not be persisted for provider {} on new consultation", signatureProviderNo);
+                        request.setAttribute("signatureNotApplied", Boolean.TRUE);
+                    } else {
+                        // No signature was collected - benign, save unsigned without alarming the provider.
+                        logger.debug("No manual signature captured for new consultation; saved without a signature");
                     }
                 } else {
                     // Stamp signature - create immutable copy from the selected consultation provider's stamp file.
-                    // (returns null if digital signatures are disabled, stamp file is missing, or an error occurs)
-                    DigitalSignature signature = consultationSignatureService.saveConsultationStamp(
+                    ConsultationStampOutcome outcome = consultationSignatureService.saveConsultationStamp(
                             loggedInInfo, signatureProviderNo, demographicId);
-                    if (signature != null) {
-                        signatureId = "" + signature.getId();
-                    } else {
-                        // The consultation is still persisted but without a signature; warn so a
-                        // non-applied stamp is visible in production logs (INFO default).
-                        MiscUtils.getLogger().warn("Stamp signature could not be applied for provider {} on new consultation", signatureProviderNo);
+                    if (outcome.isSaved()) {
+                        signatureId = "" + outcome.signature().getId();
+                    } else if (outcome.isGenuineFailure()) {
+                        // Consultation is still persisted; the service logged the specific failure at
+                        // error. Warn the provider that the stamp was not applied (benign disabled /
+                        // no-session outcomes are intentionally silent).
+                        request.setAttribute("signatureNotApplied", Boolean.TRUE);
                     }
                 }
 
@@ -341,26 +362,36 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 }
 
                 if (newSignature) {
-                    // Manual re-sign from tablet/signature pad
+                    // Manual re-sign from tablet/signature pad. See create-path note: warn only when a
+                    // signature was actually collected but failed to persist.
+                    boolean manualCaptured = consultationSignatureService.wasManualSignatureCaptured(manualSignatureRequestId);
                     DigitalSignature signature = digitalSignatureManager.processAndSaveDigitalSignature(loggedInInfo, manualSignatureRequestId, demographicId, ModuleType.CONSULTATION);
                     if (signature != null) {
                         signatureId = "" + signature.getId();
-                    } else if (consultationSignatureService.isStoredSignatureId(signatureImg)) {
+                    } else if (SignatureReference.isStoredId(signatureImg)) {
+                        // Manual capture failed but an existing stored signature is on the form - keep it.
                         signatureId = signatureImg;
-                    } else {
+                    } else if (manualCaptured) {
+                        // A signature was collected but could not be persisted and there is nothing to fall
+                        // back to; the update still saves. Log at error and warn the provider.
                         signatureId = null;
-                    }
-                } else if (!consultationSignatureService.isStoredSignatureId(signatureImg)) {
-                    // Stamp signature with no existing DigitalSignature - create immutable copy.
-                    // (returns null if digital signatures are disabled, stamp file is missing, or an error occurs)
-                    DigitalSignature signature = consultationSignatureService.saveConsultationStamp(
-                            loggedInInfo, signatureProviderNo, demographicId);
-                    if (signature != null) {
-                        signatureId = "" + signature.getId();
+                        logger.error("Captured manual signature could not be persisted for provider {} on consultation update (requestId={})", signatureProviderNo, requestId);
+                        request.setAttribute("signatureNotApplied", Boolean.TRUE);
                     } else {
-                        // The consultation update is still persisted but without a signature; warn so a
-                        // non-applied stamp is visible in production logs (INFO default).
-                        MiscUtils.getLogger().warn("Stamp signature could not be applied for provider {} on consultation update (requestId={})", signatureProviderNo, requestId);
+                        // No signature was collected - benign, leave the update unsigned silently.
+                        signatureId = null;
+                        logger.debug("No manual signature captured for consultation update (requestId={}); saved without a signature", requestId);
+                    }
+                } else if (signatureRef.isStamp()) {
+                    // Stamp signature with no existing DigitalSignature - create immutable copy.
+                    ConsultationStampOutcome outcome = consultationSignatureService.saveConsultationStamp(
+                            loggedInInfo, signatureProviderNo, demographicId);
+                    if (outcome.isSaved()) {
+                        signatureId = "" + outcome.signature().getId();
+                    } else if (outcome.isGenuineFailure()) {
+                        // Update is still persisted; the service logged the specific failure at error.
+                        // Warn the provider that the stamp was not applied.
+                        request.setAttribute("signatureNotApplied", Boolean.TRUE);
                     }
                 } else {
                     // Already has a DigitalSignature ID - keep it
@@ -486,7 +517,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                     request.setAttribute("errorMessage", "A print preview of this consultation could not be generated. \n\nMissing consultation request id.");
                 } else {
                     byte[] signatureImageOverride = consultationSignatureService.resolvePreviewSignatureImage(
-                            newSignature, signatureImg, newSignatureImg, signatureProviderNo);
+                            loggedInInfo, newSignature, signatureImg, newSignatureImg, signatureProviderNo);
                     if (signatureImageOverride != null && signatureImageOverride.length > 0) {
                         request.setAttribute(ConsultationSignatureService.SIGNATURE_IMAGE_OVERRIDE_ATTRIBUTE, signatureImageOverride);
                     }
