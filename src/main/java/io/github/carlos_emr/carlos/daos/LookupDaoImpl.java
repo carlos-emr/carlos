@@ -298,6 +298,13 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
         return alias;
     }
 
+    /**
+     * Returns the unqualified column name for a {@code LoadCodeList} field.
+     *
+     * @param fieldSql String the validated simple column or {@code s.column} reference
+     * @return String the simple column name used by later WHERE/tree predicates
+     * @throws IllegalArgumentException when the field uses an unexpected qualifier or nested path
+     */
     private String validateLoadCodeListFieldName(String fieldSql) {
         int dotIndex = fieldSql.indexOf('.');
         if (dotIndex < 0) {
@@ -314,6 +321,12 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
         return validateSqlAlias(columnName);
     }
 
+    /**
+     * Adds the {@code LoadCodeList} table alias when field metadata stores a bare column name.
+     *
+     * @param fieldSql String the validated simple column or {@code s.column} reference
+     * @return String the field reference to emit in the SELECT list
+     */
     private String qualifyLoadCodeListField(String fieldSql) {
         if (fieldSql.indexOf('.') >= 0) {
             return fieldSql;

@@ -194,6 +194,18 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
         insertFieldFull(tableId, fieldName, fieldName, fieldIndex, genericIdx, fieldType, autoIncrement, lookupTable);
     }
 
+    /**
+     * Inserts a field definition whose stored SQL expression differs from its display field name.
+     *
+     * @param tableId       String the parent table identifier
+     * @param fieldName     String the metadata field name or SQL alias
+     * @param fieldSql      String the backing column/expression stored in {@code fieldsql}
+     * @param fieldIndex    int the display order index
+     * @param genericIdx    int the generic index for column mapping
+     * @param fieldType     String the field data type ("S"=String, "D"=Date, "I"=Integer)
+     * @param autoIncrement boolean whether the field auto-increments
+     * @param lookupTable   String the reference lookup table name, or empty string if none
+     */
     private void insertFieldFull(String tableId, String fieldName, String fieldSql, int fieldIndex, int genericIdx,
                                   String fieldType, boolean autoIncrement, String lookupTable) {
         hibernateTemplate.execute(session -> {
