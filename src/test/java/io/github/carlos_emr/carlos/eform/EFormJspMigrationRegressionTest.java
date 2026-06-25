@@ -111,6 +111,27 @@ class EFormJspMigrationRegressionTest {
     }
 
     @Test
+    @DisplayName("saved eForm previews should resolve image placeholders through the active request context")
+    void shouldResolveImagePath_whenSavedEFormPreviewRenders() throws IOException {
+        String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/eform/efmshowform_data.jsp"), StandardCharsets.UTF_8);
+
+        assertThat(jsp).containsPattern(
+                "(?s)eForm = new EForm\\(fdid\\);\\s*"
+                        + "eForm\\.setContextPath\\(request\\.getContextPath\\(\\)\\);\\s*"
+                        + "eForm\\.setOscarOPEN\\(request\\.getRequestURI\\(\\)\\);\\s*"
+                        + "eForm\\.setImagePath\\(request\\.getContextPath\\(\\)\\);");
+    }
+
+    @Test
+    @DisplayName("consultation request eForm links should keep using the shared saved-form route")
+    void shouldUseSharedShowFormRoute_whenConsultationRequestLinksSavedEforms() throws IOException {
+        String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp"),
+                StandardCharsets.UTF_8);
+
+        assertThat(jsp).contains("/eform/efmshowform_data?fdid=");
+    }
+
+    @Test
     @DisplayName("eForm admin nav should use a Bootstrap button dropdown for Create eForm")
     void shouldUseBootstrapButtonDropdown_whenRenderingEFormTopNav() throws IOException {
         String jsp = Files.readString(EFM_TOP_NAV_JSPF, StandardCharsets.UTF_8);
