@@ -13,7 +13,7 @@ This directory contains technical documentation for CARLOS EMR (Clinical Assisti
 | **Testing** | [📂 test/](test/) | Comprehensive modern test framework documentation (JUnit 5) |
 | **Architecture** | [Struts Actions Summary](struts-actions-summary.md)<br>[Struts Actions Detailed](struts-actions-detailed.md)<br>[Struts Web Endpoints](struts-web-endpoints.md)<br>[Integrator System Architecture](integrator-system-architecture.md) | System architecture, action mappings, and current endpoint/JSP routing rules |
 | **Security** | [Password System](Password_System.md) | Authentication and security architecture |
-| **APIs** | [API Collections Index](api-collections-index.md) | REST API documentation and collections |
+| **APIs** | [API Collections Index](api-collections-index.md)<br>[Cortico CARLOS API Compatibility](api/cortico-carlos-compatibility.md) | REST/SOAP API documentation, collections, and integration compatibility notes |
 | **Development** | [DS Guideline](dsGuideline.md)<br>[Copyright Header (Magenta)](copyright-header-magenta.md) | Development standards and guidelines |
 
 ### 🧪 Testing Documentation
@@ -53,7 +53,7 @@ Key testing resources:
 1. **Writing Tests**: Start with [test/README.md](test/README.md)
 2. **Struts Migration**: Review [Struts Actions Summary](struts-actions-summary.md)
 3. **New Pages and JSP Routing**: Review [Struts Web Endpoints](struts-web-endpoints.md)
-4. **APIs**: Check [API Collections Index](api-collections-index.md)
+4. **APIs**: Check [API Collections Index](api-collections-index.md) and [Cortico CARLOS API Compatibility](api/cortico-carlos-compatibility.md)
 5. **Security**: Understand [Password System](Password_System.md)
 
 ### For New Team Members
