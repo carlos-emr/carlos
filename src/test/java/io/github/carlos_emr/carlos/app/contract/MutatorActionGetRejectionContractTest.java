@@ -494,12 +494,20 @@ class MutatorActionGetRejectionContractTest {
             return new SecurityDelete2Action(securityDao, methodSecurity);
         }
         if (actionClass.equals(SecurityAddSecurity2Action.class)) {
+            CarlosMethodSecurity methodSecurity = mock(CarlosMethodSecurity.class);
+            when(methodSecurity.hasAdminWrite()).thenReturn(true);
             return new SecurityAddSecurity2Action(methodSecurity);
         }
         if (actionClass.equals(SecurityUpdate2Action.class)) {
+            CarlosMethodSecurity methodSecurity = mock(CarlosMethodSecurity.class);
+            when(methodSecurity.hasAdminWrite()).thenReturn(true);
             return new SecurityUpdate2Action(methodSecurity);
         }
         if (actionClass.equals(UploadLoginText2Action.class)) {
+            SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+            when(securityInfoManager.hasPrivilege(
+                    any(LoggedInInfo.class), any(String.class), any(String.class), nullable(String.class)))
+                .thenReturn(true);
             return new UploadLoginText2Action(securityInfoManager);
         }
         return actionClass.getDeclaredConstructor().newInstance();
