@@ -306,10 +306,7 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
      * @throws IllegalArgumentException when the field is blank or uses an unexpected qualifier or nested path
      */
     private String validateLoadCodeListFieldName(String fieldSql) {
-        if (fieldSql == null || fieldSql.isEmpty()) {
-            MiscUtils.getLogger().error("Blank SQL field rejected in lookup configuration");
-            throw new IllegalArgumentException("Blank SQL field in lookup configuration");
-        }
+        requireConfiguredLoadCodeListField(fieldSql);
         int dotIndex = fieldSql.indexOf('.');
         if (dotIndex < 0) {
             return validateSqlAlias(fieldSql);
@@ -317,9 +314,13 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
         String qualifier = fieldSql.substring(0, dotIndex);
         String columnName = fieldSql.substring(dotIndex + 1);
         boolean hasMultipleSegments = columnName.indexOf('.') >= 0;
-        if (hasMultipleSegments || !"s".equals(qualifier)) {
-            MiscUtils.getLogger().error("Invalid qualified SQL field rejected in lookup configuration");
-            throw new IllegalArgumentException("Invalid qualified SQL field in lookup configuration");
+        if (hasMultipleSegments) {
+            MiscUtils.getLogger().error("Nested path rejected in lookup field SQL");
+            throw new IllegalArgumentException("Nested path not allowed in lookup field SQL");
+        }
+        if (!"s".equals(qualifier)) {
+            MiscUtils.getLogger().error("Unexpected qualifier rejected in lookup field SQL");
+            throw new IllegalArgumentException("Only s qualifier allowed in lookup field SQL");
         }
         // LoadCodeList owns the "s" table alias; other qualifiers would escape that fixed FROM shape.
         return validateSqlAlias(columnName);
@@ -332,14 +333,24 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
      * @return String the field reference to emit in the SELECT list
      */
     private String qualifyLoadCodeListField(String fieldSql) {
-        if (fieldSql == null || fieldSql.isEmpty()) {
-            MiscUtils.getLogger().error("Blank SQL field rejected in lookup configuration");
-            throw new IllegalArgumentException("Blank SQL field in lookup configuration");
-        }
+        requireConfiguredLoadCodeListField(fieldSql);
         if (fieldSql.indexOf('.') >= 0) {
             return fieldSql;
         }
         return "s." + fieldSql;
+    }
+
+    /**
+     * Rejects missing field metadata before the legacy SQL builder inspects it.
+     *
+     * @param fieldSql String the validated simple column or {@code s.column} reference
+     * @throws IllegalArgumentException when the field metadata is missing or empty
+     */
+    private void requireConfiguredLoadCodeListField(String fieldSql) {
+        if (fieldSql == null || fieldSql.isEmpty()) {
+            MiscUtils.getLogger().error("Blank SQL field rejected in lookup configuration");
+            throw new IllegalArgumentException("Blank SQL field in lookup configuration");
+        }
     }
 
     /**

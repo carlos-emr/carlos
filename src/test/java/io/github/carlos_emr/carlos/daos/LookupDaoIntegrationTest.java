@@ -198,8 +198,8 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
      * Inserts a field definition whose stored SQL expression differs from its display field name.
      *
      * @param tableId       String the parent table identifier
-     * @param fieldName     String the metadata field name or SQL alias
-     * @param fieldSql      String the backing column/expression stored in {@code fieldsql}
+     * @param fieldName     String the display name used in result metadata (for example, {@code code})
+     * @param fieldSql      String the query expression stored in {@code fieldsql} (for example, {@code s.code})
      * @param fieldIndex    int the display order index
      * @param genericIdx    int the generic index for column mapping
      * @param fieldType     String the field data type ("S"=String, "D"=Date, "I"=Integer)
@@ -681,6 +681,40 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
             LookupCodeValue row = result.get(0);
             assertThat(row.getCode()).isEqualTo("Q1");
             assertThat(row.getDescription()).isEqualTo("Qualified");
+        }
+
+        @Test
+        @Tag("query")
+        @Tag("security")
+        @DisplayName("should reject qualified field SQL when qualifier is not lookup table alias")
+        void shouldRejectQualifiedFieldSql_whenQualifierIsNotLookupTableAlias() {
+            // Given
+            String tableId = nextTableId("QX");
+            insertLookupTableDef(tableId, QUALIFIED_FIELD_TABLE_NAME);
+            insertFieldFull(tableId, "code", "t.code", 1, 1, "S", false, "");
+            hibernateTemplate.flush();
+
+            // When / Then
+            assertThatThrownBy(() -> lookupDao.LoadCodeList(tableId, false, "", "", ""))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Only s qualifier allowed");
+        }
+
+        @Test
+        @Tag("query")
+        @Tag("security")
+        @DisplayName("should reject qualified field SQL when nested path is configured")
+        void shouldRejectQualifiedFieldSql_whenNestedPathIsConfigured() {
+            // Given
+            String tableId = nextTableId("QN");
+            insertLookupTableDef(tableId, QUALIFIED_FIELD_TABLE_NAME);
+            insertFieldFull(tableId, "code", "s.lookup.code", 1, 1, "S", false, "");
+            hibernateTemplate.flush();
+
+            // When / Then
+            assertThatThrownBy(() -> lookupDao.LoadCodeList(tableId, false, "", "", ""))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Nested path not allowed");
         }
     }
 
