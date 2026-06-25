@@ -77,6 +77,7 @@ class RestServiceSurfaceRegistrationUnitTest {
     private static final String OAUTH_ONLY_SERVICE =
             "io.github.carlos_emr.carlos.webserv.oauth.OAuthStatusService";
 
+    /** The session {@code /ws/rs} surface must publish DocumentService (the gap fixed by #2961). */
     @Test
     @DisplayName("should register DocumentService on the session surface (/ws/rs)")
     void shouldRegisterDocumentService_onSessionSurface() throws Exception {
@@ -86,6 +87,7 @@ class RestServiceSurfaceRegistrationUnitTest {
                 .contains(DOCUMENT_SERVICE);
     }
 
+    /** The OAuth {@code /ws/services} surface must keep publishing DocumentService. */
     @Test
     @DisplayName("should register DocumentService on the OAuth surface (/ws/services)")
     void shouldRegisterDocumentService_onOAuthSurface() throws Exception {
@@ -94,6 +96,7 @@ class RestServiceSurfaceRegistrationUnitTest {
                 .contains(DOCUMENT_SERVICE);
     }
 
+    /** The session and OAuth surfaces must expose the identical set of rest-package data services. */
     @Test
     @DisplayName("should expose the same rest-package data services on both surfaces")
     void shouldExposeSameRestServices_onBothSurfaces() throws Exception {
@@ -188,6 +191,7 @@ class RestServiceSurfaceRegistrationUnitTest {
         return byId;
     }
 
+    /** Parses a classpath config resource with a hardened, namespace-unaware DOM parser. */
     private static Document parse(String configPath) throws Exception {
         DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
         dbf.setValidating(false);
