@@ -440,8 +440,8 @@ public final class LoginCheckLoginBean {
         List<SecUserRole> roles = secUserRoleDao.getUserRoles(security.getProviderNo());
         for (SecUserRole role : roles) {
             // Only active (activeyn = 1) role assignments belong in the session role string;
-            // an inactive assignment must not grant access.
-            if (!role.getActive()) {
+            // an inactive assignment must not grant access. Boolean.TRUE.equals is null-tolerant.
+            if (!Boolean.TRUE.equals(role.getActive())) {
                 continue;
             }
             if (rolename == null) {
