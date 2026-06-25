@@ -93,6 +93,8 @@ public final class ViewForcePasswordReset2Action extends BaseLoginPageView2Actio
         }
     }
 
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     private String redirectToExpiredSession(HttpServletRequest request) throws IOException {
         HttpServletResponse response = ServletActionContext.getResponse();
         String redirectUrl = Login2Action.loginFailedRedirectUrl(request,

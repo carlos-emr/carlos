@@ -20,6 +20,8 @@
  */
 package io.github.carlos_emr.carlos.eform.actions;
 
+import java.io.File;
+
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -48,6 +50,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
@@ -194,6 +197,42 @@ class DisplayImage2ActionTest extends CarlosUnitTestBase {
             assertThat(mockResponse.getContentAsString()).isEqualTo("{\"ok\":true}");
         }
 
+
+        @Test
+        @DisplayName("should return 404 when requested asset file is missing")
+        void shouldReturn404_whenRequestedAssetFileIsMissing() throws Exception {
+            mockRequest.setParameter("imagefile", "consult_sig_999998.png");
+
+            when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_eform"), eq("r"), isNull()))
+                    .thenReturn(true);
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_NOT_FOUND);
+            assertThat(mockResponse.getContentAsByteArray()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should return 404 when asset disappears after validation but before streaming")
+        void shouldReturn404_whenAssetDisappearsAfterValidation() throws Exception {
+            mockRequest.setParameter("imagefile", "consult_sig_999998.png");
+            Files.write(tempDir.resolve("consult_sig_999998.png"), new byte[] {1, 2, 3});
+
+            when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_eform"), eq("r"), isNull()))
+                    .thenReturn(true);
+
+            DisplayImage2Action spiedAction = spy(action);
+            doThrow(new java.io.FileNotFoundException("vanished"))
+                    .when(spiedAction).process(any(File.class), anyString());
+
+            String result = spiedAction.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_NOT_FOUND);
+            assertThat(mockResponse.getContentAsByteArray()).isEmpty();
+        }
+
         @Test
         @DisplayName("should write HTML assets through writer when eform read privilege is granted")
         void shouldWriteHtmlAssetsThroughWriter_whenEformReadPrivilegeGranted() throws Exception {
@@ -267,6 +306,22 @@ class DisplayImage2ActionTest extends CarlosUnitTestBase {
             assertThatThrownBy(() -> action.execute())
                     .isInstanceOf(SecurityException.class)
                     .hasMessageContaining("_eform or _prevention");
+        }
+
+        @Test
+        @DisplayName("should return bad request when requested asset type is unsupported")
+        void shouldReturnBadRequest_whenRequestedAssetTypeIsUnsupported() throws Exception {
+            mockRequest.setParameter("imagefile", "custom.unsupported");
+            Files.writeString(tempDir.resolve("custom.unsupported"), "data", StandardCharsets.UTF_8);
+
+            when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_eform"), eq("r"), isNull()))
+                    .thenReturn(true);
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            assertThat(mockResponse.getErrorMessage()).isEqualTo("Unsupported eform asset type");
         }
 
         @Test

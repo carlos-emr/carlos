@@ -59,7 +59,9 @@ import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentSubCla
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToProvider;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
 import javax.xml.parsers.ParserConfigurationException;
@@ -99,6 +101,8 @@ public class HRMReportParser {
     /*
      * Called when a report is added to system
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use; path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use; path derived from trusted configuration/constant/DB value, not user-controllable input")
     public static HRMReport parseReport(LoggedInInfo loggedInInfo, String hrmReportFileLocation, List<Throwable> errors) {
         OmdCds root = null;
 
@@ -109,12 +113,24 @@ public class HRMReportParser {
             try {
                 // a lot of the parsers need to refer to a file and even when they provide
                 // parse(String text) it treats the text as a URL, so we load from disk
-                File tmpXMLholder = new File(hrmReportFileLocation);
+                String place = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+                File documentDir = PathValidationUtils.resolveConfiguredDirectory(place, "DOCUMENT_DIR");
+                File tmpXMLholder = PathValidationUtils.resolveTrustedPath(new File(hrmReportFileLocation));
 
-                // check DOCUMENT_DIR if not found
-                if (!tmpXMLholder.exists()) {
-                    String place = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-                    tmpXMLholder = new File(place + File.separator + hrmReportFileLocation);
+                // Enforce DOCUMENT_DIR containment: only trust the resolved absolute path if it both
+                // exists and is within DOCUMENT_DIR; otherwise resolve the name relative to (and
+                // contained within) DOCUMENT_DIR rather than reading an arbitrary on-disk location.
+                boolean withinDocumentDir = false;
+                if (tmpXMLholder.exists()) {
+                    try {
+                        PathValidationUtils.validateExistingPath(tmpXMLholder, documentDir);
+                        withinDocumentDir = true;
+                    } catch (SecurityException e) {
+                        withinDocumentDir = false;
+                    }
+                }
+                if (!withinDocumentDir) {
+                    tmpXMLholder = PathValidationUtils.validateExistingPath(new File(documentDir, hrmReportFileLocation), documentDir);
                 }
 
                 if (!tmpXMLholder.exists()) {
@@ -169,6 +185,13 @@ public class HRMReportParser {
                 if (errors != null) errors.add(e);
             } catch (IOException e) {
                 logger.error("ERROR READING report_manager_cds.xsd RESOURCE", e);
+                if (errors != null) errors.add(e);
+            } catch (SecurityException e) {
+                // PathValidationUtils rejects a misconfigured DOCUMENT_DIR or a DB-sourced report path
+                // that escapes it (FileValidationException extends SecurityException). Return null instead
+                // of letting the throw abort the whole HRM list render / batch import; list-render callers
+                // skip null reports, and the throw no longer aborts the batch loop.
+                logger.error("Rejected HRM report path; skipping document: {}", LogSafe.sanitize(hrmReportFileLocation));
                 if (errors != null) errors.add(e);
             }
 

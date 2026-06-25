@@ -1658,7 +1658,7 @@ public class ProviderProperty2Action extends ActionSupport {
         providerList.add(new LabelValueBean("Select", "")); //key, value
 
         ProviderDao dao = SpringUtils.getBean(ProviderDao.class);
-        List<Provider> ps = dao.getProviders();
+        List<Provider> ps = dao.getProviders(true);
         Collections.sort(ps, Comparator.comparing(Provider::getLastName));
         try {
             for (Provider p : ps) {
@@ -1689,7 +1689,9 @@ public class ProviderProperty2Action extends ActionSupport {
         request.setAttribute("providermsgProvider", "provider.setLabRecall.msgProfileView");
         request.setAttribute("providermsgEdit", "provider.setLabRecall.msgEdit");
         request.setAttribute("providerbtnSubmit", "provider.setLabRecall.btnSubmit");
-        request.setAttribute("providermsgSuccess", "provider.setLabRecall.msgSuccess");
+        if (!"error".equals(request.getAttribute("status"))) {
+            request.setAttribute("providermsgSuccess", "provider.setLabRecall.msgSuccess");
+        }     
         request.setAttribute("method", "saveLabRecallPrefs");
 
         this.setLabRecallDelegate(delegate);
@@ -1702,19 +1704,41 @@ public class ProviderProperty2Action extends ActionSupport {
 
     public String saveLabRecallPrefs() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.WRITE, null)) {
+            throw new SecurityException("missing required sec object (_lab)");
+        }
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         UserProperty s = this.getLabRecallMsgSubject();
         String subject = s != null ? s.getValue() : "";
 
-        String delegate = request.getParameter("labRecallDelegate.value"); 
+        String delegate = StringUtils.trimToEmpty(request.getParameter("labRecallDelegate.value"));
+
         String priority = request.getParameter("labRecallTicklerPriority.value");
 
         boolean assignee = request.getParameter("labRecallTicklerAssignee.checked") != null;
 
-        boolean delete = false;
-        if (delegate.equals("")) {
-            delete = true;
+        boolean delete = delegate.isEmpty();
+        boolean invalidDelegate = false;
+
+
+        // Validate delegate is an active provider before persisting
+        if (!delete) {
+            ProviderDao dao = SpringUtils.getBean(ProviderDao.class);
+            List<Provider> activeProviders = dao.getProviders(true);
+            boolean validDelegate = activeProviders.stream()
+                .anyMatch(p -> p.getProviderNo().equals(delegate));
+
+            if (!validDelegate) {
+                MiscUtils.getLogger().warn("Invalid or inactive provider selected as lab recall delegate");
+                invalidDelegate = true;
+            }
+        }
+
+        if (invalidDelegate) {
+            request.setAttribute("status", "error");
+            request.setAttribute("providermsgSuccess", "provider.setLabRecall.msgInvalidDelegate");
+            return viewLabRecall();
         }
 
         // Save delegate (dropdown)
@@ -1821,7 +1845,7 @@ public class ProviderProperty2Action extends ActionSupport {
         providerList.add(new LabelValueBean("Select", ""));
 
         ProviderDao dao = SpringUtils.getBean(ProviderDao.class);
-        List<Provider> ps = dao.getProviders();
+        List<Provider> ps = dao.getProviders(true);
         Collections.sort(ps, Comparator.comparing(Provider::getLastName));
         try {
             for (Provider p : ps) {
@@ -2512,7 +2536,7 @@ public class ProviderProperty2Action extends ActionSupport {
      *
      * Security:
      *     - Requires authenticated provider session (injected via LoggedInInfo)
-     *     - Checks _lab READ privilege via SecurityInfoManager
+     *     - Checks _lab READ privilege via SecurityInfoManager to view macros
      *     - Throws RuntimeException if privilege is missing
      *
      * Flow:

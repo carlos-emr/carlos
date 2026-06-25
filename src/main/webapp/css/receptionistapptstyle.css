@@ -431,7 +431,9 @@ table#firstTable .tabalert {
 }
 
 .tabalert:hover,
-a:hover .tabalert {
+a:hover .tabalert,
+a:focus .tabalert,
+a:focus-visible .tabalert {
     color: white !important;
 }
 

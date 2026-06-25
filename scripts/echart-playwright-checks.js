@@ -118,7 +118,7 @@ function wirePage(page, label) {
 async function loginAndOpenSearch(context) {
   const page = await context.newPage();
   wirePage(page, 'schedule');
-  await page.goto(appUrl('/'), { waitUntil: 'domcontentloaded' });
+  await page.goto(appUrl('/'), { waitUntil: 'domcontentloaded' }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to local/private by default
   await page.locator('#username').fill(testUser);
   await page.locator('#password').fill(testPassword);
   await page.locator('#pin').fill(testPin);
@@ -181,7 +181,7 @@ async function assertVisible(page, selector, label) {
 }
 
 async function screenshot(page, name) {
-  await page.screenshot({ path: path.join(screenshotDir, `${name}.png`), fullPage: true });
+  await page.screenshot({ path: path.join(screenshotDir, `${name}.png`), fullPage: true }); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- local Playwright helper writes screenshots under caller-selected local artifact dir
 }
 
 (async () => {

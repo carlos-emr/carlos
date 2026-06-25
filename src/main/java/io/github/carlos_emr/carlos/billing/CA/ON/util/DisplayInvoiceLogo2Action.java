@@ -34,6 +34,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 
@@ -53,7 +54,9 @@ public class DisplayInvoiceLogo2Action extends ActionSupport {
     private HttpServletResponse response = ServletActionContext.getResponse();
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    // FindSecBugs PATH_TRAVERSAL_IN: fileName is the containment-validated path returned by getLogoImgAbsPath()
+    // (validated within DOCUMENT_DIR there); resolveTrustedPath below only canonicalizes the already-validated value.
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; fileName is already containment-validated within DOCUMENT_DIR by getLogoImgAbsPath(); resolveTrustedPath only canonicalizes a trusted value")
     @Override
     public String execute() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -68,7 +71,7 @@ public class DisplayInvoiceLogo2Action extends ActionSupport {
         }
 
         response.setHeader("Content-disposition", "inline; filename=" + fileName);
-        File file = new File(fileName);
+        File file = PathValidationUtils.resolveTrustedPath(new File(fileName));
         //gets content type from image extension
         String contentType = new MimetypesFileTypeMap().getContentType(file);
         /**
@@ -145,6 +148,8 @@ public class DisplayInvoiceLogo2Action extends ActionSupport {
         return f.substring(dot + 1);
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static String getLogoImgAbsPath() {
         String fileName = "";
         String logoDocType = CarlosProperties.getInstance().getProperty("invoice_head_logo_doctype");
@@ -172,7 +177,7 @@ public class DisplayInvoiceLogo2Action extends ActionSupport {
 
         File file = null;
         try {
-            File directory = new File(document_dir);
+            File directory = PathValidationUtils.resolveConfiguredDirectory(document_dir, "DOCUMENT_DIR");
             if (!directory.exists()) {
                 MiscUtils.getLogger().info("Directory:  " + document_dir + " does not exist");
                 return fileName;
@@ -183,15 +188,18 @@ public class DisplayInvoiceLogo2Action extends ActionSupport {
                 fileName = document_dir + fileName;
             }
 
-            file = new File(fileName);
+            file = PathValidationUtils.validateExistingPath(new File(fileName), directory);
             if (!file.exists()) {
                 MiscUtils.getLogger().info("File: " + fileName);
                 return "";
             }
+            // Return the containment-validated path (not the raw fileName) so the caller operates
+            // on the value PathValidationUtils actually validated.
+            return file.getPath();
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
         }
 
-        return fileName;
+        return "";
     }
 }
