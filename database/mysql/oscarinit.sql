@@ -9537,6 +9537,21 @@ CREATE TABLE IF NOT EXISTS `ServiceClient` (
   PRIMARY KEY (`id`)
 );
 
+CREATE TABLE IF NOT EXISTS `ServiceOAuthNonce` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `nonceKeyHash` char(64) NOT NULL,
+  `consumerKey` varchar(255) NOT NULL,
+  `tokenId` varchar(255) NOT NULL DEFAULT '',
+  `nonce` varchar(255) NOT NULL,
+  `oauthTimestamp` bigint(20) NOT NULL,
+  `dateCreated` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `lastUpdateUser` varchar(20) DEFAULT NULL,
+  `lastUpdateDate` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_service_oauth_nonce` (`nonceKeyHash`),
+  KEY `idx_service_oauth_nonce_ts` (`oauthTimestamp`)
+);
+
 CREATE TABLE IF NOT EXISTS PreventionsLotNrs(
   id int(10) NOT NULL AUTO_INCREMENT, 
   creationDate datetime,

@@ -39,12 +39,19 @@ import java.util.UUID;
 
 import io.github.carlos_emr.carlos.commn.dao.ServiceAccessTokenDao;
 import io.github.carlos_emr.carlos.commn.dao.ServiceClientDao;
+import io.github.carlos_emr.carlos.commn.dao.ServiceOAuthNonceDao;
 import io.github.carlos_emr.carlos.commn.dao.ServiceRequestTokenDao;
 import io.github.carlos_emr.carlos.commn.model.ServiceAccessToken;
 import io.github.carlos_emr.carlos.commn.model.ServiceClient;
+import io.github.carlos_emr.carlos.commn.model.ServiceOAuthNonce;
 import io.github.carlos_emr.carlos.commn.model.ServiceRequestToken;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -68,6 +75,16 @@ public class OscarOAuthDataProvider {
     @Autowired private ServiceRequestTokenDao serviceRequestTokenDao;
     @Autowired private ServiceAccessTokenDao serviceAccessTokenDao;
     @Autowired private ServiceClientDao serviceClientDao;
+    @Autowired private ServiceOAuthNonceDao serviceOAuthNonceDao;
+
+    // Throttle stale-nonce pruning so a DELETE does not run on every signed
+    // request; once per interval is enough to keep the table bounded.
+    private static final long NONCE_PRUNE_INTERVAL_SECONDS = 10L;
+    private volatile long lastNoncePruneEpochSeconds = 0L;
+
+    // Matches the varchar(255) columns of ServiceOAuthNonce; a legitimate
+    // consumer key cannot exceed the ServiceClient key length either.
+    private static final int MAX_NONCE_FIELD_LENGTH = 255;
 
     public Client getClient(String consumerKey) {
         logger.debug("getClient({})", consumerKey);
@@ -243,6 +260,103 @@ public class OscarOAuthDataProvider {
     public String getRequestTokenSecret(String requestTokenId) {
         ServiceRequestToken srt = serviceRequestTokenDao.findByTokenId(requestTokenId);
         return srt != null ? srt.getTokenSecret() : null;
+    }
+
+    /**
+     * Records an OAuth 1.0a request nonce as consumed, rejecting it as a replay
+     * if the same (consumerKey, tokenId, nonce) combination has already been
+     * seen. Callers must only invoke this after the request signature has been
+     * verified, so an attacker cannot poison the store for a legitimate client.
+     *
+     * @param consumerKey     the request's oauth_consumer_key (required).
+     * @param tokenId         the request's oauth_token, or null for the token
+     *                        initiate step; stored as an empty string when absent.
+     * @param nonce           the request's oauth_nonce (required).
+     * @param oauthTimestamp  the request's oauth_timestamp, retained for pruning.
+     * @param retentionSeconds how long a consumed nonce must be remembered; older
+     *                        entries are pruned because their timestamp can no
+     *                        longer pass the freshness check and cannot be replayed.
+     * @throws OAuth1Exception 401 when the nonce has already been consumed.
+     */
+    public void consumeNonce(String consumerKey, String tokenId, String nonce,
+            long oauthTimestamp, long retentionSeconds) throws OAuth1Exception {
+        // A non-positive retention would set the prune cutoff at/after "now" and
+        // delete still-replayable nonces, silently disabling replay protection.
+        if (retentionSeconds <= 0) {
+            throw new IllegalArgumentException("retentionSeconds must be positive");
+        }
+        // consumerKey and nonce are mandatory; only tokenId may be absent (the
+        // token-initiate step carries no oauth_token). Reject blank (including
+        // whitespace-only) values explicitly rather than silently coalescing, so
+        // a replay key is never built from empty values.
+        if (consumerKey == null || consumerKey.isBlank() || nonce == null || nonce.isBlank()) {
+            throw new OAuth1Exception(400, "invalid_oauth_parameters");
+        }
+        String key = consumerKey;
+        String token = tokenId == null ? "" : tokenId;
+        String nonceValue = nonce;
+
+        // Reject oversized values up front so they fail with a clean OAuth error
+        // instead of a DB-level fault, and so the only integrity violation the
+        // insert below can raise is the unique-key duplicate (a replay).
+        if (key.length() > MAX_NONCE_FIELD_LENGTH
+                || token.length() > MAX_NONCE_FIELD_LENGTH
+                || nonceValue.length() > MAX_NONCE_FIELD_LENGTH) {
+            throw new OAuth1Exception(400, "oauth_parameter_too_long");
+        }
+
+        // Drop nonces that can no longer pass the timestamp freshness window so
+        // the table stays bounded. Throttled so this DELETE does not run on
+        // every signed request.
+        long now = System.currentTimeMillis() / 1000;
+        if (now - lastNoncePruneEpochSeconds >= NONCE_PRUNE_INTERVAL_SECONDS) {
+            lastNoncePruneEpochSeconds = now;
+            serviceOAuthNonceDao.deleteOlderThan(now - retentionSeconds);
+        }
+
+        ServiceOAuthNonce consumed = new ServiceOAuthNonce();
+        consumed.setNonceKeyHash(nonceKeyHash(key, token, nonceValue));
+        consumed.setConsumerKey(key);
+        consumed.setTokenId(token);
+        consumed.setNonce(nonceValue);
+        consumed.setOauthTimestamp(oauthTimestamp);
+        consumed.setDateCreated(new Date());
+        try {
+            serviceOAuthNonceDao.persist(consumed);
+            // Force the INSERT now: the unique key on nonceKeyHash is the single
+            // source of truth for replay detection, so a duplicate (sequential or
+            // concurrent) is rejected here as a replay rather than surfacing as a
+            // 500 at commit time. Only a constraint violation is treated as a
+            // replay; other failures propagate so a real DB fault is not masked.
+            serviceOAuthNonceDao.flush();
+        } catch (DataIntegrityViolationException | ConstraintViolationException duplicate) {
+            throw new OAuth1Exception(401, "nonce_replayed");
+        }
+    }
+
+    /**
+     * Derives the unique-key hash for a consumed nonce. Hashing a
+     * length-prefixed encoding of the canonical tuple keeps the unique index
+     * fixed-size and avoids both index key-length limits and ambiguity between
+     * field boundaries (e.g. ("ab","c") vs ("a","bc")).
+     */
+    private static String nonceKeyHash(String consumerKey, String tokenId, String nonce) {
+        String encoded = consumerKey.length() + ":" + consumerKey
+                + "|" + tokenId.length() + ":" + tokenId
+                + "|" + nonce.length() + ":" + nonce;
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(encoded.getBytes(StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder(hash.length * 2);
+            for (byte b : hash) {
+                hex.append(Character.forDigit((b >> 4) & 0xF, 16));
+                hex.append(Character.forDigit(b & 0xF, 16));
+            }
+            return hex.toString();
+        } catch (NoSuchAlgorithmException e) {
+            // SHA-256 is mandated by the Java platform, so this cannot happen.
+            throw new IllegalStateException("SHA-256 not available", e);
+        }
     }
 
     private ServiceAccessToken findUnexpiredAccessToken(String accessTokenId) {
