@@ -247,6 +247,9 @@ class NativeApiRouteContractUnitTest {
 
     private static Document parseConfig(String resource) throws Exception {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        // Harden against XXE even for these trusted classpath resources, so the parsing pattern is
+        // safe by example and does not trip security static analysis.
+        factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
         factory.setNamespaceAware(false);
         DocumentBuilder builder = factory.newDocumentBuilder();
         try (InputStream in = NativeApiRouteContractUnitTest.class.getClassLoader()

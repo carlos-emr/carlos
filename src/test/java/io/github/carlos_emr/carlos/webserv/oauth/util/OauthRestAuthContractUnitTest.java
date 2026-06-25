@@ -48,7 +48,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
@@ -165,7 +164,7 @@ class OauthRestAuthContractUnitTest {
 
     private static Message messageFor(HttpServletRequest request) {
         Message message = mock(Message.class);
-        when(message.get(eq(AbstractHTTPDestination.HTTP_REQUEST))).thenReturn(request);
+        when(message.get(AbstractHTTPDestination.HTTP_REQUEST)).thenReturn(request);
         return message;
     }
 }
