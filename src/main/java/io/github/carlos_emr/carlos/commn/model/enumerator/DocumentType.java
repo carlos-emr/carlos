@@ -1,5 +1,9 @@
 package io.github.carlos_emr.carlos.commn.model.enumerator;
 
+/**
+ * Represents the DocumentType enumeration for classifying system records.
+ * Used across data models to enforce valid domain-specific classifications.
+ */
 public enum DocumentType {
     EFORM("E", "eForm"),
     DOC("D", "doc"),

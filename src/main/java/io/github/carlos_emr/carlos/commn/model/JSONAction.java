@@ -14,6 +14,10 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
 
+/**
+ * Represents the JSONAction entity within the system.
+ * This class maps directly to the underlying business domain requirements for JSONAction operations.
+ */
 public class JSONAction extends ActionSupport {
 
     private final String ENCODING = "UTF-8";

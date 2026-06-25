@@ -5,6 +5,10 @@ import jakarta.xml.bind.JAXBElement;
 import javax.xml.namespace.QName;
 import jakarta.xml.bind.annotation.XmlRegistry;
 
+/**
+ * Represents the ObjectFactory entity within the system.
+ * This class maps directly to the underlying business domain requirements for ObjectFactory operations.
+ */
 @XmlRegistry
 public class ObjectFactory
 {

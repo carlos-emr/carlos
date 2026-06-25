@@ -12,6 +12,10 @@ import jakarta.persistence.Table;
 import java.util.Date;
 import java.util.List;
 
+/**
+ * Domain model representing a document or file attached to a ERefer record.
+ * Links the binary payload with its corresponding clinical or administrative entity.
+ */
 @Entity
 @Table(name = "erefer_attachment")
 public class EReferAttachment extends AbstractModel<Integer> {

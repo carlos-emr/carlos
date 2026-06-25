@@ -7,6 +7,10 @@ import jakarta.servlet.ServletContext;
 
 import org.springframework.web.context.ServletContextAware;
 
+/**
+ * Configuration model representing ServletContext settings.
+ * Provides programmatic configuration for the Servlet Context, defining filters, listeners, and initialization parameters necessary for application startup.
+ */
 @Configuration
 public class ServletContextConfig implements ServletContextAware {
 

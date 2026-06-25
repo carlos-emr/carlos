@@ -5,6 +5,10 @@ import jakarta.persistence.*;
 
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 
+/**
+ * Domain model representing a document or file attached to a Email record.
+ * Links the binary payload with its corresponding clinical or administrative entity.
+ */
 @Entity
 @Table(name = "emailAttachment")
 public class EmailAttachment extends AbstractModel<Integer> {

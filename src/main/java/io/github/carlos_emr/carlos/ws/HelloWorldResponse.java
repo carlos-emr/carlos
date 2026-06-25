@@ -6,6 +6,10 @@ import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
 
+/**
+ * JAXB-annotated representation of the HelloWorldResponse payload.
+ * Used in SOAP/REST web service endpoints for connectivity testing and validation.
+ */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "helloWorldResponse", propOrder = { "_return" })
 public class HelloWorldResponse implements Serializable

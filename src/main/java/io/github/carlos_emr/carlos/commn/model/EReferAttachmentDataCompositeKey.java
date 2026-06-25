@@ -6,6 +6,10 @@ import jakarta.persistence.ManyToOne;
 import java.io.Serializable;
 import java.util.Objects;
 
+/**
+ * Composite primary key class representing the unique identifier for EReferral attachment binary data chunks.
+ * Links the binary payload with its corresponding clinical or administrative entity.
+ */
 public class EReferAttachmentDataCompositeKey implements Serializable {
     @ManyToOne
     @JoinColumn(name = "erefer_attachment_id", referencedColumnName = "id")
