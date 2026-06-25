@@ -123,8 +123,8 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
                         sSQL += fieldSqlExpression + " " + fieldName + ",";
                         fieldNames[i - 1] = fieldName;
                     } else {
-                        String fieldName = validateSqlAlias(fieldSqlExpression);
-                        sSQL += "s." + fieldName + ",";
+                        String fieldName = validateLoadCodeListFieldName(fieldSqlExpression);
+                        sSQL += qualifyLoadCodeListField(fieldSqlExpression) + ",";
                         fieldNames[i - 1] = fieldName;
                     }
                     ok = true;
@@ -296,6 +296,25 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
             throw new IllegalArgumentException("Invalid SQL alias in lookup configuration");
         }
         return alias;
+    }
+
+    private String validateLoadCodeListFieldName(String fieldSql) {
+        int dotIndex = fieldSql.indexOf('.');
+        if (dotIndex < 0) {
+            return validateSqlAlias(fieldSql);
+        }
+        if (fieldSql.indexOf('.', dotIndex + 1) >= 0 || !"s".equals(fieldSql.substring(0, dotIndex))) {
+            MiscUtils.getLogger().error("Invalid qualified SQL field rejected in lookup configuration");
+            throw new IllegalArgumentException("Invalid qualified SQL field in lookup configuration");
+        }
+        return validateSqlAlias(fieldSql.substring(dotIndex + 1));
+    }
+
+    private String qualifyLoadCodeListField(String fieldSql) {
+        if (fieldSql.indexOf('.') >= 0) {
+            return fieldSql;
+        }
+        return "s." + fieldSql;
     }
 
     /**

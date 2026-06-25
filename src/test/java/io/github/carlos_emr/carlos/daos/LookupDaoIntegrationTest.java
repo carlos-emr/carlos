@@ -191,6 +191,11 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
      */
     private void insertFieldFull(String tableId, String fieldName, int fieldIndex, int genericIdx,
                                   String fieldType, boolean autoIncrement, String lookupTable) {
+        insertFieldFull(tableId, fieldName, fieldName, fieldIndex, genericIdx, fieldType, autoIncrement, lookupTable);
+    }
+
+    private void insertFieldFull(String tableId, String fieldName, String fieldSql, int fieldIndex, int genericIdx,
+                                  String fieldType, boolean autoIncrement, String lookupTable) {
         hibernateTemplate.execute(session -> {
             session.createNativeQuery(INSERT_FIELD)
                 .setParameter("tid", tableId)
@@ -199,7 +204,7 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
                 .setParameter("ftype", fieldType)
                 .setParameter("edit", true)
                 .setParameter("lt", lookupTable)
-                .setParameter("fsql", fieldName)
+                .setParameter("fsql", fieldSql)
                 .setParameter("fidx", fieldIndex)
                 .setParameter("auto", autoIncrement)
                 .setParameter("uniq", false)
@@ -629,6 +634,42 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
                 .as("NULL orderByIndex column should coerce to 0 (not NFE)")
                 .isZero();
         }
+
+        @Test
+        @Tag("query")
+        @Tag("security")
+        @DisplayName("should load rows when field SQL is qualified with the lookup table alias")
+        void shouldLoadRows_whenFieldSqlUsesLookupTableAlias() {
+            // Given - legacy lookup field metadata may already qualify columns with
+            // the LoadCodeList table alias. The SQL builder must not validate that
+            // qualified column as an output alias or prefix it a second time.
+            String tableId = nextTableId("QF");
+            String clearQualifiedFieldTable = "DELETE FROM qualified_field_lookup_test";
+
+            hibernateTemplate.execute(session -> {
+                session.createNativeQuery(CREATE_QUALIFIED_FIELD_TABLE).executeUpdate();
+                session.createNativeQuery(clearQualifiedFieldTable).executeUpdate();
+                session.createNativeQuery(INSERT_QUALIFIED_FIELD_ROW).executeUpdate();
+                return null;
+            });
+
+            insertLookupTableDef(tableId, QUALIFIED_FIELD_TABLE_NAME);
+            insertFieldFull(tableId, "code", "s.code", 1, 1, "S", false, "");
+            insertFieldFull(tableId, "description", 2, 2, "S", false, "");
+            insertFieldFull(tableId, "active_col", 3, 3, "I", false, "");
+            insertFieldFull(tableId, "orderby_col", 4, 4, "I", false, "");
+            hibernateTemplate.flush();
+
+            // When
+            @SuppressWarnings("unchecked")
+            List<LookupCodeValue> result = lookupDao.LoadCodeList(tableId, false, "", "", "");
+
+            // Then
+            assertThat(result).hasSize(1);
+            LookupCodeValue row = result.get(0);
+            assertThat(row.getCode()).isEqualTo("Q1");
+            assertThat(row.getDescription()).isEqualTo("Qualified");
+        }
     }
 
     /** Literal backing-table name for the NULL-row regression fixture. */
@@ -647,6 +688,23 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
     private static final String INSERT_NULL_ROW = """
             INSERT INTO nr_null_row_test (code, description, active_col, orderby_col)
             VALUES ('A', 'Alpha', NULL, NULL)""";
+
+    /** Literal backing-table name for qualified lookup field SQL regression coverage. */
+    private static final String QUALIFIED_FIELD_TABLE_NAME = "qualified_field_lookup_test";
+
+    /** Literal DDL for qualified lookup field SQL regression coverage. */
+    private static final String CREATE_QUALIFIED_FIELD_TABLE = """
+            CREATE TABLE IF NOT EXISTS qualified_field_lookup_test (
+                code VARCHAR(10),
+                description VARCHAR(100),
+                active_col INT,
+                orderby_col INT
+            )""";
+
+    /** Literal INSERT for qualified lookup field SQL regression coverage. */
+    private static final String INSERT_QUALIFIED_FIELD_ROW = """
+            INSERT INTO qualified_field_lookup_test (code, description, active_col, orderby_col)
+            VALUES ('Q1', 'Qualified', 1, 7)""";
 
     /** Literal backing-table name for the all-codes distinct-row regression fixture. */
     private static final String ALL_CODES_TABLE_NAME = "cfv_all_codes_test";
