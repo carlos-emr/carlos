@@ -32,6 +32,7 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 
+import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
@@ -259,7 +260,13 @@ class NativeApiRouteContractUnitTest {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         // Harden against XXE even for these trusted classpath resources, so the parsing pattern is
         // safe by example and does not trip security static analysis.
+        factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
         factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+        factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+        factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+        factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+        factory.setXIncludeAware(false);
+        factory.setExpandEntityReferences(false);
         factory.setNamespaceAware(false);
         DocumentBuilder builder = factory.newDocumentBuilder();
         try (InputStream in = NativeApiRouteContractUnitTest.class.getClassLoader()

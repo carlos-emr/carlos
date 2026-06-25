@@ -30,10 +30,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.transfer_objects.DemographicTransfer;
 import io.github.carlos_emr.carlos.webserv.transfer_objects.DemographicTransfer2;
@@ -61,7 +61,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("Native DemographicService SOAP contract")
 @Tag("unit")
 @Tag("webservice")
-class DemographicSoapContractUnitTest {
+class DemographicSoapContractUnitTest extends CarlosUnitTestBase {
 
     private static final Integer DEMOGRAPHIC_ID = 654;
 
@@ -80,7 +80,7 @@ class DemographicSoapContractUnitTest {
                 return loggedInInfo;
             }
         };
-        ReflectionTestUtils.setField(service, "demographicManager", demographicManager);
+        injectDependency(service, "demographicManager", demographicManager);
     }
 
     @Test
@@ -107,6 +107,7 @@ class DemographicSoapContractUnitTest {
         DemographicTransfer2 result = service.getDemographic2(DEMOGRAPHIC_ID);
 
         assertThat(result).isNotNull();
+        assertThat(result.getDemographicNo()).isEqualTo(DEMOGRAPHIC_ID);
         verify(demographicManager).getDemographic(loggedInInfo, DEMOGRAPHIC_ID);
     }
 

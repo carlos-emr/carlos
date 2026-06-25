@@ -32,14 +32,12 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockHttpServletRequest;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
-import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.login.OscarOAuthDataProvider;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.webserv.oauth.Client;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1Exception;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1SignatureVerifier;
@@ -49,7 +47,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -71,7 +69,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("OAuth REST authentication-failure contract")
 @Tag("unit")
 @Tag("security")
-class OauthRestAuthContractUnitTest {
+class OauthRestAuthContractUnitTest extends CarlosUnitTestBase {
 
     @Mock
     private OscarOAuthDataProvider oauthDataProvider;
@@ -86,10 +84,12 @@ class OauthRestAuthContractUnitTest {
 
     @BeforeEach
     void setUp() {
+        // CarlosUnitTestBase stubs LogAction's static audit writes to no-ops, so the interceptor's
+        // failure-isolated audit calls do not hit the database during these unit tests.
         interceptor = new OAuthInterceptor();
-        ReflectionTestUtils.setField(interceptor, "oauthDataProvider", oauthDataProvider);
-        ReflectionTestUtils.setField(interceptor, "providerDao", providerDao);
-        ReflectionTestUtils.setField(interceptor, "verifier", verifier);
+        injectDependency(interceptor, "oauthDataProvider", oauthDataProvider);
+        injectDependency(interceptor, "providerDao", providerDao);
+        injectDependency(interceptor, "verifier", verifier);
     }
 
     @Test
@@ -97,9 +97,10 @@ class OauthRestAuthContractUnitTest {
     void shouldPassThrough_whenRequestIsNotOAuth1() {
         Message message = messageFor(new MockHttpServletRequest("GET", "/ws/services/demographics/1"));
 
-        try (MockedStatic<LogAction> ignored = mockStatic(LogAction.class)) {
-            assertThatCode(() -> interceptor.handleMessage(message)).doesNotThrowAnyException();
-        }
+        assertThatCode(() -> interceptor.handleMessage(message)).doesNotThrowAnyException();
+
+        // A non-OAuth1 request must short-circuit before any credential resolution or lookup.
+        verifyNoInteractions(oauthDataProvider, verifier, providerDao);
     }
 
     @Test
@@ -140,20 +141,17 @@ class OauthRestAuthContractUnitTest {
     // --- helpers -----------------------------------------------------------------------------
 
     private void assertFaultStatus(Message message, int expectedStatus, String expectedReason) {
-        // Audit writes hit the DB; stub them out so the test stays a deterministic unit test.
-        try (MockedStatic<LogAction> ignored = mockStatic(LogAction.class)) {
-            Throwable thrown = catchThrowable(() -> interceptor.handleMessage(message));
+        Throwable thrown = catchThrowable(() -> interceptor.handleMessage(message));
 
-            assertThat(thrown).isInstanceOf(Fault.class);
-            Fault fault = (Fault) thrown;
-            assertThat(fault.getStatusCode())
-                    .as("the OAuth status code is carried on the Fault, not defaulted to 500")
-                    .isEqualTo(expectedStatus);
-            assertThat(fault.getCause()).isInstanceOf(OAuth1Exception.class);
-            OAuth1Exception cause = (OAuth1Exception) fault.getCause();
-            assertThat(cause.getHttpCode()).isEqualTo(expectedStatus);
-            assertThat(cause.getMessage()).isEqualTo(expectedReason);
-        }
+        assertThat(thrown).isInstanceOf(Fault.class);
+        Fault fault = (Fault) thrown;
+        assertThat(fault.getStatusCode())
+                .as("the OAuth status code is carried on the Fault, not defaulted to 500")
+                .isEqualTo(expectedStatus);
+        assertThat(fault.getCause()).isInstanceOf(OAuth1Exception.class);
+        OAuth1Exception cause = (OAuth1Exception) fault.getCause();
+        assertThat(cause.getHttpCode()).isEqualTo(expectedStatus);
+        assertThat(cause.getMessage()).isEqualTo(expectedReason);
     }
 
     private static Message oauthMessage(String authorizationHeader) {

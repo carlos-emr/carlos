@@ -32,13 +32,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.AppointmentType;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.managers.DayWorkSchedule;
 import io.github.carlos_emr.carlos.managers.ScheduleManager;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.transfer_objects.AppointmentTransfer;
 import io.github.carlos_emr.carlos.webserv.transfer_objects.AppointmentTypeTransfer;
@@ -67,7 +67,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("Native ScheduleService SOAP contract")
 @Tag("unit")
 @Tag("webservice")
-class ScheduleSoapContractUnitTest {
+class ScheduleSoapContractUnitTest extends CarlosUnitTestBase {
 
     private static final String PROVIDER_NO = "999998";
     private static final Integer DEMOGRAPHIC_ID = 321;
@@ -93,7 +93,7 @@ class ScheduleSoapContractUnitTest {
                 return new Security();
             }
         };
-        ReflectionTestUtils.setField(service, "scheduleManager", scheduleManager);
+        injectDependency(service, "scheduleManager", scheduleManager);
     }
 
     @Test
@@ -148,6 +148,7 @@ class ScheduleSoapContractUnitTest {
         when(scheduleManager.getDayWorkSchedule(PROVIDER_NO, date)).thenReturn(null);
 
         assertThat(service.getDayWorkSchedule(PROVIDER_NO, date)).isNull();
+        verify(scheduleManager).getDayWorkSchedule(PROVIDER_NO, date);
     }
 
     @Test

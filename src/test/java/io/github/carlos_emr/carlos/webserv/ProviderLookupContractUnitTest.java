@@ -30,10 +30,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.managers.ProviderManager2;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.OscarSearchResponse;
 import io.github.carlos_emr.carlos.webserv.transfer_objects.ProviderTransfer;
@@ -60,7 +60,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("Native provider lookup contract (get_providers)")
 @Tag("unit")
 @Tag("webservice")
-class ProviderLookupContractUnitTest {
+class ProviderLookupContractUnitTest extends CarlosUnitTestBase {
 
     @Mock
     private ProviderManager2 providerManager;
@@ -84,7 +84,7 @@ class ProviderLookupContractUnitTest {
                 return loggedInInfo;
             }
         };
-        ReflectionTestUtils.setField(soapService, "providerManager", providerManager);
+        injectDependency(soapService, "providerManager", providerManager);
         when(providerManager.getProviders(loggedInInfo, Boolean.TRUE)).thenReturn(Collections.emptyList());
 
         ProviderTransfer[] result = soapService.getProviders(true);
@@ -102,7 +102,7 @@ class ProviderLookupContractUnitTest {
                 return loggedInInfo;
             }
         };
-        ReflectionTestUtils.setField(soapService, "providerManager", providerManager);
+        injectDependency(soapService, "providerManager", providerManager);
         when(providerManager.getProviders(loggedInInfo, Boolean.FALSE)).thenReturn(Collections.emptyList());
 
         ProviderTransfer[] result = soapService.getProviders2(Boolean.FALSE);
@@ -116,7 +116,7 @@ class ProviderLookupContractUnitTest {
     void shouldReadProviders_whenUsingRestProviderService() {
         io.github.carlos_emr.carlos.webserv.rest.ProviderService restService =
                 new io.github.carlos_emr.carlos.webserv.rest.ProviderService();
-        ReflectionTestUtils.setField(restService, "providerDao", providerDao);
+        injectDependency(restService, "providerDao", providerDao);
         when(providerDao.getActiveProviders()).thenReturn(Collections.emptyList());
 
         OscarSearchResponse<ProviderTransfer> response = restService.getProviders();

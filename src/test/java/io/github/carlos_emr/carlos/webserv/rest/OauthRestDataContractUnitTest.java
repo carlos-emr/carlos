@@ -32,12 +32,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.DocumentManager;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.DemographicConverter;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicTo1;
@@ -47,6 +47,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -69,7 +70,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("OAuth REST data-write contract")
 @Tag("unit")
 @Tag("rest")
-class OauthRestDataContractUnitTest {
+class OauthRestDataContractUnitTest extends CarlosUnitTestBase {
 
     private static final Integer DEMOGRAPHIC_NO = 777;
     private static final String PROVIDER_NO = "999998";
@@ -148,6 +149,8 @@ class OauthRestDataContractUnitTest {
         Response response = service.saveDocumentToDemographic(document);
 
         assertThat(response.getStatus()).isEqualTo(Response.Status.BAD_REQUEST.getStatusCode());
+        // A rejected upload must not persist anything before returning 400.
+        verifyNoInteractions(documentManager);
     }
 
     private DemographicService newDemographicService() {
@@ -157,8 +160,8 @@ class OauthRestDataContractUnitTest {
                 return loggedInInfo;
             }
         };
-        ReflectionTestUtils.setField(service, "demographicManager", demographicManager);
-        ReflectionTestUtils.setField(service, "demoConverter", demoConverter);
+        injectDependency(service, "demographicManager", demographicManager);
+        injectDependency(service, "demoConverter", demoConverter);
         return service;
     }
 
@@ -169,7 +172,7 @@ class OauthRestDataContractUnitTest {
                 return loggedInInfo;
             }
         };
-        ReflectionTestUtils.setField(service, "documentManager", documentManager);
+        injectDependency(service, "documentManager", documentManager);
         return service;
     }
 
