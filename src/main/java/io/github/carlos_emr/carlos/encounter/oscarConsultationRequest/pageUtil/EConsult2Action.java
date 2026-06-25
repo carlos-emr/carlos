@@ -316,6 +316,13 @@ public class EConsult2Action extends ActionSupport {
                 return null;
             }
 
+            // URI#getHost()'s companion getPort() does not range-check, so reject an
+            // out-of-range port (e.g. :99999) to keep the fail-closed contract consistent
+            // with the underscore-host fallback. -1 means "no port".
+            if (port != -1 && (port < 0 || port > 65535)) {
+                return null;
+            }
+
             StringBuilder origin = new StringBuilder(scheme).append("://").append(host);
             if (port != -1) {
                 origin.append(':').append(port);

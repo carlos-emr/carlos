@@ -59,6 +59,14 @@ class EConsult2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("Rejects an out-of-range port on a normal hostname")
+    void shouldFailClosed_whenConfiguredPortOutOfRange() {
+        // java.net.URI#getPort() does not range-check, so the validator must.
+        assertThat(EConsult2Action.buildSsoReturnUrl("https://emr.example.com:99999", "/carlos")).isNull();
+        assertThat(EConsult2Action.buildSsoReturnUrl("https://emr.example.com:70000", "/carlos")).isNull();
+    }
+
+    @Test
     @DisplayName("Supports the root context (empty context path)")
     void shouldBuildReturnUrl_withRootContext() {
         assertThat(EConsult2Action.buildSsoReturnUrl("https://emr.example.com", "")).isEqualTo("https://emr.example.com/econsultSSOLogin");
