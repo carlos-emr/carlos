@@ -198,22 +198,16 @@ class EFormJspMigrationRegressionTest {
     void shouldUseButtonToggle_forCreateEFormDropdown() throws IOException {
         String nav = Files.readString(EFM_TOP_NAV_JSPF, StandardCharsets.UTF_8);
 
-        Pattern createTogglePattern = Pattern.compile(
-            "<li class=\"nav-item dropdown\">\\s*"
-                + "<button[^>]*type=\"button\"[^>]*>\\s*(?:<fmt:setBundle[^>]*/>)?\\s*<fmt:message key=\"eform.create\"/>",
-            Pattern.DOTALL);
-        Pattern toggleClassPattern = Pattern.compile(
-            "<button[^>]*class=\"(?=[^\"]*\\bcontentLink\\b)(?=[^\"]*\\bnav-link\\b)(?=[^\"]*\\bdropdown-toggle\\b)[^\"]*\"[^>]*>\\s*(?:<fmt:setBundle[^>]*/>)?\\s*<fmt:message key=\"eform.create\"/>",
-            Pattern.DOTALL);
-
-        assertThat(createTogglePattern.matcher(nav).find()).isTrue();
-        assertThat(toggleClassPattern.matcher(nav).find()).isTrue();
         assertThat(nav)
+            .containsSubsequence(
+                "<li class=\"nav-item dropdown\">",
+                "<button type=\"button\"",
+                "class=\"contentLink nav-link dropdown-toggle\"",
+                "data-bs-toggle=\"dropdown\"",
+                "aria-haspopup=\"true\"",
+                "aria-expanded=\"false\"",
+                "<fmt:message key=\"eform.create\"/>")
             .doesNotContain("javascript:void(0)")
-            .containsPattern("<button[^>]*data-bs-toggle=\"dropdown\"")
-            .containsPattern("<button[^>]*aria-haspopup=\"true\"")
-            .containsPattern("<button[^>]*aria-expanded=\"false\"")
-            .contains("<fmt:message key=\"eform.create\"/>")
             .doesNotContain("Create eForm");
     }
 
