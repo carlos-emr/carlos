@@ -144,14 +144,27 @@ class NativeApiRouteContractUnitTest {
 
     @Test
     @DisplayName("should expose OAuth REST demographics create/update under /demographics")
-    void shouldExposeDemographicsCreateAndUpdate_underDemographicsPath() {
+    void shouldExposeDemographicsCreateAndUpdate_underDemographicsPath() throws Exception {
         assertThat(DemographicService.class.getAnnotation(Path.class).value())
                 .as("native demographics REST contract lives at /ws/services/demographics")
                 .isEqualTo("/demographics");
 
         // submit_patient_data -> POST /ws/services/demographics ; update_patient_data -> PUT same path.
-        assertThat(restMethodHasAnnotation(DemographicService.class, "createDemographicData", POST.class)).isTrue();
-        assertThat(restMethodHasAnnotation(DemographicService.class, "updateDemographicData", PUT.class)).isTrue();
+        Method create = DemographicService.class.getMethod("createDemographicData",
+                io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicTo1.class);
+        Method update = DemographicService.class.getMethod("updateDemographicData",
+                io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicTo1.class);
+        assertThat(create.isAnnotationPresent(POST.class)).as("submit_patient_data is a POST").isTrue();
+        assertThat(update.isAnnotationPresent(PUT.class)).as("update_patient_data is a PUT").isTrue();
+
+        // Pin the absence of a method-level @Path so the effective route stays exactly the class
+        // path /ws/services/demographics: a stray sub-path would silently shift the contract.
+        assertThat(create.isAnnotationPresent(Path.class))
+                .as("createDemographicData adds no sub-path to /demographics")
+                .isFalse();
+        assertThat(update.isAnnotationPresent(Path.class))
+                .as("updateDemographicData adds no sub-path to /demographics")
+                .isFalse();
     }
 
     @Test
@@ -173,11 +186,18 @@ class NativeApiRouteContractUnitTest {
 
     @Test
     @DisplayName("should expose native provider lookup REST route for get_providers")
-    void shouldExposeProviderLookupRest_forGetProviders() {
+    void shouldExposeProviderLookupRest_forGetProviders() throws Exception {
         assertThat(ProviderService.class.getAnnotation(Path.class).value())
                 .as("native provider REST lookup lives under /ws/services/providerService")
                 .isEqualTo("/providerService/");
-        assertThat(restMethodHasAnnotation(ProviderService.class, "getProviders", GET.class)).isTrue();
+
+        Method getProviders = ProviderService.class.getMethod("getProviders");
+        assertThat(getProviders.isAnnotationPresent(GET.class))
+                .as("get_providers REST lookup is a GET")
+                .isTrue();
+        assertThat(getProviders.getAnnotation(Path.class).value())
+                .as("native provider lookup sub-path is /providers under /providerService/")
+                .isEqualTo("/providers");
     }
 
     // --- helpers -----------------------------------------------------------------------------
@@ -195,16 +215,6 @@ class NativeApiRouteContractUnitTest {
                 .as("%s declares the native SOAP operations from the compatibility matrix",
                         implementor.getSimpleName())
                 .contains(operations);
-    }
-
-    private static boolean restMethodHasAnnotation(Class<?> service, String methodName,
-            Class<? extends java.lang.annotation.Annotation> annotation) {
-        for (Method method : service.getMethods()) {
-            if (method.getName().equals(methodName) && method.isAnnotationPresent(annotation)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private static List<String> soapEndpointAddresses() throws Exception {
