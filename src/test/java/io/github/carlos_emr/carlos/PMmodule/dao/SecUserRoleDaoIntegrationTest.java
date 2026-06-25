@@ -71,7 +71,10 @@ public class SecUserRoleDaoIntegrationTest extends CarlosTestBase {
         role.setOrgcd("ORG1");
         role.setActiveyn(activeyn);
         role.setLastUpdateDate(new Date());
-        hibernateTemplate.execute(session -> { session.persist(role); return null; });
+        hibernateTemplate.execute(session -> {
+            session.persist(role);
+            return null;
+        });
     }
 
     @Test
