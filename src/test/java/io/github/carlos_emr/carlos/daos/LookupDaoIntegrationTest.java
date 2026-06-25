@@ -644,11 +644,11 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
             // the LoadCodeList table alias. The SQL builder must not validate that
             // qualified column as an output alias or prefix it a second time.
             String tableId = nextTableId("QF");
-            String clearQualifiedFieldTable = "DELETE FROM qualified_field_lookup_test";
+            String deleteQualifiedFieldRows = "DELETE FROM qualified_field_lookup_test";
 
             hibernateTemplate.execute(session -> {
                 session.createNativeQuery(CREATE_QUALIFIED_FIELD_TABLE).executeUpdate();
-                session.createNativeQuery(clearQualifiedFieldTable).executeUpdate();
+                session.createNativeQuery(deleteQualifiedFieldRows).executeUpdate();
                 session.createNativeQuery(INSERT_QUALIFIED_FIELD_ROW).executeUpdate();
                 return null;
             });

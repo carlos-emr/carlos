@@ -303,11 +303,15 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
         if (dotIndex < 0) {
             return validateSqlAlias(fieldSql);
         }
-        if (fieldSql.indexOf('.', dotIndex + 1) >= 0 || !"s".equals(fieldSql.substring(0, dotIndex))) {
+        String qualifier = fieldSql.substring(0, dotIndex);
+        String columnName = fieldSql.substring(dotIndex + 1);
+        boolean hasMultipleSegments = columnName.indexOf('.') >= 0;
+        if (hasMultipleSegments || !"s".equals(qualifier)) {
             MiscUtils.getLogger().error("Invalid qualified SQL field rejected in lookup configuration");
             throw new IllegalArgumentException("Invalid qualified SQL field in lookup configuration");
         }
-        return validateSqlAlias(fieldSql.substring(dotIndex + 1));
+        // LoadCodeList owns the "s" table alias; other qualifiers would escape that fixed FROM shape.
+        return validateSqlAlias(columnName);
     }
 
     private String qualifyLoadCodeListField(String fieldSql) {
