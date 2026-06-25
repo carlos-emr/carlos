@@ -200,7 +200,7 @@ public class ConsultationSignatureService {
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "filename is constrained to a numeric provider stamp name and validated against the eForm image directory")
     private byte[] readProviderStampImage(String providerNo) {
         if (!isNumericProviderNo(providerNo)) {
-            MiscUtils.getLogger().warn("Rejected consultation signature stamp for non-numeric provider {}", providerNo);
+            MiscUtils.getLogger().warn("Rejected consultation signature stamp for non-numeric provider {}", LogSafe.sanitize(providerNo));
             return null;
         }
 
@@ -216,7 +216,7 @@ public class ConsultationSignatureService {
             }
             return Files.readAllBytes(stampPath);
         } catch (SecurityException e) {
-            MiscUtils.getLogger().warn("Blocked unsafe consultation stamp signature path for provider {}", providerNo, e);
+            MiscUtils.getLogger().warn("Blocked unsafe consultation stamp signature path for provider {}", LogSafe.sanitize(providerNo), e);
         } catch (IOException e) {
             MiscUtils.getLogger().error("Error reading consultation stamp signature for provider {}", LogSafe.sanitize(providerNo), e);
         }

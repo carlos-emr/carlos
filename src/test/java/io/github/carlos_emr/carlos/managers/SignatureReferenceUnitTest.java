@@ -80,6 +80,13 @@ class SignatureReferenceUnitTest {
     }
 
     @Test
+    @DisplayName("rejects a direct construction with no kind")
+    void shouldRejectConstruction_whenKindIsNull() {
+        assertThatThrownBy(() -> new SignatureReference(null, "manual-abc"))
+                .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
     @DisplayName("rejects a direct STORED construction whose value is not a stored id")
     void shouldRejectConstruction_whenStoredValueIsNotAStoredId() {
         assertThatThrownBy(() -> new SignatureReference(SignatureReference.Kind.STORED, "abc"))

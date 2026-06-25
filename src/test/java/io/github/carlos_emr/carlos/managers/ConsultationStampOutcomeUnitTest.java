@@ -36,6 +36,13 @@ import org.junit.jupiter.api.Test;
 class ConsultationStampOutcomeUnitTest {
 
     @Test
+    @DisplayName("rejects an outcome with no status")
+    void shouldRejectConstruction_whenStatusIsNull() {
+        assertThatThrownBy(() -> new ConsultationStampOutcome(null, null))
+                .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
     @DisplayName("rejects a SAVED outcome with no signature")
     void shouldRejectConstruction_whenSavedWithoutSignature() {
         assertThatThrownBy(() -> new ConsultationStampOutcome(ConsultationStampOutcome.Status.SAVED, null))

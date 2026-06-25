@@ -26,6 +26,7 @@ import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
 import io.github.carlos_emr.carlos.utility.DigitalSignatureUtils;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -40,6 +41,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
+import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -280,6 +282,40 @@ class ConsultationSignatureServiceUnitTest {
     }
 
     @Test
+    @DisplayName("sanitizes non-numeric provider number before logging stamp rejection")
+    void shouldSanitizeProviderNo_whenRejectingInvalidStampProvider() throws Exception {
+        try (LogCapture capture = LogCapture.forLogger(ConsultationSignatureService.class)) {
+            assertThat(invokeReadProviderStampImage("12\r\nforged-provider")).isNull();
+
+            String logged = capture.messages().stream()
+                    .filter(message -> message.startsWith("Rejected consultation signature stamp"))
+                    .findFirst()
+                    .orElseThrow();
+            assertThat(logged).doesNotContain("\r").doesNotContain("\n");
+            assertThat(logged).contains("12\\r\\nforged-provider");
+        }
+    }
+
+    @Test
+    @DisplayName("sanitizes provider number before logging blocked stamp path")
+    void shouldSanitizeProviderNo_whenUnsafeStampPathBlocked() throws Exception {
+        try (LogCapture capture = LogCapture.forLogger(ConsultationSignatureService.class);
+             var pathValidation = mockStatic(PathValidationUtils.class)) {
+            pathValidation.when(() -> PathValidationUtils.validatePath(anyString(), any()))
+                    .thenThrow(new SecurityException("blocked"));
+
+            assertThat(invokeReadProviderStampImage("123\r\n")).isNull();
+
+            String logged = capture.messages().stream()
+                    .filter(message -> message.startsWith("Blocked unsafe consultation stamp signature path"))
+                    .findFirst()
+                    .orElseThrow();
+            assertThat(logged).doesNotContain("\r").doesNotContain("\n");
+            assertThat(logged).contains("123\\r\\n");
+        }
+    }
+
+    @Test
     @DisplayName("reports a captured manual signature when a non-empty temp file is present")
     void shouldReportManualCaptured_whenTempFilePresent() throws Exception {
         String requestId = "9999982000";
@@ -311,5 +347,11 @@ class ConsultationSignatureServiceUnitTest {
     @DisplayName("returns an empty provider number when no candidate value is numeric")
     void shouldReturnEmptyProviderNumber_whenNoCandidateIsNumeric() {
         assertThat(service.resolveSignatureProviderNo("abc", "def", "ghi")).isEmpty();
+    }
+
+    private byte[] invokeReadProviderStampImage(String providerNo) throws Exception {
+        Method method = ConsultationSignatureService.class.getDeclaredMethod("readProviderStampImage", String.class);
+        method.setAccessible(true);
+        return (byte[]) method.invoke(service, providerNo);
     }
 }

@@ -274,38 +274,44 @@ async function waitForSignatureFrame(page) {
   await frame.locator('#signatureForm').waitFor({ state: 'attached', timeout: 30000 });
 }
 
+async function readCsrfToken(page) {
+  const csrfInput = page.locator('input[name="CSRF-TOKEN"]').first();
+  if (await csrfInput.count() === 0) {
+    return '';
+  }
+  return csrfInput.inputValue({ timeout: 5000 }).catch(() => '');
+}
+
 async function savePrescriptionSignatureAssociation(page, digitalSignatureId) {
-  const result = await page.evaluate(async ({ scriptId, digitalSignatureId: signatureId }) => {
-    const csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
-    const csrfToken = csrfEl ? csrfEl.value || '' : '';
-    const body = new URLSearchParams({
-      method: 'saveDigitalSignature',
-      scriptId,
-    });
-    if (signatureId) {
-      body.append('digitalSignatureId', signatureId);
-    }
-    if (csrfToken) {
-      body.append('CSRF-TOKEN', csrfToken);
-    }
-    const contextPath = window.location.pathname.split('/rx/')[0] || '';
-    const response = await fetch(`${contextPath}/rx/saveDigitalSignature`, {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-        'X-Requested-With': 'XMLHttpRequest',
-        'CSRF-TOKEN': csrfToken,
-      },
-      body,
-    });
-    return {
-      status: response.status,
-      text: await response.text(),
-    };
-  }, { scriptId: prescriptionScriptId, digitalSignatureId: digitalSignatureId || '' });
-  if (result.status !== 200) {
-    throw new Error(`Saving prescription signature association returned HTTP ${result.status}: ${result.text.slice(0, 300)}`);
+  const signatureId = String(digitalSignatureId || '').trim();
+  if (signatureId && !/^\d+$/.test(signatureId)) {
+    throw new Error(`Prescription digitalSignatureId must be numeric when provided, got ${signatureId}`);
+  }
+
+  const csrfToken = await readCsrfToken(page);
+  const form = {
+    method: 'saveDigitalSignature',
+    scriptId: prescriptionScriptId,
+  };
+  if (signatureId) {
+    form.digitalSignatureId = signatureId;
+  }
+  if (csrfToken) {
+    form['CSRF-TOKEN'] = csrfToken;
+  }
+
+  const headers = { 'X-Requested-With': 'XMLHttpRequest' };
+  if (csrfToken) {
+    headers['CSRF-TOKEN'] = csrfToken;
+  }
+
+  const response = await page.context().request.post(appUrl('/rx/saveDigitalSignature'), {
+    form,
+    headers,
+  });
+  const text = await response.text();
+  if (response.status() !== 200) {
+    throw new Error(`Saving prescription signature association returned HTTP ${response.status()}: ${text.slice(0, 300)}`);
   }
 }
 

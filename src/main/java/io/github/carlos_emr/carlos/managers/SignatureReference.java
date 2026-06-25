@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.managers;
 
+import java.util.Objects;
+
 import org.apache.commons.lang3.StringUtils;
 
 /**
@@ -53,6 +55,7 @@ public record SignatureReference(Kind kind, String value) {
      * request id. A {@code null} value is normalized to {@code ""}.
      */
     public SignatureReference {
+        kind = Objects.requireNonNull(kind, "kind");
         value = value == null ? "" : value;
         if (kind == Kind.STORED && !isStoredId(value)) {
             throw new IllegalArgumentException("STORED reference requires a 1-9 digit id");

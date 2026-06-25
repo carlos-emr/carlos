@@ -30,6 +30,7 @@ import io.github.carlos_emr.carlos.fax.core.FaxRecipient;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.DigitalSignatureManager;
 import io.github.carlos_emr.carlos.managers.ConsultationSignatureService;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -813,7 +814,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
             parsedId = Integer.parseInt(normalizedSignatureImageId);
         } catch (NumberFormatException e) {
             // Malformed id is benign (the field is upstream-validated); render unsigned.
-            logger.debug("Consultation signature id {} is not a valid number", normalizedSignatureImageId);
+            logger.debug("Consultation signature id {} is not a valid number", LogSafe.sanitize(normalizedSignatureImageId));
             return null;
         }
         try {

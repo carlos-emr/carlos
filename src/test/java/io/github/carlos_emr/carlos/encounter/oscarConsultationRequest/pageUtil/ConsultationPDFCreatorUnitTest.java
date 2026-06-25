@@ -31,6 +31,7 @@ import static org.mockito.Mockito.when;
 
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 import io.github.carlos_emr.carlos.managers.DigitalSignatureManager;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -116,6 +117,24 @@ class ConsultationPDFCreatorUnitTest {
         byte[] result = ConsultationPDFCreator.resolveSignatureBytes(null, "abc", mgr);
 
         assertThat(result).isNull();
+    }
+
+    @Test
+    @DisplayName("sanitizes malformed signature id before logging")
+    void shouldSanitizeSignatureImageId_whenMalformedIdLogged() {
+        DigitalSignatureManager mgr = mock(DigitalSignatureManager.class);
+
+        try (LogCapture capture = LogCapture.forLogger(ConsultationPDFCreator.class)) {
+            byte[] result = ConsultationPDFCreator.resolveSignatureBytes(null, "12\r\nforged-id", mgr);
+
+            assertThat(result).isNull();
+            String logged = capture.messages().stream()
+                    .filter(message -> message.startsWith("Consultation signature id"))
+                    .findFirst()
+                    .orElseThrow();
+            assertThat(logged).doesNotContain("\r").doesNotContain("\n");
+            assertThat(logged).contains("12\\r\\nforged-id");
+        }
     }
 
     @Test

@@ -23,6 +23,8 @@ package io.github.carlos_emr.carlos.managers;
 
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 
+import java.util.Objects;
+
 /**
  * Result of an attempt to apply a provider stamp to a consultation. Replaces a bare {@code null}
  * return so the caller can distinguish a <em>benign</em> non-application (signatures disabled, no
@@ -39,6 +41,7 @@ public record ConsultationStampOutcome(Status status, DigitalSignature signature
      * outcome (e.g. {@code SAVED} with no signature, or a failure carrying one) cannot be built.
      */
     public ConsultationStampOutcome {
+        status = Objects.requireNonNull(status, "status");
         if ((status == Status.SAVED) != (signature != null)) {
             throw new IllegalArgumentException("signature must be present iff status is SAVED");
         }
