@@ -24,7 +24,9 @@ package io.github.carlos_emr.carlos.webserv.rest;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.InputStream;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
@@ -34,7 +36,6 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
-import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
 
@@ -65,6 +66,10 @@ class RestServiceSurfaceRegistrationUnitTest {
     private static final String SESSION_CONFIG = "spring_ws.xml";
     private static final String OAUTH_CONFIG = "applicationContextREST.xml";
 
+    /** CXF JAX-RS server addresses that publish the REST data services on each surface. */
+    private static final String SESSION_SERVER_ADDRESS = "/rs";
+    private static final String OAUTH_SERVER_ADDRESS = "/services";
+
     private static final String REST_PACKAGE_PREFIX = "io.github.carlos_emr.carlos.webserv.rest.";
     private static final String DOCUMENT_SERVICE = REST_PACKAGE_PREFIX + "DocumentService";
 
@@ -75,7 +80,7 @@ class RestServiceSurfaceRegistrationUnitTest {
     @Test
     @DisplayName("should register DocumentService on the session surface (/ws/rs)")
     void shouldRegisterDocumentService_onSessionSurface() throws Exception {
-        assertThat(serviceBeanClasses(SESSION_CONFIG))
+        assertThat(serviceBeanClasses(SESSION_CONFIG, SESSION_SERVER_ADDRESS))
                 .as("DocumentService must be reachable on the session /ws/rs surface, "
                         + "consistent with the OAuth /ws/services surface (issue #2961)")
                 .contains(DOCUMENT_SERVICE);
@@ -84,7 +89,7 @@ class RestServiceSurfaceRegistrationUnitTest {
     @Test
     @DisplayName("should register DocumentService on the OAuth surface (/ws/services)")
     void shouldRegisterDocumentService_onOAuthSurface() throws Exception {
-        assertThat(serviceBeanClasses(OAUTH_CONFIG))
+        assertThat(serviceBeanClasses(OAUTH_CONFIG, OAUTH_SERVER_ADDRESS))
                 .as("DocumentService must remain reachable on the OAuth /ws/services surface")
                 .contains(DOCUMENT_SERVICE);
     }
@@ -92,8 +97,10 @@ class RestServiceSurfaceRegistrationUnitTest {
     @Test
     @DisplayName("should expose the same rest-package data services on both surfaces")
     void shouldExposeSameRestServices_onBothSurfaces() throws Exception {
-        Set<String> session = restPackageServices(serviceBeanClasses(SESSION_CONFIG));
-        Set<String> oauth = restPackageServices(serviceBeanClasses(OAUTH_CONFIG));
+        Set<String> session = restPackageServices(
+                serviceBeanClasses(SESSION_CONFIG, SESSION_SERVER_ADDRESS));
+        Set<String> oauth = restPackageServices(
+                serviceBeanClasses(OAUTH_CONFIG, OAUTH_SERVER_ADDRESS));
 
         assertThat(session)
                 .as("every rest-package data service on the OAuth surface must also be "
@@ -113,26 +120,72 @@ class RestServiceSurfaceRegistrationUnitTest {
         return out;
     }
 
-    /** Collects the {@code class} attributes of every bean under a {@code <jaxrs:serviceBeans>}. */
-    private static Set<String> serviceBeanClasses(String configPath) throws Exception {
+    /**
+     * Collects the service classes registered under the {@code <jaxrs:serviceBeans>} of the
+     * single {@code <jaxrs:server>} with the given {@code address} in the config. Both inline
+     * {@code <bean class="...">} registrations and {@code <ref bean="id"/>} references (resolved
+     * to the referenced top-level bean's {@code class}) are counted, so the parity check sees the
+     * real registrations regardless of which form a service uses.
+     */
+    private static Set<String> serviceBeanClasses(String configPath, String serverAddress) throws Exception {
         Document doc = parse(configPath);
-        Set<String> classes = new LinkedHashSet<>();
+        Map<String, String> beanClassById = beanClassesById(doc);
 
-        NodeList serviceBeans = doc.getElementsByTagName("jaxrs:serviceBeans");
-        for (int i = 0; i < serviceBeans.getLength(); i++) {
-            Node node = serviceBeans.item(i);
-            if (node instanceof Element element) {
-                NodeList beans = element.getElementsByTagName("bean");
-                for (int j = 0; j < beans.getLength(); j++) {
-                    Element bean = (Element) beans.item(j);
-                    String clazz = bean.getAttribute("class");
-                    if (clazz != null && !clazz.isBlank()) {
-                        classes.add(clazz.trim());
-                    }
+        Element server = serverByAddress(doc, serverAddress);
+        assertThat(server)
+                .as("config %s must declare a <jaxrs:server> at address %s", configPath, serverAddress)
+                .isNotNull();
+
+        Set<String> classes = new LinkedHashSet<>();
+        NodeList serviceBeansList = server.getElementsByTagName("jaxrs:serviceBeans");
+        for (int i = 0; i < serviceBeansList.getLength(); i++) {
+            Element serviceBeans = (Element) serviceBeansList.item(i);
+
+            NodeList beans = serviceBeans.getElementsByTagName("bean");
+            for (int j = 0; j < beans.getLength(); j++) {
+                String clazz = ((Element) beans.item(j)).getAttribute("class");
+                if (clazz != null && !clazz.isBlank()) {
+                    classes.add(clazz.trim());
+                }
+            }
+
+            NodeList refs = serviceBeans.getElementsByTagName("ref");
+            for (int j = 0; j < refs.getLength(); j++) {
+                String refId = ((Element) refs.item(j)).getAttribute("bean");
+                String clazz = beanClassById.get(refId == null ? "" : refId.trim());
+                if (clazz != null && !clazz.isBlank()) {
+                    classes.add(clazz.trim());
                 }
             }
         }
         return classes;
+    }
+
+    /** Finds the single {@code <jaxrs:server>} element whose {@code address} matches, or null. */
+    private static Element serverByAddress(Document doc, String serverAddress) {
+        NodeList servers = doc.getElementsByTagName("jaxrs:server");
+        for (int i = 0; i < servers.getLength(); i++) {
+            Element server = (Element) servers.item(i);
+            if (serverAddress.equals(server.getAttribute("address"))) {
+                return server;
+            }
+        }
+        return null;
+    }
+
+    /** Maps every top-level {@code <bean id="..." class="...">} id to its class for ref resolution. */
+    private static Map<String, String> beanClassesById(Document doc) {
+        Map<String, String> byId = new HashMap<>();
+        NodeList beans = doc.getElementsByTagName("bean");
+        for (int i = 0; i < beans.getLength(); i++) {
+            Element bean = (Element) beans.item(i);
+            String id = bean.getAttribute("id");
+            String clazz = bean.getAttribute("class");
+            if (id != null && !id.isBlank() && clazz != null && !clazz.isBlank()) {
+                byId.put(id.trim(), clazz.trim());
+            }
+        }
+        return byId;
     }
 
     private static Document parse(String configPath) throws Exception {
