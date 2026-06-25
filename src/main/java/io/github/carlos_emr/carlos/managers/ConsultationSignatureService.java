@@ -26,6 +26,7 @@ import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
 import io.github.carlos_emr.carlos.utility.DigitalSignatureUtils;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -128,9 +129,10 @@ public class ConsultationSignatureService {
 
         byte[] imageData = readProviderStampImage(providerNo);
         if (imageData == null || imageData.length == 0) {
-            // The provider expected a stamp but none could be read; surface at error so it is visible
-            // at the production default root level and the provider can be warned.
-            MiscUtils.getLogger().error("Consultation stamp signature could not be read for provider {}", providerNo);
+            // A stamp was expected but none could be read — either the stamp file is unreadable or the
+            // provider has no stamp configured. Surface at error so it is visible at the production
+            // default root level and the provider can be warned.
+            MiscUtils.getLogger().error("Consultation stamp signature could not be read for provider {}", LogSafe.sanitize(providerNo));
             return ConsultationStampOutcome.of(ConsultationStampOutcome.Status.STAMP_FILE_MISSING);
         }
 
@@ -142,12 +144,12 @@ public class ConsultationSignatureService {
                     imageData,
                     ModuleType.CONSULTATION);
             if (saved == null) {
-                MiscUtils.getLogger().error("Consultation stamp persistence returned no signature for provider {}", providerNo);
+                MiscUtils.getLogger().error("Consultation stamp persistence returned no signature for provider {}", LogSafe.sanitize(providerNo));
                 return ConsultationStampOutcome.of(ConsultationStampOutcome.Status.ERROR);
             }
             return ConsultationStampOutcome.saved(saved);
         } catch (RuntimeException e) {
-            MiscUtils.getLogger().error("Error persisting consultation stamp signature for provider {}", providerNo, e);
+            MiscUtils.getLogger().error("Error persisting consultation stamp signature for provider {}", LogSafe.sanitize(providerNo), e);
             return ConsultationStampOutcome.of(ConsultationStampOutcome.Status.ERROR);
         }
     }
@@ -216,7 +218,7 @@ public class ConsultationSignatureService {
         } catch (SecurityException e) {
             MiscUtils.getLogger().warn("Blocked unsafe consultation stamp signature path for provider {}", providerNo, e);
         } catch (IOException e) {
-            MiscUtils.getLogger().error("Error reading consultation stamp signature for provider {}", providerNo, e);
+            MiscUtils.getLogger().error("Error reading consultation stamp signature for provider {}", LogSafe.sanitize(providerNo), e);
         }
 
         return null;
@@ -254,7 +256,7 @@ public class ConsultationSignatureService {
 
     private boolean canUseProviderStamp(LoggedInInfo loggedInInfo, String providerNo) {
         if (!isNumericProviderNo(providerNo)) {
-            MiscUtils.getLogger().error("Rejected consultation stamp for non-numeric provider {}", providerNo);
+            MiscUtils.getLogger().error("Rejected consultation stamp for non-numeric provider {}", LogSafe.sanitize(providerNo));
             return false;
         }
 
@@ -266,7 +268,7 @@ public class ConsultationSignatureService {
         boolean allowed = securityInfoManager.hasPrivilege(loggedInInfo, "_con", "w", null);
         if (!allowed) {
             MiscUtils.getLogger().error("Provider {} attempted to use consultation stamp for provider {} without _con write access",
-                    loggedInProviderNo, providerNo);
+                    LogSafe.sanitize(loggedInProviderNo), LogSafe.sanitize(providerNo));
         }
         return allowed;
     }

@@ -27,7 +27,10 @@ import org.apache.commons.lang3.StringUtils;
  * Typed view of the single {@code signatureImg} form field used by the consultation request flow,
  * which is overloaded to mean one of three mutually exclusive things. Centralizing the
  * classification here removes the {@code \d{1,9}} regex that was previously duplicated across the
- * action, the service, and the JSP, and makes the three states explicit at call sites.
+ * action and the service, and makes the three states explicit at call sites. The JSP keeps an
+ * independent client-side copy of the rule ({@code isStoredSignatureId} in
+ * {@code ConsultationFormRequest.jsp}); JavaScript cannot call this Java predicate, so that copy
+ * must be kept in sync with {@link #STORED_ID_PATTERN} by hand.
  *
  * <ul>
  *   <li>{@link Kind#STORED} — a persisted {@code DigitalSignature} id (1-9 digit number).</li>

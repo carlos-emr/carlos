@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DisplayName("Signature reference classification")
 @Tag("unit")
@@ -76,5 +77,19 @@ class SignatureReferenceUnitTest {
 
         assertThat(ref.isStamp()).isTrue();
         assertThat(ref.value()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("rejects a direct STORED construction whose value is not a stored id")
+    void shouldRejectConstruction_whenStoredValueIsNotAStoredId() {
+        assertThatThrownBy(() -> new SignatureReference(SignatureReference.Kind.STORED, "abc"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("rejects a direct STAMP construction that carries a value")
+    void shouldRejectConstruction_whenStampCarriesAValue() {
+        assertThatThrownBy(() -> new SignatureReference(SignatureReference.Kind.STAMP, "x"))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 }

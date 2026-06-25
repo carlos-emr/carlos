@@ -324,7 +324,9 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(persisted[0]).isNotNull();
         assertThat(persisted[0].getSignatureImg()).isNull();
-        assertThat(request.getAttribute("signatureNotApplied")).isEqualTo(Boolean.TRUE);
+        // The warning must survive the post-save redirect, so assert the redirect URL carries the flag
+        // rather than the request attribute (which is discarded by the 302).
+        assertThat(response.getRedirectedUrl()).contains("signatureNotApplied=1");
     }
 
     @Test
@@ -354,7 +356,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         action.execute();
 
         assertThat(persisted[0]).isNotNull();
-        assertThat(request.getAttribute("signatureNotApplied")).isEqualTo(Boolean.TRUE);
+        assertThat(response.getRedirectedUrl()).contains("signatureNotApplied=1");
         verify(consultationSignatureService, never()).saveConsultationStamp(any(), any(), any());
     }
 
@@ -386,7 +388,8 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(persisted[0]).isNotNull();
         assertThat(persisted[0].getSignatureImg()).isNull();
-        assertThat(request.getAttribute("signatureNotApplied")).isNull();
+        // Benign unsigned save: the redirect must NOT carry the warning flag.
+        assertThat(response.getRedirectedUrl()).doesNotContain("signatureNotApplied");
     }
 
     @Test
@@ -408,7 +411,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         action.execute();
 
         assertThat(existing.getSignatureImg()).isNull();
-        assertThat(request.getAttribute("signatureNotApplied")).isEqualTo(Boolean.TRUE);
+        assertThat(response.getRedirectedUrl()).contains("signatureNotApplied=1");
         verify(consultationRequestDao).merge(existing);
     }
 
@@ -435,7 +438,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         action.execute();
 
         assertThat(existing.getSignatureImg()).isNull();
-        assertThat(request.getAttribute("signatureNotApplied")).isEqualTo(Boolean.TRUE);
+        assertThat(response.getRedirectedUrl()).contains("signatureNotApplied=1");
         verify(consultationRequestDao).merge(existing);
         verify(consultationSignatureService, never()).saveConsultationStamp(any(), any(), any());
     }

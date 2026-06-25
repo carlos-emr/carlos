@@ -50,12 +50,27 @@ public record ConsultationStampOutcome(Status status, DigitalSignature signature
      * should hear about (logged at error). See {@link #isGenuineFailure()}.
      */
     public enum Status {
-        SAVED,
-        SIGNATURES_DISABLED,
-        NO_SESSION,
-        NOT_PERMITTED,
-        STAMP_FILE_MISSING,
-        ERROR
+        SAVED(false),
+        SIGNATURES_DISABLED(false),
+        NO_SESSION(false),
+        NOT_PERMITTED(true),
+        STAMP_FILE_MISSING(true),
+        ERROR(true);
+
+        private final boolean genuineFailure;
+
+        Status(boolean genuineFailure) {
+            this.genuineFailure = genuineFailure;
+        }
+
+        /**
+         * Whether this status is a genuine failure the provider should be warned about, as opposed to a
+         * benign disabled/no-session state. Declared per-constant so a newly added status is forced to
+         * classify itself here rather than silently defaulting to the (unsafe) benign/silent path.
+         */
+        boolean isGenuineFailure() {
+            return genuineFailure;
+        }
     }
 
     static ConsultationStampOutcome saved(DigitalSignature signature) {
@@ -76,8 +91,6 @@ public record ConsultationStampOutcome(Status status, DigitalSignature signature
      *         as opposed to the benign disabled/no-session states
      */
     public boolean isGenuineFailure() {
-        return status == Status.NOT_PERMITTED
-                || status == Status.STAMP_FILE_MISSING
-                || status == Status.ERROR;
+        return status.isGenuineFailure();
     }
 }

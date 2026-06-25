@@ -203,7 +203,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                         // A signature was collected but could not be persisted; the consultation is still
                         // saved. Log at error so it surfaces at the production default root level and warn
                         // the provider that the consultation saved without a signature.
-                        logger.error("Captured manual signature could not be persisted for provider {} on new consultation", signatureProviderNo);
+                        logger.error("Captured manual signature could not be persisted for provider {} on new consultation", LogSafe.sanitize(signatureProviderNo));
                         request.setAttribute("signatureNotApplied", Boolean.TRUE);
                     } else {
                         // No signature was collected - benign, save unsigned without alarming the provider.
@@ -375,7 +375,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                         // A signature was collected but could not be persisted and there is nothing to fall
                         // back to; the update still saves. Log at error and warn the provider.
                         signatureId = null;
-                        logger.error("Captured manual signature could not be persisted for provider {} on consultation update (requestId={})", signatureProviderNo, requestId);
+                        logger.error("Captured manual signature could not be persisted for provider {} on consultation update (requestId={})", LogSafe.sanitize(signatureProviderNo), LogSafe.sanitize(requestId));
                         request.setAttribute("signatureNotApplied", Boolean.TRUE);
                     } else {
                         // No signature was collected - benign, leave the update unsigned silently.
@@ -526,7 +526,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
             } catch (RuntimeException e) {
                 // Log the full exception server-side only; do not surface e.getMessage() to the
                 // browser (it can carry internal/identifier detail and renders "null" when absent).
-                logger.error("Error generating consultation print preview for requestId={}", requestId, e);
+                logger.error("Error generating consultation print preview for requestId={}", LogSafe.sanitize(requestId), e);
                 request.setAttribute("errorMessage", "A print preview of this consultation could not be generated. Please try again or contact support.");
             }
             generatePDFResponse(request, response);
@@ -622,6 +622,12 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 
         String contextPath = request.getContextPath();
         String forward = contextPath + "/encounter/oscarConsultationRequest/ViewConfirmConsultationRequest?de=" + demographicNo;
+        // A genuine signature failure was flagged as a request attribute above, but this is a 302
+        // redirect to a separate request, so request attributes do not survive. Re-encode the signal as
+        // a query parameter (a non-sensitive constant) so the confirmation page can render the warning.
+        if (Boolean.TRUE.equals(request.getAttribute("signatureNotApplied"))) {
+            forward += "&signatureNotApplied=1";
+        }
         response.sendRedirect(forward);
         return NONE;
     }

@@ -306,4 +306,10 @@ class ConsultationSignatureServiceUnitTest {
         assertThat(service.resolveSignatureProviderNo("../123", "abc", "999998")).isEqualTo("999998");
         assertThat(service.resolveSignatureProviderNo("123456", "999998", "999998")).isEqualTo("123456");
     }
+
+    @Test
+    @DisplayName("returns an empty provider number when no candidate value is numeric")
+    void shouldReturnEmptyProviderNumber_whenNoCandidateIsNumeric() {
+        assertThat(service.resolveSignatureProviderNo("abc", "def", "ghi")).isEmpty();
+    }
 }
