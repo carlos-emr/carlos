@@ -439,6 +439,11 @@ public final class LoginCheckLoginBean {
         SecUserRoleDao secUserRoleDao = (SecUserRoleDao) SpringUtils.getBean(SecUserRoleDao.class);
         List<SecUserRole> roles = secUserRoleDao.getUserRoles(security.getProviderNo());
         for (SecUserRole role : roles) {
+            // Only active (activeyn = 1) role assignments belong in the session role string;
+            // an inactive assignment must not grant access.
+            if (!role.getActive()) {
+                continue;
+            }
             if (rolename == null) {
                 rolename = role.getRoleName();
             } else {
