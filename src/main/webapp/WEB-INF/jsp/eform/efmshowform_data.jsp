@@ -92,6 +92,7 @@
         eForm = new EForm(fdid);
         eForm.setContextPath(request.getContextPath());
         eForm.setOscarOPEN(request.getRequestURI());
+        eForm.setImagePath(request.getContextPath());
 
         if (fdid != null) {
             eForm.setFdid(fdid);
