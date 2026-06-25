@@ -37,9 +37,9 @@ import java.util.Map.Entry;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 
-import org.owasp.encoder.Encode;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 
 public final class WebUtils {
@@ -62,6 +62,8 @@ public final class WebUtils {
         logger.debug("--- Dump Request Parameters End ---");
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static boolean isChecked(HttpServletRequest request, String parameter) {
         String temp = request.getParameter(parameter);
         return temp != null && (temp.equalsIgnoreCase("on") || temp.equalsIgnoreCase("true") || temp.equalsIgnoreCase("checked"));
@@ -77,8 +79,8 @@ public final class WebUtils {
             while (i$.hasNext()) {
                 String s = (String) i$.next();
                 sb.append("<li>");
-                sb.append(s);
-                sb.append("</il>");
+                sb.append(SafeEncode.forHtmlContent(s));
+                sb.append("</li>");
             }
 
             sb.append("</ul>");
@@ -99,6 +101,10 @@ public final class WebUtils {
         return renderMessagesAsHtml(session, INFO_MESSAGE_SESSION_KEY, styleClass, style, id, name);
     }
 
+    /**
+     * Adds a plain-text error message. Do not pass markup; HTML renderers encode
+     * message text before output.
+     */
     public static void addErrorMessage(HttpSession session, String message) {
         addMessage(session, ERROR_MESSAGE_SESSION_KEY, message);
     }
@@ -111,6 +117,10 @@ public final class WebUtils {
         addLocalisedMessage(request, ERROR_MESSAGE_SESSION_KEY, messageKey, additionalText);
     }
 
+    /**
+     * Adds a plain-text informational message. Do not pass markup; HTML renderers
+     * encode message text before output.
+     */
     public static void addInfoMessage(HttpSession session, String message) {
         addMessage(session, INFO_MESSAGE_SESSION_KEY, message);
     }
@@ -220,7 +230,7 @@ public final class WebUtils {
 
     public static String trimToEmptyEscapeHtml(String s) {
         s = StringUtils.trimToEmpty(s);
-        s = Encode.forHtml(s);
+        s = SafeEncode.forHtml(s);
         return s;
     }
 
@@ -238,8 +248,8 @@ public final class WebUtils {
 
             for (String s : al) {
                 sb.append("<li>");
-                sb.append(s);
-                sb.append("</il>");
+                sb.append(SafeEncode.forHtmlContent(s));
+                sb.append("</li>");
             }
 
             sb.append("</ul>");
@@ -258,8 +268,8 @@ public final class WebUtils {
 
             for (String s : al) {
                 sb.append("<li>");
-                sb.append(s);
-                sb.append("</il>");
+                sb.append(SafeEncode.forHtmlContent(s));
+                sb.append("</li>");
             }
 
             sb.append("</ul>");
@@ -277,7 +287,7 @@ public final class WebUtils {
             sb.append("<script type=\"text/javascript\">");
             sb.append("alert('");
 
-            for (String s : al) sb.append(Encode.forJavaScript(s));
+            for (String s : al) sb.append(SafeEncode.forJavaScript(s));
 
             sb.append("');");
             sb.append("</script>");

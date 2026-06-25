@@ -28,7 +28,11 @@ import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -50,6 +54,65 @@ class UploadActionBindingSecurityUnitTest {
                             binding.className(), binding.methodName())
                     .isNull();
         }
+    }
+
+    @Test
+    @DisplayName("should classify every Upload2Action and keep multipart uploads on PathValidationUtils")
+    void shouldKeepUploadActionsConsistent_withPathValidationUtilsPattern() throws Exception {
+        Set<Path> classifiedActions = Stream.concat(
+                        multipartUploadActionSources().map(Path::of),
+                        nonMultipartUploadActionSources().map(Path::of))
+                .collect(Collectors.toSet());
+        Set<Path> discoveredActions;
+        try (Stream<Path> paths = Files.walk(Path.of("src/main/java"))) {
+            discoveredActions = paths
+                    .filter(path -> path.getFileName().toString().endsWith("Upload2Action.java"))
+                    .collect(Collectors.toSet());
+        }
+
+        assertThat(classifiedActions)
+                .as("Every *Upload2Action must be classified as multipart-upload or documented non-multipart")
+                .containsExactlyInAnyOrderElementsOf(discoveredActions);
+
+        for (String sourcePath : multipartUploadActionSources().toList()) {
+            String source = Files.readString(Path.of(sourcePath));
+
+            assertThat(source)
+                    .as("%s must validate uploaded temp files through PathValidationUtils", sourcePath)
+                    .containsPattern("PathValidationUtils\\.(validateUpload|validateUploadContent)");
+            assertThat(source)
+                    .as("%s must validate client filenames through approved filename validators", sourcePath)
+                    .containsPattern("PathValidationUtils\\.(validateStrictFileName|validateFileName|validateGeneratedFileName)");
+        }
+    }
+
+    private static Stream<String> multipartUploadActionSources() {
+        return Stream.of(
+                "src/main/java/io/github/carlos_emr/carlos/admin/web/ManageFlowsheetsUpload2Action.java",
+                "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/web/BillingDocumentErrorReportUpload2Action.java",
+                "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/web/ScheduleOfBenefitsUpload2Action.java",
+                "src/main/java/io/github/carlos_emr/carlos/documentManager/actions/DocumentUpload2Action.java",
+                "src/main/java/io/github/carlos_emr/carlos/eform/upload/HtmlUpload2Action.java",
+                "src/main/java/io/github/carlos_emr/carlos/eform/upload/ImageUpload2Action.java",
+                "src/main/java/io/github/carlos_emr/carlos/form/pageUtil/FrmXmlUpload2Action.java",
+                "src/main/java/io/github/carlos_emr/carlos/integration/mcedt/mailbox/Upload2Action.java",
+                "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/pageUtil/InsideLabUpload2Action.java",
+                "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/pageUtil/LabUpload2Action.java",
+                "src/main/java/io/github/carlos_emr/carlos/lab/ca/bc/PathNet/pageUtil/LabUpload2Action.java",
+                "src/main/java/io/github/carlos_emr/carlos/lab/ca/on/CML/Upload/LabUpload2Action.java"
+        );
+    }
+
+    private static Stream<String> nonMultipartUploadActionSources() {
+        return Stream.of(
+                // Raw Base64/request-stream signature upload; validates its generated temp path.
+                "src/main/java/io/github/carlos_emr/carlos/signature/action/SaveSignatureUpload2Action.java",
+                // MCEDT session submitter; actual mailbox file upload is the sibling mailbox action.
+                "src/main/java/io/github/carlos_emr/carlos/integration/mcedt/Upload2Action.java",
+                // View gates that render upload forms but do not receive multipart files.
+                "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/web/ViewBenefitScheduleUpload2Action.java",
+                "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/web/BillingOnUpload2Action.java"
+        );
     }
 
     private static Stream<BindingMethod> uploadBindingMethods() {

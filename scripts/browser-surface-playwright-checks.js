@@ -106,7 +106,7 @@ function wirePage(page, label) {
 
 async function gotoApp(page, appPath, waitUntil = 'domcontentloaded') {
   // appUrl validates that this remains inside the configured CARLOS base URL.
-  return page.goto(appUrl(appPath), { waitUntil, timeout: 30000 });
+  return page.goto(appUrl(appPath), { waitUntil, timeout: 30000 }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to local/private by default
 }
 
 async function login(context) {
@@ -253,7 +253,7 @@ async function checkAdminPage(context, appPath, label, requiredText) {
   if (requiredText) {
     await page.locator('body').filter({ hasText: requiredText }).waitFor({ state: 'visible', timeout: 15000 });
   }
-  await page.screenshot({ path: path.join(screenshotDir, `surface-${label}.png`), fullPage: true });
+  await page.screenshot({ path: path.join(screenshotDir, `surface-${label}.png`), fullPage: true }); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- local Playwright helper writes screenshots under caller-selected local artifact dir
   await page.close();
 }
 

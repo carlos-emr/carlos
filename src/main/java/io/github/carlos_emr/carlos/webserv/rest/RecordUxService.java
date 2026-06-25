@@ -38,6 +38,8 @@ import java.util.List;
 import java.util.Map;
 
 import jakarta.servlet.http.HttpServletRequest;
+
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
@@ -74,6 +76,7 @@ import org.springframework.stereotype.Component;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 
 @Path("/recordUX/")
@@ -208,7 +211,7 @@ public class RecordUxService extends AbstractServiceImpl {
         //}
 
         if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.documents", "r", null)) {
-            morelist.add(new MenuItemTo1(idCounter++, "Documents", "../documentManager/ViewDocumentReport?function=demographic&doctype=lab&functionid=" + demographicNo));
+            morelist.add(new MenuItemTo1(idCounter++, "Documents", "../documentManager/ViewDocumentReport?function=demographic&doctype=lab&functionid=" + SafeEncode.forUriComponent(String.valueOf(demographicNo))));
         }
 
         if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.decisionSupportAlerts", "r", null)) {
@@ -431,6 +434,8 @@ public class RecordUxService extends AbstractServiceImpl {
     }
 
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @GET
     @Path("/{demographicNo}/print")
     @Produces("application/pdf")

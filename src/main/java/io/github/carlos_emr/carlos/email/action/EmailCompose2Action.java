@@ -8,13 +8,13 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import org.apache.logging.log4j.Logger;
-import org.owasp.encoder.Encode;
 
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
@@ -58,7 +58,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
  * Security Considerations:
  * <ul>
  *   <li>Validates fid parameter to ensure numeric format (prevents injection)</li>
- *   <li>Uses OWASP Encode.forJava() for sanitizing invalid fid values in logs</li>
+ *   <li>Uses log-safe sanitization for invalid fid values in logs</li>
  *   <li>Generates patient-specific PDF passwords based on demographic information</li>
  *   <li>Sanitizes attachment filenames through EmailComposeManager</li>
  *   <li>Session cleanup prevents information leakage across requests</li>
@@ -226,8 +226,10 @@ public class EmailCompose2Action extends ActionSupport {
 
         // Validate fid is numeric if provided
         if (fid != null && !fid.matches("\\d+")) {
-            String sanitizedFid = Encode.forJava(fid);
-            logger.warn("Invalid fid parameter received: {}", sanitizedFid);
+            if (logger.isWarnEnabled()) {
+                String sanitizedFid = LogSafe.sanitize(fid);
+                logger.warn("Invalid fid parameter received: {}", sanitizedFid);
+            }
             fid = null;
         }
 

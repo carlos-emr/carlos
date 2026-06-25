@@ -41,7 +41,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.report.data.RptByExampleData;
-import io.github.carlos_emr.carlos.services.security.SecurityManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDao;
 import io.github.carlos_emr.carlos.PMmodule.model.SecUserRole;
 import io.github.carlos_emr.carlos.commn.dao.ReportByExamplesDao;
@@ -56,6 +56,7 @@ import io.github.carlos_emr.carlos.report.bean.RptByExampleQueryBeanHandler;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action for the Query-by-Example report tool. Allows admin users to execute
@@ -67,29 +68,32 @@ public class RptByExample2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-
     private ReportByExamplesDao dao = SpringUtils.getBean(ReportByExamplesDao.class);
+    private final SecurityInfoManager securityInfoManager;
 
+    public RptByExample2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
+    }
 
+    RptByExample2Action(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
+
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute()
             throws ServletException, IOException {
-        if (request.getSession().getAttribute("user") == null) {
-            response.sendRedirect(request.getContextPath() + "/logout.htm");
-            return NONE;
-        }
-
-        Object userrole = request.getSession().getAttribute("userrole");
-        if (userrole == null) {
-            response.sendRedirect(request.getContextPath() + "/logout.htm");
-            return NONE;
-        }
-
-        String roleName$ = userrole + "," + (String) request.getSession().getAttribute("user");
-        if (!SecurityManager.hasPrivilege("_admin", roleName$) && !SecurityManager.hasPrivilege("_report", roleName$)) {
-            throw new SecurityException("Insufficient Privileges");
-        }
-
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            response.sendRedirect(request.getContextPath() + "/logout.htm");
+            return NONE;
+        }
+
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null)
+                && !securityInfoManager.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.READ, null)) {
+            throw new SecurityException("missing required sec object (_admin or _report)");
+        }
+
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         SecUserRoleDao secUserRoleDao = SpringUtils.getBean(SecUserRoleDao.class);

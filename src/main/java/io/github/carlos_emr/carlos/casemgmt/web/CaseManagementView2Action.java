@@ -82,6 +82,7 @@ import java.io.InputStream;
 import java.util.*;
 import java.util.regex.Pattern;
 import io.github.carlos_emr.carlos.utility.LogSafe;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class CaseManagementView2Action extends ActionSupport {
 
@@ -260,6 +261,8 @@ public class CaseManagementView2Action extends ActionSupport {
     /*
      * Session variables : case_program_id casemgmt_DemoNo casemgmt_VlCountry casemgmt_msgBeans readonly
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String view() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
@@ -535,6 +538,8 @@ public class CaseManagementView2Action extends ActionSupport {
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private void viewCurrentIssuesTab_oldCme(String demoNo, String programId) throws Exception {
         long startTime = System.currentTimeMillis();
 
@@ -685,6 +690,8 @@ public class CaseManagementView2Action extends ActionSupport {
     /**
      * New CME
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private void viewCurrentIssuesTab_newCmeNotes(String demoNo, String programId) throws Exception {
         int demographicId = Integer.parseInt(demoNo);
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -1008,6 +1015,8 @@ public class CaseManagementView2Action extends ActionSupport {
         return issueDisplay;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String viewNote() {
         String nId = request.getParameter("noteId");
         CaseManagementNote note = this.caseManagementMgr.getNote(nId);
@@ -1017,6 +1026,8 @@ public class CaseManagementView2Action extends ActionSupport {
         return "displayNote";
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String listNotes() throws Exception {
         logger.debug("List Notes start");
 

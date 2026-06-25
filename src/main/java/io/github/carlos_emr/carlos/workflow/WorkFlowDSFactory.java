@@ -38,6 +38,7 @@ import io.github.carlos_emr.carlos.drools.DroolsHelper;
 import io.github.carlos_emr.carlos.drools.RuleBaseFactory;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import io.github.carlos_emr.CarlosProperties;
 
@@ -144,6 +145,8 @@ public final class WorkFlowDSFactory {
      * @throws IllegalStateException if the DRL resource cannot be found or if loading or
      *         compilation fails due to I/O or compilation errors
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     static KieBase loadRuleBase(String drlFilename) {
         String cacheKey = "workflow:" + drlFilename;
         KieBase cached = RuleBaseFactory.getRuleBase(cacheKey);

@@ -26,6 +26,7 @@ import java.io.IOException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Small HTTP-method guard helpers shared by the migrated Ontario billing
@@ -46,6 +47,8 @@ final class BillingRequestGuards {
      * Enforce a POST-only mutation contract, returning a 405 when the request
      * method is wrong.
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     static boolean requirePost(HttpServletRequest request, HttpServletResponse response) {
         if (POST.equalsIgnoreCase(request.getMethod())) {
             return true;

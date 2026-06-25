@@ -46,6 +46,7 @@ import jakarta.servlet.http.Part;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Servlet for handling document management system file uploads.
@@ -79,6 +80,8 @@ public class DocumentMgtUploadServlet extends HttpServlet {
      * @throws IOException if an I/O error occurs
      * @throws ServletException if a servlet error occurs
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void service(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
 
         SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMddHmmss");

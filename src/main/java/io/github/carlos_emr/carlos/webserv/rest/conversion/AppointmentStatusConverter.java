@@ -31,6 +31,7 @@ package io.github.carlos_emr.carlos.webserv.rest.conversion;
 import io.github.carlos_emr.carlos.commn.model.AppointmentStatus;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.AppointmentStatusTo1;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Component;
 
@@ -39,6 +40,11 @@ import org.springframework.stereotype.Component;
 public class AppointmentStatusConverter extends AbstractConverter<AppointmentStatus, AppointmentStatusTo1> {
 
     @Override
+    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
+    // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
+    @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
+            justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
+                    "known CARLOS types; no user-controlled property name reaches the sink")
     public AppointmentStatus getAsDomainObject(LoggedInInfo loggedInInfo, AppointmentStatusTo1 t) throws ConversionException {
         AppointmentStatus d = new AppointmentStatus();
         BeanUtils.copyProperties(t, d);
@@ -46,6 +52,11 @@ public class AppointmentStatusConverter extends AbstractConverter<AppointmentSta
     }
 
     @Override
+    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
+    // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
+    @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
+            justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
+                    "known CARLOS types; no user-controlled property name reaches the sink")
     public AppointmentStatusTo1 getAsTransferObject(LoggedInInfo loggedInInfo, AppointmentStatus d) throws ConversionException {
         AppointmentStatusTo1 t = new AppointmentStatusTo1();
         BeanUtils.copyProperties(d, t);
