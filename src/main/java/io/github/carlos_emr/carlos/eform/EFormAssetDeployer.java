@@ -58,6 +58,12 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
  *   <li>{@code editor_help.html} — Help popup for the editor toolbar</li>
  * </ul>
  *
+ * <h3>Directory Bootstrap</h3>
+ * <p>If the configured directory does not yet exist, this deployer creates it with
+ * owner-only permissions (chmod 700 semantics) to satisfy HIPAA/PIPEDA requirements —
+ * provider signatures and medical templates must not be world-readable. A warning is
+ * logged when the OS cannot honour the permission restriction so operators are alerted.</p>
+ *
  * <h3>Skip-if-Exists Behavior</h3>
  * <p>Files are only copied if they do not already exist in the target directory.
  * This prevents overwriting clinic-customized versions. To force an update,
@@ -109,9 +115,9 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
      * Called by Spring after all properties are set. Deploys each bundled asset
      * to the eForm images directory if it doesn't already exist there.
      *
-     * <p>Exits early (with a warning log) if the path is not configured or does
-     * not exist. Environment bootstrap is responsible for creating the directory; the
-     * application still starts, but the RTL editor will be broken.</p>
+     * <p>If the directory does not yet exist it is created with owner-only permissions
+     * (HIPAA/PIPEDA). Exits early (with a warning log) if the path is not configured or
+     * the directory cannot be created.</p>
      */
     @Override
     public void afterPropertiesSet() {
@@ -128,14 +134,45 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
             logger.warn("eForm image directory is invalid: {}; skipping asset deployment", imageDir, e);
             return;
         }
-        if (!targetDir.isDirectory()) {
-            logger.warn("eForm image directory does not exist: {}; skipping asset deployment", imageDir);
+        if (!createDirectory(targetDir, imageDir)) {
             return;
         }
 
         for (String asset : ASSETS) {
             deployAsset(asset, targetDir);
         }
+    }
+
+    /**
+     * Creates the eForm image directory if it does not yet exist, then restricts its permissions
+     * to owner-only to prevent unauthorized local users from reading or modifying provider
+     * signatures and medical templates (HIPAA/PIPEDA).
+     *
+     * <p>Uses the concurrent-safe {@code !mkdirs() && !isDirectory()} idiom so a directory
+     * created by a parallel thread does not trigger a spurious failure. Permission calls check
+     * their return values and log a warning when the OS cannot honour the restriction — this
+     * keeps startup non-fatal while alerting operators that default umask permissions remain.</p>
+     *
+     * @param targetDir the resolved eForm image directory
+     * @param imageDir  the configured path string (for log messages)
+     * @return {@code true} if the directory is ready for asset deployment
+     */
+    private boolean createDirectory(File targetDir, String imageDir) {
+        boolean created = targetDir.mkdirs();
+        if (!created && !targetDir.isDirectory()) {
+            logger.warn("eForm image directory does not exist and could not be created: {}; skipping asset deployment", imageDir);
+            return false;
+        }
+        boolean readable = targetDir.setReadable(true, true);
+        boolean writable = targetDir.setWritable(true, true);
+        boolean executable = targetDir.setExecutable(true, true);
+        if (!readable || !writable || !executable) {
+            logger.warn("Could not restrict permissions on eForm image directory: {}; directory may be world-accessible", imageDir);
+        }
+        if (created) {
+            logger.info("Created eForm image directory with restricted permissions: {}", imageDir);
+        }
+        return true;
     }
 
     /**

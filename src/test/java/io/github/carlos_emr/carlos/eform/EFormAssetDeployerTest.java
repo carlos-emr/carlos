@@ -222,15 +222,34 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("Should skip deployment when image directory does not exist")
-        void shouldSkipDeployment_whenImageDirectoryDoesNotExist() {
+        @DisplayName("Should create directory and deploy assets when image directory does not exist")
+        void shouldCreateDirectoryAndDeployAssets_whenImageDirectoryDoesNotExist() throws Exception {
             Path missingDir = tempDir.resolve("missing-eform-images");
 
             when(mockProperties.getEformImageDirectory()).thenReturn(missingDir.toString());
+            stubAllAssets();
 
             deployer.afterPropertiesSet();
 
-            assertThat(missingDir).doesNotExist();
+            assertThat(missingDir).isDirectory();
+            assertThat(missingDir.resolve("editControl2.js")).isRegularFile();
+            assertThat(missingDir.resolve("blank.rtl")).isRegularFile();
+            assertThat(missingDir.resolve("editor_help.html")).isRegularFile();
+        }
+
+        @Test
+        @DisplayName("Should skip deployment when image directory cannot be created")
+        void shouldSkipDeployment_whenImageDirectoryCannotBeCreated() throws Exception {
+            // Block mkdirs by placing a regular file where a directory component must be
+            Path blocker = tempDir.resolve("blocked");
+            Files.writeString(blocker, "file");
+            Path blockedDir = blocker.resolve("eform-images");
+
+            when(mockProperties.getEformImageDirectory()).thenReturn(blockedDir.toString());
+
+            deployer.afterPropertiesSet();
+
+            assertThat(blockedDir).doesNotExist();
             verifyNoInteractions(mockServletContext);
         }
 
