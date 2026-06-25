@@ -77,8 +77,8 @@ public class RourkeExport2Action extends ActionSupport {
 
     /**
      * Creates the Rourke export action with dependencies supplied by Struts Spring constructor injection.
-     * This replaces the legacy {@link SpringUtils} field lookups while preserving the current develop
-     * path-validation changes in this action.
+     * This replaces the legacy {@link SpringUtils} field lookups while preserving this action's
+     * existing path-validation hardening.
      *
      * @param securityInfoManager manager used to authorize demographic export access
      * @param clinicDAO DAO used to load clinic metadata for the export
