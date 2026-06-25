@@ -354,7 +354,9 @@ public class ConsultationWebService extends AbstractServiceImpl {
     public ConsultationResponseTo1 getResponse(@QueryParam("responseId") Integer responseId, @QueryParam("demographicNo") Integer demographicNo) {
         ConsultationResponseTo1 response = new ConsultationResponseTo1();
 
-        if (responseId > 0) {
+        // A null (omitted) responseId means "initialize a new response" — route it to the else
+        // branch rather than unboxing null into the responseId > 0 comparison.
+        if (responseId != null && responseId > 0) {
             ConsultationResponse responseD = consultationManager.getResponse(getLoggedInInfo(), responseId);
             if (responseD == null) {
                 throw new WebApplicationException(

@@ -103,6 +103,20 @@ class ConsultationWebServicePrivilegeUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should deny getResponse for a null responseId by authorizing the supplied demographic")
+    void shouldDenyGetResponse_whenResponseIdNullAndCallerLacksPrivilege() {
+        when(securityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), eq(99))).thenReturn(false);
+
+        // A null (omitted) responseId must route to the "new response" branch and authorize the
+        // supplied demographic, rather than unboxing null into the responseId > 0 comparison (NPE).
+        assertThatThrownBy(() -> service.getResponse(null, 99))
+                .isInstanceOf(AccessDeniedException.class);
+
+        verify(consultationManager, never()).getResponse(any(), any());
+        verify(securityInfoManager).hasPrivilege(eq(loggedInInfo), eq("_con"), eq("r"), eq(99));
+    }
+
+    @Test
     @DisplayName("should deny getResponse using the response's own demographic when caller lacks privilege")
     void shouldDenyGetResponse_usingResponseDemographicWhenCallerLacksPrivilege() {
         ConsultationResponse stored = new ConsultationResponse();
