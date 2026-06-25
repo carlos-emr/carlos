@@ -23,7 +23,6 @@ package io.github.carlos_emr.carlos.webserv.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.io.FileInputStream;
 import java.io.InputStream;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -63,8 +62,8 @@ import org.xml.sax.InputSource;
 @Tag("rest")
 class RestServiceSurfaceRegistrationUnitTest {
 
-    private static final String SESSION_CONFIG = "src/main/resources/spring_ws.xml";
-    private static final String OAUTH_CONFIG = "src/main/resources/applicationContextREST.xml";
+    private static final String SESSION_CONFIG = "spring_ws.xml";
+    private static final String OAUTH_CONFIG = "applicationContextREST.xml";
 
     private static final String REST_PACKAGE_PREFIX = "io.github.carlos_emr.carlos.webserv.rest.";
     private static final String DOCUMENT_SERVICE = REST_PACKAGE_PREFIX + "DocumentService";
@@ -153,7 +152,11 @@ class RestServiceSurfaceRegistrationUnitTest {
         db.setEntityResolver((publicId, systemId) ->
                 new InputSource(new java.io.StringReader("")));
 
-        try (InputStream in = new FileInputStream(configPath)) {
+        try (InputStream in = RestServiceSurfaceRegistrationUnitTest.class.getClassLoader()
+                .getResourceAsStream(configPath)) {
+            if (in == null) {
+                throw new java.io.FileNotFoundException("Resource not found on classpath: " + configPath);
+            }
             return db.parse(in);
         }
     }
