@@ -42,10 +42,14 @@ and separately tested. All keys default to empty.
 
 ## Related documentation
 
-For the full label-to-contract mapping these placeholders support, see the
-Cortico CARLOS API compatibility matrix:
-[`docs/api/cortico-carlos-compatibility.md`](./cortico-carlos-compatibility.md)
-(added by PR #2916). When that matrix references clinic-specific status codes,
-reminder note markers, default provider/location/appointment type, demographic
-search field, or default document type, the configurable values are the
-`integration.cortico.*` keys documented above.
+The placeholder-to-contract mapping is inlined in the table above, so this
+document is self-contained. For the full Cortico/Juno label-to-contract
+compatibility matrix, see `docs/api/cortico-carlos-compatibility.md`.
+
+> **Note:** `docs/api/cortico-carlos-compatibility.md` is added by PR #2916 and
+> is **not yet present on `develop`**. The path is intentionally not a link
+> until that PR merges, to avoid a broken (404) cross-reference. When the matrix
+> references clinic-specific status codes, reminder note markers, default
+> provider/location/appointment type, demographic search field, or default
+> document type, the configurable values are the `integration.cortico.*` keys
+> documented above.
