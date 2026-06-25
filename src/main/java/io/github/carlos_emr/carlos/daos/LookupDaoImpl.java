@@ -315,11 +315,11 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
         String columnName = fieldSql.substring(dotIndex + 1);
         boolean hasMultipleSegments = columnName.indexOf('.') >= 0;
         if (hasMultipleSegments) {
-            MiscUtils.getLogger().error("Nested path rejected in lookup field SQL");
+            MiscUtils.getLogger().error("Nested path not allowed in lookup field SQL");
             throw new IllegalArgumentException("Nested path not allowed in lookup field SQL");
         }
         if (!"s".equals(qualifier)) {
-            MiscUtils.getLogger().error("Unexpected qualifier rejected in lookup field SQL");
+            MiscUtils.getLogger().error("Only s qualifier allowed in lookup field SQL");
             throw new IllegalArgumentException("Only s qualifier allowed in lookup field SQL");
         }
         // LoadCodeList owns the "s" table alias; other qualifiers would escape that fixed FROM shape.

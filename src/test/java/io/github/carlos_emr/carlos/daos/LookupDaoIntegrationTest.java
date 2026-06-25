@@ -697,7 +697,7 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
             // When / Then
             assertThatThrownBy(() -> lookupDao.LoadCodeList(tableId, false, "", "", ""))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Only s qualifier allowed");
+                .hasMessageContaining("Only s qualifier allowed in lookup field SQL");
         }
 
         @Test
@@ -714,7 +714,7 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
             // When / Then
             assertThatThrownBy(() -> lookupDao.LoadCodeList(tableId, false, "", "", ""))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Nested path not allowed");
+                .hasMessageContaining("Nested path not allowed in lookup field SQL");
         }
     }
 
