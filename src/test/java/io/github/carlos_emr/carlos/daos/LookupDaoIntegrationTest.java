@@ -686,6 +686,41 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @Tag("security")
+        @DisplayName("should load rows when field SQL has surrounding whitespace")
+        void shouldLoadRows_whenFieldSqlHasSurroundingWhitespace() {
+            // Given - legacy field metadata may carry stray leading/trailing whitespace.
+            // The validator tolerates it, so the SQL builder must too rather than throwing.
+            String tableId = nextTableId("QW");
+            String deleteQualifiedFieldRowsSql = "DELETE FROM qualified_field_lookup_test";
+
+            hibernateTemplate.execute(session -> {
+                session.createNativeQuery(CREATE_QUALIFIED_FIELD_TABLE).executeUpdate();
+                session.createNativeQuery(deleteQualifiedFieldRowsSql).executeUpdate();
+                session.createNativeQuery(INSERT_QUALIFIED_FIELD_ROW).executeUpdate();
+                return null;
+            });
+
+            insertLookupTableDef(tableId, QUALIFIED_FIELD_TABLE_NAME);
+            insertFieldFull(tableId, "code", "  code  ", 1, 1, "S", false, "");
+            insertFieldFull(tableId, "description", 2, 2, "S", false, "");
+            insertFieldFull(tableId, "active_col", 3, 3, "I", false, "");
+            insertFieldFull(tableId, "orderby_col", 4, 4, "I", false, "");
+            hibernateTemplate.flush();
+
+            // When
+            @SuppressWarnings("unchecked")
+            List<LookupCodeValue> result = lookupDao.LoadCodeList(tableId, false, "", "", "");
+
+            // Then
+            assertThat(result).hasSize(1);
+            LookupCodeValue row = result.get(0);
+            assertThat(row.getCode()).isEqualTo("Q1");
+            assertThat(row.getDescription()).isEqualTo("Qualified");
+        }
+
+        @Test
+        @Tag("query")
+        @Tag("security")
         @DisplayName("should reject qualified field SQL when qualifier is not lookup table alias")
         void shouldRejectQualifiedFieldSql_whenQualifierIsNotLookupTableAlias() {
             // Given

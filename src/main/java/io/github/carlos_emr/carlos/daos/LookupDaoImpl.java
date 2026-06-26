@@ -365,7 +365,11 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
             MiscUtils.getLogger().error("Invalid field SQL expression rejected in lookup configuration");
             throw new IllegalArgumentException("Invalid field SQL expression in lookup configuration");
         }
-        return fieldSql;
+        // isValidFieldExpression tolerates surrounding whitespace, but downstream
+        // identifier/alias checks (validateLoadCodeListFieldName, validateSqlIdentifier)
+        // do not. Return the trimmed form so a whitespace-padded config value validates
+        // here and stays accepted there, matching the pre-parser behaviour.
+        return fieldSql.trim();
     }
 
     @Override
