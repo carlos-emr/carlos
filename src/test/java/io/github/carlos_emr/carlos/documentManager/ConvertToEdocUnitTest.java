@@ -7,6 +7,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mockito;
 
 import java.nio.file.Files;
@@ -59,8 +60,7 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should strip unresolved absolute file paths during tidy")
-    void shouldStripUnresolvedAbsoluteFilePaths_whenTidyingDocument() throws Exception {
-        Path tempDir = Files.createTempDirectory("convert-edoc-paths");
+    void shouldStripUnresolvedAbsoluteFilePaths_whenTidyingDocument(@TempDir Path tempDir) throws Exception {
         String html = "<html><body><img src=\"/etc/passwd\"><div background=\"/etc/passwd\">x</div></body></html>";
 
         String tidied = ConvertToEdoc.tidyDocument(html, tempDir.toString());
@@ -72,17 +72,16 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should translate inline background asset paths during tidy")
-    void shouldTranslateInlineBackgroundAssetPaths_whenTidyingDocument() throws Exception {
-        Path tempDir = Files.createTempDirectory("convert-edoc");
-        Path image = Files.createFile(tempDir.resolve("stamp.png"));
+    void shouldTranslateInlineBackgroundAssetPaths_whenTidyingDocument(@TempDir Path tempDir) throws Exception {
+        Path image = Files.createFile(tempDir.resolve("stamp(1).png"));
 
-        String html = "<html><body style=\"background-image:url('stamp.png')\"><div background=\"stamp.png\">x</div></body></html>";
+        String html = "<html><body style=\"background-image:url( 'stamp(1).png' )\"><div background=\"stamp(1).png\">x</div></body></html>";
 
         String tidied = ConvertToEdoc.tidyDocument(html, tempDir.toString());
 
         assertThat(tidied)
                 .contains("background=\"" + image.toAbsolutePath() + "\"")
                 .contains("background-image:url('" + image.toAbsolutePath() + "')")
-                .doesNotContain("background-image:url('stamp.png')");
+                .doesNotContain("background-image:url( 'stamp(1).png' )");
     }
 }

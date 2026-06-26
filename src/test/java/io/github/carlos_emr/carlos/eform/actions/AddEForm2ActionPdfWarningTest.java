@@ -84,6 +84,7 @@ class AddEForm2ActionPdfWarningTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo("close");
         assertThat(request.getAttribute("warningMessage")).isEqualTo("This eForm was saved, but its PDF preview could not be generated.");
+        assertThat(request.getAttribute("warningMessage").toString()).doesNotContain("render failed");
         assertThat(request.getAttribute("isSuccess_Autoclose")).isEqualTo("true");
         assertThat(request.getAttribute("fdid")).isEqualTo("42");
         assertThat(request.getAttribute("parentAjaxId")).isEqualTo("eforms");
@@ -104,6 +105,7 @@ class AddEForm2ActionPdfWarningTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo("close");
         assertThat(request.getAttribute("eFormPDFName").toString()).matches("\\d{4}_\\d{2}_\\d{2}_eform\\.pdf");
         assertThat(request.getAttribute("warningMessage")).isEqualTo("This eForm was saved, but its PDF preview could not be generated.");
+        assertThat(request.getAttribute("warningMessage").toString()).doesNotContain("render failed");
     }
     @Test
     @DisplayName("should close with warning when preview pdf path is missing")

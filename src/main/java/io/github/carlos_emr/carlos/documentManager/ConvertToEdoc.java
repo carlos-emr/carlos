@@ -110,7 +110,8 @@ public final class ConvertToEdoc {
     private static final String DEFAULT_WKHTMLTOPDF_ARGS = "--enable-local-file-access --minimum-font-size 10 --print-media-type --encoding utf-8 -T 10mm -L 8mm -R 8mm --disable-javascript";
     private static final String BACKGROUND_ATTRIBUTE = "background";
     private static final String STYLE_ATTRIBUTE = "style";
-    private static final Pattern CSS_URL_PATTERN = Pattern.compile("url\\(([\'\"]?)([^\'\\\"\\)]+)\\1\\)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern CSS_URL_PATTERN =
+            Pattern.compile("url\\(\\s*([\\\'\\\"]?)([^\\r\\n]*?)\\1\\s*\\)", Pattern.CASE_INSENSITIVE);
     
     private static String realPath;
     private static final NioFileManager nioFileManager = SpringUtils.getBean(NioFileManager.class);
