@@ -203,13 +203,19 @@ public class DemographicService extends AbstractServiceImpl {
     }
 
     /** Record-level privilege check — enforces patient-specific access control. */
-    private LoggedInInfo requireDemographicPrivilege(String action, int demographicNo) {
-        LoggedInInfo loggedInInfo = getLoggedInInfo();
-        if (loggedInInfo == null) {
-            throw new WebApplicationException(Response.status(Response.Status.UNAUTHORIZED).entity("Unauthorized").build());
-        }
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", action, demographicNo)) {
-            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).entity("Access Denied").build());
+private LoggedInInfo requireDemographicPrivilege(String action, Integer demographicNo) {
+    LoggedInInfo loggedInInfo = getLoggedInInfo();
+    if (loggedInInfo == null) {
+        throw new WebApplicationException(Response.status(Response.Status.UNAUTHORIZED).entity("Unauthorized").build());
+    }
+    if (demographicNo == null) {
+        throw new WebApplicationException(Response.status(Response.Status.BAD_REQUEST).entity("Missing demographic identifier").build());
+    }
+    if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", action, demographicNo)) {
+        throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).entity("Access Denied").build());
+    }
+    return loggedInInfo;
+}
         }
         return loggedInInfo;
     }
