@@ -36,8 +36,11 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.WebApplicationException;
 
+import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.managers.PreventionManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.commn.model.Prevention;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.PreventionConverter;
 import io.github.carlos_emr.carlos.webserv.rest.to.PreventionResponse;
@@ -46,6 +49,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 
 
 @Path("/preventions/")
@@ -56,10 +60,14 @@ public class PreventionService extends AbstractServiceImpl {
     @Autowired
     private PreventionManager preventionManager;
 
+    @Autowired
+    private SecurityInfoManager securityInfoManager;
+
     @GET
     @Path("/active")
     @Produces(MediaType.APPLICATION_JSON)
     public PreventionResponse getCurrentPreventions(@QueryParam("demographicNo") Integer demographicNo) {
+        requirePreventionReadPrivilege(demographicNo);
         List<Prevention> preventions = preventionManager.getPreventionsByDemographicNo(getLoggedInInfo(), demographicNo);
 
         List<PreventionTo1> preventionsT = new PreventionConverter().getAllAsTransferObjects(getLoggedInInfo(), preventions);
@@ -74,11 +82,31 @@ public class PreventionService extends AbstractServiceImpl {
     @Path("/immunizations/{demographicNo}")
     @Produces({MediaType.APPLICATION_JSON})
     public PreventionResponse getImmunizations(@PathParam("demographicNo") Integer demographicNo) {
+        requirePreventionReadPrivilege(demographicNo);
         List<Prevention> immunizations = preventionManager.getImmunizationsByDemographic(getLoggedInInfo(), demographicNo);
         List<PreventionTo1> preventionsT = new PreventionConverter().getAllAsTransferObjects(getLoggedInInfo(), immunizations);
         PreventionResponse response = new PreventionResponse();
         response.setPreventions(preventionsT);
         return response;
+    }
+
+    /**
+     * Enforces patient-level read access to prevention data for the given demographic.
+     *
+     * <p>Guards the prevention endpoints so a patient's preventive measures and
+     * immunization history cannot be read by supplying an arbitrary {@code demographicNo}.
+     *
+     * @param demographicNo the demographic whose prevention data is being requested.
+     * @throws AccessDeniedException if the current user lacks {@code _prevention} read access to this patient.
+     */
+    private void requirePreventionReadPrivilege(Integer demographicNo) {
+        if (demographicNo == null) {
+            throw new WebApplicationException(
+                    Response.status(Response.Status.BAD_REQUEST).entity("demographicNo is required").build());
+        }
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_prevention", "r", demographicNo)) {
+            throw new AccessDeniedException("_prevention", "r", demographicNo);
+        }
     }
 
 }

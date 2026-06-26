@@ -57,6 +57,7 @@ import io.github.carlos_emr.carlos.appointment.search.SearchConfig;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentSearchDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
+import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.AppointmentSearch;
 import io.github.carlos_emr.carlos.commn.model.AppointmentStatus;
@@ -284,6 +285,7 @@ public class ScheduleService extends AbstractServiceImpl {
     @Consumes("application/json")
     @Produces("application/json")
     public SchedulingResponse findExistAppointments(@PathParam("demographicNo") Integer demographicNo) {
+        requireAppointmentReadPrivilege(demographicNo);
         SchedulingResponse response = new SchedulingResponse();
         List<AppointmentTo1> appts = getAppointmentHistoryWithoutDeleted(demographicNo);
 
@@ -297,6 +299,21 @@ public class ScheduleService extends AbstractServiceImpl {
 
         response.setAppointments(appts);
         return response;
+    }
+
+    /**
+     * Enforces patient-level read access to appointment data for the given demographic.
+     *
+     * <p>Guards the appointment-history endpoint so its appointment and billing detail
+     * cannot be read for another patient by altering the {@code demographicNo} in the URL.
+     *
+     * @param demographicNo the demographic whose appointment data is being requested.
+     * @throws AccessDeniedException if the current user lacks {@code _appointment} read access to this patient.
+     */
+    private void requireAppointmentReadPrivilege(Integer demographicNo) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_appointment", "r", demographicNo)) {
+            throw new AccessDeniedException("_appointment", "r", demographicNo);
+        }
     }
 
     private Map<Integer, BillingDetailTo1> getAppointmentIdToBillingDetailMap(Integer demographicNo) {
