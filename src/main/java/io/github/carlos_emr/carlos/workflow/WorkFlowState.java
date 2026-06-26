@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.Hashtable;
 import java.util.List;
+import java.util.Map;
 
 import io.github.carlos_emr.carlos.commn.model.WorkFlow;
 import io.github.carlos_emr.carlos.commn.dao.WorkFlowDao;
@@ -84,51 +85,10 @@ public class WorkFlowState {
     }
 
 
-    public ArrayList getWorkFlowList(String workflowType) {
-        ArrayList list = new ArrayList();
-
-        List<WorkFlow> ws = dao.findByWorkflowType(workflowType);
+    private static List<Map<String, Object>> toMapList(List<WorkFlow> ws) {
+        List<Map<String, Object>> list = new ArrayList<Map<String, Object>>();
         for (WorkFlow w : ws) {
-            Hashtable h = new Hashtable();
-            h.put("ID", w.getId().toString());
-            h.put("workflow_type", w.getWorkflowType());
-            h.put("create_date_time", w.getCreateDateTime());
-            h.put("demographic_no", w.getDemographicNo());
-            if (w.getCompletionDate() != null) {
-                h.put("completion_date", w.getCompletionDate());
-            }
-            h.put("current_state", w.getCurrentState());
-            list.add(h);
-        }
-
-        return list;
-    }
-
-    public ArrayList getActiveWorkFlowList(String workflowType) {
-        ArrayList list = new ArrayList();
-
-        List<WorkFlow> ws = dao.findActiveByWorkflowType(workflowType);
-        for (WorkFlow w : ws) {
-            Hashtable h = new Hashtable();
-            h.put("ID", w.getId().toString());
-            h.put("workflow_type", w.getWorkflowType());
-            h.put("create_date_time", w.getCreateDateTime());
-            h.put("demographic_no", w.getDemographicNo());
-            if (w.getCompletionDate() != null) {
-                h.put("completion_date", w.getCompletionDate());
-            }
-            h.put("current_state", w.getCurrentState());
-            list.add(h);
-        }
-
-        return list;
-    }
-
-    public ArrayList getActiveWorkFlowList(String workflowType, String demographicNo) {
-        ArrayList list = new ArrayList();
-        List<WorkFlow> ws = dao.findActiveByWorkflowTypeAndDemographicNo(workflowType, demographicNo);
-        for (WorkFlow w : ws) {
-            Hashtable h = new Hashtable();
+            Map<String, Object> h = new Hashtable<String, Object>();
             h.put("ID", w.getId().toString());
             h.put("workflow_type", w.getWorkflowType());
             h.put("create_date_time", w.getCreateDateTime());
@@ -142,15 +102,28 @@ public class WorkFlowState {
         return list;
     }
 
+    public List<Map<String, Object>> getWorkFlowList(String workflowType) {
+        return toMapList(dao.findByWorkflowType(workflowType));
+    }
+
+    public List<Map<String, Object>> getActiveWorkFlowList(String workflowType) {
+        return toMapList(dao.findActiveByWorkflowType(workflowType));
+    }
+
+    public List<Map<String, Object>> getActiveWorkFlowList(String workflowType, String demographicNo) {
+        return toMapList(dao.findActiveByWorkflowTypeAndDemographicNo(workflowType, demographicNo));
+    }
+
+    private static final Map<String, String> RH_STATES = Map.of(
+            "1", "No Appt made",
+            "2", "Appt Booked",
+            "3", "Injection 28",
+            "4", "Requires Another Injection",
+            "5", "Missed Appt",
+            "C", "Closed"
+    );
 
     public static String rhState(Object s) {
-        Hashtable h = new Hashtable();
-        h.put("1", "No Appt made");
-        h.put("2", "Appt Booked");
-        h.put("3", "Injection 28");
-        h.put("4", "Missed Appt");
-        h.put("C", "Closed");
-        String ss = (String) s;
-        return (String) h.get(ss);
+        return RH_STATES.get((String) s);
     }
 }

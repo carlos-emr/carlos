@@ -31,7 +31,7 @@
 package io.github.carlos_emr.carlos.workflow;
 
 import java.util.Date;
-import java.util.Hashtable;
+import java.util.Map;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
@@ -56,7 +56,7 @@ public class WorkFlowInfo {
     public WorkFlowInfo() {
     }
 
-    public WorkFlowInfo(Hashtable h) {
+    public WorkFlowInfo(Map<String, Object> h) {
         MiscUtils.getLogger().debug("loading data...");
         this.setID((String) h.get("ID"));
         this.setWorkflowType((String) h.get("workflow_type"));
