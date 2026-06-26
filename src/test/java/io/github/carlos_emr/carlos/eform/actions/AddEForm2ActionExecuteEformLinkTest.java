@@ -153,7 +153,7 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should reject GET requests before saving")
-    void shouldRejectGetRequestsBeforeSaving() {
+    void shouldRejectGetRequests_beforeSaving() {
         mockRequest.setMethod("GET");
 
         AddEForm2Action action = new AddEForm2Action();
@@ -162,6 +162,22 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo("none");
         assertThat(mockResponse.getStatus()).isEqualTo(jakarta.servlet.http.HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         verify(mockEformDataManager, never()).saveEformData(any(), any());
+    }
+
+    @Test
+    @DisplayName("should expose toolbar error state when saveAsEdoc generation fails")
+    void shouldExposeToolbarErrorState_whenSaveAsEdocGenerationFails() throws Exception {
+        mockRequest.setParameter("saveAsEdoc", "true");
+        doThrow(new io.github.carlos_emr.carlos.utility.PDFGenerationException("save failed"))
+                .when(mockDocumentAttachmentManager).saveEFormAsEDoc(any(), any());
+
+        AddEForm2Action action = new AddEForm2Action();
+        String result = action.execute();
+
+        assertThat(result).isEqualTo("error");
+        assertThat(mockRequest.getAttribute("error")).isEqualTo("true");
+        assertThat(mockRequest.getAttribute("errorMessage"))
+                .isEqualTo("This eForm (and attachments, if applicable) could not be added to this patient’s documents.");
     }
 
     @Test

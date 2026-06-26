@@ -26,7 +26,7 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should normalize invalid HTML comments for Flying Saucer")
-    void shouldNormalizeInvalidHtmlCommentsForFlyingSaucer() {
+    void shouldNormalizeInvalidHtmlComments_whenPreparingForFlyingSaucer() {
         Document document = ConvertToEdoc.prepareDocumentForFlyingSaucer("<html><body><!-- bad -- comment--><div>ok</div></body></html>");
 
         assertThat(document.outerHtml()).contains("bad - - comment--");
@@ -36,7 +36,7 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should remove unresolved external background and css urls during tidy")
-    void shouldRemoveUnresolvedExternalBackgroundAndCssUrlsDuringTidy() {
+    void shouldRemoveUnresolvedExternalBackgroundAndCssUrls_whenTidyingDocument() {
         String html = "<html><body background=\"https://evil.example/tracker.png\" style=\"background-image:url('https://evil.example/tracker.png')\">x</body></html>";
 
         String tidied = ConvertToEdoc.tidyDocument(html);
@@ -48,7 +48,7 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should preserve embedded data resource urls during tidy")
-    void shouldPreserveEmbeddedDataResourceUrlsDuringTidy() {
+    void shouldPreserveEmbeddedDataResourceUrls_whenTidyingDocument() {
         String html = "<html><body background=\"data:image/png;base64,abc\" style=\"background-image:url('data:image/png;base64,abc')\">x</body></html>";
 
         String tidied = ConvertToEdoc.tidyDocument(html);
@@ -58,7 +58,7 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should strip unresolved absolute file paths during tidy")
-    void shouldStripUnresolvedAbsoluteFilePathsDuringTidy() throws Exception {
+    void shouldStripUnresolvedAbsoluteFilePaths_whenTidyingDocument() throws Exception {
         Path tempDir = Files.createTempDirectory("convert-edoc-paths");
         String html = "<html><body><img src=\"/etc/passwd\"><div background=\"/etc/passwd\">x</div></body></html>";
 
@@ -70,7 +70,7 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should translate inline background asset paths during tidy")
-    void shouldTranslateInlineBackgroundAssetPathsDuringTidy() throws Exception {
+    void shouldTranslateInlineBackgroundAssetPaths_whenTidyingDocument() throws Exception {
         Path tempDir = Files.createTempDirectory("convert-edoc");
         Path image = Files.createFile(tempDir.resolve("stamp.png"));
 
@@ -78,6 +78,9 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
 
         String tidied = ConvertToEdoc.tidyDocument(html, tempDir.toString());
 
-        assertThat(tidied).contains(image.toAbsolutePath().toString());
+        assertThat(tidied)
+                .contains("background=\"" + image.toAbsolutePath() + "\"")
+                .contains("background-image:url('" + image.toAbsolutePath() + "')")
+                .doesNotContain("background-image:url('stamp.png')");
     }
 }

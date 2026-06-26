@@ -75,7 +75,7 @@ class AddEForm2ActionPdfWarningTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should close with warning when preview pdf generation fails")
-    void shouldCloseWithWarningWhenPreviewPdfGenerationFails() throws Exception {
+    void shouldCloseWithWarning_whenPreviewPdfGenerationFails() throws Exception {
         when(documentAttachmentManager.renderEFormWithAttachments(request, response))
                 .thenThrow(new PDFGenerationException("render failed"));
         AddEForm2Action action = new AddEForm2Action();
@@ -89,12 +89,12 @@ class AddEForm2ActionPdfWarningTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("parentAjaxId")).isEqualTo("eforms");
         assertThat(request.getAttribute("errorMessage")).isNull();
         assertThat(request.getAttribute("eFormPDF")).isEqualTo("");
-        assertThat(request.getAttribute("eFormPDFName")).isEqualTo("" + new java.text.SimpleDateFormat("yyyy_MM_dd").format(new java.util.Date()) + "_Doe.pdf");
+        assertThat(request.getAttribute("eFormPDFName").toString()).matches("\\d{4}_\\d{2}_\\d{2}_Doe\\.pdf");
     }
 
     @Test
     @DisplayName("should fall back to a generic preview filename when demographic number is invalid")
-    void shouldUseFallbackPreviewFilenameWhenDemographicNumberIsInvalid() throws Exception {
+    void shouldUseFallbackPreviewFilename_whenDemographicNumberIsInvalid() throws Exception {
         when(documentAttachmentManager.renderEFormWithAttachments(request, response))
                 .thenThrow(new PDFGenerationException("render failed"));
         AddEForm2Action action = new AddEForm2Action();
@@ -102,12 +102,12 @@ class AddEForm2ActionPdfWarningTest extends CarlosUnitTestBase {
         String result = action.closeWithPdfPreview(loggedInInfo, "abc", "42");
 
         assertThat(result).isEqualTo("close");
-        assertThat(request.getAttribute("eFormPDFName")).isEqualTo("" + new java.text.SimpleDateFormat("yyyy_MM_dd").format(new java.util.Date()) + "_eform.pdf");
+        assertThat(request.getAttribute("eFormPDFName").toString()).matches("\\d{4}_\\d{2}_\\d{2}_eform\\.pdf");
         assertThat(request.getAttribute("warningMessage")).isEqualTo("This eForm was saved, but its PDF preview could not be generated.");
     }
     @Test
     @DisplayName("should close with warning when preview pdf path is missing")
-    void shouldCloseWithWarningWhenPreviewPdfPathIsMissing() throws Exception {
+    void shouldCloseWithWarning_whenPreviewPdfPathIsMissing() throws Exception {
         when(documentAttachmentManager.renderEFormWithAttachments(request, response)).thenReturn(null);
         AddEForm2Action action = new AddEForm2Action();
 

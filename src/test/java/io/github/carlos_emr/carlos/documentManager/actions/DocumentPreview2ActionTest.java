@@ -348,7 +348,10 @@ class DocumentPreview2ActionTest extends CarlosUnitTestBase {
         String result = action.execute();
 
         assertThat(result).isNull();
-        assertThat(response.getContentAsString()).contains("errorMessage").contains("Failed to render eForm PDF.");
+        assertThat(response.getContentAsString())
+                .contains("errorMessage")
+                .contains("Failed to render eForm PDF.")
+                .doesNotContain("render failed");
     }
 
 }

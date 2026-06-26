@@ -79,6 +79,7 @@ public class AddEForm2Action extends ActionSupport {
 
     private static final Logger logger = MiscUtils.getLogger();
     private static final String INVALID_FILENAME_MESSAGE_KEY = "dms.error.invalidFilename";
+    private static final String ERROR_ATTRIBUTE = "error";
     private static final String PDF_DOWNLOAD_FAILURE_MESSAGE = "This eForm (and attachments, if applicable) could not be downloaded.";
     private static final String PDF_PREVIEW_WARNING_MESSAGE = "This eForm was saved, but its PDF preview could not be generated.";
     private static final String ERROR_MESSAGE_ATTRIBUTE = "errorMessage";
@@ -213,6 +214,7 @@ public class AddEForm2Action extends ActionSupport {
         try {
             validatedTemplateFileName = validateTemplateFileName(curForm.getFormFileName());
         } catch (FileValidationException e) {
+            request.setAttribute(ERROR_ATTRIBUTE, "true");
             request.setAttribute(ERROR_MESSAGE_ATTRIBUTE, getInvalidFilenameMessage());
             logger.warn("Rejected invalid eForm template filename");
             return ERROR;
@@ -508,14 +510,15 @@ public class AddEForm2Action extends ActionSupport {
     private String buildPdfPreviewName(LoggedInInfo loggedInInfo, String demographicNo) {
         try {
             return generateFileName(loggedInInfo, Integer.parseInt(demographicNo));
-        } catch (NumberFormatException e) {
-            logger.warn("Falling back to a generic PDF preview filename for invalid demographic number: {}", LogSafe.sanitize(demographicNo), e);
+        } catch (RuntimeException e) {
+            logger.warn("Falling back to a generic PDF preview filename for demographic {}", LogSafe.sanitize(demographicNo), e);
             return new SimpleDateFormat("yyyy_MM_dd").format(new Date()) + PDF_PREVIEW_FALLBACK_SUFFIX;
         }
     }
 
     private void setPdfError(String message, Exception e) {
         logger.error(message, e);
+        request.setAttribute(ERROR_ATTRIBUTE, "true");
         request.setAttribute(ERROR_MESSAGE_ATTRIBUTE, message);
     }
 
