@@ -26,8 +26,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.InputStream;
 import java.util.Arrays;
 import java.util.Map;
@@ -52,15 +50,19 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("Shipped rate-limit config invariants")
 class RateLimitConfigInvariantUnitTest {
 
-    private static final String CONFIG_PATH = "src/main/resources/carlos.properties";
+    private static final String CONFIG_RESOURCE = "carlos.properties";
 
     private Properties loadShippedConfig() throws Exception {
-        File file = new File(CONFIG_PATH);
-        assertThat(file)
-                .as("shipped config %s must exist (test runs from the module root)", CONFIG_PATH)
-                .exists();
+        // Load from the test classpath (the processed copy of src/main/resources/carlos.properties)
+        // rather than a relative filesystem path, so the test is not dependent on the launcher's
+        // working directory (parent-module builds, IDE/CI runners).
         Properties props = new Properties();
-        try (InputStream in = new FileInputStream(file)) {
+        try (InputStream in = RateLimitConfigInvariantUnitTest.class
+                .getClassLoader()
+                .getResourceAsStream(CONFIG_RESOURCE)) {
+            assertThat(in)
+                    .as("shipped config %s must exist on the test classpath", CONFIG_RESOURCE)
+                    .isNotNull();
             props.load(in);
         }
         return props;
