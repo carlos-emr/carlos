@@ -714,12 +714,15 @@ public final class ConvertToEdoc {
 
     private static int findCssUrlEnd(String cssText, int contentStart) {
         char quote = 0;
+        boolean escaped = false;
         int nestedParens = 0;
         for (int i = contentStart; i < cssText.length(); i++) {
             char current = cssText.charAt(i);
             if (quote != 0) {
-                if (current == '\\' && i + 1 < cssText.length()) {
-                    i++;
+                if (escaped) {
+                    escaped = false;
+                } else if (current == '\\' && i + 1 < cssText.length()) {
+                    escaped = true;
                 } else {
                     quote = closeQuoteIfNeeded(quote, current);
                 }
