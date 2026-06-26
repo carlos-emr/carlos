@@ -100,6 +100,11 @@ public class RourkeExport2Action extends ActionSupport {
         this.frmRourke2009DAO = frmRourke2009DAO;
     }
 
+    /**
+     * Legacy no-arg entry point used by Struts; delegates to the injected constructor
+     * via {@link SpringUtils} so the action remains instantiable under the default
+     * Struts Spring autowire strategy.
+     */
     public RourkeExport2Action() {
         this(SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(ClinicDAO.class), SpringUtils.getBean(DataExportDao.class), SpringUtils.getBean(DemographicDao.class), SpringUtils.getBean(Rourke2009DAO.class));
     }

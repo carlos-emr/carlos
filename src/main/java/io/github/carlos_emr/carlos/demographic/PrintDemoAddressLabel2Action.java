@@ -82,15 +82,20 @@ public class PrintDemoAddressLabel2Action extends ActionSupport {
     private static Logger logger = MiscUtils.getLogger();
     private final transient SecurityInfoManager securityInfoManager;
     /**
-     * Constructs a new PrintDemoAddressLabel2Action instance.
+     * Constructs the action with its injected security dependency. Request and response
+     * objects are obtained from {@link ServletActionContext} following the Struts2 2Action pattern.
      *
-     * <p>This constructor initializes the action with default settings. Request and response
-     * objects are automatically injected by Struts2 via ServletActionContext.</p>
+     * @param securityInfoManager manager used to authorize demographic label access
      */
     public PrintDemoAddressLabel2Action(SecurityInfoManager securityInfoManager) {
         this.securityInfoManager = securityInfoManager;
     }
 
+    /**
+     * Legacy no-arg entry point used by Struts; delegates to the injected constructor
+     * via {@link SpringUtils} so the action remains instantiable under the default
+     * Struts Spring autowire strategy.
+     */
     public PrintDemoAddressLabel2Action() {
         this(SpringUtils.getBean(SecurityInfoManager.class));
     }
