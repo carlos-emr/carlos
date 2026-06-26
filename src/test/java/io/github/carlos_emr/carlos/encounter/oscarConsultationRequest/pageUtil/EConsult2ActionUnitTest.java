@@ -101,6 +101,42 @@ class EConsult2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject an out-of-range port on the configured eConsult base")
+    void shouldRejectConfiguredBase_whenPortOutOfRange() {
+        // java.net.URI#getPort() does not range-check, so the validator must fail closed
+        // instead of emitting a malformed redirect target such as https://host:99999/...
+        assertThatThrownBy(() -> EConsult2Action.frontendRedirectUrl(
+                "https://econsult.example:99999/app",
+                "provider@example.com",
+                null,
+                "draft",
+                "123"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("invalid port");
+
+        assertThatThrownBy(() -> EConsult2Action.loginRedirectUrl(
+                "https://econsult.example:99999/sso",
+                "https://emr.example/carlos/econsultSSOLogin",
+                1770000000L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("invalid port");
+    }
+
+    @Test
+    @DisplayName("should keep a valid explicit port on the configured eConsult base")
+    void shouldBuildLoginRedirect_withValidExplicitPort() {
+        String redirect = EConsult2Action.loginRedirectUrl(
+                "https://econsult.example:8443/sso/",
+                "https://emr.example/carlos/econsultSSOLogin",
+                1770000000L);
+
+        assertThat(redirect).isEqualTo(
+                "https://econsult.example:8443/sso/SAML2/login"
+                        + "?oscarReturnURL=https%3A%2F%2Femr.example%2Fcarlos%2FeconsultSSOLogin"
+                        + "&loginStart=1770000000");
+    }
+
+    @Test
     @DisplayName("should reject task values that could change redirect shape")
     void shouldRejectTask_whenRedirectShapeCouldChange() {
         assertThat(EConsult2Action.isValidTask("patientSummary")).isTrue();

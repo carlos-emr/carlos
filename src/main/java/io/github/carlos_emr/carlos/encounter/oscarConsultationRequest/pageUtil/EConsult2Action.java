@@ -453,6 +453,12 @@ public class EConsult2Action extends ActionSupport {
             if (uri.getRawQuery() != null || uri.getRawFragment() != null) {
                 throw new IllegalArgumentException(propertyName + " must not include query or fragment");
             }
+            // URI#getPort() does not range-check, so reject an out-of-range port (e.g. :99999)
+            // here rather than emitting a malformed redirect target. -1 means "no port".
+            int port = uri.getPort();
+            if (port != -1 && (port < 0 || port > 65535)) {
+                throw new IllegalArgumentException(propertyName + " has an invalid port");
+            }
             return uri;
         } catch (URISyntaxException e) {
             throw new IllegalArgumentException(propertyName + " is not a valid URI", e);
