@@ -3813,17 +3813,22 @@ public class RourkeExport2Action extends ActionSupport {
             // Always remove the temp XML/zip (PHI) on every exit path — including the save,
             // zip, and DOCUMENT_DIR-validation abort paths — so a failed export never leaves
             // persistent patient-data artifacts in the temp directory. Guarded by existence
-            // so absent files don't emit misleading delete-failure logs, and failure-isolated
-            // so a cleanup error can never mask the original save/zip/validation failure.
+            // so absent files don't emit misleading delete-failure logs. Each cleanup is
+            // independently failure-isolated so neither a cleanup error masks the original
+            // save/zip/validation failure nor one failing cleanup skips the other.
             try {
                 if (xmlFile.exists()) {
                     Util.cleanFiles(files);
                 }
+            } catch (RuntimeException cleanupError) {
+                MiscUtils.getLogger().warn("Failed to clean up Rourke export temp XML in " + tmpDir, cleanupError);
+            }
+            try {
                 if (zipFile.exists()) {
                     Util.cleanFile(zipName, tmpDir);
                 }
             } catch (RuntimeException cleanupError) {
-                MiscUtils.getLogger().warn("Failed to clean up Rourke export temp files in " + tmpDir, cleanupError);
+                MiscUtils.getLogger().warn("Failed to clean up Rourke export temp zip in " + tmpDir, cleanupError);
             }
         }
     }

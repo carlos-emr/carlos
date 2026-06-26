@@ -294,4 +294,38 @@ class RourkeExport2ActionExportUnitTest extends CarlosUnitTestBase {
                     .hasMessage("primary save failure");
         }
     }
+
+    @Test
+    @DisplayName("should still clean the temp zip when temp XML cleanup fails")
+    void shouldStillCleanZip_whenXmlCleanupFails(@TempDir Path tmpDir) throws Throwable {
+        PatientDocument document = mock(PatientDocument.class);
+        // Successful export: materialize XML and zip so both cleanup branches are reached.
+        doAnswer(invocation -> {
+            Files.writeString(invocation.getArgument(0, File.class).toPath(), "<PatientRecord/>");
+            return null;
+        }).when(document).save(any(File.class), any(XmlOptions.class));
+
+        File documentDir = tmpDir.resolve("documents").toFile();
+        assertThat(documentDir.mkdirs()).isTrue();
+        CarlosProperties properties = mock(CarlosProperties.class);
+        when(properties.getProperty("DOCUMENT_DIR")).thenReturn(documentDir.getAbsolutePath());
+
+        try (MockedStatic<Util> util = mockStatic(Util.class);
+             MockedStatic<CarlosProperties> carlosProperties = mockStatic(CarlosProperties.class);
+             MockedStatic<FileUtils> fileUtils = mockStatic(FileUtils.class)) {
+            util.when(() -> Util.zipFiles(any(), anyString(), anyString())).thenAnswer(invocation -> {
+                Files.writeString(new File(invocation.getArgument(2, String.class),
+                        invocation.getArgument(1, String.class)).toPath(), "zip");
+                return true;
+            });
+            carlosProperties.when(CarlosProperties::getInstance).thenReturn(properties);
+            // XML cleanup throws; the zip cleanup must still run (independent isolation).
+            util.when(() -> Util.cleanFiles(any())).thenThrow(new RuntimeException("xml cleanup boom"));
+
+            String zipName = (String) invokeMakeFiles(document, tmpDir.toString());
+
+            assertThat(zipName).startsWith("rourke2009_export-").endsWith(".zip");
+            util.verify(() -> Util.cleanFile(anyString(), anyString()), times(1));
+        }
+    }
 }
