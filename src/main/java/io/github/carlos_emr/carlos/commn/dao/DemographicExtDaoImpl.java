@@ -38,6 +38,7 @@ import org.springframework.stereotype.Repository;
 
 import jakarta.persistence.Query;
 import java.util.*;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Repository
 public class DemographicExtDaoImpl extends AbstractDaoImpl<DemographicExt> implements DemographicExtDao {
@@ -254,6 +255,8 @@ public class DemographicExtDaoImpl extends AbstractDaoImpl<DemographicExt> imple
         persist(demographicExt);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public void addKey(String providerNo, Integer demo, String key, String newValue, String oldValue) {
         if (oldValue == null) {

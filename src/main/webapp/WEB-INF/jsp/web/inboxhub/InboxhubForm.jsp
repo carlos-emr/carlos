@@ -44,15 +44,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 <input type="hidden" class="totalHRMCount" id="totalHRMCount" value="${totalHRMCount}" />
 <input type="hidden" class="totalResultsCount" id="totalResultsCount" value="${totalResultsCount}" />
 
-<!-- Preview button -->
-<div class="card mb-1 shadow-sm rounded-1">
-  <div class="card-body p-2">
-    <div class="d-grid">
-        <input type="checkbox" class="btn-check btn-sm" name="viewMode2" id="btnViewMode2" autocomplete="off" onchange="fetchInboxhubDataByMode(this)" ${query.viewMode ? 'checked' : ''}>
-        <label class="btn btn-secondary btn-sm" id="btnViewModeLabel" for="btnViewMode2"><c:choose><c:when test="${query.viewMode}"><fmt:message key="inboxhub.form.listMode"/></c:when><c:otherwise><fmt:message key="inboxhub.form.previewMode"/></c:otherwise></c:choose></label>
-    </div>
-  </div>
-</div>
 
 <!-- Search form Accordion -->
 <div class="accordion" id="inbox-hub-search">
@@ -628,7 +619,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     var activeTypeFilter = null;
     var ackToggleState = false;
     var rapidReviewState = false;
-    var savedStartDate = '';  // preserves the original start date when toggling Acknowledged
 
     /**
      * Filters the inbox to show only one type (DOC, HL7, HRM) or all types.
@@ -686,17 +676,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         var radioId = checked ? 'statusAcknowledged' : 'statusNew';
         var radio = document.getElementById(radioId);
         if (radio) radio.checked = true;
-
-        // When showing acknowledged items, scope to today only so the list
-        // isn't overwhelmed with historical data. Clear the date when toggling back.
-        var startDateEl = document.getElementById('startDate');
-        var fp = startDateEl._flatpickr;
-        if (checked) {
-            savedStartDate = startDateEl.value;
-            if (fp) { fp.setDate(new Date(), true); } else { startDateEl.value = new Date().toISOString().slice(0, 10); }
-        } else {
-            if (fp) { fp.setDate(savedStartDate || '', true); } else { startDateEl.value = savedStartDate || ''; }
-        }
 
         fetchInboxhubData();
     }

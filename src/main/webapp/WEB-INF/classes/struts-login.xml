@@ -64,7 +64,7 @@
         </action>
 
         <action name="logout" class="io.github.carlos_emr.carlos.login.Logout2Action">
-            <result name="success">/WEB-INF/jsp/login/index.jsp</result>
+            <result name="success" type="redirect">/index</result>
         </action>
         <action name="login" class="io.github.carlos_emr.carlos.login.Login2Action">
             <result name="provider" type="redirect">/provider/providercontrol</result>

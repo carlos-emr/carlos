@@ -74,6 +74,8 @@ import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.commons.lang3.time.DateFormatUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.action.UploadedFilesAware;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import org.apache.xmlbeans.XmlException;
 import org.apache.xmlbeans.XmlOptions;
@@ -93,6 +95,7 @@ import io.github.carlos_emr.carlos.hospitalReportManager.HRMReport;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMReportParser;
 import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -133,7 +136,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.sql.SQLException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -141,8 +143,9 @@ import java.util.List;
 import java.util.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
-public class ImportDemographicDataAction42Action extends ActionSupport {
+public class ImportDemographicDataAction42Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -167,7 +170,6 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
     private static final String REPORTTEXT = "Text";
     private static final String RISKFACTOR = "Risk";
     private static String currentDirectory;
-    private static List<Path> validXmlFileList = Collections.emptyList();
 
     String admProviderNo = null;
     Demographic demographic = null;
@@ -200,6 +202,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
 
     private LabUploadWs labUpload = new LabUploadWs();
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String execute() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -231,13 +235,18 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         programId = new EctProgram(request.getSession()).getProgram(admProviderNo);
         matchProviderNames = this.isMatchProviderNames();
 
+        if (uploadValidationError != null) {
+            addActionError(uploadValidationError);
+            return SUCCESS;
+        }
+
         if (!hasUploadedImportFile(importFile, importFileFileName)) {
             return SUCCESS;
         }
 
         ArrayList<String> warnings = new ArrayList<>();
         ArrayList<String[]> logs = new ArrayList<>();
-        validXmlFileList = new ArrayList<>();
+        List<Path> validXmlFiles = new ArrayList<>();
         String[] logResult;
 
         /*
@@ -318,7 +327,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
 
         // if the saved temporary file is an XML import of a single patient file, then go straight to processing
         if (filetype.contains("xml") && Files.exists(directory) && Files.isRegularFile(directory)) {
-            processXmlFile(loggedInInfo, directory, warnings, logs, request, this.getTimeshiftInDays(), students, courseId);
+            processXmlFile(loggedInInfo, directory, directory.getParent(), warnings, logs, request, this.getTimeshiftInDays(), students, courseId, validXmlFiles);
         }
 
         //TODO if the saved temporary file is a zip file then go on to unzip and process the directory tree.
@@ -327,12 +336,12 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
             // unzip into parent directory
             Path rootDirectory = unzipFile(directory);
             // process starting at parent directory.
-            processXmlFilesInDirectory(loggedInInfo, rootDirectory, warnings, logs, request, this.getTimeshiftInDays(), students, courseId);
+            processXmlFilesInDirectory(loggedInInfo, rootDirectory, warnings, logs, request, this.getTimeshiftInDays(), students, courseId, validXmlFiles);
         }
 
         // if the saved temporary file is a directory tree; then search for and process the xml file in each directory
         else if (Files.exists(directory)) {
-            processXmlFilesInDirectory(loggedInInfo, directory, warnings, logs, request, this.getTimeshiftInDays(), students, courseId);
+            processXmlFilesInDirectory(loggedInInfo, directory, warnings, logs, request, this.getTimeshiftInDays(), students, courseId, validXmlFiles);
         }
 
         //TODO is it possible that the uploaded file is an batch file of XML files? If so, then a process is needed to
@@ -340,8 +349,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
 
 
         // use the completed valid xml list to run through the contact imports.
-        for (Path validXmlFile : validXmlFileList) {
-            logResult = importContacts(loggedInInfo, validXmlFile.toString(), warnings, request, this.getTimeshiftInDays(), students, courseId);
+        for (Path validXmlFile : validXmlFiles) {
+            logResult = importContacts(loggedInInfo, validXmlFile.toString(), validXmlFile.getParent(), request, this.getTimeshiftInDays());
             logs.add(logResult);
         }
 
@@ -370,9 +379,11 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
 
     private static final ObjectMapper jsonMapper = new ObjectMapper();
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     private void generateResponse(HttpServletResponse response, ArrayList<String> warnings, String importLog) {
         ObjectNode json = jsonMapper.createObjectNode();
-        response.setContentType("text/javascript");
+        response.setContentType("application/json;charset=UTF-8");
         try {
             json.set("warnings", jsonMapper.valueToTree(warnings));
             json.put("importLog", importLog);
@@ -385,8 +396,10 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
     /**
      * Search for all XML / CDS / CMS patient files in a given directory and process.
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private void processXmlFilesInDirectory(LoggedInInfo loggedInInfo, Path fileDirectory, ArrayList<String> warnings, ArrayList<String[]> logs,
-                                            HttpServletRequest request, int timeshiftInDays, List<Provider> students, int courseId) throws IOException {
+                                            HttpServletRequest request, int timeshiftInDays, List<Provider> students, int courseId, List<Path> validXmlFiles) throws IOException {
         try (DirectoryStream<Path> directoryStream = Files.newDirectoryStream(fileDirectory)) {
             for (Path stream : directoryStream) {
                 if (Files.isDirectory(stream)) {
@@ -396,9 +409,9 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                     /* check for an XML file that matches the folder name (standard). It's best for performance
                      * to avoid hunting through the folders when not needed.
                      */
-                    Path xmlFile = Paths.get(currentDirectory, stream.toFile().getName() + ".xml");
+                    Path xmlFile = PathValidationUtils.validateGeneratedChildPath(stream.toFile().getName() + ".xml", new File(currentDirectory)).toPath();
                     if (Files.exists(xmlFile)) {
-                        processXmlFile(loggedInInfo, xmlFile, warnings, logs, request, timeshiftInDays, students, courseId);
+                        processXmlFile(loggedInInfo, xmlFile, stream, warnings, logs, request, timeshiftInDays, students, courseId, validXmlFiles);
                     }
 
                     /*
@@ -408,7 +421,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                         List<Path> possibleXmlFileList = searchFileByExtension(stream, warnings);
                         for (Path possibleXmlFile : possibleXmlFileList) {
                             if (Files.exists(possibleXmlFile)) {
-                                processXmlFile(loggedInInfo, possibleXmlFile, warnings, logs, request, timeshiftInDays, students, courseId);
+                                processXmlFile(loggedInInfo, possibleXmlFile, stream, warnings, logs, request, timeshiftInDays, students, courseId, validXmlFiles);
                             }
                         }
                     }
@@ -417,7 +430,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                     if (filePath.toLowerCase().endsWith(".xml")) {
                         // Set the current directory to the XML file's parent for attachment resolution
                         currentDirectory = stream.getParent().toAbsolutePath().toString();
-                        processXmlFile(loggedInInfo, stream, warnings, logs, request, timeshiftInDays, students, courseId);
+                        processXmlFile(loggedInInfo, stream, stream.getParent(), warnings, logs, request, timeshiftInDays, students, courseId, validXmlFiles);
                     } else {
                         // Skip regular files (like JPG, PDF attachments) - they will be referenced by XML files
                     }
@@ -443,7 +456,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         File targetDir = directoryPath.toFile();
 
         byte[] buffer = new byte[1024];
-        try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(Paths.get(zipFilePath.toString())))) {
+        try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(PathValidationUtils.validateExistingPath(zipFilePath.toFile(), targetDir).toPath()))) {
             ZipEntry zipEntry = zis.getNextEntry();
             while (zipEntry != null) {
                 File newFile = resolveAndValidateZipEntry(zipEntry, targetDir);
@@ -492,93 +505,22 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
      * @return the validated File if entry is valid, null otherwise
      */
     private File resolveAndValidateZipEntry(ZipEntry zipEntry, File targetDir) {
-        String entryName = zipEntry.getName();
-
-        // Validate ZIP entry name before processing
-        if (entryName == null || entryName.trim().isEmpty()) {
-            logger.error("Skipping ZIP entry with null or empty name");
-            return null;
-        }
-
-        // Normalize path separators to handle cross-platform ZIP files
-        String normalizedEntryName = entryName.replace("\\", "/");
-
-        // Create file by resolving entry name against target directory (preserves directory structure)
-        File newFile = new File(targetDir, normalizedEntryName);
-
-        // CRITICAL SECURITY: Validate the resolved path is within the target directory
-        // This prevents ZIP Slip attacks (e.g., "../../../etc/passwd")
-        // Uses validateExistingPath for containment check without stripping path components
         try {
-            // First, perform any existing validation logic
-            newFile = PathValidationUtils.validateExistingPath(newFile, targetDir);
-
-            // Explicit canonical / normalized path containment check to prevent Zip Slip
-            // and to make the security property obvious to static analysis tools.
-            java.nio.file.Path basePath = targetDir.getCanonicalFile().toPath().normalize();
-            java.nio.file.Path resolvedPath = newFile.getCanonicalFile().toPath().normalize();
-            if (!resolvedPath.startsWith(basePath)) {
-                logger.error("SECURITY: ZIP entry {} resolves outside target directory {}", Encode.forJava(entryName), targetDir);
-                return null;
-            }
-
-            // Also ensure the parent directory (if any) is within the target directory
-            File parent = newFile.getParentFile();
-            if (parent != null) {
-                java.nio.file.Path parentPath = parent.getCanonicalFile().toPath().normalize();
-                if (!parentPath.startsWith(basePath)) {
-                    logger.error("SECURITY: Parent directory of ZIP entry {} resolves outside target directory {}", Encode.forJava(entryName), targetDir);
-                    return null;
-                }
-            }
-
-            // Additional defense-in-depth: keep existing helper-based checks
-            if (!isWithinDirectory(newFile, targetDir)) {
-                logger.error("SECURITY: ZIP entry {} resolves outside target directory according to isWithinDirectory", Encode.forJava(entryName));
-                return null;
-            }
-
-            return newFile;
-        } catch (IOException e) {
-            logger.error("SECURITY: I/O error while validating ZIP entry {}: {}", Encode.forJava(entryName), e.getMessage(), e);
-            return null;
+            return PathValidationUtils.validateZipEntryPath(zipEntry, targetDir);
         } catch (SecurityException e) {
-            logger.error("SECURITY: Rejecting malicious ZIP entry: {}", Encode.forJava(entryName), e);
+            // Do not log the entry name: uploaded export entry/file names can carry patient-identifying
+            // content (PHI). PathValidationUtils already logs the sanitized rejected path internally.
+            logger.error("SECURITY: Skipping malicious ZIP entry during demographic import", e);
             return null;
-        }
-    }
-
-    /**
-     * Canonical path containment check used to prevent Zip Slip.
-     * Ensures that {@code file} is equal to or a descendant of {@code baseDir}.
-     *
-     * @param file File the file to check
-     * @param baseDir File the base directory that should contain the file
-     * @return boolean true if file is within baseDir, false otherwise
-     */
-    private boolean isWithinDirectory(File file, File baseDir) {
-        if (file == null || baseDir == null) {
-            return false;
-        }
-        try {
-            File baseCanonical = baseDir.getCanonicalFile();
-            File fileCanonical = file.getCanonicalFile();
-            String basePath = baseCanonical.getPath();
-            String filePath = fileCanonical.getPath();
-
-            return filePath.equals(basePath) || filePath.startsWith(basePath + File.separator);
-        } catch (IOException e) {
-            logger.error("Error performing canonical containment check for {}", Encode.forJava(file.getPath()), e);
-            return false;
         }
     }
 
     /**
      * Process a single patient XML / CDS / CMS file import and add to OSCAR's database.
      */
-    private void processXmlFile(LoggedInInfo loggedInInfo, Path xmlFile, ArrayList<String> warnings, ArrayList<String[]> logs, HttpServletRequest request, int timeshiftInDays, List<Provider> students, int courseId) throws Exception {
-        String[] logResult = importXML(loggedInInfo, xmlFile.toString(), warnings, request, timeshiftInDays, students, courseId, false);
-        validXmlFileList.add(xmlFile);
+    private void processXmlFile(LoggedInInfo loggedInInfo, Path xmlFile, Path importRoot, ArrayList<String> warnings, ArrayList<String[]> logs, HttpServletRequest request, int timeshiftInDays, List<Provider> students, int courseId, List<Path> validXmlFiles) throws Exception {
+        String[] logResult = importXML(loggedInInfo, xmlFile.toString(), importRoot, warnings, request, timeshiftInDays, students, courseId, false);
+        validXmlFiles.add(xmlFile);
         logs.add(logResult);
     }
 
@@ -648,13 +590,10 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         request.getSession().setAttribute("providerBean", providerBean);
     }
 
-    private String[] importContacts(LoggedInInfo loggedInInfo, String xmlFile, ArrayList<String> warnings, HttpServletRequest request, int timeShiftInDays, List<Provider> students, int courseId) throws SQLException, Exception {
-        return importContacts(loggedInInfo, xmlFile, warnings, request, timeShiftInDays, null, null, 0);
-    }
 
-    private String[] importXML(LoggedInInfo loggedInInfo, String xmlFile, ArrayList<String> warnings, HttpServletRequest request, int timeShiftInDays, List<Provider> students, int courseId, boolean cleanFile) throws SQLException, Exception {
+    private String[] importXML(LoggedInInfo loggedInInfo, String xmlFile, Path importRoot, ArrayList<String> warnings, HttpServletRequest request, int timeShiftInDays, List<Provider> students, int courseId, boolean cleanFile) throws SQLException, Exception {
         if (students == null || students.isEmpty()) {
-            return importXML(loggedInInfo, xmlFile, warnings, request, timeShiftInDays, null, null, 0, cleanFile);
+            return importXML(loggedInInfo, xmlFile, importRoot, warnings, request, timeShiftInDays, null, null, 0, cleanFile);
         }
 
         List<String> logs = new ArrayList<String>();
@@ -669,7 +608,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
             }
             Program p = programManager.getProgram(pid);
 
-            String[] result = importXML(loggedInInfo, xmlFile, warnings, request, timeShiftInDays, student, p, courseId, cleanFile);
+            String[] result = importXML(loggedInInfo, xmlFile, importRoot, warnings, request, timeShiftInDays, student, p, courseId, cleanFile);
             logs.addAll(convertLog(result));
         }
         return logs.toArray(new String[logs.size()]);
@@ -681,7 +620,10 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         return tmp;
     }
 
-    private String[] importContacts(LoggedInInfo loggedInInfo, String xmlFile, ArrayList<String> warnings, HttpServletRequest request, int timeShiftInDays, Provider student, Program admitTo, int courseId) throws SQLException, Exception {
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path validated for directory containment via PathValidationUtils before use")
+    private String[] importContacts(LoggedInInfo loggedInInfo, String xmlFile, Path importRoot, HttpServletRequest request, int timeShiftInDays) throws SQLException, Exception {
         DemographicData dd = new DemographicData();
 
         String docDir = oscarProperties.getProperty("DOCUMENT_DIR");
@@ -690,7 +632,10 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
             logger.debug("Error! Cannot write to DOCUMENT_DIR - Check carlos.properties or dir permissions.");
         }
 
-        File xmlF = new File(xmlFile);
+        if (importRoot == null) {
+            throw new SecurityException("Import root is null");
+        }
+        File xmlF = PathValidationUtils.validateExistingPath(new File(xmlFile), importRoot.toFile());
         OmdCdsDocument.OmdCds omdCds = null;
         try {
             XmlOptions opts = new XmlOptions();
@@ -868,7 +813,10 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                     if (rel[j] == null) continue;
 
                     DemographicRelationship demoRel = new DemographicRelationship();
-                    demoRel.addDemographicRelationship(demographicNo, cDemoNo, rel[j], sdm.equals("true"), emc.equals("true"), contactNote, admProviderNo, facilityId);
+                    // Link the contact to THIS file's resolved patient (looked up above by HIN/name+DOB),
+                    // not the mutable demographicNo field which reflects the last primary import -
+                    // otherwise multi-patient batch imports mis-link contacts to the wrong patient.
+                    demoRel.addDemographicRelationship(String.valueOf(patient.getDemographicNo()), cDemoNo, rel[j], sdm.equals("true"), emc.equals("true"), contactNote, admProviderNo, facilityId);
 
                     //clear emc, sdm, contactNote after 1st save
                     emc = "";
@@ -882,7 +830,10 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
     }
 
 
-    private String[] importXML(LoggedInInfo loggedInInfo, String xmlFile, ArrayList<String> warnings, HttpServletRequest request, int timeShiftInDays, Provider student, Program admitTo, int courseId, boolean cleanFile) throws SQLException, Exception {
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path validated for directory containment via PathValidationUtils before use")
+    private String[] importXML(LoggedInInfo loggedInInfo, String xmlFile, Path importRoot, ArrayList<String> warnings, HttpServletRequest request, int timeShiftInDays, Provider student, Program admitTo, int courseId, boolean cleanFile) throws SQLException, Exception {
         ArrayList<String> err_demo = new ArrayList<String>(); //errors: duplicate demographics
         ArrayList<String> err_data = new ArrayList<String>(); //errors: discrete data
         ArrayList<String> err_summ = new ArrayList<String>(); //errors: summary
@@ -896,7 +847,11 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
             logger.debug("Error! Cannot write to DOCUMENT_DIR - Check carlos.properties or dir permissions.");
         }
 
-        File xmlF = new File(xmlFile);
+        if (importRoot == null) {
+            throw new SecurityException("Import root is null");
+        }
+        String importDirectory = importRoot.toAbsolutePath().toString();
+        File xmlF = PathValidationUtils.validateExistingPath(new File(xmlFile), importRoot.toFile());
         PatientRecord patientRec = null;
         try {
             XmlOptions opts = new XmlOptions();
@@ -2781,10 +2736,26 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
 
                             if (StringUtils.empty(docDesc)) docDesc = "ImportReport" + (i + 1);
 
+                            // Build the validated destination path once. A blocked extension, an emptied
+                            // filename, or a misconfigured DOCUMENT_DIR throws SecurityException; degrade to a
+                            // per-report error and continue the batch instead of aborting the whole import
+                            // (which would return an HTML 500 to the JSON uploader). Do not log
+                            // docFileName/docDir - they are PHI-adjacent.
+                            File destFile;
+                            try {
+                                destFile = PathValidationUtils.validateGeneratedChildPath(
+                                        PathValidationUtils.validateGeneratedFileName(docFileName),
+                                        PathValidationUtils.resolveConfiguredDirectory(docDir, "DOCUMENT_DIR"));
+                            } catch (SecurityException e) {
+                                logger.error("SECURITY: rejected report destination filename", e);
+                                err_data.add("Error! Invalid filename for Report (" + (i + 1) + ")");
+                                continue;
+                            }
+
                             if (b != null) {
-                                FileOutputStream f = new FileOutputStream(docDir + docFileName);
-                                f.write(b);
-                                f.close();
+                                try (FileOutputStream f = new FileOutputStream(destFile)) {
+                                    f.write(b);
+                                }
                             } else {
                                 // filePath is already declared at line 2617
                                 if (filePath == null || filePath.isEmpty()) {
@@ -2794,7 +2765,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
 
                                 // Resolve and validate the source file
                                 // This returns only regular files (not directories) suitable for FileUtils.copyFile
-                                File sourceFile = resolveReportSourceFile(currentDirectory, filePath, contentType);
+                                File sourceFile = resolveReportSourceFile(importDirectory, filePath, contentType);
                                 if (sourceFile == null) {
                                     err_data.add("Error! Cannot locate file for Report (" + (i + 1) + ")");
                                     continue;
@@ -2803,18 +2774,17 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                                 // Validate the resolved sourceFile is within the allowed extraction directory
                                 // This prevents path traversal attacks from malicious XML file paths
                                 try {
-                                    File allowedRoot = new File(currentDirectory);
+                                    File allowedRoot = new File(importDirectory);
                                     sourceFile = PathValidationUtils.validateExistingPath(sourceFile, allowedRoot);
                                 } catch (SecurityException e) {
-                                    logger.error("SECURITY: Rejecting file copy - resolved path outside allowed directory. FilePath: {}, SourceFile: {}",
-                                        Encode.forJava(new File(filePath).getName()),
-                                        Encode.forJava(sourceFile.getName()),
-                                        e);
+                                    // Do not log the uploaded file/source names: they can carry
+                                    // patient-identifying content (PHI). The rejection itself is the signal.
+                                    logger.error("SECURITY: Rejecting file copy - resolved path outside the allowed import directory", e);
                                     err_data.add("Error! Security violation for Report (" + (i + 1) + "): Invalid file path");
                                     continue;
                                 }
 
-                                FileUtils.copyFile(sourceFile, new File(docDir + docFileName));
+                                FileUtils.copyFile(sourceFile, destFile);
                             }
 
                             if (repR[i].getClass1() != null) {
@@ -3301,6 +3271,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
      * @param contentType String the content type/extension for the file
      * @return File the resolved File if found, null otherwise
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private File resolveReportSourceFile(String currentDirectory, String filePath, String contentType) {
         // Defensive null/blank guard for currentDirectory
         if (currentDirectory == null || currentDirectory.trim().isEmpty()) {
@@ -3324,7 +3296,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         }
 
         String fileName = new File(normalizedPath).getName();
-        File currentDir = new File(currentDirectory);
+        File currentDir = PathValidationUtils.resolveConfiguredDirectory(currentDirectory, "import current directory");
 
         List<File> candidates = new ArrayList<>();
 
@@ -3363,8 +3335,16 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
 
         // Try candidate with extension
         if (contentType != null && !contentType.isEmpty()) {
-            File withExt = new File(candidate.getPath() + contentType);
-            return tryValidateExisting(withExt, allowedRoot, originalPath);
+            // contentType is attacker-controlled XML content; a path-bearing value would make
+            // validateGeneratedChildPath throw (FileValidationException extends SecurityException).
+            // Treat that as "not found" so one malformed report cannot abort the whole batch import.
+            try {
+                File withExt = PathValidationUtils.validateGeneratedChildPath(candidate.getName() + contentType, candidate.getParentFile());
+                return tryValidateExisting(withExt, allowedRoot, originalPath);
+            } catch (SecurityException e) {
+                logger.warn("Skipping report candidate with invalid generated name");
+                return null;
+            }
         }
 
         return null;
@@ -3465,7 +3445,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                 keyword[0][i] = fillUp(keyword[0][i], ' ', keyword[1][i].length());
         }
 
-        File importLog = new File(dir, "ImportEvent-" + UtilDateUtilities.getToday("yyyy-MM-dd.HH.mm.ss") + ".log");
+        File importLog = PathValidationUtils.validateGeneratedChildPath("ImportEvent-" + UtilDateUtilities.getToday("yyyy-MM-dd.HH.mm.ss") + ".log", PathValidationUtils.resolveConfiguredDirectory(dir, "import log directory"));
         try (BufferedWriter out = new BufferedWriter(new FileWriter(importLog))) {
             int tableWidth = 0;
             for (int i = 0; i < keyword.length; i++) {
@@ -3541,6 +3521,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
     }
 
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     boolean matchFileExt(String filename, String ext) {
         if (StringUtils.empty(filename) || StringUtils.empty(ext)) return false;
         if (filename.length() < ext.length() + 2) return false;
@@ -3812,6 +3794,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         return writeProviderData("doctor", "oscardoc", "");
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     boolean isICD9(cdsDt.StandardCoding diagCode) {
         if (diagCode == null) return false;
 
@@ -3821,6 +3805,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         //	return (codingSystem.contains("icd") && codingSystem.contains("9"));
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     boolean isICD9(cdsDt.Code diagCode) {
         if (diagCode == null) return false;
 
@@ -3830,6 +3816,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
     }
 
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     boolean isICD10(cdsDt.StandardCoding diagCode) {
         if (diagCode == null) return false;
 
@@ -3838,6 +3826,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         return codingSystem.equals("icd-10");
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     boolean isICD10(cdsDt.Code diagCode) {
         if (diagCode == null) return false;
 
@@ -3846,6 +3836,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         return codingSystem.equals("icd-10");
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     boolean isICD9CM(cdsDt.StandardCoding diagCode) {
         if (diagCode == null) return false;
 
@@ -3854,6 +3846,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         return codingSystem.equals("icd-9-cm");
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     boolean isICD9CM(cdsDt.Code diagCode) {
         if (diagCode == null) return false;
 
@@ -4120,6 +4114,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         return null;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     String mapPreventionTypeByCode(cdsDt.Code imCode) {
         if (imCode == null) return null;
         if (!imCode.getCodingSystem().equalsIgnoreCase("DIN")) return null;
@@ -4543,6 +4539,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         }
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private void importLabs(LoggedInInfo loggedInInfo, LaboratoryResults[] labResultArr) {
         List<String> accessionsDone = new ArrayList<String>();
 
@@ -4575,9 +4573,9 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
 
                     InputStream stream = new ByteArrayInputStream(observationMsg.replace("\r", "\r\n").getBytes(StandardCharsets.UTF_8));
                     String filePath = Utilities.saveFile(stream, filename);
-                    File file = new File(filePath);
+                    File file = PathValidationUtils.validateExistingPath(new File(filePath), PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR"));
 
-                    localFileIs = new FileInputStream(filePath);
+                    localFileIs = new FileInputStream(file);
 
                     int checkFileUploadedSuccessfully = FileUploadCheck.addFile(file.getName(), localFileIs, admProviderNo);
 
@@ -4870,6 +4868,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
 
     private File importFile = null;
     private String importFileFileName;
+    private String uploadValidationError;
     private boolean matchProviderNames = true;
     private int timeshiftInDays;
     private String courseId;
@@ -4882,7 +4881,6 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         return importFile;
     }
 
-    @StrutsParameter
     public void setImportFile(File importFile) {
         this.importFile = importFile;
     }
@@ -4891,9 +4889,29 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         return importFileFileName;
     }
 
-    @StrutsParameter
     public void setImportFileFileName(String importFileFileName) {
         this.importFileFileName = importFileFileName;
+    }
+
+    @Override
+    public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
+        if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
+            UploadedFile uploaded = uploadedFiles.get(0);
+            try {
+                this.importFile = PathValidationUtils.validateUploadContent(uploaded.getContent());
+            } catch (SecurityException e) {
+                this.uploadValidationError = PathValidationUtils.INVALID_FILENAME_MESSAGE;
+                this.importFile = null;
+                this.importFileFileName = null;
+                return;
+            }
+            try {
+                this.importFileFileName = PathValidationUtils.validateStrictFileName(uploaded.getOriginalName());
+            } catch (FileValidationException e) {
+                this.uploadValidationError = PathValidationUtils.INVALID_FILENAME_MESSAGE;
+                this.importFileFileName = null;
+            }
+        }
     }
 
     public boolean isMatchProviderNames() {

@@ -260,6 +260,21 @@ public class SecuserroleDaoImpl extends AbstractJpaDao implements SecuserroleDao
     }
 
     @Override
+    public List findActiveByProviderNo(Object providerNo) {
+        logger.debug("finding active Secuserrole instances by providerNo");
+        try {
+            // Only roles with activeyn = 1 grant access; rows that are inactive (0) or have a
+            // legacy NULL activeyn must not participate in authorization. Mirrors the active-only
+            // filter already used by SecObjPrivilegeDaoImpl.findByFormNamePrivilegeAndProviderNo.
+            String queryString = "from Secuserrole as model where model.providerNo = ?1 and model.activeyn = 1";
+            return JpqlQueryHelper.find(entityManager(), queryString, providerNo);
+        } catch (RuntimeException re) {
+            logger.error("find active by providerNo failed", re);
+            throw re;
+        }
+    }
+
+    @Override
     public List findByRoleName(Object roleName) {
         return findByProperty(ROLE_NAME, roleName);
     }

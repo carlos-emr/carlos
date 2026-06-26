@@ -71,6 +71,8 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.*;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
@@ -116,7 +118,7 @@ public class OscarRequestTokenService {
         String cbRaw = oreq.callback; // keep whatever the parser gives (was working before)
         String cbToStore;
 
-        if ("oob".equals(cbRaw)) {
+        if (isOutOfBandCallback(cbRaw)) {
             cbToStore = "oob";
         } else if (cbRaw != null && !cbRaw.isEmpty()) {
             // decode once (RFC3986) and normalize to plain canonical URL
@@ -124,7 +126,8 @@ public class OscarRequestTokenService {
             cbToStore = normalizeUrl(decoded);
         } else {
             // fallback to app-registered callback if your flow allows it
-            cbToStore = normalizeUrl(client.getCallbackUri());
+            String registeredCallback = client.getCallbackUri();
+            cbToStore = isOutOfBandCallback(registeredCallback) ? "oob" : normalizeUrl(registeredCallback);
         }
 
         reg.setCallback(cbToStore);   // <-- store plain URL now (not encoded)
@@ -166,20 +169,54 @@ public class OscarRequestTokenService {
     }
 
     private static String normalizeUrl(String url) {
+        if (url == null || url.isEmpty()) {
+            return url;
+        }
         try {
-            var u = java.net.URI.create(url).normalize();
-            String scheme = u.getScheme() == null ? null : u.getScheme().toLowerCase();
-            String host   = u.getHost()   == null ? null : u.getHost().toLowerCase();
+            var u = URI.create(url).normalize();
+            String scheme = normalizeScheme(u);
+            if (!isHttpScheme(scheme)) {
+                throw new OAuth1Exception(400, "invalid_callback_scheme");
+            }
+            String host = u.getHost();
+            if (host == null || host.isBlank()) {
+                throw new OAuth1Exception(400, "invalid_callback");
+            }
+            host = toAsciiLowerCase(host);
             int port = u.getPort();
-            if ((port == 80 && "http".equalsIgnoreCase(scheme)) ||
-                (port == 443 && "https".equalsIgnoreCase(scheme))) {
+            if ((port == 80 && "http".equals(scheme)) ||
+                (port == 443 && "https".equals(scheme))) {
                 port = -1; // drop default ports
             }
             String path = (u.getPath() == null || u.getPath().isEmpty()) ? "/" : u.getPath();
-            return new java.net.URI(scheme, u.getUserInfo(), host, port, path, u.getQuery(), u.getFragment()).toString();
-        } catch (Exception ignore) {
-            return url; // fail-safe
+            return new URI(scheme, u.getUserInfo(), host, port, path, u.getQuery(), u.getFragment()).toString();
+        } catch (OAuth1Exception e) {
+            throw e;
+        } catch (IllegalArgumentException | URISyntaxException e) {
+            throw new OAuth1Exception(400, "invalid_callback");
         }
+    }
+
+    private static String normalizeScheme(URI uri) {
+        String scheme = uri.getScheme();
+        return scheme == null ? null : toAsciiLowerCase(scheme);
+    }
+
+    private static boolean isHttpScheme(String scheme) {
+        return "http".equals(scheme) || "https".equals(scheme);
+    }
+
+    private static boolean isOutOfBandCallback(String callback) {
+        return callback != null && toAsciiLowerCase(callback).equals("oob");
+    }
+
+    private static String toAsciiLowerCase(String value) {
+        StringBuilder lowered = new StringBuilder(value.length());
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            lowered.append(c >= 'A' && c <= 'Z' ? (char) (c + ('a' - 'A')) : c);
+        }
+        return lowered.toString();
     }
 
 }

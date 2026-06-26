@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Set;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Authenticated facility-selection endpoint for providers who belong to multiple facilities.
@@ -62,6 +63,9 @@ public final class SelectFacility2Action extends BaseLoginPageView2Action {
         this.facilityDao = facilityDao;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "UNVALIDATED_REDIRECT"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
@@ -103,9 +107,13 @@ public final class SelectFacility2Action extends BaseLoginPageView2Action {
         String nextResult = request.getParameter("nextPage");
         if (nextResult != null && !nextResult.isEmpty() && !ALLOWED_NEXT_RESULTS.contains(nextResult)) {
             // Validate navigation intent before mutating facility state; invalid values are retryable.
-            LOGGER.warn("Rejected /select_facility nextPage before facility mutation: provider={}, nextPage={}, remote={}",
-                    LogSafe.sanitize(providerNo), LogSafe.sanitize(nextResult),
-                    LogSafe.sanitize(request.getRemoteAddr()));
+            if (LOGGER.isWarnEnabled()) {
+                String safeProviderNo = LogSafe.sanitize(providerNo);
+                String safeNextResult = LogSafe.sanitize(nextResult);
+                String safeRemoteAddr = LogSafe.sanitize(request.getRemoteAddr());
+                LOGGER.warn("Rejected /select_facility nextPage before facility mutation: provider={}, nextPage={}, remote={}",
+                        safeProviderNo, safeNextResult, safeRemoteAddr);
+            }
             return redirectToFacilitySelection(request, response);
         }
 
@@ -129,7 +137,7 @@ public final class SelectFacility2Action extends BaseLoginPageView2Action {
         LoggedInInfo loggedInInfo = LoggedInUserFilter.generateLoggedInInfoFromSession(request);
         LoggedInInfo.setLoggedInInfoIntoSession(session, loggedInInfo);
         LogAction.addLog(providerNo, LogConst.LOGIN, LogConst.CON_LOGIN,
-                "facilityId=" + facilityId, request.getRemoteAddr());
+                "facilityId=" + facilityId, LogSafe.sanitize(request.getRemoteAddr()));
 
         if (nextResult == null || nextResult.isEmpty()) {
             return "provider";
@@ -142,12 +150,16 @@ public final class SelectFacility2Action extends BaseLoginPageView2Action {
         return "user";
     }
 
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     private String redirectToFacilitySelection(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
         response.sendRedirect(request.getContextPath() + "/select_facility");
         return NONE;
     }
 
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     private String redirectToLogoutAfterInvalidating(HttpSession session, HttpServletRequest request,
                                                      HttpServletResponse response) throws IOException {
         session.invalidate();

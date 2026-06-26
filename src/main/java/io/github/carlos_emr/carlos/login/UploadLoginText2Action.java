@@ -31,12 +31,12 @@
 package io.github.carlos_emr.carlos.login;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
-import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.dao.PropertyDao;
 import io.github.carlos_emr.carlos.commn.model.Property;
 import io.github.carlos_emr.carlos.commn.service.AcceptableUseAgreementManager;
@@ -49,13 +49,18 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
-import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
-import io.github.carlos_emr.carlos.utility.LogSafe;
 
 public class UploadLoginText2Action extends ActionSupport implements UploadedFilesAware {
+    private static final String LOGIN_TEXT_FILE_NAME = "OSCARloginText.txt";
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -68,8 +73,6 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
             throw new SecurityException("missing required sec object (_admin)");
         }
 
-        InputStream fis = null;
-        FileOutputStream fos = null;
         boolean error = false;
 
         String validDurationNumber = request.getParameter("validDurationNumber"); // verify it's a number
@@ -114,15 +117,10 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
 
 
         try {
-            if (importFile.getName().length() > 0) {
-                fis = Files.newInputStream(importFile.toPath());
-                String savePath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "/OSCARloginText.txt";
-                fos = new FileOutputStream(savePath);
-                byte[] buf = new byte[128 * 1024];
-                int i = 0;
-                while ((i = fis.read(buf)) != -1) {
-                    fos.write(buf, 0, i);
-                }
+            if (importFile == null) {
+                _logger.warn("No file uploaded; skipping login text write");
+            } else if (!importFile.getName().isEmpty()) {
+                writeLoginTextFile();
                 error = false;
             }
         } catch (Exception e) {
@@ -134,13 +132,45 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
         return SUCCESS;
     }
 
+    private void writeLoginTextFile() throws IOException {
+        File documentDir = PathValidationUtils.validateConfiguredDirectory(
+                CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
+        File saveFile = PathValidationUtils.validateGeneratedChildPath(LOGIN_TEXT_FILE_NAME, documentDir);
+        Path tempFile = Files.createTempFile(documentDir.toPath(), "OSCARloginText-", ".tmp");
+        boolean moved = false;
+        try {
+            try (InputStream fis = Files.newInputStream(importFile.toPath());
+                 OutputStream fos = Files.newOutputStream(tempFile)) {
+                byte[] buf = new byte[128 * 1024];
+                int i;
+                while ((i = fis.read(buf)) != -1) {
+                    fos.write(buf, 0, i);
+                }
+            }
+            moveLoginTextFile(tempFile, saveFile.toPath());
+            moved = true;
+        } finally {
+            if (!moved) {
+                Files.deleteIfExists(tempFile);
+            }
+        }
+    }
+
+    private void moveLoginTextFile(Path tempFile, Path saveFile) throws IOException {
+        try {
+            Files.move(tempFile, saveFile, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        } catch (AtomicMoveNotSupportedException e) {
+            Files.move(tempFile, saveFile, StandardCopyOption.REPLACE_EXISTING);
+        }
+    }
+
     private File importFile;
 
     @Override
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
             UploadedFile uploaded = uploadedFiles.get(0);
-            this.importFile = PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath()));
+            this.importFile = PathValidationUtils.validateUploadContent(uploaded.getContent());
         }
     }
 
@@ -148,7 +178,6 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
         return importFile;
     }
 
-    @StrutsParameter
     public void setImportFile(File importFile) {
         if (importFile != null) {
             this.importFile = PathValidationUtils.validateUpload(importFile);

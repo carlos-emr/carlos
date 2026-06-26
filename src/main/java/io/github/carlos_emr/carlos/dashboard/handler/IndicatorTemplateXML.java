@@ -47,6 +47,7 @@ import org.w3c.dom.Element;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 
 public class IndicatorTemplateXML {
@@ -612,6 +613,8 @@ public class IndicatorTemplateXML {
      * This is set to replace a Provider Number alias with the logged in Provider Number.
      * Others can be added as needed by editing the Enum values and Switch in this method.
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String setParameterAliasWithValue(String parameterId, String parameterValue) {
 
         parameterValue = parameterValue.trim();

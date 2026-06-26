@@ -75,7 +75,7 @@
 <c:set var="ctx" value="${pageContext.request.contextPath}"
 	scope="request" />
 <c:set var="num" value="${fn:length(Notes)}" />
-<div class="nav-menu-heading" style="background-color:#<carlos:encode value='<%= request.getParameter("hc") != null ? request.getParameter("hc") : "" %>' context="cssString"/>">
+<div class="nav-menu-heading" style="background-color:#<carlos:encode value='<%= request.getParameter("hc") != null ? request.getParameter("hc") : "" %>' context="cssString"/>"><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
 <div class="nav-menu-add-button">
 <h3>
 <%

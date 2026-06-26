@@ -40,6 +40,7 @@
 <%@ page import="java.util.*, java.sql.*, java.io.*, io.github.carlos_emr.*"
          errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <html>
 <head>
@@ -85,7 +86,7 @@
             <th width="25%" nowrap>
                 <div align="right"><input type='submit' name='submit'
                                           value=' Save '> <input type="button" name="Button"
-                                                                 value="&nbsp;<%=request.getParameter("submit")!=null?" Exit ":"Cancel"%>&nbsp;"
+                                                                 value="&nbsp;<%=request.getParameter("submit")!=null?" Exit ":"Cancel"%>&nbsp;"<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                                                                  onClick="onExit();">&nbsp;
                 </div>
             </th>
@@ -106,7 +107,7 @@
                 aline = raf.readLine();
                 if (aline != null) {
                     //					aline="<pre>" + aline + "</pre>"  ;
-                    out.println(aline);
+                    out.println(SafeEncode.forHtml(aline));
                 } else {
                     break;
                 }

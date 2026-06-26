@@ -37,6 +37,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * SSRF-safe {@link ITextUserAgent} that blocks all external network resource fetching
@@ -148,6 +149,8 @@ public final class LocalOnlyUserAgent extends ITextUserAgent {
      * @param uri String the resource URI to resolve
      * @return InputStream for the resource, or null if blocked or unresolvable
      */
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     @Override
     protected InputStream resolveAndOpenStream(String uri) {
         if (uri == null) {
