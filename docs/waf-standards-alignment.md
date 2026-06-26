@@ -79,7 +79,7 @@ on this control for brute-force or DoS protection must set both `WAF_RATE_LIMIT_
 |----------|---------|-------------|
 | `WAF_RATE_LIMIT_ENABLED` | `false` | Master toggle. Set to `true`, `yes`, or `on` to enable. |
 | `WAF_RATE_LIMIT_MODE` | `detect` | `enforce` = block with HTTP 429; `detect` = log only. |
-| `WAF_RATE_LIMIT_DEFAULT_REQUESTS` | `100` | Global max requests per window for unmatched paths. |
+| `WAF_RATE_LIMIT_DEFAULT_REQUESTS` | `2000` | Global per-IP cap, incremented on every request (stacks with path tiers). Sized as a coarse volumetric flood backstop because the filter covers `/*` (including static assets) and clinics typically share one NAT IP — not a per-user limit. |
 | `WAF_RATE_LIMIT_DEFAULT_WINDOW_SECONDS` | `60` | Global window duration in seconds. |
 | `WAF_RATE_LIMIT_PATHS` | *(see below)* | Comma-separated path tiers: `path=requests/windowSeconds`. |
 | `WAF_RATE_LIMIT_EXEMPT_IPS` | `127.0.0.1,::1,0:0:0:0:0:0:0:1` | IPs exempt from rate limiting. |
@@ -93,8 +93,15 @@ on this control for brute-force or DoS protection must set both `WAF_RATE_LIMIT_
 /forcepasswordreset=5/60   — password reset abuse prevention
 /lab/CMLlabUpload=30/60    — external lab integration
 /lab/newLabUpload=30/60    — external lab integration
-/ws/=200/60                — API traffic patterns
+/ws/oauth=15/60            — OAuth initiate/token (credential-bearing)
+/ws/=120/60                — server-to-server SOAP/REST API traffic
 ```
+
+Each tier stacks with the global cap and is checked after it, so a tier only
+constrains traffic when set **below** `WAF_RATE_LIMIT_DEFAULT_REQUESTS`; a tier
+set above the global cap is inert. Because the global cap is a loose flood
+backstop, these tiers — not the global cap — are what actually protect
+individual endpoints.
 
 ### Deployment Notes
 
