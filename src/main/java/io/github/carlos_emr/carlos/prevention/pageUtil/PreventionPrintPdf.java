@@ -57,6 +57,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.List;
 import java.util.*;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Generates a multi-page PDF document containing a patient's prevention and immunization records.
@@ -573,6 +574,8 @@ public class PreventionPrintPdf {
      * @param subIdx int the sub-procedure index
      * @param font Font the font for the value text
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private void addLabelsAndValuesToProcedure(HttpServletRequest request, Phrase procedure, String labelParameter, String label, String[] headerIds,
                                                int idx, int subIdx, Font font) throws DocumentException, IOException {
         String labelValue = request.getParameter(labelParameter + headerIds[idx] + "-" + subIdx);

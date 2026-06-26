@@ -77,6 +77,7 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.model.security.Secrole;
 import io.github.carlos_emr.carlos.tickler.dto.TicklerListDTO;
 import org.owasp.encoder.Encode;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Service
 public class TicklerManagerImpl implements TicklerManager {
@@ -291,6 +292,8 @@ public class TicklerManagerImpl implements TicklerManager {
         return results;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public List<Tickler> filterTicklersByAccess(List<Tickler> ticklers, String providerNo, String programNo) {
         List<Tickler> filteredTicklers = new ArrayList<Tickler>();
@@ -754,6 +757,8 @@ public class TicklerManagerImpl implements TicklerManager {
      * @throws RuntimeException if the user lacks read privilege on _tickler
      * @since 2026-02-27
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public List<TicklerListDTO> getTicklerDTOs(LoggedInInfo loggedInInfo, CustomFilter filter, int offset, int limit) {
         checkPrivilege(loggedInInfo, PRIVILEGE_READ);

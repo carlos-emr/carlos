@@ -190,7 +190,7 @@ public class OnRaSettlementService {
     private static io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException newInvalidRanoException(String raNoStr) {
         // Log the offending raw value with sanitisation so we keep diagnostic
         // context out of the user-facing exception message.
-        MiscUtils.getLogger().warn("RA settle: rano parse rejected, raw value: {}",
+        MiscUtils.getLogger().warn("RA settle: rano parse rejected, raw value: {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                 io.github.carlos_emr.carlos.utility.LogSafe.sanitize(raNoStr));
         return new io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException(
                 "RA settle rejected: rano parameter is missing or not a valid integer");

@@ -34,6 +34,7 @@ package io.github.carlos_emr.carlos.managers;
 import java.util.*;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -48,6 +49,7 @@ import io.github.carlos_emr.carlos.model.security.Secobjprivilege;
 import io.github.carlos_emr.carlos.model.security.Secuserrole;
 
 import jakarta.servlet.http.HttpSession;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Service
 public class SecurityInfoManagerImpl implements SecurityInfoManager {
@@ -64,7 +66,9 @@ public class SecurityInfoManagerImpl implements SecurityInfoManager {
             return Collections.emptyList();
         }
 
-        return secUserRoleDao.findByProviderNo(loggedInInfo.getLoggedInProviderNo());
+        // Only active (activeyn = 1) provider-role assignments grant access; an inactive role
+        // must not feed hasPrivilege / isAllowedAccessToPatientRecord / getSecurityObjects.
+        return secUserRoleDao.findActiveByProviderNo(loggedInInfo.getLoggedInProviderNo());
     }
 
     @Override
@@ -110,6 +114,8 @@ public class SecurityInfoManagerImpl implements SecurityInfoManager {
      * For checking non-patient-specific object privileges, call with
      * demographicNo==null.
      */
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     @Override
     public boolean hasPrivilege(LoggedInInfo loggedInInfo, String objectName, String privilege, String demographicNo) {
         try {
@@ -127,7 +133,11 @@ public class SecurityInfoManagerImpl implements SecurityInfoManager {
                 List<String> roleInObj = (List<String>) v.get(1);
 
                 for (String objRole : roleInObj) {
-                    if (roleNames.toLowerCase().contains(objRole.toLowerCase().trim())) {
+                    String trimmedObjRole = StringUtils.trim(objRole);
+                    boolean matchedRole = Arrays.stream(roleNames.split(","))
+                        .map(StringUtils::trim)
+                        .anyMatch(roleName -> Strings.CI.equals(roleName, trimmedObjRole));
+                    if (matchedRole) {
                         noMatchingRoleToSpecificPatient = false;
                         break;
                     }

@@ -26,6 +26,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Immutable view model for {@code addEditServiceCode.jsp}, the
@@ -87,6 +88,8 @@ public final class AddEditServiceCodeViewModel {
      *  inspected the {@code sliFlag} property (string "1" / "true" / other)
      *  and emitted the literal {@code checked} HTML attribute. Surfacing it
      *  as a boolean lets the JSP render a {@code c:if} instead. */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public boolean isSliFlagChecked() {
         String v = prop.getProperty("sliFlag", "0");
         return "1".equals(v) || "true".equalsIgnoreCase(v);

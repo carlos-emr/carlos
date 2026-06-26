@@ -42,6 +42,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.commons.lang3.time.DateFormatUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
@@ -163,6 +164,8 @@ public class FaxImporter {
      * <p>To resolve startup warnings, set {@code BASE_DOCUMENT_DIR} or {@code FAX_INCOMING_DIR}
      * in {@code carlos.properties}.</p>
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     @PostConstruct
     public void initialize() {
         if (DOCUMENT_DIR == null || DOCUMENT_DIR.trim().isEmpty()) {
@@ -449,6 +452,8 @@ public class FaxImporter {
      * @param receivedFax fax metadata (status updated on error)
      * @return EDoc if import succeeded, null if failed (file remains in incoming dir)
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private EDoc importFromIncoming(Path incomingFile, FaxConfig faxConfig, FaxJob receivedFax) {
         String uniqueFilename = incomingFile.getFileName().toString();
 

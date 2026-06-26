@@ -50,6 +50,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 /**
  * Manages the saved batch-billing entries: list / select view (default
  * {@code execute}), {@code doBatchBill} which expands the selected batch
@@ -153,6 +154,8 @@ public class BatchBill2Action extends ActionSupport {
         }
     }
 
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String doBatchBill() {
 
         if (rejectNonPostMutation()) {
@@ -238,6 +241,8 @@ public class BatchBill2Action extends ActionSupport {
     }
 
     //Remove demographics from batch billing table
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String remove() {
 
 
@@ -380,6 +385,8 @@ public class BatchBill2Action extends ActionSupport {
 
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private boolean rejectNonPostMutation() {
         if ("POST".equalsIgnoreCase(request.getMethod())) {
             return false;

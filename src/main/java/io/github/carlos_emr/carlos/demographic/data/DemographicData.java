@@ -47,6 +47,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * @Deprecated: use DemographicManager.  There is no need for this.
@@ -275,6 +276,8 @@ public class DemographicData {
         return d.getYearOfBirth() + seperator + d.getMonthOfBirth() + seperator + d.getDateOfBirth();
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static boolean isFemale(Demographic d) {
         boolean female = false;
         if (d.getSex() != null && d.getSex().trim().equalsIgnoreCase("f")) {
@@ -283,6 +286,8 @@ public class DemographicData {
         return female;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static boolean isMale(Demographic d) {
         boolean male = false;
         if (d.getSex() != null && d.getSex().trim().equalsIgnoreCase("m")) {
@@ -303,6 +308,8 @@ public class DemographicData {
     }
 
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public DemographicAddResult addDemographic(LoggedInInfo loggedInInfo, String title, String last_name, String first_name, String middleNames, String address,
                                                String city, String province, String postal, String residentialAddress, String residentialCity, String residentialProvince, String residentialPostal, String phone, String phone2, String year_of_birth,
                                                String month_of_birth, String date_of_birth, String hin, String ver, String roster_status,

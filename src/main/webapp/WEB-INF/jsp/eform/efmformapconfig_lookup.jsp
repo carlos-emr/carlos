@@ -41,7 +41,7 @@
         response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid fid");
         return;
     }
-%><input type="hidden" name="oscarAPCacheLookupType" value="<carlos:encode value='<%= request.getParameter("oscarAPCacheLookupType") != null ? request.getParameter("oscarAPCacheLookupType") : "" %>' context="htmlAttribute"/>"/><%
+%><input type="hidden" name="oscarAPCacheLookupType" value="<carlos:encode value='<%= request.getParameter("oscarAPCacheLookupType") != null ? request.getParameter("oscarAPCacheLookupType") : "" %>' context="htmlAttribute"/>"/><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%><%
     String[] keys = request.getParameterValues("key");
     if (keys == null) {
         keys = new String[0];
