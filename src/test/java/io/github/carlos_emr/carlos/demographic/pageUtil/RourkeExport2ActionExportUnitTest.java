@@ -260,4 +260,24 @@ class RourkeExport2ActionExportUnitTest extends CarlosUnitTestBase {
                 .as("temp XML containing patient data must be removed on abort")
                 .doesNotExist();
     }
+
+    @Test
+    @DisplayName("should propagate the original failure even when temp cleanup also fails")
+    void shouldPropagateOriginalFailure_whenCleanupAlsoFails(@TempDir Path tmpDir) throws Throwable {
+        PatientDocument document = mock(PatientDocument.class);
+        doAnswer(invocation -> {
+            File target = invocation.getArgument(0, File.class);
+            Files.writeString(target.toPath(), "<PatientRecord/>"); // real temp file so finally attempts cleanup
+            throw new IOException("primary save failure");
+        }).when(document).save(any(File.class), any(XmlOptions.class));
+
+        try (MockedStatic<Util> util = mockStatic(Util.class)) {
+            // Cleanup blows up inside finally; it must not mask the original save failure.
+            util.when(() -> Util.cleanFiles(any())).thenThrow(new RuntimeException("cleanup boom"));
+
+            assertThatThrownBy(() -> invokeMakeFiles(document, tmpDir.toString()))
+                    .isInstanceOf(IOException.class)
+                    .hasMessage("primary save failure");
+        }
+    }
 }
