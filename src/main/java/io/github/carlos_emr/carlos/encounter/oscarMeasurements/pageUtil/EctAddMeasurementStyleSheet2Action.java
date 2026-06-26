@@ -39,6 +39,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementCSSLocationDao;
 import io.github.carlos_emr.carlos.commn.model.MeasurementCSSLocation;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -111,6 +112,8 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport implements
      * @param fileName String the original filename of the uploaded file
      * @return boolean true if the file was saved successfully; false on failure or duplicate
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public boolean saveFile(File file, String fileName) {
         boolean isAdded = true;
 

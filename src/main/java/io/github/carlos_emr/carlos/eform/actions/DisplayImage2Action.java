@@ -31,13 +31,15 @@
 package io.github.carlos_emr.carlos.eform.actions;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Locale;
+import java.util.Map;
 
-import jakarta.activation.MimetypesFileTypeMap;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -75,6 +77,39 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  */
 public class DisplayImage2Action extends ActionSupport {
     static final String VACCINE_BRANDS_FILE = "vaccine-brands.json";
+    private static final String IMAGE_JPEG = "image/jpeg";
+    private static final String TEXT_HTML = "text/html";
+    private static final Map<String, String> OVERRIDDEN_CONTENT_TYPES = Map.ofEntries(
+            Map.entry("png", "image/png"),
+            Map.entry("jpeg", IMAGE_JPEG),
+            Map.entry("jpe", IMAGE_JPEG),
+            Map.entry("jpg", IMAGE_JPEG),
+            Map.entry("bmp", "image/bmp"),
+            Map.entry("cod", "image/cis-cod"),
+            Map.entry("ief", "image/ief"),
+            Map.entry("jfif", "image/pipeg"),
+            Map.entry("svg", "image/svg+xml"),
+            Map.entry("tiff", "image/tiff"),
+            Map.entry("tif", "image/tiff"),
+            Map.entry("pbm", "image/x-portable-bitmap"),
+            Map.entry("pnm", "image/x-portable-anymap"),
+            Map.entry("pgm", "image/x-portable-greymap"),
+            Map.entry("ppm", "image/x-portable-pixmap"),
+            Map.entry("xbm", "image/x-xbitmap"),
+            Map.entry("xpm", "image/x-xpixmap"),
+            Map.entry("xwd", "image/x-xwindowdump"),
+            Map.entry("rgb", "image/x-rgb"),
+            Map.entry("ico", "image/x-icon"),
+            Map.entry("cmx", "image/x-cmx"),
+            Map.entry("ras", "image/x-cmu-raster"),
+            Map.entry("gif", "image/gif"),
+            Map.entry("js", "text/javascript"),
+            Map.entry("css", "text/css"),
+            Map.entry("json", "application/json"),
+            Map.entry("rtl", TEXT_HTML),
+            Map.entry("html", TEXT_HTML),
+            Map.entry("htm", TEXT_HTML)
+    );
     private HttpServletRequest request = ServletActionContext.getRequest();
     private HttpServletResponse response = ServletActionContext.getResponse();
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -102,7 +137,20 @@ public class DisplayImage2Action extends ActionSupport {
         }
 
         File validatedFile = getValidatedImageFile(fileName);
-        StreamData data = process(validatedFile, fileName);
+        if (!validatedFile.exists() || !validatedFile.isFile()) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return NONE;
+        }
+        final StreamData data;
+        try {
+            data = process(validatedFile, fileName);
+        } catch (FileNotFoundException e) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return NONE;
+        } catch (IllegalArgumentException e) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
+            return NONE;
+        }
         String contentType = data.contentType();
         try (InputStream stream = data.stream()) {
             if (RequestNegotiation.isHtmlContentType(contentType)) {
@@ -125,6 +173,8 @@ public class DisplayImage2Action extends ActionSupport {
         }
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private File getValidatedImageFile(String fileName) throws Exception {
         if (fileName == null || fileName.isEmpty()) {
             throw new IllegalArgumentException("imagefile parameter is required");
@@ -149,78 +199,23 @@ public class DisplayImage2Action extends ActionSupport {
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    private StreamData process(File file, String fileName) throws Exception {
-        // Gets content type from image extension
-        String contentType = new MimetypesFileTypeMap().getContentType(file);
-        
-        /**
-         * For encoding file types not included in the mimetypes file
-         * You need to look at mimetypes file to check if the file type you are using is included
-         */
-        try {
-            if (extension(file.getName()).equalsIgnoreCase("png")) { // for PNG
-                contentType = "image/png";
-            } else if (extension(file.getName()).equalsIgnoreCase("jpeg") ||
-                    extension(file.getName()).equalsIgnoreCase("jpe") ||
-                    extension(file.getName()).equalsIgnoreCase("jpg")) { //for JPEG,JPG,JPE
-                contentType = "image/jpeg";
-            } else if (extension(file.getName()).equalsIgnoreCase("bmp")) { // for BMP
-                contentType = "image/bmp";
-            } else if (extension(file.getName()).equalsIgnoreCase("cod")) { // for COD
-                contentType = "image/cis-cod";
-            } else if (extension(file.getName()).equalsIgnoreCase("ief")) { // for IEF
-                contentType = "image/ief";
-            } else if (extension(file.getName()).equalsIgnoreCase("jfif")) { // for JFIF
-                contentType = "image/pipeg";
-            } else if (extension(file.getName()).equalsIgnoreCase("svg")) { // for SVG
-                contentType = "image/svg+xml";
-            } else if (extension(file.getName()).equalsIgnoreCase("tiff") ||
-                    extension(file.getName()).equalsIgnoreCase("tif")) { // for TIFF or TIF
-                contentType = "image/tiff";
-            } else if (extension(file.getName()).equalsIgnoreCase("pbm")) { // for PBM
-                contentType = "image/x-portable-bitmap";
-            } else if (extension(file.getName()).equalsIgnoreCase("pnm")) { // for PNM
-                contentType = "image/x-portable-anymap";
-            } else if (extension(file.getName()).equalsIgnoreCase("pgm")) { // for PGM
-                contentType = "image/x-portable-greymap";
-            } else if (extension(file.getName()).equalsIgnoreCase("ppm")) { // for PPM
-                contentType = "image/x-portable-pixmap";
-            } else if (extension(file.getName()).equalsIgnoreCase("xbm")) { // for XBM
-                contentType = "image/x-xbitmap";
-            } else if (extension(file.getName()).equalsIgnoreCase("xpm")) { // for XPM
-                contentType = "image/x-xpixmap";
-            } else if (extension(file.getName()).equalsIgnoreCase("xwd")) { // for XWD
-                contentType = "image/x-xwindowdump";
-            } else if (extension(file.getName()).equalsIgnoreCase("rgb")) { // for RGB
-                contentType = "image/x-rgb";
-            } else if (extension(file.getName()).equalsIgnoreCase("ico")) { // for ICO
-                contentType = "image/x-icon";
-            } else if (extension(file.getName()).equalsIgnoreCase("cmx")) { // for CMX
-                contentType = "image/x-cmx";
-            } else if (extension(file.getName()).equalsIgnoreCase("ras")) { // for RAS
-                contentType = "image/x-cmu-raster";
-            } else if (extension(file.getName()).equalsIgnoreCase("gif")) { // for GIF
-                contentType = "image/gif";
-            } else if (extension(file.getName()).equalsIgnoreCase("js")) { // for JS
-                contentType = "text/javascript";
-            } else if (extension(file.getName()).equalsIgnoreCase("css")) { // for CSS
-                contentType = "text/css";
-            } else if (extension(file.getName()).equalsIgnoreCase("json")) { // for JSON
-                contentType = "application/json";
-            } else if (extension(file.getName()).equalsIgnoreCase("rtl") || extension(file.getName()).equalsIgnoreCase("html") || extension(file.getName()).equalsIgnoreCase("htm")) { // for HTML
-                contentType = "text/html";
-            } else {
-                throw new Exception("please check the file type or update mimetypes.default file to include the " + "." + extension(file.getName()));
-            }
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
-            throw new Exception("Could not open file " + file.getName() + " wrong file extension, ", e);
-        }
+    StreamData process(File file, String fileName) throws IOException {
+        String contentType = resolveContentType(file);
         response.setContentType(contentType);
         response.setHeader("Content-disposition", "inline; filename=\"" + sanitizeHeaderValue(fileName) + "\"");
 
         InputStream fileStream = new FileInputStream(file);
         return new StreamData(fileStream, contentType);
+    }
+
+    private String resolveContentType(File file) {
+        String extension = extension(file.getName()).toLowerCase(Locale.ROOT);
+        String overriddenContentType = OVERRIDDEN_CONTENT_TYPES.get(extension);
+        if (overriddenContentType != null) {
+            return overriddenContentType;
+        }
+
+        throw new IllegalArgumentException("Unsupported eform asset type");
     }
 
     /**
@@ -262,6 +257,8 @@ public class DisplayImage2Action extends ActionSupport {
         return f.substring(dot + 1);
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static File getImageFile(String imageFileName) throws Exception {
         String home_dir = CarlosProperties.getInstance().getEformImageDirectory();
         File directory = new File(home_dir);
@@ -275,6 +272,8 @@ public class DisplayImage2Action extends ActionSupport {
      * Process only files under dir
      * This method used to list images for eform generator
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public String[] visitAllFiles(File dir) {
         String[] children = null;
         if (dir.isDirectory()) {

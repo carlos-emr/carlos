@@ -246,6 +246,8 @@ public class IHAPOIHandler implements MessageHandler {
      * @return a validated File object
      * @throws IOException if the file path is invalid or attempts path traversal
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private File validateAndGetFile(String fileName) throws IOException {
         if (fileName == null || fileName.isEmpty()) {
             throw new IllegalArgumentException("File name cannot be null or empty");

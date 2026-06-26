@@ -37,6 +37,7 @@ import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
 import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.tags.TagObject;
@@ -232,10 +233,13 @@ public class EDoc extends TagObject implements Comparable<EDoc> {
         this.filePath = filePath;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public OutputStream getFileOutputStream() throws FileNotFoundException {
         OutputStream os = null;
         try {
-            os = new FileOutputStream(getFilePath());
+            File documentDir = PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
+            os = new FileOutputStream(PathValidationUtils.validateChildPath(new File(getFilePath()), documentDir));
         } catch (FileNotFoundException fnfe) {
             logger.error("Could not write to the document container", fnfe);
             throw fnfe;
@@ -243,8 +247,11 @@ public class EDoc extends TagObject implements Comparable<EDoc> {
         return os;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public byte[] getFileBytes() throws IOException {
-        return (FileUtils.readFileToByteArray(new File(getFilePath())));
+        File documentDir = PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
+        return (FileUtils.readFileToByteArray(PathValidationUtils.validateExistingPath(new File(getFilePath()), documentDir)));
     }
     // Getter/Setter methods...
 

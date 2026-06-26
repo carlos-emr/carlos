@@ -104,10 +104,8 @@
     if (!authed) {
         return;
     }
-    boolean showScheduleNav = "1".equals(request.getParameter("scheduleNav"));
-    String scheduleNavQuerySuffix = showScheduleNav ? "&scheduleNav=1" : "";
-    String scheduleNavFirstQuerySuffix = showScheduleNav ? "?scheduleNav=1" : "";
 %>
+<%@ include file="messengerScheduleNav.jspf" %>
 
 <%
     // bodyTextAsHTML: the message body content retrieved from session for display.
@@ -390,7 +388,7 @@ function fmtOscarMsg() {
 								<table class=messButtonsA>
 									<tr>
 										<td class="messengerButtonsA">
-                                            <a href="${pageContext.request.contextPath}/messenger/ViewCreateMessage"
+                                            <a href="${pageContext.request.contextPath}/messenger/ViewCreateMessage<%=scheduleNavFirstQuerySuffix%>"
                                                 class="btn btn-outline-secondary">
                                                 <fmt:message key="messenger.ViewMessage.btnCompose"/>
                                             </a>
@@ -411,6 +409,7 @@ function fmtOscarMsg() {
 							</table>
 							</td>
 
+							<% if (showMessengerExitButton) { %>
 							<td>
 							<table class=messButtonsA >
 								<tr>
@@ -422,6 +421,7 @@ function fmtOscarMsg() {
 								</tr>
 							</table>
 							</td>
+							<% } %>
 						</tr>
 					</table>
 					</td>

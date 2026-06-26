@@ -252,6 +252,8 @@ public class ProviderSignatureStamp2Action extends ActionSupport implements Uplo
         return NONE;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private String handleDelete(HttpServletResponse response, String providerNo) {
         UserProperty prop;
         try {
@@ -294,6 +296,8 @@ public class ProviderSignatureStamp2Action extends ActionSupport implements Uplo
         return NONE;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private String handleCheck(HttpServletRequest request, HttpServletResponse response, String providerNo) {
         UserProperty prop;
         try {
@@ -337,6 +341,8 @@ public class ProviderSignatureStamp2Action extends ActionSupport implements Uplo
         return "{\"success\":true,\"imageUrl\":\"" + Encode.forJavaScript(imageUrl) + "\"}";
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     private static File getImageFolder() throws IOException {
         File imageFolder = new File(CarlosProperties.getInstance().getEformImageDirectory() + "/");
         if (!imageFolder.exists() && !imageFolder.mkdirs()) {
@@ -383,6 +389,8 @@ public class ProviderSignatureStamp2Action extends ActionSupport implements Uplo
         }
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     private void writeJson(HttpServletResponse resp, String json) {
         resp.setContentType("application/json");
         resp.setCharacterEncoding("UTF-8");

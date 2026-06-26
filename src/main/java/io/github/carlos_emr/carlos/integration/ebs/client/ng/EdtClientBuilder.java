@@ -1,5 +1,8 @@
 package io.github.carlos_emr.carlos.integration.ebs.client.ng;
 
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.security.KeyStore;
@@ -397,6 +400,8 @@ public class EdtClientBuilder {
         }
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     private Properties loadKeystoreProperties() {
         Properties props = new Properties();
 
@@ -417,7 +422,7 @@ public class EdtClientBuilder {
         }
 
         // If classpath resource not found, try filesystem
-        try (InputStream is = new FileInputStream(normalizedPath)) {
+        try (InputStream is = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(normalizedPath)))) {
             props.load(is);
             return props;
         } catch (Exception e) {
