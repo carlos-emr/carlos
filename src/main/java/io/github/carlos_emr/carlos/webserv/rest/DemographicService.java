@@ -563,6 +563,7 @@ public class DemographicService extends AbstractServiceImpl {
     public DemographicTo1 getDemographicSummary(@PathParam("demographicNo") Integer demographicNo) {
         LoggedInInfo loggedInInfo = requireDemographicPrivilege("r", demographicNo);
         Demographic demographic = demographicManager.getDemographic(loggedInInfo, demographicNo);
+        if (demographic == null) { return null; }
         DemographicExt demographicExt = demographicManager.getDemographicExt(loggedInInfo, demographicNo, DemographicProperty.demo_cell);
         DemographicTo1 result = demoConverter.getAsTransferObject(loggedInInfo, demographic);
         if (demographicExt != null) {
