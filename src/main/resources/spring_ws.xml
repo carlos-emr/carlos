@@ -194,6 +194,9 @@
 			<cxf:logging />
 		</jaxrs:features>
 
+		<!-- REST data services are exposed on BOTH the session surface (/ws/rs, here)
+		     and the OAuth surface (/ws/services, applicationContextREST.xml). Keep the two
+		     service-bean lists consistent so every data service is reachable on both. -->
 		<jaxrs:serviceBeans>
 			<bean class="io.github.carlos_emr.carlos.webserv.rest.PharmacyService" autowire="byName"/>
 			<bean class="io.github.carlos_emr.carlos.webserv.rest.DemographicService" autowire="byName"/>
@@ -225,6 +228,7 @@
 <!--			<bean class="org.oscarehr.webservbserv.rest.SystemInfoService" autowire="byName" /> -->
 			<bean class="io.github.carlos_emr.carlos.webserv.rest.LabService" autowire="byName" />
 			<bean class="io.github.carlos_emr.carlos.webserv.rest.MeasurementService" autowire="byName" />
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.DocumentService" autowire="byName" />
 			<bean class="io.github.carlos_emr.carlos.webserv.rest.ConsentService" autowire="byName" />
 			<bean class="io.github.carlos_emr.carlos.webserv.rest.EFormService" autowire="byName"/>
 			<bean class="io.github.carlos_emr.carlos.webserv.rest.EFormsService" autowire="byName"/>
