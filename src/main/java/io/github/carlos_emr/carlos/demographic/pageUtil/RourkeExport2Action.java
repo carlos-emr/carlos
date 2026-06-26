@@ -3774,19 +3774,25 @@ public class RourkeExport2Action extends ActionSupport {
 
         options.setSaveOuter();
 
-        String fileName = "Rourke2009Export.xml";
+        // Per-export unique id shared by the XML and zip names so concurrent or repeated
+        // exports cannot collide on a shared temp filename and package another patient's data.
+        String exportId = UtilDateUtilities.getToday("yyyy-MM-dd.HH.mm.ss") + "-" + UUID.randomUUID();
+        String fileName = "Rourke2009Export-" + exportId + ".xml";
         File tmpDirectory = PathValidationUtils.resolveConfiguredDirectory(tmpDir, "Rourke export temp directory");
         File xmlFile = PathValidationUtils.validateGeneratedChildPath(fileName, tmpDirectory);
         try {
             patientDocument.save(xmlFile, options);
         } catch (IOException e) {
+            // Abort: never zip/persist a missing or partial XML, which could otherwise
+            // ship a stale file (another patient's data) from the temp directory.
             MiscUtils.getLogger().error("Cannot write .xml file(s) to export directory " + tmpDir + ".\nPlease check directory permissions.", e);
+            throw e;
         }
 
         ArrayList<File> files = new ArrayList<File>();
         files.add(xmlFile);
         //Zip export files
-        String zipName = "rourke2009_export-" + UtilDateUtilities.getToday("yyyy-MM-dd.HH.mm.ss") + ".zip";
+        String zipName = "rourke2009_export-" + exportId + ".zip";
         if (!Util.zipFiles(files, zipName, tmpDir)) {
             // Abort rather than copying a missing/partial zip into DOCUMENT_DIR below.
             MiscUtils.getLogger().error("Error! Failed zipping export files");
