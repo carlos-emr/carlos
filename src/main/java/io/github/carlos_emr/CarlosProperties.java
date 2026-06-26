@@ -117,13 +117,13 @@ public class CarlosProperties extends Properties {
      * @return the validated property value, or null if not found
      */
     public String getProperty(String key) {
-        if (key.equals("FORMS_PROMOTEXT")) {
-            return "";
-        }
-
         if (key == null || key.trim().isEmpty()) {
             MiscUtils.getLogger().warn("Attempted to retrieve property with blank key.");
             throw new IllegalArgumentException("Property key cannot be blank.");
+        }
+
+        if (key.equals("FORMS_PROMOTEXT")) {
+            return "";
         }
 
         String value = super.getProperty(key);
