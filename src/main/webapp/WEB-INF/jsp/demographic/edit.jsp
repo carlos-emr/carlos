@@ -1267,7 +1267,7 @@
                             <tr>
                                 <td>
                                     <a href="javascript: function myFunction() {return false; }"
-                                       onClick="popupPage(710,970,'<%= request.getContextPath() %>/documentManager/ViewDocumentReport?function=demographic&doctype=lab&functionid=<%=demographic.getDemographicNo()%>&curUser=<%=curProvider_no%>')"><fmt:message key="demographic.demographiceditdemographic.msgDocuments"/></a></td>
+                                       onClick="popupPage(710,970,'<%= request.getContextPath() %>/documentManager/ViewDocumentReport?function=demographic&doctype=lab&functionid=<carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="uriComponent"/>')"><fmt:message key="demographic.demographiceditdemographic.msgDocuments"/></a></td>
                             </tr>
                             <%
                                 UserProperty upDocumentBrowserLink = pref.getProp(curProvider_no, UserProperty.EDOC_BROWSER_IN_MASTER_FILE);

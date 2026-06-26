@@ -70,7 +70,8 @@ public class ReportReassign2Action extends ActionSupport {
     }
 
     // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
-    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = {"XSS_SERVLET", "UNVALIDATED_REDIRECT"}, justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink. UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute()
             throws ServletException, IOException {
 

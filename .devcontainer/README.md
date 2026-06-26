@@ -85,7 +85,7 @@ Exploded WAR".
 
 ## Access the application
 
-* Open your web browser and navigate to `http://localhost:8080`.
+* Open your web browser and navigate to `http://localhost:8080/carlos`.
 * You should see the CARLOS EMR application running.
 * Login credentials for local development are: 
     * Username: carlosdoc
@@ -410,7 +410,7 @@ This script checks that:
 
 ### Quick Reference
 
-- **Playwright Version**: Defined in `.devcontainer/development/Dockerfile`
+- **Playwright Version**: `1.60.0`, defined in `.devcontainer/development/Dockerfile`
 - **Configuration File**: `.mcp.json` in repository root
 - **Verification Script**: `.devcontainer/scripts/verify-playwright-path.sh`
 

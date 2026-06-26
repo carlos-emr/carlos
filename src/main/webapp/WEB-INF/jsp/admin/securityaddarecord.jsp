@@ -69,12 +69,14 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ProviderSiteDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Security" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.SecurityDao" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.MfaManager" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
+    ProviderSiteDao providerSiteDao = SpringUtils.getBean(ProviderSiteDao.class);
     SecurityDao securityDao = SpringUtils.getBean(SecurityDao.class);
 
     CarlosProperties op = CarlosProperties.getInstance();
@@ -265,9 +267,9 @@
                         <%
                             List<Map<String, Object>> resultList;
                             if (isSiteAccessPrivacy) {
-                                for (Provider p : providerDao.getActiveProviders()) {
+                                for (Provider p : providerSiteDao.findActiveProvidersBySharedSites(curProvider_no)) {
                                     List<Security> s = securityDao.findByProviderNo(p.getProviderNo());
-                                    if (s.size() > 0) {
+                                    if (s.isEmpty()) {
                         %>
                         <option value="<%=p.getProviderNo()%>"><carlos:encode value='<%= p.getFormattedName() %>' context="html"/>
                         </option>

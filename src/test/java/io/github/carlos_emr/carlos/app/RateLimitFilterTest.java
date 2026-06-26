@@ -122,6 +122,22 @@ class RateLimitFilterTest extends CarlosUnitTestBase {
         filter.init(fc);
     }
 
+    /**
+     * Initialises the filter as enabled with the given enforce flag, global rate, and
+     * a path-specific tier configuration string (e.g. {@code "/ws/=2/60"}).
+     */
+    private void initFilterWithPaths(boolean enforcing, int requests, int windowSeconds, String paths)
+            throws Exception {
+        when(mockProperties.isPropertyActive("WAF_RATE_LIMIT_ENABLED")).thenReturn(true);
+        when(mockProperties.getProperty("WAF_RATE_LIMIT_MODE")).thenReturn(enforcing ? "enforce" : "detect");
+        when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_REQUESTS")).thenReturn(String.valueOf(requests));
+        when(mockProperties.getProperty("WAF_RATE_LIMIT_DEFAULT_WINDOW_SECONDS")).thenReturn(String.valueOf(windowSeconds));
+        when(mockProperties.getProperty("WAF_RATE_LIMIT_PATHS")).thenReturn(paths);
+        when(mockProperties.getProperty("WAF_RATE_LIMIT_EXEMPT_IPS")).thenReturn("127.0.0.1,::1,0:0:0:0:0:0:0:1");
+        when(mockProperties.getProperty("WAF_RATE_LIMIT_CLEANUP_INTERVAL_SECONDS")).thenReturn("300");
+        filter.init(mock(FilterConfig.class));
+    }
+
     private HttpServletRequest requestForIp(String ip) {
         HttpServletRequest r = mock(HttpServletRequest.class);
         when(r.getContextPath()).thenReturn("/carlos");
@@ -544,6 +560,139 @@ class RateLimitFilterTest extends CarlosUnitTestBase {
 
             filter.doFilter(request, response, chain);
             filter.doFilter(request, response, chain);
+
+            verify(response).sendError(eq(429), anyString());
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // API /ws path tiers (SOAP, session REST, OAuth setup, OAuth REST)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Locks in how the broad {@code /ws/} tier matches real CARLOS API request URIs after
+     * context-path stripping. The servlet container reports the context path (e.g.
+     * {@code /carlos}) separately from {@link HttpServletRequest#getRequestURI()}, and the
+     * query string (e.g. {@code ?wsdl}) is not part of the request URI, so the filter only
+     * ever matches against the context-stripped path (e.g. {@code /ws/ScheduleService}).
+     *
+     * <p>These tests cover the four representative API families called out in the rate-limit
+     * hardening investigation: SOAP {@code /ws/ScheduleService}, session REST {@code /ws/rs},
+     * OAuth setup {@code /ws/oauth}, and OAuth-protected REST {@code /ws/services}. They prove
+     * each family falls under the single shared {@code /ws/} bucket and exercise the 429 +
+     * {@code Retry-After} enforce path and the detect-mode pass-through on those paths.</p>
+     */
+    @Nested
+    @DisplayName("API /ws path tiers")
+    class ApiWebServicePathRateLimiting {
+
+        @Test
+        @DisplayName("should apply /ws tier to SOAP /ws/ScheduleService after context-path stripping")
+        void shouldApplyWsTier_forSoapScheduleServicePath() throws Exception {
+            // global is deliberately high (100) so any 429 must come from the /ws/=2/60 tier
+            initFilterWithPaths(true, 100, 60, "/ws/=2/60");
+
+            // ?wsdl lives in the query string, not the request URI
+            when(request.getRequestURI()).thenReturn("/carlos/ws/ScheduleService");
+
+            filter.doFilter(request, response, chain); // 1st — allowed
+            filter.doFilter(request, response, chain); // 2nd — allowed
+            filter.doFilter(request, response, chain); // 3rd — blocked by /ws/ tier
+
+            verify(response).sendError(eq(429), anyString());
+        }
+
+        @Test
+        @DisplayName("should apply /ws tier to session REST /ws/rs path")
+        void shouldApplyWsTier_forSessionRestPath() throws Exception {
+            initFilterWithPaths(true, 100, 60, "/ws/=2/60");
+
+            when(request.getRequestURI()).thenReturn("/carlos/ws/rs/appointment/123");
+
+            filter.doFilter(request, response, chain);
+            filter.doFilter(request, response, chain);
+            filter.doFilter(request, response, chain);
+
+            verify(response).sendError(eq(429), anyString());
+        }
+
+        @Test
+        @DisplayName("should apply /ws tier to OAuth setup /ws/oauth path")
+        void shouldApplyWsTier_forOauthInitiatePath() throws Exception {
+            initFilterWithPaths(true, 100, 60, "/ws/=2/60");
+
+            when(request.getRequestURI()).thenReturn("/carlos/ws/oauth/initiate");
+
+            filter.doFilter(request, response, chain);
+            filter.doFilter(request, response, chain);
+            filter.doFilter(request, response, chain);
+
+            verify(response).sendError(eq(429), anyString());
+        }
+
+        @Test
+        @DisplayName("should apply /ws tier to OAuth-protected REST /ws/services path")
+        void shouldApplyWsTier_forOauthRestServicesPath() throws Exception {
+            initFilterWithPaths(true, 100, 60, "/ws/=2/60");
+
+            when(request.getRequestURI()).thenReturn("/carlos/ws/services/ScheduleService");
+
+            filter.doFilter(request, response, chain);
+            filter.doFilter(request, response, chain);
+            filter.doFilter(request, response, chain);
+
+            verify(response).sendError(eq(429), anyString());
+        }
+
+        @Test
+        @DisplayName("should return 429 with Retry-After when /ws tier exceeded in enforce mode")
+        void shouldReturn429WithRetryAfter_whenWsTierExceededInEnforceMode() throws Exception {
+            initFilterWithPaths(true, 100, 60, "/ws/=1/60");
+
+            when(request.getRequestURI()).thenReturn("/carlos/ws/ScheduleService");
+
+            filter.doFilter(request, response, chain); // 1st — allowed
+            filter.doFilter(request, response, chain); // 2nd — blocked
+
+            verify(response).setHeader(eq("Retry-After"), anyString());
+            verify(response).sendError(eq(429), anyString());
+        }
+
+        @Test
+        @DisplayName("should log but pass through when /ws tier exceeded in detect mode")
+        void shouldLogButPassThrough_whenWsTierExceededInDetectMode() throws Exception {
+            initFilterWithPaths(false, 100, 60, "/ws/=1/60");
+
+            when(request.getRequestURI()).thenReturn("/carlos/ws/ScheduleService");
+
+            filter.doFilter(request, response, chain);
+            filter.doFilter(request, response, chain);
+            filter.doFilter(request, response, chain);
+
+            // detect mode never blocks — all three requests proceed down the chain
+            verify(chain, org.mockito.Mockito.times(3)).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
+        }
+
+        /**
+         * Locks in (does NOT change) the current global-before-path interaction flagged in
+         * the investigation: the global counter is acquired first, so when the shipped global
+         * default is stricter than the {@code /ws/} tier, global enforcement blocks API traffic
+         * before the broader {@code /ws/} tier is ever consulted. Here global {@code 2/60} is
+         * stricter than {@code /ws/=200/60}; the third request is blocked even though the
+         * {@code /ws/} tier alone would allow 200. This is a regression guard documenting
+         * present behavior so a future redesign is a deliberate, reviewed decision.
+         */
+        @Test
+        @DisplayName("should block on stricter global counter before /ws tier is reached")
+        void shouldBlockOnGlobalCounter_whenGlobalStricterThanWsTier() throws Exception {
+            initFilterWithPaths(true, 2, 60, "/ws/=200/60");
+
+            when(request.getRequestURI()).thenReturn("/carlos/ws/ScheduleService");
+
+            filter.doFilter(request, response, chain); // 1st — allowed
+            filter.doFilter(request, response, chain); // 2nd — allowed
+            filter.doFilter(request, response, chain); // 3rd — blocked by global, not /ws/
 
             verify(response).sendError(eq(429), anyString());
         }

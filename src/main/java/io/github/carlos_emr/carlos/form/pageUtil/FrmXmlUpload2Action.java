@@ -52,6 +52,10 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesAware {
+    private static final String ADMIN_SECURITY_OBJECT = "_admin";
+    private static final String ADMIN_EFORM_SECURITY_OBJECT = "_admin.eform";
+    private static final String WRITE_PRIVILEGE = "w";
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -60,8 +64,16 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
 
     public String execute()
             throws ServletException, IOException {
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "r", null)) {
-            throw new SecurityException("missing required sec object (_form)");
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
+
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, ADMIN_EFORM_SECURITY_OBJECT, WRITE_PRIVILEGE, null)
+                && !securityInfoManager.hasPrivilege(loggedInInfo, ADMIN_SECURITY_OBJECT, WRITE_PRIVILEGE, null)) {
+            throw new SecurityException("missing required sec object (_admin.eform or _admin)");
         }
         if (uploadValidationError != null) {
             addActionError(uploadValidationError);
