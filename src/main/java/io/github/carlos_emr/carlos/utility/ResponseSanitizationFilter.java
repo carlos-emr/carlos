@@ -146,6 +146,26 @@ public class ResponseSanitizationFilter implements Filter {
     static final int MAX_CAPTURE_CHARS = 512 * 1024;
 
     /**
+     * Default response buffer size (bytes) applied to web-service ({@code /ws/*}) requests so a
+     * partial entity body written before a late 5xx stays uncommitted — and therefore replaceable —
+     * up to this size. Web-service responses serialize via {@code getOutputStream()} while the status
+     * is still 200 (the filter's pass-through path); the container's small default buffer (~8 KB on
+     * Tomcat) otherwise commits the partial body before a mid-serialization failure flips the status
+     * to 5xx, leaking PHI. Aligned with {@link #MAX_CAPTURE_CHARS}. Override with
+     * {@link #WEB_SERVICE_BUFFER_PROPERTY}. See issue #2994.
+     */
+    static final int DEFAULT_WEB_SERVICE_RESPONSE_BUFFER_BYTES = 512 * 1024;
+
+    /**
+     * Property name in {@code carlos.properties} that overrides the web-service response buffer size
+     * (in bytes). Lets administrators trade memory (a buffer is held per concurrent {@code /ws}
+     * request) against the size of partial body protected from the #2994 leak. A larger value
+     * protects bigger partial payloads; a smaller value reduces heap pressure under high concurrency.
+     * Absent, blank, or non-positive values fall back to {@link #DEFAULT_WEB_SERVICE_RESPONSE_BUFFER_BYTES}.
+     */
+    static final String WEB_SERVICE_BUFFER_PROPERTY = "response.sanitization.ws.buffer.bytes";
+
+    /**
      * Class-name markers commonly found in Java error responses. Callers check these with a
      * word-boundary equivalent so normal prose containing a marker-like suffix does not match.
      */
@@ -160,6 +180,7 @@ public class ResponseSanitizationFilter implements Filter {
     };
 
     private boolean enabled;
+    private int webServiceResponseBufferBytes = DEFAULT_WEB_SERVICE_RESPONSE_BUFFER_BYTES;
 
     /**
      * Reads the {@code response.sanitization.enabled} property from {@code carlos.properties}.
@@ -176,6 +197,8 @@ public class ResponseSanitizationFilter implements Filter {
     public void init(FilterConfig filterConfig) throws ServletException {
         String propValue = CarlosProperties.getInstance().getProperty(ENABLED_PROPERTY, "");
         enabled = parseEnabledProperty(propValue);
+        webServiceResponseBufferBytes = parseBufferBytes(
+                CarlosProperties.getInstance().getProperty(WEB_SERVICE_BUFFER_PROPERTY, ""));
         if (!enabled && CarlosProperties.getInstance().isPropertyActive(DISPLAY_ERROR_PROPERTY)) {
             // Sanitization is already disabled via response.sanitization.enabled=false.
             // When DISPLAY_ERROR is also active the developer has opted into full error
@@ -186,7 +209,34 @@ public class ResponseSanitizationFilter implements Filter {
                     + "This is a SECURITY RISK — do not enable in production environments "
                     + "or any system with real patient data.");
         }
-        LOGGER.info("ResponseSanitizationFilter initialized: enabled={}", enabled);
+        LOGGER.info("ResponseSanitizationFilter initialized: enabled={} webServiceResponseBufferBytes={}",
+                enabled, webServiceResponseBufferBytes);
+    }
+
+    /**
+     * Parses the {@link #WEB_SERVICE_BUFFER_PROPERTY} value into a positive byte count, falling back
+     * to {@link #DEFAULT_WEB_SERVICE_RESPONSE_BUFFER_BYTES} when the value is absent, blank,
+     * non-numeric, or non-positive. Package-private for direct unit testing.
+     *
+     * @param propValue String the raw property value; may be {@code null}/blank
+     * @return int the configured buffer size in bytes, or the default on any invalid input
+     */
+    static int parseBufferBytes(String propValue) {
+        if (propValue == null || propValue.isBlank()) {
+            return DEFAULT_WEB_SERVICE_RESPONSE_BUFFER_BYTES;
+        }
+        try {
+            int parsed = Integer.parseInt(propValue.trim());
+            if (parsed > 0) {
+                return parsed;
+            }
+        } catch (NumberFormatException e) {
+            // fall through to the warning + default below
+        }
+        LOGGER.warn("Unrecognized {} value '{}'; using default {} bytes",
+                WEB_SERVICE_BUFFER_PROPERTY, LogSafe.sanitize(propValue),
+                DEFAULT_WEB_SERVICE_RESPONSE_BUFFER_BYTES);
+        return DEFAULT_WEB_SERVICE_RESPONSE_BUFFER_BYTES;
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
@@ -241,6 +291,9 @@ public class ResponseSanitizationFilter implements Filter {
 
         HttpServletResponse httpResponse = (HttpServletResponse) response;
         boolean webServiceRequest = isWebServiceRequest((HttpServletRequest) request);
+        if (webServiceRequest) {
+            enlargeWebServiceResponseBuffer(httpResponse);
+        }
         CapturingResponseWrapper wrapper = new CapturingResponseWrapper(httpResponse);
 
         try {
@@ -591,6 +644,38 @@ public class ResponseSanitizationFilter implements Filter {
                 ? uri.substring(contextPath.length())
                 : uri;
         return path.equals("/ws") || path.startsWith("/ws/");
+    }
+
+    /**
+     * Enlarges the response buffer for web-service ({@code /ws/*}) requests so a partial entity body
+     * written before a late 5xx stays uncommitted — and therefore replaceable by
+     * {@link #sendSanitizedError} — up to the configured buffer size
+     * ({@link #WEB_SERVICE_BUFFER_PROPERTY}, default
+     * {@link #DEFAULT_WEB_SERVICE_RESPONSE_BUFFER_BYTES}).
+     *
+     * <p>Why this is needed: CXF/JAX-RS serializes responses via {@code getOutputStream()} while the
+     * status is still 200, so the wrapper leaves the stream in pass-through mode. With the container's
+     * small default buffer (~8 KB on Tomcat), a partial body larger than that is flushed and committed
+     * before a mid-serialization failure sets a 5xx — at which point the body can no longer be
+     * suppressed and PHI leaks (issue #2994). Keeping the response uncommitted within the buffer lets
+     * the existing pass-through sanitization run.</p>
+     *
+     * <p>Scope/limits: only applied to {@code /ws/*}; the buffer is bounded. Handlers that explicitly
+     * {@code flush()} (e.g. genuine streaming) still commit as before, so streamed responses are
+     * unaffected. Partial bodies larger than the buffer still commit and remain a known residual.</p>
+     *
+     * @param response HttpServletResponse the real (unwrapped) response
+     */
+    private void enlargeWebServiceResponseBuffer(HttpServletResponse response) {
+        try {
+            if (response.getBufferSize() < webServiceResponseBufferBytes) {
+                response.setBufferSize(webServiceResponseBufferBytes);
+            }
+        } catch (IllegalStateException e) {
+            // Content already written / response committed — the buffer can no longer be resized.
+            // The existing capture and pass-through logic still applies; nothing more to do here.
+            LOGGER.debug("Cannot enlarge web-service response buffer (already committed or written)", e);
+        }
     }
 
     /**
