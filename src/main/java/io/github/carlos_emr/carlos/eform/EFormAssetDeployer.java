@@ -25,7 +25,10 @@ package io.github.carlos_emr.carlos.eform;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
 import org.apache.logging.log4j.LogManager;
@@ -54,6 +57,12 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
  *   <li>{@code blank.rtl} — Default blank letter template</li>
  *   <li>{@code editor_help.html} — Help popup for the editor toolbar</li>
  * </ul>
+ *
+ * <h3>Directory Bootstrap</h3>
+ * <p>If the configured directory does not yet exist, this deployer creates it with
+ * owner-only permissions (chmod 700 semantics) to satisfy HIPAA/PIPEDA requirements —
+ * provider signatures and medical templates must not be world-readable. A warning is
+ * logged when the OS cannot honour the permission restriction so operators are alerted.</p>
  *
  * <h3>Skip-if-Exists Behavior</h3>
  * <p>Files are only copied if they do not already exist in the target directory.
@@ -106,9 +115,9 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
      * Called by Spring after all properties are set. Deploys each bundled asset
      * to the eForm images directory if it doesn't already exist there.
      *
-     * <p>Exits early (with a warning log) if the directory is not configured
-     * or doesn't exist on disk. This is non-fatal — the application still starts,
-     * but the RTL editor will be broken until the directory is created and Tomcat restarted.</p>
+     * <p>If the directory does not yet exist it is created with owner-only permissions
+     * (HIPAA/PIPEDA). Exits early (with a warning log) if the path is not configured or
+     * the directory cannot be created.</p>
      */
     @Override
     public void afterPropertiesSet() {
@@ -125,14 +134,45 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
             logger.warn("eForm image directory is invalid: {}; skipping asset deployment", imageDir, e);
             return;
         }
-        if (!targetDir.isDirectory()) {
-            logger.warn("eForm image directory does not exist: {}; skipping asset deployment", imageDir);
+        if (!createDirectory(targetDir, imageDir)) {
             return;
         }
 
         for (String asset : ASSETS) {
             deployAsset(asset, targetDir);
         }
+    }
+
+    /**
+     * Creates the eForm image directory if it does not yet exist, then restricts its permissions
+     * to owner-only to prevent unauthorized local users from reading or modifying provider
+     * signatures and medical templates (HIPAA/PIPEDA).
+     *
+     * <p>Uses the concurrent-safe {@code !mkdirs() && !isDirectory()} idiom so a directory
+     * created by a parallel thread does not trigger a spurious failure. Permission calls check
+     * their return values and log a warning when the OS cannot honour the restriction — this
+     * keeps startup non-fatal while alerting operators that default umask permissions remain.</p>
+     *
+     * @param targetDir the resolved eForm image directory
+     * @param imageDir  the configured path string (for log messages)
+     * @return {@code true} if the directory is ready for asset deployment
+     */
+    private boolean createDirectory(File targetDir, String imageDir) {
+        boolean created = targetDir.mkdirs();
+        if (!created && !targetDir.isDirectory()) {
+            logger.warn("eForm image directory does not exist and could not be created: {}; skipping asset deployment", imageDir);
+            return false;
+        }
+        boolean readable = targetDir.setReadable(true, true);
+        boolean writable = targetDir.setWritable(true, true);
+        boolean executable = targetDir.setExecutable(true, true);
+        if (!readable || !writable || !executable) {
+            logger.warn("Could not restrict permissions on eForm image directory: {}; directory may be world-accessible", imageDir);
+        }
+        if (created) {
+            logger.info("Created eForm image directory with restricted permissions: {}", imageDir);
+        }
+        return true;
     }
 
     /**
@@ -145,6 +185,8 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     private void deployAsset(String filename, File targetDir) {
         File targetFile = new File(targetDir, filename);
+        Path targetPath = targetFile.toPath();
+        Path tempFile = null;
         if (targetFile.exists()) {
             logger.debug("eForm asset already exists, skipping: {}", targetFile.getAbsolutePath());
             return;
@@ -156,10 +198,44 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
                 logger.warn("Bundled eForm asset not found in WAR: {}", resourcePath);
                 return;
             }
-            Files.copy(is, targetFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            tempFile = Files.createTempFile(targetDir.toPath(), filename + ".", ".tmp");
+            Files.copy(is, tempFile, StandardCopyOption.REPLACE_EXISTING);
+            moveTempFile(tempFile, targetPath);
             logger.info("Deployed eForm asset: {} -> {}", resourcePath, targetFile.getAbsolutePath());
+        } catch (FileAlreadyExistsException e) {
+            logger.debug("eForm asset was created concurrently, skipping: {}", targetFile.getAbsolutePath());
         } catch (IOException e) {
             logger.error("Failed to deploy eForm asset: {}", filename, e);
+        } finally {
+            deleteTempFile(tempFile);
+        }
+    }
+
+    void moveTempFile(Path tempFile, Path targetPath) throws IOException {
+        try {
+            moveTempFileAtomically(tempFile, targetPath);
+        } catch (AtomicMoveNotSupportedException e) {
+            logger.debug("Atomic move not supported for eForm asset deployment; falling back to regular move: {} -> {}", tempFile, targetPath);
+            moveTempFileWithoutAtomicOption(tempFile, targetPath);
+        }
+    }
+
+    void moveTempFileAtomically(Path tempFile, Path targetPath) throws IOException {
+        Files.move(tempFile, targetPath, StandardCopyOption.ATOMIC_MOVE);
+    }
+
+    void moveTempFileWithoutAtomicOption(Path tempFile, Path targetPath) throws IOException {
+        Files.move(tempFile, targetPath);
+    }
+
+    private void deleteTempFile(Path tempFile) {
+        if (tempFile == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(tempFile);
+        } catch (IOException deleteEx) {
+            logger.warn("Could not remove temporary eForm asset file: {}", tempFile, deleteEx);
         }
     }
 }
