@@ -559,6 +559,48 @@
         <action name="casemgmt/ViewNoteBrowser" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
             <result name="success">/WEB-INF/jsp/casemgmt/noteBrowser.jsp</result>
         </action>
+        <action name="casemgmt/NoteBrowserDocumentDelete" class="io.github.carlos_emr.carlos.casemgmt.web.NoteBrowserDocumentDelete2Action">
+            <result name="success" type="redirectAction">
+                <param name="actionName">casemgmt/ViewNoteBrowser</param>
+                <param name="demographic_no">${demographicNo}</param>
+                <param name="view">${view}</param>
+                <param name="viewstatus">${viewstatus}</param>
+                <param name="sortorder">${sortorder}</param>
+                <param name="errorMessage">${mutationErrorMessage}</param>
+                <param name="suppressEmptyParameters">true</param>
+            </result>
+            <result name="methodNotAllowed" type="httpheader">
+                <param name="status">405</param>
+            </result>
+        </action>
+        <action name="casemgmt/NoteBrowserDocumentUndelete" class="io.github.carlos_emr.carlos.casemgmt.web.NoteBrowserDocumentUndelete2Action">
+            <result name="success" type="redirectAction">
+                <param name="actionName">casemgmt/ViewNoteBrowser</param>
+                <param name="demographic_no">${demographicNo}</param>
+                <param name="view">${view}</param>
+                <param name="viewstatus">${viewstatus}</param>
+                <param name="sortorder">${sortorder}</param>
+                <param name="errorMessage">${mutationErrorMessage}</param>
+                <param name="suppressEmptyParameters">true</param>
+            </result>
+            <result name="methodNotAllowed" type="httpheader">
+                <param name="status">405</param>
+            </result>
+        </action>
+        <action name="casemgmt/NoteBrowserDocumentRefile" class="io.github.carlos_emr.carlos.casemgmt.web.NoteBrowserDocumentRefile2Action">
+            <result name="success" type="redirectAction">
+                <param name="actionName">casemgmt/ViewNoteBrowser</param>
+                <param name="demographic_no">${demographicNo}</param>
+                <param name="view">${view}</param>
+                <param name="viewstatus">${viewstatus}</param>
+                <param name="sortorder">${sortorder}</param>
+                <param name="errorMessage">${mutationErrorMessage}</param>
+                <param name="suppressEmptyParameters">true</param>
+            </result>
+            <result name="methodNotAllowed" type="httpheader">
+                <param name="status">405</param>
+            </result>
+        </action>
         <action name="casemgmt/ViewNoteIssueList" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
             <result name="success">/WEB-INF/jsp/casemgmt/noteIssueList.jsp</result>
         </action>
