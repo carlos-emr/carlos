@@ -52,9 +52,6 @@
                 }
             }
         </script>
-        <form id="deleteImgForm" method="post" action="<%=request.getContextPath()%>/eform/deleteImage" style="display:none;">
-            <input type="hidden" name="filename" id="deleteImgFilename"/>
-        </form>
     <link rel="stylesheet" href="<%= request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css">
     <script type="text/javascript" src="<%= request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
     </head>
@@ -62,6 +59,10 @@
     <body topmargin="0" leftmargin="0" rightmargin="0">
 
     <%@ include file="efmTopNav.jspf" %>
+
+    <form id="deleteImgForm" method="post" action="<%=request.getContextPath()%>/eform/deleteImage" style="display:none;">
+        <input type="hidden" name="filename" id="deleteImgFilename"/>
+    </form>
 
     <h3>Image Library</h3>
 
