@@ -112,6 +112,18 @@ class StrutsGlobalConfigUnitTest extends CarlosUnitTestBase {
                 .containsEntry("struts.allowlist.packageNames", EXPECTED_ALLOWLIST_PACKAGE);
     }
 
+    @Test
+    @DisplayName("Struts devMode should stay disabled globally")
+    void shouldDisableStrutsDevMode_globally()
+            throws IOException, ParserConfigurationException, SAXException {
+        Path strutsXmlPath = resolveProjectPath(STRUTS_XML);
+        Map<String, String> constants = collectConstants(parseXml(strutsXmlPath));
+
+        assertThat(constants)
+                .as("Production Struts config must hardcode devMode off")
+                .containsEntry("struts.devMode", "false");
+    }
+
     /**
      * Guards against a future edit in any included struts-*.xml file accidentally weakening
      * the OGNL allowlist. Struts processes &lt;include&gt; files after the parent, so a
