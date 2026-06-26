@@ -93,6 +93,9 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
         registerMock(EformDataManager.class, mockEformDataManager);
         registerMock(DocumentAttachmentManager.class, mockDocumentAttachmentManager);
+        // execute() resolves EmailManager via SpringUtils; register the declared mock here rather
+        // than relying on another test in the suite having registered it first (isolation safety).
+        registerMock(EmailManager.class, mockEmailManager);
 
         // Mock static contexts
         servletActionContextMock = mockStatic(ServletActionContext.class);

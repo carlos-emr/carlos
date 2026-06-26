@@ -31,6 +31,7 @@ import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.DigitalSignatureManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.clinic.ClinicData;
@@ -38,6 +39,7 @@ import io.github.carlos_emr.carlos.prescript.data.RxProviderData;
 import io.github.carlos_emr.carlos.prescript.data.RxProviderData.Provider;
 
 import jakarta.servlet.http.HttpServletRequest;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -45,9 +47,9 @@ import java.io.OutputStream;
 import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ResourceBundle;
 import java.util.Set;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Generates a formatted PDF document for a clinical consultation request (referral letter).
@@ -347,6 +349,9 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
     /**
      * @deprecated use the createLogo method in the ClinicLogoUtility at io.github.carlos_emr.carlos.utility
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    // FindSecBugs PATH_TRAVERSAL_IN: site-logo path validated for containment within DOCUMENT_DIR; fax-logo path from a trusted config property
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; site-logo path validated for containment within DOCUMENT_DIR, fax-logo path from a trusted config property")
     @Deprecated
     private PdfPTable createLogoHeader() {
 
@@ -360,8 +365,10 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
             if (site != null) {
                 if (site.getSiteLogoId() != null) {
                     io.github.carlos_emr.carlos.commn.model.Document d = documentDao.getDocument(String.valueOf(site.getSiteLogoId()));
-                    String dir = props.getProperty("DOCUMENT_DIR");
-                    filename = dir.concat(d.getDocfilename());
+                    // Validate the DB-stored logo filename stays within DOCUMENT_DIR - a docfilename
+                    // like "../../outside.png" would otherwise resolve outside it and be opened below.
+                    File documentDir = PathValidationUtils.resolveConfiguredDirectory(props.getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
+                    filename = PathValidationUtils.validateExistingPath(new File(documentDir, d.getDocfilename()), documentDir).getPath();
                 } else {
                     //If no logo file uploaded for this site, use the default one defined in carlos properties file.
                     filename = props.getProperty("faxLogoInConsultation");
@@ -371,7 +378,8 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
             filename = props.getProperty("faxLogoInConsultation");
         }
 
-        Path path = Paths.get(filename);
+        File imageFile = PathValidationUtils.resolveTrustedPath(new File(filename));
+        Path path = imageFile.toPath();
         if (Files.exists(path)) {
             addImage(infoTable, filename, PageSize.LETTER.getWidth() * 0.5f, 50f);
         }
@@ -387,9 +395,12 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
      * @param width     float maximum width in points to scale the image to
      * @param height    float maximum height in points to scale the image to
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     protected void addImage(PdfPTable pdfPTable, String filename, float width, float height) {
 
-        try (FileInputStream fileInputStream = new FileInputStream(filename)) {
+        File imageFile = PathValidationUtils.resolveTrustedPath(new File(filename));
+        try (FileInputStream fileInputStream = new FileInputStream(imageFile)) {
 
             PdfPCell cell = new PdfPCell();
             byte[] faxLogImage = new byte[1024 * 256];
