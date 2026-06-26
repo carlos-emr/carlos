@@ -46,6 +46,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import org.xhtmlrenderer.layout.SharedContext;
 import org.xhtmlrenderer.pdf.ITextRenderer;
 import io.github.carlos_emr.CarlosProperties;
@@ -684,7 +685,7 @@ public final class ConvertToEdoc {
         String originalPath = extractCssUrlPath(cssText, match.contentStart(), match.urlEnd());
         String translatedPath = translateSingleResourcePath(originalPath);
         if (translatedPath != null) {
-            rewrittenCss.append("url('").append(translatedPath).append("')");
+            rewrittenCss.append("url('").append(SafeEncode.forCssString(translatedPath)).append("')");
         } else if (isEmbeddedDataResourcePath(originalPath)) {
             rewrittenCss.append(cssText, match.urlStart(), match.urlEnd() + 1);
         } else {
@@ -717,7 +718,11 @@ public final class ConvertToEdoc {
         for (int i = contentStart; i < cssText.length(); i++) {
             char current = cssText.charAt(i);
             if (quote != 0) {
-                quote = closeQuoteIfNeeded(quote, current);
+                if (current == '\\' && i + 1 < cssText.length()) {
+                    i++;
+                } else {
+                    quote = closeQuoteIfNeeded(quote, current);
+                }
             } else if (isCssQuote(current)) {
                 quote = current;
             } else if (current == '(') {
@@ -756,41 +761,13 @@ public final class ConvertToEdoc {
         return isCssQuote(first) && first == last;
     }
 
-    private static final class CssUrlMatch {
-        private final int urlStart;
-        private final int contentStart;
-        private final int urlEnd;
-        private final boolean complete;
-
-        private CssUrlMatch(int urlStart, int contentStart, int urlEnd, boolean complete) {
-            this.urlStart = urlStart;
-            this.contentStart = contentStart;
-            this.urlEnd = urlEnd;
-            this.complete = complete;
-        }
-
+    private record CssUrlMatch(int urlStart, int contentStart, int urlEnd, boolean complete) {
         private static CssUrlMatch complete(int urlStart, int contentStart, int urlEnd) {
             return new CssUrlMatch(urlStart, contentStart, urlEnd, true);
         }
 
         private static CssUrlMatch incomplete(int urlStart, int contentStart) {
             return new CssUrlMatch(urlStart, contentStart, -1, false);
-        }
-
-        private int urlStart() {
-            return urlStart;
-        }
-
-        private int contentStart() {
-            return contentStart;
-        }
-
-        private int urlEnd() {
-            return urlEnd;
-        }
-
-        private boolean complete() {
-            return complete;
         }
     }
 

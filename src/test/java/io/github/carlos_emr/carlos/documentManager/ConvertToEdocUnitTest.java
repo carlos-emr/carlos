@@ -2,6 +2,7 @@ package io.github.carlos_emr.carlos.documentManager;
 
 import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import org.jsoup.nodes.Document;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -81,7 +82,7 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
 
         assertThat(tidied)
                 .contains("background=\"" + image.toAbsolutePath() + "\"")
-                .contains("background-image:url('" + image.toAbsolutePath() + "')")
+                .contains("background-image:url('" + SafeEncode.forCssString(image.toAbsolutePath().toString()) + "')")
                 .doesNotContain("background-image:url( 'stamp(1).png' )");
     }
 }
