@@ -2154,7 +2154,7 @@
                                                               + " title=\"" + appointmentTooltipFull + "\""
                                                             : "" %>>
                                                             <span>
-                                                            .<%=(view == 0 && numAvailProvider != 1) ? (name.length() > len ? SafeEncode.forHtmlAttribute(name.substring(0, len).toUpperCase()) : SafeEncode.forHtmlContent(name.toUpperCase())) : SafeEncode.forHtmlContent(name.toUpperCase())%>
+                                                            .<%=(view == 0 && numAvailProvider != 1) ? (name.length() > len ? SafeEncode.forHtmlContent(name.substring(0, len).toUpperCase()) : SafeEncode.forHtmlContent(name.toUpperCase())) : SafeEncode.forHtmlContent(name.toUpperCase())%>
                                                             </span>
                                                         </a><!--Inline display of reason -->
 
