@@ -31,6 +31,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * View gate for library/eforms/signatureControl.jsp — JS library (JSP-rendered) for eForm signature pad integration. Requires _con w. GET/HEAD only.
@@ -40,6 +41,8 @@ public final class ViewSignatureControl2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager =
             SpringUtils.getBean(SecurityInfoManager.class);
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();

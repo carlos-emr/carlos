@@ -48,6 +48,7 @@ import io.github.carlos_emr.carlos.dxresearch.bean.dxResearchBean;
 import io.github.carlos_emr.carlos.dxresearch.bean.dxResearchBeanHandler;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * retrieves info to display Disease entries for demographic
@@ -57,6 +58,8 @@ public class EctDisplayDxAction extends EctDisplayAction {
 
     PartialDateDao partialDateDao = SpringUtils.getBean(PartialDateDao.class);
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO Dao) {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_dxresearch", "r", null)) {

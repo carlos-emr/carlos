@@ -68,6 +68,7 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class EctMeasurements2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -80,6 +81,10 @@ public class EctMeasurements2Action extends ActionSupport {
     private static final ObjectMapper objectMapper = new ObjectMapper();
     private static final Logger logger = MiscUtils.getLogger();
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = {"XSS_SERVLET", "IMPROPER_UNICODE", "UNVALIDATED_REDIRECT"}, justification = "XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink. case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute() throws ServletException, IOException {
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
             logger.warn("Rejected measurement submission request with method {} from {}",

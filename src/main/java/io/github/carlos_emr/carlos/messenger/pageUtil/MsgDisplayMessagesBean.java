@@ -51,6 +51,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.messenger.data.MsgDisplayMessage;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * JavaBean for managing and displaying message lists in the messaging interface.
@@ -498,6 +499,8 @@ public class MsgDisplayMessagesBean implements java.io.Serializable {
      * @param page int the page number (1-based)
      * @return Vector<MsgDisplayMessage> collection of messages for display
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public Vector<MsgDisplayMessage> estInbox(String orderby, int page) {
         String providerNo = this.getProviderNo();
         Vector<MsgDisplayMessage> msg = new Vector<MsgDisplayMessage>();

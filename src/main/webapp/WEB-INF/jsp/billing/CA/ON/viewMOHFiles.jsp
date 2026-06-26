@@ -32,6 +32,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
         if (request.getAttribute("__roleName") == null) {
@@ -125,6 +126,7 @@
 <body>
 <%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
 <h3><fmt:message key="admin.admin.viewMOHFiles"/></h3>
+<%= WebUtils.popErrorAndInfoMessagesAsHtml(session) %>
 
 <div class="container-fluid card card-body bg-body-tertiary">
 

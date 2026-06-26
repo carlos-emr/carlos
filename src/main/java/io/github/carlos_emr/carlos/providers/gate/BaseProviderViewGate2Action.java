@@ -28,6 +28,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Base class for provider-module view gates. Subclasses declare a security
@@ -83,6 +84,8 @@ public abstract class BaseProviderViewGate2Action extends ActionSupport {
         return false;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public final String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();

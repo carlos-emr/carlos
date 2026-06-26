@@ -116,6 +116,7 @@
             boolean saveSuccess = false;
             String errorDetails = null;
             ProviderPreference providerPreference = null;
+            String savedScheduleNavigationMode = null;
 
             String curUser_providerno = loggedInInfo.getLoggedInProviderNo();
 
@@ -141,6 +142,12 @@
                     // Save all preferences atomically - if any fail, all fail
                     providerPreference = ProviderPreferencesUIBean.updateOrCreateProviderPreferences(request);
                     ProviderPropertyAction.updateOrCreateProviderProperties(request);
+
+                    String submittedScheduleNavigationMode = request.getParameter(UserProperty.SCHEDULE_NAVIGATION_MODE);
+                    if (submittedScheduleNavigationMode != null) {
+                        savedScheduleNavigationMode = UserProperty.resolveScheduleNavigationMode(
+                                submittedScheduleNavigationMode, false);
+                    }
 
                     // Save tickler provider number after other preferences succeed
                     if (ticklerforproviderno != null && !ticklerforproviderno.trim().isEmpty()
@@ -181,6 +188,26 @@
         %>
         <% if (saveSuccess) { %>
         <script LANGUAGE="JavaScript">
+            <% if (savedScheduleNavigationMode != null) { %>
+            var scheduleNavigationPreferencePayload = {
+                mode: '<%= SafeEncode.forJavaScript(savedScheduleNavigationMode) %>',
+                source: 'provider-preference',
+                timestamp: Date.now()
+            };
+            try {
+                if (self.opener && typeof self.opener.applyScheduleNavigationPreference === 'function') {
+                    self.opener.applyScheduleNavigationPreference(scheduleNavigationPreferencePayload.mode);
+                }
+            } catch (e) {}
+            try {
+                var scheduleNavigationPreferenceChannel = new BroadcastChannel('carlos_schedule_navigation_mode');
+                scheduleNavigationPreferenceChannel.postMessage(scheduleNavigationPreferencePayload);
+                scheduleNavigationPreferenceChannel.close();
+            } catch (e) {}
+            try {
+                localStorage.setItem('carlos_schedule_navigation_mode', JSON.stringify(scheduleNavigationPreferencePayload));
+            } catch (e) {}
+            <% } %>
             if (self.opener && typeof self.opener.refresh1 === 'function') {
                 self.opener.refresh1();
             }

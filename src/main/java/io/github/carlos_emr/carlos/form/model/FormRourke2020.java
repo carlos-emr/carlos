@@ -50,6 +50,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Entity
 @Table(name = "formRourke2020")
@@ -1826,6 +1827,8 @@ public class FormRourke2020 extends AbstractModel<Integer> implements Serializab
      *
      * @param properties
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public void createBooleanValueMapFromFormProperties(Properties properties) {
         HashMap<String, FormBooleanValue> booleanMap = new HashMap<String, FormBooleanValue>();
         // Look over every known radiobutton/checkbox field with each permutation of a

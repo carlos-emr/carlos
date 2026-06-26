@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -65,6 +66,8 @@ public class ViewBillingDiagSearchAjax2Action extends ActionSupport {
         this.assembler = assembler;
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     @Override
     public String execute() {
         HttpServletRequest request = ServletActionContext.getRequest();

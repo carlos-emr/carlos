@@ -235,7 +235,7 @@ public class EFormBase {
             /*
              * use the ConvertToEdoc utilities for consistent use of the JSoup parser.
              */
-            this.document = ConvertToEdoc.getDocument(this.formHtml, this.realPath);
+            this.document = ConvertToEdoc.parseDocument(this.formHtml);
         }
         if (this.document == null) {
             MiscUtils.getLogger().error("There was a problem while parsing this eForm into a JSoup DOM. Exception needed?");
