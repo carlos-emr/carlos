@@ -556,6 +556,8 @@ public class DocumentManagerImpl implements DocumentManager {
         return renderDocument(eDoc);
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private Path renderDocument(EDoc eDoc) throws PDFGenerationException {
         Path eDocPDFPath = null;
         String eDocPath = getFullPathToDocument(eDoc.getFileName());

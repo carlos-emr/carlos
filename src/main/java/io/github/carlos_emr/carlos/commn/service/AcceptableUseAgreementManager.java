@@ -41,7 +41,9 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.PropertyDao;
 import io.github.carlos_emr.carlos.commn.model.Property;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class AcceptableUseAgreementManager {
     private static Logger logger = MiscUtils.getLogger();
@@ -56,10 +58,12 @@ public class AcceptableUseAgreementManager {
 
     private static PropertyDao propertyDao = SpringUtils.getBean(PropertyDao.class);
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     private static void loadAUA() {
         String path = CarlosProperties.getInstance().getProperty("BASE_DOCUMENT_DIR") + File.separator + "login" + File.separator + "AcceptableUseAgreement.txt";
         try {
-            File auaFile = new File(path);
+            File auaFile = PathValidationUtils.resolveTrustedPath(new File(path));
             if (!auaFile.exists()) {
                 loadAttempted = true;
                 logger.debug("No AcceptableUseAgreement File present. disabling AcceptableUseAgreement prompt");

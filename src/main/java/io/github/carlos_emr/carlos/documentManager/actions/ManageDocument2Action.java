@@ -80,7 +80,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.*;
 
@@ -670,7 +669,7 @@ public class ManageDocument2Action extends ActionSupport {
      * @return File the cache directory
      */
     private static File getDocumentCacheDir(String docdownload) {
-        File docDir = new File(docdownload);
+        File docDir = PathValidationUtils.resolveConfiguredDirectory(docdownload, "DOCUMENT_DIR");
         String documentDirName = docDir.getName();
         File parentDir = docDir.getParentFile();
 
@@ -690,7 +689,8 @@ public class ManageDocument2Action extends ActionSupport {
      * @return File the cached PNG file if it exists, or null
      */
     private File hasCacheVersion2(Document d, Integer pageNum) {
-        Path outFile = Paths.get(getDocumentCacheDir(), d.getDocfilename() + "_" + pageNum + ".png");
+        File cacheDir = PathValidationUtils.resolveConfiguredDirectory(getDocumentCacheDir(), "DOCUMENT_CACHE_DIR");
+        Path outFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(d.getDocfilename() + "_" + pageNum + ".png"), cacheDir).toPath();
         if (!Files.exists(outFile)) {
             return null;
         }
@@ -704,7 +704,8 @@ public class ManageDocument2Action extends ActionSupport {
      * @param pageNum int the 1-based page number of the cache entry to delete
      */
     public static void deleteCacheVersion(Document d, int pageNum) {
-        Path documentCacheDir = Paths.get(getDocumentCacheDir(), d.getDocfilename() + "_" + pageNum + ".png");
+        File cacheDir = PathValidationUtils.resolveConfiguredDirectory(getDocumentCacheDir(), "DOCUMENT_CACHE_DIR");
+        Path documentCacheDir = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(d.getDocfilename() + "_" + pageNum + ".png"), cacheDir).toPath();
         if (Files.exists(documentCacheDir)) {
             try {
                 Files.delete(documentCacheDir);
@@ -734,9 +735,13 @@ public class ManageDocument2Action extends ActionSupport {
      * @param pageNum Integer the 1-based page number to render
      * @return byte[] the PNG image bytes, or null if rendering fails or page number is invalid
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public byte[] createCacheVersion2(Document d, Integer pageNum) {
-        Path pdfPath = Paths.get(DOCUMENT_DIR, d.getDocfilename());
-        Path pngFile = Paths.get(getDocumentCacheDir(), d.getDocfilename() + "_" + pageNum + ".png");
+        File documentDir = PathValidationUtils.resolveConfiguredDirectory(DOCUMENT_DIR, "DOCUMENT_DIR");
+        Path pdfPath = PathValidationUtils.validateExistingPath(new File(documentDir, d.getDocfilename()), documentDir).toPath();
+        File cacheDir = PathValidationUtils.resolveConfiguredDirectory(getDocumentCacheDir(), "DOCUMENT_CACHE_DIR");
+        Path pngFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(d.getDocfilename() + "_" + pageNum + ".png"), cacheDir).toPath();
 
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
             try (PDDocument pdf = Loader.loadPDF(pdfPath.toFile(), IOUtils.createTempFileOnlyStreamCache())) {
@@ -920,6 +925,8 @@ public class ManageDocument2Action extends ActionSupport {
      * @throws Exception if the document file does not exist and no docxml fallback is available
      * @throws SecurityException if the user lacks _edoc read privilege
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void display() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
@@ -951,7 +958,7 @@ public class ManageDocument2Action extends ActionSupport {
         contentType = d.getContenttype();
         filename = d.getDocfilename();
 
-        Path file = Paths.get(DOCUMENT_DIR, filename);
+        Path file = PathValidationUtils.validateExistingPath(new File(DOCUMENT_DIR, filename), PathValidationUtils.resolveConfiguredDirectory(DOCUMENT_DIR, "DOCUMENT_DIR")).toPath();
 
         if (Files.exists(file)) {
             contentBytes = Files.readAllBytes(file);
@@ -1051,6 +1058,8 @@ public class ManageDocument2Action extends ActionSupport {
      * @param viewDocumentDescriptionFlag boolean whether to include document description metadata
      * @throws SecurityException if the user lacks _edoc read privilege
      */
+    // FindSecBugs XSS_SERVLET: renders helper-generated HTML fragments whose dynamic values are HTML-encoded.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "renders helper-generated HTML fragments whose dynamic values are HTML-encoded")
     public void doViewDocumentInfo(HttpServletRequest request, PrintWriter out, boolean viewAnnotationAcknowledgementTicklerFlag, boolean viewDocumentDescriptionFlag) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
@@ -1416,6 +1425,9 @@ public class ManageDocument2Action extends ActionSupport {
      * @throws Exception if path validation or PDF extraction fails
      * @throws SecurityException if the user lacks _edoc read privilege or path traversal is detected
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    // FindSecBugs XSS_SERVLET: serves PDF bytes; error HTML uses resource strings and an encoded filename.
+    @SuppressFBWarnings(value = {"XSS_SERVLET", "PATH_TRAVERSAL_IN"}, justification = "XSS_SERVLET: serves PDF bytes; error HTML uses resource strings and an encoded filename. PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use")
     public void viewIncomingDocPageAsPdf() throws Exception {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "r", null)) {
@@ -1511,9 +1523,10 @@ public class ManageDocument2Action extends ActionSupport {
             docdownload += File.separator;
         }
 
-        String filePath = docdownload + fileName;
+        File documentDir = PathValidationUtils.resolveConfiguredDirectory(docdownload, "DOCUMENT_DIR");
+        File filePath = PathValidationUtils.validatePath(fileName, documentDir);
 
-        try (PDDocument reader = Loader.loadPDF(new File(filePath))) {
+        try (PDDocument reader = Loader.loadPDF(filePath)) {
             numOfPage = reader.getNumberOfPages();
         } catch (IOException e) {
             MiscUtils.getLogger().error("Failed to count pages for document: {}", fileName, e);
@@ -1528,6 +1541,8 @@ public class ManageDocument2Action extends ActionSupport {
      * @throws Exception if path validation or file I/O fails
      * @throws SecurityException if the user lacks _edoc read privilege or path traversal is detected
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void displayIncomingDocs() throws Exception {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "r", null)) {
@@ -1680,7 +1695,8 @@ public class ManageDocument2Action extends ActionSupport {
      * @throws SecurityException if path traversal is detected or file type is not PDF
      */
     // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-fold in a trust path (locale-safe hardening tracked in #2496); path validated for directory containment via PathValidationUtils before use")
     public File createIncomingCacheVersion(String queueId, String pdfDir, String pdfName, Integer pageNum) throws Exception {
         
         // Validate input parameters to prevent path traversal
@@ -1801,6 +1817,8 @@ public class ManageDocument2Action extends ActionSupport {
      * @param file The file to validate
      * @throws SecurityException if the file path is invalid or potentially malicious
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private void validateFilePath(File file) throws SecurityException {
         if (file == null) {
             throw new SecurityException("File is null");
@@ -1870,6 +1888,8 @@ public class ManageDocument2Action extends ActionSupport {
      * @throws IOException if writing the JSON response fails
      * @since 2026-02-28
      */
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public void searchDocumentDescriptions() throws IOException {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
             throw new SecurityException("missing required security object (_edoc)");

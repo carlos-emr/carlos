@@ -190,13 +190,18 @@ public class EformDataManagerImpl implements EformDataManager {
         try {
             path = ConvertToEdoc.saveAsTempPDF(eformData);
         } catch (Exception e) {
-            throw new PDFGenerationException("Error Details: EForm [" + eformData.getFormName() + "] could not be converted into a PDF", e);
+            throw new PDFGenerationException("EForm PDF generation failed during HTML-to-PDF conversion.", e);
+        }
+
+        if (path == null) {
+            throw new PDFGenerationException("EForm PDF generation failed during HTML-to-PDF conversion.");
         }
 
         if (Files.isReadable(path)) {
             LogAction.addLogSynchronous(loggedInInfo, "EformDataManager.saveEformDataAsPDF", "Document saved at " + path.toString());
         } else {
             LogAction.addLogSynchronous(loggedInInfo, "EformDataManager.saveEformDataAsPDF", "Document failed to save for eform id " + fdid);
+            throw new PDFGenerationException("EForm PDF generation produced an unreadable temporary file.");
         }
 
         return path;

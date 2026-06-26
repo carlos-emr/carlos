@@ -209,6 +209,8 @@ public class PrivacyStatementAppendingFilter implements Filter {
         return servletPath.startsWith(exclusion + "/");
     }
 
+    // FindSecBugs XSS_SERVLET: writes fixed print-only privacy HTML from trusted system configuration.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "writes fixed print-only privacy HTML from trusted system configuration")
     private void printConfidentialityStatement(ServletResponse response, DelegatingServletResponse delegatingServletResponse) throws IOException {
         if (delegatingServletResponse.isResponseOutputStreamObtained()) {
             response.getOutputStream().write(getPrivacyStatement().getBytes());

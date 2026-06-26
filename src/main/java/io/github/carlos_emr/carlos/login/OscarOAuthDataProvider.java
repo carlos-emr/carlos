@@ -29,6 +29,8 @@
 package io.github.carlos_emr.carlos.login;
 
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -40,12 +42,19 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import io.github.carlos_emr.carlos.commn.dao.ServiceAccessTokenDao;
 import io.github.carlos_emr.carlos.commn.dao.ServiceClientDao;
+import io.github.carlos_emr.carlos.commn.dao.ServiceOAuthNonceDao;
 import io.github.carlos_emr.carlos.commn.dao.ServiceRequestTokenDao;
 import io.github.carlos_emr.carlos.commn.model.ServiceAccessToken;
 import io.github.carlos_emr.carlos.commn.model.ServiceClient;
+import io.github.carlos_emr.carlos.commn.model.ServiceOAuthNonce;
 import io.github.carlos_emr.carlos.commn.model.ServiceRequestToken;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -69,6 +78,7 @@ public class OscarOAuthDataProvider {
     private static final long NONCE_TTL_SECONDS = 600L;
     /** Bound memory use; Caffeine may evict older entries under sustained high OAuth volume. */
     private static final long MAX_NONCES = 100_000L;
+    private static final String OOB_CALLBACK = "oob";
 
     private final org.apache.logging.log4j.Logger logger = MiscUtils.getLogger();
     private static final Cache<String, Boolean> usedNonces = Caffeine.newBuilder()
@@ -79,18 +89,31 @@ public class OscarOAuthDataProvider {
     @Autowired private ServiceRequestTokenDao serviceRequestTokenDao;
     @Autowired private ServiceAccessTokenDao serviceAccessTokenDao;
     @Autowired private ServiceClientDao serviceClientDao;
+    @Autowired private ServiceOAuthNonceDao serviceOAuthNonceDao;
+
+    // Throttle stale-nonce pruning so a DELETE does not run on every signed
+    // request; once per interval is enough to keep the table bounded.
+    private static final long NONCE_PRUNE_INTERVAL_SECONDS = 10L;
+    private volatile long lastNoncePruneEpochSeconds = 0L;
+
+    // Matches the varchar(255) columns of ServiceOAuthNonce; a legitimate
+    // consumer key cannot exceed the ServiceClient key length either.
+    private static final int MAX_NONCE_FIELD_LENGTH = 255;
 
     public Client getClient(String consumerKey) {
         logger.debug("getClient({})", consumerKey);
         ServiceClient sc = serviceClientDao.findByKey(consumerKey);
         if (sc != null) {
-            return new Client(sc.getKey(), sc.getSecret(), sc.getName(), sc.getUri());
+            Client client = new Client(sc.getKey(), sc.getSecret(), sc.getName(), sc.getUri());
+            client.setCallbackUri(sc.getUri());
+            return client;
         }
         return null;
     }
 
     public RequestToken createRequestToken(RequestTokenRegistration reg) {
         logger.debug("createRequestToken() called");
+        validateCallbackAllowed(reg);
         String tokenId = UUID.randomUUID().toString();
         String tokenSecret = UUID.randomUUID().toString();
 
@@ -133,6 +156,7 @@ public class OscarOAuthDataProvider {
 
         ServiceClient sc = serviceClientDao.find(srt.getClientId());
         Client client = new Client(sc.getKey(), sc.getSecret(), sc.getName(), sc.getUri());
+        client.setCallbackUri(sc.getUri());
 
         RequestToken rt = new RequestToken(client, srt.getTokenId(), srt.getTokenSecret());
         List<OAuth1Permission> perms = new ArrayList<>();
@@ -292,6 +316,103 @@ public class OscarOAuthDataProvider {
         return value == null || value.isBlank();
     }
 
+    /**
+     * Records an OAuth 1.0a request nonce as consumed, rejecting it as a replay
+     * if the same (consumerKey, tokenId, nonce) combination has already been
+     * seen. Callers must only invoke this after the request signature has been
+     * verified, so an attacker cannot poison the store for a legitimate client.
+     *
+     * @param consumerKey     the request's oauth_consumer_key (required).
+     * @param tokenId         the request's oauth_token, or null for the token
+     *                        initiate step; stored as an empty string when absent.
+     * @param nonce           the request's oauth_nonce (required).
+     * @param oauthTimestamp  the request's oauth_timestamp, retained for pruning.
+     * @param retentionSeconds how long a consumed nonce must be remembered; older
+     *                        entries are pruned because their timestamp can no
+     *                        longer pass the freshness check and cannot be replayed.
+     * @throws OAuth1Exception 401 when the nonce has already been consumed.
+     */
+    public void consumeNonce(String consumerKey, String tokenId, String nonce,
+            long oauthTimestamp, long retentionSeconds) throws OAuth1Exception {
+        // A non-positive retention would set the prune cutoff at/after "now" and
+        // delete still-replayable nonces, silently disabling replay protection.
+        if (retentionSeconds <= 0) {
+            throw new IllegalArgumentException("retentionSeconds must be positive");
+        }
+        // consumerKey and nonce are mandatory; only tokenId may be absent (the
+        // token-initiate step carries no oauth_token). Reject blank (including
+        // whitespace-only) values explicitly rather than silently coalescing, so
+        // a replay key is never built from empty values.
+        if (consumerKey == null || consumerKey.isBlank() || nonce == null || nonce.isBlank()) {
+            throw new OAuth1Exception(400, "invalid_oauth_parameters");
+        }
+        String key = consumerKey;
+        String token = tokenId == null ? "" : tokenId;
+        String nonceValue = nonce;
+
+        // Reject oversized values up front so they fail with a clean OAuth error
+        // instead of a DB-level fault, and so the only integrity violation the
+        // insert below can raise is the unique-key duplicate (a replay).
+        if (key.length() > MAX_NONCE_FIELD_LENGTH
+                || token.length() > MAX_NONCE_FIELD_LENGTH
+                || nonceValue.length() > MAX_NONCE_FIELD_LENGTH) {
+            throw new OAuth1Exception(400, "oauth_parameter_too_long");
+        }
+
+        // Drop nonces that can no longer pass the timestamp freshness window so
+        // the table stays bounded. Throttled so this DELETE does not run on
+        // every signed request.
+        long now = System.currentTimeMillis() / 1000;
+        if (now - lastNoncePruneEpochSeconds >= NONCE_PRUNE_INTERVAL_SECONDS) {
+            lastNoncePruneEpochSeconds = now;
+            serviceOAuthNonceDao.deleteOlderThan(now - retentionSeconds);
+        }
+
+        ServiceOAuthNonce consumed = new ServiceOAuthNonce();
+        consumed.setNonceKeyHash(nonceKeyHash(key, token, nonceValue));
+        consumed.setConsumerKey(key);
+        consumed.setTokenId(token);
+        consumed.setNonce(nonceValue);
+        consumed.setOauthTimestamp(oauthTimestamp);
+        consumed.setDateCreated(new Date());
+        try {
+            serviceOAuthNonceDao.persist(consumed);
+            // Force the INSERT now: the unique key on nonceKeyHash is the single
+            // source of truth for replay detection, so a duplicate (sequential or
+            // concurrent) is rejected here as a replay rather than surfacing as a
+            // 500 at commit time. Only a constraint violation is treated as a
+            // replay; other failures propagate so a real DB fault is not masked.
+            serviceOAuthNonceDao.flush();
+        } catch (DataIntegrityViolationException | ConstraintViolationException duplicate) {
+            throw new OAuth1Exception(401, "nonce_replayed");
+        }
+    }
+
+    /**
+     * Derives the unique-key hash for a consumed nonce. Hashing a
+     * length-prefixed encoding of the canonical tuple keeps the unique index
+     * fixed-size and avoids both index key-length limits and ambiguity between
+     * field boundaries (e.g. ("ab","c") vs ("a","bc")).
+     */
+    private static String nonceKeyHash(String consumerKey, String tokenId, String nonce) {
+        String encoded = consumerKey.length() + ":" + consumerKey
+                + "|" + tokenId.length() + ":" + tokenId
+                + "|" + nonce.length() + ":" + nonce;
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(encoded.getBytes(StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder(hash.length * 2);
+            for (byte b : hash) {
+                hex.append(Character.forDigit((b >> 4) & 0xF, 16));
+                hex.append(Character.forDigit(b & 0xF, 16));
+            }
+            return hex.toString();
+        } catch (NoSuchAlgorithmException e) {
+            // SHA-256 is mandated by the Java platform, so this cannot happen.
+            throw new IllegalStateException("SHA-256 not available", e);
+        }
+    }
+
     private ServiceAccessToken findUnexpiredAccessToken(String accessTokenId) {
         ServiceAccessToken sat = serviceAccessTokenDao.findByTokenId(accessTokenId);
         if (sat == null) {
@@ -316,6 +437,103 @@ public class OscarOAuthDataProvider {
             return true;
         }
         return System.currentTimeMillis() / 1000 >= expiresAt;
+    }
+
+    private static void validateCallbackAllowed(RequestTokenRegistration reg) {
+        Client client = reg.getClient();
+        String registeredCallback = client == null ? null : client.getCallbackUri();
+        String requestedCallback = reg.getCallback();
+        if (requestedCallback == null || requestedCallback.isBlank()) {
+            return;
+        }
+        if (registeredCallback == null || registeredCallback.isBlank()) {
+            throw new OAuth1Exception(400, "callback_uri not allowed");
+        }
+
+        if (isOutOfBandCallback(registeredCallback)) {
+            if (!isOutOfBandCallback(requestedCallback)) {
+                throw new OAuth1Exception(400, "callback_uri not allowed");
+            }
+            return;
+        }
+        if (isOutOfBandCallback(requestedCallback)) {
+            throw new OAuth1Exception(400, "callback_uri not allowed");
+        }
+
+        String registered = normalizeCallbackForComparison(registeredCallback);
+        String requested = normalizeCallbackForComparison(requestedCallback);
+        if (!isCallbackPrefixAllowed(requested, registered)) {
+            throw new OAuth1Exception(400, "callback_uri not allowed");
+        }
+    }
+
+    private static boolean isCallbackPrefixAllowed(String requested, String registered) {
+        if (!requested.startsWith(registered)) {
+            return false;
+        }
+        if (requested.length() == registered.length()) {
+            return true;
+        }
+        char next = requested.charAt(registered.length());
+        if (registered.contains("?")) {
+            return next == '&' || next == '#';
+        }
+        if (registered.contains("#")) {
+            return false;
+        }
+        return registered.endsWith("/") || next == '/' || next == '?' || next == '#';
+    }
+
+    private static String normalizeCallbackForComparison(String callback) {
+        try {
+            URI uri = URI.create(callback).normalize();
+            String scheme = normalizeScheme(uri);
+            if (!isHttpScheme(scheme)) {
+                throw new OAuth1Exception(400, "invalid_callback_scheme");
+            }
+            String host = uri.getHost();
+            if (host == null || host.isBlank()) {
+                throw new OAuth1Exception(400, "invalid_callback");
+            }
+            host = toAsciiLowerCase(host);
+            int port = uri.getPort();
+            if ((port == 80 && "http".equals(scheme))
+                    || (port == 443 && "https".equals(scheme))) {
+                port = -1;
+            }
+            String path = (uri.getPath() == null || uri.getPath().isEmpty()) ? "/" : uri.getPath();
+            return new URI(scheme, uri.getUserInfo(), host, port, path, uri.getQuery(), uri.getFragment()).toString();
+        } catch (OAuth1Exception e) {
+            throw e;
+        } catch (IllegalArgumentException | URISyntaxException e) {
+            throw new OAuth1Exception(400, "invalid_callback");
+        }
+    }
+
+    private static boolean isOutOfBandCallback(String callback) {
+        return asciiEqualsIgnoreCase(callback, OOB_CALLBACK);
+    }
+
+    private static String normalizeScheme(URI uri) {
+        String scheme = uri.getScheme();
+        return scheme == null ? null : toAsciiLowerCase(scheme);
+    }
+
+    private static boolean isHttpScheme(String scheme) {
+        return "http".equals(scheme) || "https".equals(scheme);
+    }
+
+    private static boolean asciiEqualsIgnoreCase(String actual, String expected) {
+        return actual != null && toAsciiLowerCase(actual).equals(expected);
+    }
+
+    private static String toAsciiLowerCase(String value) {
+        StringBuilder lowered = new StringBuilder(value.length());
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            lowered.append(c >= 'A' && c <= 'Z' ? (char) (c + ('a' - 'A')) : c);
+        }
+        return lowered.toString();
     }
 
 }

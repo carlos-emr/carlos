@@ -40,6 +40,7 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.SupServiceCodeAssocDAO;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts 2 action for managing British Columbia supplementary service code associations.
@@ -89,6 +90,8 @@ public class SupServiceCodeAssoc2Action extends ActionSupport {
      * @return String "success" to forward to list view, or NONE after redirect
      * @throws RuntimeException if redirect fails
      */
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
