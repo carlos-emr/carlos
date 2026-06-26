@@ -36,6 +36,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import org.apache.logging.log4j.Logger;
@@ -43,6 +44,8 @@ import io.github.carlos_emr.carlos.PMmodule.model.Agency;
 import io.github.carlos_emr.carlos.PMmodule.service.AgencyManager;
 import io.github.carlos_emr.carlos.PMmodule.service.OscarSecurityManager;
 import io.github.carlos_emr.carlos.PMmodule.service.ProviderManager;
+import io.github.carlos_emr.carlos.sec.UnauthenticatedRejectionResolver;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
@@ -74,17 +77,20 @@ public class PMMFilter implements Filter {
 
     public void doFilter(ServletRequest baseRequest, ServletResponse baseResponse, FilterChain chain) throws IOException, ServletException {
         HttpServletRequest request = (HttpServletRequest) baseRequest;
+        HttpServletResponse response = (HttpServletResponse) baseResponse;
         HttpSession session = request.getSession();
 
-        setProviderManager();
-
         String oscarUser = (String) session.getAttribute("user");
-        if (oscarUser == null || oscarUser.length() == 0) {
-            logger.info("Not logged in!");
-            chain.doFilter(baseRequest, baseResponse);
-
+        if (oscarUser == null || oscarUser.trim().isEmpty()) {
+            logger.warn("Unauthenticated access attempt to PMmodule blocked: method={}, uri={}, remote={}",
+                    LogSafe.sanitize(request.getMethod()),
+                    LogSafe.sanitizeUri(request.getRequestURI()),
+                    LogSafe.sanitize(request.getRemoteAddr()));
+            UnauthenticatedRejectionResolver.rejectUnauthenticatedRequest(request, response);
             return;
         }
+
+        setProviderManager();
 
         session.setAttribute("program_domain", providerManager.getProgramDomain(oscarUser)); // nosemgrep: tainted-session-from-http-request -- DAO-sourced program domain list for authenticated provider
 
