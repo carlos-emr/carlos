@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.login;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDao;
+import io.github.carlos_emr.carlos.PMmodule.model.SecUserRole;
 import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.managers.SecurityManager;
@@ -32,6 +33,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.util.Collections;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -130,5 +132,37 @@ class LoginCheckLoginBeanUnitTest extends CarlosUnitTestBase {
                 eq("wrongPassword"),
                 argThat(dummySecurity -> dummySecurity != null
                         && EXPECTED_MISSING_USER_DUMMY_PASSWORD_HASH.equals(dummySecurity.getPassword())));
+    }
+
+    @Test
+    @DisplayName("should exclude inactive roles from the session role string on successful login")
+    void shouldExcludeInactiveRoles_fromSessionRoleStringOnSuccessfulLogin() {
+        String username = "activeUser";
+        String providerNo = "999998";
+        // Legacy (< 20 char) password so authentication succeeds via direct comparison.
+        String legacyPassword = "secret";
+        Security security = new Security();
+        security.setProviderNo(providerNo);
+        security.setPassword(legacyPassword);
+        security.setBLocallockset(0);
+        security.setBRemotelockset(0);
+        security.setBExpireset(0);
+        when(securityDao.findByUserName(username)).thenReturn(Collections.singletonList(security));
+
+        SecUserRole activeDoctor = new SecUserRole("doctor", providerNo);
+        activeDoctor.setActive(true);
+        SecUserRole inactiveAdmin = new SecUserRole("admin", providerNo);
+        inactiveAdmin.setActive(false);
+        when(secUserRoleDao.getUserRoles(providerNo))
+                .thenReturn(Arrays.asList(activeDoctor, inactiveAdmin));
+
+        LoginCheckLoginBean bean = new LoginCheckLoginBean();
+        bean.ini(username, legacyPassword, "", "127.0.0.1");
+
+        String[] result = bean.authenticate();
+
+        // strAuth[4] is the comma-separated session role string; the inactive admin role must be absent.
+        assertThat(result).isNotNull();
+        assertThat(result[4]).isEqualTo("doctor");
     }
 }

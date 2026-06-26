@@ -68,14 +68,16 @@
     "picomatch": "2.3.2",
     "path-to-regexp@<0.1.13": "0.1.13",
     "brace-expansion": "5.0.6",
+    "@babel/core": "7.29.7",
     "@babel/plugin-transform-modules-systemjs": "7.29.4",
     "fast-uri": "3.1.2",
+    "http-proxy-middleware": "2.0.10",
     "joi": "17.13.4",
     "launch-editor": "2.14.1",
     "postcss": "8.5.10",
     "shell-quote": "1.8.4",
     "uuid": "11.1.1",
     "webpack-dev-server": "5.2.5",
-    "ws": "8.20.1"
+    "ws": "8.21.0"
   }
 }
