@@ -21,6 +21,21 @@
  */
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
+import io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager;
+import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
+import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
+import io.github.carlos_emr.carlos.commn.dao.AdmissionDao;
+import io.github.carlos_emr.carlos.commn.dao.DemographicArchiveDao;
+import io.github.carlos_emr.carlos.commn.dao.DemographicContactDao;
+import io.github.carlos_emr.carlos.commn.dao.DemographicExtDao;
+import io.github.carlos_emr.carlos.commn.dao.DrugDao;
+import io.github.carlos_emr.carlos.commn.dao.DrugReasonDao;
+import io.github.carlos_emr.carlos.commn.dao.MeasurementsExtDao;
+import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
+import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
+import io.github.carlos_emr.carlos.commn.dao.ProviderDataDao;
+import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
 import io.github.carlos_emr.carlos.encounter.data.EctProgramManager;
 import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -49,6 +64,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
@@ -79,7 +95,7 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
     private ImportDemographicDataAction42Action action;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         replaceSpringUtilsBean(EctProgramManager.class, mockEctProgramManager);
         replaceSpringUtilsBean(NioFileManager.class, mockNioFileManager);
         replaceSpringUtilsBean(ProviderDao.class, mockProviderDao);
@@ -98,7 +114,24 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
         when(mockEctProgramManager.getDefaultProgramId(TEST_PROVIDER)).thenReturn(0);
         when(mockProviderDao.getActiveProviders()).thenReturn(List.of());
 
-        action = new ImportDemographicDataAction42Action();
+        action = new ImportDemographicDataAction42Action(
+                mockSecurityInfoManager,
+                mock(ProgramManager.class),
+                mock(AdmissionManager.class),
+                mock(AdmissionDao.class),
+                mock(CaseManagementManager.class),
+                mock(DrugDao.class),
+                mock(DrugReasonDao.class),
+                mock(DemographicArchiveDao.class),
+                mock(ProviderDataDao.class),
+                mock(PartialDateDao.class),
+                mock(DemographicExtDao.class),
+                mock(OscarAppointmentDao.class),
+                mock(PatientLabRoutingDao.class),
+                mock(ProviderLabRoutingDao.class),
+                mock(MeasurementsExtDao.class),
+                mock(DemographicContactDao.class),
+                mockNioFileManager);
     }
 
     @Test

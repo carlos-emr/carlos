@@ -87,7 +87,7 @@ class DemographicEdit2ActionTest extends CarlosWebTestBase {
     private DemographicDao mockDemographicDao;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         MockitoAnnotations.openMocks(this);
         replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
         replaceSpringUtilsBean(DemographicDao.class, mockDemographicDao);
@@ -97,12 +97,8 @@ class DemographicEdit2ActionTest extends CarlosWebTestBase {
         String key = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";
         setSessionAttribute(key, mockLoggedInInfo);
 
-        action = new DemographicEdit2Action();
+        action = new DemographicEdit2Action(mockSecurityInfoManager);
 
-        // Inject mocks via reflection (fields initialized at declaration time)
-        java.lang.reflect.Field secField = DemographicEdit2Action.class.getDeclaredField("securityInfoManager");
-        secField.setAccessible(true);
-        secField.set(action, mockSecurityInfoManager);
     }
 
     @Nested

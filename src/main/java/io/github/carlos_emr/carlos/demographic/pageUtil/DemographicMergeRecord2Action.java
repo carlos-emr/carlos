@@ -66,10 +66,13 @@ public class DemographicMergeRecord2Action extends ActionSupport {
 
 
     Logger logger = MiscUtils.getLogger();
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final transient SecurityInfoManager securityInfoManager;
+    public DemographicMergeRecord2Action(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
 
     public DemographicMergeRecord2Action() {
-
+        this(SpringUtils.getBean(SecurityInfoManager.class));
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md

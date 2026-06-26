@@ -81,7 +81,15 @@ public class DemographicUpdate2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final transient SecurityInfoManager securityInfoManager;
+
+    public DemographicUpdate2Action(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
+
+    public DemographicUpdate2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
+    }
 
     /**
      * Validates session and privileges, then applies all update logic extracted

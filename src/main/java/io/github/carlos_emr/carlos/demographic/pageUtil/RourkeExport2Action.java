@@ -66,28 +66,53 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class RourkeExport2Action extends ActionSupport {
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-
+    private final transient SecurityInfoManager securityInfoManager;
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    private ClinicDAO clinicDAO = SpringUtils.getBean(ClinicDAO.class);
-    private DataExportDao dataExportDAO = SpringUtils.getBean(DataExportDao.class);
-    private DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
-    private Rourke2009DAO frmRourke2009DAO = SpringUtils.getBean(Rourke2009DAO.class);
+    private final transient ClinicDAO clinicDAO;
+    private final transient DataExportDao dataExportDAO;
+    private final transient DemographicDao demographicDao;
+    private final transient Rourke2009DAO frmRourke2009DAO;
+
+    /**
+     * Creates the Rourke export action with dependencies supplied by Struts Spring constructor injection.
+     * This replaces the legacy {@link SpringUtils} field lookups while preserving this action's
+     * existing path-validation hardening.
+     *
+     * @param securityInfoManager manager used to authorize demographic export access
+     * @param clinicDAO DAO used to load clinic metadata for the export
+     * @param dataExportDAO DAO used to persist export audit records
+     * @param demographicDao DAO used to load demographic records for export
+     * @param frmRourke2009DAO DAO used to load Rourke 2009 form data
+     * @since 2026-06-01
+     */
+    public RourkeExport2Action(
+            SecurityInfoManager securityInfoManager,
+            ClinicDAO clinicDAO,
+            DataExportDao dataExportDAO,
+            DemographicDao demographicDao,
+            Rourke2009DAO frmRourke2009DAO) {
+        this.securityInfoManager = securityInfoManager;
+        this.clinicDAO = clinicDAO;
+        this.dataExportDAO = dataExportDAO;
+        this.demographicDao = demographicDao;
+        this.frmRourke2009DAO = frmRourke2009DAO;
+    }
+
+    /**
+     * Legacy no-arg entry point used by Struts; delegates to the injected constructor
+     * via {@link SpringUtils} so the action remains instantiable under the default
+     * Struts Spring autowire strategy.
+     */
+    public RourkeExport2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(ClinicDAO.class), SpringUtils.getBean(DataExportDao.class), SpringUtils.getBean(DemographicDao.class), SpringUtils.getBean(Rourke2009DAO.class));
+    }
 
     private Logger log = MiscUtils.getLogger();
 
     public Rourke2009DAO getFrmRourke2009DAO() {
         return frmRourke2009DAO;
-    }
-
-    public void setFrmRourke2009DAO(Rourke2009DAO frmRourke2009DAO) {
-        this.frmRourke2009DAO = frmRourke2009DAO;
-    }
-
-    public void setDemographicDao(DemographicDao demographicDao) {
-        this.demographicDao = demographicDao;
     }
 
     public DemographicDao getDemographicDao() {
@@ -98,16 +123,8 @@ public class RourkeExport2Action extends ActionSupport {
         return dataExportDAO;
     }
 
-    public void setDataExportDAO(DataExportDao dataExportDAO) {
-        this.dataExportDAO = dataExportDAO;
-    }
-
     public ClinicDAO getClinicDAO() {
         return clinicDAO;
-    }
-
-    public void setClinicDAO(ClinicDAO clinicDAO) {
-        this.clinicDAO = clinicDAO;
     }
 
     public String getFile() {

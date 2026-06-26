@@ -95,16 +95,21 @@ public class PrintDemoLabel2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static Logger logger = MiscUtils.getLogger();
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final transient SecurityInfoManager securityInfoManager;
 
     /**
-     * Default constructor for PrintDemoLabel2Action.
+     * Constructor for PrintDemoLabel2Action.
      *
-     * <p>Initializes the action with Spring-injected dependencies via SpringUtils.
+     * <p>Initializes the action with Spring-injected dependencies.
      * The HttpServletRequest and HttpServletResponse are obtained from ServletActionContext
      * following the Struts2 2Action pattern.</p>
      */
+    public PrintDemoLabel2Action(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
+
     public PrintDemoLabel2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
     }
 
     /**
