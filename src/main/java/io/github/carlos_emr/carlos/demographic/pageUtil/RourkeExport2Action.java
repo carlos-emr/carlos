@@ -3781,6 +3781,7 @@ public class RourkeExport2Action extends ActionSupport {
         File tmpDirectory = PathValidationUtils.resolveConfiguredDirectory(tmpDir, "Rourke export temp directory");
         File xmlFile = PathValidationUtils.validateGeneratedChildPath(fileName, tmpDirectory);
         String zipName = "rourke2009_export-" + exportId + ".zip";
+        File zipFile = PathValidationUtils.validateGeneratedChildPath(zipName, tmpDirectory);
         ArrayList<File> files = new ArrayList<File>();
         files.add(xmlFile);
         try {
@@ -3801,7 +3802,6 @@ public class RourkeExport2Action extends ActionSupport {
             }
 
             //copy zip to document directory
-            File zipFile = PathValidationUtils.validateGeneratedChildPath(zipName, tmpDirectory);
             CarlosProperties properties = CarlosProperties.getInstance();
             // Require DOCUMENT_DIR to be an existing directory: fail fast on misconfiguration
             // rather than letting copyFileToDirectory lazily create an unintended location.
@@ -3817,7 +3817,7 @@ public class RourkeExport2Action extends ActionSupport {
             if (xmlFile.exists()) {
                 Util.cleanFiles(files);
             }
-            if (new File(tmpDirectory, zipName).exists()) {
+            if (zipFile.exists()) {
                 Util.cleanFile(zipName, tmpDir);
             }
         }
