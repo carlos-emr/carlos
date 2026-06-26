@@ -223,7 +223,7 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
 
         @Test
         @DisplayName("Should create directory and deploy assets when image directory does not exist")
-        void shouldCreateDirectoryAndDeployAssets_whenImageDirectoryDoesNotExist() throws Exception {
+        void shouldCreateDirectoryAndDeployAssets_whenImageDirectoryDoesNotExist() {
             Path missingDir = tempDir.resolve("missing-eform-images");
 
             when(mockProperties.getEformImageDirectory()).thenReturn(missingDir.toString());
