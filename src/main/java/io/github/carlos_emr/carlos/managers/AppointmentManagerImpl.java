@@ -23,7 +23,7 @@
  * Ontario, Canada
  * <p>
  * Modifications made by Magenta Health in 2024.
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -287,21 +287,18 @@ public class AppointmentManagerImpl implements AppointmentManager {
         cal.set(Calendar.HOUR_OF_DAY, 0);
         cal.set(Calendar.MINUTE, 0);
         cal.set(Calendar.SECOND, 0);
+        cal.set(Calendar.MILLISECOND, 0);
         Date startDate = cal.getTime();
 
-        cal.set(Calendar.DAY_OF_MONTH, cal.getActualMaximum(Calendar.DAY_OF_MONTH));
-        //cal.add(Calendar.MINUTE,-1);  //this won't get the last day of the month
-
+        cal.set(Calendar.DAY_OF_MONTH, 1);
+        cal.add(Calendar.MONTH, 1);
         cal.set(Calendar.HOUR_OF_DAY, 0);
         cal.set(Calendar.MINUTE, 0);
         cal.set(Calendar.SECOND, 0);
-
-        cal.add(Calendar.SECOND, -1);
+        cal.set(Calendar.MILLISECOND, 0);
         Date endDate = cal.getTime();
 
-
         logger.info("monthly - checking from " + startDate + " to " + endDate);
-
 
         List<Appointment> results = appointmentDao.findByDateRangeAndProvider(startDate, endDate, providerNo);
 
