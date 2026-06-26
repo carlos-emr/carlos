@@ -37,6 +37,7 @@ import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -237,5 +238,26 @@ class RourkeExport2ActionExportUnitTest extends CarlosUnitTestBase {
             // The zip is never copied into the misconfigured destination.
             fileUtils.verify(() -> FileUtils.copyFileToDirectory(any(File.class), any(File.class)), never());
         }
+    }
+
+    @Test
+    @DisplayName("should delete the temp XML when the export aborts after a partial write")
+    void shouldDeleteTempXml_whenExportAbortsAfterPartialWrite(@TempDir Path tmpDir) throws Throwable {
+        PatientDocument document = mock(PatientDocument.class);
+        List<File> written = new ArrayList<>();
+        doAnswer(invocation -> {
+            File target = invocation.getArgument(0, File.class);
+            Files.writeString(target.toPath(), "<PatientRecord/>"); // simulate a partial PHI write
+            written.add(target);
+            throw new IOException("partial write then failure");
+        }).when(document).save(any(File.class), any(XmlOptions.class));
+
+        assertThatThrownBy(() -> invokeMakeFiles(document, tmpDir.toString()))
+                .isInstanceOf(IOException.class);
+
+        assertThat(written).hasSize(1);
+        assertThat(written.get(0))
+                .as("temp XML containing patient data must be removed on abort")
+                .doesNotExist();
     }
 }
