@@ -213,4 +213,29 @@ class RourkeExport2ActionExportUnitTest extends CarlosUnitTestBase {
                 .as("each successful export must produce a distinct zip name")
                 .isNotEqualTo(firstZip);
     }
+
+    @Test
+    @DisplayName("should abort the export and not copy when DOCUMENT_DIR does not exist")
+    void shouldAbortWithoutCopying_whenDocumentDirectoryIsMissing(@TempDir Path tmpDir) throws Throwable {
+        PatientDocument document = mock(PatientDocument.class); // save() is a no-op success
+
+        // A configured DOCUMENT_DIR that does not exist must fail fast rather than be lazily created.
+        File missingDir = tmpDir.resolve("missing-document-dir").toFile();
+        assertThat(missingDir).doesNotExist();
+        CarlosProperties properties = mock(CarlosProperties.class);
+        when(properties.getProperty("DOCUMENT_DIR")).thenReturn(missingDir.getAbsolutePath());
+
+        try (MockedStatic<Util> util = mockStatic(Util.class);
+             MockedStatic<CarlosProperties> carlosProperties = mockStatic(CarlosProperties.class);
+             MockedStatic<FileUtils> fileUtils = mockStatic(FileUtils.class)) {
+            util.when(() -> Util.zipFiles(any(), anyString(), anyString())).thenReturn(true);
+            carlosProperties.when(CarlosProperties::getInstance).thenReturn(properties);
+
+            assertThatThrownBy(() -> invokeMakeFiles(document, tmpDir.toString()))
+                    .isInstanceOf(SecurityException.class);
+
+            // The zip is never copied into the misconfigured destination.
+            fileUtils.verify(() -> FileUtils.copyFileToDirectory(any(File.class), any(File.class)), never());
+        }
+    }
 }

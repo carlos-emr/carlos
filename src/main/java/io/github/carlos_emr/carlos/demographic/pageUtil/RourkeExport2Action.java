@@ -3802,7 +3802,9 @@ public class RourkeExport2Action extends ActionSupport {
         //copy zip to document directory
         File zipFile = PathValidationUtils.validateGeneratedChildPath(zipName, tmpDirectory);
         CarlosProperties properties = CarlosProperties.getInstance();
-        File destDir = PathValidationUtils.resolveConfiguredDirectory(properties.getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
+        // Require DOCUMENT_DIR to be an existing directory: fail fast on misconfiguration
+        // rather than letting copyFileToDirectory lazily create an unintended location.
+        File destDir = PathValidationUtils.validateConfiguredDirectory(properties.getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
         org.apache.commons.io.FileUtils.copyFileToDirectory(zipFile, destDir);
 
         //Remove zip & export files from temp dir
