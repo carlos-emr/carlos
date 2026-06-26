@@ -61,8 +61,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
@@ -110,9 +108,6 @@ public final class ConvertToEdoc {
     private static final String DEFAULT_WKHTMLTOPDF_ARGS = "--enable-local-file-access --minimum-font-size 10 --print-media-type --encoding utf-8 -T 10mm -L 8mm -R 8mm --disable-javascript";
     private static final String BACKGROUND_ATTRIBUTE = "background";
     private static final String STYLE_ATTRIBUTE = "style";
-    private static final Pattern CSS_URL_PATTERN =
-            Pattern.compile("url\\(\\s*([\\\'\\\"]?)([^\\r\\n]*?)\\1\\s*\\)", Pattern.CASE_INSENSITIVE);
-    
     private static String realPath;
     private static final NioFileManager nioFileManager = SpringUtils.getBean(NioFileManager.class);
 
@@ -665,23 +660,84 @@ public final class ConvertToEdoc {
             return cssText;
         }
 
-        Matcher matcher = CSS_URL_PATTERN.matcher(cssText);
         StringBuilder rewrittenCss = new StringBuilder();
-        while (matcher.find()) {
-            String originalPath = matcher.group(2).trim();
-            String translatedPath = translateSingleResourcePath(originalPath);
-            String replacement;
-            if (translatedPath != null) {
-                replacement = Matcher.quoteReplacement("url('" + translatedPath + "')");
-            } else if (isEmbeddedDataResourcePath(originalPath)) {
-                replacement = Matcher.quoteReplacement(matcher.group(0));
-            } else {
-                replacement = "url('')";
+        int cursor = 0;
+        while (cursor < cssText.length()) {
+            int urlStart = StringUtils.indexOfIgnoreCase(cssText, "url(", cursor);
+            if (urlStart < 0) {
+                rewrittenCss.append(cssText, cursor, cssText.length());
+                break;
             }
-            matcher.appendReplacement(rewrittenCss, replacement);
+
+            rewrittenCss.append(cssText, cursor, urlStart);
+
+            int contentStart = urlStart + 4;
+            while (contentStart < cssText.length() && Character.isWhitespace(cssText.charAt(contentStart))) {
+                contentStart++;
+            }
+
+            int urlEnd = findCssUrlEnd(cssText, contentStart);
+            if (urlEnd < 0) {
+                rewrittenCss.append(cssText, urlStart, cssText.length());
+                break;
+            }
+
+            String originalPath = extractCssUrlPath(cssText, contentStart, urlEnd);
+            String translatedPath = translateSingleResourcePath(originalPath);
+            if (translatedPath != null) {
+                rewrittenCss.append("url('").append(translatedPath).append("')");
+            } else if (isEmbeddedDataResourcePath(originalPath)) {
+                rewrittenCss.append(cssText, urlStart, urlEnd + 1);
+            } else {
+                rewrittenCss.append("url('')");
+            }
+            cursor = urlEnd + 1;
         }
-        matcher.appendTail(rewrittenCss);
         return rewrittenCss.toString();
+    }
+
+    private static int findCssUrlEnd(String cssText, int contentStart) {
+        char quote = 0;
+        int nestedParens = 0;
+        for (int i = contentStart; i < cssText.length(); i++) {
+            char current = cssText.charAt(i);
+            if (quote != 0) {
+                if (current == quote) {
+                    quote = 0;
+                }
+                continue;
+            }
+
+            if (current == '\'' || current == '"') {
+                quote = current;
+                continue;
+            }
+
+            if (current == '(') {
+                nestedParens++;
+                continue;
+            }
+
+            if (current == ')') {
+                if (nestedParens == 0) {
+                    return i;
+                }
+                nestedParens--;
+            }
+        }
+        return -1;
+    }
+
+    private static String extractCssUrlPath(String cssText, int contentStart, int urlEnd) {
+        String rawPath = cssText.substring(contentStart, urlEnd).trim();
+        if (rawPath.length() >= 2) {
+            char first = rawPath.charAt(0);
+            char last = rawPath.charAt(rawPath.length() - 1);
+            if ((first == '\'' || first == '"') && first == last) {
+                rawPath = rawPath.substring(1, rawPath.length() - 1).trim();
+            }
+        }
+        return rawPath;
     }
 
     private static String translateSingleResourcePath(String path) {

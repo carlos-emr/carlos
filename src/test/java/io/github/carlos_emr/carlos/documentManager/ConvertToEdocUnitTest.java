@@ -60,7 +60,7 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should strip unresolved absolute file paths during tidy")
-    void shouldStripUnresolvedAbsoluteFilePaths_whenTidyingDocument(@TempDir Path tempDir) throws Exception {
+    void shouldStripUnresolvedAbsoluteFilePaths_whenTidyingDocument(@TempDir Path tempDir) {
         String html = "<html><body><img src=\"/etc/passwd\"><div background=\"/etc/passwd\">x</div></body></html>";
 
         String tidied = ConvertToEdoc.tidyDocument(html, tempDir.toString());
