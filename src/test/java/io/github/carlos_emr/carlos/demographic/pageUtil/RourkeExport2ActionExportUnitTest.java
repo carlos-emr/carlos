@@ -185,7 +185,12 @@ class RourkeExport2ActionExportUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should zip and return a unique export name when the XML save succeeds")
     void shouldZipAndReturnUniqueExportName_whenSaveSucceeds(@TempDir Path tmpDir) throws Throwable {
-        PatientDocument document = mock(PatientDocument.class); // save() is a no-op success
+        PatientDocument document = mock(PatientDocument.class);
+        // Materialize the XML on save so the success-path cleanup branch (xmlFile.exists()) runs.
+        doAnswer(invocation -> {
+            Files.writeString(invocation.getArgument(0, File.class).toPath(), "<PatientRecord/>");
+            return null;
+        }).when(document).save(any(File.class), any(XmlOptions.class));
 
         File documentDir = tmpDir.resolve("documents").toFile();
         assertThat(documentDir.mkdirs()).isTrue();
@@ -194,12 +199,18 @@ class RourkeExport2ActionExportUnitTest extends CarlosUnitTestBase {
 
         String firstZip;
         String secondZip;
-        // FileUtils is mocked so the real copyFileToDirectory (which would fail on the
-        // never-actually-written temp zip) is suppressed; CarlosProperties supplies DOCUMENT_DIR.
+        // FileUtils is mocked so the real copyFileToDirectory is suppressed; CarlosProperties
+        // supplies DOCUMENT_DIR. zipFiles materializes the temp zip so the success-path cleanup
+        // branch (zipFile.exists()) is exercised.
         try (MockedStatic<Util> util = mockStatic(Util.class);
              MockedStatic<CarlosProperties> carlosProperties = mockStatic(CarlosProperties.class);
              MockedStatic<FileUtils> fileUtils = mockStatic(FileUtils.class)) {
-            util.when(() -> Util.zipFiles(any(), anyString(), anyString())).thenReturn(true);
+            util.when(() -> Util.zipFiles(any(), anyString(), anyString())).thenAnswer(invocation -> {
+                String zip = invocation.getArgument(1, String.class);
+                String dir = invocation.getArgument(2, String.class);
+                Files.writeString(new File(dir, zip).toPath(), "zip");
+                return true;
+            });
             carlosProperties.when(CarlosProperties::getInstance).thenReturn(properties);
 
             firstZip = (String) invokeMakeFiles(document, tmpDir.toString());
@@ -207,6 +218,9 @@ class RourkeExport2ActionExportUnitTest extends CarlosUnitTestBase {
 
             util.verify(() -> Util.zipFiles(any(), anyString(), anyString()), times(2));
             fileUtils.verify(() -> FileUtils.copyFileToDirectory(any(File.class), any(File.class)), times(2));
+            // Success-path cleanup must remove both temp artifacts on each export.
+            util.verify(() -> Util.cleanFiles(any()), times(2));
+            util.verify(() -> Util.cleanFile(anyString(), anyString()), times(2));
         }
 
         assertThat(firstZip).startsWith("rourke2009_export-").endsWith(".zip");
