@@ -65,6 +65,7 @@
 <%@page import="io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.*, java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.PathValidationUtils" %>
 <div class="pb-2 mt-4 mb-3 border-bottom">
     <h4>
         <fmt:message key="admin.oscarLogging.heading"/>
@@ -74,6 +75,12 @@
 <%
     String reportDate = request.getParameter("reportDate");
     String reportType = request.getParameter("reportType");
+    
+    if (reportDate != null && !reportDate.matches("^\\d{4}-\\d{2}-\\d{2}$")) {
+        response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid date format");
+        return;
+    }
+
     boolean runReport;
     if (reportDate == null) {
         reportDate = UtilDateUtilities.getToday("yyyy-MM-dd");
@@ -128,7 +135,6 @@
         String path = pr.getProperty("LOGGING_PATH");
         String suffix = reportDate.replaceAll("-", "");
         String fileName = "";
-        String contentString = "";
 
         if (reportType.equals("general")) {
             fileName = path + "report" + suffix + ".html";
@@ -136,9 +142,20 @@
             fileName = path + "reportmysql" + suffix + ".html";
         }
 
-        String temp = FileUtils.readFileToString(new File(fileName),
-                "UTF-8");
-        out.write("<pre id=\"log-results\">" + temp + "</pre>");
+        try {
+            File requestedFile = PathValidationUtils.validateExistingPath(
+                new File(fileName),
+                new File(path)
+            );
+
+            if (requestedFile.exists() && requestedFile.isFile()) {
+                String temp = FileUtils.readFileToString(requestedFile, "UTF-8");
+                out.write("<pre id=\"log-results\">" + temp + "</pre>");
+            }
+        } catch (SecurityException e) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid file path");
+            return;
+        }
     }
 %>
 
