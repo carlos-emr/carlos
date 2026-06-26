@@ -66,7 +66,9 @@ public class SecurityInfoManagerImpl implements SecurityInfoManager {
             return Collections.emptyList();
         }
 
-        return secUserRoleDao.findByProviderNo(loggedInInfo.getLoggedInProviderNo());
+        // Only active (activeyn = 1) provider-role assignments grant access; an inactive role
+        // must not feed hasPrivilege / isAllowedAccessToPatientRecord / getSecurityObjects.
+        return secUserRoleDao.findActiveByProviderNo(loggedInInfo.getLoggedInProviderNo());
     }
 
     @Override
