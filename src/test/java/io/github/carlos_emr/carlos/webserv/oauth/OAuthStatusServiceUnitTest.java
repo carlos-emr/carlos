@@ -28,6 +28,8 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.ws.rs.core.HttpHeaders;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -37,8 +39,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.when;
 
 @Tag("unit")
@@ -62,9 +62,13 @@ class OAuthStatusServiceUnitTest extends CarlosUnitTestBase {
         provider.setSpecialty("FM");
         provider.setOhipNo("1234567890");
         provider.setBillingNo("BILL99");
+        provider.setHsoNo("HSO123");
+        provider.setRmaNo("RMA456");
         provider.setAddress("123 Main St");
         provider.setPhone("555-1234");
+        provider.setWorkPhone("555-9876");
         provider.setEmail("jane@clinic.ca");
+        provider.setComments("Internal provider notes");
 
         when(loggedInInfo.getLoggedInProvider()).thenReturn(provider);
         when(mockHeaders.getHeaderString("Authorization")).thenReturn(null);
@@ -83,16 +87,12 @@ class OAuthStatusServiceUnitTest extends CarlosUnitTestBase {
     void shouldNotExposeSensitiveFields_whenProviderHasSensitiveData() throws Exception {
         String json = service.oauthInfo(mockHeaders);
         JsonNode root = new ObjectMapper().readTree(json);
+        JsonNode providerNode = root.get("provider");
 
-        assertFalse(root.has("ohipNo"),    "ohipNo must not be exposed");
-        assertFalse(root.has("billingNo"), "billingNo must not be exposed");
-        assertFalse(root.has("address"),   "address must not be exposed");
-        assertFalse(root.has("phone"),     "phone must not be exposed");
-        assertFalse(root.has("email"),     "email must not be exposed");
-        // provider fields must only appear nested, not at root
-        assertFalse(root.has("providerNo"), "providerNo must not be at root level");
-        assertFalse(root.has("firstName"),  "firstName must not be at root level");
-        assertFalse(root.has("lastName"),   "lastName must not be at root level");
+        assertThat(fieldNames(root))
+                .containsExactlyInAnyOrder("provider", "login", "roles");
+        assertThat(fieldNames(providerNode))
+                .containsExactlyInAnyOrder("providerNo", "firstName", "lastName", "specialty");
     }
 
     @Test
@@ -102,11 +102,17 @@ class OAuthStatusServiceUnitTest extends CarlosUnitTestBase {
         JsonNode root = new ObjectMapper().readTree(json);
 
         JsonNode p = root.get("provider");
-        assertNotNull(p, "\"provider\" node must be present");
+        assertThat(p).as("\"provider\" node must be present").isNotNull();
         assertThat(p.get("providerNo").asText()).isEqualTo("100");
         assertThat(p.get("firstName").asText()).isEqualTo("Jane");
         assertThat(p.get("lastName").asText()).isEqualTo("Doe");
         assertThat(p.get("specialty").asText()).isEqualTo("FM");
         assertThat(root.has("roles")).isTrue();
+    }
+
+    private static Set<String> fieldNames(JsonNode node) {
+        Set<String> names = new LinkedHashSet<>();
+        node.fieldNames().forEachRemaining(names::add);
+        return names;
     }
 }
