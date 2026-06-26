@@ -91,6 +91,7 @@ on this control for brute-force or DoS protection must set both `WAF_RATE_LIMIT_
 /login=10/60               — brute force protection
 /mfa/=10/60                — MFA brute force protection
 /forcepasswordreset=5/60   — password reset abuse prevention
+/forcepasswordresetSubmit=5/60 — password reset submit abuse
 /lab/CMLlabUpload=30/60    — external lab integration
 /lab/newLabUpload=30/60    — external lab integration
 /ws/oauth=15/60            — OAuth initiate/token (credential-bearing)
