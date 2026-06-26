@@ -91,6 +91,10 @@ public class PrintDemoAddressLabel2Action extends ActionSupport {
         this.securityInfoManager = securityInfoManager;
     }
 
+    public PrintDemoAddressLabel2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
+    }
+
     /**
      * Executes the address label generation and printing workflow.
      *

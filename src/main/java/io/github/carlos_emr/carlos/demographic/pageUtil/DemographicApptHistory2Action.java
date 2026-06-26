@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.demographic.pageUtil;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -49,6 +50,10 @@ public class DemographicApptHistory2Action extends ActionSupport {
 
     public DemographicApptHistory2Action(SecurityInfoManager securityInfoManager) {
         this.securityInfoManager = securityInfoManager;
+    }
+
+    public DemographicApptHistory2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
     }
 
     /**

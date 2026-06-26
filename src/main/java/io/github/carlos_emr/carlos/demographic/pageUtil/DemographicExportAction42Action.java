@@ -284,6 +284,10 @@ public class DemographicExportAction42Action extends ActionSupport {
         this.securityInfoManager = securityInfoManager;
     }
 
+    public DemographicExportAction42Action() {
+        this(SpringUtils.getBean(DemographicArchiveDao.class), SpringUtils.getBean(DemographicContactDao.class), SpringUtils.getBean(PartialDateDao.class), SpringUtils.getBean(HRMDocumentToDemographicDao.class), SpringUtils.getBean(HRMDocumentDao.class), SpringUtils.getBean(HRMDocumentCommentDao.class), SpringUtils.getBean(CaseManagementManager.class), SpringUtils.getBean(Hl7TextInfoDao.class), SpringUtils.getBean(Hl7TextMessageDao.class), SpringUtils.getBean(DemographicExtDao.class), SpringUtils.getBean(SecurityInfoManager.class));
+    }
+
     Integer exportNo = 0;
     ArrayList<String> exportError = null;
     HashMap<String, Integer> entries = new HashMap<String, Integer>();

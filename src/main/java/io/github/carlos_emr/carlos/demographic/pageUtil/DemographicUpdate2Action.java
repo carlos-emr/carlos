@@ -87,6 +87,10 @@ public class DemographicUpdate2Action extends ActionSupport {
         this.securityInfoManager = securityInfoManager;
     }
 
+    public DemographicUpdate2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
+    }
+
     /**
      * Validates session and privileges, then applies all update logic extracted
      * from the former {@code demographicupdatearecord.jsp} scriptlets.

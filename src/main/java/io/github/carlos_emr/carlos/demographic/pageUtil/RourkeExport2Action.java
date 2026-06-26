@@ -100,6 +100,10 @@ public class RourkeExport2Action extends ActionSupport {
         this.frmRourke2009DAO = frmRourke2009DAO;
     }
 
+    public RourkeExport2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(ClinicDAO.class), SpringUtils.getBean(DataExportDao.class), SpringUtils.getBean(DemographicDao.class), SpringUtils.getBean(Rourke2009DAO.class));
+    }
+
     private Logger log = MiscUtils.getLogger();
 
     public Rourke2009DAO getFrmRourke2009DAO() {

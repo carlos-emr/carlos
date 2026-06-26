@@ -49,6 +49,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.demographic.data.DemographicMerged;
 
@@ -68,6 +69,10 @@ public class DemographicMergeRecord2Action extends ActionSupport {
     private final transient SecurityInfoManager securityInfoManager;
     public DemographicMergeRecord2Action(SecurityInfoManager securityInfoManager) {
         this.securityInfoManager = securityInfoManager;
+    }
+
+    public DemographicMergeRecord2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md

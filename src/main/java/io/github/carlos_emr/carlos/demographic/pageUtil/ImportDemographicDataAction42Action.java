@@ -256,6 +256,10 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         this.contactDao = contactDao;
         this.nioFileManager = nioFileManager;
     }
+
+    public ImportDemographicDataAction42Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(ProgramManager.class), SpringUtils.getBean(AdmissionManager.class), SpringUtils.getBean(AdmissionDao.class), SpringUtils.getBean(CaseManagementManager.class), SpringUtils.getBean(DrugDao.class), SpringUtils.getBean(DrugReasonDao.class), SpringUtils.getBean(DemographicArchiveDao.class), SpringUtils.getBean(ProviderDataDao.class), SpringUtils.getBean(PartialDateDao.class), SpringUtils.getBean(DemographicExtDao.class), SpringUtils.getBean(OscarAppointmentDao.class), SpringUtils.getBean(PatientLabRoutingDao.class), SpringUtils.getBean(ProviderLabRoutingDao.class), SpringUtils.getBean(MeasurementsExtDao.class), SpringUtils.getBean(DemographicContactDao.class), SpringUtils.getBean(NioFileManager.class));
+    }
     private LabUploadWs labUpload = new LabUploadWs();
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md

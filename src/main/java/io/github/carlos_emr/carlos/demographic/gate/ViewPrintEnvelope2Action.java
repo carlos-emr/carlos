@@ -16,6 +16,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -35,6 +36,10 @@ public final class ViewPrintEnvelope2Action extends ActionSupport {
 
     public ViewPrintEnvelope2Action(SecurityInfoManager securityInfoManager) {
         this.securityInfoManager = securityInfoManager;
+    }
+
+    public ViewPrintEnvelope2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
     }
 
     @Override

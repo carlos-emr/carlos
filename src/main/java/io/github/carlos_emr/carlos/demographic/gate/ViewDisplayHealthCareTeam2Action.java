@@ -16,6 +16,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -34,6 +35,10 @@ public final class ViewDisplayHealthCareTeam2Action extends ActionSupport {
 
     public ViewDisplayHealthCareTeam2Action(SecurityInfoManager securityInfoManager) {
         this.securityInfoManager = securityInfoManager;
+    }
+
+    public ViewDisplayHealthCareTeam2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
     }
 
     @Override

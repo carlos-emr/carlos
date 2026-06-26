@@ -70,13 +70,23 @@ class Demographic2ActionInjectionRegressionTest {
     }
 
     @Test
-    @DisplayName("should configure Struts Spring object factory for constructor injection")
-    void shouldConfigureStrutsSpringObjectFactory_forConstructorInjection() throws IOException {
+    @DisplayName("should use the Spring object factory without the startup-breaking constructor autowire strategy")
+    void shouldUseSpringObjectFactory_withoutGlobalConstructorAutowire() throws IOException {
         String strutsConfig = Files.readString(STRUTS_CONFIG, StandardCharsets.UTF_8);
 
+        // The Spring object factory is required so actions are Spring-managed.
         assertThat(strutsConfig)
-                .contains("<constant name=\"struts.objectFactory\" value=\"spring\"/>")
-                .contains("<constant name=\"struts.objectFactory.spring.autoWire\" value=\"constructor\"/>");
+                .contains("<constant name=\"struts.objectFactory\" value=\"spring\"/>");
+
+        // Setting the global autowire strategy to "constructor" makes Struts attempt
+        // AUTOWIRE_CONSTRUCTOR on already-instantiated framework objects (interceptors,
+        // results, validators), which Spring rejects ("AUTOWIRE_CONSTRUCTOR not supported
+        // for existing bean instance") and the whole webapp fails to start. Actions are
+        // instead instantiated via their no-arg constructor (delegating to the injected
+        // constructor through SpringUtils), so this strategy must never be set globally.
+        assertThat(strutsConfig)
+                .as("global constructor autowire strategy breaks webapp startup")
+                .doesNotContain("struts.objectFactory.spring.autoWire");
     }
 
     @Test

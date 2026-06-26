@@ -100,6 +100,10 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
         this.securityInfoManager = securityInfoManager;
     }
 
+    public PrintDemoChartLabel2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
+    }
+
     /**
      * Main action execution method that generates and streams a patient chart label PDF.
      *

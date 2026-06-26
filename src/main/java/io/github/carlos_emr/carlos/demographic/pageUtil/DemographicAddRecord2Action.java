@@ -104,6 +104,10 @@ public class DemographicAddRecord2Action extends ActionSupport {
         this.waitingListDao = waitingListDao;
     }
 
+    public DemographicAddRecord2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(DemographicDao.class), SpringUtils.getBean(DemographicCustDao.class), SpringUtils.getBean(DemographicExtDao.class), SpringUtils.getBean(DemographicArchiveDao.class), SpringUtils.getBean(DemographicExtArchiveDao.class), SpringUtils.getBean(WaitingListDao.class));
+    }
+
     /**
      * Processes a demographic add form POST, persisting all related records and
      * setting response attributes for the view template.

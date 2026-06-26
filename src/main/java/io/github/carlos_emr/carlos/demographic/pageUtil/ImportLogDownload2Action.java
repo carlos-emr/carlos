@@ -52,6 +52,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.LogSafe;
@@ -66,6 +67,10 @@ public class ImportLogDownload2Action extends ActionSupport {
 
     public ImportLogDownload2Action(SecurityInfoManager securityInfoManager) {
         this.securityInfoManager = Objects.requireNonNull(securityInfoManager, "securityInfoManager");
+    }
+
+    public ImportLogDownload2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
     }
     public String execute() throws FileNotFoundException, IOException {
         // Security check - user must have demographic read privileges

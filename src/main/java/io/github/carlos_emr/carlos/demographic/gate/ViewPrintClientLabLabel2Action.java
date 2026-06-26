@@ -18,6 +18,7 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -37,6 +38,10 @@ public final class ViewPrintClientLabLabel2Action extends ActionSupport {
 
     public ViewPrintClientLabLabel2Action(SecurityInfoManager securityInfoManager) {
         this.securityInfoManager = securityInfoManager;
+    }
+
+    public ViewPrintClientLabLabel2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
     }
 
     @Override

@@ -32,7 +32,6 @@
     <constant name="struts.action.extension" value="" />
     <constant name="struts.devMode" value="${struts.devMode}"/>
     <constant name="struts.objectFactory" value="spring"/>
-    <constant name="struts.objectFactory.spring.autoWire" value="constructor"/>
     <constant name="struts.enable.SlashesInActionNames" value="true" />
     <constant name="struts.mapper.alwaysSelectFullNamespace" value="false" />
     <constant name="struts.actionConfig.fallbackToEmptyNamespace" value="true" />

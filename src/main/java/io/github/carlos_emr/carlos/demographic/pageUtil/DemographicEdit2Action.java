@@ -103,6 +103,10 @@ public class DemographicEdit2Action extends ActionSupport {
         this.securityInfoManager = securityInfoManager;
     }
 
+    public DemographicEdit2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
+    }
+
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override

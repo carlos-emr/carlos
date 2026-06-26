@@ -60,7 +60,7 @@ class Demographic2ActionConstructorInjectionUnitTest extends CarlosWebTestBase {
     @MethodSource("constructorInjectedActions")
     @DisplayName("should instantiate actions with constructor dependencies")
     void shouldInstantiate_withConstructorDependencies(Class<?> actionClass) throws Exception {
-        Constructor<?> constructor = onlyPublicConstructor(actionClass);
+        Constructor<?> constructor = injectionConstructor(actionClass);
         Object[] dependencies = Arrays.stream(constructor.getParameterTypes())
                 .map(Demographic2ActionConstructorInjectionUnitTest::testDependency)
                 .toArray();
@@ -70,12 +70,20 @@ class Demographic2ActionConstructorInjectionUnitTest extends CarlosWebTestBase {
         assertThat(action).isInstanceOf(actionClass);
     }
 
-    private static Constructor<?> onlyPublicConstructor(Class<?> actionClass) {
-        Constructor<?>[] constructors = actionClass.getConstructors();
-        assertThat(constructors)
-                .as("%s should expose exactly one constructor-injection entry point", actionClass.getName())
-                .hasSize(1);
-        return constructors[0];
+    /**
+     * Returns the dependency-injection entry point: the public constructor with the most
+     * parameters. Actions also expose a no-arg constructor that delegates to this one via
+     * {@code SpringUtils.getBean(...)} so Struts (default {@code name} autowire) can build
+     * them, while tests and Spring constructor wiring use the parameterized constructor.
+     */
+    private static Constructor<?> injectionConstructor(Class<?> actionClass) {
+        Constructor<?> injection = Arrays.stream(actionClass.getConstructors())
+                .max(Comparator.comparingInt(Constructor::getParameterCount))
+                .orElseThrow();
+        assertThat(injection.getParameterCount())
+                .as("%s should expose a constructor-injection entry point with dependencies", actionClass.getName())
+                .isPositive();
+        return injection;
     }
 
     private static Object testDependency(Class<?> dependencyType) {

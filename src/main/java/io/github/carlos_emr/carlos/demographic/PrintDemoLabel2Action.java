@@ -108,6 +108,10 @@ public class PrintDemoLabel2Action extends ActionSupport {
         this.securityInfoManager = securityInfoManager;
     }
 
+    public PrintDemoLabel2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
+    }
+
     /**
      * Executes the main action logic to generate and stream a PDF label for a patient.
      *
