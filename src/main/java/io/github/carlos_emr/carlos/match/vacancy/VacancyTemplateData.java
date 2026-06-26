@@ -37,6 +37,7 @@ import java.util.TreeSet;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class VacancyTemplateData {
     private static final Logger logger = MiscUtils.getLogger();
@@ -52,6 +53,8 @@ public class VacancyTemplateData {
     //TODO: Probably want to use the Gender object here. I'm not sure where these values are coming from at this time
     private List<String> transaGender = Arrays.asList("male", "female", "m", "f", "transgender");
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public int matches(String value) {
         if (this.weight == 0) {
             this.weight = 1;

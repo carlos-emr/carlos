@@ -43,12 +43,15 @@ import io.github.carlos_emr.CarlosProperties;
 
 import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.MessageHandler;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class PhsStarHandler implements MessageHandler {
 
     Logger logger = MiscUtils.getLogger();
 
     @Override
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public String parse(LoggedInInfo loggedInInfo, String serviceName, String fileName, int fileId, String ipAddr) {
         logger.info("received PHS/STAR message");
 

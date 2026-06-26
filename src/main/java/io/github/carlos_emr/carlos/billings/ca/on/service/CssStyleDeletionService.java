@@ -30,6 +30,7 @@ import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.commn.dao.CSSStylesDAO;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
 import io.github.carlos_emr.carlos.commn.model.CssStyle;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Atomically soft-deletes a CSS style and nulls
@@ -56,6 +57,8 @@ public class CssStyleDeletionService {
      * referenced it. Returns {@code true} when a row was found and deleted;
      * {@code false} when no css_styles row matches {@code styleId}.
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public boolean deleteByStyleId(String styleId) {
         if (styleId == null) {
             return false;

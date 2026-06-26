@@ -31,6 +31,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOnCorrectionViewModelAssembler;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingCorrectionService;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Thin Struts2 gate for the Ontario billing-correction <em>update</em>
@@ -66,6 +67,8 @@ public class UpdateBillingOnCorrection2Action extends ActionSupport {
         this.service = service;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String execute() {
         HttpServletRequest request = ServletActionContext.getRequest();

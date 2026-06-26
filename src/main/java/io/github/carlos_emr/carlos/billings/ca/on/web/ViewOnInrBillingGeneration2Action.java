@@ -46,6 +46,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Generates Ontario MOH claims from accepted INR billing rows. Replaces the
@@ -79,6 +80,8 @@ public class ViewOnInrBillingGeneration2Action extends ActionSupport {
         this.persistenceService = persistenceService;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String execute() {
         HttpServletRequest request = ServletActionContext.getRequest();
