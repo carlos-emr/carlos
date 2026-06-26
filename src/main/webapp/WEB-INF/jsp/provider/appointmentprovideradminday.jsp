@@ -164,11 +164,11 @@
     String trimmedValue = value.trim(); 
     if (trimmedValue.isEmpty() || "null".equalsIgnoreCase(trimmedValue)) return;
     tooltip.append("&#013;&#010;")
-      .append(labelHtml) // <-- DO NOT escape; it's icon HTML you generate
+      .append(labelHtml) // <-- DO NOT escape; it's icon HTML we generate
       .append(" ")
       .append(SafeEncode.forHtmlAttribute(trimmedValue))
       .append("<br>"); 
-  }                                                                                                                                                                                                                                                                                                                                                                                                                   private static String faIcon(String className) {                                                                                                                                                              return "<i class='fa-solid " + className + " me-2' aria-hidden='true'></i>";                                                                                                                          }              
+  }
 %>
 <%
     if (bMultisites) {
@@ -2032,7 +2032,7 @@
                                                                   appendTooltipLine(appointmentTooltipFullBuilder, "<i class='fa-regular fa-bell' aria-hidden='true'></i>", preventionWarning);
 
                                                                   String appointmentTooltipFull = appointmentTooltipFullBuilder.toString();
-                                                                  boolean showTooltip = !CarlosProperties.getInstance().getBooleanProperty("SHOW_APPT_REASON_TOOLTIP", "no");
+                                                                  boolean showTooltip = true; //CarlosProperties.getInstance().getBooleanProperty("SHOW_APPT_REASON_TOOLTIP", "yes");
 
                                                                   bFirstTimeRs=true;
                                                             as.setApptStatus(status);
@@ -2149,12 +2149,12 @@
                                                            onClick="popupPage(600,780,'<%= request.getContextPath() %>/appointment/editappointment?appointment_no=<carlos:encode value='${__enc_8}' context="javaScriptAttribute"/>&provider_no=<carlos:encode value='${__enc_9}' context="javaScriptAttribute"/>&year=<carlos:encode value='${__enc_10}' context="javaScriptAttribute"/>&month=<carlos:encode value='${__enc_11}' context="javaScriptAttribute"/>&day=<carlos:encode value='${__enc_12}' context="javaScriptAttribute"/>&start_time=<carlos:encode value='${__enc_13}' context="javaScriptAttribute"/>&demographic_no=0&dboperation=search');return false;"
                                                             <%= showTooltip
                                                             ? "data-bs-toggle=\"tooltip\""
-                                                              + " data-title-full=\"" + SafeEncode.forHtmlAttribute(appointmentTooltipFull) + "\""
-                                                              + " data-title-short=\"" + SafeEncode.forHtmlAttribute(appointmentTooltipSummary) + "\""
-                                                              + " title=\"" + SafeEncode.forHtmlAttribute(appointmentTooltipFull) + "\""
+                                                              + " data-title-full=\"" + appointmentTooltipFull + "\""
+                                                              + " data-title-short=\"" + appointmentTooltipSummary + "\""
+                                                              + " title=\"" + appointmentTooltipFull + "\""
                                                             : "" %>>
                                                             <span>
-                                                            .<%=(view == 0 && numAvailProvider != 1) ? (name.length() > len ? name.substring(0, len).toUpperCase() : SafeEncode.forHtmlContent(name.toUpperCase())) : SafeEncode.forHtmlContent(name.toUpperCase())%>
+                                                            .<%=(view == 0 && numAvailProvider != 1) ? (name.length() > len ? SafeEncode.forHtmlAttribute(name.substring(0, len).toUpperCase()) : SafeEncode.forHtmlContent(name.toUpperCase())) : SafeEncode.forHtmlContent(name.toUpperCase())%>
                                                             </span>
                                                         </a><!--Inline display of reason -->
 
