@@ -683,11 +683,11 @@
     <%
         if (io.github.carlos_emr.carlos.commn.IsPropertiesOn.isCaisiEnable()) {
     %>
-    <body onload="load();">
+    <body onload="load();tooltipStart()">
     <%
     } else {
     %>
-    <body onLoad="showPasswordExpiryWarning();refreshAllTabAlerts();scrollOnLoad();">
+    <body onLoad="showPasswordExpiryWarning();refreshAllTabAlerts();scrollOnLoad();tooltipStart()">
     <%
         }
     %>
@@ -2044,7 +2044,7 @@
                                                     %>
                                                     <td class="appt<%= isCancelled ? " Cancelled" : "" %><%= showTooltip ? " appt-reason-tooltip appt-tooltip-provider-" + curProvider_no[nProvider] : "" %>" bgcolor='<%=as.getBgColor()%>'
                                                         rowspan="<%=iRows%>"
-                                                        <%= showTooltip ? "data-title-full=\"" + appointmentTooltipFull + "\" data-title-short=\"" + appointmentTooltipSummary + "\" title=\"" + appointmentTooltipFull + "\"" : "" %>
+                                                        
                                                         nowrap>
                                                         <!-- multisites : add colour-coded to the "location" value of that appointment. -->
                                                         <%if (bMultisites) {%>
@@ -3081,7 +3081,8 @@
             popupPage(360, 780, popupUrl);
         });
     })();
-	window.onload = function (){
+
+	function tooltipStart() {
 		document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
 			const full = el.getAttribute('data-title-full') || '';
 			el.setAttribute('title', full);
