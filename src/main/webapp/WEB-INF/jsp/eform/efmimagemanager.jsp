@@ -32,8 +32,6 @@
 <%@ page import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
-<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -49,19 +47,14 @@
 
             function deleteImg(image) {
                 if (confirm("<fmt:message key="eform.uploadimages.imgDelete"/>")) {
-                    var form = document.createElement('form');
-                    form.method = 'post';
-                    form.action = '<%=request.getContextPath()%>/eform/deleteImage';
-                    var input = document.createElement('input');
-                    input.type = 'hidden';
-                    input.name = 'filename';
-                    input.value = image;
-                    form.appendChild(input);
-                    document.body.appendChild(form);
-                    form.submit();
+                    document.getElementById('deleteImgFilename').value = image;
+                    document.getElementById('deleteImgForm').submit();
                 }
             }
         </script>
+        <form id="deleteImgForm" method="post" action="<%=request.getContextPath()%>/eform/deleteImage" style="display:none;">
+            <input type="hidden" name="filename" id="deleteImgFilename"/>
+        </form>
     <link rel="stylesheet" href="<%= request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css">
     <script type="text/javascript" src="<%= request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
     </head>
@@ -91,9 +84,9 @@
             ArrayList images = EFormUtil.listImages();
             request.setAttribute("images", images);
             for (int i = 0; i < images.size(); i++) {
-                String fileURL = request.getContextPath() + "/eform/displayImage?imagefile=" + images.get(i);
-                //String fileURL="/OscarDocument/" + project_home + "/eform/images/"+images.get(i);
                 String curimage = (String) images.get(i);
+                String fileURL = request.getContextPath() + "/eform/displayImage?imagefile=" + URLEncoder.encode(curimage, java.nio.charset.StandardCharsets.UTF_8);
+                //String fileURL="/OscarDocument/" + project_home + "/eform/images/"+images.get(i);
         %>
 
         <tr>
