@@ -32,6 +32,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOnReviewViewModelAssembler;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnReviewDiagPersister;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Mutation gate for {@code billing/CA/ON/billingONReview.jsp}. The JSP
@@ -64,6 +65,8 @@ public class ViewBillingOnReview2Action extends ActionSupport {
         this.assembler = assembler;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();

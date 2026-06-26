@@ -177,10 +177,25 @@ jobs:
               -T 1C
           "
 
+      - name: Resolve SpotBugs XML report path
+        id: resolve_spotbugs_report
+        if: always()
+        run: |
+          for report in target/spotbugs-result.xml target/spotbugsTemp.xml; do
+            if [ -s "$report" ]; then
+              echo "report=$report" >> "$GITHUB_OUTPUT"
+              echo "found=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+
+          echo "report=target/spotbugs-result.xml" >> "$GITHUB_OUTPUT"
+          echo "found=false" >> "$GITHUB_OUTPUT"
+
       - name: Convert SpotBugs security XML to SARIF
         if: always()
         run: |
-          REPORT="target/spotbugs-result.xml"
+          export REPORT="${{ steps.resolve_spotbugs_report.outputs.report }}"
           if [ ! -f "$REPORT" ]; then
             echo "::error::No SpotBugs report found at $REPORT"
             if [ "${{ steps.run_spotbugs.outcome }}" = "success" ]; then
@@ -190,10 +205,11 @@ jobs:
           fi
 
           python3 << 'PYEOF'
+          import os
           import xml.etree.ElementTree as ET
           import json, sys
 
-          report_path = "target/spotbugs-result.xml"
+          report_path = os.environ["REPORT"]
           sarif_path = "spotbugs-security-report.sarif"
           metrics_path = "spotbugs-security-metrics.env"
 
@@ -334,16 +350,16 @@ jobs:
 
       - name: Upload SpotBugs quality artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        if: always() && hashFiles('target/spotbugs-result.xml') != ''
+        if: always() && steps.resolve_spotbugs_report.outputs.found == 'true'
         with:
           name: spotbugs-quality-xml
-          path: target/spotbugs-result.xml
+          path: ${{ steps.resolve_spotbugs_report.outputs.report }}
           retention-days: 14
 
       - name: Report summary
         if: always()
         run: |
-          REPORT="target/spotbugs-result.xml"
+          REPORT="${{ steps.resolve_spotbugs_report.outputs.report }}"
           METRICS="spotbugs-security-metrics.env"
           echo "### SpotBugs + Find Security Bugs Results" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"

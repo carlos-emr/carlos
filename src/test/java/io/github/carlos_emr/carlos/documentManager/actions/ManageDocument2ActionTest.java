@@ -26,6 +26,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.FileAlreadyExistsException;
 import java.io.PrintWriter;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -281,6 +282,31 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         assertThat(Files.readString(storedFiles.get(0))).isEqualTo("plain-text-content");
     }
 
+    @Test
+    @DisplayName("Rejects GET before adding an incoming document")
+    void shouldRejectGet_whenAddingIncomingDocument() throws Exception {
+        request.setMethod("GET");
+
+        String result = action.addIncomingDocument();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
+    }
+
+    @Test
+    @DisplayName("Does not overwrite an existing destination when moving an incoming document")
+    void shouldNotOverwriteExistingDestination_whenMovingIncomingDocument() throws Exception {
+        Path source = Files.writeString(tempDir.resolve("source.pdf"), "source-content");
+        Path destination = Files.writeString(tempDir.resolve("destination.pdf"), "existing-content");
+
+        assertThatThrownBy(() -> action.moveIncomingDocument(source.toFile(), destination.toFile()))
+                .isInstanceOf(FileAlreadyExistsException.class);
+
+        assertThat(Files.readString(destination)).isEqualTo("existing-content");
+        assertThat(source).exists();
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"nested/report.pdf", "nested\\report.pdf", "C:foo.pdf"})
     @DisplayName("Rejects incoming source filenames with path components")
@@ -472,6 +498,7 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
     }
 
     private void setupSuccessfulAddIncomingRequest(String pdfName) {
+        request.setMethod("POST");
         request.getSession().setAttribute("user", "999998");
         Provider provider = new Provider();
         provider.setProviderNo("999998");
@@ -545,7 +572,7 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         }
 
         @Override
-        protected boolean moveIncomingDocument(File sourceFile, File destFile) {
+        protected boolean moveIncomingDocument(File sourceFile, File destFile) throws FileAlreadyExistsException {
             return !failMove && super.moveIncomingDocument(sourceFile, destFile);
         }
     }

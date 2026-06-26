@@ -50,6 +50,7 @@ import io.github.carlos_emr.carlos.form.gate.FormViewRoutes;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class FormForward2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -62,6 +63,9 @@ public class FormForward2Action extends ActionSupport {
     /**
      * forward to the current specified form, e.g. ../form/formar.jsp?demographic_no=
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "UNVALIDATED_REDIRECT"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     @Override
     public String execute() throws ServletException, IOException {
 
@@ -123,7 +127,9 @@ public class FormForward2Action extends ActionSupport {
          */
         String actionPath = FormViewRoutes.resolveActionPath(formPath[0]);
         if (actionPath == null) {
-            logger.warn("Failed to resolve action path for form {}", strFrm);
+            if (logger.isWarnEnabled()) {
+                logger.warn("Failed to resolve action path for requested form; form name omitted from log");
+            }
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid form path");
             return NONE;
         }

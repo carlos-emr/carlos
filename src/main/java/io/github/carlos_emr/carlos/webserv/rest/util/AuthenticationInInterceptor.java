@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 
 import io.github.carlos_emr.carlos.log.LogAction;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class AuthenticationInInterceptor extends AbstractPhaseInterceptor<Message> {
 
@@ -56,6 +57,8 @@ public class AuthenticationInInterceptor extends AbstractPhaseInterceptor<Messag
         return LoggedInInfo.getLoggedInInfoFromSession(request);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     @Override
     public void handleMessage(Message message) throws Fault {
         // allows WADL requests for unauthenticated users

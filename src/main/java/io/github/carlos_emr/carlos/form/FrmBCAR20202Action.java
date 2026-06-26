@@ -71,6 +71,7 @@ import java.util.Set;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class FrmBCAR20202Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -106,6 +107,8 @@ public class FrmBCAR20202Action extends ActionSupport {
         return "exit";
     }
 
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String save() throws Exception {
         FrmBCAR2020Record bcar2020Record = (FrmBCAR2020Record) (new FrmRecordFactory()).factory(RECORD_NAME);
 
@@ -214,7 +217,7 @@ public class FrmBCAR20202Action extends ActionSupport {
             url = url + forwardTo + ".jsp";
         }
         url = url + "?demographic_no=" + demographicNo + "&formId=" + formId + "&provNo=" + providerNo;
-        response.sendRedirect(url);
+        response.sendRedirect(request.getContextPath() + url);
         return NONE;
     }
 

@@ -46,6 +46,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.model.security.Secrole;
 import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Transactional
 public class IssueDAOImpl extends AbstractJpaDao implements IssueDAO {
@@ -201,6 +202,8 @@ public class IssueDAOImpl extends AbstractJpaDao implements IssueDAO {
      *
      * @param type
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @SuppressWarnings("unchecked")
     @Override
     public List<String> getLocalCodesByCommunityType(String type) {

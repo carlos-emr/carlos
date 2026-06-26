@@ -194,10 +194,10 @@
                         }
                     %>
 
-                    <display:column><input type="checkbox" name="checked_${referral.id}"
-                                           onChange="checkUncheck('${referral.id}')"/></display:column>
+                    <display:column><input type="checkbox" name="checked_${carlos:forHtmlAttribute(referral.id)}"
+                                           onChange="checkUncheck('${carlos:forJavaScriptAttribute(referral.id)}')"/></display:column>
                     <display:column><a href="javascript:void(0)"
-                                       onclick="openEditSpecialist('${referral.id}')"><%=linkName %>
+                                       onclick="openEditSpecialist('${carlos:forJavaScriptAttribute(referral.id)}')"><carlos:encode value='<%= linkName %>'/>
                     </a></display:column>
                     <display:column property="firstName" title="<fmt:message key='admin.billingreferralAdmin.col.firstName'/>"/>
                     <display:column property="lastName" title="<fmt:message key='admin.billingreferralAdmin.col.lastName'/>"/>

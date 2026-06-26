@@ -29,6 +29,8 @@
 
 package io.github.carlos_emr.carlos.login;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 
@@ -199,6 +201,9 @@ public class Logout2Action extends ActionSupport {
      * @see Cookie#setMaxAge(int) for cookie expiration
      * @see LogAction#addLog for audit logging
      */
+    // FindSecBugs INSECURE_COOKIE/COOKIE_USAGE: logout writes empty maxAge(0) deletion cookies only.
+    // Do not add persistent or sensitive cookie writes under this suppression.
+    @SuppressFBWarnings(value = {"INSECURE_COOKIE", "COOKIE_USAGE"}, justification = "logout only creates empty maxAge(0) deletion cookies with HttpOnly and SameSite=Strict, and Secure when the request is over HTTPS; it does not store sensitive cookie data")
     public String logout() {
 
         // Retrieve existing session without creating new one
