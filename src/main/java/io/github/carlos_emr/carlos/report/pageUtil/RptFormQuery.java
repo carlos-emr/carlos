@@ -58,14 +58,17 @@ public class RptFormQuery {
     /**
      * Validates that a report table name contains only supported safe SQL
      * identifier forms. This report builder later qualifies columns with the
-     * table value, so aliases and comma-separated table references are rejected
-     * even though other legacy validators may accept them.
+     * table value, so aliases, comma-separated table references, and multi-dot
+     * names are rejected: only a simple name or a single schema-qualified name
+     * ({@code schema.table}) is accepted, even though other legacy validators
+     * may accept more.
      *
      * @param tableName the table name string to validate
      * @throws SecurityException if the table name contains invalid characters
      */
     static void validateTableName(String tableName) {
-        if (!SqlIdentifierValidator.isValidIdentifier(tableName)) {
+        if (!SqlIdentifierValidator.isValidIdentifier(tableName)
+                || tableName.chars().filter(ch -> ch == '.').count() > 1) {
             MiscUtils.getLogger().error("Invalid table name detected in report configuration");
             throw new SecurityException("Invalid table name in report configuration");
         }

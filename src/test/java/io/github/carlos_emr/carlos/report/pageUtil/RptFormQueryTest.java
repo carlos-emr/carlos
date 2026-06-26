@@ -58,6 +58,16 @@ class RptFormQueryTest {
     }
 
     @Test
+    @DisplayName("should reject report table names with more than one dot")
+    void shouldRejectTableNames_whenNameHasMultipleDots() {
+        // The table value is used to qualify columns later, so anything beyond a
+        // single schema-qualified name would produce invalid qualified-column SQL.
+        assertThatThrownBy(() -> RptFormQuery.validateTableName("db.schema.formBCAR"))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("Invalid table name");
+    }
+
+    @Test
     @DisplayName("should return empty ParameterizedSql when fragment list is empty")
     void shouldReturnEmpty_whenFragmentListEmpty() {
         ParameterizedSql result = RptFormQuery.getQueryWhereParameterized(Collections.emptyList());
