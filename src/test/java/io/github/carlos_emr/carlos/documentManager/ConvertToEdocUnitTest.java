@@ -41,9 +41,10 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
 
         String tidied = ConvertToEdoc.tidyDocument(html);
 
-        assertThat(tidied).doesNotContain("https://evil.example/tracker.png");
-        assertThat(tidied).doesNotContain("background=\"https://evil.example/tracker.png\"");
-        assertThat(tidied).contains("background-image:url('')");
+        assertThat(tidied)
+                .doesNotContain("https://evil.example/tracker.png")
+                .doesNotContain("background=\"https://evil.example/tracker.png\"")
+                .contains("background-image:url('')");
     }
 
     @Test
@@ -64,8 +65,9 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
 
         String tidied = ConvertToEdoc.tidyDocument(html, tempDir.toString());
 
-        assertThat(tidied).doesNotContain("/etc/passwd");
-        assertThat(tidied).doesNotContain("background=\"/etc/passwd\"");
+        assertThat(tidied)
+                .doesNotContain("/etc/passwd")
+                .doesNotContain("background=\"/etc/passwd\"");
     }
 
     @Test
