@@ -662,38 +662,53 @@ public final class ConvertToEdoc {
 
         StringBuilder rewrittenCss = new StringBuilder();
         int cursor = 0;
-        while (cursor < cssText.length()) {
-            int urlStart = StringUtils.indexOfIgnoreCase(cssText, "url(", cursor);
-            if (urlStart < 0) {
-                rewrittenCss.append(cssText, cursor, cssText.length());
-                break;
-            }
-
-            rewrittenCss.append(cssText, cursor, urlStart);
-
-            int contentStart = urlStart + 4;
-            while (contentStart < cssText.length() && Character.isWhitespace(cssText.charAt(contentStart))) {
-                contentStart++;
-            }
-
-            int urlEnd = findCssUrlEnd(cssText, contentStart);
-            if (urlEnd < 0) {
-                rewrittenCss.append(cssText, urlStart, cssText.length());
-                break;
-            }
-
-            String originalPath = extractCssUrlPath(cssText, contentStart, urlEnd);
-            String translatedPath = translateSingleResourcePath(originalPath);
-            if (translatedPath != null) {
-                rewrittenCss.append("url('").append(translatedPath).append("')");
-            } else if (isEmbeddedDataResourcePath(originalPath)) {
-                rewrittenCss.append(cssText, urlStart, urlEnd + 1);
+        CssUrlMatch match = findNextCssUrlMatch(cssText, cursor);
+        while (match != null) {
+            rewrittenCss.append(cssText, cursor, match.urlStart());
+            if (match.complete()) {
+                appendRewrittenCssUrl(rewrittenCss, cssText, match);
+                cursor = match.urlEnd() + 1;
+                match = findNextCssUrlMatch(cssText, cursor);
             } else {
-                rewrittenCss.append("url('')");
+                rewrittenCss.append(cssText, match.urlStart(), cssText.length());
+                cursor = cssText.length();
+                match = null;
             }
-            cursor = urlEnd + 1;
         }
+
+        rewrittenCss.append(cssText, cursor, cssText.length());
         return rewrittenCss.toString();
+    }
+
+    private static void appendRewrittenCssUrl(StringBuilder rewrittenCss, String cssText, CssUrlMatch match) {
+        String originalPath = extractCssUrlPath(cssText, match.contentStart(), match.urlEnd());
+        String translatedPath = translateSingleResourcePath(originalPath);
+        if (translatedPath != null) {
+            rewrittenCss.append("url('").append(translatedPath).append("')");
+        } else if (isEmbeddedDataResourcePath(originalPath)) {
+            rewrittenCss.append(cssText, match.urlStart(), match.urlEnd() + 1);
+        } else {
+            rewrittenCss.append("url('')");
+        }
+    }
+
+    private static CssUrlMatch findNextCssUrlMatch(String cssText, int cursor) {
+        int urlStart = StringUtils.indexOfIgnoreCase(cssText, "url(", cursor);
+        if (urlStart < 0) {
+            return null;
+        }
+
+        int contentStart = urlStart + 4;
+        while (contentStart < cssText.length() && Character.isWhitespace(cssText.charAt(contentStart))) {
+            contentStart++;
+        }
+
+        int urlEnd = findCssUrlEnd(cssText, contentStart);
+        if (urlEnd < 0) {
+            return CssUrlMatch.incomplete(urlStart, contentStart);
+        }
+
+        return CssUrlMatch.complete(urlStart, contentStart, urlEnd);
     }
 
     private static int findCssUrlEnd(String cssText, int contentStart) {
@@ -702,23 +717,12 @@ public final class ConvertToEdoc {
         for (int i = contentStart; i < cssText.length(); i++) {
             char current = cssText.charAt(i);
             if (quote != 0) {
-                if (current == quote) {
-                    quote = 0;
-                }
-                continue;
-            }
-
-            if (current == '\'' || current == '"') {
+                quote = closeQuoteIfNeeded(quote, current);
+            } else if (isCssQuote(current)) {
                 quote = current;
-                continue;
-            }
-
-            if (current == '(') {
+            } else if (current == '(') {
                 nestedParens++;
-                continue;
-            }
-
-            if (current == ')') {
+            } else if (current == ')') {
                 if (nestedParens == 0) {
                     return i;
                 }
@@ -728,16 +732,66 @@ public final class ConvertToEdoc {
         return -1;
     }
 
+    private static char closeQuoteIfNeeded(char quote, char current) {
+        return current == quote ? (char) 0 : quote;
+    }
+
+    private static boolean isCssQuote(char current) {
+        return current == '\'' || current == '"';
+    }
+
     private static String extractCssUrlPath(String cssText, int contentStart, int urlEnd) {
         String rawPath = cssText.substring(contentStart, urlEnd).trim();
         if (rawPath.length() >= 2) {
             char first = rawPath.charAt(0);
             char last = rawPath.charAt(rawPath.length() - 1);
-            if ((first == '\'' || first == '"') && first == last) {
+            if (isMatchingQuote(first, last)) {
                 rawPath = rawPath.substring(1, rawPath.length() - 1).trim();
             }
         }
         return rawPath;
+    }
+
+    private static boolean isMatchingQuote(char first, char last) {
+        return isCssQuote(first) && first == last;
+    }
+
+    private static final class CssUrlMatch {
+        private final int urlStart;
+        private final int contentStart;
+        private final int urlEnd;
+        private final boolean complete;
+
+        private CssUrlMatch(int urlStart, int contentStart, int urlEnd, boolean complete) {
+            this.urlStart = urlStart;
+            this.contentStart = contentStart;
+            this.urlEnd = urlEnd;
+            this.complete = complete;
+        }
+
+        private static CssUrlMatch complete(int urlStart, int contentStart, int urlEnd) {
+            return new CssUrlMatch(urlStart, contentStart, urlEnd, true);
+        }
+
+        private static CssUrlMatch incomplete(int urlStart, int contentStart) {
+            return new CssUrlMatch(urlStart, contentStart, -1, false);
+        }
+
+        private int urlStart() {
+            return urlStart;
+        }
+
+        private int contentStart() {
+            return contentStart;
+        }
+
+        private int urlEnd() {
+            return urlEnd;
+        }
+
+        private boolean complete() {
+            return complete;
+        }
     }
 
     private static String translateSingleResourcePath(String path) {
