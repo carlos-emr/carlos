@@ -64,6 +64,10 @@ import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Represents the QuickBillingBC2Action functionality within the CARLOS EMR system.
+ * Handles data representation and core logic for QuickBillingBC2Action.
+ */
 public class QuickBillingBC2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -81,6 +85,8 @@ public class QuickBillingBC2Action extends ActionSupport {
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public String execute() throws ServletException, IOException {
+        // Ensure that QuickBillingBC2Action correctly interprets the retrieved data to maintain data integrity.
+
         String creator = (String) request.getSession().getAttribute("user");
         if (creator == null) {
             return "Logout";

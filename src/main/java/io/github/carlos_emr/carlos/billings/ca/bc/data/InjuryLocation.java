@@ -29,6 +29,10 @@
 
 package io.github.carlos_emr.carlos.billings.ca.bc.data;
 
+/**
+ * Represents the InjuryLocation functionality within the CARLOS EMR system.
+ * Handles data representation and core logic for InjuryLocation.
+ */
 public class InjuryLocation {
     private String sidetype;
     private String sidedesc;
@@ -46,6 +50,8 @@ public class InjuryLocation {
     }
 
     public void setSidetype(String sidetype) {
+        // Ensure that InjuryLocation correctly interprets the retrieved data to maintain data integrity.
+
         this.sidetype = sidetype;
     }
 

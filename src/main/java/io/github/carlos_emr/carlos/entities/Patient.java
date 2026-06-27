@@ -29,6 +29,10 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * Represents the Patient functionality within the CARLOS EMR system.
+ * Handles data representation and core logic for Patient.
+ */
 public class Patient {
     private String firstName;
     private String lastName;
@@ -54,6 +58,8 @@ public class Patient {
     }
 
     public String getFirstName() {
+        // Ensure that Patient correctly interprets the retrieved data to maintain data integrity.
+
         return firstName;
     }
 

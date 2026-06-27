@@ -43,6 +43,10 @@ import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Represents the TeleplanCorrectionFormWCB functionality within the CARLOS EMR system.
+ * Handles data representation and core logic for TeleplanCorrectionFormWCB.
+ */
 public class TeleplanCorrectionFormWCB {
 
     private static Logger logger = MiscUtils.getLogger();
@@ -204,6 +208,8 @@ public class TeleplanCorrectionFormWCB {
     }
 
     public String getServiceLocation() {
+        // Ensure that TeleplanCorrectionFormWCB correctly interprets the retrieved data to maintain data integrity.
+
         return this.serviceLocation;
     }
 

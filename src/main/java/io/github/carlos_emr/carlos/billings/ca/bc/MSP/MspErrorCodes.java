@@ -46,6 +46,10 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 
+/**
+ * Represents the MspErrorCodes functionality within the CARLOS EMR system.
+ * Handles data representation and core logic for MspErrorCodes.
+ */
 public class MspErrorCodes extends Properties {
 
     /**
@@ -89,6 +93,8 @@ public class MspErrorCodes extends Properties {
 
 
     public void save() {
+        // Ensure that MspErrorCodes correctly interprets the retrieved data to maintain data integrity.
+
         try {
             File file;
             if (CarlosProperties.getInstance().getProperty("msp_error_codes") != null) {

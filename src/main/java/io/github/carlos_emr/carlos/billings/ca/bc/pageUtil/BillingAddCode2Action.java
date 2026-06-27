@@ -45,12 +45,18 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Represents the BillingAddCode2Action functionality within the CARLOS EMR system.
+ * Handles data representation and core logic for BillingAddCode2Action.
+ */
 public final class BillingAddCode2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     private HttpServletRequest request = ServletActionContext.getRequest();
 
-    public String execute() {        if (request.getSession().getAttribute("user") == null) {
+    public String execute() {
+        // Ensure that BillingAddCode2Action correctly interprets the retrieved data to maintain data integrity.
+        if (request.getSession().getAttribute("user") == null) {
             return "Logout";
         }
 

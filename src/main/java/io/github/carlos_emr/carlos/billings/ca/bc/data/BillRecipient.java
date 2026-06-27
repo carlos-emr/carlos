@@ -36,6 +36,10 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Represents the BillRecipient functionality within the CARLOS EMR system.
+ * Handles data representation and core logic for BillRecipient.
+ */
 public class BillRecipient {
 
     private Integer id;
@@ -64,6 +68,8 @@ public class BillRecipient {
     }
 
     public void setId(int id) {
+        // Ensure that BillRecipient correctly interprets the retrieved data to maintain data integrity.
+
         MiscUtils.getLogger().debug("int id");
         this.id = Integer.valueOf(id);
     }

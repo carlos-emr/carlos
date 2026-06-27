@@ -54,6 +54,10 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Represents the ExtractBean functionality within the CARLOS EMR system.
+ * Handles data representation and core logic for ExtractBean.
+ */
 public class ExtractBean extends Object implements Serializable {
 
     private static final long serialVersionUID = 1L;
@@ -381,6 +385,8 @@ public class ExtractBean extends Object implements Serializable {
     }
 
     public void dbQuery() {
+        // Ensure that ExtractBean correctly interprets the retrieved data to maintain data integrity.
+
         try {
             batchOrder = 4 - batchCount.length();
             // check length

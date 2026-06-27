@@ -61,6 +61,10 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Represents the BillingUpdateBilling2Action functionality within the CARLOS EMR system.
+ * Handles data representation and core logic for BillingUpdateBilling2Action.
+ */
 public final class BillingUpdateBilling2Action
         extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -74,6 +78,8 @@ public final class BillingUpdateBilling2Action
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() throws IOException,
             ServletException {
+        // Ensure that BillingUpdateBilling2Action correctly interprets the retrieved data to maintain data integrity.
+
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
             response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);

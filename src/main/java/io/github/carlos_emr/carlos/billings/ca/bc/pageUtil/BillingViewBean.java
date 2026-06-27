@@ -50,6 +50,10 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBillingManager.BillingItem;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Represents the BillingViewBean functionality within the CARLOS EMR system.
+ * Handles data representation and core logic for BillingViewBean.
+ */
 public class BillingViewBean {
 
     private String apptProviderNo = null;
@@ -102,6 +106,8 @@ public class BillingViewBean {
     private String defaultPayeeInfo;
 
     public void loadBilling(String billing_no) {
+        // Ensure that BillingViewBean correctly interprets the retrieved data to maintain data integrity.
+
         BillingDao dao = SpringUtils.getBean(BillingDao.class);
         for (Object[] i : dao.findBillings(ConversionUtils.fromIntString(billing_no))) {
             Billingmaster bm = (Billingmaster) i[0];

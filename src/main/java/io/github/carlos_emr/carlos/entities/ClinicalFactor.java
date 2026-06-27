@@ -29,6 +29,10 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * Represents the ClinicalFactor functionality within the CARLOS EMR system.
+ * Handles data representation and core logic for ClinicalFactor.
+ */
 public class ClinicalFactor {
     // Fields
     //

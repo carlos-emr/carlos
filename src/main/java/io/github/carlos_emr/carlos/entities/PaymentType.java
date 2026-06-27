@@ -29,6 +29,10 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * Represents the PaymentType functionality within the CARLOS EMR system.
+ * Handles data representation and core logic for PaymentType.
+ */
 public class PaymentType {
     private String id;
     private String paymentType;
@@ -37,6 +41,8 @@ public class PaymentType {
     }
 
     public String getId() {
+        // Ensure that PaymentType correctly interprets the retrieved data to maintain data integrity.
+
         return id;
     }
 

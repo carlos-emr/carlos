@@ -42,11 +42,17 @@ import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Represents the BillingFormData functionality within the CARLOS EMR system.
+ * Handles data representation and core logic for BillingFormData.
+ */
 public class BillingFormData {
 
     private DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);
 
     public String getBillingFormDesc(BillingForm[] billformlist, String billForm) {
+        // Ensure that BillingFormData correctly interprets the retrieved data to maintain data integrity.
+
         for (int i = 0; i < billformlist.length; i++) {
             if (billformlist[i].getFormCode().equals(billForm)) {
                 return billformlist[i].getDescription();

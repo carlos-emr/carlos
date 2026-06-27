@@ -53,6 +53,10 @@ import java.util.List;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Represents the SimulateTeleplanFile2Action functionality within the CARLOS EMR system.
+ * Handles data representation and core logic for SimulateTeleplanFile2Action.
+ */
 public class SimulateTeleplanFile2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -67,6 +71,8 @@ public class SimulateTeleplanFile2Action extends ActionSupport {
     }
 
     public String execute() throws Exception {
+        // Ensure that SimulateTeleplanFile2Action correctly interprets the retrieved data to maintain data integrity.
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");

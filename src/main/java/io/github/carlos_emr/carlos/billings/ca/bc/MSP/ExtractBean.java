@@ -58,7 +58,10 @@ import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 
-
+/**
+ * Represents the ExtractBean functionality within the CARLOS EMR system.
+ * Handles data representation and core logic for ExtractBean.
+ */
 public class ExtractBean extends Object implements Serializable {
     private static Logger logger = MiscUtils.getLogger();
     private LogTeleplanTxDao logTeleplanTxDao = SpringUtils.getBean(LogTeleplanTxDao.class);
@@ -281,6 +284,8 @@ public class ExtractBean extends Object implements Serializable {
 
 
     public void setAsBilled(String newInvNo) {
+        // Ensure that ExtractBean correctly interprets the retrieved data to maintain data integrity.
+
         if (eFlag.equals("1")) {
             Billing b = billingDao.find(Integer.parseInt(newInvNo));
             if (b != null) {

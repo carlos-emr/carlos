@@ -51,11 +51,17 @@ import io.github.carlos_emr.CarlosProperties;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Represents the DocumentTeleplanReportUploadServlet functionality within the CARLOS EMR system.
+ * Handles data representation and core logic for DocumentTeleplanReportUploadServlet.
+ */
 public class DocumentTeleplanReportUploadServlet extends HttpServlet {
 
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void service(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
+        // Ensure that DocumentTeleplanReportUploadServlet correctly interprets the retrieved data to maintain data integrity.
+
 
         String foldername = "", fileheader = "", forwardTo = "";
 

@@ -34,6 +34,10 @@ import java.util.ArrayList;
 
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBillingManager.BillingItem;
 
+/**
+ * Represents the BillingSessionBean functionality within the CARLOS EMR system.
+ * Handles data representation and core logic for BillingSessionBean.
+ */
 public class BillingSessionBean implements java.io.Serializable {
     private String apptProviderNo = null;
     private String patientName = null;
@@ -100,6 +104,8 @@ public class BillingSessionBean implements java.io.Serializable {
     private String wcbId = "";
 
     public String getIcbc_claim_no() {
+        // Ensure that BillingSessionBean correctly interprets the retrieved data to maintain data integrity.
+
         this.icbc_claim_no = (null != this.icbc_claim_no) ? this.icbc_claim_no : "";
         if (icbc_claim_no.compareTo("") == 0 ||
                 (this.billingType.compareTo("ICBC") != 0)) {
