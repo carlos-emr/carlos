@@ -159,19 +159,16 @@
     private HashMap<String, String> siteBgColor = new HashMap<String, String>();
     private HashMap<String, String> CurrentSiteMap = new HashMap<String, String>();
 
-    private void appendTooltipLine(StringBuilder tooltip, String label, String value) {
-        if (value == null) {
-            return;
-        }
-        String trimmedValue = value.trim();
-        if (trimmedValue.isEmpty() || "null".equalsIgnoreCase(trimmedValue)) {
-            return;
-        }
-        tooltip.append("&#013;&#010;")
-                .append(SafeEncode.forHtmlAttribute(label))
-                .append(": ")
-                .append(SafeEncode.forHtmlAttribute(trimmedValue));
-    }
+   private void appendTooltipLine(StringBuilder tooltip, String labelHtml, String value) {
+    if (value == null) return;
+    String trimmedValue = value.trim(); 
+    if (trimmedValue.isEmpty() || "null".equalsIgnoreCase(trimmedValue)) return;
+    tooltip
+      .append(labelHtml) // <-- DO NOT escape; it's icon HTML we generate
+      .append(" ")
+      .append(SafeEncode.forHtmlAttribute(trimmedValue))
+      .append("<br>");
+  }
 %>
 <%
     if (bMultisites) {
@@ -469,6 +466,7 @@
     <head>
         <title><%=WordUtils.capitalize(userlastname + ", " + org.apache.commons.lang3.StringUtils.substring(userfirstname, 0, 1)) + "-"%><fmt:message key="provider.appointmentProviderAdminDay.title"/></title>
         <script type="text/javascript" src="${pageContext.servletContext.contextPath}/js/global.js"></script>
+        <script type="text/javascript" src="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script> 
         <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <link rel="stylesheet"
               href="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css"
@@ -546,11 +544,11 @@
             }
 
             function ts1(s) {
-                popupPage(360, 780, ('<%= request.getContextPath() %>/appointment/addappointment?' + s));
+                popupPage(600, 860, ('<%= request.getContextPath() %>/appointment/addappointment?' + s));
             }
 
             function tsr(s) {
-                popupPage(360, 780, ('<%= request.getContextPath() %>/appointment/editappointment?dboperation=search&' + s));
+                popupPage(600, 860, ('<%= request.getContextPath() %>/appointment/editappointment?dboperation=search&' + s));
             }
 
             function goFilpView(s) {
@@ -685,11 +683,11 @@
     <%
         if (io.github.carlos_emr.carlos.commn.IsPropertiesOn.isCaisiEnable()) {
     %>
-    <body onload="load();">
+    <body onload="load();tooltipStart()">
     <%
     } else {
     %>
-    <body onLoad="showPasswordExpiryWarning();refreshAllTabAlerts();scrollOnLoad();">
+    <body onLoad="showPasswordExpiryWarning();refreshAllTabAlerts();scrollOnLoad();tooltipStart()">
     <%
         }
     %>
@@ -1881,7 +1879,7 @@
                                                            <c:set var="__enc_7"><carlos:encode value='<%= dateTimeCodeBean.get("duration"+hourmin.toString()) != null ? (String) dateTimeCodeBean.get("duration"+hourmin.toString()) : "" %>' context="uriComponent"/></c:set>
     <td class="<%=bColorHour?"scheduleTime00":"scheduleTimeNot00"%>">
                                                         <a href="javascript:void(0)"
-                                                           onClick="confirmPopupPage(600,780, '<%= request.getContextPath() %>/appointment/addappointment?provider_no=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>&bFirstDisp=<%=true%>&year=<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>&month=<carlos:encode value='${__enc_3}' context="javaScriptAttribute"/>&day=<carlos:encode value='${__enc_4}' context="javaScriptAttribute"/>&start_time=<carlos:encode value='${__enc_5}' context="javaScriptAttribute"/>&end_time=<carlos:encode value='${__enc_6}' context="javaScriptAttribute"/>&duration=<carlos:encode value='${__enc_7}' context="javaScriptAttribute"/>','<carlos:encode value='<%= dateTimeCodeBean.get("confirm"+hourmin.toString()) != null ? (String) dateTimeCodeBean.get("confirm"+hourmin.toString()) : "" %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= allowDay %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= allowWeek %>' context="javaScriptAttribute"/>');return false;"
+                                                           onClick="confirmPopupPage(600,860, '<%= request.getContextPath() %>/appointment/addappointment?provider_no=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>&bFirstDisp=<%=true%>&year=<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>&month=<carlos:encode value='${__enc_3}' context="javaScriptAttribute"/>&day=<carlos:encode value='${__enc_4}' context="javaScriptAttribute"/>&start_time=<carlos:encode value='${__enc_5}' context="javaScriptAttribute"/>&end_time=<carlos:encode value='${__enc_6}' context="javaScriptAttribute"/>&duration=<carlos:encode value='${__enc_7}' context="javaScriptAttribute"/>','<carlos:encode value='<%= dateTimeCodeBean.get("confirm"+hourmin.toString()) != null ? (String) dateTimeCodeBean.get("confirm"+hourmin.toString()) : "" %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= allowDay %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= allowWeek %>' context="javaScriptAttribute"/>');return false;"
                                                            title='<%=MyDateFormat.getTimeXX_XXampm(hourCursor +":"+ (minuteCursor<10?"0":"")+minuteCursor)%> - <%=MyDateFormat.getTimeXX_XXampm(hourCursor +":"+((minuteCursor+depth-1)<10?"0":"")+(minuteCursor+depth-1))%>'
                                                            class="adhour">
                                                             <%=(hourCursor < 10 ? "0" : "") + hourCursor + ":"%><%=(minuteCursor < 10 ? "0" : "") + minuteCursor%>&nbsp;</a>
@@ -2008,26 +2006,43 @@
                                                                   String demographicNotes = dCust != null && dCust.getNotes() != null
                                                                           ? SxmlMisc.getXmlContent(dCust.getNotes(), "<unotes>", "</unotes>")
                                                                           : "";
-                                                                  String preventionWarning = "";
-                                                                  if (!providerPreventionManager.isDisabled() && demographic_no != 0) {
-                                                                      preventionWarning = providerPreventionManager.getWarnings(loggedInInfo1, String.valueOf(demographic_no));
-                                                                  }
+
                                                                   String timeRange = iS + ":" + (iSm >= 10 ? "" : "0") + iSm + "-" + iE + ":" + (iEm >= 10 ? "" : "0") + iEm;
                                                                   StringBuilder appointmentTooltipSummaryBuilder = new StringBuilder();
                                                                   appointmentTooltipSummaryBuilder.append(SafeEncode.forHtmlAttribute(timeRange))
                                                                           .append(" ")
-                                                                          .append(SafeEncode.forHtmlAttribute(name));
-                                                                  appendTooltipLine(appointmentTooltipSummaryBuilder, "Reason", reasonCodeName);
+                                                                          .append(SafeEncode.forHtmlAttribute(name))
+                                                                          .append(" ")
+                                                                          .append(SafeEncode.forHtmlAttribute(reasonCodeName));
+
                                                                   String appointmentTooltipSummary = appointmentTooltipSummaryBuilder.toString();
-                                                                  StringBuilder appointmentTooltipFullBuilder = new StringBuilder(appointmentTooltipSummary);
-                                                                  appendTooltipLine(appointmentTooltipFullBuilder, "Type", type);
-                                                                  appendTooltipLine(appointmentTooltipFullBuilder, "Appointment notes", notes);
-                                                                  appendTooltipLine(appointmentTooltipFullBuilder, "Ticklers", tickler_note);
-                                                                  appendTooltipLine(appointmentTooltipFullBuilder, "Demographic alerts", demographicAlert);
-                                                                  appendTooltipLine(appointmentTooltipFullBuilder, "Demographic notes", demographicNotes);
-                                                                  appendTooltipLine(appointmentTooltipFullBuilder, "Prevention alerts", preventionWarning);
+
+                                                                  StringBuilder appointmentTooltipFullBuilder = new StringBuilder();
+                                                                  appendTooltipLine(appointmentTooltipFullBuilder, "<i class='fa-solid fa-person' aria-hidden='true'></i>", name);
+                                                                  appendTooltipLine(appointmentTooltipFullBuilder, "<i class='fa-regular fa-clock' aria-hidden='true'></i>", timeRange);
+                                                                  appendTooltipLine(appointmentTooltipFullBuilder, "<i class='fa-regular fa-user me-2' aria-hidden='true'></i>", type);
+                                                                  appendTooltipLine(appointmentTooltipFullBuilder, "<i class='fa-regular fa-circle-question' aria-hidden='true'></i>", reasonCodeName);
+                                                                  appendTooltipLine(appointmentTooltipFullBuilder, "<i class='fa-regular fa-note-sticky' aria-hidden='true'></i>", notes);
+                                                                  appendTooltipLine(appointmentTooltipFullBuilder, "<i class='fa-solid fa-triangle-exclamation' aria-hidden='true'></i>", tickler_note);
+                                                                  appendTooltipLine(appointmentTooltipFullBuilder, "<i class='fa-solid fa-circle-exclamation me-2' aria-hidden='true'></i>", demographicAlert);
+                                                                  appendTooltipLine(appointmentTooltipFullBuilder, "<i class='fa-regular fa-comment' aria-hidden='true'></i>", demographicNotes);
+
+                                                                  String preventionWarning = "";
+                                                                  if (!providerPreventionManager.isDisabled() && demographic_no != 0) {
+                                                                      // prevention warnings is concacted "[" + me.getKey() + "=" + me.getValue() + "]"
+                                                                      preventionWarning = providerPreventionManager.getWarnings(loggedInInfo1, String.valueOf(demographic_no));
+                                                                      preventionWarning = preventionWarning.replaceAll(
+                                                                          "\\[[^=\\]]*=([^\\]]*)\\](?:\\r?\\n)?",
+                                                                          "$1<br>"
+                                                                      );
+                                                                  }
+                                                                  if (preventionWarning.length()>1) {
+                                                                      appointmentTooltipFullBuilder.append("<i class='fa-regular fa-bell' aria-hidden='true'></i> ")
+                                                                      .append(preventionWarning);
+                                                                  }
                                                                   String appointmentTooltipFull = appointmentTooltipFullBuilder.toString();
-                                                                  boolean showTooltip = CarlosProperties.getInstance().getBooleanProperty("SHOW_APPT_REASON_TOOLTIP", "yes");
+                                                                  appointmentTooltipFull = appointmentTooltipFull.replaceAll("(?:<br>)+$", ""); // remove trailing <br>
+                                                                  boolean showTooltip = true; //CarlosProperties.getInstance().getBooleanProperty("SHOW_APPT_REASON_TOOLTIP", "yes");
 
                                                                   bFirstTimeRs=true;
                                                             as.setApptStatus(status);
@@ -2039,7 +2054,7 @@
                                                     %>
                                                     <td class="appt<%= isCancelled ? " Cancelled" : "" %><%= showTooltip ? " appt-reason-tooltip appt-tooltip-provider-" + curProvider_no[nProvider] : "" %>" bgcolor='<%=as.getBgColor()%>'
                                                         rowspan="<%=iRows%>"
-                                                        <%= showTooltip ? "data-title-full=\"" + appointmentTooltipFull + "\" data-title-short=\"" + appointmentTooltipSummary + "\" title=\"" + appointmentTooltipFull + "\"" : "" %>
+                                                        
                                                         nowrap>
                                                         <!-- multisites : add colour-coded to the "location" value of that appointment. -->
                                                         <%if (bMultisites) {%>
@@ -2141,10 +2156,15 @@
                                                            <c:set var="__enc_11"><carlos:encode value='<%= String.valueOf(month) %>' context="uriComponent"/></c:set>
                                                            <c:set var="__enc_12"><carlos:encode value='<%= String.valueOf(day) %>' context="uriComponent"/></c:set>
                                                            <c:set var="__enc_13"><carlos:encode value='<%= iS+":"+iSm %>' context="uriComponent"/></c:set>
-                                                           onClick="popupPage(600,780,'<%= request.getContextPath() %>/appointment/editappointment?appointment_no=<carlos:encode value='${__enc_8}' context="javaScriptAttribute"/>&provider_no=<carlos:encode value='${__enc_9}' context="javaScriptAttribute"/>&year=<carlos:encode value='${__enc_10}' context="javaScriptAttribute"/>&month=<carlos:encode value='${__enc_11}' context="javaScriptAttribute"/>&day=<carlos:encode value='${__enc_12}' context="javaScriptAttribute"/>&start_time=<carlos:encode value='${__enc_13}' context="javaScriptAttribute"/>&demographic_no=0&dboperation=search');return false;"
-                                                           <%= showTooltip ? "data-title-full=\"" + appointmentTooltipFull + "\" data-title-short=\"" + appointmentTooltipSummary + "\" title=\"" + appointmentTooltipFull + "\"" : "" %>>
+                                                           onClick="popupPage(600,860,'<%= request.getContextPath() %>/appointment/editappointment?appointment_no=<carlos:encode value='${__enc_8}' context="javaScriptAttribute"/>&provider_no=<carlos:encode value='${__enc_9}' context="javaScriptAttribute"/>&year=<carlos:encode value='${__enc_10}' context="javaScriptAttribute"/>&month=<carlos:encode value='${__enc_11}' context="javaScriptAttribute"/>&day=<carlos:encode value='${__enc_12}' context="javaScriptAttribute"/>&start_time=<carlos:encode value='${__enc_13}' context="javaScriptAttribute"/>&demographic_no=0&dboperation=search');return false;"
+                                                            <%= showTooltip
+                                                            ? "data-bs-toggle=\"tooltip\""
+                                                              + " data-title-full=\"" + SafeEncode.forHtmlAttribute(appointmentTooltipFull) + "\""
+                                                              + " data-title-short=\"" + SafeEncode.forHtmlAttribute(appointmentTooltipSummary) + "\""
+                                                              + " title=\"" + SafeEncode.forHtmlAttribute(appointmentTooltipFull) + "\""
+                                                            : "" %>>
                                                             <span>
-                                                            .<%=(view == 0 && numAvailProvider != 1) ? (name.length() > len ? name.substring(0, len).toUpperCase() : SafeEncode.forHtmlContent(name.toUpperCase())) : SafeEncode.forHtmlContent(name.toUpperCase())%>
+                                                            .<%=(view == 0 && numAvailProvider != 1) ? (name.length() > len ? SafeEncode.forHtmlContent(name.substring(0, len).toUpperCase()) : SafeEncode.forHtmlContent(name.toUpperCase())) : SafeEncode.forHtmlContent(name.toUpperCase())%>
                                                             </span>
                                                         </a><!--Inline display of reason -->
 
@@ -2236,8 +2256,13 @@
                                                            <c:set var="__enc_18"><carlos:encode value='<%= String.valueOf(day) %>' context="uriComponent"/></c:set>
                                                            <c:set var="__enc_19"><carlos:encode value='<%= iS+":"+iSm %>' context="uriComponent"/></c:set>
                                                            <c:set var="__enc_20"><carlos:encode value='<%= String.valueOf(demographic_no) %>' context="uriComponent"/></c:set>
-                                                           onClick="popupPage(535,860,'<%= request.getContextPath() %>/appointment/editappointment?appointment_no=<carlos:encode value='${__enc_14}' context="javaScriptAttribute"/>&provider_no=<carlos:encode value='${__enc_15}' context="javaScriptAttribute"/>&year=<carlos:encode value='${__enc_16}' context="javaScriptAttribute"/>&month=<carlos:encode value="${__enc_17}" context="javaScriptAttribute"/>&day=<carlos:encode value='${__enc_18}' context="javaScriptAttribute"/>&start_time=<carlos:encode value='${__enc_19}' context="javaScriptAttribute"/>&demographic_no=<carlos:encode value='${__enc_20}' context="javaScriptAttribute"/>&dboperation=search');return false;"
-                                                           <%= showTooltip ? "data-title-full=\"" + appointmentTooltipFull + "\" data-title-short=\"" + appointmentTooltipSummary + "\" title=\"" + appointmentTooltipFull + "\"" : "" %> >
+                                                           onClick="popupPage(600,860,'<%= request.getContextPath() %>/appointment/editappointment?appointment_no=<carlos:encode value='${__enc_14}' context="javaScriptAttribute"/>&provider_no=<carlos:encode value='${__enc_15}' context="javaScriptAttribute"/>&year=<carlos:encode value='${__enc_16}' context="javaScriptAttribute"/>&month=<carlos:encode value="${__enc_17}" context="javaScriptAttribute"/>&day=<carlos:encode value='${__enc_18}' context="javaScriptAttribute"/>&start_time=<carlos:encode value='${__enc_19}' context="javaScriptAttribute"/>&demographic_no=<carlos:encode value='${__enc_20}' context="javaScriptAttribute"/>&dboperation=search');return false;"
+                                                            <%= showTooltip
+                                                            ? "data-bs-toggle=\"tooltip\""
+                                                            + " data-title-full=\"" + SafeEncode.forHtmlAttribute(appointmentTooltipFull) + "\""
+                                                            + " data-title-short=\"" + SafeEncode.forHtmlAttribute(appointmentTooltipSummary) + "\""
+                                                            + " title=\"" + SafeEncode.forHtmlAttribute(appointmentTooltipFull) + "\""
+                                                            : "" %> >
                                                             <%=(name.length() > len ? SafeEncode.forHtmlContent(name.substring(0, len)) : SafeEncode.forHtmlContent(name))%>
                                                         </a>
                                                         <% if (len == lenLimitedL || view != 0 || numAvailProvider == 1) {%>
@@ -2924,7 +2949,7 @@
                         }));
                     } catch (storageErr) {
                         // sessionStorage unavailable — open popup directly (no schedule navigation)
-                        popupPage(360, 780, buildApptUrl(ctx, item.demographicNo,
+                        popupPage(600, 860, buildApptUrl(ctx, item.demographicNo,
                             slot.providerNo, slot.startTime, endTime, slot.duration, slot.year, slot.month, slot.day));
                         hideDropdown();
                         return;
@@ -3063,10 +3088,29 @@
 
         // Wait for the page to finish rendering before opening the popup
         window.addEventListener('load', function() {
-            popupPage(360, 780, popupUrl);
+            popupPage(600, 860, popupUrl);
         });
     })();
+
+	function tooltipStart() {
+		document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
+			const full = el.getAttribute('data-title-full') || '';
+			el.setAttribute('title', full);
+			
+			new bootstrap.Tooltip(el, {
+				html: true
+
+			});
+		});
+	};
+
+
     </script>
+<style>
+.tooltip .tooltip-inner { text-align: left !important; }
+.tooltip-inner { max-width: 350px !important; }
+.tooltip .tooltip-inner br { line-height: 1.2; }
+</style>
 
     </body>
 </html>
