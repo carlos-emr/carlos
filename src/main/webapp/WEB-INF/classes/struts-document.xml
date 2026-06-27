@@ -111,6 +111,16 @@
             <result name="nextIncomingDoc">/WEB-INF/jsp/documentManager/incomingDocs.jsp</result>
             <result name="error">/WEB-INF/jsp/error/failure.jsp</result>
         </action>
+        <action name="documentManager/FaxDocument" class="io.github.carlos_emr.carlos.documentManager.actions.FaxDocument2Action">
+            <result name="annotate">/WEB-INF/jsp/fax/FaxAnnotateViewer.jsp</result>
+            <result name="preview">/WEB-INF/jsp/fax/CoverPage.jsp</result>
+            <result name="noFax">/WEB-INF/jsp/documentManager/faxNotAvailable.jsp</result>
+        </action>
+        <!-- Streams raw PDF bytes for PDF.js client-side rendering (GET, _edoc r) -->
+        <action name="documentManager/ServeDocument" class="io.github.carlos_emr.carlos.documentManager.actions.ServeDocument2Action"/>
+        <!-- Receives PDF.js-annotated PDF, overwrites file on disk (POST, _edoc w) -->
+        <action name="documentManager/SaveAnnotatedDocument" class="io.github.carlos_emr.carlos.documentManager.actions.SaveAnnotatedDocument2Action">
+        </action>
         <action name="documentManager/SplitDocument" class="io.github.carlos_emr.carlos.documentManager.actions.SplitDocument2Action">
             <result name="success">/WEB-INF/jsp/oscarMDS/Splitclose.jsp</result>
         </action>

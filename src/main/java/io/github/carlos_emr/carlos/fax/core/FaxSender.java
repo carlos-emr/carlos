@@ -169,7 +169,8 @@ public class FaxSender {
                         faxJob.setStatusString(statusMessage);
                         log.warn("Skipping fax id {} due to invalid or unsafe file path", faxJob.getId(), e);
                     } catch (FaxProviderException e) {
-                        String statusMessage = e.getMessage() == null ? "PROBLEM COMMUNICATING WITH WEB SERVICE" : e.getMessage();
+                        // Use generic message - full exception details are logged server-side only
+                        String statusMessage = "Problem communicating with fax service";
                         faxJob.setStatusString(statusMessage);
                         log.error("Fax send failed for fax id {} using provider {}", faxJob.getId(), faxConfig.getProviderType(), e);
                         if (isTransientNetworkError(e)) {
