@@ -262,7 +262,9 @@ public class DemographicService extends AbstractServiceImpl {
     public DemographicTo1 getDemographicData(@PathParam("dataId") Integer id, @QueryParam("includes[]") List<String> include) throws PatientDirectiveException {
         LoggedInInfo loggedInInfo = requireDemographicPrivilege("r", id);
         Demographic demo = demographicManager.getDemographic(loggedInInfo, id);
-        if (demo == null) return null;
+        if (demo == null) {
+            throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).entity("Demographic record not found: " + id).build());
+        }
         return buildDemographicTo1(loggedInInfo, demo, id, include);
     }
 
@@ -362,7 +364,7 @@ public class DemographicService extends AbstractServiceImpl {
                         Demographic contactD = demographicManager.getDemographic(loggedInInfo, contactId);
                         demoContactTo1 = demoContactFewConverter.getAsTransferObject(demoContact, contactD);
                         if (demoContactTo1.getPhone() == null || demoContactTo1.getPhone().equals("")) {
-                            DemographicExt ext = demographicManager.getDemographicExt(loggedInInfo, id, "demo_cell");
+                            DemographicExt ext = demographicManager.getDemographicExt(loggedInInfo, contactId, "demo_cell");
                             if (ext != null) demoContactTo1.setPhone(ext.getValue());
                         }
                     } else if (demoContact.getType() == DemographicContact.TYPE_CONTACT) {
@@ -459,7 +461,9 @@ public class DemographicService extends AbstractServiceImpl {
     public DemographicTo1 getBasicDemographicData(@PathParam("dataId") Integer id, @QueryParam("includes[]") List<String> includes) throws PatientDirectiveException {
         LoggedInInfo loggedInInfo = requireDemographicPrivilege("r", id);
         Demographic demo = demographicManager.getDemographic(loggedInInfo, id);
-        if (demo == null) return null;
+        if (demo == null) {
+            throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).entity("Demographic record not found: " + id).build());
+        }
 
         List<DemographicExt> demoExts = demographicManager.getDemographicExts(loggedInInfo, id);
         if (demoExts != null && !demoExts.isEmpty()) {
@@ -527,7 +531,7 @@ public class DemographicService extends AbstractServiceImpl {
                             Demographic contactD = demographicManager.getDemographic(loggedInInfo, contactId);
                             demoContactTo1 = demoContactFewConverter.getAsTransferObject(demoContact, contactD);
                             if (demoContactTo1.getPhone() == null || demoContactTo1.getPhone().equals("")) {
-                                DemographicExt ext = demographicManager.getDemographicExt(loggedInInfo, id, "demo_cell");
+                                DemographicExt ext = demographicManager.getDemographicExt(loggedInInfo, contactId, "demo_cell");
                                 if (ext != null) demoContactTo1.setPhone(ext.getValue());
                             }
                         } else if (demoContact.getType() == DemographicContact.TYPE_CONTACT) {
@@ -563,7 +567,9 @@ public class DemographicService extends AbstractServiceImpl {
     public DemographicTo1 getDemographicSummary(@PathParam("demographicNo") Integer demographicNo) {
         LoggedInInfo loggedInInfo = requireDemographicPrivilege("r", demographicNo);
         Demographic demographic = demographicManager.getDemographic(loggedInInfo, demographicNo);
-        if (demographic == null) { return null; }
+        if (demographic == null) {
+            throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).entity("Demographic record not found: " + demographicNo).build());
+        }
         DemographicExt demographicExt = demographicManager.getDemographicExt(loggedInInfo, demographicNo, DemographicProperty.demo_cell);
         DemographicTo1 result = demoConverter.getAsTransferObject(loggedInInfo, demographic);
         if (demographicExt != null) {
@@ -583,6 +589,9 @@ public class DemographicService extends AbstractServiceImpl {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
     public DemographicTo1 createDemographicData(DemographicTo1 data) {
+        if (data == null) {
+            throw new WebApplicationException(Response.status(Response.Status.BAD_REQUEST).entity("Request body is required").build());
+        }
         LoggedInInfo loggedInInfo = requireDemographicPrivilege("w");
         Demographic demographic = demoConverter.getAsDomainObject(loggedInInfo, data);
         demographicManager.createDemographic(loggedInInfo, demographic, data.getAdmissionProgramId());
@@ -599,6 +608,9 @@ public class DemographicService extends AbstractServiceImpl {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
     public DemographicTo1 updateDemographicData(DemographicTo1 data) {
+        if (data == null || data.getDemographicNo() == null) {
+            throw new WebApplicationException(Response.status(Response.Status.BAD_REQUEST).entity("Request body with demographicNo is required").build());
+        }
         LoggedInInfo loggedInInfo = requireDemographicPrivilege("w", data.getDemographicNo());
         //update demographiccust
         if (data.getNurse() != null || data.getResident() != null || data.getAlert() != null || data.getMidwife() != null || data.getNotes() != null) {
