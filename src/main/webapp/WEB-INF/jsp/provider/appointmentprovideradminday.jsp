@@ -544,11 +544,11 @@
             }
 
             function ts1(s) {
-                popupPage(360, 780, ('<%= request.getContextPath() %>/appointment/addappointment?' + s));
+                popupPage(600, 860, ('<%= request.getContextPath() %>/appointment/addappointment?' + s));
             }
 
             function tsr(s) {
-                popupPage(360, 780, ('<%= request.getContextPath() %>/appointment/editappointment?dboperation=search&' + s));
+                popupPage(600, 860, ('<%= request.getContextPath() %>/appointment/editappointment?dboperation=search&' + s));
             }
 
             function goFilpView(s) {
@@ -1879,7 +1879,7 @@
                                                            <c:set var="__enc_7"><carlos:encode value='<%= dateTimeCodeBean.get("duration"+hourmin.toString()) != null ? (String) dateTimeCodeBean.get("duration"+hourmin.toString()) : "" %>' context="uriComponent"/></c:set>
     <td class="<%=bColorHour?"scheduleTime00":"scheduleTimeNot00"%>">
                                                         <a href="javascript:void(0)"
-                                                           onClick="confirmPopupPage(600,780, '<%= request.getContextPath() %>/appointment/addappointment?provider_no=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>&bFirstDisp=<%=true%>&year=<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>&month=<carlos:encode value='${__enc_3}' context="javaScriptAttribute"/>&day=<carlos:encode value='${__enc_4}' context="javaScriptAttribute"/>&start_time=<carlos:encode value='${__enc_5}' context="javaScriptAttribute"/>&end_time=<carlos:encode value='${__enc_6}' context="javaScriptAttribute"/>&duration=<carlos:encode value='${__enc_7}' context="javaScriptAttribute"/>','<carlos:encode value='<%= dateTimeCodeBean.get("confirm"+hourmin.toString()) != null ? (String) dateTimeCodeBean.get("confirm"+hourmin.toString()) : "" %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= allowDay %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= allowWeek %>' context="javaScriptAttribute"/>');return false;"
+                                                           onClick="confirmPopupPage(600,860, '<%= request.getContextPath() %>/appointment/addappointment?provider_no=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>&bFirstDisp=<%=true%>&year=<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>&month=<carlos:encode value='${__enc_3}' context="javaScriptAttribute"/>&day=<carlos:encode value='${__enc_4}' context="javaScriptAttribute"/>&start_time=<carlos:encode value='${__enc_5}' context="javaScriptAttribute"/>&end_time=<carlos:encode value='${__enc_6}' context="javaScriptAttribute"/>&duration=<carlos:encode value='${__enc_7}' context="javaScriptAttribute"/>','<carlos:encode value='<%= dateTimeCodeBean.get("confirm"+hourmin.toString()) != null ? (String) dateTimeCodeBean.get("confirm"+hourmin.toString()) : "" %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= allowDay %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= allowWeek %>' context="javaScriptAttribute"/>');return false;"
                                                            title='<%=MyDateFormat.getTimeXX_XXampm(hourCursor +":"+ (minuteCursor<10?"0":"")+minuteCursor)%> - <%=MyDateFormat.getTimeXX_XXampm(hourCursor +":"+((minuteCursor+depth-1)<10?"0":"")+(minuteCursor+depth-1))%>'
                                                            class="adhour">
                                                             <%=(hourCursor < 10 ? "0" : "") + hourCursor + ":"%><%=(minuteCursor < 10 ? "0" : "") + minuteCursor%>&nbsp;</a>
@@ -2146,7 +2146,7 @@
                                                            <c:set var="__enc_11"><carlos:encode value='<%= String.valueOf(month) %>' context="uriComponent"/></c:set>
                                                            <c:set var="__enc_12"><carlos:encode value='<%= String.valueOf(day) %>' context="uriComponent"/></c:set>
                                                            <c:set var="__enc_13"><carlos:encode value='<%= iS+":"+iSm %>' context="uriComponent"/></c:set>
-                                                           onClick="popupPage(600,780,'<%= request.getContextPath() %>/appointment/editappointment?appointment_no=<carlos:encode value='${__enc_8}' context="javaScriptAttribute"/>&provider_no=<carlos:encode value='${__enc_9}' context="javaScriptAttribute"/>&year=<carlos:encode value='${__enc_10}' context="javaScriptAttribute"/>&month=<carlos:encode value='${__enc_11}' context="javaScriptAttribute"/>&day=<carlos:encode value='${__enc_12}' context="javaScriptAttribute"/>&start_time=<carlos:encode value='${__enc_13}' context="javaScriptAttribute"/>&demographic_no=0&dboperation=search');return false;"
+                                                           onClick="popupPage(600,860,'<%= request.getContextPath() %>/appointment/editappointment?appointment_no=<carlos:encode value='${__enc_8}' context="javaScriptAttribute"/>&provider_no=<carlos:encode value='${__enc_9}' context="javaScriptAttribute"/>&year=<carlos:encode value='${__enc_10}' context="javaScriptAttribute"/>&month=<carlos:encode value='${__enc_11}' context="javaScriptAttribute"/>&day=<carlos:encode value='${__enc_12}' context="javaScriptAttribute"/>&start_time=<carlos:encode value='${__enc_13}' context="javaScriptAttribute"/>&demographic_no=0&dboperation=search');return false;"
                                                             <%= showTooltip
                                                             ? "data-bs-toggle=\"tooltip\""
                                                               + " data-title-full=\"" + appointmentTooltipFull + "\""
@@ -2246,7 +2246,7 @@
                                                            <c:set var="__enc_18"><carlos:encode value='<%= String.valueOf(day) %>' context="uriComponent"/></c:set>
                                                            <c:set var="__enc_19"><carlos:encode value='<%= iS+":"+iSm %>' context="uriComponent"/></c:set>
                                                            <c:set var="__enc_20"><carlos:encode value='<%= String.valueOf(demographic_no) %>' context="uriComponent"/></c:set>
-                                                           onClick="popupPage(535,860,'<%= request.getContextPath() %>/appointment/editappointment?appointment_no=<carlos:encode value='${__enc_14}' context="javaScriptAttribute"/>&provider_no=<carlos:encode value='${__enc_15}' context="javaScriptAttribute"/>&year=<carlos:encode value='${__enc_16}' context="javaScriptAttribute"/>&month=<carlos:encode value="${__enc_17}" context="javaScriptAttribute"/>&day=<carlos:encode value='${__enc_18}' context="javaScriptAttribute"/>&start_time=<carlos:encode value='${__enc_19}' context="javaScriptAttribute"/>&demographic_no=<carlos:encode value='${__enc_20}' context="javaScriptAttribute"/>&dboperation=search');return false;"
+                                                           onClick="popupPage(600,860,'<%= request.getContextPath() %>/appointment/editappointment?appointment_no=<carlos:encode value='${__enc_14}' context="javaScriptAttribute"/>&provider_no=<carlos:encode value='${__enc_15}' context="javaScriptAttribute"/>&year=<carlos:encode value='${__enc_16}' context="javaScriptAttribute"/>&month=<carlos:encode value="${__enc_17}" context="javaScriptAttribute"/>&day=<carlos:encode value='${__enc_18}' context="javaScriptAttribute"/>&start_time=<carlos:encode value='${__enc_19}' context="javaScriptAttribute"/>&demographic_no=<carlos:encode value='${__enc_20}' context="javaScriptAttribute"/>&dboperation=search');return false;"
                                                             <%= showTooltip
 															? "data-bs-toggle=\"tooltip\""
 															  + " data-title-full=\"" + SafeEncode.forHtmlAttribute(appointmentTooltipFull) + "\""
@@ -2939,7 +2939,7 @@
                         }));
                     } catch (storageErr) {
                         // sessionStorage unavailable — open popup directly (no schedule navigation)
-                        popupPage(360, 780, buildApptUrl(ctx, item.demographicNo,
+                        popupPage(600, 860, buildApptUrl(ctx, item.demographicNo,
                             slot.providerNo, slot.startTime, endTime, slot.duration, slot.year, slot.month, slot.day));
                         hideDropdown();
                         return;
@@ -3078,7 +3078,7 @@
 
         // Wait for the page to finish rendering before opening the popup
         window.addEventListener('load', function() {
-            popupPage(360, 780, popupUrl);
+            popupPage(600, 860, popupUrl);
         });
     })();
 
