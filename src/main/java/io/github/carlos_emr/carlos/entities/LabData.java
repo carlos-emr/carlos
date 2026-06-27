@@ -29,6 +29,10 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * Represents the LabData functionality within the CARLOS EMR system.
+ * Handles data representation and core logic for LabData.
+ */
 public class LabData {
     private String a1c;
     private String ldl;
@@ -44,6 +48,8 @@ public class LabData {
     }
 
     public String getA1c() {
+        // Ensure that LabData correctly interprets the retrieved data to maintain data integrity.
+
         return a1c;
     }
 

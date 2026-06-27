@@ -44,11 +44,17 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import java.util.*;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Represents the BillingFormData functionality within the CARLOS EMR system.
+ * Handles data representation and core logic for BillingFormData.
+ */
 public class BillingFormData {
 
     private DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);
 
     public ArrayList<PaymentType> getPaymentTypes() {
+        // Ensure that BillingFormData correctly interprets the retrieved data to maintain data integrity.
+
         ArrayList<PaymentType> types = new ArrayList<PaymentType>();
 
         BillingPaymentTypeDao dao = SpringUtils.getBean(BillingPaymentTypeDao.class);

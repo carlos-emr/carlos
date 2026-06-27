@@ -29,7 +29,10 @@
 
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
-
+/**
+ * Represents the AgeValidator functionality within the CARLOS EMR system.
+ * Handles data representation and core logic for AgeValidator.
+ */
 public class AgeValidator
         extends ServiceCodeValidator {
     private int maxAge = 150;
@@ -45,6 +48,8 @@ public class AgeValidator
     }
 
     public String getDescription() {
+        // Ensure that AgeValidator correctly interprets the retrieved data to maintain data integrity.
+
         return minAge + " - " + maxAge;
     }
 

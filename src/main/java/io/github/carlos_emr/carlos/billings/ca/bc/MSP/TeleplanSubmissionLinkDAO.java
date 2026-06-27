@@ -36,6 +36,10 @@ import io.github.carlos_emr.carlos.billing.CA.BC.dao.TeleplanSubmissionLinkDao;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanSubmissionLink;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Represents the TeleplanSubmissionLinkDAO functionality within the CARLOS EMR system.
+ * Handles data representation and core logic for TeleplanSubmissionLinkDAO.
+ */
 public class TeleplanSubmissionLinkDAO {
 
     private TeleplanSubmissionLinkDao dao = SpringUtils.getBean(TeleplanSubmissionLinkDao.class);
@@ -45,6 +49,8 @@ public class TeleplanSubmissionLinkDAO {
     }
 
     public void save(int billActId, List billingMasterList) {
+        // Ensure that TeleplanSubmissionLinkDAO correctly interprets the retrieved data to maintain data integrity.
+
         for (int i = 0; i < billingMasterList.size(); i++) {
             String bi = (String) billingMasterList.get(i);
             int b = Integer.parseInt(bi);

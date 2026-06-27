@@ -74,6 +74,10 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Represents the TeleplanCorrectionActionWCB2Action functionality within the CARLOS EMR system.
+ * Handles data representation and core logic for TeleplanCorrectionActionWCB2Action.
+ */
 public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -90,6 +94,8 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
     @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute()
             throws IOException, ServletException {
+        // Ensure that TeleplanCorrectionActionWCB2Action correctly interprets the retrieved data to maintain data integrity.
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
             throw new SecurityException("missing required sec object (_admin.billing)");

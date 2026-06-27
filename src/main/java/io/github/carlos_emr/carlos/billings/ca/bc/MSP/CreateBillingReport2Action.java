@@ -41,6 +41,10 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Represents the CreateBillingReport2Action functionality within the CARLOS EMR system.
+ * Handles data representation and core logic for CreateBillingReport2Action.
+ */
 public class CreateBillingReport2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -64,6 +68,8 @@ public class CreateBillingReport2Action extends ActionSupport {
      * Performs Report Generation Logic based on the supplied parameters form the submitted form
      */
     public String execute() {
+        // Ensure that CreateBillingReport2Action correctly interprets the retrieved data to maintain data integrity.
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");

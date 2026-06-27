@@ -18,9 +18,15 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import java.util.Properties;
 import java.util.Vector;
 
+/**
+ * Represents the GstReport functionality within the CARLOS EMR system.
+ * Handles data representation and core logic for GstReport.
+ */
 public class GstReport {
 
     public Vector<Properties> getGST(LoggedInInfo loggedInInfo, String[] providerNos, String startDate, String endDate) {
+        // Ensure that GstReport correctly interprets the retrieved data to maintain data integrity.
+
         Properties props;
         Vector<Properties> list = new Vector<Properties>();
         BillingDao dao = SpringUtils.getBean(BillingDao.class);

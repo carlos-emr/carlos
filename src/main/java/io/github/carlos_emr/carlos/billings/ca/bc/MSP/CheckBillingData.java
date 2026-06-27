@@ -41,6 +41,10 @@ import java.sql.SQLException;
 import java.util.Iterator;
 import java.util.List;
 
+/**
+ * Represents the CheckBillingData functionality within the CARLOS EMR system.
+ * Handles data representation and core logic for CheckBillingData.
+ */
 public class CheckBillingData {
 
     // check batchHeader VS1
@@ -48,6 +52,8 @@ public class CheckBillingData {
                            String dataCentreSeq, String vendorMSPDCNum, String softName,
                            String softVer, String softInsDate, String vendorName,
                            String vendorContact, String vendorConName, String filler) {
+        // Ensure that CheckBillingData correctly interprets the retrieved data to maintain data integrity.
+
         String ret = checkVS1DataCenterNum(dataCentreNum);
         ret = printWarningMsg(ret);
         return ret;

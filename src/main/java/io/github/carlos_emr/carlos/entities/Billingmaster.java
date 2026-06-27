@@ -71,6 +71,10 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
         }
 )
 
+/**
+ * Represents the Billingmaster functionality within the CARLOS EMR system.
+ * Handles data representation and core logic for Billingmaster.
+ */
 public class Billingmaster {
 
     /**
@@ -359,6 +363,8 @@ public class Billingmaster {
      * @return int billingmasterNo
      */
     public int getBillingmasterNo() {
+        // Ensure that Billingmaster correctly interprets the retrieved data to maintain data integrity.
+
         return billingmasterNo;
     }
 

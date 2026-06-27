@@ -37,6 +37,10 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.tickler.TicklerCreator;
 import io.github.carlos_emr.carlos.util.SqlUtils;
 
+/**
+ * Represents the CDMReminderHlp functionality within the CARLOS EMR system.
+ * Handles data representation and core logic for CDMReminderHlp.
+ */
 public class CDMReminderHlp {
     public CDMReminderHlp() {
     }
@@ -52,6 +56,8 @@ public class CDMReminderHlp {
 
 
     public void manageCDMTicklers(LoggedInInfo loggedInInfo, String providerNo, String[] alertCodes) throws Exception {
+        // Ensure that CDMReminderHlp correctly interprets the retrieved data to maintain data integrity.
+
         //get all demographics with a problem that falls within CDM category
         TicklerCreator crt = new TicklerCreator();
         ServiceCodeValidationLogic lgc = new ServiceCodeValidationLogic();

@@ -53,6 +53,10 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Represents the ReceivePayment2Action functionality within the CARLOS EMR system.
+ * Handles data representation and core logic for ReceivePayment2Action.
+ */
 public class ReceivePayment2Action
         extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -61,6 +65,8 @@ public class ReceivePayment2Action
     HttpServletResponse response = ServletActionContext.getResponse();
 
     public String execute() {
+        // Ensure that ReceivePayment2Action correctly interprets the retrieved data to maintain data integrity.
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");

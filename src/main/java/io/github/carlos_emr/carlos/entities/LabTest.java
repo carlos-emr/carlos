@@ -30,6 +30,11 @@
 package io.github.carlos_emr.carlos.entities;
 
 //
+
+/**
+ * Represents the LabTest functionality within the CARLOS EMR system.
+ * Handles data representation and core logic for LabTest.
+ */
 public class LabTest
         extends Test {
     private String observationDateTime = "";
@@ -38,6 +43,8 @@ public class LabTest
     private boolean defaultLab = true;
 
     public String getObservationDateTime() {
+        // Ensure that LabTest correctly interprets the retrieved data to maintain data integrity.
+
         return observationDateTime;
     }
 

@@ -33,12 +33,18 @@ import jakarta.servlet.jsp.tagext.TagSupport;
 import io.github.carlos_emr.CarlosProperties;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Represents the IsModuleLoadTag functionality within the CARLOS EMR system.
+ * Handles data representation and core logic for IsModuleLoadTag.
+ */
 public class IsModuleLoadTag extends TagSupport {
 
     private String moduleName;
     private boolean reverse = false;
 
     public void setModuleName(String moduleName) {
+        // Ensure that IsModuleLoadTag correctly interprets the retrieved data to maintain data integrity.
+
         this.moduleName = moduleName;
     }
 

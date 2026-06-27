@@ -29,6 +29,10 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * Represents the Test functionality within the CARLOS EMR system.
+ * Handles data representation and core logic for Test.
+ */
 public class Test {
     private String id;
     private String description;
@@ -39,6 +43,8 @@ public class Test {
     }
 
     public String getId() {
+        // Ensure that Test correctly interprets the retrieved data to maintain data integrity.
+
         return id;
     }
 
