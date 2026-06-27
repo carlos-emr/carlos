@@ -2159,9 +2159,9 @@
                                                            onClick="popupPage(600,860,'<%= request.getContextPath() %>/appointment/editappointment?appointment_no=<carlos:encode value='${__enc_8}' context="javaScriptAttribute"/>&provider_no=<carlos:encode value='${__enc_9}' context="javaScriptAttribute"/>&year=<carlos:encode value='${__enc_10}' context="javaScriptAttribute"/>&month=<carlos:encode value='${__enc_11}' context="javaScriptAttribute"/>&day=<carlos:encode value='${__enc_12}' context="javaScriptAttribute"/>&start_time=<carlos:encode value='${__enc_13}' context="javaScriptAttribute"/>&demographic_no=0&dboperation=search');return false;"
                                                             <%= showTooltip
                                                             ? "data-bs-toggle=\"tooltip\""
-                                                              + " data-title-full=\"" + appointmentTooltipFull + "\""
-                                                              + " data-title-short=\"" + appointmentTooltipSummary + "\""
-                                                              + " title=\"" + appointmentTooltipFull + "\""
+                                                              + " data-title-full=\"" + SafeEncode.forHtmlAttribute(appointmentTooltipFull) + "\""
+                                                              + " data-title-short=\"" + SafeEncode.forHtmlAttribute(appointmentTooltipSummary) + "\""
+                                                              + " title=\"" + SafeEncode.forHtmlAttribute(appointmentTooltipFull) + "\""
                                                             : "" %>>
                                                             <span>
                                                             .<%=(view == 0 && numAvailProvider != 1) ? (name.length() > len ? SafeEncode.forHtmlContent(name.substring(0, len).toUpperCase()) : SafeEncode.forHtmlContent(name.toUpperCase())) : SafeEncode.forHtmlContent(name.toUpperCase())%>
@@ -2258,11 +2258,11 @@
                                                            <c:set var="__enc_20"><carlos:encode value='<%= String.valueOf(demographic_no) %>' context="uriComponent"/></c:set>
                                                            onClick="popupPage(600,860,'<%= request.getContextPath() %>/appointment/editappointment?appointment_no=<carlos:encode value='${__enc_14}' context="javaScriptAttribute"/>&provider_no=<carlos:encode value='${__enc_15}' context="javaScriptAttribute"/>&year=<carlos:encode value='${__enc_16}' context="javaScriptAttribute"/>&month=<carlos:encode value="${__enc_17}" context="javaScriptAttribute"/>&day=<carlos:encode value='${__enc_18}' context="javaScriptAttribute"/>&start_time=<carlos:encode value='${__enc_19}' context="javaScriptAttribute"/>&demographic_no=<carlos:encode value='${__enc_20}' context="javaScriptAttribute"/>&dboperation=search');return false;"
                                                             <%= showTooltip
-															? "data-bs-toggle=\"tooltip\""
-															  + " data-title-full=\"" + SafeEncode.forHtmlAttribute(appointmentTooltipFull) + "\""
-															  + " data-title-short=\"" + SafeEncode.forHtmlAttribute(appointmentTooltipSummary) + "\""
-															  + " title=\"" + SafeEncode.forHtmlAttribute(appointmentTooltipFull) + "\""
-															: "" %> >
+                                                            ? "data-bs-toggle=\"tooltip\""
+                                                            + " data-title-full=\"" + SafeEncode.forHtmlAttribute(appointmentTooltipFull) + "\""
+                                                            + " data-title-short=\"" + SafeEncode.forHtmlAttribute(appointmentTooltipSummary) + "\""
+                                                            + " title=\"" + SafeEncode.forHtmlAttribute(appointmentTooltipFull) + "\""
+                                                            : "" %> >
                                                             <%=(name.length() > len ? SafeEncode.forHtmlContent(name.substring(0, len)) : SafeEncode.forHtmlContent(name))%>
                                                         </a>
                                                         <% if (len == lenLimitedL || view != 0 || numAvailProvider == 1) {%>
