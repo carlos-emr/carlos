@@ -163,11 +163,11 @@
     if (value == null) return;
     String trimmedValue = value.trim(); 
     if (trimmedValue.isEmpty() || "null".equalsIgnoreCase(trimmedValue)) return;
-    tooltip.append("&#013;&#010;")
+    tooltip
       .append(labelHtml) // <-- DO NOT escape; it's icon HTML we generate
       .append(" ")
       .append(SafeEncode.forHtmlAttribute(trimmedValue))
-      .append("<br>"); 
+      .append("<br>");
   }
 %>
 <%
@@ -2006,17 +2006,14 @@
                                                                   String demographicNotes = dCust != null && dCust.getNotes() != null
                                                                           ? SxmlMisc.getXmlContent(dCust.getNotes(), "<unotes>", "</unotes>")
                                                                           : "";
-                                                                  String preventionWarning = "";
-                                                                  if (!providerPreventionManager.isDisabled() && demographic_no != 0) {
-                                                                      preventionWarning = providerPreventionManager.getWarnings(loggedInInfo1, String.valueOf(demographic_no));
-                                                                  }
+
                                                                   String timeRange = iS + ":" + (iSm >= 10 ? "" : "0") + iSm + "-" + iE + ":" + (iEm >= 10 ? "" : "0") + iEm;
                                                                   StringBuilder appointmentTooltipSummaryBuilder = new StringBuilder();
                                                                   appointmentTooltipSummaryBuilder.append(SafeEncode.forHtmlAttribute(timeRange))
                                                                           .append(" ")
                                                                           .append(SafeEncode.forHtmlAttribute(name))
-																		  .append(" ")
-																		  .append(SafeEncode.forHtmlAttribute(reasonCodeName));
+                                                                          .append(" ")
+                                                                          .append(SafeEncode.forHtmlAttribute(reasonCodeName));
 
                                                                   String appointmentTooltipSummary = appointmentTooltipSummaryBuilder.toString();
 
@@ -2029,9 +2026,22 @@
                                                                   appendTooltipLine(appointmentTooltipFullBuilder, "<i class='fa-solid fa-triangle-exclamation' aria-hidden='true'></i>", tickler_note);
                                                                   appendTooltipLine(appointmentTooltipFullBuilder, "<i class='fa-solid fa-circle-exclamation me-2' aria-hidden='true'></i>", demographicAlert);
                                                                   appendTooltipLine(appointmentTooltipFullBuilder, "<i class='fa-regular fa-comment' aria-hidden='true'></i>", demographicNotes);
-                                                                  appendTooltipLine(appointmentTooltipFullBuilder, "<i class='fa-regular fa-bell' aria-hidden='true'></i>", preventionWarning);
 
+                                                                  String preventionWarning = "";
+                                                                  if (!providerPreventionManager.isDisabled() && demographic_no != 0) {
+                                                                      // prevention warnings is concacted "[" + me.getKey() + "=" + me.getValue() + "]"
+                                                                      preventionWarning = providerPreventionManager.getWarnings(loggedInInfo1, String.valueOf(demographic_no));
+                                                                      preventionWarning = preventionWarning.replaceAll(
+                                                                          "\\[[^=\\]]*=([^\\]]*)\\](?:\\r?\\n)?",
+                                                                          "$1<br>"
+                                                                      );
+                                                                  }
+                                                                  if (preventionWarning.length()>1) {
+                                                                      appointmentTooltipFullBuilder.append("<i class='fa-regular fa-bell' aria-hidden='true'></i> ")
+                                                                      .append(preventionWarning);
+                                                                  }
                                                                   String appointmentTooltipFull = appointmentTooltipFullBuilder.toString();
+                                                                  appointmentTooltipFull = appointmentTooltipFull.replaceAll("(?:<br>)+$", ""); // remove trailing <br>
                                                                   boolean showTooltip = true; //CarlosProperties.getInstance().getBooleanProperty("SHOW_APPT_REASON_TOOLTIP", "yes");
 
                                                                   bFirstTimeRs=true;
@@ -3098,6 +3108,7 @@
     </script>
 <style>
 .tooltip .tooltip-inner { text-align: left !important; }
+.tooltip-inner { max-width: 350px !important; }
 .tooltip .tooltip-inner br { line-height: 1.2; }
 </style>
 
