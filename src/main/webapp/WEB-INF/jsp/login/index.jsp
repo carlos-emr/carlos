@@ -633,7 +633,7 @@ body {
                               NIST SP 800-63B (https://pages.nist.gov/800-63-3/sp800-63b.html) and
                               OWASP Authentication Cheat Sheet (https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html)
                               which recommend allowing password managers for stronger credential hygiene
-                            - pin: "one-time-code" \u2014 signal browsers this is a session code, not a saveable credential
+                            - pin: "off" \u2014 shared clinical workstations; prevent autofill of another provider's identity
                         --%>
                         <form action="login" method="POST" name="loginForm">
 
@@ -658,7 +658,7 @@ body {
                             <div class="pin-wrapper">
                                 <div class="input-wrapper mb-3 ${ login_error }">
                                   <!-- The input starts with the secure-text class -->
-                                  <input type="text" id="pin" class="form-control secure-text toggle-input" name="pin" autocomplete="one-time-code"
+                                  <input type="text" id="pin" class="form-control secure-text toggle-input" name="pin" autocomplete="off"
                                                inputmode="numeric"  placeholder="<fmt:message key="admin.securityrecord.formPIN"/>">
                                     <button type="button" tabindex="-1"
                                       id="togglePin"
