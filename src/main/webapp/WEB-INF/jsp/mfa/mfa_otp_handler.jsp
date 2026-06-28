@@ -79,11 +79,6 @@ This JSP is a fragment that is pulled in via <jsp:include> from mfa_handler.jsp 
       padding-left: 0.9ch !important;
     }
 
-    .selector {
-      background-position: 
-        calc(var(--_otp-digit, 0) * var(--_otp-bgsz)) 0;
-    }
-
   </style>
 
 
@@ -101,6 +96,7 @@ This JSP is a fragment that is pulled in via <jsp:include> from mfa_handler.jsp 
                        inputmode="numeric"
                        maxlength="6"
                        pattern="\d{6}"
+                       aria-label="Enter Code"
                        style="width: 16.6ch; text-align: left;"
                        oninput="if(this.value.length===6)this.form.submit();">
                 <div id="otpInputFeedback" class="invalid-feedback">
