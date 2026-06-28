@@ -89,7 +89,7 @@ public class MfaManagerImpl implements MfaManager {
         }
 
         byte[] qrCodeImageData = this.getQRCodeImageData(
-                CarlosProperties.getInstance().getProperty(MFA_PROVIDER_NAME_KEY, "Open OSP"),
+                CarlosProperties.getInstance().getProperty(MFA_PROVIDER_NAME_KEY, "Carlos"),
                 security.getUserName(), secret
         );
 
