@@ -1916,6 +1916,56 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should keep credential material out of session when staging forced reset")
+    void shouldKeepCredentialMaterialOutOfSession_whenStagingForcedReset() {
+        String password = VALID_PASSWORD;
+        String pin = "2026";
+        when(securityManager.encodePassword(password)).thenReturn(ENCODED_OLD_PASSWORD);
+        Login2Action action = newAction(null, null, null);
+
+        ReflectionTestUtils.invokeMethod(action, "setUserInfoToSession", request,
+                USERNAME, password, pin, "/provider/providercontrol.jsp");
+
+        MockHttpSession session = (MockHttpSession) request.getSession(false);
+        String token = (String) session.getAttribute(Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR);
+
+        // The session carries only the opaque token, which is not itself credential material.
+        assertThat(token).isNotBlank()
+                .doesNotContain(password)
+                .doesNotContain(ENCODED_OLD_PASSWORD);
+
+        // Strong form: enumerate EVERY session attribute and assert none leaks the raw
+        // password, the password hash, or the PIN, so a regression that stashed credential
+        // material under any other key would fail here (not just the known token attribute).
+        Collections.list(session.getAttributeNames()).forEach(name -> {
+            String value = String.valueOf(session.getAttribute(name));
+            assertThat(value)
+                    .as("session attribute '%s' must not contain the password or hash", name)
+                    .doesNotContain(password)
+                    .doesNotContain(ENCODED_OLD_PASSWORD);
+            // The opaque token is a 256-bit Base64URL random reference (verified above), not
+            // credential material; a 4-digit PIN can appear inside it by chance, so the PIN
+            // substring scan is applied to every OTHER attribute only. The PIN cannot leak
+            // into the token itself — tokens come from SecureRandom, independent of the PIN.
+            if (!Login2Action.LOGIN_CREDENTIALS_TOKEN_ATTR.equals(name)) {
+                assertThat(value)
+                        .as("session attribute '%s' must not contain the PIN", name)
+                        .doesNotContain(pin);
+            }
+        });
+
+        // Credentials — including the PIN — live server-side in the cache, referenced only
+        // by the opaque token.
+        LoginCredentialCache.LoginCredentials cached = LoginCredentialCache.getInstance().peek(token);
+        assertThat(cached).isNotNull();
+        assertThat(cached.getEncodedPassword()).isEqualTo(ENCODED_OLD_PASSWORD);
+        assertThat(cached.getPin()).isEqualTo(pin);
+        assertThat(cached.getUserName()).isEqualTo(USERNAME);
+
+        LoginCredentialCache.getInstance().invalidate(token);
+    }
+
+    @Test
     @DisplayName("should return generic fallback when message key is missing everywhere")
     void shouldReturnGenericFallback_whenMessageKeyIsMissingEverywhere() {
         try (LogCapture capture = LogCapture.forLogger(Login2Action.class)) {
