@@ -26,6 +26,7 @@
 "http://www.w3.org/TR/html4/loose.dtd">
 <%-- This JSP is the multi-site admin site detail page --%>
 <%@ include file="/taglibs.jsp" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -83,7 +84,7 @@
                 <td class="MainTableRightColumn" valign="top">
                     <c:if test="${not empty savedMessage}">
                         <div class="messages">
-                                ${savedMessage}
+                                ${carlos:forHtml(savedMessage)}
                         </div>
                     </c:if>
 

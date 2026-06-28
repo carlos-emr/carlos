@@ -1712,7 +1712,7 @@ insert into `secObjPrivilege` values('doctor','_newCasemgmt.episode','o',0,'9999
 insert into `secObjPrivilege` values('doctor','_episode','o',0,'999998');
 insert into `secObjPrivilege` values('doctor','_newCasemgmt.photo','x',0,'999998');
 insert into `secObjPrivilege` values('doctor','_hrm','x',0,'999998');
-insert into `secObjPrivilege` values('doctor','_eform','x',0,'999998');
+insert into `secObjPrivilege` values('doctor','_eform','w',0,'999998');
 insert into `secObjPrivilege` values('doctor','_form','x',0,'999998');
 insert into `secObjPrivilege` values('doctor','_measurement','x',0,'999998');
 insert into `secObjPrivilege` values('doctor','_lab','x',0,'999998');

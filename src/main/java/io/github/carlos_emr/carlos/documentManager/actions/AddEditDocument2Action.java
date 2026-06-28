@@ -329,14 +329,12 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
                 String contextPath = request.getContextPath();
                 StringBuilder redirect = new StringBuilder(contextPath + "/documentManager/ViewDocumentReport");
                 redirect.append("?docerrors=docerrors"); // Allows the JSP to check if the document was just submitted
-                appendQueryParameter(redirect, PARAM_FUNCTION, request.getParameter(PARAM_FUNCTION));
-                appendQueryParameter(redirect, PARAM_FUNCTION_ID, request.getParameter(PARAM_FUNCTION_ID));
-                appendQueryParameter(redirect, PARAM_CUR_USER, request.getParameter(PARAM_CUR_USER));
-                appendQueryParameter(redirect, PARAM_APPOINTMENT_NO, request.getParameter(PARAM_APPOINTMENT_NO));
-                String parentAjaxId = request.getParameter(PARAM_PARENT_AJAX_ID);
+                appendQueryParameter(redirect, PARAM_FUNCTION, this.getFunction());
+                appendQueryParameter(redirect, PARAM_FUNCTION_ID, this.getFunctionId());
+                appendQueryParameter(redirect, PARAM_APPOINTMENT_NO, this.getAppointmentNo());
                 // if we're called with parent ajax id inform jsp that parent needs to be updated
-                if (filled(parentAjaxId)) {
-                    appendQueryParameter(redirect, PARAM_PARENT_AJAX_ID, parentAjaxId);
+                if (filled(this.getParentAjaxId())) {
+                    appendQueryParameter(redirect, PARAM_PARENT_AJAX_ID, this.getParentAjaxId());
                     appendQueryParameter(redirect, "updateParent", "true");
                 }
                 try {
@@ -346,11 +344,11 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
                 }
                 return NONE;
             } else {
-                request.setAttribute(PARAM_FUNCTION, request.getParameter(PARAM_FUNCTION));
-                request.setAttribute(PARAM_FUNCTION_ID, request.getParameter(PARAM_FUNCTION_ID));
-                request.setAttribute(PARAM_PARENT_AJAX_ID, request.getParameter(PARAM_PARENT_AJAX_ID));
-                request.setAttribute(PARAM_CUR_USER, request.getParameter(PARAM_CUR_USER));
-                request.setAttribute(PARAM_APPOINTMENT_NO, request.getParameter(PARAM_APPOINTMENT_NO));
+                request.setAttribute(PARAM_FUNCTION, this.getFunction());
+                request.setAttribute(PARAM_FUNCTION_ID, this.getFunctionId());
+                request.setAttribute(PARAM_PARENT_AJAX_ID, this.getParentAjaxId());
+                request.setAttribute(PARAM_CUR_USER, this.getCurUser());
+                request.setAttribute(PARAM_APPOINTMENT_NO, this.getAppointmentNo());
                 return "failAdd";
             }
         } else {
@@ -1071,6 +1069,9 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
 
     private String appointmentNo = "0";
 
+    private String curUser = "";
+    private String parentAjaxId = "";
+
     private boolean restrictToProgram = false;
     private String receivedDate = "";
     private String abnormal = "";
@@ -1251,6 +1252,40 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     @StrutsParameter
     public void setAppointmentNo(String appointment) {
         this.appointmentNo = appointment;
+    }
+
+    /**
+     * Gets the current user.
+     * @return String the current user identifier
+     */
+    public String getCurUser() {
+        return curUser;
+    }
+
+    /**
+     * Sets the current user.
+     * @param curUser String the current user identifier to set
+     */
+    @StrutsParameter
+    public void setCurUser(String curUser) {
+        this.curUser = curUser;
+    }
+
+    /**
+     * Gets the parent AJAX ID.
+     * @return String the parent AJAX ID
+     */
+    public String getParentAjaxId() {
+        return parentAjaxId;
+    }
+
+    /**
+     * Sets the parent AJAX ID.
+     * @param parentAjaxId String the parent AJAX ID to set
+     */
+    @StrutsParameter
+    public void setParentAjaxId(String parentAjaxId) {
+        this.parentAjaxId = parentAjaxId;
     }
 
     public boolean isRestrictToProgram() {

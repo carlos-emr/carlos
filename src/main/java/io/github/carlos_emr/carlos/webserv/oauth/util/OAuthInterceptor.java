@@ -72,8 +72,10 @@ import org.apache.cxf.message.Message;
 import org.apache.cxf.phase.Phase;
 import org.apache.cxf.phase.PhaseInterceptor;
 import org.apache.cxf.transport.http.AbstractHTTPDestination;
+import org.apache.logging.log4j.Logger;
 
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.webserv.oauth.Client;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1Exception;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -82,16 +84,26 @@ import org.springframework.stereotype.Component;
 import io.github.carlos_emr.carlos.login.OscarOAuthDataProvider;
 import io.github.carlos_emr.carlos.login.AppOAuth1Config;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1SignatureVerifier;
 
 @Component
 public class OAuthInterceptor implements PhaseInterceptor<Message> {
 
-    @Autowired 
+    private static final Logger logger = MiscUtils.getLogger();
+
+    /** OscarLog action recorded on a successful REST OAuth authentication (parity with SOAP WS_LOGIN_SUCCESS). */
+    private static final String OAUTH_LOGIN_SUCCESS = "OAUTH_LOGIN_SUCCESS";
+    /** OscarLog action recorded on a rejected REST OAuth authentication (parity with SOAP WS_LOGIN_FAILURE). */
+    private static final String OAUTH_LOGIN_FAILURE = "OAUTH_LOGIN_FAILURE";
+
+    @Autowired
     private OscarOAuthDataProvider oauthDataProvider;
 
-    @Autowired 
+    @Autowired
     private ProviderDao providerDao;
 
     @Resource
@@ -110,10 +122,14 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
             return;
         }
 
+        // Hoisted so the audit on both success and the auth-failure paths can record them.
+        String ip = req.getRemoteAddr();
+        String consumerKey = null;
+
         try {
             // 2) Pull oauth params
             Map<String, String> oauth = OAuthRequestParser.extractOAuthParameters(req);
-            String consumerKey = oauth.get("oauth_consumer_key");
+            consumerKey        = oauth.get("oauth_consumer_key");
             String token       = oauth.get("oauth_token");
 
             if (consumerKey == null || consumerKey.isEmpty()) {
@@ -157,14 +173,93 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
             info.setLoggedInProvider(provider);
             req.setAttribute(info.getLoggedInInfoKey(), info);
 
+            // 6) Audit the successful authentication (parity with SOAP WS_LOGIN_SUCCESS).
+            auditAuthSuccess(providerNo, ip, consumerKey);
+
         } catch (OAuth1Exception e) {
-            throw new Fault(e);
+            // Explicit auth outcome (e.g. 400 missing param, 401 invalid consumer/token):
+            // carries its own intended status code. Record the rejection in the audit trail.
+            auditAuthFailure(ip, consumerKey);
+            throw toFault(e);
         } catch (IllegalArgumentException badSigOrTime) {
             // from verifier: missing/stale timestamp, bad signature, unknown token, etc.
-            throw new Fault(new OAuth1Exception(401, "invalid_signature"));
+            // These are client-side authentication failures -> 401.
+            auditAuthFailure(ip, consumerKey);
+            throw toFault(new OAuth1Exception(401, "invalid_signature"));
         } catch (Exception e) {
-            throw new Fault(new OAuth1Exception(401, "oauth_authentication_failed"));
+            // Anything else is an unexpected server-side failure (e.g. a data-access error),
+            // NOT an authentication problem. Log the cause for diagnosis but return a generic
+            // 500 so genuine outages are not masked as "bad credentials", and so the client
+            // body reveals nothing about the internal failure. Deliberately NOT recorded as an
+            // OAUTH_LOGIN_FAILURE so the audit trail stays distinct from genuine auth rejections.
+            logger.error("Unexpected error during OAuth1 authentication", e);
+            throw toFault(new OAuth1Exception(500, "oauth_processing_error"));
         }
+    }
+
+    /**
+     * Records a successful REST OAuth authentication in the sanctioned OscarLog audit trail,
+     * mirroring {@code AuthenticationInWSS4JInterceptor}'s WS_LOGIN_SUCCESS entry.
+     *
+     * <p>Only safe identifiers are persisted: the resolved providerNo, the remote IP, and the
+     * consumer key. The oauth_token (bearer credential), consumer secret, and signature are
+     * never logged.
+     */
+    private void auditAuthSuccess(String providerNo, String ip, String consumerKey) {
+        // An audit-write hiccup must never deny an already-authenticated request, so guard the
+        // call locally instead of relying on LogAction's internal exception handling.
+        try {
+            OscarLog oscarLog = new OscarLog();
+            oscarLog.setProviderNo(providerNo);
+            oscarLog.setAction(OAUTH_LOGIN_SUCCESS);
+            oscarLog.setIp(ip);
+            oscarLog.setContent(safeConsumerKey(consumerKey));
+            LogAction.addLogSynchronous(oscarLog);
+        } catch (Exception e) {
+            logger.error("Failed to write OAUTH_LOGIN_SUCCESS audit entry", e);
+        }
+    }
+
+    /**
+     * Records a rejected REST OAuth authentication in the sanctioned OscarLog audit trail,
+     * mirroring {@code AuthenticationInWSS4JInterceptor}'s WS_LOGIN_FAILURE entry. No providerNo
+     * is recorded because the request never resolved to an authenticated provider.
+     */
+    private void auditAuthFailure(String ip, String consumerKey) {
+        // Guard the audit write so a logging failure cannot replace the intended 400/401 Fault
+        // with an unexpected error surfaced to the caller.
+        try {
+            OscarLog oscarLog = new OscarLog();
+            oscarLog.setAction(OAUTH_LOGIN_FAILURE);
+            oscarLog.setIp(ip);
+            oscarLog.setContent(safeConsumerKey(consumerKey));
+            LogAction.addLogSynchronous(oscarLog);
+        } catch (Exception e) {
+            logger.error("Failed to write OAUTH_LOGIN_FAILURE audit entry", e);
+        }
+    }
+
+    /**
+     * The consumer key is a client-supplied identifier; sanitize it before it enters the audit
+     * trail. Returns {@code null} when no consumer key was supplied so no content is recorded.
+     */
+    private static String safeConsumerKey(String consumerKey) {
+        if (consumerKey == null || consumerKey.isEmpty()) {
+            return null;
+        }
+        return LogSafe.sanitize(consumerKey);
+    }
+
+    /**
+     * Wraps an {@link OAuth1Exception} in a CXF {@link Fault} that carries the intended
+     * HTTP status code. Without {@link Fault#setStatusCode(int)} CXF discards the OAuth
+     * status and defaults an in-interceptor fault to HTTP 500, so a 400/401 authentication
+     * failure would surface to API callers as a server error.
+     */
+    private static Fault toFault(OAuth1Exception e) {
+        Fault fault = new Fault(e);
+        fault.setStatusCode(e.getHttpCode());
+        return fault;
     }
 
     @Override public void handleFault(Message message) { /* no-op */ }

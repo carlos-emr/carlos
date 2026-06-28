@@ -426,8 +426,10 @@
             <ul>
                 <li><a href="#"
                        onclick='popupPage(500,1000,"${pageContext.request.contextPath}/form/setupSelect");return false;'><fmt:message key="admin.admin.btnSelectForm"/></a></li>
-                <li><a href="#"
-                       onclick='popupPage(500,1000,"${pageContext.request.contextPath}/form/formXmlUpload");return false;'><fmt:message key="admin.admin.btnImportFormData"/></a></li>
+                <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.eform" rights="w" reverse="<%=false%>">
+                    <li><a href="#"
+                           onclick='popupPage(500,1000,"${pageContext.request.contextPath}/form/formXmlUpload");return false;'><fmt:message key="admin.admin.btnImportFormData"/></a></li>
+                </security:oscarSec>
                 <li><a href="${pageContext.request.contextPath}/eform/efmformmanager">
                     <fmt:message key="admin.admin.btnUploadForm"/>
                 </a></li>
