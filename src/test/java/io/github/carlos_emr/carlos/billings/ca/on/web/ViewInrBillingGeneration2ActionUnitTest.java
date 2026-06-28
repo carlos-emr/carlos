@@ -45,6 +45,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
@@ -114,6 +117,7 @@ class ViewInrBillingGeneration2ActionUnitTest extends CarlosUnitTestBase {
 
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
                 .thenReturn(true);
+        when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
     }
 
     @AfterEach
@@ -170,7 +174,7 @@ class ViewInrBillingGeneration2ActionUnitTest extends CarlosUnitTestBase {
         mockRequest.setParameter("inrbilling7", "on");
         mockRequest.setParameter("clinic_no", "12");
         mockRequest.setParameter("xml_location", "REF1");
-        mockRequest.setParameter("curUser", "carlosdoc");
+        mockRequest.setParameter("curUser", "spoofed");
         mockRequest.setParameter("curDate", "2026-04-26");
         mockRequest.setParameter("xml_appointment_date", "2026-04-26");
 
@@ -186,7 +190,7 @@ class ViewInrBillingGeneration2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(b.getDemographicNo()).isEqualTo(101);
         assertThat(b.getProviderNo()).isEqualTo("999998");
         assertThat(b.getClinicNo()).isEqualTo(12);
-        assertThat(b.getCreator()).isEqualTo("carlosdoc");
+        assertThat(b.getCreator()).isEqualTo("999998");
         assertThat(b.getTotal()).isEqualTo("3370"); // decimal stripped
         assertThat(b.getStatus()).isEqualTo("O");
 
@@ -280,6 +284,19 @@ class ViewInrBillingGeneration2ActionUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(() -> newAction().execute())
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("_billing");
+
+        verify(mockBillingDao, never()).persist(any());
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = " ")
+    void shouldThrowSecurityException_whenProviderNumberMissing(String providerNo) {
+        when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn(providerNo);
+
+        assertThatThrownBy(() -> newAction().execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("provider number");
 
         verify(mockBillingDao, never()).persist(any());
     }
