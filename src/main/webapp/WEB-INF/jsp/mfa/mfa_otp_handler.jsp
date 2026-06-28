@@ -27,6 +27,16 @@
 
 --%>
 
+<%--
+mfa_otp_handler.jsp
+  
+This JSP is a fragment that is pulled in via <jsp:include> from mfa_handler.jsp (inside card-body) and from mfa_registration.jsp
+  It provides the field to input the MFA key
+  and the submit button
+
+@since 2025-03-05
+--%>
+
 <%@ page contentType="text/html;charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -36,8 +46,7 @@
 <fmt:message key="mfa.otp.handler.placeholder" var="otpPlaceholder"/>
 <fmt:message key="mfa.otp.handler.verify.button" var="otpVerifyButton"/>
 
-<html>
-<head>
+
   <style>
     :where([autocomplete=one-time-code]) {
       --otp-digits: 6; /* length */
@@ -77,8 +86,7 @@
 
   </style>
 
-</head>
-<body>
+
 <div class="card-body d-flex align-items-center justify-content-center">
 
     <form action="<%= request.getContextPath() %>/mfa/loginMfa" method="post">
@@ -93,7 +101,7 @@
                        inputmode="numeric"
                        maxlength="6"
                        pattern="\d{6}"
-                       style="width: 16.6ch;"
+                       style="width: 16.6ch; text-align: left;"
                        oninput="if(this.value.length===6)this.form.submit();">
                 <div id="otpInputFeedback" class="invalid-feedback">
                     ${carlos:forHtml(requestScope.mfaValidateCodeErr)}
@@ -112,13 +120,9 @@
     </form>
 </div>
   <script>
-
-
-const input = document.querySelector('[autocomplete=one-time-code');
-input.addEventListener('input', () => input.style.setProperty('--_otp-digit', input.selectionStart));
-
-
+    const input = document.querySelector('[autocomplete=one-time-code');
+    input.addEventListener('input', () => input.style.setProperty('--_otp-digit', input.selectionStart));
   </script>
-</body>
 
-</html>
+
+
