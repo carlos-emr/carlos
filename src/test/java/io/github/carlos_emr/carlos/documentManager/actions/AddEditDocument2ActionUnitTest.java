@@ -63,8 +63,8 @@ import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Hashtable;
 import java.util.List;
+import java.util.Map;
 import java.util.ResourceBundle;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -750,8 +750,42 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
         String result = action.execute2();
 
         assertThat(result).isEqualTo("failAdd");
-        Hashtable<String, String> errors = (Hashtable<String, String>) request.getAttribute("docerrors");
+        Map<String, String> errors = (Map<String, String>) request.getAttribute("docerrors");
         assertThat(errors).containsEntry("uploaderror", "dms.error.uploadError");
+    }
+
+    @Test
+    @DisplayName("should return failAdd with descmissing error when description is blank")
+    @SuppressWarnings("unchecked")
+    void shouldReturnFailAdd_whenDescriptionMissing() {
+        action.setMode("add");
+        action.setFunction("demographic");
+        action.setFunctionId("123");
+        action.setDocDesc("");
+        action.setDocType("Consultant Report");
+
+        String result = action.execute2();
+
+        assertThat(result).isEqualTo("failAdd");
+        Map<String, String> errors = (Map<String, String>) request.getAttribute("docerrors");
+        assertThat(errors).containsEntry("descmissing", "dms.error.descriptionInvalid");
+    }
+
+    @Test
+    @DisplayName("should return failAdd with typemissing error when document type is blank")
+    @SuppressWarnings("unchecked")
+    void shouldReturnFailAdd_whenDocumentTypeMissing() {
+        action.setMode("add");
+        action.setFunction("demographic");
+        action.setFunctionId("123");
+        action.setDocDesc("Consult note");
+        action.setDocType("");
+
+        String result = action.execute2();
+
+        assertThat(result).isEqualTo("failAdd");
+        Map<String, String> errors = (Map<String, String>) request.getAttribute("docerrors");
+        assertThat(errors).containsEntry("typemissing", "dms.error.typeMissing");
     }
 
     @Test
@@ -780,7 +814,7 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
 
             assertThat(result).isEqualTo("failEdit");
             assertThat(request.getAttribute("editDocumentNo")).isEqualTo("123");
-            Hashtable<String, String> errors = (Hashtable<String, String>) request.getAttribute("docerrors");
+            Map<String, String> errors = (Map<String, String>) request.getAttribute("docerrors");
             assertThat(errors).containsEntry("uploaderror", "dms.error.uploadError");
         } finally {
             if (originalAllowUpdate == null) {
@@ -816,7 +850,7 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
         String result = action.execute2();
 
         assertThat(result).isEqualTo("failAdd");
-        Hashtable<String, String> errors = (Hashtable<String, String>) request.getAttribute("docerrors");
+        Map<String, String> errors = (Map<String, String>) request.getAttribute("docerrors");
         assertThat(errors).containsEntry("filenameinvalid", "dms.error.invalidFilename");
     }
 
@@ -840,7 +874,7 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
             String result = action.execute2();
 
             assertThat(result).isEqualTo("failAdd");
-            Hashtable<String, String> errors = (Hashtable<String, String>) request.getAttribute("docerrors");
+            Map<String, String> errors = (Map<String, String>) request.getAttribute("docerrors");
             assertThat(errors).containsEntry("filenameinvalid", "dms.error.invalidFilename");
 
             Files.deleteIfExists(tempUploadFile.toPath());
