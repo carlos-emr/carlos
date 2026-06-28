@@ -1297,7 +1297,7 @@ public final class EDocUtil {
                 throw new SecurityException("Access denied: File is outside the allowed directories");
             }
         } catch (IOException e) {
-            logger.error("Error resolving file path", e);
+            logger.error("Error resolving file path (exceptionType={})", e.getClass().getSimpleName());
             throw new SecurityException("Unable to resolve file path securely", e);
         }
     }
