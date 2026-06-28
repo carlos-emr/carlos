@@ -192,10 +192,14 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
 
         String result = executeAction(action);
 
-        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(result).isEqualTo(ActionSupport.NONE);
         @SuppressWarnings("unchecked")
         List<String> warnings = (List<String>) getMockRequest().getAttribute("warnings");
         assertThat(warnings).contains(NO_VALID_XML_WARNING);
         assertThat(getMockRequest().getAttribute("importlog")).isNotNull();
+        assertThat(getMockResponse().getContentType()).contains("application/json");
+        assertThat(getMockResponse().getContentAsString())
+                .contains(NO_VALID_XML_WARNING)
+                .contains("importLog");
     }
 }
