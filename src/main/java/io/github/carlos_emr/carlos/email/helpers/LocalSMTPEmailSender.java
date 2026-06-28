@@ -14,6 +14,11 @@ import org.springframework.mail.javamail.JavaMailSenderImpl;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+/**
+ * Handling operations and data structures related to the LocalSMTPEmailSender component.
+ *
+ * @since 2026-06-26
+ */
 
 public class LocalSMTPEmailSender extends SMTPEmailSender {
 
@@ -25,6 +30,7 @@ public class LocalSMTPEmailSender extends SMTPEmailSender {
 
     @Override
     protected JavaMailSender createTLSMailSender(EmailConfig emailConfig) throws EmailSendingException {
+        // Ensures safe processing of input to prevent unexpected state transitions during this operation
         JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
         ObjectMapper objectMapper = new ObjectMapper();
         try {

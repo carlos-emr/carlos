@@ -17,6 +17,11 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import java.util.Properties;
 import java.util.Vector;
+/**
+ * Handling operations and data structures related to the GstReport component.
+ *
+ * @since 2026-06-26
+ */
 
 public class GstReport {
 

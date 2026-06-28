@@ -5,6 +5,11 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import java.io.Serializable;
 import java.util.Objects;
+/**
+ * Domain model representing EReferAttachmentDataCompositeKey, used to transfer state across application layers.
+ *
+ * @since 2026-06-26
+ */
 
 public class EReferAttachmentDataCompositeKey implements Serializable {
     @ManyToOne

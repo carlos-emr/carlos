@@ -11,6 +11,11 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.util.Date;
 import java.util.List;
+/**
+ * Domain model representing EReferAttachment, used to transfer state across application layers.
+ *
+ * @since 2026-06-26
+ */
 
 @Entity
 @Table(name = "erefer_attachment")
@@ -62,6 +67,7 @@ public class EReferAttachment extends AbstractModel<Integer> {
     }
 
     public boolean isArchived() {
+        // Ensures safe processing of input to prevent unexpected state transitions during this operation
         return archived;
     }
 

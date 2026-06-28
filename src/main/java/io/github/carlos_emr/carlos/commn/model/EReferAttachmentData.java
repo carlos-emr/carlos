@@ -7,6 +7,11 @@ import jakarta.persistence.IdClass;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+/**
+ * Domain model representing EReferAttachmentData, used to transfer state across application layers.
+ *
+ * @since 2026-06-26
+ */
 
 @Entity
 @IdClass(EReferAttachmentDataCompositeKey.class)
