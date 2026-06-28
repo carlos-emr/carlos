@@ -4,6 +4,11 @@ import jakarta.xml.bind.annotation.XmlType;
 import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
+/**
+ * Web service component facilitating integration for HelloWorld2 messages and endpoints.
+ *
+ * @since 2026-06-26
+ */
 
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "helloWorld2", propOrder = { "arg0" })

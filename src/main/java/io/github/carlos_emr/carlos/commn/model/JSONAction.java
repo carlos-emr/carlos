@@ -13,6 +13,11 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
+/**
+ * Domain model representing JSONAction, used to transfer state across application layers.
+ *
+ * @since 2026-06-26
+ */
 
 public class JSONAction extends ActionSupport {
 
@@ -35,6 +40,7 @@ public class JSONAction extends ActionSupport {
     // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
     @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     protected void jsonResponse(ObjectNode jsonObject) {
+        // Ensures safe processing of input to prevent unexpected state transitions during this operation
         if (!hasResponseContext()) {
             return;
         }

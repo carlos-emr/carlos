@@ -4,6 +4,11 @@ import io.github.carlos_emr.carlos.commn.model.converter.EmailAttachmentDocument
 import jakarta.persistence.*;
 
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+/**
+ * Domain model representing EmailAttachment, used to transfer state across application layers.
+ *
+ * @since 2026-06-26
+ */
 
 @Entity
 @Table(name = "emailAttachment")
