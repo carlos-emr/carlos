@@ -28,7 +28,6 @@
  */
 package io.github.carlos_emr.carlos.webserv.rest.to.model;
 
-import java.text.SimpleDateFormat;
 import java.util.Date;
 
 public class AppointmentExtTo {
@@ -228,19 +227,14 @@ public class AppointmentExtTo {
         this.wPhoneExt = wPhoneExt;
     }
 
+    /**
+     * Returns a PHI-safe string representation. Patient-identifying fields
+     * (name, phone numbers, email, clinical notes) are deliberately excluded so
+     * that logging this object cannot leak PHI into application logs. Only the
+     * non-sensitive appointment surrogate key is included.
+     */
     @Override
     public String toString() {
-        SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd");
-        SimpleDateFormat dft = new SimpleDateFormat("yyyy-MM-dd");
-        return "AppointmentExtTo2 [appointmentNo=" + appointmentNo + ", providerNo=" + providerNo
-                + ", appointmentDate=" + appointmentDate != null ? df.format(appointmentDate) : "null"
-                + ", startTime=" + startTime != null ? dft.format(startTime) : "null"
-                + ", demographicNo=" + demographicNo + ", notes=" + notes
-                + ", location=" + location + ", resources=" + resources + ", status=" + status
-                + ", lastName=" + lastName + ", firstName=" + firstName + ", phone=" + phone + ", phone2=" + phone2
-                + ", email=" + email + ", demoCell=" + demoCell + ", reminderPreference=" + reminderPreference
-                + ", hPhoneExt=" + hPhoneExt + ", wPhoneExt=" + wPhoneExt + "]";
+        return "AppointmentExtTo[appointmentNo=" + appointmentNo + "]";
     }
-
-
 }
