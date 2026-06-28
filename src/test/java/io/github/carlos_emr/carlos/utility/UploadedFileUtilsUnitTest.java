@@ -28,6 +28,8 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -54,12 +56,14 @@ class UploadedFileUtilsUnitTest {
 
         @Test
         @DisplayName("should return backing file when upload has file-backed content")
-        void shouldReturnBackingFile_whenUploadHasFileBacking() {
-            File expected = new File("/tmp/test.pdf");
+        void shouldReturnBackingFile_whenUploadHasFileBacking() throws IOException {
+            File expected = Files.createTempFile("UploadedFileUtilsUnitTest-", ".pdf").toFile();
+            expected.deleteOnExit();
             UploadedFile upload = mock(UploadedFile.class);
             when(upload.getContent()).thenReturn(expected);
 
-            assertThat(UploadedFileUtils.getUploadedFile(upload)).isSameAs(expected);
+            assertThat(UploadedFileUtils.getUploadedFile(upload))
+                .isEqualTo(expected.getCanonicalFile());
         }
 
         @Test
@@ -98,12 +102,14 @@ class UploadedFileUtilsUnitTest {
 
         @Test
         @DisplayName("should return backing file when upload has file-backed content")
-        void shouldReturnBackingFile_whenUploadHasFileBacking() {
-            File expected = new File("/tmp/test.pdf");
+        void shouldReturnBackingFile_whenUploadHasFileBacking() throws IOException {
+            File expected = Files.createTempFile("UploadedFileUtilsUnitTest-", ".pdf").toFile();
+            expected.deleteOnExit();
             UploadedFile upload = mock(UploadedFile.class);
             when(upload.getContent()).thenReturn(expected);
 
-            assertThat(UploadedFileUtils.getUploadedFileOrNull(upload)).isSameAs(expected);
+            assertThat(UploadedFileUtils.getUploadedFileOrNull(upload))
+                .isEqualTo(expected.getCanonicalFile());
         }
 
         @Test
