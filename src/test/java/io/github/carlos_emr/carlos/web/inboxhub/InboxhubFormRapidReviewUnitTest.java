@@ -73,9 +73,32 @@ class InboxhubFormRapidReviewUnitTest {
         assertThat(openNextCall).isLessThan(redrawCall);
     }
 
+    @Test
+    @DisplayName("should leave date filters unchanged when toggling acknowledged results")
+    void shouldLeaveDateFiltersUnchanged_whenTogglingAcknowledgedResults() throws Exception {
+        String jsp = Files.readString(INBOXHUB_FORM);
+        String toggleAcknowledged = extractToggleAcknowledged(jsp);
+
+        assertThat(toggleAcknowledged)
+                .contains("changeValueElementByName('query.status', checked ? 'A' : 'N');")
+                .contains("fetchInboxhubData();")
+                .doesNotContain("startDate")
+                .doesNotContain("_flatpickr")
+                .doesNotContain("new Date()");
+    }
+
     private String extractOpenNextInboxItem(String jsp) {
         int start = jsp.indexOf("function openNextInboxItem()");
         int end = jsp.indexOf("\n    // State variables preserved", start);
+
+        assertThat(start).isNotNegative();
+        assertThat(end).isNotNegative();
+        return jsp.substring(start, end);
+    }
+
+    private String extractToggleAcknowledged(String jsp) {
+        int start = jsp.indexOf("function toggleAcknowledged(checked)");
+        int end = jsp.indexOf("\n    /**\n     * Toggles Rapid Review mode.", start);
 
         assertThat(start).isNotNegative();
         assertThat(end).isNotNegative();

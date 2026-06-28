@@ -46,6 +46,7 @@ import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
 
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
@@ -66,7 +67,19 @@ public final class RxDeleteAllergy2Action extends ActionSupport {
         // Setup variables
         // Add allergy
 
-        int id = Integer.parseInt(request.getParameter("ID"));
+        String idParam = request.getParameter("ID");
+        if (StringUtils.isBlank(idParam)) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing ID parameter");
+            return NONE;
+        }
+
+        int id;
+        try {
+            id = Integer.parseInt(idParam);
+        } catch (NumberFormatException e) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid ID parameter");
+            return NONE;
+        }
         String demographicNo = request.getParameter("demographicNo");
         String action = request.getParameter("action");
 
