@@ -27,10 +27,6 @@ import org.apache.struts2.dispatcher.multipart.UploadedFile;
 /**
  * Helpers for extracting backing {@link File} handles from Struts
  * {@link UploadedFile} objects.
- *
- * <p><strong>Important:</strong> The returned {@link File} must still be validated (for example via
- * {@link PathValidationUtils#validateUpload(File)} or {@link PathValidationUtils#validateUploadContent(Object)})
- * before performing any file operations.</p>
  */
 public final class UploadedFileUtils {
 
@@ -39,34 +35,38 @@ public final class UploadedFileUtils {
     }
 
     /**
-     * Returns the backing {@link File} for a Struts {@link UploadedFile}.
+     * Returns the validated backing {@link File} for a Struts {@link UploadedFile}.
      *
-     * @param upload the uploaded file; may be {@code null}
-     * @return the backing file
-     * @throws IllegalArgumentException if {@code upload} is null or not file-backed
+     * <p>Delegates to {@link PathValidationUtils#validateUploadContent(Object)} so the
+     * returned file is canonicalized, exists, is a regular file, and resides in an
+     * allowed temp directory.</p>
+     *
+     * @param upload the uploaded file; must not be {@code null}
+     * @return the canonicalized validated backing file
+     * @throws IllegalArgumentException if {@code upload} is null
+     * @throws SecurityException if the upload content is not a file or validation fails
      */
     public static File getUploadedFile(UploadedFile upload) {
         if (upload == null) {
             throw new IllegalArgumentException("Upload is null");
         }
-        Object content = upload.getContent();
-        if (!(content instanceof File)) {
-            throw new IllegalArgumentException("Upload has no backing file");
-        }
-        return (File) content;
+        return PathValidationUtils.validateUploadContent(upload.getContent());
     }
     /**
-     * Returns the backing {@link File}, or {@code null} when the upload is
+     * Returns the validated backing {@link File}, or {@code null} when the upload is
      * unavailable, instead of throwing.
      *
      * @param upload the uploaded file; may be {@code null}
-     * @return the backing file, or {@code null}
+     * @return the canonicalized validated backing file, or {@code null}
      */
     public static File getUploadedFileOrNull(UploadedFile upload) {
         if (upload == null) {
             return null;
         }
-        Object content = upload.getContent();
-        return (content instanceof File) ? (File) content : null;
+        try {
+            return PathValidationUtils.validateUploadContent(upload.getContent());
+        } catch (SecurityException e) {
+            return null;
+        }
     }
 }
