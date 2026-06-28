@@ -1,6 +1,5 @@
 /**
  * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
- * Copyright (c) 2026. CARLOS EMR Project. All Rights Reserved.
  *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
@@ -72,24 +71,24 @@ class UploadedFileUtilsUnitTest {
         }
 
         @Test
-        @DisplayName("should throw IllegalArgumentException when content is not file-backed")
-        void shouldThrowIllegalArgumentException_whenContentIsNotFileBacked() {
+        @DisplayName("should throw SecurityException when content is not file-backed")
+        void shouldThrowSecurityException_whenContentIsNotFileBacked() {
             UploadedFile upload = mock(UploadedFile.class);
             when(upload.getContent()).thenReturn("not-a-file");
 
             assertThatThrownBy(() -> UploadedFileUtils.getUploadedFile(upload))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("no backing file");
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("not a file");
         }
 
         @Test
-        @DisplayName("should throw IllegalArgumentException when content is null")
-        void shouldThrowIllegalArgumentException_whenContentIsNull() {
+        @DisplayName("should throw SecurityException when content is null")
+        void shouldThrowSecurityException_whenContentIsNull() {
             UploadedFile upload = mock(UploadedFile.class);
             when(upload.getContent()).thenReturn(null);
 
             assertThatThrownBy(() -> UploadedFileUtils.getUploadedFile(upload))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(SecurityException.class);
         }
     }
 
