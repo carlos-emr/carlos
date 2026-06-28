@@ -120,7 +120,7 @@ This JSP is a fragment that is pulled in via <jsp:include> from mfa_handler.jsp 
     </form>
 </div>
   <script>
-    const input = document.querySelector('[autocomplete=one-time-code');
+    const input = document.querySelector('[autocomplete=one-time-code]');
     input.addEventListener('input', () => input.style.setProperty('--_otp-digit', input.selectionStart));
   </script>
 
