@@ -36,8 +36,48 @@
 <fmt:message key="mfa.otp.handler.placeholder" var="otpPlaceholder"/>
 <fmt:message key="mfa.otp.handler.verify.button" var="otpVerifyButton"/>
 
-
 <html>
+<head>
+  <style>
+    :where([autocomplete=one-time-code]) {
+      --otp-digits: 6; /* length */
+      --otp-ls: 2ch;
+      --otp-gap: 1.25;
+      /* private consts */
+      --_otp-bgsz: calc(var(--otp-ls) + 1ch);
+      --_otp-digit: 0;
+    
+      all: unset;
+      background:   linear-gradient(90deg, 
+        var(--otp-bg, #BBB) calc(var(--otp-gap) * var(--otp-ls)),
+        transparent 0),
+        linear-gradient(90deg, 
+        var(--otp-bg, #EEE) calc(var(--otp-gap) * var(--otp-ls)),
+        transparent 0
+      );
+      background-position: calc(var(--_otp-digit) * var(--_otp-bgsz)) 0, 0 0;
+      background-repeat: no-repeat, repeat-x;
+      background-size: var(--_otp-bgsz) 100%;
+      caret-color: var(--otp-cc, #222);
+      caret-shape: block;
+      clip-path: inset(0% calc(var(--otp-ls) / 2) 0% 0%);
+      font-family: ui-monospace, monospace !important;
+      font-size: var(--otp-fz, 2.5em);
+      inline-size: calc(var(--otp-digits) * var(--_otp-bgsz));
+      letter-spacing: var(--otp-ls);
+      padding-block: var(--otp-pb, 1ch);
+      padding-inline-start: calc(((var(--otp-ls) - 1ch) / 2) * var(--otp-gap));
+      padding-left: 0.9ch !important;
+    }
+
+    .selector {
+      background-position: 
+        calc(var(--_otp-digit, 0) * var(--_otp-bgsz)) 0;
+    }
+
+  </style>
+
+</head>
 <body>
 <div class="card-body d-flex align-items-center justify-content-center">
 
@@ -45,18 +85,23 @@
         <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>">
         <input type="hidden" name="mfaRegistrationFlow" value="${requestScope.mfaRegistrationRequired}">
         <div class="">
-            <div class="row mx-3 mx-md-3 mx-lg-3 px-3 px-md-3 px-lg-3 mb-3">
-                <input class="form-control form-control-sm ${not empty requestScope.mfaValidateCodeErr ? 'is-invalid' : ''}"
+            <div class="row mx-3 mx-md-3 mx-lg-3 px-3 px-md-3 px-lg-3 mb-3" style="display:flex; justify-content:center;">
+                <input class="${not empty requestScope.mfaValidateCodeErr ? 'is-invalid' : ''}"
                        type="text" name="code" id="otpInput" autofocus
-                       placeholder="${carlos:forHtmlAttribute(otpPlaceholder)}" aria-label="${carlos:forHtmlAttribute(otpPlaceholder)}"
-                       required maxlength="6">
+                       required
+                       autocomplete="one-time-code"
+                       inputmode="numeric"
+                       maxlength="6"
+                       pattern="\d{6}"
+                       style="width: 16.6ch;"
+                       oninput="if(this.value.length===6)this.form.submit();">
                 <div id="otpInputFeedback" class="invalid-feedback">
                     ${carlos:forHtml(requestScope.mfaValidateCodeErr)}
                 </div>
             </div>
 
             <div class="row mx-3 mx-md-3 mx-lg-3 px-3 px-md-3 px-lg-3 mb-3">
-                <input name="submit" type="submit" class="btn btn-success btn-sm w-100"
+                <input name="btnSubmit" type="submit" class="btn btn-success btn-sm w-100"
                        id="verifyButton" value="${carlos:forHtmlAttribute(otpVerifyButton)}"/>
             </div>
         </div>
@@ -66,6 +111,14 @@
         </div>
     </form>
 </div>
+  <script>
+
+
+const input = document.querySelector('[autocomplete=one-time-code');
+input.addEventListener('input', () => input.style.setProperty('--_otp-digit', input.selectionStart));
+
+
+  </script>
 </body>
 
 </html>
