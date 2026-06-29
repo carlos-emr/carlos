@@ -104,6 +104,20 @@ class RemovedJspReferenceRegressionTest {
     }
 
     @Test
+    @DisplayName("MFA challenge JSP should contain one top-level HTML document")
+    void shouldNotNestHtmlDocuments_inMfaChallengeJsp() throws IOException {
+        String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/security/mfa.jsp"));
+
+        assertThat(countOccurrences(jsp, "<!DOCTYPE html>")).isEqualTo(1);
+        assertThat(countOccurrences(jsp, "<html")).isEqualTo(1);
+        assertThat(countOccurrences(jsp, "</html>")).isEqualTo(1);
+        assertThat(countOccurrences(jsp, "<head")).isEqualTo(1);
+        assertThat(countOccurrences(jsp, "</head>")).isEqualTo(1);
+        assertThat(countOccurrences(jsp, "<body")).isEqualTo(1);
+        assertThat(countOccurrences(jsp, "</body>")).isEqualTo(1);
+    }
+
+    @Test
     @DisplayName("Oscar.js force-window list should tolerate duplicate script includes")
     void shouldUseRedeclarableForceWindowList_inOscarJs() throws IOException {
         String oscarJs = Files.readString(Path.of("src/main/webapp/share/javascript/Oscar.js"));
@@ -278,5 +292,15 @@ class RemovedJspReferenceRegressionTest {
                 .map(Path::toString)
                 .sorted()
                 .collect(Collectors.joining(System.lineSeparator()));
+    }
+
+    private static int countOccurrences(String content, String needle) {
+        int count = 0;
+        int index = 0;
+        while ((index = content.indexOf(needle, index)) != -1) {
+            count++;
+            index += needle.length();
+        }
+        return count;
     }
 }
