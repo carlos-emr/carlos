@@ -28,6 +28,21 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Purpose:
+      Displays CARLOS EMR logging reports for authorized administrators.
+
+    Features:
+      - Selects a report date and report type.
+      - Validates report request parameters server-side.
+      - Reads logging report files only from the configured LOGGING_PATH.
+
+    Parameters:
+      - reportDate: Optional report date in YYYY-MM-DD format.
+      - reportType: Optional report type; supported values are "general" and "mysql".
+
+    @since 2026
+--%>
 <%@ include file="/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
 <c:set var="ctx" value="${pageContext.request.contextPath}"
@@ -146,6 +161,9 @@
             reportFileName = "report" + suffix + ".html";
         } else if (reportType.equals("mysql")) {
             reportFileName = "reportmysql" + suffix + ".html";
+        } else {
+            out.write("<div class=\"alert alert-danger\">Invalid report type.</div>");
+            return;
         }
 
         try {
