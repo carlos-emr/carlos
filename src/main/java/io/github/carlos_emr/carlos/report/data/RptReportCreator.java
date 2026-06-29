@@ -46,6 +46,7 @@ import org.apache.commons.lang3.time.DateFormatUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.login.DBHelp;
+import io.github.carlos_emr.carlos.util.SqlIdentifierValidator;
 
 /**
  * @author yilee18
@@ -63,9 +64,10 @@ public final class RptReportCreator {
         }
         while (rs.next()) {
             String caption = DBHelp.getString(rs, "caption");
-            ret.append((ret.length() < 8 ? " " : ", ") + DBHelp.getString(rs, "table_name") + "." + DBHelp.getString(rs, "name"));
+            ret.append((ret.length() < 8 ? " " : ", ") + requireValidReportIdentifier(DBHelp.getString(rs, "table_name"))
+                    + "." + requireValidReportColumnIdentifier(DBHelp.getString(rs, "name")));
             if (caption != null && caption.length() > 0) {
-                ret.append(" as '" + DBHelp.getString(rs, "caption") + "'");
+                ret.append(" as " + quoteSqlStringLiteral(caption));
             }
         }
         rs.close();
@@ -112,6 +114,60 @@ public final class RptReportCreator {
         if (bDemo)
             ret = tableName + ".demographic_no=demographic.demographic_no";
         return ret;
+    }
+
+    /**
+     * Validates a report table identifier and returns its canonical (trimmed)
+     * form for emission into generated SQL. Surrounding whitespace is tolerated
+     * and only a simple or single schema-qualified name ({@code schema.table})
+     * is accepted, matching {@link io.github.carlos_emr.carlos.report.pageUtil.RptFormQuery#validateTableName(String)}
+     * so the same {@code reportConfig.table_name} value is handled consistently
+     * across the report query and SELECT-list paths.
+     *
+     * @param identifier String the table identifier to validate
+     * @return String the trimmed, validated table identifier
+     * @throws SecurityException when the value is not a valid table identifier
+     */
+    static String requireValidReportIdentifier(String identifier) {
+        String trimmed = identifier == null ? null : identifier.trim();
+        if (!SqlIdentifierValidator.isValidIdentifier(trimmed)
+                || trimmed.chars().filter(ch -> ch == '.').count() > 1) {
+            MiscUtils.getLogger().error("Invalid report SQL identifier rejected");
+            throw new SecurityException("Invalid report SQL identifier");
+        }
+        return trimmed;
+    }
+
+    /**
+     * Validates a column identifier emitted into the report SELECT list. The
+     * column is already qualified with its table value ({@code table.column}),
+     * so only a simple, undotted name is allowed here; a dotted value such as
+     * {@code schema.table.column} or {@code t.col} would double-qualify into an
+     * invalid multi-part reference and is rejected. Surrounding whitespace is
+     * tolerated and the trimmed value is returned, matching the table-identifier
+     * handling.
+     *
+     * @param identifier String the column identifier to validate
+     * @return String the trimmed, validated column identifier
+     * @throws SecurityException when the value is not a simple SQL identifier
+     */
+    static String requireValidReportColumnIdentifier(String identifier) {
+        String trimmed = identifier == null ? null : identifier.trim();
+        if (!SqlIdentifierValidator.isValidIdentifier(trimmed) || trimmed.indexOf('.') >= 0) {
+            MiscUtils.getLogger().error("Invalid report column SQL identifier rejected");
+            throw new SecurityException("Invalid report column SQL identifier");
+        }
+        return trimmed;
+    }
+
+    static String quoteSqlStringLiteral(String value) {
+        if (value == null || value.indexOf('\0') >= 0) {
+            MiscUtils.getLogger().error("Invalid report SQL alias rejected");
+            throw new SecurityException("Invalid report SQL alias");
+        }
+        // Escape backslashes first so later single-quote escaping cannot be changed
+        // by MySQL's default backslash escape handling.
+        return "'" + value.replace("\\", "\\\\").replace("'", "''") + "'";
     }
 
     /**

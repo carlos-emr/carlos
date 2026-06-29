@@ -37,12 +37,12 @@ import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Vector;
-import java.util.regex.Pattern;
 
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
 import io.github.carlos_emr.carlos.report.data.RptReportCreator;
+import io.github.carlos_emr.carlos.util.SqlIdentifierValidator;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
@@ -56,33 +56,22 @@ public class RptFormQuery {
     static String VARNAME_FORMAT = "startDate\\d|endDate\\d";
 
     /**
-     * Pattern for valid SQL table references. Allows comma-separated table names
-     * with optional whitespace around commas, optional schema qualification, and
-     * optional aliases (with or without AS), for example:
-     * "formBCAR",
-     * "schema.formBCAR",
-     * "formBCAR f",
-     * "schema.formBCAR AS f",
-     * "formBCAR f, formBCNewBorn n".
-     */
-    private static final String SQL_IDENTIFIER_PATTERN = "[a-zA-Z_][a-zA-Z0-9_]*";
-    private static final String SQL_TABLE_REFERENCE_PATTERN =
-            SQL_IDENTIFIER_PATTERN
-                    + "(\\." + SQL_IDENTIFIER_PATTERN + ")?"
-                    + "(\\s+(?:(?i:as)\\s+)?" + SQL_IDENTIFIER_PATTERN + ")?";
-    private static final Pattern VALID_TABLE_NAME_PATTERN = Pattern.compile(
-            "^" + SQL_TABLE_REFERENCE_PATTERN + "(\\s*,\\s*" + SQL_TABLE_REFERENCE_PATTERN + ")*$");
-
-    /**
-     * Validates that a table name (or comma-separated list of table references)
-     * contains only supported safe SQL identifier forms. Prevents SQL injection
-     * via table name manipulation while allowing schema-qualified names and aliases.
+     * Validates that a report table name contains only supported safe SQL
+     * identifier forms. This report builder later qualifies columns with the
+     * table value, so aliases, comma-separated table references, and multi-dot
+     * names are rejected: only a simple name or a single schema-qualified name
+     * ({@code schema.table}) is accepted, even though other legacy validators
+     * may accept more. Surrounding whitespace is tolerated, matching the prior
+     * regex that validated {@code tableName.trim()}, so legacy report configs
+     * with incidental padding are not rejected.
      *
      * @param tableName the table name string to validate
      * @throws SecurityException if the table name contains invalid characters
      */
-    private static void validateTableName(String tableName) {
-        if (tableName == null || !VALID_TABLE_NAME_PATTERN.matcher(tableName.trim()).matches()) {
+    static void validateTableName(String tableName) {
+        String trimmed = tableName == null ? null : tableName.trim();
+        if (!SqlIdentifierValidator.isValidIdentifier(trimmed)
+                || trimmed.chars().filter(ch -> ch == '.').count() > 1) {
             MiscUtils.getLogger().error("Invalid table name detected in report configuration");
             throw new SecurityException("Invalid table name in report configuration");
         }
@@ -128,7 +117,7 @@ public class RptFormQuery {
         // Security note (CodeQL java/Sqli #1240 false positive):
         // combinedWhere joins whereClause (ParameterizedSql with '?' placeholders and
         // bound params) with joinClause (table join conditions built from the
-        // regex-validated tableName). All user-supplied values are in subQueryParams
+        // deterministic-validator-checked tableName). All user-supplied values are in subQueryParams
         // as bind parameters — no user input is concatenated into the SQL string.
         // Build WHERE clause safely by joining non-empty predicates
         String joinClause = reportCreator.getWhereJoinClause(tableName, bDemo);

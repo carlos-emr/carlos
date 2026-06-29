@@ -13,6 +13,7 @@
 package io.github.carlos_emr.carlos.report.pageUtil;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -33,6 +34,55 @@ import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
 @Tag("unit")
 @Tag("report")
 class RptFormQueryTest {
+
+    @Test
+    @DisplayName("should accept report table names with schema")
+    void shouldAcceptTableNames_withSchema() {
+        RptFormQuery.validateTableName("schema.formBCAR");
+    }
+
+    @Test
+    @DisplayName("should reject report table aliases because columns are qualified later")
+    void shouldRejectTableAliases_whenColumnsAreQualifiedLater() {
+        assertThatThrownBy(() -> RptFormQuery.validateTableName("formBCAR f"))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("Invalid table name");
+    }
+
+    @Test
+    @DisplayName("should reject injected report table names")
+    void shouldRejectInjectedTableNames_whenTableNameContainsSql() {
+        assertThatThrownBy(() -> RptFormQuery.validateTableName("formBCAR f, demographic d OR 1=1"))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("Invalid table name");
+    }
+
+    @Test
+    @DisplayName("should reject report table names with more than one dot")
+    void shouldRejectTableNames_whenNameHasMultipleDots() {
+        // The table value is used to qualify columns later, so anything beyond a
+        // single schema-qualified name would produce invalid qualified-column SQL.
+        assertThatThrownBy(() -> RptFormQuery.validateTableName("db.schema.formBCAR"))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("Invalid table name");
+    }
+
+    @Test
+    @DisplayName("should accept report table names with surrounding whitespace")
+    void shouldAcceptTableNames_whenNameHasSurroundingWhitespace() {
+        // The prior regex validated tableName.trim(), so padded legacy configs
+        // must keep validating to avoid rejecting existing reports.
+        RptFormQuery.validateTableName("  formBCAR  ");
+        RptFormQuery.validateTableName("  schema.formBCAR  ");
+    }
+
+    @Test
+    @DisplayName("should reject multi-dot report table names even when whitespace-padded")
+    void shouldRejectTableNames_whenPaddedNameHasMultipleDots() {
+        assertThatThrownBy(() -> RptFormQuery.validateTableName("  db.schema.formBCAR  "))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("Invalid table name");
+    }
 
     @Test
     @DisplayName("should return empty ParameterizedSql when fragment list is empty")
