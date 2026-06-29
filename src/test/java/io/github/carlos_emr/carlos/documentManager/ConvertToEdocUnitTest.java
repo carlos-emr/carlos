@@ -56,11 +56,12 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
 
         String tidied = ConvertToEdoc.tidyDocument(html);
 
-        // data: URIs pass through translateSingleResourcePath unchanged, so they
-        // are emitted as url('data:...') — SafeEncode.forCssString is a no-op on base64 content.
+        // data: URIs pass through translateSingleResourcePath unchanged, then SafeEncode.forCssString
+        // encodes '/' as '\2f' in the CSS url() context (FlyingSaucer's CSS parser decodes it back).
+        // The background= attribute is not CSS-encoded, so the raw URI is preserved there.
         assertThat(tidied)
                 .contains("data:image/png;base64,abc")
-                .contains("background-image:url('data:image/png;base64,abc')")
+                .contains("background-image:url('" + SafeEncode.forCssString("data:image/png;base64,abc") + "')")
                 .contains("background=\"data:image/png;base64,abc\"");
     }
 
@@ -73,7 +74,8 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
 
         String tidied = ConvertToEdoc.tidyDocument(html, tempDir.toString());
 
-        assertThat(tidied).contains(image.toAbsolutePath().toString());
+        // SafeEncode.forCssString encodes '/' in the absolute path — match the encoded form.
+        assertThat(tidied).contains("url('" + SafeEncode.forCssString(image.toAbsolutePath().toString()) + "')");
     }
 
     @Test
