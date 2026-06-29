@@ -65,7 +65,7 @@ public final class RptReportCreator {
         while (rs.next()) {
             String caption = DBHelp.getString(rs, "caption");
             ret.append((ret.length() < 8 ? " " : ", ") + requireValidReportIdentifier(DBHelp.getString(rs, "table_name"))
-                    + "." + requireValidReportIdentifier(DBHelp.getString(rs, "name")));
+                    + "." + requireValidReportColumnIdentifier(DBHelp.getString(rs, "name")));
             if (caption != null && caption.length() > 0) {
                 ret.append(" as " + quoteSqlStringLiteral(caption));
             }
@@ -120,6 +120,25 @@ public final class RptReportCreator {
         if (!SqlIdentifierValidator.isValidIdentifier(identifier)) {
             MiscUtils.getLogger().error("Invalid report SQL identifier rejected");
             throw new SecurityException("Invalid report SQL identifier");
+        }
+        return identifier;
+    }
+
+    /**
+     * Validates a column identifier emitted into the report SELECT list. The
+     * column is already qualified with its table value ({@code table.column}),
+     * so only a simple, undotted name is allowed here; a dotted value such as
+     * {@code schema.table.column} or {@code t.col} would double-qualify into an
+     * invalid multi-part reference and is rejected.
+     *
+     * @param identifier String the column identifier to validate
+     * @return String the validated column identifier
+     * @throws SecurityException when the value is not a simple SQL identifier
+     */
+    static String requireValidReportColumnIdentifier(String identifier) {
+        if (!SqlIdentifierValidator.isValidIdentifier(identifier) || identifier.indexOf('.') >= 0) {
+            MiscUtils.getLogger().error("Invalid report column SQL identifier rejected");
+            throw new SecurityException("Invalid report column SQL identifier");
         }
         return identifier;
     }

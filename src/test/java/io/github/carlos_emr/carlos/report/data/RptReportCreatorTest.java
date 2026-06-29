@@ -39,6 +39,28 @@ class RptReportCreatorTest {
     }
 
     @Test
+    @DisplayName("should accept simple report column identifiers")
+    void shouldAcceptReportColumnIdentifiers_whenColumnIsSimple() {
+        assertThat(RptReportCreator.requireValidReportColumnIdentifier("demographic_no")).isEqualTo("demographic_no");
+    }
+
+    @Test
+    @DisplayName("should reject dotted report column identifiers because the column is already qualified")
+    void shouldRejectReportColumnIdentifiers_whenColumnIsDotted() {
+        assertThatThrownBy(() -> RptReportCreator.requireValidReportColumnIdentifier("t.col"))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("Invalid report column SQL identifier");
+    }
+
+    @Test
+    @DisplayName("should reject report column identifiers when value contains injection")
+    void shouldRejectReportColumnIdentifiers_whenColumnContainsInjection() {
+        assertThatThrownBy(() -> RptReportCreator.requireValidReportColumnIdentifier("col;drop"))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("Invalid report column SQL identifier");
+    }
+
+    @Test
     @DisplayName("should quote report aliases when alias contains SQL punctuation")
     void shouldQuoteReportAliases_whenAliasContainsSqlPunctuation() {
         assertThat(RptReportCreator.quoteSqlStringLiteral("Name\\'; drop table demographic; --"))
