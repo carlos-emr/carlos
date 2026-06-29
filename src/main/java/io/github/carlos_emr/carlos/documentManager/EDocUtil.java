@@ -1400,7 +1400,7 @@ public final class EDocUtil {
             logger.error("Security violation: Attempted to access file outside allowed directory", e);
             // Return 0 to indicate error without exposing security details
         } catch (IllegalArgumentException e) {
-            logger.error("Invalid file name provided", e);
+logger.error("Invalid file name provided (exceptionType={})", e.getClass().getSimpleName());
             // Return 0 to indicate error
         }
 
