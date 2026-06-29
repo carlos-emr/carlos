@@ -446,7 +446,7 @@ public class BillingONCHeader1 extends AbstractModel<Integer> implements Seriali
         // New typed service flows should call this variant so status drift is
         // rejected at the boundary instead of being re-persisted indefinitely.
         if (value != null && !KNOWN_STATUSES.contains(value)) {
-            logger.warn("Rejecting unknown BillingONCHeader1 status value {} (allowed: {})", // NOSONAR javasecurity:S5145 (SonarCloud alert #26175) — false positive: value is sanitized via LogSafe (OWASP Encode.forJava escapes CR/LF/control chars and caps length), neutralizing log injection; Sonar does not model the LogSafe wrapper as a sanitizer
+            logger.warn("Rejecting unknown BillingONCHeader1 status value {} (allowed: {})", // NOSONAR javasecurity:S5145 (SonarCloud alert #26175) — sanitized with LogSafe
                     LogSafe.sanitize(value), KNOWN_STATUSES);
             throw new IllegalArgumentException(
                     "BillingONCHeader1 status is not in the known set; see logs for the offending value");

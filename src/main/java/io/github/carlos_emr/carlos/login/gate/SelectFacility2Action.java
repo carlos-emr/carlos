@@ -111,7 +111,7 @@ public final class SelectFacility2Action extends BaseLoginPageView2Action {
                 String safeProviderNo = LogSafe.sanitize(providerNo);
                 String safeNextResult = LogSafe.sanitize(nextResult);
                 String safeRemoteAddr = LogSafe.sanitize(request.getRemoteAddr());
-                LOGGER.warn("Rejected /select_facility nextPage before facility mutation: provider={}, nextPage={}, remote={}", // NOSONAR javasecurity:S5145 (SonarCloud alert #26206) — false positive: every user-controlled arg is sanitized via LogSafe (OWASP Encode.forJava escapes CR/LF/control chars and caps length), neutralizing log injection; Sonar does not model the LogSafe wrapper as a sanitizer
+                LOGGER.warn("Rejected /select_facility nextPage before facility mutation: provider={}, nextPage={}, remote={}", // NOSONAR javasecurity:S5145 (SonarCloud alert #26206) — all user-controlled args sanitized with LogSafe
                         safeProviderNo, safeNextResult, safeRemoteAddr);
             }
             return redirectToFacilitySelection(request, response);
