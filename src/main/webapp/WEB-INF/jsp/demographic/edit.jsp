@@ -1099,7 +1099,7 @@
                                 <%
                                     String genderDisplayText = DemographicEditHelper.getGenderDisplayText(request.getLocale(), demographic.getSex());
                                 %>
-                                <span class="patient-header-details"><carlos:encode value='<%= genderDisplayText %>' context="html"/> &middot; <carlos:encode value='<%= demographic.getAgeAsOf(new Date()) %>' context="html"/> &middot; <fmt:message key="demographic.demographiceditdemographic.formDOB"/>: <carlos:encode value='<%= birthYear %>' context="html"/>-<carlos:encode value='<%= birthMonth %>' context="html"/>-<carlos:encode value='<%= birthDate %>' context="html"/></span>
+                                <span class="patient-header-details"><carlos:encode value='<%= genderDisplayText %>' context="html"/> &middot; <carlos:encode value='<%= demographic.getAgeAsOf(new Date(), request.getLocale()) %>' context="html"/> &middot; <fmt:message key="demographic.demographiceditdemographic.formDOB"/>: <carlos:encode value='<%= birthYear %>' context="html"/>-<carlos:encode value='<%= birthMonth %>' context="html"/>-<carlos:encode value='<%= birthDate %>' context="html"/></span>
                                 <% if (demographic.getHin() != null && !demographic.getHin().isEmpty()) { %>
                                 <span class="patient-header-hin"><fmt:message key="demographic.patient.context.hin"/>: <carlos:encode value='<%= demographic.getHin() %>' context="html"/><% if (demographic.getVer() != null && !demographic.getVer().isEmpty()) { %> <carlos:encode value='<%= demographic.getVer() %>' context="html"/><% } %></span>
                                 <% } %>

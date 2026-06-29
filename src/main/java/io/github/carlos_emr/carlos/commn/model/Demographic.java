@@ -42,6 +42,8 @@ import java.io.Serializable;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.Date;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.springframework.context.i18n.LocaleContextHolder;
@@ -1297,7 +1299,33 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     }
 
     public String getAgeAsOf(Date asofDate) {
-        return Utility.calcAgeAtDate(Utility.calcDate(Utility.convertToReplaceStrIfEmptyStr(getYearOfBirth(), DEFAULT_YEAR), Utility.convertToReplaceStrIfEmptyStr(getMonthOfBirth(), DEFAULT_MONTH), Utility.convertToReplaceStrIfEmptyStr(getDateOfBirth(), DEFAULT_DATE)), asofDate);
+        return getAgeAsOf(asofDate, null);
+    }
+
+    /**
+     * Calculates the patient's age at a specific point in time using demographic birth date fields.
+     *
+     * <p>This method constructs a birth date from the demographic's year, month, and day of birth fields
+     * (using defaults if any component is missing), then calculates age relative to the given date.
+     *
+     * @param asofDate the reference date for age calculation (must not be null)
+     * @param locale the locale for formatting age strings (e.g., "2 years", "3 months");
+     *               if null, falls back to the system default locale, then English,
+     *               then the default bundle locale
+     * @return formatted age string at the specified date (e.g., "45 years", "3 months", "not born yet"),
+     *         or null if the birth date cannot be calculated
+     */
+    public String getAgeAsOf(Date asofDate, Locale locale) {
+        return Utility.calcAgeAtDate(
+            Utility.calcDate(
+                Utility.convertToReplaceStrIfEmptyStr(
+                    getYearOfBirth(), DEFAULT_YEAR),
+                Utility.convertToReplaceStrIfEmptyStr(
+                    getMonthOfBirth(), DEFAULT_MONTH),
+                Utility.convertToReplaceStrIfEmptyStr(
+                    getDateOfBirth(), DEFAULT_DATE)),
+            asofDate,
+            locale);
     }
     @jakarta.persistence.Transient
 
