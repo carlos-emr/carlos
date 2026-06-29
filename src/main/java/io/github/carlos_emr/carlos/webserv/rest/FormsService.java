@@ -56,6 +56,7 @@ import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 import io.github.carlos_emr.carlos.managers.FormsManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.EFormConverter;
@@ -296,10 +297,11 @@ public class FormsService extends AbstractServiceImpl {
     @Path("/{demographicNo}/formOptions")
     @Produces("application/json")
     public MenuTo1 getFormOptions(@PathParam("demographicNo") String demographicNo) {
-        // Generic forms-panel menu spanning both eForms and encounter forms; allow read on either,
-        // matching the combined forms-panel gate in RecordUxService.
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SECOBJ_EFORM, "r", null)
-                && !securityInfoManager.hasPrivilege(getLoggedInInfo(), SECOBJ_FORMS, "r", null)) {
+        // Generic forms-panel menu spanning both eForms and encounter forms; allow read on either
+        // of this service's two security objects, failing closed when the caller holds neither.
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, SECOBJ_EFORM, "r", null)
+                && !securityInfoManager.hasPrivilege(loggedInInfo, SECOBJ_FORMS, "r", null)) {
             throw new SecurityException("missing required sec object (" + SECOBJ_EFORM + ")");
         }
         ResourceBundle bundle = getResourceBundle();
