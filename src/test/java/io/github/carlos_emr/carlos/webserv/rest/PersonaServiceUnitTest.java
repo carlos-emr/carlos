@@ -155,9 +155,15 @@ class PersonaServiceUnitTest extends CarlosUnitTestBase {
 
         service.saveMyPatientListConfig(config);
 
-        // privilege is still enforced, and only showReason is persisted (count branch skipped).
+        // privilege is still enforced, and the single persisted property is showReason — assert
+        // the exact property (not just the count) so the test fails if the count "0" were saved
+        // instead of the count branch being skipped.
         verify(mockSecurityInfoManager).hasPrivilege(any(), eq("_pref"), eq("u"), isNull());
-        verify(mockUserPropertyDao, times(1)).saveProp(any(UserProperty.class));
+        ArgumentCaptor<UserProperty> propCaptor = ArgumentCaptor.forClass(UserProperty.class);
+        verify(mockUserPropertyDao, times(1)).saveProp(propCaptor.capture());
+        assertThat(propCaptor.getValue())
+                .extracting(UserProperty::getProviderNo, UserProperty::getName, UserProperty::getValue)
+                .containsExactly(PROVIDER_NO, "patientListConfig.showReason", "true");
     }
 
     @Test
