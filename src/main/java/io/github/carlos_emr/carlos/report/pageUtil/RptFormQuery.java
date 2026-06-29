@@ -61,14 +61,17 @@ public class RptFormQuery {
      * table value, so aliases, comma-separated table references, and multi-dot
      * names are rejected: only a simple name or a single schema-qualified name
      * ({@code schema.table}) is accepted, even though other legacy validators
-     * may accept more.
+     * may accept more. Surrounding whitespace is tolerated, matching the prior
+     * regex that validated {@code tableName.trim()}, so legacy report configs
+     * with incidental padding are not rejected.
      *
      * @param tableName the table name string to validate
      * @throws SecurityException if the table name contains invalid characters
      */
     static void validateTableName(String tableName) {
-        if (!SqlIdentifierValidator.isValidIdentifier(tableName)
-                || tableName.chars().filter(ch -> ch == '.').count() > 1) {
+        String trimmed = tableName == null ? null : tableName.trim();
+        if (!SqlIdentifierValidator.isValidIdentifier(trimmed)
+                || trimmed.chars().filter(ch -> ch == '.').count() > 1) {
             MiscUtils.getLogger().error("Invalid table name detected in report configuration");
             throw new SecurityException("Invalid table name in report configuration");
         }

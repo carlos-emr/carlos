@@ -68,6 +68,23 @@ class RptFormQueryTest {
     }
 
     @Test
+    @DisplayName("should accept report table names with surrounding whitespace")
+    void shouldAcceptTableNames_whenNameHasSurroundingWhitespace() {
+        // The prior regex validated tableName.trim(), so padded legacy configs
+        // must keep validating to avoid rejecting existing reports.
+        RptFormQuery.validateTableName("  formBCAR  ");
+        RptFormQuery.validateTableName("  schema.formBCAR  ");
+    }
+
+    @Test
+    @DisplayName("should reject multi-dot report table names even when whitespace-padded")
+    void shouldRejectTableNames_whenPaddedNameHasMultipleDots() {
+        assertThatThrownBy(() -> RptFormQuery.validateTableName("  db.schema.formBCAR  "))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("Invalid table name");
+    }
+
+    @Test
     @DisplayName("should return empty ParameterizedSql when fragment list is empty")
     void shouldReturnEmpty_whenFragmentListEmpty() {
         ParameterizedSql result = RptFormQuery.getQueryWhereParameterized(Collections.emptyList());
