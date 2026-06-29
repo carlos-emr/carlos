@@ -85,7 +85,10 @@ public final class RxUseFavorite2Action extends ActionSupport {
 
             // get favorite
             RxPrescriptionData.Favorite fav =
-                    rxData.getFavorite(favoriteId);
+                    getAuthorizedFavorite(favoriteId);
+            if (fav == null) {
+                return null;
+            }
 
             // create Prescription
             RxPrescriptionData.Prescription rx =
@@ -126,7 +129,10 @@ public final class RxUseFavorite2Action extends ActionSupport {
 
             // get favorite
             RxPrescriptionData.Favorite fav =
-                    rxData.getFavorite(favoriteId);
+                    getAuthorizedFavorite(favoriteId);
+            if (fav == null) {
+                return null;
+            }
 
             // create Prescription
             RxPrescriptionData.Prescription rx =
@@ -153,6 +159,16 @@ public final class RxUseFavorite2Action extends ActionSupport {
         RxUtil.printStashContent(bean);
 
         return "useFav2";
+    }
+
+    private RxPrescriptionData.Favorite getAuthorizedFavorite(int favoriteId)
+            throws IOException {
+        String sessionProvider = (String) request.getSession().getAttribute("user");
+        RxPrescriptionData.Favorite favorite = new RxPrescriptionData().getFavorite(favoriteId, sessionProvider);
+        if (favorite == null) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+        }
+        return favorite;
     }
 
     private String favoriteId = null;

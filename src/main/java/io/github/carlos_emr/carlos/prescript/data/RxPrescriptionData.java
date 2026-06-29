@@ -501,15 +501,17 @@ public class RxPrescriptionData {
         return new Favorite(f.getId(), f.getProviderNo(), f.getName(), f.getBn(), f.getGcnSeqno(), f.getCustomName(), f.getTakeMin(), f.getTakeMax(), f.getFrequencyCode(), f.getDuration(), f.getDurationUnit(), f.getQuantity(), f.getRepeat(), f.isNosubs(), f.isPrn(), f.getSpecial(), f.getGn(), f.getAtc(), f.getRegionalIdentifier(), f.getUnit(), f.getUnitName(), f.getMethod(), f.getRoute(), f.getDrugForm(), f.isCustomInstructions(), f.getDosage());
     }
 
-    public Favorite getFavorite(int favoriteId) {
+    public Favorite getFavorite(int favoriteId, String providerNo) {
         FavoriteDao dao = SpringUtils.getBean(FavoriteDao.class);
         io.github.carlos_emr.carlos.commn.model.Favorite result = dao.find(favoriteId);
-        if (result == null) return null;
+        if (result == null || providerNo == null || !providerNo.equals(result.getProviderNo())) return null;
         return toFavorite(result);
     }
 
-    public boolean deleteFavorite(int favoriteId) {
+    public boolean deleteFavorite(int favoriteId, String providerNo) {
         FavoriteDao dao = SpringUtils.getBean(FavoriteDao.class);
+        io.github.carlos_emr.carlos.commn.model.Favorite result = dao.find(favoriteId);
+        if (result == null || providerNo == null || !providerNo.equals(result.getProviderNo())) return false;
         return dao.remove(favoriteId);
     }
 
