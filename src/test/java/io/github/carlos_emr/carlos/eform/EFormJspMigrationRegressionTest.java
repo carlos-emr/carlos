@@ -62,6 +62,8 @@ class EFormJspMigrationRegressionTest {
             Path.of("src/main/webapp/WEB-INF/classes/struts-form.xml");
     private static final Path STRUTS_XML =
             Path.of("src/main/webapp/WEB-INF/classes/struts.xml");
+    private static final Path RTL_ATTACHMENT_ROUTE_FIX_SQL =
+            Path.of("database/mysql/updates/update-2026-06-29-rtl-attachment-route-fix.sql");
     private static final Pattern STRUTS_ACTION_EXCLUDE_PATTERN = Pattern.compile(
             "<constant name=\"struts\\.action\\.excludePattern\" value=\"([^\"]+)\"\\s*/>");
 
@@ -191,6 +193,22 @@ class EFormJspMigrationRegressionTest {
         assertThat(struts).doesNotContainPattern("/WEB-INF/jsp/form/[^<\"]+\\.do");
         assertThat(struts).contains("<action name=\"form/xmlUpload\"");
         assertThat(struts).contains("<action name=\"form/formname\"");
+    }
+
+    @Test
+    @DisplayName("Rich Text Letter attachment migration should use gated routes and saved hidden inputs")
+    void shouldUseGatedAttachmentRoutesAndSavedHiddenInputs_whenUpdatingRichTextLetterTemplate()
+            throws IOException {
+        String sql = Files.readString(RTL_ATTACHMENT_ROUTE_FIX_SQL, StandardCharsets.UTF_8);
+
+        assertThat(sql).contains("../eform/attachEform.jsp");
+        assertThat(sql).contains("../eform/attachEform");
+        assertThat(sql).contains("../eform/displayAttachedFiles.jsp");
+        assertThat(sql).contains("../eform/displayAttachedFiles");
+        assertThat(sql).contains("document.getElementById(\"fdid\")");
+        assertThat(sql).contains("document.getElementById(\"demographicNo\")");
+        assertThat(sql).contains("gup(\"fid\")");
+        assertThat(sql).contains("gup(\"demographic_no\")");
     }
 
     @Test
