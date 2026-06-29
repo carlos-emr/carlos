@@ -27,12 +27,14 @@ Oscar:
 
 This is the integration point:
 
-	`try {
+	```java
+	try {
 	        MessageManager.sendMessage(myOscarLoggedInInfo, recipientMyOscarUserId, subject, messageBody);
         } catch (NotAuthorisedException_Exception e) {
 	        WebUtils.addErrorMessage(request.getSession(), "This patient has not given you permissions to send them a message.");
 	        return mapping.findForward("create");
-        }`
+        }
+	```
 
 MessageManager here is the org.oscarehr.myoscar.client.ws_manager.MessageManager. It gets an instance of a MessageWs class by passing in the credentials of the current user. MessageWs then makes the call to the associated MyOscar component.
 
@@ -40,7 +42,8 @@ MyOscar:
 1. Invokes sendMessage() on org.oscarehr.myoscar_server.managers.MessageManager.
 2. Checks credentials and relationship of user requesting to send message. Will throw a NotAuthorizedException if this method returns false:
 
-	`private boolean isAllowedToSendMessage(Person requestingPerson, Message2 message)
+	```java
+	private boolean isAllowedToSendMessage(Person requestingPerson, Message2 message)
 	{
 		if (Role.SYSTEM_ADMINISTRATOR.name().equals(requestingPerson.getRole())) return(true);
 
@@ -62,4 +65,5 @@ MyOscar:
 		}
 
 		return(true);
-	}`
+	}
+	```

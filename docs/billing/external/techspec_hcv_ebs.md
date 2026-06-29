@@ -1,6 +1,6 @@
 # Technical Specification for Health Card Validation (HCV) Service via Electronic Business Services (EBS)
 
-> **Source**: http://www.health.gov.on.ca/en/pro/publications/ohip/docs/techspec_hcv_ebs.pdf
+> **Source**: [http://www.health.gov.on.ca/en/pro/publications/ohip/docs/techspec_hcv_ebs.pdf]
 > **Fetched**: 2026-04-29  
 > **Format**: extracted text from PDF via pypdfium2; tables may be space-aligned rather than GFM.  
 > **Authoritative source**: the PDF at the URL above. If this MD and the PDF disagree, the PDF wins.
@@ -8,6 +8,7 @@
 Page count: 52
 
 ---
+```xml
 <!-- page 1 -->
 
 Technical Specification for Health Card
@@ -1634,4 +1635,4 @@ iSHjWJP0E4kcVLivqWp8yRccLVdhZGj9GDVQuoFPxU2JXcGH6Ul5PcoL8YyP5G5Gi+RMNFAxUR5wpNZD
 <!-- page 52 -->
 
 Catalogue # CIB-XXXXXXX Month/Year © Queen’s Printer for Ontario
-
+```

@@ -1,6 +1,6 @@
 # OHIP Province and Territory Codes
 
-> **Source**: <https://www.health.gov.on.ca/en/pro/programs/ohip/claims_submission/province_and_territory_codes.pdf>
+> **Source**: [https://www.health.gov.on.ca/en/pro/programs/ohip/claims_submission/province_and_territory_codes.pdf]
 > **Fetched**: 2026-04-29
 > **Pages**: 3
 > **Format**: extracted text from PDF via `pypdfium2`; rendered as a verbatim text block. Multi-column tables in the PDF do not extract cleanly with pypdfium2 - refer to the PDF for the canonical table layout.

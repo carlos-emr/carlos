@@ -8,8 +8,8 @@
 
 
 2. This method fires off a thread to login, executing this code:
-
-		`try
+		```java
+		try
 		{
 			LoginResultTransfer3 loginResultTransfer=AccountManager.login(MyOscarLoggedInInfo.getMyOscarServerBaseUrl(), myOscarUserName, decryptedMyOscarPasswordString);
 			
@@ -25,13 +25,15 @@
 			}
 		} catch (Throwable t) {
 			logger.error("Error attempting auto-myoscar login", t);
-		}`
+		}
+		```
 
 #### Integration Point 
 
 1. AccountManager.login() gets an instance of LoginWS and makes the log in request here:
 
-		`try
+		```java
+		try
 		{
 			LoginWs loginWs = MyOscarServerWebServicesManager.getLoginWs(myOscarServerBaseUrl);
 			LoginResultTransfer3 loginResultTransfer = loginWs.login4(userName, password);
@@ -41,7 +43,8 @@
 		{
 			logger.warn("Invalid Login Request userName=" + userName);
 			throw(e);
-		}`
+		}
+		```
 
 MyOscar (LoginWS.login4())
 1. The method LoginWS.login4() generates a security token for the user if the login is successful, and returns an object of type LoginResultTransfer3.

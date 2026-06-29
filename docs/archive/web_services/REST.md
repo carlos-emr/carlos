@@ -15,31 +15,35 @@ have been defined.
 
 Use annotations in your web service implementation class to give details as to the URL, and the return type
 
+```java
 @Path("/providerService/")
 @Produces("application/xml")
 public class ProviderService {
 }
+```
 
 You can get an instance of the SecurityContext using
 
-	protected SecurityContext getSecurityContext() {
-		Message m = PhaseInterceptorChain.getCurrentMessage();
-    	org.apache.cxf.security.SecurityContext sc = m.getContent(org.apache.cxf.security.SecurityContext.class);
-    	return sc;
-	}
+```java
+protected SecurityContext getSecurityContext() {
+	Message m = PhaseInterceptorChain.getCurrentMessage();
+	org.apache.cxf.security.SecurityContext sc = m.getContent(org.apache.cxf.security.SecurityContext.class);
+	return sc;
+}
+```
 
 This will give you access to the provider object of the logged in user.
 
 
 If authenticating through oauth, you can look at the token details using
 
-
-	protected OAuthContext getOAuthContext() {
-		Message m = PhaseInterceptorChain.getCurrentMessage();
-		OAuthContext sc = m.getContent(OAuthContext.class);
-    	return sc;
-	}
-	
+```java
+protected OAuthContext getOAuthContext() {
+	Message m = PhaseInterceptorChain.getCurrentMessage();
+	OAuthContext sc = m.getContent(OAuthContext.class);
+	return sc;
+}
+```
 	
 	
 Setup simple Transfer objects for return objects. We don't want XML based annotations, or helper methods

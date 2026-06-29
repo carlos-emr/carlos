@@ -15,8 +15,9 @@ However, it only invokes the Web Service when person object is not already cache
 #### Integration point (MyOscarLoggedInInfo.getLoggedInPerson())
 
 1. Calls AccountManager.getPerson()
-
-	`public static PersonTransfer3 getPerson(MyOscarLoggedInInfoInterface credentials, String personUserName) throws NotAuthorisedException_Exception
+	
+	```java
+	public static PersonTransfer3 getPerson(MyOscarLoggedInInfoInterface credentials, String personUserName) throws NotAuthorisedException_Exception
 	{
 		AccountWs accountWs = MyOscarServerWebServicesManager.getAccountWs(credentials);
 		PersonTransfer3 personTransfer = accountWs.getPersonByUserName3(personUserName, true);
@@ -25,7 +26,8 @@ However, it only invokes the Web Service when person object is not already cache
 		personCache.put(cacheKey, personTransfer);
 
 		return(personTransfer);
-	}`
+	}
+	```
 
 MyOscar
 1. Does lookup on that user, and returns a Person3 object if applicable:

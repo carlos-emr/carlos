@@ -1,6 +1,6 @@
 # Technical Specifications Questions and Answers — MCEDT, HCV, e-Business Services and Conformance Test
 
-> **Source**: http://www.health.gov.on.ca/en/pro/publications/ohip/tech_specific/faq_tech_specs.aspx
+> **Source**: [http://www.health.gov.on.ca/en/pro/publications/ohip/tech_specific/faq_tech_specs.aspx]
 > **Fetched**: 2026-04-29 (via Wayback Machine snapshot 2023-02-17, since the live MOH HTTPS endpoint is currently returning HTTP 502 from this network)
 > **Format**: HTML page captured via Wayback Machine and reformatted as Markdown. Layout simplified.
 > **Authoritative source**: the live page at the URL above. If this MD and the page disagree, the live page wins.
@@ -26,7 +26,7 @@ No later than December 31, 2014.
 #### When will the updated MC EDT and HCV Reference Manuals be published?
 
 Both the MC EDT and HCV Reference Manuals are published on the ministry web site under OHIP publications at:  
-<http://www.health.gov.on.ca/en/pro/publications/ohip/>
+[http://www.health.gov.on.ca/en/pro/publications/ohip/]
 
 ### Master Service Agreement (MSA) and Identity Provider (IDP) Security Models
 
@@ -50,15 +50,15 @@ Commercial certificates, such as Verisign are accepted. Self-signed certificates
 
 #### Are there any requirements for the storage of certificates?
 
-Refer to the Government of Ontario Information & Technology Standards (GO-ITS) published standards: <http://www.mgs.gov.on.ca/en/IAndIT/STEL02_047295.html>
+Refer to the Government of Ontario Information & Technology Standards (GO-ITS) published standards: [http://www.mgs.gov.on.ca/en/IAndIT/STEL02_047295.html]
 
 #### Are there parameters for certificate keys?
 
-Yes, they are published in the Government of Ontario –Information & Technology Standards standards: <http://www.mgs.gov.on.ca/en/IAndIT/STEL02_047295.html>
+Yes, they are published in the Government of Ontario –Information & Technology Standards standards: [http://www.mgs.gov.on.ca/en/IAndIT/STEL02_047295.html]
 
 #### What should we be signing our messages with for development and testing?
 
-For conformance testing and production, each software installation requires a Secure Socket Layer (SSL) certificate. It must conform with GO-ITS key/cipher strength standards found at: <http://www.mgs.gov.on.ca/en/IAndIT/STEL02_047295.html>. Vendors can use any well known certificate authority, but the ministry recommends the same certificate used for development be used for conformance testing.
+For conformance testing and production, each software installation requires a Secure Socket Layer (SSL) certificate. It must conform with GO-ITS key/cipher strength standards found at: [http://www.mgs.gov.on.ca/en/IAndIT/STEL02_047295.html]. Vendors can use any well known certificate authority, but the ministry recommends the same certificate used for development be used for conformance testing.
 
 #### What are the certificate requirements we must have to access the web page interface?
 
@@ -70,7 +70,7 @@ Import the ARM files into the key store and trust store that will be distributed
 
 #### How are the three ARM files used?
 
-The go-pki\_cacert.arm is the CA signing certificate for the (OPS) GO-PKI Certificate Authority. It signs the certificate used by the service for encryption and verification. The public key for the ministry, included in the certificate we return in a response, is signed by GO-PKI CA.
+The `go-pki_cacert.arm` is the CA signing certificate for the (OPS) GO-PKI Certificate Authority. It signs the certificate used by the service for encryption and verification. The public key for the ministry, included in the certificate we return in a response, is signed by GO-PKI CA.
 
 The Entrust L1 Chain Certificate.arm is the Entrust certificate that constitutes the certificate signer chain that authenticates the service's SSL certificate. The L1C is an intermediate signer of the EBS SSL certificate.
 
@@ -289,7 +289,7 @@ Please forward details to: [HSC.MCEDT.Conformance.moh@ontario.ca](mailto:HSC.MCE
 
 #### Where can I find information about available service methods?
 
-Please refer to the MC EDT Technical Specifications at: <http://www.health.gov.on.ca/en/pro/publications/ohip/docs/techspecmcedt_ebs.pdf>
+Please refer to the MC EDT Technical Specifications at: [http://www.health.gov.on.ca/en/pro/publications/ohip/docs/techspecmcedt_ebs.pdf]
 
 ### MC EDT Specific
 
