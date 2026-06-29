@@ -54,10 +54,10 @@ public final class UploadedFileUtils {
     }
     /**
      * Returns the validated backing {@link File}, or {@code null} when the upload is
-     * unavailable, instead of throwing.
+     * {@code null} or fails validation, instead of throwing.
      *
      * @param upload the uploaded file; may be {@code null}
-     * @return the canonicalized validated backing file, or {@code null}
+     * @return the canonicalized validated backing file, or {@code null} when unavailable/invalid
      */
     public static File getUploadedFileOrNull(UploadedFile upload) {
         if (upload == null) {
