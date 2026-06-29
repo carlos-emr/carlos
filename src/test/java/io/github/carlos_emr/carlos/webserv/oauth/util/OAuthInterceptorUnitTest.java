@@ -118,7 +118,6 @@ class OAuthInterceptorUnitTest {
         assertThat(fault.getStatusCode()).isEqualTo(500);
     }
 
-    /** A request that looks like OAuth1 (has an Authorization header) but carries no usable params. */
     @Test
     @DisplayName("should raise fault with HTTP 401 when request carries no OAuth credentials")
     void shouldRaiseFault_withHttp401WhenNoOAuthCredentials() {
@@ -136,6 +135,21 @@ class OAuthInterceptorUnitTest {
         assertThat(fault.getStatusCode()).isEqualTo(401);
     }
 
+    @Test
+    @DisplayName("should raise fault with HTTP 401 when no HTTP request is present")
+    void shouldRaiseFault_withHttp401WhenRequestIsNull() {
+        OAuthInterceptor interceptor = new OAuthInterceptor();
+        // No HttpServletRequest on the message (e.g. a non-HTTP transport): the
+        // request cannot be authenticated, so it must fail closed rather than NPE.
+        Message message = new MessageImpl();
+
+        Fault fault = catchThrowableOfType(() -> interceptor.handleMessage(message), Fault.class);
+
+        assertThat(fault).isNotNull();
+        assertThat(fault.getStatusCode()).isEqualTo(401);
+    }
+
+    /** A request that looks like OAuth1 (has an Authorization header) but carries no usable params. */
     private static MockHttpServletRequest oauthRequestWithoutCredentials() {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/ws/rest/example");
         request.addHeader("Authorization", "OAuth realm=\"carlos\"");

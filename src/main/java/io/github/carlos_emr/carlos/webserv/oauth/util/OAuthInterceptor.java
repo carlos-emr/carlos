@@ -124,9 +124,11 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
         // privilege check reachable by an anonymous caller (unauthenticated PHI
         // reads / IDOR / mutations) — see #2798. Session/browser clients use the
         // separate session REST surface at /ws/rs (AuthenticationInInterceptor),
-        // so this does not affect them.
-        if (!OAuthRequestParser.isOAuth1Request(req)) {
-            auditAuthFailure(req.getRemoteAddr(), null);
+        // so this does not affect them. A null request (non-HTTP transport) also
+        // cannot be authenticated, so it fails closed the same way.
+        if (req == null || !OAuthRequestParser.isOAuth1Request(req)) {
+            String remoteAddr = (req != null) ? req.getRemoteAddr() : null;
+            auditAuthFailure(remoteAddr, null);
             throw toFault(new OAuth1Exception(401, "authentication_required"));
         }
 
