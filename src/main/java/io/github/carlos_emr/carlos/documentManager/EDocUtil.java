@@ -1297,7 +1297,7 @@ public final class EDocUtil {
                 throw new SecurityException("Access denied: File is outside the allowed directories");
             }
         } catch (IOException e) {
-            logger.error("Error resolving file path: " + fileName, e);
+            logger.error("Error resolving file path (exceptionType={})", e.getClass().getSimpleName());
             throw new SecurityException("Unable to resolve file path securely", e);
         }
     }
@@ -1380,7 +1380,7 @@ public final class EDocUtil {
             // This handles stale data from different environments gracefully
             Path inputPath = Paths.get(fileName);
             if (inputPath.isAbsolute() && !Files.exists(inputPath)) {
-                logger.debug("File not found (may be from different environment): " + fileName);
+                logger.debug("File not found (may be from different environment)");
                 return 0;
             }
             // resolvePath validates the path is within allowed directories, including temp directories.
@@ -1391,16 +1391,16 @@ public final class EDocUtil {
                 try (PDDocument pdf = Loader.loadPDF(path.toFile())) {
                     pagecount = pdf.getNumberOfPages();
                 } catch (IOException e) {
-                    logger.error("Could not read PDF file: " + fileName, e);
+                    logger.error("Could not read PDF file", e);
                 }
             } else {
-                logger.warn("File " + fileName + " not found for page count.");
+                logger.warn("File not found for page count.");
             }
         } catch (SecurityException e) {
-            logger.error("Security violation: Attempted to access file outside allowed directory: " + fileName, e);
+            logger.error("Security violation: Attempted to access file outside allowed directory", e);
             // Return 0 to indicate error without exposing security details
         } catch (IllegalArgumentException e) {
-            logger.error("Invalid file name provided: " + fileName, e);
+logger.error("Invalid file name provided (exceptionType={})", e.getClass().getSimpleName());
             // Return 0 to indicate error
         }
 
