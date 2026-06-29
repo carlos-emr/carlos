@@ -146,6 +146,17 @@ class RemovedJspReferenceRegressionTest {
     }
 
     @Test
+    @DisplayName("Security update JSP should archive admin security changes through SecurityManager")
+    void shouldRouteAdminSecurityUpdates_throughSecurityManagerInSecurityUpdateJsp() throws IOException {
+        String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/admin/securityupdate.jsp"));
+
+        assertThat(jsp)
+                .contains("LoggedInInfo.getLoggedInInfoFromSession(request)")
+                .contains("securityManager.updateSecurityRecord(loggedInInfo, s);")
+                .doesNotContain("securityDao.saveEntity(s);");
+    }
+
+    @Test
     @DisplayName("Lab forwarding JSP should load jQuery for standalone popup use")
     void shouldLoadJqueryBeforeInlineScript_inLabForwardingJsp() throws IOException {
         String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/admin/labforwardingrules.jsp"));

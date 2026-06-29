@@ -54,6 +54,7 @@
 
 <%@ page import="java.sql.*, java.util.*,java.security.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.db.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction,io.github.carlos_emr.carlos.log.LogConst" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Security" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SecurityDao" %>
@@ -67,6 +68,7 @@
         return;
     }
     SecurityDao securityDao = SpringUtils.getBean(SecurityDao.class);
+    LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 %>
 
 <html>
@@ -122,9 +124,7 @@
 			s.setUsingMfa(Boolean.FALSE);
 		}
 
-                s.setLastUpdateDate(new java.util.Date());
-
-                securityDao.saveEntity(s);
+                securityManager.updateSecurityRecord(loggedInInfo, s);
                 rowsAffected = 1;
             }
 
