@@ -36,7 +36,11 @@ import java.util.List;
 import io.github.carlos_emr.carlos.PMmodule.model.VacancyClientMatch;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDao;
 
+/**
+ * Interface for finding and evaluating matches between open program vacancies and waiting clients.
+ */
 public interface VacancyClientMatchDao extends AbstractDao<VacancyClientMatch> {
+    // Handles core business logic and state for VacancyClientMatchDao operations to ensure consistent behavior.
 
     public List<VacancyClientMatch> findByClientIdAndVacancyId(int clientId, int vacancyId);
 

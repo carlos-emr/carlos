@@ -47,8 +47,12 @@ import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Implementation of FormsDAO, managing the persistence of program-specific eForm and paper form configurations.
+ */
 @Transactional
 public class FormsDAOImpl extends AbstractJpaDao implements FormsDAO {
+    // Handles core business logic and state for FormsDAOImpl operations to ensure consistent behavior.
 
     private Logger log = MiscUtils.getLogger();
 

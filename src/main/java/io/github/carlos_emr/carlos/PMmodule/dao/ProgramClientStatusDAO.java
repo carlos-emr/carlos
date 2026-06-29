@@ -35,7 +35,11 @@ import java.util.List;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramClientStatus;
 import io.github.carlos_emr.carlos.commn.model.Admission;
 
+/**
+ * Interface for managing the enrollment status of clients within specific programs.
+ */
 public interface ProgramClientStatusDAO {
+    // Handles core business logic and state for ProgramClientStatusDAO operations to ensure consistent behavior.
     public List<ProgramClientStatus> getProgramClientStatuses(Integer programId);
 
     public void saveProgramClientStatus(ProgramClientStatus status);

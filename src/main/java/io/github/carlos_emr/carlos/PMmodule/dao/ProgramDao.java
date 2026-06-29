@@ -36,7 +36,11 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 
+/**
+ * Core data access interface for retrieving and modifying program definitions and metadata.
+ */
 public interface ProgramDao {
+    // Handles core business logic and state for ProgramDao operations to ensure consistent behavior.
 
 
     public boolean isServiceProgram(Integer programId);

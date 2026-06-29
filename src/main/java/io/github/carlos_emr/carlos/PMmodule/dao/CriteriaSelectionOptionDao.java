@@ -37,7 +37,11 @@ import java.util.List;
 import io.github.carlos_emr.carlos.PMmodule.model.CriteriaSelectionOption;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDao;
 
+/**
+ * Data access interface managing the predefined selection options for specific evaluation criteria.
+ */
 public interface CriteriaSelectionOptionDao extends AbstractDao<CriteriaSelectionOption> {
+    // Handles core business logic and state for CriteriaSelectionOptionDao operations to ensure consistent behavior.
 
     public List<CriteriaSelectionOption> getCriteriaSelectedOptionsByCriteriaId(Integer criteriaId);
 

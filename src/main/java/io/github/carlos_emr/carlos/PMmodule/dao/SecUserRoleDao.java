@@ -36,7 +36,11 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.PMmodule.model.SecUserRole;
 
+/**
+ * Interface defining database operations for retrieving secondary security roles assigned to system users.
+ */
 public interface SecUserRoleDao {
+    // Handles core business logic and state for SecUserRoleDao operations to ensure consistent behavior.
 
     public List<SecUserRole> getUserRoles(String providerNo);
 

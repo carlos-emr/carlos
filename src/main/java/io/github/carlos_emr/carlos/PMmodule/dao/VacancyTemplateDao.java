@@ -37,7 +37,11 @@ import java.util.List;
 import io.github.carlos_emr.carlos.PMmodule.model.VacancyTemplate;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDao;
 
+/**
+ * Interface for persisting templates used to quickly generate standard vacancy listings for programs.
+ */
 public interface VacancyTemplateDao extends AbstractDao<VacancyTemplate> {
+    // Handles core business logic and state for VacancyTemplateDao operations to ensure consistent behavior.
 
     public void saveVacancyTemplate(VacancyTemplate obj);
 

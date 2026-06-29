@@ -40,8 +40,12 @@ import io.github.carlos_emr.carlos.PMmodule.model.CriteriaSelectionOption;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
+/**
+ * JPA implementation of CriteriaSelectionOptionDao, managing persistence of criteria choices available to users.
+ */
 @Repository
 public class CriteriaSelectionOptionDaoImpl extends AbstractDaoImpl<CriteriaSelectionOption> implements CriteriaSelectionOptionDao {
+    // Handles core business logic and state for CriteriaSelectionOptionDaoImpl operations to ensure consistent behavior.
 
     public CriteriaSelectionOptionDaoImpl() {
         super(CriteriaSelectionOption.class);

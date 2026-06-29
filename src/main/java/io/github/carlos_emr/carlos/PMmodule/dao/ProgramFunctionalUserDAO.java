@@ -36,7 +36,11 @@ import java.util.List;
 import io.github.carlos_emr.carlos.PMmodule.model.FunctionalUserType;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramFunctionalUser;
 
+/**
+ * Interface for linking functional roles (like coordinators or directors) to specific user accounts within a program.
+ */
 public interface ProgramFunctionalUserDAO {
+    // Handles core business logic and state for ProgramFunctionalUserDAO operations to ensure consistent behavior.
 
     public List<FunctionalUserType> getFunctionalUserTypes();
 

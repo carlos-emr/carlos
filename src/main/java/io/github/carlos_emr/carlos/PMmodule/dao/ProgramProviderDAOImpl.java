@@ -46,8 +46,12 @@ import java.util.List;
 import java.util.Map;
 import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 
+/**
+ * JPA implementation for ProgramProviderDAO, tracking provider participation within various programs.
+ */
 @Transactional
 public class ProgramProviderDAOImpl extends AbstractJpaDao implements ProgramProviderDAO {
+    // Handles core business logic and state for ProgramProviderDAOImpl operations to ensure consistent behavior.
 
     private Logger log = MiscUtils.getLogger();
 

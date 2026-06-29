@@ -41,8 +41,12 @@ import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 
+/**
+ * Database implementation of ProgramSignatureDao, handling the storage of digital signature references.
+ */
 @Transactional
 public class ProgramSignatureDaoImpl extends AbstractJpaDao implements ProgramSignatureDao {
+    // Handles core business logic and state for ProgramSignatureDaoImpl operations to ensure consistent behavior.
 
     private static final Logger log = MiscUtils.getLogger();
 

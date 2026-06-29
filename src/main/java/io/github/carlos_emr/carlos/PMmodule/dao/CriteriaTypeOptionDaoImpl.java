@@ -40,8 +40,12 @@ import io.github.carlos_emr.carlos.PMmodule.model.CriteriaTypeOption;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Database implementation for CriteriaTypeOptionDao, managing storage and retrieval of criteria type options.
+ */
 @Repository
 public class CriteriaTypeOptionDaoImpl extends AbstractDaoImpl<CriteriaTypeOption> implements CriteriaTypeOptionDao {
+    // Handles core business logic and state for CriteriaTypeOptionDaoImpl operations to ensure consistent behavior.
 
     public CriteriaTypeOptionDaoImpl() {
         super(CriteriaTypeOption.class);

@@ -37,7 +37,11 @@ import java.util.List;
 import io.github.carlos_emr.carlos.PMmodule.model.Vacancy;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDao;
 
+/**
+ * Data access contract for managing available capacity and vacancies within specific programs.
+ */
 public interface VacancyDao extends AbstractDao<Vacancy> {
+    // Handles core business logic and state for VacancyDao operations to ensure consistent behavior.
 
     public List<Vacancy> getVacanciesByWlProgramId(Integer wlProgramId);
 

@@ -39,7 +39,11 @@ import jakarta.servlet.jsp.tagext.TagSupport;
 
 import org.owasp.encoder.Encode;
 
+/**
+ * JSP tag handler that generates a URL link for case management encounters, appending relevant provider and demographic parameters to the query string safely.
+ */
 public class CaseManagementLinkTag extends TagSupport {
+    // Handles core business logic and state for CaseManagementLinkTag operations to ensure consistent behavior.
 
     private Integer demographicNo;
     private String providerNo;

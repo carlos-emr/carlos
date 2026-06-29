@@ -43,8 +43,12 @@ import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 
+/**
+ * JPA-based implementation for ClientReferralDAO, providing persistence for client referrals within the PM module.
+ */
 @Transactional
 public class ClientReferralDAOImpl extends AbstractJpaDao implements ClientReferralDAO {
+    // Handles core business logic and state for ClientReferralDAOImpl operations to ensure consistent behavior.
 
     private Logger log = MiscUtils.getLogger();
 

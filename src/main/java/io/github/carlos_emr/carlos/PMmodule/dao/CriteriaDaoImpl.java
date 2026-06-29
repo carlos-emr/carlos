@@ -40,8 +40,12 @@ import io.github.carlos_emr.carlos.PMmodule.model.Criteria;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Hibernate-based implementation for CriteriaDao to retrieve and persist program criteria requirements.
+ */
 @Repository
 public class CriteriaDaoImpl extends AbstractDaoImpl<Criteria> implements CriteriaDao {
+    // Handles core business logic and state for CriteriaDaoImpl operations to ensure consistent behavior.
 
     public CriteriaDaoImpl() {
         super(Criteria.class);
