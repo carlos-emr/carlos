@@ -91,8 +91,9 @@ public class FormsService extends AbstractServiceImpl {
     private static final String SECOBJ_EFORM = "_eform";
 
     /**
-     * Security object guarding SQL-table encounter form (BCAR, Rourke, etc.) reads. Matches the
-     * forms-panel gate in {@code RecordUxService}.
+     * Security object guarding SQL-table encounter form (BCAR, Rourke, etc.) reads. This is the
+     * encounter-form half of the forms-panel gate in {@code RecordUxService}, which permits the
+     * panel on {@code _newCasemgmt.forms} OR {@code _newCasemgmt.eforms}.
      */
     private static final String SECOBJ_FORMS = "_newCasemgmt.forms";
 
