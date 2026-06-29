@@ -133,27 +133,39 @@
     if (runReport) {
         Properties pr = CarlosProperties.getInstance();
         String path = pr.getProperty("LOGGING_PATH");
+
+        if (path == null || path.trim().isEmpty()) {
+            out.write("<div class=\"alert alert-danger\">Logging path is not configured.</div>");
+            return;
+        }
+
         String suffix = reportDate.replaceAll("-", "");
-        String fileName = "";
+        String reportFileName = "";
 
         if (reportType.equals("general")) {
-            fileName = path + "report" + suffix + ".html";
+            reportFileName = "report" + suffix + ".html";
         } else if (reportType.equals("mysql")) {
-            fileName = path + "reportmysql" + suffix + ".html";
+            reportFileName = "reportmysql" + suffix + ".html";
         }
 
         try {
             File requestedFile = PathValidationUtils.validateExistingPath(
-                new File(fileName),
+                new File(new File(path), reportFileName),
                 new File(path)
             );
 
             if (requestedFile.exists() && requestedFile.isFile()) {
                 String temp = FileUtils.readFileToString(requestedFile, "UTF-8");
-                out.write("<pre id=\"log-results\">" + temp + "</pre>");
+                pageContext.setAttribute("logResults", temp);
+%>
+                <pre id="log-results"><carlos:encode value="${logResults}" context="html"/></pre>
+<%
             }
         } catch (SecurityException e) {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid file path");
+            out.write("<div class=\"alert alert-danger\">Invalid file path.</div>");
+            return;
+        } catch (java.io.IOException e) {
+            out.write("<div class=\"alert alert-danger\">Error reading log file.</div>");
             return;
         }
     }
