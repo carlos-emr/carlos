@@ -49,7 +49,6 @@ public class EctDisplayEpisode2Action extends EctDisplayAction {
         Vector v = OscarRoleObjectPrivilege.getPrivilegeProp("_newCasemgmt.episode");
         String roleName = (String) request.getSession().getAttribute("userrole") + "," + (String) request.getSession().getAttribute("user");
         a = OscarRoleObjectPrivilege.checkPrivilege(roleName, (Properties) v.get(0), (Vector) v.get(1));
-        a = true;
         if (!a) {
             return true;
         } else {

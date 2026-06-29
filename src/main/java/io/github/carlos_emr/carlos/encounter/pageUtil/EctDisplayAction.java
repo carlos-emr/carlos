@@ -143,9 +143,9 @@ public class EctDisplayAction extends ActionSupport {
             demoNoParam = bean.demographicNo;
         }
 
-        // Privilege check BEFORE any session.setAttribute to prevent unauthorized session mutation (CWE-501)
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", demoNoParam)) {
-            throw new SecurityException("missing required sec object (_demographic)");
+        // Chart privilege check BEFORE any session.setAttribute to prevent unauthorized session mutation (CWE-501)
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eChart", "r", demoNoParam)) {
+            throw new SecurityException("missing required sec object (_eChart)");
         }
 
         if (rebuildBean) {
@@ -234,7 +234,7 @@ public class EctDisplayAction extends ActionSupport {
             // status validated [a-zA-Z]{1,2}; dates validated YYYY-MM-DD; time validated HH:MM; encType validated alphanumeric;
             // reason/userName sanitized for control chars and length-capped; eChartId is server-generated;
             // providerNo validated via [a-zA-Z0-9]{1,6} pattern at line 156 (null/empty/invalid → session fallback); used only as DAO lookup key;
-            // authz enforced at privilege gate (line 144) before session mutation
+            // authz enforced at the chart privilege gate before session mutation
             request.getSession().setAttribute("EctSessionBean", bean);
             request.getSession().setAttribute("eChartID", bean.eChartId); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- server-generated ID from EctSessionBean.setUpEncounterPage()
             String sourceParam = request.getParameter("source");
