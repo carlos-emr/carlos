@@ -34,13 +34,15 @@ import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.ws.rs.Consumes;
-import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -80,6 +82,12 @@ public class TicklerWebService extends AbstractServiceImpl {
     @Autowired
     private ProgramManager2 programManager;
 
+    private void requireTicklerPrivilege(String privilege) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", privilege, null)) {
+            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).entity("Access Denied").build());
+        }
+    }
+
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
@@ -89,9 +97,7 @@ public class TicklerWebService extends AbstractServiceImpl {
     @Consumes("application/json")
     public TicklerResponse search(JsonNode json, @QueryParam("startIndex") int startIndex, @QueryParam("limit") int limit) {
 
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "r", null)) {
-            throw new RuntimeException("Access Denied");
-        }
+        requireTicklerPrivilege("r");
 
         CustomFilter cf = new CustomFilter(true);
 
@@ -150,9 +156,7 @@ public class TicklerWebService extends AbstractServiceImpl {
     @Produces("application/json")
     public TicklerResponse getMyTicklers(@QueryParam("limit") int limit) {
 
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "r", null)) {
-            throw new RuntimeException("Access Denied");
-        }
+        requireTicklerPrivilege("r");
 
         CustomFilter cf = new CustomFilter(true);
         cf.setAssignee(getLoggedInInfo().getLoggedInProviderNo());
@@ -174,9 +178,7 @@ public class TicklerWebService extends AbstractServiceImpl {
     @Produces("application/json")
     public TicklerResponse getTicklerList() {
 
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "r", null)) {
-            throw new RuntimeException("Access Denied");
-        }
+        requireTicklerPrivilege("r");
 
         HttpServletRequest req = this.getHttpServletRequest();
 
@@ -268,9 +270,7 @@ public class TicklerWebService extends AbstractServiceImpl {
     @Consumes("application/json")
     public RestResponse<String> completeTicklers(JsonNode json) {
 
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "u", null)) {
-            throw new RuntimeException("Access Denied");
-        }
+        requireTicklerPrivilege("u");
 
 
         MiscUtils.getLogger().info(json.toString());
@@ -295,9 +295,7 @@ public class TicklerWebService extends AbstractServiceImpl {
     @Consumes("application/json")
     public RestResponse<String> deleteTicklers(JsonNode json) {
 
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "u", null)) {
-            throw new RuntimeException("Access Denied");
-        }
+        requireTicklerPrivilege("u");
 
         MiscUtils.getLogger().info(json.toString());
 
@@ -352,9 +350,7 @@ public class TicklerWebService extends AbstractServiceImpl {
     @Consumes("application/json")
     public RestResponse<String> updateTickler(JsonNode json) {
 
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "u", null)) {
-            throw new RuntimeException("Access Denied");
-        }
+        requireTicklerPrivilege("u");
 
         MiscUtils.getLogger().info(json.toString());
 
@@ -405,9 +401,7 @@ public class TicklerWebService extends AbstractServiceImpl {
 
         AbstractSearchResponse<TicklerTextSuggestTo1> response = new AbstractSearchResponse<TicklerTextSuggestTo1>();
 
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "r", null)) {
-            throw new RuntimeException("Access Denied");
-        }
+        requireTicklerPrivilege("r");
         List<TicklerTextSuggest> suggestions = ticklerManager.getActiveTextSuggestions(getLoggedInInfo());
 
         response.setContent(new TicklerTextSuggestConverter().getAllAsTransferObjects(getLoggedInInfo(), suggestions));
@@ -422,9 +416,7 @@ public class TicklerWebService extends AbstractServiceImpl {
     @Consumes("application/json")
     public RestResponse<String> addTickler(Tickler tickler) {
 
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "w", null)) {
-            throw new RuntimeException("Access Denied");
-        }
+        requireTicklerPrivilege("w");
 
         tickler.setUpdateDate(new Date());
         tickler.setCreator(getLoggedInInfo().getLoggedInProviderNo());
@@ -445,9 +437,7 @@ public class TicklerWebService extends AbstractServiceImpl {
     @Path("/{demographicNo}/count/overdue")
     @Produces("application/json")
     public int getTicklerOverdueCount(@PathParam("demographicNo") Integer demographicNo) {
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "r", null)) {
-            throw new RuntimeException("Access Denied");
-        }
+        requireTicklerPrivilege("r");
 
         int count = ticklerManager.getActiveTicklerByDemoCount(getLoggedInInfo(), demographicNo);
         return count;
