@@ -40,6 +40,7 @@ import jakarta.ws.rs.core.Response;
 
 import io.github.carlos_emr.carlos.casemgmt.dao.IssueDAO;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
+import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.commn.dao.DxresearchDAO;
 import io.github.carlos_emr.carlos.commn.dao.QuickListDao;
 import io.github.carlos_emr.carlos.commn.model.Dxresearch;
@@ -50,6 +51,7 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.IssueTo1;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 @Path("/dxRegisty")
 @Consumes(MediaType.APPLICATION_JSON)
@@ -65,6 +67,9 @@ public class DiseaseRegistryService extends AbstractServiceImpl {
     @Autowired
     @Qualifier("IssueDAO")
     private IssueDAO issueDao;
+
+    @Autowired
+    protected SecurityInfoManager securityInfoManager;
 
     @GET
     @Path("/quickLists")
@@ -121,6 +126,13 @@ public class DiseaseRegistryService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public Response addToDiseaseRegistry(@PathParam("demographicNo") Integer demographicNo, IssueTo1 issue) {
+        if (demographicNo == null) {
+            throw new BadRequestException("demographicNo is required");
+        }
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_dxresearch", SecurityInfoManager.WRITE, demographicNo)) {
+            throw new AccessDeniedException("_dxresearch", SecurityInfoManager.WRITE, demographicNo);
+        }
+
         boolean activeEntryExists = dxresearchDao.activeEntryExists(demographicNo, issue.getType(), issue.getCode());
 
         if (!activeEntryExists) {
@@ -143,6 +155,13 @@ public class DiseaseRegistryService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public Response getDiseaseRegistry(@QueryParam("demographicNo") Integer demographicNo) {
+        if (demographicNo == null) {
+            throw new BadRequestException("demographicNo is required");
+        }
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_dxresearch", SecurityInfoManager.READ, demographicNo)) {
+            throw new AccessDeniedException("_dxresearch", SecurityInfoManager.READ, demographicNo);
+        }
+
         List<Dxresearch> dxresearchList = dxresearchDao.getByDemographicNo(demographicNo);
         return Response.ok(dxresearchList).build();
     }
