@@ -20,7 +20,7 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -311,7 +311,9 @@ public class AddPrevention2Action extends ActionSupport {
         }
 
         DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
-        if (!demographicDao.clientExists(Integer.parseInt(demographic_no))) {
+        if (demographic_no == null || !demographic_no.matches("\\d+")) {
+            result.add("Invalid or missing demographic_no");
+        } else if (!demographicDao.clientExists(Integer.parseInt(demographic_no))) {
             result.add("Patient not found");
         }
 
