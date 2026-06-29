@@ -219,12 +219,34 @@ class OAuthInterceptorAuditLoggingUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("does not audit requests that are not OAuth1 requests")
-    void shouldNotLog_whenRequestIsNotOAuth1() {
+    @DisplayName("audits a login failure and rejects a request that is not an OAuth1 request")
+    void shouldLogFailure_whenRequestIsNotOAuth1() {
+        // No Authorization header (setUp) and no oauth_consumer_key: the OAuth-only surface must
+        // fail closed (#2798), auditing the rejection and throwing a 401 rather than passing through.
         when(request.getParameter("oauth_consumer_key")).thenReturn(null);
 
-        interceptor.handleMessage(message);
+        assertThatThrownBy(() -> interceptor.handleMessage(message)).isInstanceOf(Fault.class);
 
-        logActionMock.verifyNoInteractions();
+        OscarLog log = captureSingleLog();
+        assertThat(log.getAction()).isEqualTo("OAUTH_LOGIN_FAILURE");
+        assertThat(log.getIp()).isEqualTo(REMOTE_IP);
+        assertThat(log.getProviderNo()).isNull();
+        assertThat(log.getContent()).isNull();
+    }
+
+    @Test
+    @DisplayName("audits a login failure and rejects when no HTTP request is present")
+    void shouldLogFailure_whenRequestIsNull() {
+        // A non-HTTP transport leaves no HttpServletRequest on the message: the OAuth-only surface
+        // must still fail closed (#2798), auditing the rejection (no IP available) and throwing 401.
+        when(message.get(AbstractHTTPDestination.HTTP_REQUEST)).thenReturn(null);
+
+        assertThatThrownBy(() -> interceptor.handleMessage(message)).isInstanceOf(Fault.class);
+
+        OscarLog log = captureSingleLog();
+        assertThat(log.getAction()).isEqualTo("OAUTH_LOGIN_FAILURE");
+        assertThat(log.getIp()).isNull();
+        assertThat(log.getProviderNo()).isNull();
+        assertThat(log.getContent()).isNull();
     }
 }
