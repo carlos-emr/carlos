@@ -117,9 +117,17 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
         HttpServletRequest req =
             (HttpServletRequest) message.get(AbstractHTTPDestination.HTTP_REQUEST);
 
-        // 1) Skip non-OAuth1 requests
+        // 1) Fail closed: this interceptor guards the OAuth-only REST surface
+        // (/ws/services). A request that carries no OAuth credentials cannot be
+        // authenticated here, so reject it (401) instead of silently passing it
+        // through. Passing it through left every handler that omits its own
+        // privilege check reachable by an anonymous caller (unauthenticated PHI
+        // reads / IDOR / mutations) — see #2798. Session/browser clients use the
+        // separate session REST surface at /ws/rs (AuthenticationInInterceptor),
+        // so this does not affect them.
         if (!OAuthRequestParser.isOAuth1Request(req)) {
-            return;
+            auditAuthFailure(req.getRemoteAddr(), null);
+            throw toFault(new OAuth1Exception(401, "authentication_required"));
         }
 
         // Hoisted so the audit on both success and the auth-failure paths can record them.

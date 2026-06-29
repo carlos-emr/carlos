@@ -119,6 +119,23 @@ class OAuthInterceptorUnitTest {
     }
 
     /** A request that looks like OAuth1 (has an Authorization header) but carries no usable params. */
+    @Test
+    @DisplayName("should raise fault with HTTP 401 when request carries no OAuth credentials")
+    void shouldRaiseFault_withHttp401WhenNoOAuthCredentials() {
+        OAuthInterceptor interceptor = new OAuthInterceptor();
+        // No Authorization header and no oauth_consumer_key param: the request is
+        // not OAuth-authenticated. The OAuth-only /ws/services surface must fail
+        // closed rather than let an anonymous caller reach the handler (#2798).
+        MockHttpServletRequest request =
+                new MockHttpServletRequest("POST", "/ws/services/notes/getGroupNoteExt/94");
+        Message message = messageWith(request);
+
+        Fault fault = catchThrowableOfType(() -> interceptor.handleMessage(message), Fault.class);
+
+        assertThat(fault).isNotNull();
+        assertThat(fault.getStatusCode()).isEqualTo(401);
+    }
+
     private static MockHttpServletRequest oauthRequestWithoutCredentials() {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/ws/rest/example");
         request.addHeader("Authorization", "OAuth realm=\"carlos\"");
