@@ -376,7 +376,7 @@ public class PersonaService extends AbstractServiceImpl {
         // UserProperty mechanism guarded by updatePreference/updatePreferences below — gate it
         // with the same _pref/u privilege for parity (#2798).
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_pref", "u", null)) {
-            throw new RuntimeException("Access Denied");
+            throw new SecurityException("missing required sec object (_pref)");
         }
 
         UserPropertyDAO propDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);

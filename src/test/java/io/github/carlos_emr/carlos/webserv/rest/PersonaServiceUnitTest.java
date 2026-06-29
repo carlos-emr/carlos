@@ -135,8 +135,8 @@ class PersonaServiceUnitTest extends CarlosUnitTestBase {
         config.setShowReason(true);
 
         assertThatThrownBy(() -> service.saveMyPatientListConfig(config))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessage("Access Denied");
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_pref)");
 
         verify(mockUserPropertyDao, never()).saveProp(any(io.github.carlos_emr.carlos.commn.model.UserProperty.class));
     }
