@@ -13,9 +13,12 @@
 package io.github.carlos_emr.carlos.webserv.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -45,6 +48,7 @@ import io.github.carlos_emr.carlos.commn.dao.PreventionReportDao;
 import io.github.carlos_emr.carlos.commn.model.PreventionReport;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.EFormReportToolManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.prev.reports.Report;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -68,6 +72,9 @@ class ReportingServiceUnitTest extends CarlosUnitTestBase {
 
     @Mock
     private PreventionReportDao mockPreventionReportDao;
+
+    @Mock
+    private SecurityInfoManager mockSecurityInfoManager;
 
     private ReportingService service;
     private LoggedInInfo loggedInInfo;
@@ -114,6 +121,11 @@ class ReportingServiceUnitTest extends CarlosUnitTestBase {
 
         injectDependency(service, "eformReportToolManager", mockEFormReportToolManager);
         injectDependency(service, "preventionReportDao", mockPreventionReportDao);
+        injectDependency(service, "securityInfoManager", mockSecurityInfoManager);
+
+        // Default to granted so the existing behavioural tests exercise the business logic;
+        // the authorization tests below re-stub specific (secobj, privilege) pairs as denied.
+        when(mockSecurityInfoManager.hasPrivilege(any(), any(), any(), any())).thenReturn(true);
     }
 
     @AfterEach
@@ -266,6 +278,84 @@ class ReportingServiceUnitTest extends CarlosUnitTestBase {
             Response response = service.runPreventionReport(11, emptyJson());
 
             assertThat(response.getStatus()).isEqualTo(268);
+        }
+    }
+
+    /**
+     * Authorization guards added for issue #2798. Each of the service's three sub-resources is
+     * gated by a distinct security object: demographic sets by {@code _report}, the eForm report
+     * tool by {@code _admin.eformreporttool}, and prevention reports by {@code _prevention}. These
+     * tests verify the correct object/privilege is requested and that a denial short-circuits the
+     * endpoint before any business logic runs.
+     */
+    @Nested
+    @DisplayName("authorization guards")
+    class AuthorizationGuards {
+
+        private JsonNode emptyJson() {
+            return new ObjectMapper().createObjectNode();
+        }
+
+        @Test
+        @DisplayName("should throw SecurityException when demographicSets list lacks _report read")
+        void shouldThrowSecurityException_whenDemographicSetsListLacksReportRead() {
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_report"), eq("r"), any())).thenReturn(false);
+
+            assertThatThrownBy(() -> service.listDemographicSets())
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("(_report)");
+        }
+
+        @Test
+        @DisplayName("should deny eformReportTool add when _admin.eformreporttool write is missing")
+        void shouldDenyEformReportToolAdd_whenAdminWriteMissing() {
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_admin.eformreporttool"), eq("w"), any()))
+                    .thenReturn(false);
+
+            EFormReportToolTo1 request = new EFormReportToolTo1();
+            request.setName("report_tool_2026");
+            request.setEformId(1);
+
+            RestResponse<String> response = service.addEFormReportTool(request);
+
+            assertThat(response.getStatus()).isEqualTo(ResponseStatus.ERROR);
+            assertThat(response.getError().getMessage()).isEqualTo("Access Denied");
+            verify(mockEFormReportToolManager, never()).addNew(any(), any());
+            verify(mockSecurityInfoManager).hasPrivilege(any(), eq("_admin.eformreporttool"), eq("w"), any());
+        }
+
+        @Test
+        @DisplayName("should deny prevention saveNew when _prevention write is missing")
+        void shouldDenyPreventionSaveNew_whenPreventionWriteMissing() {
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_prevention"), eq("w"), any())).thenReturn(false);
+
+            RestResponse<String> response = service.saveNewPreventionReport(new PreventionSearchTo1());
+
+            assertThat(response.getStatus()).isEqualTo(ResponseStatus.ERROR);
+            assertThat(response.getError().getMessage()).isEqualTo("Access Denied");
+            verify(mockPreventionReportDao, never()).persist(any());
+        }
+
+        @Test
+        @DisplayName("should return 403 when runPreventionReport lacks _prevention read")
+        void shouldReturnForbidden_whenRunPreventionReportLacksPreventionRead() {
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_prevention"), eq("r"), any())).thenReturn(false);
+
+            Response response = service.runPreventionReport(1, emptyJson());
+
+            assertThat(response.getStatus()).isEqualTo(403);
+            verify(mockPreventionReportDao, never()).find(any());
+        }
+
+        @Test
+        @DisplayName("should return 403 when deactivateReport lacks _prevention write")
+        void shouldReturnForbidden_whenDeactivateReportLacksPreventionWrite() {
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_prevention"), eq("w"), any())).thenReturn(false);
+
+            Response response = service.getPreventionReport(1);
+
+            assertThat(response.getStatus()).isEqualTo(403);
+            verify(mockPreventionReportDao, never()).merge(any());
         }
     }
 }
