@@ -37,8 +37,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.test.util.ReflectionTestUtils;
 
-import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.List;
 import java.util.ResourceBundle;
@@ -103,14 +103,8 @@ class FormsServiceUnitTest extends CarlosUnitTestBase {
             }
         };
 
-        inject("formsManager", mockFormsManager);
-        inject("securityInfoManager", mockSecurityInfoManager);
-    }
-
-    private void inject(String fieldName, Object value) throws Exception {
-        Field field = FormsService.class.getDeclaredField(fieldName);
-        field.setAccessible(true);
-        field.set(service, value);
+        ReflectionTestUtils.setField(service, "formsManager", mockFormsManager);
+        ReflectionTestUtils.setField(service, "securityInfoManager", mockSecurityInfoManager);
     }
 
     // --- eForm endpoints: _eform ---
