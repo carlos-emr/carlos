@@ -30,18 +30,17 @@
 --%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
-    <div class="navbar">
+    <div class="navbar navbar-expand">
     <div class="container-fluid">
     <a class="navbar-brand" href="#"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.msgManageEFrm"/></a>
-    <ul class="nav">
-    <li><a href="<%= request.getContextPath() %>/eform/efmformmanager" class="contentLink">eForm Library</a></li>
-    <li><a href="<%= request.getContextPath() %>/eform/efmmanageformgroups" class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.groups.name"/></a></li>
+    <ul class="navbar-nav">
+    <li class="nav-item"><a href="<%= request.getContextPath() %>/eform/efmformmanager" class="contentLink">eForm Library</a></li>
+    <li class="nav-item"><a href="<%= request.getContextPath() %>/eform/efmmanageformgroups" class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.groups.name"/></a></li>
     <!-- <li><a href="#">eForm Emporium</a></li> -->
-	<li class="dropdown">
-		<a href="javascript:void(0);" class="dropdown-toggle" data-bs-toggle="dropdown">
-		Create eForm
-
-		</a>
+	<li class="nav-item dropdown">
+		<button type="button" class="contentLink nav-link dropdown-toggle" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+		<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.create"/>
+		</button>
 		<ul class="dropdown-menu">
 
 		<li><a href='<%= request.getContextPath() %>/eform/visualEformEditor' onclick="window.open(this.href, '_blank'); return false;" class="dropdown-item"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.visual.editor.title"/></a></li>
@@ -51,7 +50,7 @@
 		</ul>
 	</li>
 
-	<li><a href="<%= request.getContextPath() %>/eform/efmimagemanager" class="contentLink">Image Library <!--<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnUploadImage"/>--></a></li>    		
+	<li class="nav-item"><a href="<%= request.getContextPath() %>/eform/efmimagemanager" class="contentLink">Image Library</a></li>
     </ul>
     </div>
     </div>

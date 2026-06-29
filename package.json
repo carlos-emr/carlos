@@ -17,6 +17,7 @@
     "test:logout-broadcast-playwright": "node scripts/logout-broadcast-playwright-checks.js",
     "test:echart-playwright": "node scripts/echart-playwright-checks.js",
     "test:browser-surfaces-playwright": "node scripts/browser-surface-playwright-checks.js",
+    "test:eform-admin-playwright": "node scripts/eform-admin-playwright-checks.js",
     "test:schedule-links-playwright": "node scripts/schedule-links-playwright-checks.js",
     "test:tickler-crud-playwright": "node scripts/tickler-crud-playwright-checks.js",
     "test:logout-session-invalidation-playwright": "node scripts/logout-session-invalidation-playwright-checks.js",
@@ -24,7 +25,10 @@
     "test:logout-redirect-playwright": "node scripts/logout-redirect-playwright-checks.js",
     "test:eform-render-playwright": "node scripts/eform-render-playwright-checks.js",
     "test:eform-saved-render-playwright": "node scripts/eform-saved-render-playwright-checks.js",
-    "test:eform-consultation-acceptance": "node scripts/eform-consultation-acceptance-playwright-checks.js"
+    "test:eform-consultation-acceptance": "node scripts/eform-consultation-acceptance-playwright-checks.js",
+    "test:eform-rtl-attachment-routes-playwright": "node scripts/eform-rtl-attachment-routes-playwright-checks.js",
+    "test:eform-rtl-attachment-behavior-playwright": "node scripts/eform-rtl-attachment-behavior-playwright-checks.js",
+    "test:eform-rtl-attachment-types-playwright": "node scripts/eform-rtl-attachment-types-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",
