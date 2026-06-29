@@ -116,12 +116,26 @@ public final class RptReportCreator {
         return ret;
     }
 
+    /**
+     * Validates a report table identifier and returns its canonical (trimmed)
+     * form for emission into generated SQL. Surrounding whitespace is tolerated
+     * and only a simple or single schema-qualified name ({@code schema.table})
+     * is accepted, matching {@link io.github.carlos_emr.carlos.report.pageUtil.RptFormQuery#validateTableName(String)}
+     * so the same {@code reportConfig.table_name} value is handled consistently
+     * across the report query and SELECT-list paths.
+     *
+     * @param identifier String the table identifier to validate
+     * @return String the trimmed, validated table identifier
+     * @throws SecurityException when the value is not a valid table identifier
+     */
     static String requireValidReportIdentifier(String identifier) {
-        if (!SqlIdentifierValidator.isValidIdentifier(identifier)) {
+        String trimmed = identifier == null ? null : identifier.trim();
+        if (!SqlIdentifierValidator.isValidIdentifier(trimmed)
+                || trimmed.chars().filter(ch -> ch == '.').count() > 1) {
             MiscUtils.getLogger().error("Invalid report SQL identifier rejected");
             throw new SecurityException("Invalid report SQL identifier");
         }
-        return identifier;
+        return trimmed;
     }
 
     /**
@@ -129,18 +143,21 @@ public final class RptReportCreator {
      * column is already qualified with its table value ({@code table.column}),
      * so only a simple, undotted name is allowed here; a dotted value such as
      * {@code schema.table.column} or {@code t.col} would double-qualify into an
-     * invalid multi-part reference and is rejected.
+     * invalid multi-part reference and is rejected. Surrounding whitespace is
+     * tolerated and the trimmed value is returned, matching the table-identifier
+     * handling.
      *
      * @param identifier String the column identifier to validate
-     * @return String the validated column identifier
+     * @return String the trimmed, validated column identifier
      * @throws SecurityException when the value is not a simple SQL identifier
      */
     static String requireValidReportColumnIdentifier(String identifier) {
-        if (!SqlIdentifierValidator.isValidIdentifier(identifier) || identifier.indexOf('.') >= 0) {
+        String trimmed = identifier == null ? null : identifier.trim();
+        if (!SqlIdentifierValidator.isValidIdentifier(trimmed) || trimmed.indexOf('.') >= 0) {
             MiscUtils.getLogger().error("Invalid report column SQL identifier rejected");
             throw new SecurityException("Invalid report column SQL identifier");
         }
-        return identifier;
+        return trimmed;
     }
 
     static String quoteSqlStringLiteral(String value) {

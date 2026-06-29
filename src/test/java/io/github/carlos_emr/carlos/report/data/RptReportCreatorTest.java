@@ -39,9 +39,33 @@ class RptReportCreatorTest {
     }
 
     @Test
+    @DisplayName("should return trimmed report table identifier when value is padded")
+    void shouldReturnTrimmedReportIdentifier_whenValueIsPadded() {
+        // Matches RptFormQuery.validateTableName, which tolerates padded legacy
+        // configs, so the same reportConfig.table_name validates in both paths.
+        assertThat(RptReportCreator.requireValidReportIdentifier("  schema.formBCAR  ")).isEqualTo("schema.formBCAR");
+    }
+
+    @Test
+    @DisplayName("should reject report table identifiers with more than one dot")
+    void shouldRejectReportIdentifiers_whenNameHasMultipleDots() {
+        // table_name qualifies columns in the SELECT list, so a multi-dot value
+        // would emit an invalid multi-part reference.
+        assertThatThrownBy(() -> RptReportCreator.requireValidReportIdentifier("db.schema.formBCAR"))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("Invalid report SQL identifier");
+    }
+
+    @Test
     @DisplayName("should accept simple report column identifiers")
     void shouldAcceptReportColumnIdentifiers_whenColumnIsSimple() {
         assertThat(RptReportCreator.requireValidReportColumnIdentifier("demographic_no")).isEqualTo("demographic_no");
+    }
+
+    @Test
+    @DisplayName("should return trimmed report column identifier when value is padded")
+    void shouldReturnTrimmedReportColumnIdentifier_whenValueIsPadded() {
+        assertThat(RptReportCreator.requireValidReportColumnIdentifier("  demographic_no  ")).isEqualTo("demographic_no");
     }
 
     @Test

@@ -281,13 +281,18 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
      * <p>Note: {@code LookupCodeEdit2Action} also validates {@code tableId} with a stricter
      * {@code ^[A-Z0-9_]+$} regex before it reaches this DAO. This method provides a
      * second layer of defense for all identifier usage within the DAO.</p>
+     *
+     * <p>Surrounding whitespace is tolerated and the trimmed value is returned,
+     * consistent with {@link #validateFieldSql(String)}, so padded legacy
+     * configuration is accepted and emitted in canonical form.</p>
      */
     private String validateSqlIdentifier(String identifier) {
-        if (!SqlIdentifierValidator.isValidIdentifier(identifier)) {
+        String trimmed = identifier == null ? null : identifier.trim();
+        if (!SqlIdentifierValidator.isValidIdentifier(trimmed)) {
             MiscUtils.getLogger().error("Invalid SQL identifier rejected in lookup configuration");
             throw new IllegalArgumentException("Invalid SQL identifier in lookup configuration");
         }
-        return identifier;
+        return trimmed;
     }
 
     private String validateSqlAlias(String alias) {

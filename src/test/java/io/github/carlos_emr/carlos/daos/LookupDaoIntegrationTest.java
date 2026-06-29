@@ -721,6 +721,39 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @Tag("security")
+        @DisplayName("should load rows when table name has surrounding whitespace")
+        void shouldLoadRows_whenTableNameHasSurroundingWhitespace() {
+            // Given - legacy lookup table metadata may carry stray whitespace around
+            // the backing table name; validateSqlIdentifier trims it before building SQL.
+            String tableId = nextTableId("QT");
+            String deleteQualifiedFieldRowsSql = "DELETE FROM qualified_field_lookup_test";
+
+            hibernateTemplate.execute(session -> {
+                session.createNativeQuery(CREATE_QUALIFIED_FIELD_TABLE).executeUpdate();
+                session.createNativeQuery(deleteQualifiedFieldRowsSql).executeUpdate();
+                session.createNativeQuery(INSERT_QUALIFIED_FIELD_ROW).executeUpdate();
+                return null;
+            });
+
+            insertLookupTableDef(tableId, "  " + QUALIFIED_FIELD_TABLE_NAME + "  ");
+            insertFieldFull(tableId, "code", "code", 1, 1, "S", false, "");
+            insertFieldFull(tableId, "description", 2, 2, "S", false, "");
+            insertFieldFull(tableId, "active_col", 3, 3, "I", false, "");
+            insertFieldFull(tableId, "orderby_col", 4, 4, "I", false, "");
+            hibernateTemplate.flush();
+
+            // When
+            @SuppressWarnings("unchecked")
+            List<LookupCodeValue> result = lookupDao.LoadCodeList(tableId, false, "", "", "");
+
+            // Then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getCode()).isEqualTo("Q1");
+        }
+
+        @Test
+        @Tag("query")
+        @Tag("security")
         @DisplayName("should reject qualified field SQL when qualifier is not lookup table alias")
         void shouldRejectQualifiedFieldSql_whenQualifierIsNotLookupTableAlias() {
             // Given
