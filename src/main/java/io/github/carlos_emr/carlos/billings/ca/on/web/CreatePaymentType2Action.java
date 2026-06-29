@@ -45,7 +45,7 @@ import org.apache.struts2.ServletActionContext;
  * Creates a new {@link BillingPaymentType} from the {@code paymentType} request
  * parameter. Returns an {@code application/json} response with
  * {@code {ret: 0}} on success or {@code {ret: 1, reason: ...}} on conflict /
- * persistence failure. Returns {@code null} from execute() so Struts skips
+ * persistence failure. Returns {@code NONE} from execute() so Struts skips
  * result rendering — the JSON body is already on the wire.
  *
  * <p>Split out of the legacy {@code PaymentType2Action#createType} multi-method
@@ -79,11 +79,14 @@ public class CreatePaymentType2Action extends ActionSupport {
         }
 
         String paymentType = request.getParameter("paymentType");
+        Map<String, String> ret = new HashMap<>();
         if (paymentType == null || paymentType.isEmpty()) {
-            return null;
+            ret.put("ret", "1");
+            ret.put("reason", "Missing payment type.");
+            writeJsonResponse(response, ret);
+            return NONE;
         }
 
-        Map<String, String> ret = new HashMap<>();
         try {
             BillingPaymentType existing = billingPaymentTypeDao.getPaymentTypeByName(paymentType);
             if (existing != null) {
@@ -106,7 +109,7 @@ public class CreatePaymentType2Action extends ActionSupport {
         }
 
         writeJsonResponse(response, ret);
-        return null;
+        return NONE;
     }
 
     // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
