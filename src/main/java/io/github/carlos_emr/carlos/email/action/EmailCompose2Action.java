@@ -228,7 +228,7 @@ public class EmailCompose2Action extends ActionSupport {
         if (fid != null && !fid.matches("\\d+")) {
             if (logger.isWarnEnabled()) {
                 String sanitizedFid = LogSafe.sanitize(fid);
-                logger.warn("Invalid fid parameter received: {}", sanitizedFid);
+                logger.warn("Invalid fid parameter received: {}", sanitizedFid); // NOSONAR javasecurity:S5145 (SonarCloud alert #26207) — sanitized with LogSafe
             }
             fid = null;
         }
