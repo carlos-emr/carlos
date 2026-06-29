@@ -26,6 +26,7 @@ import io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action;
 import io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action;
 import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
 import io.github.carlos_emr.carlos.eform.actions.DelEForm2Action;
+import io.github.carlos_emr.carlos.login.UploadLoginText2Action;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.security.CarlosMethodSecurity;
@@ -143,6 +144,8 @@ class MutatorActionGetRejectionContractTest {
             // privilege-tuple fields below are left as empty strings — the contract assertion
             // skips the privilege check when hasPrivilege is never invoked.
             Arguments.of("io.github.carlos_emr.carlos.login.Logout2Action", "", ""),
+            Arguments.of("io.github.carlos_emr.carlos.login.UploadLoginText2Action",
+                    "_admin", "w"),
             // --- appointment ---
             Arguments.of("io.github.carlos_emr.carlos.appointment.pageUtil.AppointmentAddRecord2Action",
                     "_appointment", "w"),
@@ -327,6 +330,7 @@ class MutatorActionGetRejectionContractTest {
         "io.github.carlos_emr.carlos.commn.web.FlowSheetCustom2Action",
         "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action",
         "io.github.carlos_emr.carlos.form.pageUtil.FrmXmlUpload2Action",
+        "io.github.carlos_emr.carlos.login.UploadLoginText2Action",
         "io.github.carlos_emr.carlos.login.gate.SelectFacility2Action",
         "io.github.carlos_emr.carlos.provider.web.DocumentDescriptionTemplate2Action",
         // eform slice: only DelEForm2Action is registered; broader slice audit tracked in issue #2828.
@@ -498,6 +502,13 @@ class MutatorActionGetRejectionContractTest {
             CarlosMethodSecurity methodSecurity = mock(CarlosMethodSecurity.class);
             when(methodSecurity.hasAdminWrite()).thenReturn(true);
             return new SecurityUpdate2Action(methodSecurity);
+        }
+        if (actionClass.equals(UploadLoginText2Action.class)) {
+            SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+            when(securityInfoManager.hasPrivilege(
+                    any(LoggedInInfo.class), any(String.class), any(String.class), nullable(String.class)))
+                .thenReturn(true);
+            return new UploadLoginText2Action(securityInfoManager);
         }
         return actionClass.getDeclaredConstructor().newInstance();
     }
