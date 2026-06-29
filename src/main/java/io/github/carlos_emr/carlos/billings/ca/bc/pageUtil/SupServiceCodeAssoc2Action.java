@@ -101,19 +101,18 @@ public class SupServiceCodeAssoc2Action extends ActionSupport {
         SupServiceCodeAssocDAO dao = SpringUtils.getBean(SupServiceCodeAssocDAO.class);
         if (!MODE_VIEW.equals(this.getActionMode())) {
             if (validateForm()) {
-                try {
-                    response.sendRedirect(request.getContextPath() + "/billing/CA/BC/supServiceCodeAssocAction");
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-                return NONE;
-            } else {
                 if (MODE_DELETE.equals(this.getActionMode())) {
                     dao.deleteServiceCodeAssociation(this.getId());
                 } else if (MODE_EDIT.equals(this.getActionMode())) {
                     dao.saveOrUpdateServiceCodeAssociation(this.getPrimaryCode(),
                             this.getSecondaryCode());
                 }
+                try {
+                    response.sendRedirect(request.getContextPath() + "/billing/CA/BC/supServiceCodeAssocAction");
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+                return NONE;
             }
         }
 
