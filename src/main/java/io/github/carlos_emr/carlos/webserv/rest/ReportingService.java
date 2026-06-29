@@ -54,6 +54,7 @@ import io.github.carlos_emr.carlos.commn.model.EFormReportTool;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.DemographicSetsManager;
 import io.github.carlos_emr.carlos.managers.EFormReportToolManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.prev.reports.Report;
 import io.github.carlos_emr.carlos.prev.reports.ReportBuilder;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -92,10 +93,29 @@ public class ReportingService extends AbstractServiceImpl {
     @Autowired
     PreventionReportDao preventionReportDao;
 
+    @Autowired
+    SecurityInfoManager securityInfoManager;
+
+    /**
+     * Security objects gating this service's three sub-resources. They are deliberately
+     * distinct: demographic-set queries belong to the general reporting module ({@code _report},
+     * matching {@code DemographicSetEdit2Action}); the eForm report tool is an admin utility
+     * ({@code _admin.eformreporttool}, already enforced by {@code EFormReportToolManager} — the
+     * checks here are defense-in-depth at the REST entry point); and prevention reports belong to
+     * the prevention module ({@code _prevention}, matching the page that hosts them,
+     * {@code PreventionReporting.jsp}). See issue #2798.
+     */
+    private static final String SECOBJ_REPORT = "_report";
+    private static final String SECOBJ_EFORM_REPORT_TOOL = "_admin.eformreporttool";
+    private static final String SECOBJ_PREVENTION = "_prevention";
+
     @GET
     @Path("/demographicSets/list")
     @Produces("application/json")
     public AbstractSearchResponse<String> listDemographicSets() {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SECOBJ_REPORT, "r", null)) {
+            throw new SecurityException("missing required sec object (" + SECOBJ_REPORT + ")");
+        }
         AbstractSearchResponse<String> response = new AbstractSearchResponse<String>();
 
         response.setContent(demographicSetsManager.getNames(getLoggedInInfo()));
@@ -108,6 +128,9 @@ public class ReportingService extends AbstractServiceImpl {
     @Path("/demographicSets/demographicSet/{name}")
     @Produces("application/json")
     public AbstractSearchResponse<DemographicSets> getDemographicSetByName(@PathParam("name") String name) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SECOBJ_REPORT, "r", null)) {
+            throw new SecurityException("missing required sec object (" + SECOBJ_REPORT + ")");
+        }
         AbstractSearchResponse<DemographicSets> response = new AbstractSearchResponse<DemographicSets>();
 
         response.setContent(demographicSetsManager.getByName(getLoggedInInfo(), name));
@@ -121,6 +144,9 @@ public class ReportingService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public PatientListApptBean getAsPatientList(JsonNode json) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SECOBJ_REPORT, "r", null)) {
+            throw new SecurityException("missing required sec object (" + SECOBJ_REPORT + ")");
+        }
 
         PatientListApptBean response = new PatientListApptBean();
 
@@ -147,6 +173,9 @@ public class ReportingService extends AbstractServiceImpl {
     @Path("/eformReportTool/list")
     @Produces("application/json")
     public AbstractSearchResponse<EFormReportToolTo1> eformReportToolList() {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SECOBJ_EFORM_REPORT_TOOL, "r", null)) {
+            throw new SecurityException("missing required sec object (" + SECOBJ_EFORM_REPORT_TOOL + ")");
+        }
 
         List<EFormReportTool> results = eformReportToolManager.findAll(getLoggedInInfo(), 0, EFormReportToolDao.MAX_LIST_RETURN_SIZE);
 
@@ -166,6 +195,9 @@ public class ReportingService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public RestResponse<String> addEFormReportTool(EFormReportToolTo1 json) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SECOBJ_EFORM_REPORT_TOOL, "w", null)) {
+            return RestResponse.errorResponse("Access Denied");
+        }
 
         if (StringUtils.isEmpty(json.getName()) || json.getEformId() == 0) {
             return RestResponse.errorResponse("Need required fields");
@@ -187,6 +219,9 @@ public class ReportingService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public RestResponse<String> populateEFormReportTool(EFormReportToolTo1 json) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SECOBJ_EFORM_REPORT_TOOL, "w", null)) {
+            return RestResponse.errorResponse("Access Denied");
+        }
 
         eformReportToolManager.populateReportTable(getLoggedInInfo(), json.getId());
 
@@ -199,6 +234,9 @@ public class ReportingService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public RestResponse<String> removeEFormReportTool(EFormReportToolTo1 json) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SECOBJ_EFORM_REPORT_TOOL, "w", null)) {
+            return RestResponse.errorResponse("Access Denied");
+        }
 
         eformReportToolManager.remove(getLoggedInInfo(), json.getId());
 
@@ -210,6 +248,9 @@ public class ReportingService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public RestResponse<String> markLatestEFormReportTool(EFormReportToolTo1 json) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SECOBJ_EFORM_REPORT_TOOL, "w", null)) {
+            return RestResponse.errorResponse("Access Denied");
+        }
 
         eformReportToolManager.markLatest(getLoggedInInfo(), json.getId());
 
@@ -222,6 +263,9 @@ public class ReportingService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public RestResponse<String> saveNewPreventionReport(PreventionSearchTo1 preventionSearch) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SECOBJ_PREVENTION, "w", null)) {
+            return RestResponse.errorResponse("Access Denied");
+        }
         //Next thing to do is to save the JSON object to the database
         ObjectMapper mapper = OBJECT_MAPPER;
         try {
@@ -244,6 +288,9 @@ public class ReportingService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public List<MenuItemTo1> getPreventionReports() {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SECOBJ_PREVENTION, "r", null)) {
+            throw new SecurityException("missing required sec object (" + SECOBJ_PREVENTION + ")");
+        }
         List<MenuItemTo1> returnList = new ArrayList<MenuItemTo1>();
         List<PreventionReport> list = preventionReportDao.getPreventionReports();
         for (PreventionReport pr : list) {
@@ -271,6 +318,10 @@ public class ReportingService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public jakarta.ws.rs.core.Response runPreventionReport(@PathParam("id") Integer id, JsonNode jSONObject) { // will need to change providers to an ojbect
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SECOBJ_PREVENTION, "r", null)) {
+            return jakarta.ws.rs.core.Response.status(jakarta.ws.rs.core.Response.Status.FORBIDDEN)
+                    .entity("{\"Error\":\"Access Denied\"}").build();
+        }
         Report report = null;
         //Next thing to do is to save the JSON object to the database
         String providerNo = jSONObject.has("providerNo") ? jSONObject.get("providerNo").asText() : "";
@@ -314,6 +365,10 @@ public class ReportingService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public jakarta.ws.rs.core.Response getPreventionReport(@PathParam("id") Integer id, JsonNode jSONObject) { // will need to change providers to an ojbect
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SECOBJ_PREVENTION, "r", null)) {
+            return jakarta.ws.rs.core.Response.status(jakarta.ws.rs.core.Response.Status.FORBIDDEN)
+                    .entity("{\"Error\":\"Access Denied\"}").build();
+        }
         PreventionReport pr = preventionReportDao.find(id);
         if (pr == null) {
             logger.warn("Prevention report not found id={}", id);
@@ -351,7 +406,16 @@ public class ReportingService extends AbstractServiceImpl {
     @Produces("application/json")
     @Consumes("application/json")
     public jakarta.ws.rs.core.Response getPreventionReport(@PathParam("id") Integer id) { // will need to change providers to an ojbect
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SECOBJ_PREVENTION, "w", null)) {
+            return jakarta.ws.rs.core.Response.status(jakarta.ws.rs.core.Response.Status.FORBIDDEN)
+                    .entity("{\"Error\":\"Access Denied\"}").build();
+        }
         PreventionReport pr = preventionReportDao.find(id);
+        if (pr == null) {
+            logger.warn("Prevention report not found id={}", id);
+            return jakarta.ws.rs.core.Response.status(404)
+                    .entity("{\"Error\":\"Prevention report not found\"}").build();
+        }
         pr.setActive(false);
         preventionReportDao.merge(pr);
 
