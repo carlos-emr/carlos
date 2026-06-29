@@ -39,6 +39,7 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicCust;
 import io.github.carlos_emr.carlos.commn.model.DemographicExt;
 import io.github.carlos_emr.carlos.commn.model.DemographicExtArchive;
+import io.github.carlos_emr.carlos.demographic.util.DemographicXml;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.PatientConsentManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -211,12 +212,10 @@ public class DemographicAddRecord2Action extends ActionSupport {
             demographic.setHcRenewDate(null);
         }
 
-        demographic.setFamilyDoctor(
-                "<rdohip>" + request.getParameter("r_doctor_ohip") + "</rdohip>" +
-                "<rd>" + request.getParameter("r_doctor") + "</rd>" +
-                (request.getParameter("family_doc") != null
-                        ? "<family_doc>" + request.getParameter("family_doc") + "</family_doc>"
-                        : ""));
+        demographic.setFamilyDoctor(DemographicXml.familyDoctor(
+                request.getParameter("r_doctor_ohip"),
+                request.getParameter("r_doctor"),
+                request.getParameter("family_doc")));
         demographic.setCountryOfOrigin(request.getParameter("countryOfOrigin"));
         demographic.setNewsletter(request.getParameter("newsletter"));
         demographic.setSin(request.getParameter("sin"));
@@ -278,7 +277,7 @@ public class DemographicAddRecord2Action extends ActionSupport {
         demographicCust.setNurse(request.getParameter("cust1"));
         demographicCust.setAlert(request.getParameter("cust3"));
         demographicCust.setMidwife(request.getParameter("cust4"));
-        demographicCust.setNotes("<unotes>" + request.getParameter("content") + "</unotes>");
+        demographicCust.setNotes(DemographicXml.userNotes(request.getParameter("content")));
         demographicCust.setId(demographic.getDemographicNo());
         demographicCustDao.persist(demographicCust);
 
