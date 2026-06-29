@@ -70,6 +70,7 @@
 				<value>io.github.carlos_emr.carlos.hospitalReportManager.model</value>
 				<value>io.github.carlos_emr.carlos.form.model</value>
 				<value>io.github.carlos_emr.carlos.decisionSupport.model</value>
+				<value>io.github.carlos_emr.carlos.sms.model</value>
 			</list>
 		</property>
 		<property name="jpaVendorAdapter">
