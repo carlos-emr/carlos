@@ -60,8 +60,10 @@
 
 package io.github.carlos_emr.carlos.webserv.oauth.util;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import jakarta.annotation.Resource;
@@ -88,7 +90,11 @@ import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.webserv.oauth.AccessToken;
+import io.github.carlos_emr.carlos.webserv.oauth.OAuth1Permission;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1SignatureVerifier;
+import io.github.carlos_emr.carlos.webserv.oauth.OAuthScopes;
+import io.github.carlos_emr.CarlosProperties;
 
 @Component
 public class OAuthInterceptor implements PhaseInterceptor<Message> {
@@ -99,6 +105,13 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
     private static final String OAUTH_LOGIN_SUCCESS = "OAUTH_LOGIN_SUCCESS";
     /** OscarLog action recorded on a rejected REST OAuth authentication (parity with SOAP WS_LOGIN_FAILURE). */
     private static final String OAUTH_LOGIN_FAILURE = "OAUTH_LOGIN_FAILURE";
+
+    /**
+     * Config flag gating OAuth 1.0a scope enforcement (issue #3083). Absent/false (the default) preserves
+     * the historical behaviour where any valid token grants the provider's full API access; set to a
+     * truthy value to require the granted scope on piloted {@code /ws/services/*} endpoints.
+     */
+    private static final String SCOPE_ENFORCEMENT_PROPERTY = "oauth.scope.enforcement.enabled";
 
     @Autowired
     private OscarOAuthDataProvider oauthDataProvider;
@@ -169,6 +182,11 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
                 throw new OAuth1Exception(401, "unknown_provider");
             }
 
+            // 5a) Enforce the granted OAuth scopes (issue #3083). No-op unless enforcement is enabled
+            //     AND the target endpoint is in the scope-enforcement pilot. Done before attaching
+            //     LoggedInInfo so an out-of-scope call never reaches the resource with a security context.
+            enforceScope(req, token);
+
             LoggedInInfo info = new LoggedInInfo();
             info.setLoggedInProvider(provider);
             req.setAttribute(info.getLoggedInInfoKey(), info);
@@ -237,6 +255,57 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
         } catch (Exception e) {
             logger.error("Failed to write OAUTH_LOGIN_FAILURE audit entry", e);
         }
+    }
+
+    /**
+     * Enforces the granted OAuth 1.0a scopes for the current request (issue #3083).
+     *
+     * <p>Fast-exits when enforcement is disabled (the default) or when the target endpoint is outside
+     * the enforcement pilot ({@link OAuthScopes#requiredScope} returns {@link OAuthScopes#NO_SCOPE_REQUIRED}),
+     * so no extra token lookup happens on the un-piloted surface. When a scope is required and the token's
+     * granted scopes do not satisfy it, throws {@link OAuth1Exception} with HTTP 403 {@code insufficient_scope};
+     * the caller's catch block records the rejection in the audit trail.
+     */
+    private void enforceScope(HttpServletRequest req, String token) {
+        if (!isScopeEnforcementEnabled()) {
+            return;
+        }
+        String requiredScope = OAuthScopes.requiredScope(req.getMethod(), req.getRequestURI());
+        if (requiredScope == OAuthScopes.NO_SCOPE_REQUIRED) {
+            return;
+        }
+        if (!OAuthScopes.isSatisfiedBy(requiredScope, grantedScopes(token))) {
+            throw new OAuth1Exception(403, "insufficient_scope");
+        }
+    }
+
+    /**
+     * Whether OAuth scope enforcement is switched on. Reads {@link #SCOPE_ENFORCEMENT_PROPERTY}; a config
+     * read failure leaves enforcement disabled so a transient configuration problem cannot turn into a
+     * blanket denial of all OAuth API traffic (consistent with the default-off rollout).
+     */
+    private boolean isScopeEnforcementEnabled() {
+        try {
+            return CarlosProperties.getInstance().isPropertyActive(SCOPE_ENFORCEMENT_PROPERTY);
+        } catch (Exception e) {
+            logger.warn("Could not read OAuth scope-enforcement flag; leaving enforcement disabled", e);
+            return false;
+        }
+    }
+
+    /** The scope strings granted on the access token, or an empty list when none are present. */
+    private List<String> grantedScopes(String token) {
+        AccessToken at = oauthDataProvider.getAccessToken(token);
+        if (at == null || at.getScopes() == null) {
+            return Collections.emptyList();
+        }
+        List<String> scopes = new ArrayList<>();
+        for (OAuth1Permission perm : at.getScopes()) {
+            if (perm != null && perm.getPermission() != null) {
+                scopes.add(perm.getPermission());
+            }
+        }
+        return scopes;
     }
 
     /**
