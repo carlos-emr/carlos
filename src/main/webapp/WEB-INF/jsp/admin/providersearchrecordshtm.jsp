@@ -99,7 +99,7 @@
         <table cellspacing="0" cellpadding="2" width="100%" border="0"
                BGCOLOR="#C4D9E7">
 
-            <form method="post" action="/admin/ViewProviderSearchResults" name="searchprovider" onsubmit="return onsub()">
+            <form method="post" action="${pageContext.request.contextPath}/admin/ViewProviderSearchResults" name="searchprovider" onsubmit="return onsub()">
                 <tr valign="top">
                     <td rowspan="2" align="right" valign="middle"><font face="Verdana" color="#0000FF">
                         <b><i><fmt:message key="admin.search.formSearchCriteria"/></i></b></font></td>
