@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.webserv.rest;
 
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -32,6 +33,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -39,12 +41,14 @@ import org.mockito.quality.Strictness;
 
 import java.lang.reflect.Field;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -119,9 +123,31 @@ class PersonaServiceUnitTest extends CarlosUnitTestBase {
 
         service.saveMyPatientListConfig(config);
 
-        verify(mockSecurityInfoManager).hasPrivilege(any(), eq("_pref"), eq("u"), isNull());
+        // The privilege check must be made against the current caller's own context, not some
+        // other subject — capture and assert the LoggedInInfo rather than matching any().
+        ArgumentCaptor<LoggedInInfo> infoCaptor = ArgumentCaptor.forClass(LoggedInInfo.class);
+        verify(mockSecurityInfoManager).hasPrivilege(infoCaptor.capture(), eq("_pref"), eq("u"), isNull());
+        assertThat(infoCaptor.getValue()).isSameAs(loggedInInfo);
         // numberOfApptsToShow (>0) and showReason are each saved.
-        verify(mockUserPropertyDao, org.mockito.Mockito.times(2)).saveProp(any(io.github.carlos_emr.carlos.commn.model.UserProperty.class));
+        verify(mockUserPropertyDao, times(2)).saveProp(any(UserProperty.class));
+    }
+
+    @Test
+    @Tag("create")
+    @DisplayName("should enforce privilege but skip the appointment count when it is not a positive number")
+    void shouldSkipAppointmentCount_whenNotPositive() {
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_pref"), eq("u"), isNull())).thenReturn(true);
+        when(mockUserPropertyDao.getProp(eq(PROVIDER_NO), any())).thenReturn(null);
+
+        PatientListConfigTo1 config = new PatientListConfigTo1();
+        config.setNumberOfApptstoShow(0); // not > 0 → count is not persisted
+        config.setShowReason(true);
+
+        service.saveMyPatientListConfig(config);
+
+        // privilege is still enforced, and only showReason is persisted (count branch skipped).
+        verify(mockSecurityInfoManager).hasPrivilege(any(), eq("_pref"), eq("u"), isNull());
+        verify(mockUserPropertyDao, times(1)).saveProp(any(UserProperty.class));
     }
 
     @Test
@@ -138,6 +164,6 @@ class PersonaServiceUnitTest extends CarlosUnitTestBase {
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_pref)");
 
-        verify(mockUserPropertyDao, never()).saveProp(any(io.github.carlos_emr.carlos.commn.model.UserProperty.class));
+        verify(mockUserPropertyDao, never()).saveProp(any(UserProperty.class));
     }
 }
