@@ -233,4 +233,20 @@ class OAuthInterceptorAuditLoggingUnitTest extends CarlosUnitTestBase {
         assertThat(log.getProviderNo()).isNull();
         assertThat(log.getContent()).isNull();
     }
+
+    @Test
+    @DisplayName("audits a login failure and rejects when no HTTP request is present")
+    void shouldLogFailure_whenRequestIsNull() {
+        // A non-HTTP transport leaves no HttpServletRequest on the message: the OAuth-only surface
+        // must still fail closed (#2798), auditing the rejection (no IP available) and throwing 401.
+        when(message.get(AbstractHTTPDestination.HTTP_REQUEST)).thenReturn(null);
+
+        assertThatThrownBy(() -> interceptor.handleMessage(message)).isInstanceOf(Fault.class);
+
+        OscarLog log = captureSingleLog();
+        assertThat(log.getAction()).isEqualTo("OAUTH_LOGIN_FAILURE");
+        assertThat(log.getIp()).isNull();
+        assertThat(log.getProviderNo()).isNull();
+        assertThat(log.getContent()).isNull();
+    }
 }
