@@ -63,7 +63,7 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
     }
 
     public List<ConsultationRequest> getConsults(Integer demoNo) {
-        StringBuilder sql = new StringBuilder("select cr from ConsultationRequest cr, Demographic d, Provider p where d.demographicNo = cr.demographicId and p.providerNo = cr.providerNo and cr.demographicId = ?1");
+        StringBuilder sql = new StringBuilder("select cr from ConsultationRequest cr left join fetch cr.professionalSpecialist join Demographic d on d.demographicNo = cr.demographicId join Provider p on p.providerNo = cr.providerNo where cr.demographicId = ?1");
         Query query = entityManager.createQuery(sql.toString());
         query.setParameter(1, demoNo);
 
@@ -76,7 +76,7 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
 
         	StringBuilder sql = new StringBuilder("SELECT cr " +
 					"FROM ConsultationRequest cr " +
-                    "LEFT JOIN cr.professionalSpecialist specialist " +
+                    "LEFT JOIN FETCH cr.professionalSpecialist specialist " +
                     "LEFT JOIN ConsultationServices service ON cr.serviceId = service.serviceId " +
                     "LEFT JOIN ConsultationRequestExt ext ON cr.id = ext.requestId AND ext.key = 'ereferral_service' " +
 					"LEFT JOIN Demographic d on cr.demographicId = d.demographicNo " +
