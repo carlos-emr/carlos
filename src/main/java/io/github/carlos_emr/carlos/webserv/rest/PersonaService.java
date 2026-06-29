@@ -109,6 +109,16 @@ public class PersonaService extends AbstractServiceImpl {
     private DashboardManager dashboardManager;
 
 
+    /*
+     * Authorization-primitive endpoints (/rights, /hasRight, /hasRights,
+     * /isAllowedAccessToPatientRecord) are intentionally NOT gated by hasPrivilege (#2798):
+     * they are the privilege API the UI calls to decide what to render, and every one resolves
+     * its subject from getLoggedInInfo() — they only ever report the *current* caller's own
+     * roles/privileges, never another provider's. Gating them on a security object would be
+     * circular ("need permission to ask whether you have permission") and would break the UI's
+     * permission rendering, with no IDOR to defend against. They fail closed when unauthenticated
+     * because getLoggedInInfo() throws with no LoggedInInfo.
+     */
     @GET
     @Path("/rights")
     @Produces("application/json")
@@ -293,6 +303,12 @@ public class PersonaService extends AbstractServiceImpl {
      * Sets the default program for the logged-in provider.
      */
     public RestResponse<String> setDefaultProgram(@FormParam("programId") Integer programId) {
+        // Self-scoped: switches the caller's OWN current program (own providerNo), and
+        // setCurrentProgramInDomain already rejects a programId outside the provider's domain.
+        // No additional security object applies — the program admin secobjs (_pmm_management /
+        // _program* / _programEdit) govern administering programs, not a provider choosing which
+        // of their own assigned programs is active, so gating with one would wrongly block the
+        // navbar program switcher (#2798).
         programManager2.setCurrentProgramInDomain(getLoggedInInfo().getLoggedInProviderNo(), programId);
         return RestResponse.successResponse(null);
     }
@@ -355,6 +371,13 @@ public class PersonaService extends AbstractServiceImpl {
     @Consumes("application/json")
     public PatientListConfigTo1 saveMyPatientListConfig(PatientListConfigTo1 patientListConfigTo1) {
         Provider provider = getCurrentProvider();
+
+        // Persists the caller's own provider preferences (patientListConfig.*), the same
+        // UserProperty mechanism guarded by updatePreference/updatePreferences below — gate it
+        // with the same _pref/u privilege for parity (#2798).
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_pref", "u", null)) {
+            throw new RuntimeException("Access Denied");
+        }
 
         UserPropertyDAO propDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
         Integer numberOfApptsToShow = patientListConfigTo1.getNumberOfApptstoShow();
