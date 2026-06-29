@@ -37,7 +37,11 @@ import java.util.List;
 import io.github.carlos_emr.carlos.PMmodule.model.Criteria;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDao;
 
+/**
+ * Interface for accessing evaluation criteria definitions used for program admission or assessment matching.
+ */
 public interface CriteriaDao extends AbstractDao<Criteria> {
+    // Handles core business logic and state for CriteriaDao operations to ensure consistent behavior.
     public List<Criteria> getCriteriaByTemplateId(Integer templateId);
 
     public Criteria getCriteriaByTemplateIdVacancyIdTypeId(Integer templateId, Integer vacancyId, Integer typeId);

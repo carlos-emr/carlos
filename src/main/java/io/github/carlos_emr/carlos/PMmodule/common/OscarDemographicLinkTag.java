@@ -34,7 +34,11 @@ import jakarta.servlet.jsp.JspTagException;
 import jakarta.servlet.jsp.PageContext;
 import jakarta.servlet.jsp.tagext.Tag;
 
+/**
+ * JSP custom tag that renders a safe URI link to a specific demographic record based on the demographic ID and provider context.
+ */
 public class OscarDemographicLinkTag implements Tag {
+    // Handles core business logic and state for OscarDemographicLinkTag operations to ensure consistent behavior.
 
     private PageContext pc = null;
     private Tag parent = null;

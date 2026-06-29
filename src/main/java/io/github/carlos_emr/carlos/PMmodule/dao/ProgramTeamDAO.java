@@ -35,7 +35,11 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramTeam;
 
+/**
+ * Data access interface for managing team structures and compositions within programs.
+ */
 public interface ProgramTeamDAO {
+    // Handles core business logic and state for ProgramTeamDAO operations to ensure consistent behavior.
 
     public boolean teamExists(Integer teamId);
 

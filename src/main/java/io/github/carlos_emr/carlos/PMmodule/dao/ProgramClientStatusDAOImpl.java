@@ -40,8 +40,12 @@ import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Hibernate-based implementation for ProgramClientStatusDAO, recording changes in client program admission status.
+ */
 @Transactional
 public class ProgramClientStatusDAOImpl extends AbstractJpaDao implements ProgramClientStatusDAO {
+    // Handles core business logic and state for ProgramClientStatusDAOImpl operations to ensure consistent behavior.
 
     private Logger log = MiscUtils.getLogger();
 

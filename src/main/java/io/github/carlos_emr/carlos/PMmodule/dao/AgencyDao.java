@@ -33,7 +33,11 @@ package io.github.carlos_emr.carlos.PMmodule.dao;
 
 import io.github.carlos_emr.carlos.PMmodule.model.Agency;
 
+/**
+ * Data access interface for retrieving and managing agency records within the program management system.
+ */
 public interface AgencyDao {
+    // Handles core business logic and state for AgencyDao operations to ensure consistent behavior.
 
     public Agency getLocalAgency();
 

@@ -36,7 +36,11 @@ import java.util.List;
 import io.github.carlos_emr.carlos.PMmodule.model.AccessType;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramAccess;
 
+/**
+ * Interface defining the persistence contract for controlling which users or roles have access to specific programs.
+ */
 public interface ProgramAccessDAO {
+    // Handles core business logic and state for ProgramAccessDAO operations to ensure consistent behavior.
 
     public List<ProgramAccess> getAccessListByProgramId(Long programId);
 

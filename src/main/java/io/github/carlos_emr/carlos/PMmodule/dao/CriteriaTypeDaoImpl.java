@@ -40,8 +40,12 @@ import io.github.carlos_emr.carlos.PMmodule.model.CriteriaType;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Hibernate implementation for CriteriaTypeDao, handling database operations for criteria categories.
+ */
 @Repository
 public class CriteriaTypeDaoImpl extends AbstractDaoImpl<CriteriaType> implements CriteriaTypeDao {
+    // Handles core business logic and state for CriteriaTypeDaoImpl operations to ensure consistent behavior.
 
     public CriteriaTypeDaoImpl() {
         super(CriteriaType.class);

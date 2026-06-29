@@ -35,7 +35,11 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.PMmodule.model.DefaultRoleAccess;
 
+/**
+ * Interface for defining default role-based access controls for program-level permissions.
+ */
 public interface DefaultRoleAccessDAO {
+    // Handles core business logic and state for DefaultRoleAccessDAO operations to ensure consistent behavior.
 
     public void deleteDefaultRoleAccess(Long id);
 

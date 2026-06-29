@@ -40,8 +40,12 @@ import io.github.carlos_emr.carlos.PMmodule.model.VacancyTemplate;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Database implementation of VacancyTemplateDao, handling storage of reusable vacancy configurations.
+ */
 @Repository
 public class VacancyTemplateDaoImpl extends AbstractDaoImpl<VacancyTemplate> implements VacancyTemplateDao {
+    // Handles core business logic and state for VacancyTemplateDaoImpl operations to ensure consistent behavior.
 
     public VacancyTemplateDaoImpl() {
         super(VacancyTemplate.class);

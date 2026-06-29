@@ -40,8 +40,12 @@ import io.github.carlos_emr.carlos.PMmodule.model.Vacancy;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Hibernate implementation for VacancyDao, tracking available slots for program admission.
+ */
 @Repository
 public class VacancyDaoImpl extends AbstractDaoImpl<Vacancy> implements VacancyDao {
+    // Handles core business logic and state for VacancyDaoImpl operations to ensure consistent behavior.
 
     public VacancyDaoImpl() {
         super(Vacancy.class);

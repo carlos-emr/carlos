@@ -34,7 +34,11 @@ import jakarta.servlet.jsp.JspTagException;
 import jakarta.servlet.jsp.PageContext;
 import jakarta.servlet.jsp.tagext.Tag;
 
+/**
+ * Base JSP tag support class for standardizing context path resolution and common tag properties within the PM module.
+ */
 public class OscarTag implements Tag {
+    // Handles core business logic and state for OscarTag operations to ensure consistent behavior.
 
     private PageContext pc = null;
     private Tag parent = null;

@@ -41,7 +41,11 @@ import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.match.client.ClientData;
 import io.github.carlos_emr.carlos.match.vacancy.VacancyData;
 
+/**
+ * Data access interface for managing clients on waitlists for programs with limited capacity.
+ */
 public interface WaitlistDao {
+    // Handles core business logic and state for WaitlistDao operations to ensure consistent behavior.
 
     public List<MatchBO> getClientMatches(int vacancyId);
 

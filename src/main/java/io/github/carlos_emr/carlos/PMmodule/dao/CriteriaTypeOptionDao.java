@@ -37,7 +37,11 @@ import java.util.List;
 import io.github.carlos_emr.carlos.PMmodule.model.CriteriaTypeOption;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDao;
 
+/**
+ * Data access contract for managing the options associated with specific criteria types.
+ */
 public interface CriteriaTypeOptionDao extends AbstractDao<CriteriaTypeOption> {
+    // Handles core business logic and state for CriteriaTypeOptionDao operations to ensure consistent behavior.
 
     public List<CriteriaTypeOption> findAll();
 

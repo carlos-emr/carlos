@@ -40,8 +40,12 @@ import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 
+/**
+ * Hibernate implementation of AgencyDao, handling lifecycle operations for Agency entities in the database.
+ */
 @Transactional
 public class AgencyDaoImpl extends AbstractJpaDao implements AgencyDao {
+    // Handles core business logic and state for AgencyDaoImpl operations to ensure consistent behavior.
 
     private Logger log = MiscUtils.getLogger();
 

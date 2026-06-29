@@ -33,7 +33,11 @@ package io.github.carlos_emr.carlos.PMmodule.dao;
 
 import java.util.List;
 
+/**
+ * Data access interface for managing form definitions and metadata linked to specific programs.
+ */
 public interface FormsDAO {
+    // Handles core business logic and state for FormsDAO operations to ensure consistent behavior.
 
     public void saveForm(Object o);
 

@@ -38,9 +38,13 @@ import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 
+/**
+ * Hibernate implementation for DefaultRoleAccessDAO, persisting role access policies across programs.
+ */
 @Transactional
 @SuppressWarnings("unchecked")
 public class DefaultRoleAccessDAOImpl extends AbstractJpaDao implements DefaultRoleAccessDAO {
+    // Handles core business logic and state for DefaultRoleAccessDAOImpl operations to ensure consistent behavior.
 
     public void deleteDefaultRoleAccess(Long id) {
         entityManager().remove(getDefaultRoleAccess(id));

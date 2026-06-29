@@ -40,8 +40,12 @@ import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 
+/**
+ * Hibernate implementation for ProgramQueueDao, managing queue states and prioritization logic in the database.
+ */
 @Transactional
 public class ProgramQueueDaoImpl extends AbstractJpaDao implements ProgramQueueDao {
+    // Handles core business logic and state for ProgramQueueDaoImpl operations to ensure consistent behavior.
 
     private Logger log = MiscUtils.getLogger();
 

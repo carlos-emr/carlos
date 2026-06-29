@@ -39,8 +39,12 @@ import io.github.carlos_emr.carlos.PMmodule.model.VacancyClientMatch;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Implementation of VacancyClientMatchDao, executing matching algorithms against the database for client placement.
+ */
 @Repository
 public class VacancyClientMatchDaoImpl extends AbstractDaoImpl<VacancyClientMatch> implements VacancyClientMatchDao {
+    // Handles core business logic and state for VacancyClientMatchDaoImpl operations to ensure consistent behavior.
 
     public VacancyClientMatchDaoImpl() {
         super(VacancyClientMatch.class);

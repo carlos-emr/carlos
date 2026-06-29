@@ -36,7 +36,11 @@ import io.github.carlos_emr.carlos.commn.model.Facility;
 
 import java.util.List;
 
+/**
+ * Interface defining database operations for managing the association between healthcare providers and programs.
+ */
 public interface ProgramProviderDAO {
+    // Handles core business logic and state for ProgramProviderDAO operations to ensure consistent behavior.
 
     public List<ProgramProvider> getProgramProviderByProviderProgramId(String providerNo, Long programId);
 

@@ -35,7 +35,11 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramQueue;
 
+/**
+ * Data access contract for managing the queue of clients awaiting admission or review in a program.
+ */
 public interface ProgramQueueDao {
+    // Handles core business logic and state for ProgramQueueDao operations to ensure consistent behavior.
     public ProgramQueue getProgramQueue(Long queueId);
 
     public List<ProgramQueue> getProgramQueuesByProgramId(Long programId);

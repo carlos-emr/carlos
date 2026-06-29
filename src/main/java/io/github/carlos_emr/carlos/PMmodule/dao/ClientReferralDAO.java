@@ -35,7 +35,11 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.PMmodule.model.ClientReferral;
 
+/**
+ * Interface defining database operations for managing patient referral records between different programs or agencies.
+ */
 public interface ClientReferralDAO {
+    // Handles core business logic and state for ClientReferralDAO operations to ensure consistent behavior.
 
     public List<ClientReferral> getReferrals();
 

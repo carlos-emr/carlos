@@ -37,7 +37,11 @@ import java.util.List;
 import io.github.carlos_emr.carlos.PMmodule.model.CriteriaType;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDao;
 
+/**
+ * Interface handling the persistence of criteria types, categorizing different evaluation metrics.
+ */
 public interface CriteriaTypeDao extends AbstractDao<CriteriaType> {
+    // Handles core business logic and state for CriteriaTypeDao operations to ensure consistent behavior.
 
     public List<CriteriaType> findAll();
 

@@ -35,7 +35,11 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramSignature;
 
+/**
+ * Interface for persisting provider signatures required for program-specific documentation.
+ */
 public interface ProgramSignatureDao {
+    // Handles core business logic and state for ProgramSignatureDao operations to ensure consistent behavior.
 
     public ProgramSignature getProgramFirstSignature(Integer programId);
 

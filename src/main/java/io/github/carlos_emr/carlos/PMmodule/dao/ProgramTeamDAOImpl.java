@@ -41,8 +41,12 @@ import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Hibernate implementation of ProgramTeamDAO, handling the persistence of program team assignments.
+ */
 @Transactional
 public class ProgramTeamDAOImpl extends AbstractJpaDao implements ProgramTeamDAO {
+    // Handles core business logic and state for ProgramTeamDAOImpl operations to ensure consistent behavior.
 
     private Logger log = MiscUtils.getLogger();
 
