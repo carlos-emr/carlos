@@ -40,9 +40,11 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 import java.lang.reflect.Field;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -128,8 +130,16 @@ class PersonaServiceUnitTest extends CarlosUnitTestBase {
         ArgumentCaptor<LoggedInInfo> infoCaptor = ArgumentCaptor.forClass(LoggedInInfo.class);
         verify(mockSecurityInfoManager).hasPrivilege(infoCaptor.capture(), eq("_pref"), eq("u"), isNull());
         assertThat(infoCaptor.getValue()).isSameAs(loggedInInfo);
-        // numberOfApptsToShow (>0) and showReason are each saved.
-        verify(mockUserPropertyDao, times(2)).saveProp(any(UserProperty.class));
+        // Assert the exact properties persisted (provider, name, value), not just the save count,
+        // so the test fails if the wrong preference is written.
+        ArgumentCaptor<UserProperty> propCaptor = ArgumentCaptor.forClass(UserProperty.class);
+        verify(mockUserPropertyDao, times(2)).saveProp(propCaptor.capture());
+        List<UserProperty> saved = propCaptor.getAllValues();
+        assertThat(saved)
+                .extracting(UserProperty::getProviderNo, UserProperty::getName, UserProperty::getValue)
+                .containsExactlyInAnyOrder(
+                        tuple(PROVIDER_NO, "patientListConfig.numberOfApptsToShow", "10"),
+                        tuple(PROVIDER_NO, "patientListConfig.showReason", "true"));
     }
 
     @Test
