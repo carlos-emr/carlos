@@ -106,13 +106,27 @@ public class FormsService extends AbstractServiceImpl {
     private SecurityInfoManager securityInfoManager;
 
     /**
-     * Enforces read access on a single security object, failing closed with the CARLOS
-     * paren-form {@link SecurityException} message when the caller lacks the privilege.
+     * Enforces read access on a single security object for a non-patient-scoped read (global form
+     * definitions and group listings), failing closed with the CARLOS paren-form
+     * {@link SecurityException} message when the caller lacks the privilege.
      *
      * @param secObj the security object name (e.g. {@code _eform} or {@code _newCasemgmt.forms})
      */
     private void requireRead(String secObj) {
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), secObj, "r", null)) {
+        requireRead(secObj, null);
+    }
+
+    /**
+     * Enforces read access on a single security object for a patient-scoped read. Threading the
+     * demographic into the check lets patient-specific no-rights rules take priority over the
+     * general object privilege (per the {@code SecurityInfoManager} contract); pass {@code null}
+     * via {@link #requireRead(String)} for non-patient-scoped reads.
+     *
+     * @param secObj         the security object name (e.g. {@code _eform} or {@code _newCasemgmt.forms})
+     * @param demographicNo  the patient the read is scoped to, or {@code null} when not patient-scoped
+     */
+    private void requireRead(String secObj, String demographicNo) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), secObj, "r", demographicNo)) {
             throw new SecurityException("missing required sec object (" + secObj + ")");
         }
     }
@@ -122,7 +136,7 @@ public class FormsService extends AbstractServiceImpl {
     @Path("/{demographicNo}/all")
     @Produces("application/json")
     public FormListTo1 getFormsForHeading(@PathParam("demographicNo") Integer demographicNo, @QueryParam("heading") String heading) {
-        requireRead(SECOBJ_EFORM);
+        requireRead(SECOBJ_EFORM, demographicNo == null ? null : demographicNo.toString());
         FormListTo1 formListTo1 = new FormListTo1();
         if (heading.equals("Completed")) {
             List<EFormData> completedEforms = formsManager.findByDemographicId(getLoggedInInfo(), demographicNo);
@@ -196,7 +210,7 @@ public class FormsService extends AbstractServiceImpl {
     @Path("/{demographicNo}/completedEncounterForms")
     @Produces("application/json")
     public FormListTo1 getCompletedFormNames(@PathParam("demographicNo") String demographicNo) {
-        requireRead(SECOBJ_FORMS);
+        requireRead(SECOBJ_FORMS, demographicNo);
         FormListTo1 formListTo1 = new FormListTo1();
 
         List<EncounterForm> encounterForms = formsManager.getAllEncounterForms();
@@ -300,8 +314,8 @@ public class FormsService extends AbstractServiceImpl {
         // Generic forms-panel menu spanning both eForms and encounter forms; allow read on either
         // of this service's two security objects, failing closed when the caller holds neither.
         LoggedInInfo loggedInInfo = getLoggedInInfo();
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, SECOBJ_EFORM, "r", null)
-                && !securityInfoManager.hasPrivilege(loggedInInfo, SECOBJ_FORMS, "r", null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, SECOBJ_EFORM, "r", demographicNo)
+                && !securityInfoManager.hasPrivilege(loggedInInfo, SECOBJ_FORMS, "r", demographicNo)) {
             throw new SecurityException("missing required sec object (" + SECOBJ_EFORM + ")");
         }
         ResourceBundle bundle = getResourceBundle();

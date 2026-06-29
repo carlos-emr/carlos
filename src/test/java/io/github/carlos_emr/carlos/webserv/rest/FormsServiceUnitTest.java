@@ -233,4 +233,43 @@ class FormsServiceUnitTest extends CarlosUnitTestBase {
 
         assertThat(menu).isNotNull();
     }
+
+    // --- Patient-scoped reads thread the demographic into the privilege check ---
+
+    @Test
+    @DisplayName("should scope eform privilege check to the patient when reading forms for a heading")
+    @Tag("read")
+    void shouldScopePrivilegeToPatient_whenReadingFormsForHeading() {
+        when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any())).thenReturn(false);
+
+        assertThatThrownBy(() -> service.getFormsForHeading(7, "Completed"))
+            .isInstanceOf(SecurityException.class);
+
+        verify(mockSecurityInfoManager).hasPrivilege(any(), eq("_eform"), eq("r"), eq("7"));
+    }
+
+    @Test
+    @DisplayName("should scope forms privilege check to the patient when reading completed encounter forms")
+    @Tag("read")
+    void shouldScopePrivilegeToPatient_whenReadingCompletedEncounterForms() {
+        when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any())).thenReturn(false);
+
+        assertThatThrownBy(() -> service.getCompletedFormNames("42"))
+            .isInstanceOf(SecurityException.class);
+
+        verify(mockSecurityInfoManager).hasPrivilege(any(), eq("_newCasemgmt.forms"), eq("r"), eq("42"));
+    }
+
+    @Test
+    @DisplayName("should scope form-options privilege check to the patient")
+    @Tag("read")
+    void shouldScopePrivilegeToPatient_whenReadingFormOptions() {
+        when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any())).thenReturn(false);
+
+        assertThatThrownBy(() -> service.getFormOptions("99"))
+            .isInstanceOf(SecurityException.class);
+
+        verify(mockSecurityInfoManager).hasPrivilege(any(), eq("_eform"), eq("r"), eq("99"));
+        verify(mockSecurityInfoManager).hasPrivilege(any(), eq("_newCasemgmt.forms"), eq("r"), eq("99"));
+    }
 }
