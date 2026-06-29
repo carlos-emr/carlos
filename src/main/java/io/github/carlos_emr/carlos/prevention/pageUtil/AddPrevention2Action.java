@@ -55,6 +55,7 @@ import io.github.carlos_emr.carlos.integration.fhir.api.DHIR;
 import io.github.carlos_emr.carlos.integration.fhir.builder.FhirBundleBuilder;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.provider.model.PreventionManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -123,7 +124,11 @@ public class AddPrevention2Action extends ActionSupport {
         if (action != null && "Save & Submit".equals(action)) {
             submitToDhir = true;
         }
-        MiscUtils.getLogger().debug("id " + id + "  delete " + delete);
+        MiscUtils.getLogger().debug(
+        "id {} delete {}",
+        LogSafe.sanitize(id),
+        LogSafe.sanitize(delete)
+        );
 
         MiscUtils.getLogger().debug("prevention Type " + preventionType);
 
