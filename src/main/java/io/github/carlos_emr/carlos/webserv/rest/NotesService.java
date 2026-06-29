@@ -1524,6 +1524,14 @@ public class NotesService extends AbstractServiceImpl {
     @Path("/getGroupNoteExt/{noteId}")
     @Produces("application/json")
     public NoteExtTo1 getGroupNoteExt(@PathParam("noteId") Long noteId) {
+        // Clinical note extension data (treatment, problem description, exposure
+        // details, etc.) is eChart content; require _eChart read before returning
+        // it. Without this an OAuth/REST caller could read any note's PHI by id,
+        // and because OAuthInterceptor skips credential-less requests the call is
+        // otherwise reachable with no authentication at all (see #2798).
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_eChart", "r", null)) {
+            throw new SecurityException("missing required sec object (_eChart)");
+        }
 
         List<CaseManagementNoteExt> lcme = new ArrayList<CaseManagementNoteExt>();
         lcme.addAll(caseManagementMgr.getExtByNote(noteId));
