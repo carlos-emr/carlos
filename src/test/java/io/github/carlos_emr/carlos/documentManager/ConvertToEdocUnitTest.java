@@ -56,7 +56,24 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
 
         String tidied = ConvertToEdoc.tidyDocument(html);
 
-        assertThat(tidied).contains("data:image/png;base64,abc");
+        // data: URIs pass through translateSingleResourcePath unchanged, so they
+        // are emitted as url('data:...') — SafeEncode.forCssString is a no-op on base64 content.
+        assertThat(tidied)
+                .contains("data:image/png;base64,abc")
+                .contains("background-image:url('data:image/png;base64,abc')")
+                .contains("background=\"data:image/png;base64,abc\"");
+    }
+
+    @Test
+    @DisplayName("should translate cache-busted local asset paths during tidy")
+    void shouldTranslateCacheBustedLocalAssetPaths_whenTidyingDocument(@TempDir Path tempDir) throws Exception {
+        Path image = Files.createFile(tempDir.resolve("stamp.png"));
+
+        String html = "<html><body style=\"background-image:url('stamp.png?v=1')\"><div>x</div></body></html>";
+
+        String tidied = ConvertToEdoc.tidyDocument(html, tempDir.toString());
+
+        assertThat(tidied).contains(image.toAbsolutePath().toString());
     }
 
     @Test
@@ -84,5 +101,28 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
                 .contains("background=\"" + image.toAbsolutePath() + "\"")
                 .contains("background-image:url('" + SafeEncode.forCssString(image.toAbsolutePath().toString()) + "')")
                 .doesNotContain("background-image:url( 'stamp(1).png' )");
+    }
+
+    @Test
+    @DisplayName("should preserve data uri resource elements when parsing document")
+    void shouldPreserveDataUriResourceElements_whenParsingDocument(@TempDir Path tempDir) {
+        String dataUri = "data:image/png;base64,ZmFrZQ==";
+        String html = "<html><head><link rel=\"icon\" href=\"" + dataUri + "\"></head>"
+                + "<body><img alt=\"inline\" src=\"" + dataUri + "\"><script src=\"data:text/javascript,console.log(1)\"></script></body></html>";
+
+        Document document = ConvertToEdoc.getDocument(html, tempDir.toString());
+
+        assertThat(document.select("link[href], img[src], script[src]")).hasSize(3);
+    }
+
+    @Test
+    @DisplayName("should remove unresolved traversal shaped resource elements when parsing document")
+    void shouldRemoveUnresolvedTraversalShapedResourceElements_whenParsingDocument(@TempDir Path tempDir) {
+        String html = "<html><head><link rel=\"stylesheet\" href=\"../../../../etc/passwd.css\"></head>"
+                + "<body><img src=\"../../../../etc/passwd.png\"><script src=\"../../../../etc/passwd.js\"></script></body></html>";
+
+        Document document = ConvertToEdoc.getDocument(html, tempDir.toString());
+
+        assertThat(document.select("link[href], img[src], script[src]")).isEmpty();
     }
 }

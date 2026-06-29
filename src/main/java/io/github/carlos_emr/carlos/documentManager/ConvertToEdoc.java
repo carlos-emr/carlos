@@ -685,9 +685,9 @@ public final class ConvertToEdoc {
         String originalPath = extractCssUrlPath(cssText, match.contentStart(), match.urlEnd());
         String translatedPath = translateSingleResourcePath(originalPath);
         if (translatedPath != null) {
+            // translateSingleResourcePath returns data: URIs unchanged, so this branch
+            // also handles embedded data resources (they arrive here with translatedPath == originalPath).
             rewrittenCss.append("url('").append(SafeEncode.forCssString(translatedPath)).append("')");
-        } else if (isEmbeddedDataResourcePath(originalPath)) {
-            rewrittenCss.append(cssText, match.urlStart(), match.urlEnd() + 1);
         } else {
             rewrittenCss.append("url('')");
         }
