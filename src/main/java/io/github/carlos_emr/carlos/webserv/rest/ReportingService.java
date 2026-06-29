@@ -411,6 +411,11 @@ public class ReportingService extends AbstractServiceImpl {
                     .entity("{\"Error\":\"Access Denied\"}").build();
         }
         PreventionReport pr = preventionReportDao.find(id);
+        if (pr == null) {
+            logger.warn("Prevention report not found id={}", id);
+            return jakarta.ws.rs.core.Response.status(404)
+                    .entity("{\"Error\":\"Prevention report not found\"}").build();
+        }
         pr.setActive(false);
         preventionReportDao.merge(pr);
 

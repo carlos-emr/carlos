@@ -208,6 +208,30 @@ class ReportingServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should return 404 when deactivateReport finds no report (no NPE)")
+        void shouldReturnNotFound_whenDeactivateReportMissing() {
+            when(mockPreventionReportDao.find(Integer.valueOf(999))).thenReturn(null);
+
+            Response response = service.getPreventionReport(999);
+
+            assertThat(response.getStatus()).isEqualTo(404);
+            verify(mockPreventionReportDao, never()).merge(any());
+        }
+
+        @Test
+        @DisplayName("should return 200 and merge inactive report when deactivateReport succeeds")
+        void shouldDeactivateReport_whenReportExists() {
+            PreventionReport pr = mock(PreventionReport.class);
+            when(mockPreventionReportDao.find(Integer.valueOf(12))).thenReturn(pr);
+
+            Response response = service.getPreventionReport(12);
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            verify(pr).setActive(false);
+            verify(mockPreventionReportDao).merge(pr);
+        }
+
+        @Test
         @DisplayName("should return 268 when getPreventionReport JSON is malformed")
         void shouldReturn268_whenReportJsonInvalid() {
             PreventionReport pr = mock(PreventionReport.class);
