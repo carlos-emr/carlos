@@ -111,10 +111,17 @@ class PharmacyServiceUnitTest extends CarlosUnitTestBase {
         field.set(service, value);
     }
 
-    /** Grants/denies whichever privilege ("r" or "w") the endpoint checks. */
-    private void grant(boolean allowed) {
+    /**
+     * Grants exactly one privilege action on the pharmacy security object; every other
+     * action is denied. Stubbing the precise action (rather than {@code anyString()}) is
+     * what lets the deny tests prove each endpoint checks the <em>correct</em> action —
+     * e.g. granting only {@code "w"} must still deny a read endpoint.
+     */
+    private void grantOnly(String action) {
         when(mockSecurityInfoManager.hasPrivilege(any(), eq(SECURITY_OBJECT), anyString(), nullable(String.class)))
-                .thenReturn(allowed);
+                .thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq(SECURITY_OBJECT), eq(action), nullable(String.class)))
+                .thenReturn(true);
     }
 
     @Nested
@@ -124,8 +131,8 @@ class PharmacyServiceUnitTest extends CarlosUnitTestBase {
 
         @Test
         @DisplayName("should return pharmacies when caller has _rx read privilege")
-        void shouldReturnPharmacies_whenAuthorized() {
-            grant(true);
+        void shouldReturnPharmacies_whenGrantedReadOnly() {
+            grantOnly("r");
             when(mockPharmacyInfoDao.findAll(0, 10)).thenReturn(new ArrayList<PharmacyInfo>());
 
             OscarSearchResponse<PharmacyInfoTo1> result = service.getPharmacies(0, 10);
@@ -135,9 +142,9 @@ class PharmacyServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should throw AccessDeniedException for getPharmacies when unauthorized")
-        void shouldThrowAccessDenied_forGetPharmaciesWhenUnauthorized() {
-            grant(false);
+        @DisplayName("should throw AccessDeniedException for getPharmacies when only write is granted")
+        void shouldThrowAccessDenied_forGetPharmaciesWhenOnlyWriteGranted() {
+            grantOnly("w");
 
             assertThatThrownBy(() -> service.getPharmacies(0, 10))
                     .isInstanceOf(AccessDeniedException.class);
@@ -146,9 +153,9 @@ class PharmacyServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should throw AccessDeniedException for getPharmacy when unauthorized")
-        void shouldThrowAccessDenied_forGetPharmacyWhenUnauthorized() {
-            grant(false);
+        @DisplayName("should throw AccessDeniedException for getPharmacy when only write is granted")
+        void shouldThrowAccessDenied_forGetPharmacyWhenOnlyWriteGranted() {
+            grantOnly("w");
 
             assertThatThrownBy(() -> service.getPharmacy(1))
                     .isInstanceOf(AccessDeniedException.class);
@@ -162,34 +169,36 @@ class PharmacyServiceUnitTest extends CarlosUnitTestBase {
     class MutatorEndpoints {
 
         @Test
-        @DisplayName("should throw AccessDeniedException for addPharmacy when unauthorized")
+        @DisplayName("should throw AccessDeniedException for addPharmacy when only read is granted")
         @Tag("create")
-        void shouldThrowAccessDenied_forAddPharmacyWhenUnauthorized() {
-            grant(false);
+        void shouldThrowAccessDenied_forAddPharmacyWhenOnlyReadGranted() {
+            grantOnly("r");
+            PharmacyInfoTo1 pharmacy = new PharmacyInfoTo1();
 
-            assertThatThrownBy(() -> service.addPharmacy(new PharmacyInfoTo1()))
+            assertThatThrownBy(() -> service.addPharmacy(pharmacy))
                     .isInstanceOf(AccessDeniedException.class);
 
             verifyNoInteractions(mockPharmacyInfoDao);
         }
 
         @Test
-        @DisplayName("should throw AccessDeniedException for updatePharmacy when unauthorized")
+        @DisplayName("should throw AccessDeniedException for updatePharmacy when only read is granted")
         @Tag("update")
-        void shouldThrowAccessDenied_forUpdatePharmacyWhenUnauthorized() {
-            grant(false);
+        void shouldThrowAccessDenied_forUpdatePharmacyWhenOnlyReadGranted() {
+            grantOnly("r");
+            PharmacyInfoTo1 pharmacy = new PharmacyInfoTo1();
 
-            assertThatThrownBy(() -> service.updatePharmacy(new PharmacyInfoTo1()))
+            assertThatThrownBy(() -> service.updatePharmacy(pharmacy))
                     .isInstanceOf(AccessDeniedException.class);
 
             verifyNoInteractions(mockPharmacyInfoDao);
         }
 
         @Test
-        @DisplayName("should throw AccessDeniedException for removePharmacy when unauthorized")
+        @DisplayName("should throw AccessDeniedException for removePharmacy when only read is granted")
         @Tag("delete")
-        void shouldThrowAccessDenied_forRemovePharmacyWhenUnauthorized() {
-            grant(false);
+        void shouldThrowAccessDenied_forRemovePharmacyWhenOnlyReadGranted() {
+            grantOnly("r");
 
             assertThatThrownBy(() -> service.removePharmacy(1))
                     .isInstanceOf(AccessDeniedException.class);

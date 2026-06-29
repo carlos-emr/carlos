@@ -119,9 +119,17 @@ class ProgramServiceUnitTest extends CarlosUnitTestBase {
         field.set(service, value);
     }
 
-    private void grant(boolean allowed) {
+    /**
+     * Grants exactly one privilege action on the program security object; every other
+     * action is denied. Stubbing the precise action (rather than {@code anyString()})
+     * lets the deny tests prove each endpoint checks read ("r") specifically — granting
+     * only "w" must still be rejected.
+     */
+    private void grantOnly(String action) {
         when(mockSecurityInfoManager.hasPrivilege(any(), eq(SECURITY_OBJECT), anyString(), nullable(String.class)))
-                .thenReturn(allowed);
+                .thenReturn(false);
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq(SECURITY_OBJECT), eq(action), nullable(String.class)))
+                .thenReturn(true);
     }
 
     @Nested
@@ -131,8 +139,8 @@ class ProgramServiceUnitTest extends CarlosUnitTestBase {
 
         @Test
         @DisplayName("should return program response when caller has _pmm_management read privilege")
-        void shouldReturnProgramResponse_whenAuthorized() throws Exception {
-            grant(true);
+        void shouldReturnProgramResponse_whenGrantedReadOnly() throws Exception {
+            grantOnly("r");
             when(mockProgramManager.getProgramDomain(any(), any())).thenReturn(new ArrayList<ProgramProvider>());
 
             AbstractSearchResponse<ProgramTo1> response = service.getProgramList();
@@ -142,9 +150,9 @@ class ProgramServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should throw AccessDeniedException when caller lacks _pmm_management privilege")
-        void shouldThrowAccessDenied_whenUnauthorized() {
-            grant(false);
+        @DisplayName("should throw AccessDeniedException for getProgramList when only write is granted")
+        void shouldThrowAccessDenied_forGetProgramListWhenOnlyWriteGranted() {
+            grantOnly("w");
 
             assertThatThrownBy(() -> service.getProgramList())
                     .isInstanceOf(AccessDeniedException.class);
@@ -160,8 +168,8 @@ class ProgramServiceUnitTest extends CarlosUnitTestBase {
 
         @Test
         @DisplayName("should return admission response when caller has _pmm_management read privilege")
-        void shouldReturnAdmissionResponse_whenAuthorized() throws Exception {
-            grant(true);
+        void shouldReturnAdmissionResponse_whenGrantedReadOnly() throws Exception {
+            grantOnly("r");
             when(mockAdmissionManager.findAdmissionsByProgramAndDate(any(), any(), any(Date.class), anyInt(), anyInt()))
                     .thenReturn(new ArrayList<Admission>());
             when(mockAdmissionManager.findAdmissionsByProgramAndDateAsCount(any(), any(), any(Date.class)))
@@ -175,9 +183,9 @@ class ProgramServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should throw AccessDeniedException when caller lacks _pmm_management privilege")
-        void shouldThrowAccessDenied_whenUnauthorized() {
-            grant(false);
+        @DisplayName("should throw AccessDeniedException for getPatientList when only write is granted")
+        void shouldThrowAccessDenied_forGetPatientListWhenOnlyWriteGranted() {
+            grantOnly("w");
 
             assertThatThrownBy(() -> service.getPatientList("1", null, 0, 10))
                     .isInstanceOf(AccessDeniedException.class);
