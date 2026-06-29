@@ -110,7 +110,7 @@ public class ViewInrBillingGeneration2Action extends ActionSupport {
 
         String clinicNo = request.getParameter("clinic_no");
         String clinicRefCode = request.getParameter("xml_location");
-        String creator = request.getParameter("curUser");
+        String creator = requireLoggedInProviderNo(loggedInInfo);
         String curDate = request.getParameter("curDate");
         String appointmentDate = request.getParameter("xml_appointment_date");
 
@@ -242,6 +242,14 @@ public class ViewInrBillingGeneration2Action extends ActionSupport {
             return null;
         }
         return Integer.parseInt(matcher.group(1));
+    }
+
+    private static String requireLoggedInProviderNo(LoggedInInfo loggedInInfo) {
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
+        if (providerNo == null || providerNo.isBlank()) {
+            throw new SecurityException("missing logged-in provider number");
+        }
+        return providerNo;
     }
 
     private static int parseRequiredInt(String value, String fieldName) {
