@@ -52,8 +52,8 @@ public class EFormAttachDocs2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    private transient final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private transient final DocumentAttachmentManager documentAttachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
+    private final transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final transient DocumentAttachmentManager documentAttachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
 
     @Override
     public String execute() throws ServletException, IOException {
@@ -97,18 +97,23 @@ public class EFormAttachDocs2Action extends ActionSupport {
         addTypedValues(values, request.getParameterValues("docNo"));
         if (attachedDocs != null) {
             for (String value : attachedDocs) {
-                if (StringUtils.isNotBlank(value)) {
-                    if (Character.isLetter(value.charAt(0))) {
-                        if (value.charAt(0) == 'D' && value.length() > 1) {
-                            values.add(value.substring(1));
-                        }
-                    } else {
-                        values.add(value);
-                    }
+                String docId = normalizeAttachedDocId(value);
+                if (docId != null) {
+                    values.add(docId);
                 }
             }
         }
         return values.toArray(new String[0]);
+    }
+
+    private String normalizeAttachedDocId(String value) {
+        if (StringUtils.isBlank(value)) {
+            return null;
+        }
+        if (!Character.isLetter(value.charAt(0))) {
+            return value;
+        }
+        return value.charAt(0) == 'D' && value.length() > 1 ? value.substring(1) : null;
     }
 
     private String[] collectTypedIds(String parameterName, char legacyPrefix) {

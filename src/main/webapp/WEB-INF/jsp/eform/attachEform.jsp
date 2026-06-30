@@ -152,8 +152,8 @@
                 <em class="muted">No HRM documents available</em>
                 <% } else { for (HashMap<String, ? extends Object> hrm : allHRMDocuments) { String id = String.valueOf(hrm.get("id")); String hrmCheckboxId = "hrmNo-" + id; %>
                 <div class="item">
+                    <input type="checkbox" id="<%= hrmCheckboxId %>" name="hrmNo" value="<%= id %>" <%= attachedHrmIds.contains(id) ? "checked" : "" %>>
                     <label for="<%= hrmCheckboxId %>">
-                        <input type="checkbox" id="<%= hrmCheckboxId %>" name="hrmNo" value="<%= id %>" <%= attachedHrmIds.contains(id) ? "checked" : "" %>>
                         <carlos:encode value='<%= String.valueOf(hrm.get("name")) %>' context="html"/>
                         <span class="muted"><carlos:encode value='<%= String.valueOf(hrm.get("report_date")) %>' context="html"/></span>
                     </label>
@@ -169,8 +169,8 @@
                 <em class="muted">No eForms available</em>
                 <% } else { for (EFormData eForm : allEForms) { String eformId = String.valueOf(eForm.getId()); String eformCheckboxId = "eFormNo-" + eformId; String displayName = eForm.getSubject() == null || eForm.getSubject().isEmpty() ? eForm.getFormName() : eForm.getSubject(); %>
                 <div class="item">
+                    <input type="checkbox" id="<%= eformCheckboxId %>" name="eFormNo" value="<%= eformId %>" <%= attachedEFormIds.contains(eformId) ? "checked" : "" %>>
                     <label for="<%= eformCheckboxId %>">
-                        <input type="checkbox" id="<%= eformCheckboxId %>" name="eFormNo" value="<%= eformId %>" <%= attachedEFormIds.contains(eformId) ? "checked" : "" %>>
                         <carlos:encode value='<%= displayName %>' context="html"/>
                     </label>
                 </div>
@@ -185,8 +185,8 @@
                 <em class="muted">No encounter forms available</em>
                 <% } else { for (EctFormData.PatientForm form : allForms) { String formId = form.getFormId(); String formCheckboxId = "formNo-" + formId; %>
                 <div class="item">
+                    <input type="checkbox" id="<%= formCheckboxId %>" name="formNo" value="<%= formId %>" <%= attachedFormIds.contains(formId) ? "checked" : "" %>>
                     <label for="<%= formCheckboxId %>">
-                        <input type="checkbox" id="<%= formCheckboxId %>" name="formNo" value="<%= formId %>" <%= attachedFormIds.contains(formId) ? "checked" : "" %>>
                         <carlos:encode value='<%= form.getFormName() %>' context="html"/>
                         <span class="muted"><carlos:encode value='<%= form.getEdited() %>' context="html"/></span>
                     </label>

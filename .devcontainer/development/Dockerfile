@@ -98,7 +98,13 @@ RUN npm install -g @github/copilot && \
     echo "✅ GitHub Copilot CLI installed: $(copilot --version)"
 
 # Install OpenAI Codex CLI (standalone coding agent)
-RUN npm install -g @openai/codex && \
+# Retry the npm fetch because CI occasionally hits transient ECONNRESET errors.
+RUN for attempt in 1 2 3; do \
+        npm install -g @openai/codex && break; \
+        if [ "$attempt" -eq 3 ]; then exit 1; fi; \
+        echo "Retrying @openai/codex install after transient npm failure (attempt $attempt)..."; \
+        sleep 5; \
+    done && \
     echo "✅ OpenAI Codex CLI installed: $(codex --version)"
 
 ARG PLAYWRIGHT_VERSION=1.60.0
