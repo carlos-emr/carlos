@@ -211,8 +211,16 @@ public class OscarOAuthDataProvider {
         at.setSubject(new UserSubject(sat.getProviderNo(), new ArrayList<>()));
 
         List<OAuth1Permission> perms = new ArrayList<>();
-        for (String scope : sat.getScopes().split(" ")) {
-            perms.add(new OAuth1Permission(scope, scope));
+        // Persisted scopes may be null/blank (e.g. tokens minted before scopes carried meaning); treat
+        // that as no granted scopes rather than NPE-ing, so scope enforcement fails closed (403) instead
+        // of surfacing a 500 for an otherwise-valid token.
+        String scopes = sat.getScopes();
+        if (scopes != null && !scopes.isBlank()) {
+            for (String scope : scopes.split(" ")) {
+                if (!scope.isEmpty()) {
+                    perms.add(new OAuth1Permission(scope, scope));
+                }
+            }
         }
         at.setScopes(perms);
 

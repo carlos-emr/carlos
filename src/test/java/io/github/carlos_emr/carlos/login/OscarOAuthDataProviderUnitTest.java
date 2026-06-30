@@ -12,6 +12,7 @@ import io.github.carlos_emr.carlos.commn.dao.ServiceRequestTokenDao;
 import io.github.carlos_emr.carlos.commn.model.ServiceAccessToken;
 import io.github.carlos_emr.carlos.commn.model.ServiceClient;
 import io.github.carlos_emr.carlos.commn.model.ServiceOAuthNonce;
+import io.github.carlos_emr.carlos.webserv.oauth.AccessToken;
 import io.github.carlos_emr.carlos.webserv.oauth.Client;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1Exception;
 import io.github.carlos_emr.carlos.webserv.oauth.RequestToken;
@@ -219,6 +220,33 @@ class OscarOAuthDataProviderUnitTest {
 
         assertThat(rt).isNotNull();
         assertThat(rt.getCallback()).isEqualTo(expectedCallback);
+    }
+
+    @Test
+    @DisplayName("should return a token with no scopes when persisted scopes are null")
+    void shouldReturnTokenWithoutScopes_whenPersistedScopesAreNull() {
+        ServiceAccessTokenDao accessTokenDao = mock(ServiceAccessTokenDao.class);
+        Integer clientId = 7;
+        ServiceAccessToken token = accessToken("scopeless-token", "secret", "999998",
+                System.currentTimeMillis() / 1000, 3600);
+        token.setClientId(clientId);
+        // scopes intentionally left unset -> getScopes() is null (legacy/empty token)
+        when(accessTokenDao.findByTokenId("scopeless-token")).thenReturn(token);
+
+        ServiceClientDao clientDao = mock(ServiceClientDao.class);
+        ServiceClient client = new ServiceClient();
+        client.setKey("consumer");
+        when(clientDao.find(clientId)).thenReturn(client);
+        when(clientDao.findByKey("consumer")).thenReturn(client);
+
+        OscarOAuthDataProvider provider = new OscarOAuthDataProvider();
+        ReflectionTestUtils.setField(provider, "serviceAccessTokenDao", accessTokenDao);
+        ReflectionTestUtils.setField(provider, "serviceClientDao", clientDao);
+
+        AccessToken at = provider.getAccessToken("scopeless-token");
+
+        assertThat(at).isNotNull();
+        assertThat(at.getScopes()).isEmpty();
     }
 
     @Test
