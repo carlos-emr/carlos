@@ -118,10 +118,73 @@ RUN /usr/local/bin/apt-install pipx && \
     pipx install aider-chat && \
     pipx ensurepath
 
-# Install Postfix for mail testing with default values
+# Install Postfix for local mail capture testing with default values
 RUN /usr/local/bin/apt-install postfix
 
-# Configure Postfix for simple localhost operation
+# Capture script: appends the full raw MIME message (stdin) plus envelope
+# metadata to a dev-only capture file. Runs as 'nobody' via the Postfix pipe
+# transport (see master.cf below), never as root. See docs/postfix-mail-server.md.
+RUN cat <<'EOF' > /usr/local/bin/postfix-capture-mail && chmod 0755 /usr/local/bin/postfix-capture-mail
+#!/bin/sh
+set -eu
+
+CAPTURE_FILE="/var/log/carlos-mail-capture.eml"
+sender="${1:-unknown-sender}"
+recipient="${2:-unknown-recipient}"
+
+# Serialize the whole append under an exclusive lock so concurrent devcapture
+# deliveries cannot interleave and corrupt the captured MIME. fd 9 opens the
+# capture file in append mode and is both the write target and the lock object;
+# if flock is unavailable, fall back to a plain (non-atomic) append.
+{
+  if command -v flock >/dev/null 2>&1; then
+    flock 9
+  fi
+  {
+    printf '\n\n===== CARLOS DEV EMAIL CAPTURE =====\n'
+    printf 'Captured-At: %s\n' "$(date -Is)"
+    printf 'Envelope-From: %s\n' "$sender"
+    printf 'Envelope-To: %s\n' "$recipient"
+    printf -- '----- BEGIN RAW MESSAGE -----\n'
+    cat
+    printf -- '\n----- END RAW MESSAGE -----\n'
+  } >&9
+} 9>> "$CAPTURE_FILE"
+
+exit 0
+EOF
+
+# Create the capture file writable by the Postfix pipe user ('nobody').
+RUN touch /var/log/carlos-mail-capture.eml && \
+    chown nobody:nogroup /var/log/carlos-mail-capture.eml && \
+    chmod 0660 /var/log/carlos-mail-capture.eml
+
+# Register a custom pipe transport that streams every accepted message to the
+# capture script. ${sender}/${recipient} pass envelope metadata; the raw
+# message body arrives on stdin.
+RUN printf '%s\n%s\n' \
+    'devcapture unix  -       n       n       -       -       pipe' \
+    '  flags=q user=nobody argv=/usr/local/bin/postfix-capture-mail ${sender} ${recipient}' \
+    >> /etc/postfix/master.cf
+
+# Route every recipient to the capture transport.
+RUN printf '/.*/ devcapture:\n' > /etc/postfix/carlos-transport-regexp
+
+# Opt-in real-delivery allowlist (see docs/postfix-mail-server.md). Recipients
+# listed here are delivered for REAL, but ONLY when the container is started with
+# CARLOS_MAIL_ALLOW_SEND=1 (the 'mail' helper wires the allowlist into
+# transport_maps in that case). It ships EMPTY, so the env flag alone sends
+# nothing — every message stays captured until an address is added here.
+RUN printf '%s\n' \
+    '# CARLOS dev mail allowlist (regexp transport map).' \
+    '# Recipients matched here are delivered EXTERNALLY when the devcontainer is' \
+    '# started with CARLOS_MAIL_ALLOW_SEND=1. Everything not matched is still' \
+    '# captured locally. NEVER add a real patient address here — use only your own' \
+    '# test inbox. Example (uncomment and edit):' \
+    '# /^me@my-test-inbox\.example\.com$/  smtp:' \
+    > /etc/postfix/carlos-send-allowlist
+
+# Configure Postfix for localhost-only operation with capture-everything delivery.
 RUN postconf -e 'myhostname=openo-dev.local' && \
     postconf -e 'mydestination=openo-dev.local, localhost' && \
     postconf -e 'mynetworks=127.0.0.0/8' && \
@@ -132,7 +195,19 @@ RUN postconf -e 'myhostname=openo-dev.local' && \
     postconf -e 'smtpd_use_tls=no' && \
     postconf -e 'smtpd_tls_security_level=none' && \
     # Allow local connections without auth
-    postconf -e 'smtpd_client_restrictions=permit_mynetworks,reject'
+    postconf -e 'smtpd_client_restrictions=permit_mynetworks,reject' && \
+    # Defense in depth: route ALL mail to the capture transport so no accepted
+    # message can ever use Postfix's normal outbound smtp delivery. The regexp
+    # map matches every recipient; the *_transport overrides catch anything the
+    # map somehow misses.
+    postconf -e 'transport_maps=regexp:/etc/postfix/carlos-transport-regexp' && \
+    postconf -e 'default_transport=devcapture:' && \
+    postconf -e 'relay_transport=devcapture:' && \
+    postconf -e 'local_transport=devcapture:' && \
+    # Deliver one recipient per pipe invocation so the capture script's
+    # ${recipient} (and the Envelope-To metadata) is always the single correct
+    # address even when Postfix batches multiple recipients for a message.
+    postconf -e 'devcapture_destination_recipient_limit=1'
 
 # Create custom bashrc with tool reminders
 COPY ./config/bashrc /root/.bashrc

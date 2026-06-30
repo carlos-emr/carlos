@@ -1,28 +1,127 @@
 #!/bin/bash
+set -euo pipefail
 
-command=$1
+command="${1:-}"
+MAIL_LOG_FILE="/var/log/mail.log"
+CAPTURE_FILE="/var/log/carlos-mail-capture.eml"
+CAPTURE_MAP="/etc/postfix/carlos-transport-regexp"
+SEND_ALLOWLIST="/etc/postfix/carlos-send-allowlist"
 
-case $command in
+# Make sure the capture file exists and stays writable by the Postfix pipe user
+# ('nobody'). The image creates it as nobody:nogroup 0660; if it was deleted and
+# recreated here, restore that same owner/mode so the pipe can append without
+# making the file world-writable. This script runs as root in the devcontainer.
+ensure_capture_file() {
+  if [ ! -f "$CAPTURE_FILE" ]; then
+    touch "$CAPTURE_FILE" 2>/dev/null || true
+  fi
+  chown nobody:nogroup "$CAPTURE_FILE" 2>/dev/null || true
+  chmod 0660 "$CAPTURE_FILE" 2>/dev/null || true
+}
+
+# Non-comment, non-blank entries in the send allowlist.
+allowlist_entries() {
+  grep -vE '^[[:space:]]*(#|$)' "$SEND_ALLOWLIST" 2>/dev/null || true
+}
+
+# Configure Postfix delivery routing from the environment. Default (flag unset)
+# captures everything — nothing can leave the container. With
+# CARLOS_MAIL_ALLOW_SEND=1 the allowlist is consulted first, so only allowlisted
+# recipients are delivered externally (via smtp) while everything else is still
+# captured. CARLOS_MAIL_RELAYHOST optionally sets an SMTP relay for real sends.
+configure_send_mode() {
+  # Derive relayhost from the environment on every start so a stale value from an
+  # earlier session can't be silently reused; empty clears it (Postfix default).
+  postconf -e "relayhost=${CARLOS_MAIL_RELAYHOST:-}"
+
+  if [ "${CARLOS_MAIL_ALLOW_SEND:-0}" = "1" ]; then
+    postconf -e "transport_maps=regexp:${SEND_ALLOWLIST}, regexp:${CAPTURE_MAP}"
+    echo "⚠️  REAL SEND ENABLED (CARLOS_MAIL_ALLOW_SEND=1)."
+    echo "    Allowlisted recipients in $SEND_ALLOWLIST are delivered EXTERNALLY;"
+    echo "    every other recipient is still captured to $CAPTURE_FILE."
+    if [ -z "$(allowlist_entries)" ]; then
+      echo "    Allowlist is empty, so nothing will actually send yet."
+    fi
+  else
+    # Capture everything; nothing leaves the container.
+    postconf -e "transport_maps=regexp:${CAPTURE_MAP}"
+  fi
+}
+
+# Print the current delivery mode for `mail status`.
+report_send_mode() {
+  if postconf -h transport_maps 2>/dev/null | grep -q 'carlos-send-allowlist'; then
+    echo "Send mode: REAL SEND enabled for allowlisted recipients."
+    echo "Allowlist ($SEND_ALLOWLIST):"
+    if [ -n "$(allowlist_entries)" ]; then
+      allowlist_entries | sed 's/^/  /'
+    else
+      echo "  (empty — nothing will actually send; all mail captured)"
+    fi
+  else
+    echo "Send mode: capture-only (all accepted mail is captured; nothing leaves the container)."
+  fi
+}
+
+case "$command" in
     start)
       echo "Starting Postfix..."
+      configure_send_mode
       service postfix start
+      echo "Capture file: $CAPTURE_FILE"
     ;;
     stop)
       echo "Stopping Postfix..."
       service postfix stop
     ;;
     status)
-      service postfix status
+      service postfix status || true
+      echo
+      echo "Capture file: $CAPTURE_FILE"
+      if [ -f "$CAPTURE_FILE" ]; then
+        ls -lh "$CAPTURE_FILE"
+      else
+        echo "Capture file does not exist yet."
+      fi
+      echo
+      report_send_mode
     ;;
     restart)
       echo "Restarting Postfix..."
+      configure_send_mode
       service postfix restart
+      echo "Capture file: $CAPTURE_FILE"
     ;;
     log)
-      tail -f /var/log/mail.log
+      touch "$MAIL_LOG_FILE"
+      tail -f "$MAIL_LOG_FILE"
+    ;;
+    capture)
+      ensure_capture_file
+      tail -f "$CAPTURE_FILE"
+    ;;
+    show)
+      ensure_capture_file
+      cat "$CAPTURE_FILE"
+    ;;
+    clear)
+      ensure_capture_file
+      : > "$CAPTURE_FILE"
+      echo "Cleared $CAPTURE_FILE"
+    ;;
+    test)
+      ensure_capture_file
+      {
+        echo "From: noreply@openo-dev.local"
+        echo "To: patient@example.test"
+        echo "Subject: CARLOS dev mail capture test"
+        echo
+        echo "This is a test message captured by the devcontainer Postfix setup."
+      } | /usr/sbin/sendmail -f noreply@openo-dev.local patient@example.test
+      echo "Sent test message to Postfix. Run: mail capture"
     ;;
     *)
-      echo "Usage: mail {start|stop|restart|status|log}"
+      echo "Usage: mail {start|stop|restart|status|log|capture|show|clear|test}"
       exit 1
     ;;
 esac
