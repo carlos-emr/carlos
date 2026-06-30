@@ -3417,12 +3417,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             return true;
         }
 
-        if (normalizedPath.startsWith("/") || normalizedPath.startsWith("\\")
-                || hasWindowsDriveLetterAbsolutePrefix(normalizedPath)) {
-            return true;
-        }
-
-        return false;
+        return normalizedPath.startsWith("/") || normalizedPath.startsWith("\\")
+                || hasWindowsDriveLetterAbsolutePrefix(normalizedPath);
     }
 
     private boolean hasWindowsDriveLetterAbsolutePrefix(String normalizedPath) {
