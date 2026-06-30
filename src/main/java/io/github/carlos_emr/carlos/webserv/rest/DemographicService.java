@@ -361,12 +361,7 @@ public class DemographicService extends AbstractServiceImpl {
 
                 if (demoContact.getCategory().equals(DemographicContact.CATEGORY_PERSONAL)) {
                     if (demoContact.getType() == DemographicContact.TYPE_DEMOGRAPHIC) {
-                        Demographic contactD = demographicManager.getDemographic(loggedInInfo, contactId);
-                        demoContactTo1 = demoContactFewConverter.getAsTransferObject(demoContact, contactD);
-                        if (demoContactTo1.getPhone() == null || demoContactTo1.getPhone().equals("")) {
-                            DemographicExt ext = demographicManager.getDemographicExt(loggedInInfo, contactId, "demo_cell");
-                            if (ext != null) demoContactTo1.setPhone(ext.getValue());
-                        }
+                        demoContactTo1 = buildPersonalDemographicContact(loggedInInfo, demoContact, contactId);
                     } else if (demoContact.getType() == DemographicContact.TYPE_CONTACT) {
                         Contact contactC = contactDao.find(contactId);
                         demoContactTo1 = demoContactFewConverter.getAsTransferObject(demoContact, contactC);
@@ -444,6 +439,30 @@ public class DemographicService extends AbstractServiceImpl {
         }
 
         return result;
+    }
+
+    /**
+     * Builds the transfer object for a personal contact that is itself a demographic.
+     * <p/>
+     * When the contact has no phone on its own record, the phone falls back to the
+     * <em>contact's</em> {@code demo_cell} extension — keyed by {@code contactId}, the
+     * contact's own demographic number, not the demographic currently being viewed.
+     * Package-private so the fallback can be unit-tested without the surrounding
+     * record-assembly machinery.
+     *
+     * @param loggedInInfo current session
+     * @param demoContact  the contact relationship being rendered
+     * @param contactId    the contact's own demographic number
+     * @return the contact transfer object with its phone resolved
+     */
+    DemographicContactFewTo1 buildPersonalDemographicContact(LoggedInInfo loggedInInfo, DemographicContact demoContact, Integer contactId) {
+        Demographic contactD = demographicManager.getDemographic(loggedInInfo, contactId);
+        DemographicContactFewTo1 demoContactTo1 = demoContactFewConverter.getAsTransferObject(demoContact, contactD);
+        if (demoContactTo1.getPhone() == null || demoContactTo1.getPhone().equals("")) {
+            DemographicExt ext = demographicManager.getDemographicExt(loggedInInfo, contactId, "demo_cell");
+            if (ext != null) demoContactTo1.setPhone(ext.getValue());
+        }
+        return demoContactTo1;
     }
 
     /**
@@ -528,12 +547,7 @@ public class DemographicService extends AbstractServiceImpl {
 
                     if (demoContact.getCategory().equals(DemographicContact.CATEGORY_PERSONAL)) {
                         if (demoContact.getType() == DemographicContact.TYPE_DEMOGRAPHIC) {
-                            Demographic contactD = demographicManager.getDemographic(loggedInInfo, contactId);
-                            demoContactTo1 = demoContactFewConverter.getAsTransferObject(demoContact, contactD);
-                            if (demoContactTo1.getPhone() == null || demoContactTo1.getPhone().equals("")) {
-                                DemographicExt ext = demographicManager.getDemographicExt(loggedInInfo, contactId, "demo_cell");
-                                if (ext != null) demoContactTo1.setPhone(ext.getValue());
-                            }
+                            demoContactTo1 = buildPersonalDemographicContact(loggedInInfo, demoContact, contactId);
                         } else if (demoContact.getType() == DemographicContact.TYPE_CONTACT) {
                             Contact contactC = contactDao.find(contactId);
                             demoContactTo1 = demoContactFewConverter.getAsTransferObject(demoContact, contactC);
