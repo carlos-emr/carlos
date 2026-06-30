@@ -7,10 +7,14 @@ CAPTURE_FILE="/var/log/carlos-mail-capture.eml"
 
 # Make sure the capture file exists and stays writable by the Postfix pipe user
 # ('nobody'). The image creates it as nobody:nogroup 0660; if it was deleted and
-# recreated here by root, widening to 0666 keeps the pipe transport able to append.
+# recreated here, restore that same owner/mode so the pipe can append without
+# making the file world-writable. This script runs as root in the devcontainer.
 ensure_capture_file() {
-  touch "$CAPTURE_FILE"
-  chmod 0666 "$CAPTURE_FILE" 2>/dev/null || true
+  if [ ! -f "$CAPTURE_FILE" ]; then
+    touch "$CAPTURE_FILE" 2>/dev/null || true
+  fi
+  chown nobody:nogroup "$CAPTURE_FILE" 2>/dev/null || true
+  chmod 0660 "$CAPTURE_FILE" 2>/dev/null || true
 }
 
 case "$command" in
