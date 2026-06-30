@@ -30,11 +30,12 @@ allowlist_entries() {
 # recipients are delivered externally (via smtp) while everything else is still
 # captured. CARLOS_MAIL_RELAYHOST optionally sets an SMTP relay for real sends.
 configure_send_mode() {
+  # Derive relayhost from the environment on every start so a stale value from an
+  # earlier session can't be silently reused; empty clears it (Postfix default).
+  postconf -e "relayhost=${CARLOS_MAIL_RELAYHOST:-}"
+
   if [ "${CARLOS_MAIL_ALLOW_SEND:-0}" = "1" ]; then
     postconf -e "transport_maps=regexp:${SEND_ALLOWLIST}, regexp:${CAPTURE_MAP}"
-    if [ -n "${CARLOS_MAIL_RELAYHOST:-}" ]; then
-      postconf -e "relayhost=${CARLOS_MAIL_RELAYHOST}"
-    fi
     echo "⚠️  REAL SEND ENABLED (CARLOS_MAIL_ALLOW_SEND=1)."
     echo "    Allowlisted recipients in $SEND_ALLOWLIST are delivered EXTERNALLY;"
     echo "    every other recipient is still captured to $CAPTURE_FILE."

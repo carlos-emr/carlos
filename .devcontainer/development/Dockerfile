@@ -203,7 +203,11 @@ RUN postconf -e 'myhostname=openo-dev.local' && \
     postconf -e 'transport_maps=regexp:/etc/postfix/carlos-transport-regexp' && \
     postconf -e 'default_transport=devcapture:' && \
     postconf -e 'relay_transport=devcapture:' && \
-    postconf -e 'local_transport=devcapture:'
+    postconf -e 'local_transport=devcapture:' && \
+    # Deliver one recipient per pipe invocation so the capture script's
+    # ${recipient} (and the Envelope-To metadata) is always the single correct
+    # address even when Postfix batches multiple recipients for a message.
+    postconf -e 'devcapture_destination_recipient_limit=1'
 
 # Create custom bashrc with tool reminders
 COPY ./config/bashrc /root/.bashrc
