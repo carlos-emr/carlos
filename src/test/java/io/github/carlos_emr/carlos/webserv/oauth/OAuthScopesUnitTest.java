@@ -67,6 +67,15 @@ class OAuthScopesUnitTest {
         }
 
         @Test
+        @DisplayName("should anchor on the ws/services mount and ignore an earlier services segment")
+        void shouldResolveDomain_whenEarlierServicesSegmentPresent() {
+            // The marker is the full /ws/services/ mount, so a decoy earlier 'services' segment must not
+            // misanchor the root and make the piloted endpoint look unpiloted.
+            assertThat(OAuthScopes.requiredScope("GET", "/services/decoy/ws/services/schedule/day"))
+                    .isEqualTo("schedule.read");
+        }
+
+        @Test
         @DisplayName("should ignore a trailing query string when resolving the domain")
         void shouldResolveDomain_whenQueryStringPresent() {
             assertThat(OAuthScopes.requiredScope("GET", "/carlos/ws/services/schedule?date=today"))

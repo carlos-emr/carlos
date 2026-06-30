@@ -165,8 +165,11 @@ public final class OAuthScopes {
     }
 
     /**
-     * The domain root of the request: the first non-empty path segment after the {@code /services/} marker,
-     * lower-cased; {@code null} if the URI has no {@code /services/} segment or nothing usable follows it.
+     * The domain root of the request: the first non-empty path segment after the {@code /ws/services/}
+     * marker, lower-cased; {@code null} if the URI has no {@code /ws/services/} segment or nothing usable
+     * follows it. The marker is anchored to the full {@code /ws/services/} mount (CXF servlet {@code /ws/*}
+     * + JAX-RS address {@code /services}) so an unrelated earlier {@code services} path segment cannot
+     * misanchor the root.
      *
      * <p>Each segment is percent-decoded and has any matrix parameters ({@code ;k=v}) stripped, and
      * {@code .}/{@code ..} segments are resolved away, <b>before</b> the root is matched — so it reflects
@@ -181,7 +184,7 @@ public final class OAuthScopes {
         if (requestUri == null) {
             return null;
         }
-        String marker = "/services/";
+        String marker = "/ws/services/";
         int idx = requestUri.indexOf(marker);
         if (idx < 0) {
             return null;
