@@ -132,15 +132,24 @@ CAPTURE_FILE="/var/log/carlos-mail-capture.eml"
 sender="${1:-unknown-sender}"
 recipient="${2:-unknown-recipient}"
 
+# Serialize the whole append under an exclusive lock so concurrent devcapture
+# deliveries cannot interleave and corrupt the captured MIME. fd 9 opens the
+# capture file in append mode and is both the write target and the lock object;
+# if flock is unavailable, fall back to a plain (non-atomic) append.
 {
-  printf '\n\n===== CARLOS DEV EMAIL CAPTURE =====\n'
-  printf 'Captured-At: %s\n' "$(date -Is)"
-  printf 'Envelope-From: %s\n' "$sender"
-  printf 'Envelope-To: %s\n' "$recipient"
-  printf -- '----- BEGIN RAW MESSAGE -----\n'
-  cat
-  printf -- '\n----- END RAW MESSAGE -----\n'
-} >> "$CAPTURE_FILE"
+  if command -v flock >/dev/null 2>&1; then
+    flock 9
+  fi
+  {
+    printf '\n\n===== CARLOS DEV EMAIL CAPTURE =====\n'
+    printf 'Captured-At: %s\n' "$(date -Is)"
+    printf 'Envelope-From: %s\n' "$sender"
+    printf 'Envelope-To: %s\n' "$recipient"
+    printf -- '----- BEGIN RAW MESSAGE -----\n'
+    cat
+    printf -- '\n----- END RAW MESSAGE -----\n'
+  } >&9
+} 9>> "$CAPTURE_FILE"
 
 exit 0
 EOF
@@ -155,7 +164,7 @@ RUN touch /var/log/carlos-mail-capture.eml && \
 # message body arrives on stdin.
 RUN printf '%s\n%s\n' \
     'devcapture unix  -       n       n       -       -       pipe' \
-    '  flags=Fq user=nobody argv=/usr/local/bin/postfix-capture-mail ${sender} ${recipient}' \
+    '  flags=q user=nobody argv=/usr/local/bin/postfix-capture-mail ${sender} ${recipient}' \
     >> /etc/postfix/master.cf
 
 # Route every recipient to the capture transport.
