@@ -252,8 +252,8 @@ public String saveDigitalSignature() throws IOException {
     
     // Validate user session and privileges
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-    checkPrivilege(loggedInInfo, PRIVILEGE_READ);
-    
+    checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
+
     // Retrieve and validate the prescription session bean
     RxSessionBean sessionBeanRX =
         (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
