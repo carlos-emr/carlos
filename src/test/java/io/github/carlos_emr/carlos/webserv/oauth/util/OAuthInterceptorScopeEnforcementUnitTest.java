@@ -22,6 +22,7 @@ import org.apache.cxf.message.Message;
 import org.apache.cxf.message.MessageImpl;
 import org.apache.cxf.transport.http.AbstractHTTPDestination;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -50,9 +51,21 @@ class OAuthInterceptorScopeEnforcementUnitTest {
     private static final String PROVIDER_NO = "999998";
     private static final String SCHEDULE_GET_URI = "/carlos/ws/services/schedule/day/2026-06-29";
 
+    private String previousEnforcementValue;
+
+    @BeforeEach
+    void captureEnforcementFlag() {
+        previousEnforcementValue = CarlosProperties.getInstance().getProperty(ENFORCEMENT_PROPERTY);
+    }
+
     @AfterEach
-    void clearEnforcementFlag() {
-        CarlosProperties.getInstance().remove(ENFORCEMENT_PROPERTY);
+    void restoreEnforcementFlag() {
+        // Restore (not just remove) so this test cannot clobber a pre-existing value in the shared singleton.
+        if (previousEnforcementValue == null) {
+            CarlosProperties.getInstance().remove(ENFORCEMENT_PROPERTY);
+        } else {
+            CarlosProperties.getInstance().setProperty(ENFORCEMENT_PROPERTY, previousEnforcementValue);
+        }
     }
 
     private void enableEnforcement() {

@@ -271,7 +271,7 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
             return;
         }
         String requiredScope = OAuthScopes.requiredScope(req.getMethod(), req.getRequestURI());
-        if (requiredScope == OAuthScopes.NO_SCOPE_REQUIRED) {
+        if (requiredScope == null) {  // OAuthScopes.NO_SCOPE_REQUIRED: endpoint outside the pilot
             return;
         }
         if (!OAuthScopes.isSatisfiedBy(requiredScope, grantedScopes(token))) {

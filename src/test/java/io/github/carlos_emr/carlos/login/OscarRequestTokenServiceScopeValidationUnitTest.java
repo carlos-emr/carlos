@@ -15,6 +15,7 @@ import io.github.carlos_emr.carlos.webserv.oauth.util.OAuth1ParamParser;
 
 import jakarta.ws.rs.core.Response;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -42,9 +43,21 @@ class OscarRequestTokenServiceScopeValidationUnitTest {
     private static final String ENFORCEMENT_PROPERTY = "oauth.scope.enforcement.enabled";
     private static final String CONSUMER_KEY = "consumer-key";
 
+    private String previousEnforcementValue;
+
+    @BeforeEach
+    void captureEnforcementFlag() {
+        previousEnforcementValue = CarlosProperties.getInstance().getProperty(ENFORCEMENT_PROPERTY);
+    }
+
     @AfterEach
-    void clearEnforcementFlag() {
-        CarlosProperties.getInstance().remove(ENFORCEMENT_PROPERTY);
+    void restoreEnforcementFlag() {
+        // Restore (not just remove) so this test cannot clobber a pre-existing value in the shared singleton.
+        if (previousEnforcementValue == null) {
+            CarlosProperties.getInstance().remove(ENFORCEMENT_PROPERTY);
+        } else {
+            CarlosProperties.getInstance().setProperty(ENFORCEMENT_PROPERTY, previousEnforcementValue);
+        }
     }
 
     private void enableEnforcement() {

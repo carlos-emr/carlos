@@ -141,8 +141,10 @@ public class OscarRequestTokenService {
 
         reg.setCallback(cbToStore);   // <-- store plain URL now (not encoded)
 
+        // trim before splitting so leading/trailing whitespace does not yield an empty token that
+        // would otherwise be rejected as an unknown scope under enforcement
         String[] requestedScopes = (oreq.scopesCsv != null && !oreq.scopesCsv.isBlank())
-                ? oreq.scopesCsv.split("\\s+")
+                ? oreq.scopesCsv.trim().split("\\s+")
                 : new String[0];
         validateRequestedScopes(requestedScopes);
         if (requestedScopes.length > 0) {

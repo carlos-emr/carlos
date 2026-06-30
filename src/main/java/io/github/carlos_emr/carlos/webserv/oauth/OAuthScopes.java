@@ -22,7 +22,6 @@
 package io.github.carlos_emr.carlos.webserv.oauth;
 
 import java.util.Collection;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -159,13 +158,19 @@ public final class OAuthScopes {
         if (httpMethod == null) {
             return false;
         }
-        String m = httpMethod.trim().toUpperCase(Locale.ROOT);
-        return m.equals("GET") || m.equals("HEAD") || m.equals("OPTIONS");
+        String m = asciiLowerCase(httpMethod.trim());
+        return m.equals("get") || m.equals("head") || m.equals("options");
     }
 
     /**
-     * The first non-empty path segment after the {@code /services/} marker, lower-cased; {@code null} if
-     * the URI has no {@code /services/} segment or nothing follows it.
+     * The domain root of the request: the first non-empty path segment after the {@code /services/} marker,
+     * lower-cased; {@code null} if the URI has no {@code /services/} segment or nothing usable follows it.
+     *
+     * <p>The segment is percent-decoded and has any matrix parameters ({@code ;k=v}) stripped <b>before</b>
+     * it is matched, so it reflects what JAX-RS/CXF actually routes to. Without this, requests such as
+     * {@code /ws/services/%73chedule/...} or {@code /ws/services/schedule;x=1/...} would resolve to a
+     * non-matching root, fall back to {@link #NO_SCOPE_REQUIRED}, and silently bypass scope enforcement
+     * while still reaching the {@code schedule} resource.
      */
     private static String pathRootUnderServices(String requestUri) {
         if (requestUri == null) {
@@ -182,19 +187,67 @@ public final class OAuthScopes {
         if (q >= 0) {
             rest = rest.substring(0, q);
         }
-        for (String segment : rest.split("/")) {
+        for (String rawSegment : rest.split("/")) {
+            if (rawSegment.isEmpty()) {
+                continue;
+            }
+            // Decode first so a percent-encoded matrix delimiter (%3B) is also stripped, then drop
+            // matrix parameters. Resolving aggressively here errs toward enforcement, never toward bypass.
+            String segment = stripMatrixParameters(percentDecode(rawSegment));
             if (!segment.isEmpty()) {
-                return segment.toLowerCase(Locale.ROOT);
+                return asciiLowerCase(segment);
             }
         }
         return null;
+    }
+
+    private static String stripMatrixParameters(String segment) {
+        int semi = segment.indexOf(';');
+        return semi >= 0 ? segment.substring(0, semi) : segment;
+    }
+
+    /** Decodes {@code %XX} escapes only; intentionally leaves {@code +} untouched (literal in path segments). */
+    private static String percentDecode(String value) {
+        if (value.indexOf('%') < 0) {
+            return value;
+        }
+        int n = value.length();
+        StringBuilder out = new StringBuilder(n);
+        for (int i = 0; i < n; i++) {
+            char c = value.charAt(i);
+            if (c == '%' && i + 2 < n) {
+                int hi = Character.digit(value.charAt(i + 1), 16);
+                int lo = Character.digit(value.charAt(i + 2), 16);
+                if (hi >= 0 && lo >= 0) {
+                    out.append((char) ((hi << 4) + lo));
+                    i += 2;
+                    continue;
+                }
+            }
+            out.append(c);
+        }
+        return out.toString();
     }
 
     private static String normalize(String scope) {
         if (scope == null) {
             return null;
         }
-        String trimmed = scope.trim().toLowerCase(Locale.ROOT);
+        String trimmed = asciiLowerCase(scope.trim());
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    /**
+     * ASCII-only lower-casing. Scopes and HTTP methods are ASCII tokens, and folding them with the
+     * locale-sensitive {@code String.toLowerCase} adds no value while tripping locale/Unicode scanners; a
+     * fixed ASCII fold mirrors the existing OAuth helpers in this package.
+     */
+    private static String asciiLowerCase(String value) {
+        StringBuilder lowered = new StringBuilder(value.length());
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            lowered.append(c >= 'A' && c <= 'Z' ? (char) (c + ('a' - 'A')) : c);
+        }
+        return lowered.toString();
     }
 }

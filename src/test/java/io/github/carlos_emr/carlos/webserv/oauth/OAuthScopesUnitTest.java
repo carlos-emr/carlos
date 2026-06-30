@@ -72,6 +72,29 @@ class OAuthScopesUnitTest {
             assertThat(OAuthScopes.requiredScope("GET", "/carlos/ws/services/schedule?date=today"))
                     .isEqualTo("schedule.read");
         }
+
+        @Test
+        @DisplayName("should resolve the domain when the path root is percent-encoded")
+        void shouldResolveDomain_whenPercentEncoded() {
+            // %73 decodes to 's' -> the request still routes to the schedule resource and must be enforced
+            assertThat(OAuthScopes.requiredScope("GET", "/carlos/ws/services/%73chedule/day/2026-06-29"))
+                    .isEqualTo("schedule.read");
+        }
+
+        @Test
+        @DisplayName("should strip matrix parameters from the path root")
+        void shouldResolveDomain_whenMatrixParameterPresent() {
+            assertThat(OAuthScopes.requiredScope("GET", "/carlos/ws/services/schedule;v=1/day"))
+                    .isEqualTo("schedule.read");
+        }
+
+        @Test
+        @DisplayName("should strip a percent-encoded matrix delimiter from the path root")
+        void shouldResolveDomain_whenMatrixDelimiterEncoded() {
+            // %3B decodes to ';' -> must still be treated as a matrix delimiter, not part of the domain
+            assertThat(OAuthScopes.requiredScope("POST", "/carlos/ws/services/tickler%3Bx=1/add"))
+                    .isEqualTo("tickler.write");
+        }
     }
 
     @Nested
