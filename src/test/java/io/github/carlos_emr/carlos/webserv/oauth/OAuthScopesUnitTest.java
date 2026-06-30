@@ -50,6 +50,8 @@ class OAuthScopesUnitTest {
         @DisplayName("should treat a null/blank method as a write for fail-safe behaviour")
         void shouldRequireWrite_whenMethodMissing() {
             assertThat(OAuthScopes.requiredScope(null, SCHEDULE_DAY_PATH)).isEqualTo("schedule.write");
+            assertThat(OAuthScopes.requiredScope("", SCHEDULE_DAY_PATH)).isEqualTo("schedule.write");
+            assertThat(OAuthScopes.requiredScope("   ", SCHEDULE_DAY_PATH)).isEqualTo("schedule.write");
         }
 
         @Test
