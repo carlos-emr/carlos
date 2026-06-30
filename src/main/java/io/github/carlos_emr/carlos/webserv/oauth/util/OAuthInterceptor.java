@@ -270,7 +270,10 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
         if (!isScopeEnforcementEnabled()) {
             return;
         }
-        String requiredScope = OAuthScopes.requiredScope(req.getMethod(), req.getRequestURI());
+        // Resolve the scope from getPathInfo(): the container-decoded, canonicalized path (dot-segments
+        // collapsed, matrix params stripped) that JAX-RS/CXF actually routes on. Using the raw request URI
+        // here would force us to re-implement that normalization and risk diverging from the real routing.
+        String requiredScope = OAuthScopes.requiredScope(req.getMethod(), req.getPathInfo());
         if (requiredScope == null) {  // OAuthScopes.NO_SCOPE_REQUIRED: endpoint outside the pilot
             return;
         }

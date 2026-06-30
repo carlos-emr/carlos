@@ -22,133 +22,69 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("security")
 class OAuthScopesUnitTest {
 
-    private static final String SCHEDULE_DAY_URI = "/carlos/ws/services/schedule/day/2026-06-29";
-    private static final String TICKLER_MINE_URI = "/carlos/ws/services/tickler/mine";
+    // The resolver consumes the servlet path info (HttpServletRequest.getPathInfo()), which the container
+    // has already decoded and canonicalized to /services/<domain>/... — so these inputs are pre-normalized.
+    private static final String SCHEDULE_DAY_PATH = "/services/schedule/day/2026-06-29";
+    private static final String TICKLER_MINE_PATH = "/services/tickler/mine";
 
     @Nested
-    @DisplayName("requiredScope(method, uri)")
+    @DisplayName("requiredScope(method, servicePath)")
     class RequiredScope {
 
         @Test
         @DisplayName("should require domain.read when method is a safe read on a piloted endpoint")
         void shouldRequireRead_whenSafeMethodOnPilotedEndpoint() {
-            assertThat(OAuthScopes.requiredScope("GET", SCHEDULE_DAY_URI)).isEqualTo("schedule.read");
-            assertThat(OAuthScopes.requiredScope("HEAD", TICKLER_MINE_URI)).isEqualTo("tickler.read");
+            assertThat(OAuthScopes.requiredScope("GET", SCHEDULE_DAY_PATH)).isEqualTo("schedule.read");
+            assertThat(OAuthScopes.requiredScope("HEAD", TICKLER_MINE_PATH)).isEqualTo("tickler.read");
         }
 
         @Test
         @DisplayName("should require domain.write when method mutates on a piloted endpoint")
         void shouldRequireWrite_whenMutatingMethodOnPilotedEndpoint() {
-            assertThat(OAuthScopes.requiredScope("POST", SCHEDULE_DAY_URI)).isEqualTo("schedule.write");
-            assertThat(OAuthScopes.requiredScope("DELETE", TICKLER_MINE_URI)).isEqualTo("tickler.write");
-            assertThat(OAuthScopes.requiredScope("PUT", SCHEDULE_DAY_URI)).isEqualTo("schedule.write");
+            assertThat(OAuthScopes.requiredScope("POST", SCHEDULE_DAY_PATH)).isEqualTo("schedule.write");
+            assertThat(OAuthScopes.requiredScope("DELETE", TICKLER_MINE_PATH)).isEqualTo("tickler.write");
+            assertThat(OAuthScopes.requiredScope("PUT", SCHEDULE_DAY_PATH)).isEqualTo("schedule.write");
         }
 
         @Test
         @DisplayName("should treat a null/blank method as a write for fail-safe behaviour")
         void shouldRequireWrite_whenMethodMissing() {
-            assertThat(OAuthScopes.requiredScope(null, SCHEDULE_DAY_URI)).isEqualTo("schedule.write");
+            assertThat(OAuthScopes.requiredScope(null, SCHEDULE_DAY_PATH)).isEqualTo("schedule.write");
+        }
+
+        @Test
+        @DisplayName("should resolve the domain regardless of casing")
+        void shouldResolveDomain_whenRootIsMixedCase() {
+            assertThat(OAuthScopes.requiredScope("GET", "/services/SCHEDULE/day")).isEqualTo("schedule.read");
+        }
+
+        @Test
+        @DisplayName("should resolve the domain when it is the only segment after services")
+        void shouldResolveDomain_whenDomainIsLastSegment() {
+            assertThat(OAuthScopes.requiredScope("POST", "/services/tickler")).isEqualTo("tickler.write");
         }
 
         @Test
         @DisplayName("should require no scope for an endpoint outside the pilot")
         void shouldRequireNoScope_forUnpilotedDomain() {
-            assertThat(OAuthScopes.requiredScope("GET", "/carlos/ws/services/demographic/1"))
+            assertThat(OAuthScopes.requiredScope("GET", "/services/demographic/1"))
                     .isEqualTo(OAuthScopes.NO_SCOPE_REQUIRED);
         }
 
         @Test
-        @DisplayName("should require no scope when the uri has no services segment")
+        @DisplayName("should require no scope when the path has no services segment")
         void shouldRequireNoScope_whenNoServicesSegment() {
-            assertThat(OAuthScopes.requiredScope("GET", "/carlos/ws/oauth/initiate"))
+            assertThat(OAuthScopes.requiredScope("GET", "/oauth/initiate"))
                     .isEqualTo(OAuthScopes.NO_SCOPE_REQUIRED);
             assertThat(OAuthScopes.requiredScope("GET", null))
                     .isEqualTo(OAuthScopes.NO_SCOPE_REQUIRED);
         }
 
         @Test
-        @DisplayName("should anchor on the ws/services mount and ignore an earlier services segment")
-        void shouldResolveDomain_whenEarlierServicesSegmentPresent() {
-            // The marker is the full /ws/services/ mount, so a decoy earlier 'services' segment must not
-            // misanchor the root and make the piloted endpoint look unpiloted.
-            assertThat(OAuthScopes.requiredScope("GET", "/services/decoy/ws/services/schedule/day"))
-                    .isEqualTo("schedule.read");
-        }
-
-        @Test
-        @DisplayName("should ignore a trailing query string when resolving the domain")
-        void shouldResolveDomain_whenQueryStringPresent() {
-            assertThat(OAuthScopes.requiredScope("GET", "/carlos/ws/services/schedule?date=today"))
-                    .isEqualTo("schedule.read");
-        }
-
-        @Test
-        @DisplayName("should resolve the domain when the path root is percent-encoded")
-        void shouldResolveDomain_whenPercentEncoded() {
-            // %73 decodes to 's' -> the request still routes to the schedule resource and must be enforced
-            assertThat(OAuthScopes.requiredScope("GET", "/carlos/ws/services/%73chedule/day/2026-06-29"))
-                    .isEqualTo("schedule.read");
-        }
-
-        @Test
-        @DisplayName("should strip matrix parameters from the path root")
-        void shouldResolveDomain_whenMatrixParameterPresent() {
-            assertThat(OAuthScopes.requiredScope("GET", "/carlos/ws/services/schedule;v=1/day"))
-                    .isEqualTo("schedule.read");
-        }
-
-        @Test
-        @DisplayName("should strip a percent-encoded matrix delimiter from the path root")
-        void shouldResolveDomain_whenMatrixDelimiterEncoded() {
-            // %3B decodes to ';' -> must still be treated as a matrix delimiter, not part of the domain
-            assertThat(OAuthScopes.requiredScope("POST", "/carlos/ws/services/tickler%3Bx=1/add"))
-                    .isEqualTo("tickler.write");
-        }
-
-        @Test
-        @DisplayName("should collapse a leading dot segment when resolving the domain")
-        void shouldResolveDomain_whenLeadingDotSegment() {
-            assertThat(OAuthScopes.requiredScope("GET", "/carlos/ws/services/./schedule/day"))
-                    .isEqualTo("schedule.read");
-        }
-
-        @Test
-        @DisplayName("should resolve dot-dot segments to the routed domain")
-        void shouldResolveDomain_whenDotDotSegmentPresent() {
-            assertThat(OAuthScopes.requiredScope("GET", "/carlos/ws/services/other/../schedule/day"))
-                    .isEqualTo("schedule.read");
-        }
-
-        @Test
-        @DisplayName("should not let a leading dot-dot segment hide a piloted domain")
-        void shouldResolveDomain_whenLeadingDotDotSegment() {
-            // A leading '..' must not pop the pilot domain off and make the request look unpiloted.
-            assertThat(OAuthScopes.requiredScope("GET", "/carlos/ws/services/../schedule/day"))
-                    .isEqualTo("schedule.read");
-            assertThat(OAuthScopes.requiredScope("POST", "/carlos/ws/services/../../tickler/add"))
-                    .isEqualTo("tickler.write");
-        }
-
-        @Test
-        @DisplayName("should treat an encoded slash as a path separator when resolving the domain")
-        void shouldResolveDomain_whenEncodedSlashPresent() {
-            // %2F decodes to '/'; a decoded slash must be re-split so it cannot mask the pilot root.
-            assertThat(OAuthScopes.requiredScope("GET", "/carlos/ws/services/schedule%2Fday"))
-                    .isEqualTo("schedule.read");
-            // %2e%2e%2f decodes to '../' -> must still resolve through the pilot root, not bypass it.
-            assertThat(OAuthScopes.requiredScope("GET", "/carlos/ws/services/%2e%2e%2fschedule/day"))
-                    .isEqualTo("schedule.read");
-        }
-
-        @Test
-        @DisplayName("should resolve the domain when the mount prefix is percent-encoded")
-        void shouldResolveDomain_whenEncodedMountPrefix() {
-            // %73 decodes to 's' -> /ws/%73ervices/ is the routed /ws/services/ mount and must be enforced.
-            assertThat(OAuthScopes.requiredScope("GET", "/carlos/ws/%73ervices/schedule/day"))
-                    .isEqualTo("schedule.read");
-            // An encoded slash in the mount prefix must also map back to the mount.
-            assertThat(OAuthScopes.requiredScope("POST", "/carlos/ws%2Fservices/tickler/add"))
-                    .isEqualTo("tickler.write");
+        @DisplayName("should require no scope when nothing follows the services segment")
+        void shouldRequireNoScope_whenNothingAfterServices() {
+            assertThat(OAuthScopes.requiredScope("GET", "/services/"))
+                    .isEqualTo(OAuthScopes.NO_SCOPE_REQUIRED);
         }
     }
 

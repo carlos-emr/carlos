@@ -50,6 +50,9 @@ class OAuthInterceptorScopeEnforcementUnitTest {
     private static final String TOKEN = "access-token-1";
     private static final String PROVIDER_NO = "999998";
     private static final String SCHEDULE_GET_URI = "/carlos/ws/services/schedule/day/2026-06-29";
+    // The interceptor resolves the scope from getPathInfo(), which the container exposes relative to the
+    // /ws/* servlet mapping (i.e. /services/<domain>/...), already decoded and canonicalized.
+    private static final String SCHEDULE_GET_PATHINFO = "/services/schedule/day/2026-06-29";
 
     private String previousEnforcementValue;
 
@@ -163,6 +166,7 @@ class OAuthInterceptorScopeEnforcementUnitTest {
 
     private static MockHttpServletRequest scheduleReadServletRequest() {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", SCHEDULE_GET_URI);
+        request.setPathInfo(SCHEDULE_GET_PATHINFO);
         request.addParameter("oauth_consumer_key", CONSUMER_KEY);
         request.addParameter("oauth_token", TOKEN);
         return request;

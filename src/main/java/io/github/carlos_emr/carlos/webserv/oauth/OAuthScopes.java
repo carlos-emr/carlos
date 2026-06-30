@@ -21,9 +21,7 @@
  */
 package io.github.carlos_emr.carlos.webserv.oauth;
 
-import java.util.ArrayDeque;
 import java.util.Collection;
-import java.util.Deque;
 import java.util.Map;
 import java.util.Set;
 
@@ -59,9 +57,9 @@ public final class OAuthScopes {
     private static final String WRITE = "write";
 
     /**
-     * Path-root segment (the first path element under {@code /ws/services/}) → scope domain, for the
-     * endpoints currently in the enforcement pilot. Roots are matched case-insensitively. Anything not
-     * listed here is treated as {@link #NO_SCOPE_REQUIRED}.
+     * Path-root segment (the first path element under {@code /services/} in the servlet path info) → scope
+     * domain, for the endpoints currently in the enforcement pilot. Roots are matched case-insensitively.
+     * Anything not listed here is treated as {@link #NO_SCOPE_REQUIRED}.
      */
     private static final Map<String, String> PILOT_DOMAIN_BY_PATH_ROOT = Map.of(
         "schedule", "schedule",
@@ -88,18 +86,19 @@ public final class OAuthScopes {
      * The scope a request must carry to be authorized, or {@link #NO_SCOPE_REQUIRED} when the target
      * endpoint is outside the enforcement pilot.
      *
-     * <p>The domain is derived from the first path segment under {@code /ws/services/}; the read/write
+     * <p>The domain is derived from the first path segment under {@code /services/}; the read/write
      * qualifier is derived from the HTTP method (safe methods — {@code GET}/{@code HEAD}/{@code OPTIONS} —
      * require {@code .read}, everything else requires {@code .write}).
      *
-     * @param httpMethod the request method (case-insensitive); a {@code null}/blank method is treated as a
-     *                   write for fail-safe behaviour
-     * @param requestUri the request URI (e.g. {@code /carlos/ws/services/schedule/day/2026-06-29}); the
-     *                   segment after {@code /services/} selects the domain
+     * @param httpMethod  the request method (case-insensitive); a {@code null}/blank method is treated as a
+     *                    write for fail-safe behaviour
+     * @param servicePath the request's servlet path info (e.g. {@code /services/schedule/day/2026-06-29}
+     *                    from {@code HttpServletRequest.getPathInfo()}); the segment after {@code /services/}
+     *                    selects the domain
      * @return the required scope string, or {@link #NO_SCOPE_REQUIRED} if the endpoint is not piloted
      */
-    public static String requiredScope(String httpMethod, String requestUri) {
-        String root = pathRootUnderServices(requestUri);
+    public static String requiredScope(String httpMethod, String servicePath) {
+        String root = pathRootUnderServices(servicePath);
         if (root == null) {
             return NO_SCOPE_REQUIRED;
         }
@@ -165,85 +164,37 @@ public final class OAuthScopes {
     }
 
     /**
-     * The domain root of the request: the first non-empty path segment after the {@code /ws/services/}
-     * marker, lower-cased; {@code null} if the URI has no {@code /ws/services/} segment or nothing usable
-     * follows it. The marker is anchored to the full {@code /ws/services/} mount (CXF servlet {@code /ws/*}
-     * + JAX-RS address {@code /services}) so an unrelated earlier {@code services} path segment cannot
-     * misanchor the root.
+     * The domain root of the request: the first path segment after the {@code /services/} marker, lower-cased;
+     * {@code null} if the path has no {@code /services/} segment or nothing usable follows it.
      *
-     * <p>The whole path is percent-decoded <b>before</b> the marker is located, so an encoded mount prefix
-     * (e.g. {@code /ws/%73ervices/...} → {@code /ws/services/...}) still maps to the routed path the
-     * container sees. Each resulting segment then has matrix parameters ({@code ;k=v}) stripped and
-     * {@code .}/{@code ..} segments resolved away, and decoding turns an encoded slash ({@code %2F}, or
-     * {@code %2e%2e%2f} → {@code ../}) back into a path boundary. Without this, requests such as
-     * {@code /ws/%73ervices/schedule/...}, {@code /ws/services/%73chedule/...},
-     * {@code /ws/services/schedule;x=1/...}, {@code /ws/services/./schedule/...}, or
-     * {@code /ws/services/%2e%2e%2fschedule/...} would fall back to {@link #NO_SCOPE_REQUIRED} and silently
-     * bypass scope enforcement while still reaching the {@code schedule} resource. Resolution errs toward
-     * enforcement, never bypass.
+     * <p>The caller passes the request's <em>servlet path info</em>
+     * ({@link jakarta.servlet.http.HttpServletRequest#getPathInfo()}), which the servlet container has already
+     * URL-decoded and canonicalized — dot-segments collapsed, matrix/path parameters stripped — and which is
+     * the exact path JAX-RS/CXF route on. This method therefore does no decoding or normalization of its own:
+     * doing it here would only risk diverging from how the request is actually routed.
+     *
+     * <p>Verified live on the CARLOS stack (Tomcat 11 + CXF 4.1.5): inside a {@code PRE_INVOKE} interceptor,
+     * {@code getPathInfo()} is the raw container request's value, and for every routed request it is
+     * {@code /services/<domain>/...} regardless of how the client percent-encoded the URI; matrix params and
+     * {@code .}/{@code ..} segments are already resolved, and an encoded slash ({@code %2F}) is rejected by
+     * the container (HTTP 400) before the interceptor runs. So an encoded mount prefix or domain segment
+     * cannot reach a piloted resource while looking unpiloted here.
      */
-    private static String pathRootUnderServices(String requestUri) {
-        if (requestUri == null) {
+    private static String pathRootUnderServices(String servicePath) {
+        if (servicePath == null) {
             return null;
         }
-        // Drop the query string (at the first literal '?') before decoding, so a marker-looking value in a
-        // query parameter cannot misanchor the root; the query never affects the routed path anyway.
-        String path = requestUri;
-        int q = path.indexOf('?');
-        if (q >= 0) {
-            path = path.substring(0, q);
-        }
-        // Decode once (matching the container's single-pass decode) so an encoded mount prefix or an
-        // encoded slash maps to what JAX-RS/CXF actually routes to, then anchor on the /ws/services/ mount.
-        String decoded = percentDecode(path);
-        String marker = "/ws/services/";
-        int idx = decoded.indexOf(marker);
+        String marker = "/services/";
+        int idx = servicePath.indexOf(marker);
         if (idx < 0) {
             return null;
         }
-        String rest = decoded.substring(idx + marker.length());
-        Deque<String> segments = new ArrayDeque<>();
-        for (String rawSegment : rest.split("/")) {
-            String segment = stripMatrixParameters(rawSegment);
-            if (segment.isEmpty() || segment.equals(".")) {
-                continue;
-            }
-            if (segment.equals("..")) {
-                segments.pollLast();
-                continue;
-            }
-            segments.addLast(segment);
+        String rest = servicePath.substring(idx + marker.length());
+        int slash = rest.indexOf('/');
+        if (slash >= 0) {
+            rest = rest.substring(0, slash);
         }
-        String root = segments.peekFirst();
-        return root == null ? null : asciiLowerCase(root);
-    }
-
-    private static String stripMatrixParameters(String segment) {
-        int semi = segment.indexOf(';');
-        return semi >= 0 ? segment.substring(0, semi) : segment;
-    }
-
-    /** Decodes {@code %XX} escapes only; intentionally leaves {@code +} untouched (literal in path segments). */
-    private static String percentDecode(String value) {
-        if (value.indexOf('%') < 0) {
-            return value;
-        }
-        int n = value.length();
-        StringBuilder out = new StringBuilder(n);
-        for (int i = 0; i < n; i++) {
-            char c = value.charAt(i);
-            if (c == '%' && i + 2 < n) {
-                int hi = Character.digit(value.charAt(i + 1), 16);
-                int lo = Character.digit(value.charAt(i + 2), 16);
-                if (hi >= 0 && lo >= 0) {
-                    out.append((char) ((hi << 4) + lo));
-                    i += 2;
-                    continue;
-                }
-            }
-            out.append(c);
-        }
-        return out.toString();
+        return rest.isEmpty() ? null : asciiLowerCase(rest);
     }
 
     private static String normalize(String scope) {
