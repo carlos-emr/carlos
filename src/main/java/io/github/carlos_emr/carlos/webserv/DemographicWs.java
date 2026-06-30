@@ -57,7 +57,8 @@ import org.springframework.stereotype.Component;
 @Component
 @GZIP(threshold = AbstractWs.GZIP_THRESHOLD)
 public class DemographicWs extends AbstractWs {
-    private static Logger logger = MiscUtils.getLogger();
+    private static final Logger logger = MiscUtils.getLogger();
+    private static final String DEMOGRAPHIC_OBJECT = "_demographic";
 
     @Autowired
     private DemographicManager demographicManager;
@@ -66,11 +67,13 @@ public class DemographicWs extends AbstractWs {
     private PatientConsentManager patientConsentManager;
 
     public DemographicTransfer getDemographic(Integer demographicId) {
+        requirePrivilege(DEMOGRAPHIC_OBJECT, "r", demographicId != null ? String.valueOf(demographicId) : null);
         Demographic demographic = demographicManager.getDemographicWithExt(getLoggedInInfo(), demographicId);
         return (DemographicTransfer.toTransfer(demographic));
     }
 
     public DemographicTransfer2 getDemographic2(Integer demographicId) {
+        requirePrivilege(DEMOGRAPHIC_OBJECT, "r", demographicId != null ? String.valueOf(demographicId) : null);
         Demographic demographic = demographicManager.getDemographic(getLoggedInInfo(), demographicId);
         return (DemographicTransfer2.toTransfer(demographic));
     }
@@ -78,7 +81,7 @@ public class DemographicWs extends AbstractWs {
 
     public DemographicTransfer[] searchDemographicByName(String searchString, int startIndex, int itemsToReturn) {
         List<Demographic> demographics = demographicManager.searchDemographicByName(getLoggedInInfo(), searchString, startIndex, itemsToReturn);
-        return (DemographicTransfer.toTransfers(demographics));
+        return (DemographicTransfer.toTransfers(filterReadableDemographics(demographics)));
     }
 
 
@@ -88,13 +91,14 @@ public class DemographicWs extends AbstractWs {
      */
     public DemographicTransfer[] searchDemographicsByAttributes(String hin, String firstName, String lastName, Gender gender, Calendar dateOfBirth, String city, String province, String phone, String email, String alias, int startIndex, int itemsToReturn) {
         List<Demographic> demographics = demographicManager.searchDemographicsByAttributes(getLoggedInInfo(), hin, firstName, lastName, gender, dateOfBirth, city, province, phone, email, alias, startIndex, itemsToReturn);
-        return (DemographicTransfer.toTransfers(demographics));
+        return (DemographicTransfer.toTransfers(filterReadableDemographics(demographics)));
     }
 
     /**
      * @programId can be null for all / any program
      */
     public Integer[] getAdmittedDemographicIdsByProgramProvider(Integer programId, String providerNo) {
+        requirePrivilege(DEMOGRAPHIC_OBJECT, "r");
         logger.debug("programId=" + programId + ", providerNo=" + providerNo);
         List<Integer> results = demographicManager.getAdmittedDemographicIdsByProgramAndProvider(getLoggedInInfo(), programId, providerNo);
         return (results.toArray(new Integer[0]));
@@ -107,11 +111,13 @@ public class DemographicWs extends AbstractWs {
             ids.add(i);
         }
 
+        requireReadPrivilege(ids);
         List<Demographic> demographics = demographicManager.getDemographics(getLoggedInInfo(), ids);
         return (DemographicTransfer.toTransfers(demographics));
     }
 
     public DemographicTransfer[] getActiveDemographicsAfter(@WebParam(name = "lastUpdate") Calendar lastUpdate, @WebParam(name = "fields") String fields) {
+        requirePrivilege(DEMOGRAPHIC_OBJECT, "r");
         Date afterDateExclusive = lastUpdate != null ? lastUpdate.getTime() : null;
         List<Demographic> demographics = demographicManager.getActiveDemographicAfter(getLoggedInInfo(), afterDateExclusive);
 
@@ -133,6 +139,7 @@ public class DemographicWs extends AbstractWs {
     }
 
     public DemographicTransfer2[] getActiveDemographicsAfter2(@WebParam(name = "lastUpdate") Calendar lastUpdate, @WebParam(name = "fields") String fields) {
+        requirePrivilege(DEMOGRAPHIC_OBJECT, "r");
         Date afterDateExclusive = lastUpdate != null ? lastUpdate.getTime() : null;
         List<Demographic> demographics = demographicManager.getActiveDemographicAfter(getLoggedInInfo(), afterDateExclusive);
 
@@ -154,7 +161,39 @@ public class DemographicWs extends AbstractWs {
     }
 
 
+    private List<Demographic> filterReadableDemographics(List<Demographic> demographics) {
+        List<Demographic> readableDemographics = new ArrayList<Demographic>();
+        if (demographics == null) {
+            return readableDemographics;
+        }
+
+        for (Demographic demographic : demographics) {
+            Integer demographicId = demographic != null ? demographic.getDemographicNo() : null;
+            if (hasReadPrivilege(demographicId)) {
+                readableDemographics.add(demographic);
+            }
+        }
+
+        return readableDemographics;
+    }
+
+    private void requireReadPrivilege(List<Integer> demographicIds) {
+        for (Integer demographicId : demographicIds) {
+            requireReadPrivilege(demographicId);
+        }
+    }
+
+    private void requireReadPrivilege(Integer demographicId) {
+        requirePrivilege(DEMOGRAPHIC_OBJECT, "r", demographicId != null ? String.valueOf(demographicId) : null);
+    }
+
+    private boolean hasReadPrivilege(Integer demographicId) {
+        return getSecurityInfoManager().hasPrivilege(getLoggedInInfo(), DEMOGRAPHIC_OBJECT, "r",
+                demographicId != null ? String.valueOf(demographicId) : null);
+    }
+
     public Integer[] getConsentedDemographicIdsAfter(@WebParam(name = "lastUpdate") Calendar lastUpdate) {
+        requirePrivilege(DEMOGRAPHIC_OBJECT, "r");
         LoggedInInfo loggedInInfo = getLoggedInInfo();
         ConsentType consentType = patientConsentManager.getProviderSpecificConsent(loggedInInfo);
         List<Consent> consents = patientConsentManager.getConsentsByTypeAndEditDate(loggedInInfo, consentType, lastUpdate.getTime());
