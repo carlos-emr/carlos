@@ -502,6 +502,42 @@ class LogoutBroadcastFilterUnitTest {
     }
 
     @Test
+    @DisplayName("should not inject logout script when an excluded eForm forward carries a rewritten jsessionid")
+    void shouldNotInjectLogoutScript_whenEformForwardCarriesRewrittenSessionId() throws Exception {
+        // With URL-rewritten sessions the original request URI carries ;jsessionid=...; path parameters
+        // must be stripped before matching so the excluded route still matches on the forward dispatch.
+        LogoutBroadcastFilter eformAwareFilter = eformExclusionFilter();
+        try {
+            MockHttpServletRequest request = authenticatedRequest("/eform/efmformadd_data");
+            request.setServletPath("/eform/efmformadd_data");
+            TrackingMockHttpServletResponse response = new TrackingMockHttpServletResponse();
+
+            FilterChain forwardingChain = (servletRequest, servletResponse) -> {
+                MockHttpServletRequest forwarded = (MockHttpServletRequest) servletRequest;
+                forwarded.setDispatcherType(DispatcherType.FORWARD);
+                forwarded.setAttribute(RequestDispatcher.FORWARD_REQUEST_URI,
+                        "/carlos/eform/efmformadd_data;jsessionid=ABC123");
+                forwarded.setServletPath("/WEB-INF/jsp/eform/efmformadd_data.jsp");
+                forwarded.setRequestURI("/carlos/WEB-INF/jsp/eform/efmformadd_data.jsp");
+                eformAwareFilter.doFilter(forwarded, servletResponse, (nestedRequest, nestedResponse) -> {
+                    nestedResponse.setContentType("text/html;charset=UTF-8");
+                    nestedResponse.getWriter().write("<html><body>eform document</body></html>");
+                });
+            };
+
+            eformAwareFilter.doFilter(request, response, forwardingChain);
+
+            assertThat(response.getContentAsString())
+                    .as("excluded eForm forward with a rewritten jsessionid must be returned verbatim")
+                    .isEqualTo("<html><body>eform document</body></html>");
+            assertThat(response.getContentAsString()).doesNotContain("window.__carlosLogoutActive=true;");
+            assertThat(response.getSetBufferSizeCallCount()).isZero();
+        } finally {
+            eformAwareFilter.destroy();
+        }
+    }
+
+    @Test
     @DisplayName("should suppress stale content length when logout script is appended")
     void shouldSuppressStaleContentLength_whenLogoutScriptIsAppended() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/provider/providercontrol");

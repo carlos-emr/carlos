@@ -379,6 +379,7 @@ public class LogoutBroadcastFilter implements Filter {
             return null;
         }
 
+        path = stripPathParameters(path);
         path = normalizeServletPath(path);
         return path.startsWith("/") ? path : "/" + path;
     }
@@ -397,6 +398,23 @@ public class LogoutBroadcastFilter implements Filter {
             return uri.substring(contextPath.length());
         }
         return uri;
+    }
+
+    /**
+     * Removes path/matrix parameters (e.g. {@code ;jsessionid=...}) from each path segment so a route
+     * matches the exclusion list regardless of URL-rewritten session ids. This mirrors the container's
+     * {@code getServletPath()}, which strips them on its own; the {@code requestURI} and
+     * {@code FORWARD_REQUEST_URI} fallbacks used above do not, so an excluded route carrying a rewritten
+     * {@code ;jsessionid} would otherwise fail to match.
+     *
+     * @param path context-relative path that may carry path parameters
+     * @return the path with any {@code ;param} suffix stripped from every segment
+     */
+    private String stripPathParameters(String path) {
+        if (path.indexOf(';') < 0) {
+            return path;
+        }
+        return path.replaceAll(";[^/]*", "");
     }
 
     /**
