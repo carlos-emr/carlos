@@ -108,33 +108,49 @@ public final class OAuthScopes {
     );
 
     /**
-     * Path roots whose entire non-safe-method surface is read-only (no create/update/delete operations),
-     * so a {@code POST}/{@code PUT}/{@code DELETE} under them still resolves to {@code .read}. Revisit if a
-     * mutating endpoint is ever added to one of these services.
+     * Path roots whose entire non-safe-method surface is read-only (no create/update/delete operations), so a
+     * {@code POST} under them resolves to {@code .read}. Only {@code POST} qualifies (every read-only operation
+     * on these services is a {@code POST}); a {@code PUT}/{@code DELETE} stays a write. Revisit if a mutating
+     * endpoint is ever added to one of these services.
      */
     private static final Set<String> NONSAFE_READ_ROOTS = Set.of(
         "measurements", "recordux", "rxlookup", "patientdetailstatusservice"
     );
 
     /**
-     * For mixed read/write services, the lower-cased operation path segments that denote a <em>read</em>
-     * performed with a non-safe HTTP method (search/query/lookup/print endpoints that use {@code POST}).
-     * Keyed by path root; a non-safe request whose path contains one of these segments resolves to
-     * {@code .read} instead of {@code .write}. Everything else under the root defaults to {@code .write}.
+     * For mixed read/write services, the path templates (relative to the root, lower-cased) of read
+     * operations that use {@code POST}. Each template is matched <em>positionally</em> against the request's
+     * path segments, with {@code "*"} matching a single path-parameter segment. This is deliberately strict
+     * (exact length, static-segment equality) so a mutating endpoint cannot be misclassified as a read just
+     * because a path-parameter value happens to equal an operation name (#3102 review). Read overrides are
+     * also gated to {@code POST} (see {@link #requiredScope}); every read-only non-safe operation in CARLOS
+     * is a {@code POST}, so a {@code PUT}/{@code DELETE} to a matching path is never a read.
      */
-    private static final Map<String, Set<String>> READ_OP_SEGMENTS_BY_ROOT = Map.ofEntries(
-        Map.entry("schedule", Set.of("getappointment", "appointmenthistory")),
-        Map.entry("tickler", Set.of("search")),
-        Map.entry("demographics", Set.of("search")),
-        Map.entry("consults", Set.of("searchrequests", "searchresponses")),
-        Map.entry("dxregisty", Set.of("findlikeissue")),   // misspelled root, matches @Path("/dxRegisty")
-        Map.entry("notes", Set.of("all", "getcurrentnote", "getissuenote", "getgroupnoteext",
-            "getissueid", "getissuebyid", "searchissues", "checkeditnotenew")),
-        Map.entry("persona", Set.of("hasrights", "isallowedaccesstopatientrecord", "preferences")),
-        Map.entry("providerservice", Set.of("search")),
-        Map.entry("reporting", Set.of("patientlist", "getreport", "runreport")),
-        Map.entry("rx", Set.of("print"))
+    private static final Map<String, List<List<String>>> READ_OP_TEMPLATES_BY_ROOT = Map.ofEntries(
+        Map.entry("schedule", List.of(seg("getappointment"), seg("*", "appointmenthistory"))),
+        Map.entry("tickler", List.of(seg("search"))),
+        Map.entry("demographics", List.of(seg("search"))),
+        Map.entry("consults", List.of(seg("searchrequests"), seg("searchresponses"))),
+        Map.entry("dxregisty", List.of(seg("findlikeissue"))),   // misspelled root, matches @Path("/dxRegisty")
+        Map.entry("notes", List.of(
+            seg("*", "all"), seg("*", "getcurrentnote"),
+            seg("getissuenote", "*"), seg("getgroupnoteext", "*"),
+            seg("getissueid", "*"), seg("getissuebyid", "*"),
+            seg("searchissues"), seg("checkeditnotenew"))),
+        Map.entry("persona", List.of(
+            seg("hasrights"), seg("isallowedaccesstopatientrecord"), seg("preferences"))),
+        Map.entry("providerservice", List.of(seg("providers", "search"))),
+        Map.entry("reporting", List.of(
+            seg("demographicsets", "patientlist"),
+            seg("preventionreport", "getreport", "*"),
+            seg("preventionreport", "runreport", "*"))),
+        Map.entry("rx", List.of(seg("*", "print", "*")))
     );
+
+    /** Readable constructor for a path template (a list of lower-cased segments; {@code "*"} = wildcard). */
+    private static List<String> seg(String... parts) {
+        return List.of(parts);
+    }
 
     /** The complete set of scope strings a client may request at {@code /initiate}. */
     private static final Set<String> KNOWN_SCOPES = buildKnownScopes();
@@ -158,13 +174,17 @@ public final class OAuthScopes {
      *
      * <p>The domain comes from the first path segment under {@code /services/}. The read/write qualifier is
      * per-endpoint: safe methods ({@code GET}/{@code HEAD}/{@code OPTIONS}) are reads; non-safe methods are
-     * writes <em>unless</em> the endpoint is a known read that happens to use a non-safe method (a root in
-     * {@link #NONSAFE_READ_ROOTS}, or a path containing a {@link #READ_OP_SEGMENTS_BY_ROOT} marker — e.g.
-     * {@code tickler/search} or {@code schedule/getAppointment}). This avoids forcing a {@code .write} grant
-     * to call a read-only POST.
+     * writes <em>unless</em> the request is a {@code POST} to a known read operation (a {@link #NONSAFE_READ_ROOTS}
+     * root, or a path matching a {@link #READ_OP_TEMPLATES_BY_ROOT} template — e.g. {@code tickler/search} or
+     * {@code schedule/getAppointment}). This avoids forcing a {@code .write} grant to call a read-only POST.
      *
-     * @param httpMethod  the request method (case-insensitive); a {@code null}/blank method is treated as a
-     *                    write for fail-safe behaviour
+     * <p>The read override is restricted to {@code POST} and matched against explicit path templates so it
+     * cannot escalate a mutating request: a {@code PUT}/{@code DELETE} (or a {@code null}/blank method) is
+     * always a write, and a {@code POST} whose path-parameter value merely equals an operation name does not
+     * match a template (parameters are wildcards, not literals).
+     *
+     * @param httpMethod  the request method (case-insensitive); {@code null}/blank and any non-{@code POST}
+     *                    mutating method are treated as writes for fail-safe behaviour
      * @param servicePath the request's servlet path info (e.g. {@code /services/schedule/day/2026-06-29}
      *                    from {@code HttpServletRequest.getPathInfo()}); the segment after {@code /services/}
      *                    selects the domain
@@ -180,28 +200,49 @@ public final class OAuthScopes {
         if (domain == null) {
             return NO_SCOPE_REQUIRED;
         }
-        boolean read = isSafeMethod(httpMethod) || isNonSafeRead(root, segments);
+        boolean read = isSafeMethod(httpMethod)
+            || (isPostMethod(httpMethod) && isNonSafeRead(root, segments));
         return domain + "." + (read ? READ : WRITE);
     }
 
+    private static boolean isPostMethod(String httpMethod) {
+        return httpMethod != null && asciiLowerCase(httpMethod.trim()).equals("post");
+    }
+
     /**
-     * Whether a non-safe-method request under {@code root} is nonetheless a read — either because the whole
-     * service is read-only on non-safe methods, or because the path carries a known read-operation segment.
+     * Whether a {@code POST} request under {@code root} is nonetheless a read — either because the whole
+     * service is read-only on non-safe methods, or because the request path positionally matches a known
+     * read-operation template. Path-parameter values cannot trigger a false read because templates are
+     * matched segment-by-segment with {@code "*"} wildcards for parameters and exact length.
      */
     private static boolean isNonSafeRead(String root, List<String> segments) {
         if (NONSAFE_READ_ROOTS.contains(root)) {
             return true;
         }
-        Set<String> markers = READ_OP_SEGMENTS_BY_ROOT.get(root);
-        if (markers == null) {
+        List<List<String>> templates = READ_OP_TEMPLATES_BY_ROOT.get(root);
+        if (templates == null) {
             return false;
         }
-        for (int i = 1; i < segments.size(); i++) {
-            if (markers.contains(segments.get(i))) {
+        List<String> operation = segments.subList(1, segments.size());
+        for (List<String> template : templates) {
+            if (matchesTemplate(template, operation)) {
                 return true;
             }
         }
         return false;
+    }
+
+    /** Positional match: same length, and every non-wildcard template segment equals the request segment. */
+    private static boolean matchesTemplate(List<String> template, List<String> operation) {
+        if (template.size() != operation.size()) {
+            return false;
+        }
+        for (int i = 0; i < template.size(); i++) {
+            if (!template.get(i).equals("*") && !template.get(i).equals(operation.get(i))) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**

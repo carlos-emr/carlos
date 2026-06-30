@@ -151,6 +151,32 @@ class OAuthScopesUnitTest {
             assertThat(OAuthScopes.requiredScope("POST", "/services/patientDetailStatusService/validateHC"))
                     .isEqualTo("patientstatus.read");
         }
+
+        @Test
+        @DisplayName("should not let a path-parameter value equal to a read marker escalate a write")
+        void shouldRequireWrite_whenParamValueEqualsReadMarker() {
+            // saveProviderSettings is POST /providerService/settings/{providerNo}/save; providerNo is a String,
+            // so providerNo="search" must NOT match the read template providerService/providers/search.
+            assertThat(OAuthScopes.requiredScope("POST", "/services/providerService/settings/search/save"))
+                    .isEqualTo("provider.write");
+            // deleteDemographicData is DELETE /demographics/{dataId}; a DELETE is never a read override.
+            assertThat(OAuthScopes.requiredScope("DELETE", "/services/demographics/search"))
+                    .isEqualTo("demographic.write");
+            // the genuine read endpoint still resolves to read
+            assertThat(OAuthScopes.requiredScope("POST", "/services/providerService/providers/search"))
+                    .isEqualTo("provider.read");
+        }
+
+        @Test
+        @DisplayName("should treat non-POST and missing methods as writes even on a read-only service")
+        void shouldRequireWrite_whenNonPostMethodOnReadOnlyService() {
+            assertThat(OAuthScopes.requiredScope("DELETE", "/services/measurements/123"))
+                    .isEqualTo("measurement.write");
+            assertThat(OAuthScopes.requiredScope(null, "/services/measurements/123"))
+                    .isEqualTo("measurement.write");
+            assertThat(OAuthScopes.requiredScope("   ", "/services/measurements/123"))
+                    .isEqualTo("measurement.write");
+        }
     }
 
     @Nested
