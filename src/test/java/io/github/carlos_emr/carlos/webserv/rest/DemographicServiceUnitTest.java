@@ -43,25 +43,33 @@ import java.util.Collections;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verify;
 
 /**
  * Unit tests for {@link DemographicService}.
  *
- * Covers read (r), update (u), and write (w) privilege tiers and verifies:
- * - 401 UNAUTHORIZED when the session is absent
- * - 403 FORBIDDEN when the required privilege is denied
- * - 403 FORBIDDEN when a different privilege is held but not the required one
+ * These tests assert only the access-control contract enforced at the REST
+ * layer, namely that each endpoint:
+ * - returns 401 UNAUTHORIZED when the session is absent, and
+ * - returns 403 FORBIDDEN when the required privilege is denied, asking
+ *   {@link SecurityInfoManager} for the exact privilege string and access
+ *   scope expected for that endpoint.
  *
- * Privilege mapping enforced at the REST layer:
- * - GET /demographics         - r
- * - GET /demographics/{id}    - r
- * - POST /demographics        - w
- * - PUT /demographics         - u
- * - DELETE /demographics/{id} - w
+ * They deliberately do NOT assert the role hierarchy (e.g. whether {@code w}
+ * implies {@code r}). That hierarchy is owned and enforced by
+ * {@code SecurityInfoManagerImpl}; here the manager is mocked, so the only
+ * thing worth verifying is the literal privilege string and scope this layer
+ * requests for each route.
+ *
+ * Privilege requested at the REST layer (object-level = no demographicNo,
+ * record-level = patient-specific demographicNo):
+ * - GET    /demographics         - r, object-level
+ * - GET    /demographics/{id}    - r, record-level
+ * - POST   /demographics         - w, object-level
+ * - PUT    /demographics         - u, record-level
+ * - DELETE /demographics/{id}    - w, record-level
  *
  * @since 2026-06-29
  * @see DemographicService
@@ -93,22 +101,34 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
         injectDependency(service, "securityInfoManager", securityInfoManager);
     }
 
-    private void grantPrivilege(String privilege) {
-        lenient().when(securityInfoManager.hasPrivilege(any(), eq("_demographic"), eq(privilege), isNull()))
-                .thenReturn(true);
-        lenient().when(securityInfoManager.hasPrivilege(any(), eq("_demographic"), eq(privilege), anyInt()))
-                .thenReturn(true);
-    }
-
-    private void denyPrivilege(String privilege) {
-        lenient().when(securityInfoManager.hasPrivilege(any(), eq("_demographic"), eq(privilege), isNull()))
-                .thenReturn(false);
-        lenient().when(securityInfoManager.hasPrivilege(any(), eq("_demographic"), eq(privilege), anyInt()))
-                .thenReturn(false);
-    }
+    // The mock returns false for every hasPrivilege call by default, so the
+    // required privilege is implicitly denied; no per-privilege stubbing is
+    // needed for the FORBIDDEN paths. Tests instead assert which privilege
+    // string and scope the REST layer asked for, via Mockito verify(...).
 
     private static int statusOf(Throwable ex) {
         return ((WebApplicationException) ex).getResponse().getStatus();
+    }
+
+    private void assertThrowsWithStatus(ThrowingRunnable call, Response.Status expected) {
+        assertThatThrownBy(call::run)
+                .isInstanceOf(WebApplicationException.class)
+                .satisfies(ex -> assertThat(statusOf(ex)).isEqualTo(expected.getStatusCode()));
+    }
+
+    /** Asserts the object-level privilege string requested (no demographicNo). */
+    private void verifyObjectPrivilegeRequested(String privilege) {
+        verify(securityInfoManager).hasPrivilege(any(), eq("_demographic"), eq(privilege), isNull());
+    }
+
+    /** Asserts the record-level privilege string and demographicNo requested. */
+    private void verifyRecordPrivilegeRequested(String privilege, Integer demographicNo) {
+        verify(securityInfoManager).hasPrivilege(any(), eq("_demographic"), eq(privilege), eq(demographicNo));
+    }
+
+    @FunctionalInterface
+    private interface ThrowingRunnable {
+        void run() throws Exception;
     }
 
     @Nested
@@ -119,62 +139,28 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
         @DisplayName("should throw 401 when not authenticated for GET /demographics")
         void shouldThrowUnauthorized_whenNotAuthenticated_forGetAllDemographics() {
             loggedInInfo = null;
-            assertThatThrownBy(() -> service.getAllDemographics(null, null))
-                    .isInstanceOf(WebApplicationException.class)
-                    .satisfies(ex -> assertThat(statusOf(ex))
-                            .isEqualTo(Response.Status.UNAUTHORIZED.getStatusCode()));
+            assertThrowsWithStatus(() -> service.getAllDemographics(null, null), Response.Status.UNAUTHORIZED);
         }
 
         @Test
-        @DisplayName("should throw 403 when read privilege denied for GET /demographics")
+        @DisplayName("should request object-level 'r' and throw 403 when denied for GET /demographics")
         void shouldThrowForbidden_whenReadPrivilegeDenied_forGetAllDemographics() {
-            denyPrivilege("r");
-            assertThatThrownBy(() -> service.getAllDemographics(null, null))
-                    .isInstanceOf(WebApplicationException.class)
-                    .satisfies(ex -> assertThat(statusOf(ex))
-                            .isEqualTo(Response.Status.FORBIDDEN.getStatusCode()));
+            assertThrowsWithStatus(() -> service.getAllDemographics(null, null), Response.Status.FORBIDDEN);
+            verifyObjectPrivilegeRequested("r");
         }
 
         @Test
         @DisplayName("should throw 401 when not authenticated for GET /demographics/{id}")
         void shouldThrowUnauthorized_whenNotAuthenticated_forGetDemographicData() {
             loggedInInfo = null;
-            assertThatThrownBy(() -> service.getDemographicData(42, Collections.emptyList()))
-                    .isInstanceOf(WebApplicationException.class)
-                    .satisfies(ex -> assertThat(statusOf(ex))
-                            .isEqualTo(Response.Status.UNAUTHORIZED.getStatusCode()));
+            assertThrowsWithStatus(() -> service.getDemographicData(42, Collections.emptyList()), Response.Status.UNAUTHORIZED);
         }
 
         @Test
-        @DisplayName("should throw 403 when read privilege denied for GET /demographics/{id}")
+        @DisplayName("should request record-level 'r' for the demographicNo and throw 403 when denied for GET /demographics/{id}")
         void shouldThrowForbidden_whenReadPrivilegeDenied_forGetDemographicData() {
-            denyPrivilege("r");
-            assertThatThrownBy(() -> service.getDemographicData(42, Collections.emptyList()))
-                    .isInstanceOf(WebApplicationException.class)
-                    .satisfies(ex -> assertThat(statusOf(ex))
-                            .isEqualTo(Response.Status.FORBIDDEN.getStatusCode()));
-        }
-
-        @Test
-        @DisplayName("should throw 403 when only update privilege held for GET /demographics")
-        void shouldThrowForbidden_whenOnlyUpdatePrivilege_forGetAllDemographics() {
-            grantPrivilege("u");
-            denyPrivilege("r");
-            assertThatThrownBy(() -> service.getAllDemographics(null, null))
-                    .isInstanceOf(WebApplicationException.class)
-                    .satisfies(ex -> assertThat(statusOf(ex))
-                            .isEqualTo(Response.Status.FORBIDDEN.getStatusCode()));
-        }
-
-        @Test
-        @DisplayName("should throw 403 when only write privilege held for GET /demographics")
-        void shouldThrowForbidden_whenOnlyWritePrivilege_forGetAllDemographics() {
-            grantPrivilege("w");
-            denyPrivilege("r");
-            assertThatThrownBy(() -> service.getAllDemographics(null, null))
-                    .isInstanceOf(WebApplicationException.class)
-                    .satisfies(ex -> assertThat(statusOf(ex))
-                            .isEqualTo(Response.Status.FORBIDDEN.getStatusCode()));
+            assertThrowsWithStatus(() -> service.getDemographicData(42, Collections.emptyList()), Response.Status.FORBIDDEN);
+            verifyRecordPrivilegeRequested("r", 42);
         }
     }
 
@@ -192,43 +178,14 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
         @DisplayName("should throw 401 when not authenticated for PUT /demographics")
         void shouldThrowUnauthorized_whenNotAuthenticated_forUpdate() {
             loggedInInfo = null;
-            assertThatThrownBy(() -> service.updateDemographicData(validPayload()))
-                    .isInstanceOf(WebApplicationException.class)
-                    .satisfies(ex -> assertThat(statusOf(ex))
-                            .isEqualTo(Response.Status.UNAUTHORIZED.getStatusCode()));
+            assertThrowsWithStatus(() -> service.updateDemographicData(validPayload()), Response.Status.UNAUTHORIZED);
         }
 
         @Test
-        @DisplayName("should throw 403 when update privilege denied for PUT /demographics")
+        @DisplayName("should request record-level 'u' for the demographicNo and throw 403 when denied for PUT /demographics")
         void shouldThrowForbidden_whenUpdatePrivilegeDenied_forUpdate() {
-            denyPrivilege("u");
-            assertThatThrownBy(() -> service.updateDemographicData(validPayload()))
-                    .isInstanceOf(WebApplicationException.class)
-                    .satisfies(ex -> assertThat(statusOf(ex))
-                            .isEqualTo(Response.Status.FORBIDDEN.getStatusCode()));
-        }
-
-        @Test
-        @DisplayName("should throw 403 when only read privilege held for PUT /demographics")
-        void shouldThrowForbidden_whenOnlyReadPrivilege_forUpdate() {
-            grantPrivilege("r");
-            denyPrivilege("u");
-            assertThatThrownBy(() -> service.updateDemographicData(validPayload()))
-                    .isInstanceOf(WebApplicationException.class)
-                    .satisfies(ex -> assertThat(statusOf(ex))
-                            .isEqualTo(Response.Status.FORBIDDEN.getStatusCode()));
-        }
-
-        @Test
-        @DisplayName("should throw 403 when only write privilege held for PUT /demographics")
-        void shouldThrowForbidden_whenOnlyWritePrivilege_forUpdate() {
-            // w does not imply u -- PUT /demographics requires u, not w
-            grantPrivilege("w");
-            denyPrivilege("u");
-            assertThatThrownBy(() -> service.updateDemographicData(validPayload()))
-                    .isInstanceOf(WebApplicationException.class)
-                    .satisfies(ex -> assertThat(statusOf(ex))
-                            .isEqualTo(Response.Status.FORBIDDEN.getStatusCode()));
+            assertThrowsWithStatus(() -> service.updateDemographicData(validPayload()), Response.Status.FORBIDDEN);
+            verifyRecordPrivilegeRequested("u", 42);
         }
 
         @Test
@@ -236,10 +193,7 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
         void shouldThrowUnauthorized_whenNotAuthenticated_andBodyIsNull_forUpdate() {
             // auth must fire before the null-body check, even in the missing-demographicNo branch
             loggedInInfo = null;
-            assertThatThrownBy(() -> service.updateDemographicData(null))
-                    .isInstanceOf(WebApplicationException.class)
-                    .satisfies(ex -> assertThat(statusOf(ex))
-                            .isEqualTo(Response.Status.UNAUTHORIZED.getStatusCode()));
+            assertThrowsWithStatus(() -> service.updateDemographicData(null), Response.Status.UNAUTHORIZED);
         }
     }
 
@@ -251,75 +205,28 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
         @DisplayName("should throw 401 when not authenticated for POST /demographics")
         void shouldThrowUnauthorized_whenNotAuthenticated_forCreate() {
             loggedInInfo = null;
-            assertThatThrownBy(() -> service.createDemographicData(new DemographicTo1()))
-                    .isInstanceOf(WebApplicationException.class)
-                    .satisfies(ex -> assertThat(statusOf(ex))
-                            .isEqualTo(Response.Status.UNAUTHORIZED.getStatusCode()));
+            assertThrowsWithStatus(() -> service.createDemographicData(new DemographicTo1()), Response.Status.UNAUTHORIZED);
         }
 
         @Test
-        @DisplayName("should throw 403 when write privilege denied for POST /demographics")
+        @DisplayName("should request object-level 'w' and throw 403 when denied for POST /demographics")
         void shouldThrowForbidden_whenWritePrivilegeDenied_forCreate() {
-            denyPrivilege("w");
-            assertThatThrownBy(() -> service.createDemographicData(new DemographicTo1()))
-                    .isInstanceOf(WebApplicationException.class)
-                    .satisfies(ex -> assertThat(statusOf(ex))
-                            .isEqualTo(Response.Status.FORBIDDEN.getStatusCode()));
-        }
-
-        @Test
-        @DisplayName("should throw 403 when only read privilege held for POST /demographics")
-        void shouldThrowForbidden_whenOnlyReadPrivilege_forCreate() {
-            grantPrivilege("r");
-            denyPrivilege("w");
-            assertThatThrownBy(() -> service.createDemographicData(new DemographicTo1()))
-                    .isInstanceOf(WebApplicationException.class)
-                    .satisfies(ex -> assertThat(statusOf(ex))
-                            .isEqualTo(Response.Status.FORBIDDEN.getStatusCode()));
+            assertThrowsWithStatus(() -> service.createDemographicData(new DemographicTo1()), Response.Status.FORBIDDEN);
+            verifyObjectPrivilegeRequested("w");
         }
 
         @Test
         @DisplayName("should throw 401 when not authenticated for DELETE /demographics/{id}")
         void shouldThrowUnauthorized_whenNotAuthenticated_forDelete() {
             loggedInInfo = null;
-            assertThatThrownBy(() -> service.deleteDemographicData(42))
-                    .isInstanceOf(WebApplicationException.class)
-                    .satisfies(ex -> assertThat(statusOf(ex))
-                            .isEqualTo(Response.Status.UNAUTHORIZED.getStatusCode()));
+            assertThrowsWithStatus(() -> service.deleteDemographicData(42), Response.Status.UNAUTHORIZED);
         }
 
         @Test
-        @DisplayName("should throw 403 when write privilege denied for DELETE /demographics/{id}")
+        @DisplayName("should request record-level 'w' for the demographicNo and throw 403 when denied for DELETE /demographics/{id}")
         void shouldThrowForbidden_whenWritePrivilegeDenied_forDelete() {
-            denyPrivilege("w");
-            assertThatThrownBy(() -> service.deleteDemographicData(42))
-                    .isInstanceOf(WebApplicationException.class)
-                    .satisfies(ex -> assertThat(statusOf(ex))
-                            .isEqualTo(Response.Status.FORBIDDEN.getStatusCode()));
-        }
-
-        @Test
-        @DisplayName("should throw 403 when only delete privilege held for DELETE /demographics/{id}")
-        void shouldThrowForbidden_whenOnlyDeletePrivilege_forDelete() {
-            // DELETE /demographics/{id} requires w to align with DemographicManagerImpl.deleteDemographic;
-            // holding d alone is not sufficient.
-            grantPrivilege("d");
-            denyPrivilege("w");
-            assertThatThrownBy(() -> service.deleteDemographicData(42))
-                    .isInstanceOf(WebApplicationException.class)
-                    .satisfies(ex -> assertThat(statusOf(ex))
-                            .isEqualTo(Response.Status.FORBIDDEN.getStatusCode()));
-        }
-
-        @Test
-        @DisplayName("should throw 403 when only read privilege held for DELETE /demographics/{id}")
-        void shouldThrowForbidden_whenOnlyReadPrivilege_forDelete() {
-            grantPrivilege("r");
-            denyPrivilege("w");
-            assertThatThrownBy(() -> service.deleteDemographicData(42))
-                    .isInstanceOf(WebApplicationException.class)
-                    .satisfies(ex -> assertThat(statusOf(ex))
-                            .isEqualTo(Response.Status.FORBIDDEN.getStatusCode()));
+            assertThrowsWithStatus(() -> service.deleteDemographicData(42), Response.Status.FORBIDDEN);
+            verifyRecordPrivilegeRequested("w", 42);
         }
     }
 }
