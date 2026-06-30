@@ -139,6 +139,17 @@ class OAuthScopesUnitTest {
             assertThat(OAuthScopes.requiredScope("GET", "/carlos/ws/services/%2e%2e%2fschedule/day"))
                     .isEqualTo("schedule.read");
         }
+
+        @Test
+        @DisplayName("should resolve the domain when the mount prefix is percent-encoded")
+        void shouldResolveDomain_whenEncodedMountPrefix() {
+            // %73 decodes to 's' -> /ws/%73ervices/ is the routed /ws/services/ mount and must be enforced.
+            assertThat(OAuthScopes.requiredScope("GET", "/carlos/ws/%73ervices/schedule/day"))
+                    .isEqualTo("schedule.read");
+            // An encoded slash in the mount prefix must also map back to the mount.
+            assertThat(OAuthScopes.requiredScope("POST", "/carlos/ws%2Fservices/tickler/add"))
+                    .isEqualTo("tickler.write");
+        }
     }
 
     @Nested

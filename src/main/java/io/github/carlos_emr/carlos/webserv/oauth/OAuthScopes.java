@@ -171,49 +171,48 @@ public final class OAuthScopes {
      * + JAX-RS address {@code /services}) so an unrelated earlier {@code services} path segment cannot
      * misanchor the root.
      *
-     * <p>Each segment is percent-decoded and has any matrix parameters ({@code ;k=v}) stripped, and
-     * {@code .}/{@code ..} segments are resolved away, <b>before</b> the root is matched — so it reflects
-     * what JAX-RS/CXF actually routes to. Decoded segments are re-split on {@code /} so a percent-encoded
-     * slash ({@code %2F}, or {@code %2e%2e%2f} → {@code ../}) is treated as a path boundary too. Without
-     * this, requests such as {@code /ws/services/%73chedule/...}, {@code /ws/services/schedule;x=1/...},
-     * {@code /ws/services/./schedule/...}, or {@code /ws/services/%2e%2e%2fschedule/...} would resolve to a
-     * non-matching root, fall back to {@link #NO_SCOPE_REQUIRED}, and silently bypass scope enforcement
-     * while still reaching the {@code schedule} resource. Resolution errs toward enforcement, never bypass.
+     * <p>The whole path is percent-decoded <b>before</b> the marker is located, so an encoded mount prefix
+     * (e.g. {@code /ws/%73ervices/...} → {@code /ws/services/...}) still maps to the routed path the
+     * container sees. Each resulting segment then has matrix parameters ({@code ;k=v}) stripped and
+     * {@code .}/{@code ..} segments resolved away, and decoding turns an encoded slash ({@code %2F}, or
+     * {@code %2e%2e%2f} → {@code ../}) back into a path boundary. Without this, requests such as
+     * {@code /ws/%73ervices/schedule/...}, {@code /ws/services/%73chedule/...},
+     * {@code /ws/services/schedule;x=1/...}, {@code /ws/services/./schedule/...}, or
+     * {@code /ws/services/%2e%2e%2fschedule/...} would fall back to {@link #NO_SCOPE_REQUIRED} and silently
+     * bypass scope enforcement while still reaching the {@code schedule} resource. Resolution errs toward
+     * enforcement, never bypass.
      */
     private static String pathRootUnderServices(String requestUri) {
         if (requestUri == null) {
             return null;
         }
+        // Drop the query string (at the first literal '?') before decoding, so a marker-looking value in a
+        // query parameter cannot misanchor the root; the query never affects the routed path anyway.
+        String path = requestUri;
+        int q = path.indexOf('?');
+        if (q >= 0) {
+            path = path.substring(0, q);
+        }
+        // Decode once (matching the container's single-pass decode) so an encoded mount prefix or an
+        // encoded slash maps to what JAX-RS/CXF actually routes to, then anchor on the /ws/services/ mount.
+        String decoded = percentDecode(path);
         String marker = "/ws/services/";
-        int idx = requestUri.indexOf(marker);
+        int idx = decoded.indexOf(marker);
         if (idx < 0) {
             return null;
         }
-        String rest = requestUri.substring(idx + marker.length());
-        // strip any query string before splitting on path separators
-        int q = rest.indexOf('?');
-        if (q >= 0) {
-            rest = rest.substring(0, q);
-        }
+        String rest = decoded.substring(idx + marker.length());
         Deque<String> segments = new ArrayDeque<>();
         for (String rawSegment : rest.split("/")) {
-            if (rawSegment.isEmpty()) {
+            String segment = stripMatrixParameters(rawSegment);
+            if (segment.isEmpty() || segment.equals(".")) {
                 continue;
             }
-            // Decode first so a percent-encoded matrix delimiter (%3B) or slash (%2F) is revealed, then
-            // re-split on any decoded '/' so an encoded slash is a path boundary, drop matrix parameters,
-            // and collapse dot-segments — mirroring container/JAX-RS path resolution.
-            for (String part : percentDecode(rawSegment).split("/")) {
-                String segment = stripMatrixParameters(part);
-                if (segment.isEmpty() || segment.equals(".")) {
-                    continue;
-                }
-                if (segment.equals("..")) {
-                    segments.pollLast();
-                    continue;
-                }
-                segments.addLast(segment);
+            if (segment.equals("..")) {
+                segments.pollLast();
+                continue;
             }
+            segments.addLast(segment);
         }
         String root = segments.peekFirst();
         return root == null ? null : asciiLowerCase(root);
