@@ -30,7 +30,7 @@
     <!-- Global constants -->
     <constant name="struts.mapper.action.prefix.enabled" value="false"/>
     <constant name="struts.action.extension" value="" />
-    <constant name="struts.devMode" value="${struts.devMode}"/>
+    <constant name="struts.devMode" value="false"/>
     <constant name="struts.objectFactory" value="spring"/>
     <constant name="struts.enable.SlashesInActionNames" value="true" />
     <constant name="struts.mapper.alwaysSelectFullNamespace" value="false" />
