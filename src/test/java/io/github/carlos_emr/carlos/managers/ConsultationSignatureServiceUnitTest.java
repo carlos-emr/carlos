@@ -111,7 +111,7 @@ class ConsultationSignatureServiceUnitTest {
         Files.write(tempDir.resolve("consult_sig_123456.png"), stampBytes);
         DigitalSignature saved = new DigitalSignature();
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_con"), eq("w"), isNull())).thenReturn(true);
-        when(digitalSignatureManager.saveDigitalSignature(eq(11), eq("123456"), eq(44), eq(stampBytes), eq(ModuleType.CONSULTATION)))
+        when(digitalSignatureManager.saveDigitalSignature(11, "123456", 44, stampBytes, ModuleType.CONSULTATION))
                 .thenReturn(saved);
 
         ConsultationStampOutcome result = service.saveConsultationStamp(loggedInInfo, "123456", 44);

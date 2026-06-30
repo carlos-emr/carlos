@@ -125,9 +125,9 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_con"), eq("w"), isNull()))
                 .thenReturn(true);
-        when(consultationSignatureService.resolveManualSignatureRequestId(eq(""), eq("sig-request")))
+        when(consultationSignatureService.resolveManualSignatureRequestId("", "sig-request"))
                 .thenReturn("sig-request");
-        when(consultationSignatureService.resolveSignatureProviderNo(eq("999998"), eq("999998"), eq("999998")))
+        when(consultationSignatureService.resolveSignatureProviderNo("999998", "999998", "999998"))
                 .thenReturn("999998");
         when(consultationSignatureService.resolvePreviewSignatureImage(loggedInInfo, false, "", "sig-request", "999998"))
                 .thenReturn(SIGNATURE_BYTES);
@@ -208,10 +208,10 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         action.setSignatureImg("123");
         request.setParameter("newSignature", "true");
 
-        when(consultationSignatureService.resolveManualSignatureRequestId(eq("123"), eq("sig-request")))
+        when(consultationSignatureService.resolveManualSignatureRequestId("123", "sig-request"))
                 .thenReturn("sig-request");
         when(digitalSignatureManager.processAndSaveDigitalSignature(
-                eq(loggedInInfo), eq("sig-request"), eq(1), eq(ModuleType.CONSULTATION)))
+                loggedInInfo, "sig-request", 1, ModuleType.CONSULTATION))
                 .thenReturn(null);
 
         action.execute();
@@ -272,10 +272,10 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         action.setSignatureImg("123");
         request.setParameter("newSignature", "true");
 
-        when(consultationSignatureService.resolveManualSignatureRequestId(eq("123"), eq("sig-request")))
+        when(consultationSignatureService.resolveManualSignatureRequestId("123", "sig-request"))
                 .thenReturn("sig-request");
         when(digitalSignatureManager.processAndSaveDigitalSignature(
-                eq(loggedInInfo), eq("sig-request"), eq(1), eq(ModuleType.CONSULTATION)))
+                loggedInInfo, "sig-request", 1, ModuleType.CONSULTATION))
                 .thenReturn(null);
 
         action.execute();
@@ -346,11 +346,11 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         action.setSignatureImg("");
         request.setParameter("newSignature", "true");
 
-        when(consultationSignatureService.resolveManualSignatureRequestId(eq(""), eq("sig-request")))
+        when(consultationSignatureService.resolveManualSignatureRequestId("", "sig-request"))
                 .thenReturn("sig-request");
         when(consultationSignatureService.wasManualSignatureCaptured("sig-request")).thenReturn(true);
         when(digitalSignatureManager.processAndSaveDigitalSignature(
-                eq(loggedInInfo), eq("sig-request"), eq(1), eq(ModuleType.CONSULTATION)))
+                loggedInInfo, "sig-request", 1, ModuleType.CONSULTATION))
                 .thenReturn(null);
 
         action.execute();
@@ -377,11 +377,11 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         action.setSignatureImg("");
         request.setParameter("newSignature", "true");
 
-        when(consultationSignatureService.resolveManualSignatureRequestId(eq(""), eq("sig-request")))
+        when(consultationSignatureService.resolveManualSignatureRequestId("", "sig-request"))
                 .thenReturn("sig-request");
         when(consultationSignatureService.wasManualSignatureCaptured("sig-request")).thenReturn(false);
         when(digitalSignatureManager.processAndSaveDigitalSignature(
-                eq(loggedInInfo), eq("sig-request"), eq(1), eq(ModuleType.CONSULTATION)))
+                loggedInInfo, "sig-request", 1, ModuleType.CONSULTATION))
                 .thenReturn(null);
 
         action.execute();
@@ -428,11 +428,11 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         action.setSignatureImg("");
         request.setParameter("newSignature", "true");
 
-        when(consultationSignatureService.resolveManualSignatureRequestId(eq(""), eq("sig-request")))
+        when(consultationSignatureService.resolveManualSignatureRequestId("", "sig-request"))
                 .thenReturn("sig-request");
         when(consultationSignatureService.wasManualSignatureCaptured("sig-request")).thenReturn(true);
         when(digitalSignatureManager.processAndSaveDigitalSignature(
-                eq(loggedInInfo), eq("sig-request"), eq(1), eq(ModuleType.CONSULTATION)))
+                loggedInInfo, "sig-request", 1, ModuleType.CONSULTATION))
                 .thenReturn(null);
 
         action.execute();
