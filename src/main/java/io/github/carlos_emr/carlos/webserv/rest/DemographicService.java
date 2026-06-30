@@ -589,10 +589,10 @@ public class DemographicService extends AbstractServiceImpl {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
     public DemographicTo1 createDemographicData(DemographicTo1 data) {
+        LoggedInInfo loggedInInfo = requireDemographicPrivilege("w");
         if (data == null) {
             throw new WebApplicationException(Response.status(Response.Status.BAD_REQUEST).entity("Request body is required").build());
         }
-        LoggedInInfo loggedInInfo = requireDemographicPrivilege("w");
         Demographic demographic = demoConverter.getAsDomainObject(loggedInInfo, data);
         demographicManager.createDemographic(loggedInInfo, demographic, data.getAdmissionProgramId());
         return demoConverter.getAsTransferObject(loggedInInfo, demographic);
@@ -609,9 +609,10 @@ public class DemographicService extends AbstractServiceImpl {
     @Produces({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
     public DemographicTo1 updateDemographicData(DemographicTo1 data) {
         if (data == null || data.getDemographicNo() == null) {
+            requireDemographicPrivilege("u");
             throw new WebApplicationException(Response.status(Response.Status.BAD_REQUEST).entity("Request body with demographicNo is required").build());
         }
-        LoggedInInfo loggedInInfo = requireDemographicPrivilege("w", data.getDemographicNo());
+        LoggedInInfo loggedInInfo = requireDemographicPrivilege("u", data.getDemographicNo());
         //update demographiccust
         if (data.getNurse() != null || data.getResident() != null || data.getAlert() != null || data.getMidwife() != null || data.getNotes() != null) {
             DemographicCust demoCust = demographicManager.getDemographicCust(loggedInInfo, data.getDemographicNo());
@@ -647,7 +648,7 @@ public class DemographicService extends AbstractServiceImpl {
     @DELETE
     @Path("/{dataId}")
     public DemographicTo1 deleteDemographicData(@PathParam("dataId") Integer id) {
-        LoggedInInfo loggedInInfo = requireDemographicPrivilege("d", id);
+        LoggedInInfo loggedInInfo = requireDemographicPrivilege("w", id);
         Demographic demo = demographicManager.getDemographic(loggedInInfo, id);
         if (demo == null) {
             throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).entity("Demographic record not found: " + id).build());
