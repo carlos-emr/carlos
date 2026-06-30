@@ -30,6 +30,8 @@
     <fmt:message key="email.compose.heading.body" var="emailComposeBodyLabel"/>
     <fmt:message key="email.compose.placeholder.body" var="emailComposeBodyPlaceholder"/>
     <fmt:message key="email.compose.msg.unencryptedBody" var="emailComposeUnencryptedBody"/>
+    <fmt:message key="email.compose.msg.unencryptedSubject" var="emailComposeUnencryptedSubject"/>
+    <fmt:message key="email.compose.msg.encryptionDisabledWarning" var="emailComposeEncryptionDisabledWarning"/>
     <fmt:message key="email.compose.label.encryption" var="emailComposeEncryptionLabel"/>
     <fmt:message key="email.compose.tooltip.encryption" var="emailComposeEncryptionTooltip"/>
     <fmt:message key="email.compose.label.encryptedMessage" var="emailComposeEncryptedMessageLabel"/>
@@ -166,8 +168,23 @@
             border-color: red;
         }
 
-        .encryptionLock {
-            float: right;
+        /*
+         * Compose form is a normal vertical document, not a flex/grid dashboard.
+         * Each major section is a full-width card stacked top to bottom; constraining
+         * the overall width keeps line lengths readable on wide desktops.
+         */
+        .email-compose-form {
+            max-width: 980px;
+        }
+
+        .email-compose-form > .card,
+        .email-compose-form > #additionalParams,
+        .email-compose-form > #form-control-buttons {
+            width: 100%;
+        }
+
+        .encryptionDisabledWarning {
+            color: #b02a37;
         }
 
         #isEncryption {
@@ -237,7 +254,7 @@
             <input type="hidden" name="totalInvalidRecipintEmails" id="totalInvalidRecipintEmails"
                    value="${fn:length(invalidReceiverEmailList)}"/>
 
-            <form id="emailComposeForm" class="d-flex flex-wrap align-items-center gap-2" action='${ emailSendAction }' method="post"
+            <form id="emailComposeForm" class="email-compose-form" action='${ emailSendAction }' method="post"
                   onsubmit="return validateEmailForm()" novalidate>
                 <input type="hidden" name="demographicId" value="${demographicId}"/>
                 <input type="hidden" name="fdid" value="${fdid}"/>
@@ -277,11 +294,11 @@
                     </div>
                     <div class="card-body">
                         <div class="container">
-                            <div class="row mb-3">
-                                <div class="col-sm-1">
-                                    <label for="receiverName">${emailComposePatientLabel}</label>
+                            <div class="row mb-3 align-items-center">
+                                <div class="col-sm-3">
+                                    <label class="col-form-label" for="receiverName">${emailComposePatientLabel}</label>
                                 </div>
-                                <div class="col-sm-10">
+                                <div class="col-sm-9">
                                     <input class="autocomplete form-control" type="text" name="recipient"
                                            value="${ receiverName }" id="receiverName" placeholder="${emailComposeSearchPatientPlaceholder}"
                                            disabled/>
@@ -289,11 +306,11 @@
                             </div>
                             <div id="receiverEmailsContainer">
                                 <c:forEach items="${ receiverEmailList }" var="receiverEmail" varStatus="loop">
-                                    <div class="row mb-3 mt-3">
-                                        <div class="col-sm-1">
-                                            <label for="receiverEmailAddress${loop.index + 1}">${emailComposeEmailAddressesLabel}</label>
+                                    <div class="row mb-3 mt-3 align-items-center">
+                                        <div class="col-sm-3">
+                                            <label class="col-form-label" for="receiverEmailAddress${loop.index + 1}">${emailComposeEmailAddressesLabel}</label>
                                         </div>
-                                        <div class="col-sm-10">
+                                        <div class="col-sm-8">
                                             <input class="form-control" type="email" name="receiverEmailAddress"
                                                    value="${ receiverEmail }" id="receiverEmailAddress${loop.index + 1}"
                                                    placeholder="example@example.com" disabled/>
@@ -392,6 +409,9 @@
                             </div>
                         </div>
                     </div>
+                    <div class="card-footer">
+                        <span class="fa-solid fa-triangle-exclamation"></span> ${emailComposeUnencryptedSubject}
+                    </div>
                 </div>
 
                 <div class="card mt-4">
@@ -415,19 +435,22 @@
                 </div>
 
                 <div class="card mt-4">
-                    <div class="card-header">
-                        <h5 class="card-title">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
                             <span class="fa-solid fa-lock"></span> ${emailComposeEncryptionLabel} <span id="encryptionOptionsInfo"
                                                                              class="fa-solid fa-circle-info"
                                                                              data-bs-toggle="tooltip"
                                                                              data-bs-placement="right"
                                                                              title="${emailComposeEncryptionTooltip}"></span>
-                            <div class="form-check form-switch encryptionLock">
-                                <input class="form-check-input" type="checkbox" id="encryptionSwitch"
-                                       onClick="showEncryptionOptions()" ${ isEmailEncrypted ? 'checked' : '' }>
-                                <label class="form-check-label" for="encryptionSwitch" id="isEncryption">${emailComposeStateOn}</label>
-                            </div>
                         </h5>
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input" type="checkbox" id="encryptionSwitch"
+                                   onClick="showEncryptionOptions()" ${ isEmailEncrypted ? 'checked' : '' }>
+                            <label class="form-check-label" for="encryptionSwitch" id="isEncryption">${emailComposeStateOn}</label>
+                        </div>
+                    </div>
+                    <div class="card-footer encryptionDisabledWarning ${ isEmailEncrypted ? 'd-none' : '' }" id="encryptionDisabledWarning">
+                        <span class="fa-solid fa-triangle-exclamation"></span> ${emailComposeEncryptionDisabledWarning}
                     </div>
                     <div class="card-body" id="encryptionOptions">
                         <div class="container">
@@ -441,11 +464,11 @@
                                     <div class="error-message" id="encryptedMessageError"></div>
                                 </div>
                             </div>
-                            <div class="row mt-3 mb-3">
-                                <div class="col-sm-2">
-                                    <label>${emailComposePasswordLabel}</label>
+                            <div class="row mt-3 mb-3 align-items-center">
+                                <div class="col-sm-3">
+                                    <label class="col-form-label">${emailComposePasswordLabel}</label>
                                 </div>
-                                <div class="col-sm-10">
+                                <div class="col-sm-9">
                                     <input class="form-control" type="text" name="emailPDFPassword"
                                            id="emailPDFPassword" placeholder="${emailComposePasswordPlaceholder}"
                                            value="${carlos:forHtmlAttribute(not empty param.passwordEmail ? param.passwordEmail : emailPDFPassword)}"
@@ -453,25 +476,25 @@
                                     <div class="error-message" id="emailPDFPasswordError"></div>
                                 </div>
                             </div>
-                            <div class="row mt-3 mb-3">
-                                <div class="col-sm-2">
-                                    <label>${emailComposeClueLabel} <span id="clueInfo" class="fa-solid fa-circle-info" data-bs-toggle="tooltip"
+                            <div class="row mt-3 mb-3 align-items-center">
+                                <div class="col-sm-3">
+                                    <label class="col-form-label">${emailComposeClueLabel} <span id="clueInfo" class="fa-solid fa-circle-info" data-bs-toggle="tooltip"
                                                       data-bs-placement="right"
                                                       title="${emailComposeClueTooltip}"></span></label>
                                 </div>
-                                <div class="col-sm-10">
+                                <div class="col-sm-9">
                                     <textarea class="form-control" name="emailPDFPasswordClue" id="emailPDFPasswordClue"
                                               rows="2" placeholder="${emailComposeCluePlaceholder}">${carlos:forHtml(not empty param.passwordClueEmail ? param.passwordClueEmail : emailPDFPasswordClue)}</textarea>
                                     <div class="error-message" id="emailPDFPasswordClueError"></div>
                                 </div>
                             </div>
-                            <div class="row mt-3 mb-3">
-                                <div class="col-sm-2">
-                                    <label>${emailComposeEncryptAttachmentsLabel} <span id="encryptAttachmentInfo" class="fa-solid fa-circle-info"
+                            <div class="row mt-3 mb-3 align-items-center">
+                                <div class="col-sm-3">
+                                    <label class="col-form-label">${emailComposeEncryptAttachmentsLabel} <span id="encryptAttachmentInfo" class="fa-solid fa-circle-info"
                                                                      data-bs-toggle="tooltip" data-bs-placement="right"
                                                                      title="${emailComposeEncryptAttachmentsTooltip}"></span></label>
                                 </div>
-                                <div class="col-sm-10">
+                                <div class="col-sm-9">
                                     <div class="form-check form-switch">
                                         <input class="form-check-input" type="checkbox" id="encryptAttachmentSwitch"
                                                onClick="toggleEncryptAttachmentStatus(this)" ${ isEmailAttachmentEncrypted ? 'checked' : '' }>
@@ -762,6 +785,9 @@
         document.getElementById("isEmailEncrypted").value = checkbox.checked ? "true" : "false";
         document.getElementById("isEncryption").innerHTML = checkbox.checked ? emailComposeStateOnMsg : emailComposeStateOffMsg;
         document.getElementById("isEncryption").classList.toggle("off", !checkbox.checked);
+        // Make the risk explicit whenever encryption is turned off: the message and any
+        // attachments will leave CARLOS unencrypted, so PHI must not be included.
+        document.getElementById("encryptionDisabledWarning").classList.toggle('d-none', checkbox.checked);
     }
 
     function toggleEncryptAttachmentStatus(checkbox) {
