@@ -76,7 +76,7 @@ public class MeasurementWs extends AbstractWs {
      * @return the ID of the added measurement
      */
     public Integer addMeasurement(MeasurementTransfer measurementTransfer) {
-        requirePrivilege(MEASUREMENT_OBJECT, "w");
+        requirePrivilege(MEASUREMENT_OBJECT, "w", measurementTransfer.getDemographicId() != null ? measurementTransfer.getDemographicId().toString() : null);
         Measurement measurement = new Measurement();
         measurementTransfer.copyTo(measurement);
         measurementManager.addMeasurement(getLoggedInInfo(), measurement);

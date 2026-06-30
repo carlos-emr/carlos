@@ -176,7 +176,7 @@ public class ScheduleWs extends AbstractWs {
     }
 
     public AppointmentArchiveTransfer[] getAppointmentArchivesUpdatedAfterDate(Date updatedAfterThisDateExclusive, int itemsToReturn, boolean useGMTTime) {
-        requirePrivilege(APPOINTMENT_OBJECT, "r");
+        requirePrivilege("_appointment.UpdatedAfterDate", "x");
         List<AppointmentArchive> appointments = scheduleManager.getAppointmentArchiveUpdatedAfterDate(getLoggedInInfo(), updatedAfterThisDateExclusive, itemsToReturn);
         return (AppointmentArchiveTransfer.toTransfers(appointments, useGMTTime));
     }

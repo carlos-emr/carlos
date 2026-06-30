@@ -29,14 +29,18 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import io.github.carlos_emr.carlos.commn.model.Prescription;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Property;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.managers.MeasurementManager;
+import io.github.carlos_emr.carlos.managers.PrescriptionManager;
 import io.github.carlos_emr.carlos.managers.ProviderManager2;
 import io.github.carlos_emr.carlos.managers.ScheduleManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.webserv.transfer_objects.MeasurementTransfer;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
@@ -183,6 +187,121 @@ class AbstractWsPrivilegeTest extends CarlosUnitTestBase {
         verifyNoInteractions(demographicManager);
     }
 
+    @Test
+    @DisplayName("demographic batch reads enforce per-patient privileges before loading data")
+    void shouldRequirePerDemographicPrivilege_beforeBatchLoad() {
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        DemographicManager demographicManager = mock(DemographicManager.class);
+        LoggedInInfo loggedInInfo = loggedInInfo("101");
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", "11")).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", "22")).thenReturn(true);
+        when(demographicManager.getDemographics(loggedInInfo, List.of(11, 22))).thenReturn(Collections.emptyList());
+
+        TestDemographicWs service = new TestDemographicWs(loggedInInfo, securityInfoManager);
+        ReflectionTestUtils.setField(service, "demographicManager", demographicManager);
+
+        service.getDemographics(new Integer[] {11, 22});
+
+        var inOrder = inOrder(securityInfoManager, demographicManager);
+        inOrder.verify(securityInfoManager).hasPrivilege(loggedInInfo, "_demographic", "r", "11");
+        inOrder.verify(securityInfoManager).hasPrivilege(loggedInInfo, "_demographic", "r", "22");
+        inOrder.verify(demographicManager).getDemographics(loggedInInfo, List.of(11, 22));
+    }
+
+    @Test
+    @DisplayName("demographic search filters unreadable patients instead of throwing")
+    void shouldFilterUnreadableDemographics_whenSearchReturnsMixedVisibility() {
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        DemographicManager demographicManager = mock(DemographicManager.class);
+        LoggedInInfo loggedInInfo = loggedInInfo("101");
+        io.github.carlos_emr.carlos.commn.model.Demographic readable = new io.github.carlos_emr.carlos.commn.model.Demographic();
+        readable.setDemographicNo(11);
+        io.github.carlos_emr.carlos.commn.model.Demographic unreadable = new io.github.carlos_emr.carlos.commn.model.Demographic();
+        unreadable.setDemographicNo(22);
+        when(demographicManager.searchDemographicByName(loggedInInfo, "smith", 0, 10))
+                .thenReturn(List.of(readable, unreadable));
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", "11")).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", "22")).thenReturn(false);
+
+        TestDemographicWs service = new TestDemographicWs(loggedInInfo, securityInfoManager);
+        ReflectionTestUtils.setField(service, "demographicManager", demographicManager);
+
+        var result = service.searchDemographicByName("smith", 0, 10);
+
+        org.assertj.core.api.Assertions.assertThat(result).hasSize(1);
+        org.assertj.core.api.Assertions.assertThat(result[0].getDemographicNo()).isEqualTo(11);
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_demographic", "r", "11");
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_demographic", "r", "22");
+    }
+
+    @Test
+    @DisplayName("measurement writes enforce demographic-scoped privileges")
+    void shouldRequireDemographicScopedPrivilege_whenAddingMeasurement() {
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        MeasurementManager measurementManager = mock(MeasurementManager.class);
+        LoggedInInfo loggedInInfo = loggedInInfo("101");
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_measurement", "w", "33")).thenReturn(false);
+
+        TestMeasurementWs service = new TestMeasurementWs(loggedInInfo, securityInfoManager);
+        ReflectionTestUtils.setField(service, "measurementManager", measurementManager);
+
+        MeasurementTransfer transfer = new MeasurementTransfer();
+        transfer.setDemographicId(33);
+
+        assertThatThrownBy(() -> service.addMeasurement(transfer))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_measurement)");
+
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_measurement", "w", "33");
+        verifyNoInteractions(measurementManager);
+    }
+
+    @Test
+    @DisplayName("appointment archive sync requires UpdatedAfterDate privilege before loading data")
+    void shouldRequireUpdatedAfterDatePrivilege_beforeLoadingAppointmentArchives() {
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        ScheduleManager scheduleManager = mock(ScheduleManager.class);
+        LoggedInInfo loggedInInfo = loggedInInfo("101");
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_appointment.UpdatedAfterDate", "x", null))
+                .thenReturn(true);
+        when(scheduleManager.getAppointmentArchiveUpdatedAfterDate(loggedInInfo, null, 25))
+                .thenReturn(Collections.emptyList());
+
+        TestScheduleWs service = new TestScheduleWs(loggedInInfo, securityInfoManager);
+        ReflectionTestUtils.setField(service, "scheduleManager", scheduleManager);
+
+        service.getAppointmentArchivesUpdatedAfterDate(null, 25, false);
+
+        var inOrder = inOrder(securityInfoManager, scheduleManager);
+        inOrder.verify(securityInfoManager)
+                .hasPrivilege(loggedInInfo, "_appointment.UpdatedAfterDate", "x", (String) null);
+        inOrder.verify(scheduleManager).getAppointmentArchiveUpdatedAfterDate(loggedInInfo, null, 25);
+    }
+
+    @Test
+    @DisplayName("prescription reads enforce demographic-scoped privileges before loading drugs")
+    void shouldRequireDemographicScopedPrivilege_beforeLoadingPrescriptionDrugs() {
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        PrescriptionManager prescriptionManager = mock(PrescriptionManager.class);
+        LoggedInInfo loggedInInfo = loggedInInfo("101");
+        Prescription prescription = new Prescription();
+        prescription.setDemographicId(55);
+        when(prescriptionManager.getPrescription(loggedInInfo, 44)).thenReturn(prescription);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "r", "55")).thenReturn(false);
+
+        TestPrescriptionWs service = new TestPrescriptionWs(loggedInInfo, securityInfoManager);
+        ReflectionTestUtils.setField(service, "prescriptionManager", prescriptionManager);
+
+        assertThatThrownBy(() -> service.getPrescription(44))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_rx)");
+
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_rx", "r", "55");
+        verify(prescriptionManager).getPrescription(loggedInInfo, 44);
+        verify(prescriptionManager, org.mockito.Mockito.never())
+                .getDrugsByScriptNo(loggedInInfo, 44, false);
+    }
+
     private static LoggedInInfo loggedInInfo(String providerNo) {
         LoggedInInfo loggedInInfo = new LoggedInInfo();
         Provider provider = new Provider();
@@ -261,6 +380,46 @@ class AbstractWsPrivilegeTest extends CarlosUnitTestBase {
         private final SecurityInfoManager securityInfoManager;
 
         private TestScheduleWs(LoggedInInfo loggedInInfo, SecurityInfoManager securityInfoManager) {
+            this.loggedInInfo = loggedInInfo;
+            this.securityInfoManager = securityInfoManager;
+        }
+
+        @Override
+        protected LoggedInInfo getLoggedInInfo() {
+            return loggedInInfo;
+        }
+
+        @Override
+        protected SecurityInfoManager getSecurityInfoManager() {
+            return securityInfoManager;
+        }
+    }
+
+    private static class TestMeasurementWs extends MeasurementWs {
+        private final LoggedInInfo loggedInInfo;
+        private final SecurityInfoManager securityInfoManager;
+
+        private TestMeasurementWs(LoggedInInfo loggedInInfo, SecurityInfoManager securityInfoManager) {
+            this.loggedInInfo = loggedInInfo;
+            this.securityInfoManager = securityInfoManager;
+        }
+
+        @Override
+        protected LoggedInInfo getLoggedInInfo() {
+            return loggedInInfo;
+        }
+
+        @Override
+        protected SecurityInfoManager getSecurityInfoManager() {
+            return securityInfoManager;
+        }
+    }
+
+    private static class TestPrescriptionWs extends PrescriptionWs {
+        private final LoggedInInfo loggedInInfo;
+        private final SecurityInfoManager securityInfoManager;
+
+        private TestPrescriptionWs(LoggedInInfo loggedInInfo, SecurityInfoManager securityInfoManager) {
             this.loggedInInfo = loggedInInfo;
             this.securityInfoManager = securityInfoManager;
         }

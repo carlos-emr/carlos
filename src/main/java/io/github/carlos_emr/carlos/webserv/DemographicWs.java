@@ -80,9 +80,8 @@ public class DemographicWs extends AbstractWs {
 
 
     public DemographicTransfer[] searchDemographicByName(String searchString, int startIndex, int itemsToReturn) {
-        requirePrivilege(DEMOGRAPHIC_OBJECT, "r");
         List<Demographic> demographics = demographicManager.searchDemographicByName(getLoggedInInfo(), searchString, startIndex, itemsToReturn);
-        return (DemographicTransfer.toTransfers(demographics));
+        return (DemographicTransfer.toTransfers(filterReadableDemographics(demographics)));
     }
 
 
@@ -91,9 +90,8 @@ public class DemographicWs extends AbstractWs {
      * Searches demographics by various attributes. See DemographicManager for parameter details.
      */
     public DemographicTransfer[] searchDemographicsByAttributes(String hin, String firstName, String lastName, Gender gender, Calendar dateOfBirth, String city, String province, String phone, String email, String alias, int startIndex, int itemsToReturn) {
-        requirePrivilege(DEMOGRAPHIC_OBJECT, "r");
         List<Demographic> demographics = demographicManager.searchDemographicsByAttributes(getLoggedInInfo(), hin, firstName, lastName, gender, dateOfBirth, city, province, phone, email, alias, startIndex, itemsToReturn);
-        return (DemographicTransfer.toTransfers(demographics));
+        return (DemographicTransfer.toTransfers(filterReadableDemographics(demographics)));
     }
 
     /**
@@ -108,12 +106,12 @@ public class DemographicWs extends AbstractWs {
 
 
     public DemographicTransfer[] getDemographics(Integer[] demographicIds) {
-        requirePrivilege(DEMOGRAPHIC_OBJECT, "r");
         ArrayList<Integer> ids = new ArrayList<Integer>();
         for (Integer i : demographicIds) {
             ids.add(i);
         }
 
+        requireReadPrivilege(ids);
         List<Demographic> demographics = demographicManager.getDemographics(getLoggedInInfo(), ids);
         return (DemographicTransfer.toTransfers(demographics));
     }
@@ -162,6 +160,37 @@ public class DemographicWs extends AbstractWs {
         return result.toArray(new DemographicTransfer2[0]);
     }
 
+
+    private List<Demographic> filterReadableDemographics(List<Demographic> demographics) {
+        List<Demographic> readableDemographics = new ArrayList<Demographic>();
+        if (demographics == null) {
+            return readableDemographics;
+        }
+
+        for (Demographic demographic : demographics) {
+            Integer demographicId = demographic != null ? demographic.getDemographicNo() : null;
+            if (hasReadPrivilege(demographicId)) {
+                readableDemographics.add(demographic);
+            }
+        }
+
+        return readableDemographics;
+    }
+
+    private void requireReadPrivilege(List<Integer> demographicIds) {
+        for (Integer demographicId : demographicIds) {
+            requireReadPrivilege(demographicId);
+        }
+    }
+
+    private void requireReadPrivilege(Integer demographicId) {
+        requirePrivilege(DEMOGRAPHIC_OBJECT, "r", demographicId != null ? String.valueOf(demographicId) : null);
+    }
+
+    private boolean hasReadPrivilege(Integer demographicId) {
+        return getSecurityInfoManager().hasPrivilege(getLoggedInInfo(), DEMOGRAPHIC_OBJECT, "r",
+                demographicId != null ? String.valueOf(demographicId) : null);
+    }
 
     public Integer[] getConsentedDemographicIdsAfter(@WebParam(name = "lastUpdate") Calendar lastUpdate) {
         requirePrivilege(DEMOGRAPHIC_OBJECT, "r");
