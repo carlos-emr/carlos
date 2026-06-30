@@ -183,10 +183,6 @@
             width: 100%;
         }
 
-        .encryptionDisabledWarning {
-            color: #b02a37;
-        }
-
         #isEncryption {
             color: green;
             font-size: 15px;
@@ -409,8 +405,8 @@
                             </div>
                         </div>
                     </div>
-                    <div class="card-footer">
-                        <span class="fa-solid fa-triangle-exclamation"></span> ${emailComposeUnencryptedSubject}
+                    <div class="card-footer text-danger">
+                        <span class="fa-solid fa-triangle-exclamation me-2"></span> ${emailComposeUnencryptedSubject}
                     </div>
                 </div>
 
@@ -429,8 +425,8 @@
                             </div>
                         </div>
                     </div>
-                    <div class="card-footer">
-                        <span class="fa-solid fa-triangle-exclamation"></span> ${emailComposeUnencryptedBody}
+                    <div class="card-footer text-danger">
+                        <span class="fa-solid fa-triangle-exclamation me-2"></span> ${emailComposeUnencryptedBody}
                     </div>
                 </div>
 
@@ -449,8 +445,8 @@
                             <label class="form-check-label" for="encryptionSwitch" id="isEncryption">${emailComposeStateOn}</label>
                         </div>
                     </div>
-                    <div class="card-footer encryptionDisabledWarning ${ isEmailEncrypted ? 'd-none' : '' }" id="encryptionDisabledWarning">
-                        <span class="fa-solid fa-triangle-exclamation"></span> ${emailComposeEncryptionDisabledWarning}
+                    <div class="alert alert-danger rounded-0 border-0 mb-0 d-flex align-items-center ${ isEmailEncrypted ? 'd-none' : '' }" id="encryptionDisabledWarning" role="alert">
+                        <span class="fa-solid fa-triangle-exclamation me-2"></span> ${emailComposeEncryptionDisabledWarning}
                     </div>
                     <div class="card-body" id="encryptionOptions">
                         <div class="container">
@@ -466,7 +462,7 @@
                             </div>
                             <div class="row mt-3 mb-3 align-items-center">
                                 <div class="col-sm-3">
-                                    <label class="col-form-label">${emailComposePasswordLabel}</label>
+                                    <label class="col-form-label" for="emailPDFPassword">${emailComposePasswordLabel}</label>
                                 </div>
                                 <div class="col-sm-9">
                                     <input class="form-control" type="text" name="emailPDFPassword"
@@ -478,7 +474,7 @@
                             </div>
                             <div class="row mt-3 mb-3 align-items-center">
                                 <div class="col-sm-3">
-                                    <label class="col-form-label">${emailComposeClueLabel} <span id="clueInfo" class="fa-solid fa-circle-info" data-bs-toggle="tooltip"
+                                    <label class="col-form-label" for="emailPDFPasswordClue">${emailComposeClueLabel} <span id="clueInfo" class="fa-solid fa-circle-info" data-bs-toggle="tooltip"
                                                       data-bs-placement="right"
                                                       title="${emailComposeClueTooltip}"></span></label>
                                 </div>
@@ -490,7 +486,7 @@
                             </div>
                             <div class="row mt-3 mb-3 align-items-center">
                                 <div class="col-sm-3">
-                                    <label class="col-form-label">${emailComposeEncryptAttachmentsLabel} <span id="encryptAttachmentInfo" class="fa-solid fa-circle-info"
+                                    <label class="col-form-label" for="encryptAttachmentSwitch">${emailComposeEncryptAttachmentsLabel} <span id="encryptAttachmentInfo" class="fa-solid fa-circle-info"
                                                                      data-bs-toggle="tooltip" data-bs-placement="right"
                                                                      title="${emailComposeEncryptAttachmentsTooltip}"></span></label>
                                 </div>
