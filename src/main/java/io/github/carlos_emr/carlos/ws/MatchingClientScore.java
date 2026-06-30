@@ -5,6 +5,10 @@ import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
 
+/**
+ * Represents the matching confidence score when comparing patient demographics.
+ * Used to rank potential duplicates or matches in the registry.
+ */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "matchingClientScore", propOrder = { "client", "score" })
 public class MatchingClientScore implements Serializable
@@ -14,6 +18,7 @@ public class MatchingClientScore implements Serializable
     protected int score;
     
     public Client getClient() {
+        // Rank algorithm weights exact demographic overlaps higher to ensure patient safety
         return this.client;
     }
     

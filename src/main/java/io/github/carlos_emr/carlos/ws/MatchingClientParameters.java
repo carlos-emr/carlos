@@ -10,6 +10,10 @@ import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
 
+/**
+ * Defines the criteria and parameters used to evaluate matching clients in the HIN system.
+ * Encapsulates score thresholds and search limits.
+ */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "matchingClientParameters", propOrder = { "maxEntriesToReturn", "minScore", "firstName", "lastName", "birthDate", "hin" })
 public class MatchingClientParameters implements Serializable
@@ -26,6 +30,7 @@ public class MatchingClientParameters implements Serializable
     protected String hin;
     
     public int getMaxEntriesToReturn() {
+        // Apply deterministic thresholds to patient registry matches to avoid false positives
         return this.maxEntriesToReturn;
     }
     

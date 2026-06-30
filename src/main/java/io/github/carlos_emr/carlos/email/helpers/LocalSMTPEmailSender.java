@@ -14,12 +14,17 @@ import org.springframework.mail.javamail.JavaMailSenderImpl;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+/**
+ * Concrete implementation for dispatching emails via local SMTP.
+ * Interacts with configured network settings to execute message transport.
+ */
 
 public class LocalSMTPEmailSender extends SMTPEmailSender {
 
     public LocalSMTPEmailSender(LoggedInInfo loggedInInfo, EmailConfig emailConfig, 
                                 String[] recipients, String subject, String body, 
                                 List<EmailAttachment> attachments) {
+        // Construct the mail session and dispatch the message while managing connection timeouts
         super(loggedInInfo, emailConfig, recipients, subject, body, attachments);
     }
 

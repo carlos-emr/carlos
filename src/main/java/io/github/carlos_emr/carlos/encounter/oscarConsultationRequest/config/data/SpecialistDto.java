@@ -1,4 +1,8 @@
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.data;
+/**
+ * Data Transfer Object representing a specialist in the consultation request workflow.
+ * Used to transport specialized provider details across the Oscar eReferral integration.
+ */
 
 public class SpecialistDto {
     private Integer specId;
@@ -10,6 +14,7 @@ public class SpecialistDto {
 
     public SpecialistDto(Integer specId, String name, String phone,
                          String fax, String address, String annotation) {
+        // Map upstream specialist directory details to local eReferral routing structures
         this.specId = specId;
         this.name = name;
         this.phone = phone;

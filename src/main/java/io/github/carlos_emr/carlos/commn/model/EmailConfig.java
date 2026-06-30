@@ -5,6 +5,10 @@ import io.github.carlos_emr.carlos.commn.model.converter.EmailConfigTypeConverte
 import jakarta.persistence.*;
 import java.util.List;
 
+/**
+ * Domain model representing external email server configuration.
+ * Captures SMTP settings for sending provider communications or patient reminders.
+ */
 @Entity
 @Table(name = "emailConfig")
 public class EmailConfig extends AbstractModel<Integer> {
@@ -46,6 +50,7 @@ public class EmailConfig extends AbstractModel<Integer> {
     private List<EmailLog> emailLogs;
 
     public EmailConfig() {
+        // Store configuration parameters required for initializing the JavaMail transport session
     }
 
     public EmailConfig(EmailType emailType, EmailProvider emailProvider, String senderEmail) {

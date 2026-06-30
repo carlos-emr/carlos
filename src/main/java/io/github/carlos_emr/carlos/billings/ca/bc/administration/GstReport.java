@@ -17,10 +17,15 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import java.util.Properties;
 import java.util.Vector;
+/**
+ * Report structure for GST calculations in BC billing context.
+ * Handles formatting and data extraction for tax reporting needs.
+ */
 
 public class GstReport {
 
     public Vector<Properties> getGST(LoggedInInfo loggedInInfo, String[] providerNos, String startDate, String endDate) {
+    // Aggregate GST amounts for BC billing context to ensure accurate tax tracking
         Properties props;
         Vector<Properties> list = new Vector<Properties>();
         BillingDao dao = SpringUtils.getBean(BillingDao.class);

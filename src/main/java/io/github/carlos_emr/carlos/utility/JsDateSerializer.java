@@ -5,11 +5,16 @@ import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import java.io.IOException;
 import java.util.Calendar;
+/**
+ * JSON serializer for dates targeting JS client expectations.
+ * Maintains format consistency across API boundaries to the frontend.
+ */
 
 public class JsDateSerializer extends JsonSerializer<java.sql.Date> {
     @Override
     public void serialize(java.sql.Date value, JsonGenerator gen, SerializerProvider serializers) 
             throws IOException {
+        // Standardize format to ISO-8601 for JS clients to prevent timezone shift issues
         if (value == null) {
             gen.writeNull();
             return;
