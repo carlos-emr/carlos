@@ -24,7 +24,10 @@
     "test:logout-redirect-playwright": "node scripts/logout-redirect-playwright-checks.js",
     "test:eform-render-playwright": "node scripts/eform-render-playwright-checks.js",
     "test:eform-saved-render-playwright": "node scripts/eform-saved-render-playwright-checks.js",
-    "test:eform-consultation-acceptance": "node scripts/eform-consultation-acceptance-playwright-checks.js"
+    "test:eform-consultation-acceptance": "node scripts/eform-consultation-acceptance-playwright-checks.js",
+    "test:consultation-signature-playwright": "node scripts/consultation-signature-playwright-checks.js",
+    "test:consultation-signature-submit-playwright": "node scripts/consultation-signature-submit-playwright-checks.js",
+    "test:prescription-signature-playwright": "node scripts/prescription-signature-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",
