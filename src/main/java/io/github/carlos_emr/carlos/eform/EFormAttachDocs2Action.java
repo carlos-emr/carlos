@@ -48,6 +48,13 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Handles Rich Text Letter attachment submissions for saved eForms.
+ *
+ * <p>The action validates the saved eForm identifier and demographic number, then fans the
+ * incoming checkbox selections back out across the five attachment families supported by the
+ * popup: documents, labs, HRM reports, eForms, and encounter forms.</p>
+ */
 public class EFormAttachDocs2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -55,6 +62,12 @@ public class EFormAttachDocs2Action extends ActionSupport {
     private final transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private final transient DocumentAttachmentManager documentAttachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
 
+    /**
+     * Validates the request identifiers and persists the selected attachment ids for each
+     * supported document family.
+     *
+     * @return {@link ActionSupport#NONE} after writing the HTTP response directly
+     */
     @Override
     public String execute() throws ServletException, IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -64,11 +77,11 @@ public class EFormAttachDocs2Action extends ActionSupport {
 
         if (StringUtils.isBlank(requestId) || !StringUtils.isNumeric(requestId)) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing requestId");
-            return null;
+            return NONE;
         }
         if (StringUtils.isBlank(demoNo) || !StringUtils.isNumeric(demoNo)) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing demoNo");
-            return null;
+            return NONE;
         }
 
         String effectiveProviderNo = StringUtils.defaultIfBlank(providerNo, loggedInInfo.getLoggedInProviderNo());
@@ -79,7 +92,7 @@ public class EFormAttachDocs2Action extends ActionSupport {
             demographicNoInt = Integer.valueOf(demoNo);
         } catch (NumberFormatException e) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid requestId or demoNo");
-            return null;
+            return NONE;
         }
 
         documentAttachmentManager.attachToEForm(loggedInInfo, DocumentType.DOC, collectDocIds(), effectiveProviderNo, requestIdInt, demographicNoInt);
@@ -89,7 +102,7 @@ public class EFormAttachDocs2Action extends ActionSupport {
         documentAttachmentManager.attachToEForm(loggedInInfo, DocumentType.FORM, collectTypedIds("formNo", 'F'), effectiveProviderNo, requestIdInt, demographicNoInt);
 
         writeOkResponse();
-        return null;
+        return NONE;
     }
 
     private String[] collectDocIds() {

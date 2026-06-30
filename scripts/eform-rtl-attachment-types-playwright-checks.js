@@ -75,7 +75,7 @@ const config = {
         labs: /Labs/i.test(normalizedText),
         hrm: /HRM/i.test(normalizedText),
         eforms: /eForms?|EForms?/i.test(normalizedText),
-        forms: /Current Only|Forms/i.test(normalizedText),
+        forms: sections.some((section) => /^Forms Current Only$/i.test(section.heading)),
       };
       return {
         headingMatches,
@@ -97,7 +97,7 @@ const config = {
       labs: popupState.sections.find((section) => /Labs/i.test(section.heading)),
       hrm: popupState.sections.find((section) => /HRM/i.test(section.heading)),
       eforms: popupState.sections.find((section) => /eForms?|EForms?/i.test(section.heading)),
-      forms: popupState.sections.find((section) => /Current Only|Forms/i.test(section.heading)),
+      forms: popupState.sections.find((section) => /^Forms Current Only$/i.test(section.heading)),
     };
     const expectFieldWhenPresent = (section, fieldName, label) => {
       assert(section, `RTL attachment popup did not expose a ${label} section`);

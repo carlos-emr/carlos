@@ -231,7 +231,7 @@ async function saveCurrentEform(page, subjectValue) {
 }
 
 async function openAttachPopup(page, context) {
-  const popupPromise = context.waitForEvent('page');
+  const popupPromise = context.waitForEvent('page', { timeout: 30000 });
   await page.locator('.editControlButton[title="Attach"]').click();
   const popup = await popupPromise;
   return popup;
@@ -245,16 +245,46 @@ async function waitForPopupReady(popup, recorder, label) {
 }
 
 async function invokeFetchAttached(page) {
-  return page.evaluate(async () => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- fixed helper code executed without interpolating user-controlled input
-    if (typeof fetchAttached !== 'function') {
-      return { hasFunction: false, text: '', html: '' };
+  const hasFunction = await page.evaluate(() => typeof fetchAttached === 'function'); // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- fixed helper code executed without interpolating user-controlled input
+  if (!hasFunction) {
+    return { hasFunction: false, text: '', html: '' };
+  }
+
+  const target = page.locator('#tdAttachedDocs');
+  const previousHtml = await target.evaluate((element) => element.innerHTML).catch(() => '');
+  const responsePromise = page.waitForResponse(
+    (response) => response.url().includes('/eform/displayAttachedFiles'),
+    { timeout: 30000 },
+  ).catch(() => null);
+  const domPromise = page.waitForFunction((previousMarkup) => {
+    const attachmentTarget = document.getElementById('tdAttachedDocs');
+    if (!attachmentTarget) {
+      return false;
     }
+    const currentMarkup = attachmentTarget.innerHTML.trim();
+    return currentMarkup.length > 0 && currentMarkup !== previousMarkup;
+  }, previousHtml, { timeout: 30000 }).catch(() => null);
+
+  const invocation = await page.evaluate(() => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- fixed helper code executed without interpolating user-controlled input
     try {
       fetchAttached();
+      return { hasFunction: true };
     } catch (error) {
-      return { hasFunction: true, error: String(error), text: '', html: '' };
+      return { hasFunction: true, error: String(error) };
     }
-    await new Promise((resolve) => window.setTimeout(resolve, 1500));
+  });
+  if (invocation.error) {
+    return { hasFunction: true, error: invocation.error, text: '', html: '' };
+  }
+
+  await Promise.race([responsePromise, domPromise]);
+  await page.waitForFunction((previousMarkup) => {
+    const attachmentTarget = document.getElementById('tdAttachedDocs');
+    return !!attachmentTarget && attachmentTarget.innerHTML.trim().length > 0
+      && attachmentTarget.innerHTML !== previousMarkup;
+  }, previousHtml, { timeout: 5000 }).catch(() => {});
+
+  return page.evaluate(() => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- fixed helper code executed without interpolating user-controlled input
     const target = document.getElementById('tdAttachedDocs');
     return {
       hasFunction: true,

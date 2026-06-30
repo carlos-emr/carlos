@@ -37,6 +37,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermission;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -237,6 +239,25 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
             assertThat(missingDir.resolve("editor_help.html")).isRegularFile();
         }
 
+
+        @Test
+        @DisplayName("Should apply owner-only permissions when POSIX permissions are supported")
+        void shouldApplyOwnerOnlyPermissions_whenPosixPermissionsSupported() throws Exception {
+            Assumptions.assumeTrue(Files.getFileStore(tempDir).supportsFileAttributeView("posix"));
+            Path missingDir = tempDir.resolve("posix-eform-images");
+
+            when(mockProperties.getEformImageDirectory()).thenReturn(missingDir.toString());
+            stubAllAssets();
+
+            deployer.afterPropertiesSet();
+
+            Set<PosixFilePermission> actualPermissions = Files.getPosixFilePermissions(missingDir);
+            assertThat(actualPermissions).containsExactlyInAnyOrder(
+                    PosixFilePermission.OWNER_READ,
+                    PosixFilePermission.OWNER_WRITE,
+                    PosixFilePermission.OWNER_EXECUTE);
+        }
+
         @Test
         @DisplayName("Should skip deployment when image directory cannot be created")
         void shouldSkipDeployment_whenImageDirectoryCannotBeCreated() throws Exception {
@@ -249,7 +270,11 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
 
             deployer.afterPropertiesSet();
 
-            assertThat(blockedDir).doesNotExist();
+            assertThat(blocker).isRegularFile();
+            assertThat(Files.isDirectory(blockedDir)).isFalse();
+            assertThat(tempDir.resolve("editControl2.js")).doesNotExist();
+            assertThat(tempDir.resolve("blank.rtl")).doesNotExist();
+            assertThat(tempDir.resolve("editor_help.html")).doesNotExist();
             verifyNoInteractions(mockServletContext);
         }
 

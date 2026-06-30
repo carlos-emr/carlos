@@ -8,6 +8,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.EFormData" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.data.EctFormData" %>
+<%@ page import="java.util.Collections" %>
 <%@ page import="java.util.List" %>
 <%@ page contentType="text/html; charset=UTF-8" %>
 <%
@@ -34,6 +35,11 @@
     }
 
     DocumentAttachmentManager attachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
+    boolean canReadDocuments = securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "r", null);
+    boolean canReadLabs = securityInfoManager.hasPrivilege(loggedInInfo, "_lab", "r", null);
+    boolean canReadHrm = securityInfoManager.hasPrivilege(loggedInInfo, "_hrm", "r", null);
+    boolean canReadEforms = securityInfoManager.hasPrivilege(loggedInInfo, "_eform", "r", null);
+    boolean canReadForms = securityInfoManager.hasPrivilege(loggedInInfo, "_form", "r", null);
 
     List<String> docIds;
     List<String> labIds;
@@ -41,11 +47,11 @@
     List<String> eformIds;
     List<EctFormData.PatientForm> attachedForms;
     try {
-        docIds = attachmentManager.getEFormAttachments(loggedInInfo, fdid, DocumentType.DOC, demographicNo);
-        labIds = attachmentManager.getEFormAttachments(loggedInInfo, fdid, DocumentType.LAB, demographicNo);
-        hrmIds = attachmentManager.getEFormAttachments(loggedInInfo, fdid, DocumentType.HRM, demographicNo);
-        eformIds = attachmentManager.getEFormAttachments(loggedInInfo, fdid, DocumentType.EFORM, demographicNo);
-        attachedForms = attachmentManager.getFormsAttachedToEForms(loggedInInfo, fdid, DocumentType.FORM, demographicNo);
+        docIds = canReadDocuments ? attachmentManager.getEFormAttachments(loggedInInfo, fdid, DocumentType.DOC, demographicNo) : Collections.emptyList();
+        labIds = canReadLabs ? attachmentManager.getEFormAttachments(loggedInInfo, fdid, DocumentType.LAB, demographicNo) : Collections.emptyList();
+        hrmIds = canReadHrm ? attachmentManager.getEFormAttachments(loggedInInfo, fdid, DocumentType.HRM, demographicNo) : Collections.emptyList();
+        eformIds = canReadEforms ? attachmentManager.getEFormAttachments(loggedInInfo, fdid, DocumentType.EFORM, demographicNo) : Collections.emptyList();
+        attachedForms = canReadForms ? attachmentManager.getFormsAttachedToEForms(loggedInInfo, fdid, DocumentType.FORM, demographicNo) : Collections.emptyList();
     } catch (Exception e) {
         io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Failed to load attachments for fdid=" + fdid, e);
         out.print("<em>Error loading attachments</em>");

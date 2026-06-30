@@ -218,9 +218,40 @@ class EFormJspMigrationRegressionTest {
         String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/eform/attachEform.jsp"), StandardCharsets.UTF_8);
 
         assertThat(jsp)
-                .contains("aria-labelledby=\"<%= hrmLabelId %> <%= hrmDateId %>\"")
-                .contains("aria-labelledby=\"<%= eformLabelId %>\"")
-                .contains("aria-labelledby=\"<%= formLabelId %> <%= formDateId %>\"");
+                .contains("SafeEncode.forHtmlAttribute(labLabelId + \" \" + labDateId)")
+                .contains("SafeEncode.forHtmlAttribute(labVersionLabelId + \" \" + labVersionDateId)")
+                .contains("SafeEncode.forHtmlAttribute(hrmLabelId + \" \" + hrmDateId)")
+                .contains("SafeEncode.forHtmlAttribute(eformLabelId)")
+                .contains("SafeEncode.forHtmlAttribute(formLabelId + \" \" + formDateId)");
+    }
+
+    @Test
+    @DisplayName("attachment popup should HTML-attribute encode generated ids and values")
+    void shouldEncodeAttachmentCheckboxAttributes_whenRenderingAttachPopup() throws IOException {
+        String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/eform/attachEform.jsp"), StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("SafeEncode.forHtmlAttribute(documentCheckboxId)")
+                .contains("SafeEncode.forHtmlAttribute(documentId)")
+                .contains("SafeEncode.forHtmlAttribute(labCheckboxId)")
+                .contains("SafeEncode.forHtmlAttribute(labVersionCheckboxId)")
+                .contains("SafeEncode.forHtmlAttribute(hrmCheckboxId)")
+                .contains("SafeEncode.forHtmlAttribute(eformCheckboxId)")
+                .contains("SafeEncode.forHtmlAttribute(formCheckboxId)");
+    }
+
+    @Test
+    @DisplayName("attached file sidebar should gate category lookups by category privileges")
+    void shouldGateAttachedSidebarLookupsByCategoryPrivilege_whenRenderingDisplayAttachedFiles() throws IOException {
+        String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/eform/displayAttachedFiles.jsp"), StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("hasPrivilege(loggedInInfo, \"_edoc\", \"r\", null)")
+                .contains("hasPrivilege(loggedInInfo, \"_lab\", \"r\", null)")
+                .contains("hasPrivilege(loggedInInfo, \"_hrm\", \"r\", null)")
+                .contains("hasPrivilege(loggedInInfo, \"_eform\", \"r\", null)")
+                .contains("hasPrivilege(loggedInInfo, \"_form\", \"r\", null)")
+                .contains("Collections.emptyList()");
     }
 
     @Test

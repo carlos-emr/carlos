@@ -1,4 +1,17 @@
 #!/usr/bin/env node
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+
 /*
  * Static browser regression checks for the eForm admin navigation and editor
  * redirect markup touched by PR 2710.
@@ -98,7 +111,7 @@ function appPathFromHref(href) {
       root.innerHTML = html;
     }, navHtml);
 
-    const toggle = page.locator('button.dropdown-toggle', { hasText: 'Create eForm' });
+    const toggle = page.locator('li.nav-item.dropdown button.contentLink.nav-link.dropdown-toggle[data-bs-toggle="dropdown"]').first();
     await toggle.waitFor({ state: 'visible', timeout: 10000 });
 
     const toggleState = await toggle.evaluate((button) => ({
@@ -117,6 +130,7 @@ function appPathFromHref(href) {
     assert(toggleState.dataToggle === 'dropdown', 'Create eForm toggle should use Bootstrap 5 data-bs-toggle');
     assert(toggleState.ariaHasPopup === 'true', 'Create eForm toggle should advertise popup semantics');
     assert(toggleState.ariaExpanded === 'false', 'Create eForm toggle should start collapsed');
+    assert((await toggle.textContent()).includes('eform.create'), 'Create eForm toggle should render the eform.create message key in the static JSP fixture');
 
     await toggle.click();
     const menu = page.locator('li.nav-item.dropdown .dropdown-menu').first();

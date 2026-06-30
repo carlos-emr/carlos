@@ -2,6 +2,7 @@
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.FormsManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.EFormData" %>
@@ -20,6 +21,22 @@
 <%@ page import="java.util.Map" %>
 <%@ page import="java.util.Set" %>
 <%@ page contentType="text/html; charset=UTF-8" %>
+<%!
+    private String buildDomId(String prefix, String... parts) {
+        StringBuilder builder = new StringBuilder(prefix);
+        for (String part : parts) {
+            if (part == null || part.isEmpty()) {
+                continue;
+            }
+            builder.append('-');
+            for (int i = 0; i < part.length(); i++) {
+                char ch = part.charAt(i);
+                builder.append(Character.isLetterOrDigit(ch) || ch == '-' || ch == '_' || ch == ':' || ch == '.' ? ch : '_');
+            }
+        }
+        return builder.toString();
+    }
+%>
 <%
     SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -106,10 +123,10 @@
             <div class="list">
                 <% if (allDocuments.isEmpty()) { %>
                 <em class="muted">No documents available</em>
-                <% } else { for (EDoc document : allDocuments) { String documentId = String.valueOf(document.getDocId()); String documentCheckboxId = "docNo-" + documentId; %>
+                <% } else { for (EDoc document : allDocuments) { String documentId = String.valueOf(document.getDocId()); String documentCheckboxId = buildDomId("docNo", documentId); %>
                 <div class="item">
-                    <label for="<%= documentCheckboxId %>">
-                        <input type="checkbox" id="<%= documentCheckboxId %>" name="docNo" value="<%= documentId %>" <%= attachedDocIds.contains(documentId) ? "checked" : "" %>>
+                    <label for="<%= SafeEncode.forHtmlAttribute(documentCheckboxId) %>">
+                        <input type="checkbox" id="<%= SafeEncode.forHtmlAttribute(documentCheckboxId) %>" name="docNo" value="<%= SafeEncode.forHtmlAttribute(documentId) %>" <%= attachedDocIds.contains(documentId) ? "checked" : "" %>>
                         <carlos:encode value='<%= document.getDescription() %>' context="html"/>
                         <% if (document.getObservationDate() != null) { %>
                         <span class="muted"><carlos:encode value='<%= document.getObservationDate() %>' context="html"/></span>
@@ -125,20 +142,20 @@
             <div class="list">
                 <% if (allLabsSortedByVersions.isEmpty()) { %>
                 <em class="muted">No labs available</em>
-                <% } else { for (AttachmentLabResultData lab : allLabsSortedByVersions) { String labSegmentId = lab.getSegmentID(); String labCheckboxId = "labNo-" + labSegmentId; %>
+                <% } else { for (AttachmentLabResultData lab : allLabsSortedByVersions) { String labSegmentId = lab.getSegmentID(); String labCheckboxId = buildDomId("labNo", labSegmentId); String labLabelId = buildDomId("labLabel", labSegmentId); String labDateId = buildDomId("labDate", labSegmentId); %>
                 <div class="item">
-                    <label for="<%= labCheckboxId %>">
-                        <input type="checkbox" id="<%= labCheckboxId %>" name="labNo" value="<%= labSegmentId %>" <%= attachedLabIds.contains(labSegmentId) ? "checked" : "" %>>
-                        <carlos:encode value='<%= lab.getLabName() %>' context="html"/>
-                        <span class="muted"><carlos:encode value='<%= lab.getLabDateFormated() %>' context="html"/></span>
+                    <label for="<%= SafeEncode.forHtmlAttribute(labCheckboxId) %>">
+                        <input type="checkbox" id="<%= SafeEncode.forHtmlAttribute(labCheckboxId) %>" name="labNo" value="<%= SafeEncode.forHtmlAttribute(labSegmentId) %>" aria-labelledby="<%= SafeEncode.forHtmlAttribute(labLabelId + " " + labDateId) %>" <%= attachedLabIds.contains(labSegmentId) ? "checked" : "" %>>
+                        <span id="<%= SafeEncode.forHtmlAttribute(labLabelId) %>"><%= SafeEncode.forHtml(lab.getLabName()) %></span>
+                        <span id="<%= SafeEncode.forHtmlAttribute(labDateId) %>" class="muted"><%= SafeEncode.forHtml(lab.getLabDateFormated()) %></span>
                     </label>
                 </div>
-                <% for (Map.Entry<String, String> version : lab.getLabVersionIds().entrySet()) { String labVersionId = version.getKey(); String labVersionCheckboxId = "labNo-" + labSegmentId + "-" + labVersionId; %>
+                <% for (Map.Entry<String, String> version : lab.getLabVersionIds().entrySet()) { String labVersionId = version.getKey(); String labVersionCheckboxId = buildDomId("labNo", labSegmentId, labVersionId); String labVersionLabelId = buildDomId("labLabel", labSegmentId, labVersionId); String labVersionDateId = buildDomId("labDate", labSegmentId, labVersionId); %>
                 <div class="item" style="padding-left: 18px;">
-                    <label for="<%= labVersionCheckboxId %>">
-                        <input type="checkbox" id="<%= labVersionCheckboxId %>" name="labNo" value="<%= labVersionId %>" <%= attachedLabIds.contains(labVersionId) ? "checked" : "" %>>
-                        <span class="muted">Earlier version</span>
-                        <carlos:encode value='<%= version.getValue() %>' context="html"/>
+                    <label for="<%= SafeEncode.forHtmlAttribute(labVersionCheckboxId) %>">
+                        <input type="checkbox" id="<%= SafeEncode.forHtmlAttribute(labVersionCheckboxId) %>" name="labNo" value="<%= SafeEncode.forHtmlAttribute(labVersionId) %>" aria-labelledby="<%= SafeEncode.forHtmlAttribute(labVersionLabelId + " " + labVersionDateId) %>" <%= attachedLabIds.contains(labVersionId) ? "checked" : "" %>>
+                        <span id="<%= SafeEncode.forHtmlAttribute(labVersionDateId) %>" class="muted">Earlier version</span>
+                        <span id="<%= SafeEncode.forHtmlAttribute(labVersionLabelId) %>"><%= SafeEncode.forHtml(version.getValue()) %></span>
                     </label>
                 </div>
                 <% } } } %>
@@ -150,13 +167,13 @@
             <div class="list">
                 <% if (allHRMDocuments.isEmpty()) { %>
                 <em class="muted">No HRM documents available</em>
-                <% } else { for (HashMap<String, ? extends Object> hrm : allHRMDocuments) { String id = String.valueOf(hrm.get("id")); String hrmCheckboxId = "hrmNo-" + id; String hrmLabelId = hrmCheckboxId + "-label"; String hrmDateId = hrmCheckboxId + "-date"; %>
+                <% } else { for (HashMap<String, ? extends Object> hrm : allHRMDocuments) { String id = String.valueOf(hrm.get("id")); String hrmCheckboxId = buildDomId("hrmNo", id); String hrmLabelId = buildDomId(hrmCheckboxId, "label"); String hrmDateId = buildDomId(hrmCheckboxId, "date"); %>
                 <div class="item">
-                    <input type="checkbox" id="<%= hrmCheckboxId %>" name="hrmNo" value="<%= id %>" aria-labelledby="<%= hrmLabelId %> <%= hrmDateId %>" <%= attachedHrmIds.contains(id) ? "checked" : "" %>>
-                    <span id="<%= hrmLabelId %>">
+                    <input type="checkbox" id="<%= SafeEncode.forHtmlAttribute(hrmCheckboxId) %>" name="hrmNo" value="<%= SafeEncode.forHtmlAttribute(id) %>" aria-labelledby="<%= SafeEncode.forHtmlAttribute(hrmLabelId + " " + hrmDateId) %>" <%= attachedHrmIds.contains(id) ? "checked" : "" %>>
+                    <span id="<%= SafeEncode.forHtmlAttribute(hrmLabelId) %>">
                         <carlos:encode value='<%= String.valueOf(hrm.get("name")) %>' context="html"/>
                     </span>
-                    <span class="muted" id="<%= hrmDateId %>"><carlos:encode value='<%= String.valueOf(hrm.get("report_date")) %>' context="html"/></span>
+                    <span class="muted" id="<%= SafeEncode.forHtmlAttribute(hrmDateId) %>"><carlos:encode value='<%= String.valueOf(hrm.get("report_date")) %>' context="html"/></span>
                 </div>
                 <% } } %>
             </div>
@@ -167,10 +184,10 @@
             <div class="list">
                 <% if (allEForms.isEmpty()) { %>
                 <em class="muted">No eForms available</em>
-                <% } else { for (EFormData eForm : allEForms) { String eformId = String.valueOf(eForm.getId()); String eformCheckboxId = "eFormNo-" + eformId; String eformLabelId = eformCheckboxId + "-label"; String displayName = eForm.getSubject() == null || eForm.getSubject().isEmpty() ? eForm.getFormName() : eForm.getSubject(); %>
+                <% } else { for (EFormData eForm : allEForms) { String eformId = String.valueOf(eForm.getId()); String eformCheckboxId = buildDomId("eFormNo", eformId); String eformLabelId = buildDomId(eformCheckboxId, "label"); String displayName = eForm.getSubject() == null || eForm.getSubject().isEmpty() ? eForm.getFormName() : eForm.getSubject(); %>
                 <div class="item">
-                    <input type="checkbox" id="<%= eformCheckboxId %>" name="eFormNo" value="<%= eformId %>" aria-labelledby="<%= eformLabelId %>" <%= attachedEFormIds.contains(eformId) ? "checked" : "" %>>
-                    <span id="<%= eformLabelId %>">
+                    <input type="checkbox" id="<%= SafeEncode.forHtmlAttribute(eformCheckboxId) %>" name="eFormNo" value="<%= SafeEncode.forHtmlAttribute(eformId) %>" aria-labelledby="<%= SafeEncode.forHtmlAttribute(eformLabelId) %>" <%= attachedEFormIds.contains(eformId) ? "checked" : "" %>>
+                    <span id="<%= SafeEncode.forHtmlAttribute(eformLabelId) %>">
                         <carlos:encode value='<%= displayName %>' context="html"/>
                     </span>
                 </div>
@@ -183,13 +200,13 @@
             <div class="list">
                 <% if (allForms.isEmpty()) { %>
                 <em class="muted">No encounter forms available</em>
-                <% } else { for (EctFormData.PatientForm form : allForms) { String formId = form.getFormId(); String formCheckboxId = "formNo-" + formId; String formLabelId = formCheckboxId + "-label"; String formDateId = formCheckboxId + "-date"; %>
+                <% } else { for (EctFormData.PatientForm form : allForms) { String formId = form.getFormId(); String formCheckboxId = buildDomId("formNo", formId); String formLabelId = buildDomId(formCheckboxId, "label"); String formDateId = buildDomId(formCheckboxId, "date"); %>
                 <div class="item">
-                    <input type="checkbox" id="<%= formCheckboxId %>" name="formNo" value="<%= formId %>" aria-labelledby="<%= formLabelId %> <%= formDateId %>" <%= attachedFormIds.contains(formId) ? "checked" : "" %>>
-                    <span id="<%= formLabelId %>">
+                    <input type="checkbox" id="<%= SafeEncode.forHtmlAttribute(formCheckboxId) %>" name="formNo" value="<%= SafeEncode.forHtmlAttribute(formId) %>" aria-labelledby="<%= SafeEncode.forHtmlAttribute(formLabelId + " " + formDateId) %>" <%= attachedFormIds.contains(formId) ? "checked" : "" %>>
+                    <span id="<%= SafeEncode.forHtmlAttribute(formLabelId) %>">
                         <carlos:encode value='<%= form.getFormName() %>' context="html"/>
                     </span>
-                    <span class="muted" id="<%= formDateId %>"><carlos:encode value='<%= form.getEdited() %>' context="html"/></span>
+                    <span class="muted" id="<%= SafeEncode.forHtmlAttribute(formDateId) %>"><carlos:encode value='<%= form.getEdited() %>' context="html"/></span>
                 </div>
                 <% } } %>
             </div>
