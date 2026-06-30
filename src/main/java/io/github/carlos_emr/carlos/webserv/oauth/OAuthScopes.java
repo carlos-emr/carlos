@@ -77,6 +77,8 @@ public final class OAuthScopes {
         Map.entry("consentservice", "consent"),
         Map.entry("consults", "consultation"),
         Map.entry("demographics", "demographic"),
+        // NB: "dxregisty" intentionally matches DiseaseRegistryService's actual (misspelled)
+        // @Path("/dxRegisty"); "correcting" it to "dxregistry" would stop matching the routed path.
         Map.entry("dxregisty", "diseaseregistry"),
         Map.entry("document", "document"),
         Map.entry("eform", "eform"),
@@ -125,7 +127,7 @@ public final class OAuthScopes {
         Map.entry("tickler", Set.of("search")),
         Map.entry("demographics", Set.of("search")),
         Map.entry("consults", Set.of("searchrequests", "searchresponses")),
-        Map.entry("dxregisty", Set.of("findlikeissue")),
+        Map.entry("dxregisty", Set.of("findlikeissue")),   // misspelled root, matches @Path("/dxRegisty")
         Map.entry("notes", Set.of("all", "getcurrentnote", "getissuenote", "getgroupnoteext",
             "getissueid", "getissuebyid", "searchissues", "checkeditnotenew")),
         Map.entry("persona", Set.of("hasrights", "isallowedaccesstopatientrecord", "preferences")),
