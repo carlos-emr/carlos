@@ -170,6 +170,20 @@ RUN printf '%s\n%s\n' \
 # Route every recipient to the capture transport.
 RUN printf '/.*/ devcapture:\n' > /etc/postfix/carlos-transport-regexp
 
+# Opt-in real-delivery allowlist (see docs/postfix-mail-server.md). Recipients
+# listed here are delivered for REAL, but ONLY when the container is started with
+# CARLOS_MAIL_ALLOW_SEND=1 (the 'mail' helper wires the allowlist into
+# transport_maps in that case). It ships EMPTY, so the env flag alone sends
+# nothing — every message stays captured until an address is added here.
+RUN printf '%s\n' \
+    '# CARLOS dev mail allowlist (regexp transport map).' \
+    '# Recipients matched here are delivered EXTERNALLY when the devcontainer is' \
+    '# started with CARLOS_MAIL_ALLOW_SEND=1. Everything not matched is still' \
+    '# captured locally. NEVER add a real patient address here — use only your own' \
+    '# test inbox. Example (uncomment and edit):' \
+    '# /^me@my-test-inbox\.example\.com$/  smtp:' \
+    > /etc/postfix/carlos-send-allowlist
+
 # Configure Postfix for localhost-only operation with capture-everything delivery.
 RUN postconf -e 'myhostname=openo-dev.local' && \
     postconf -e 'mydestination=openo-dev.local, localhost' && \

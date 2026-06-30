@@ -25,16 +25,18 @@ SERVER MANAGEMENT:
   server restart          Restart Tomcat server
   server log              Tail Tomcat logs (catalina.out)
 
-MAIL MANAGEMENT (captures email locally, never sends externally):
+MAIL MANAGEMENT (captures email locally by default; nothing leaves the container):
   mail start              Start Postfix mail server
   mail stop               Stop Postfix mail server
-  mail status             Show Postfix status and capture-file location
+  mail status             Show Postfix status, capture file, and send mode
   mail restart            Restart Postfix mail server
   mail log                Tail Postfix logs (mail.log)
   mail capture            Tail captured emails (carlos-mail-capture.eml)
   mail show               Print captured emails
   mail clear              Clear captured emails
   mail test               Send a sample message through local Postfix
+  (opt-in real delivery: start with CARLOS_MAIL_ALLOW_SEND=1 and an allowlist;
+   see docs/postfix-mail-server.md)
 
 AI CODING ASSISTANTS:
   claude                  Claude Code CLI (Anthropic)
