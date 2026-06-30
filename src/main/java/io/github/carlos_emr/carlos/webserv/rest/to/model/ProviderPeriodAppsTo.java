@@ -151,10 +151,7 @@ public class ProviderPeriodAppsTo {
 
     @Override
     public String toString() {
-        return "ProviderPeriodAppsTo [appointmentNo=" + appointmentNo + ", providerNo=" + providerNo
-                + ", appointmentDate=" + appointmentDate + ", demographicNo=" + demographicNo + ", notes=" + notes
-                + ", location=" + location + ", resources=" + resources + ", status=" + status + ", lastUpdateUser="
-                + lastUpdateUser + ", updateDatetime=" + updateDatetime + ", name=" + name + "]";
+        return "ProviderPeriodAppsTo[appointmentNo=" + appointmentNo + ", providerNo=" + providerNo + "]";
     }
 
 }
