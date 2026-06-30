@@ -150,13 +150,13 @@
             <div class="list">
                 <% if (allHRMDocuments.isEmpty()) { %>
                 <em class="muted">No HRM documents available</em>
-                <% } else { for (HashMap<String, ? extends Object> hrm : allHRMDocuments) { String id = String.valueOf(hrm.get("id")); String hrmCheckboxId = "hrmNo-" + id; %>
+                <% } else { for (HashMap<String, ? extends Object> hrm : allHRMDocuments) { String id = String.valueOf(hrm.get("id")); String hrmCheckboxId = "hrmNo-" + id; String hrmLabelId = hrmCheckboxId + "-label"; String hrmDateId = hrmCheckboxId + "-date"; %>
                 <div class="item">
-                    <input type="checkbox" id="<%= hrmCheckboxId %>" name="hrmNo" value="<%= id %>" <%= attachedHrmIds.contains(id) ? "checked" : "" %>>
-                    <label for="<%= hrmCheckboxId %>">
+                    <input type="checkbox" id="<%= hrmCheckboxId %>" name="hrmNo" value="<%= id %>" aria-labelledby="<%= hrmLabelId %> <%= hrmDateId %>" <%= attachedHrmIds.contains(id) ? "checked" : "" %>>
+                    <span id="<%= hrmLabelId %>">
                         <carlos:encode value='<%= String.valueOf(hrm.get("name")) %>' context="html"/>
-                        <span class="muted"><carlos:encode value='<%= String.valueOf(hrm.get("report_date")) %>' context="html"/></span>
-                    </label>
+                    </span>
+                    <span class="muted" id="<%= hrmDateId %>"><carlos:encode value='<%= String.valueOf(hrm.get("report_date")) %>' context="html"/></span>
                 </div>
                 <% } } %>
             </div>
@@ -167,12 +167,12 @@
             <div class="list">
                 <% if (allEForms.isEmpty()) { %>
                 <em class="muted">No eForms available</em>
-                <% } else { for (EFormData eForm : allEForms) { String eformId = String.valueOf(eForm.getId()); String eformCheckboxId = "eFormNo-" + eformId; String displayName = eForm.getSubject() == null || eForm.getSubject().isEmpty() ? eForm.getFormName() : eForm.getSubject(); %>
+                <% } else { for (EFormData eForm : allEForms) { String eformId = String.valueOf(eForm.getId()); String eformCheckboxId = "eFormNo-" + eformId; String eformLabelId = eformCheckboxId + "-label"; String displayName = eForm.getSubject() == null || eForm.getSubject().isEmpty() ? eForm.getFormName() : eForm.getSubject(); %>
                 <div class="item">
-                    <input type="checkbox" id="<%= eformCheckboxId %>" name="eFormNo" value="<%= eformId %>" <%= attachedEFormIds.contains(eformId) ? "checked" : "" %>>
-                    <label for="<%= eformCheckboxId %>">
+                    <input type="checkbox" id="<%= eformCheckboxId %>" name="eFormNo" value="<%= eformId %>" aria-labelledby="<%= eformLabelId %>" <%= attachedEFormIds.contains(eformId) ? "checked" : "" %>>
+                    <span id="<%= eformLabelId %>">
                         <carlos:encode value='<%= displayName %>' context="html"/>
-                    </label>
+                    </span>
                 </div>
                 <% } } %>
             </div>
@@ -183,13 +183,13 @@
             <div class="list">
                 <% if (allForms.isEmpty()) { %>
                 <em class="muted">No encounter forms available</em>
-                <% } else { for (EctFormData.PatientForm form : allForms) { String formId = form.getFormId(); String formCheckboxId = "formNo-" + formId; %>
+                <% } else { for (EctFormData.PatientForm form : allForms) { String formId = form.getFormId(); String formCheckboxId = "formNo-" + formId; String formLabelId = formCheckboxId + "-label"; String formDateId = formCheckboxId + "-date"; %>
                 <div class="item">
-                    <input type="checkbox" id="<%= formCheckboxId %>" name="formNo" value="<%= formId %>" <%= attachedFormIds.contains(formId) ? "checked" : "" %>>
-                    <label for="<%= formCheckboxId %>">
+                    <input type="checkbox" id="<%= formCheckboxId %>" name="formNo" value="<%= formId %>" aria-labelledby="<%= formLabelId %> <%= formDateId %>" <%= attachedFormIds.contains(formId) ? "checked" : "" %>>
+                    <span id="<%= formLabelId %>">
                         <carlos:encode value='<%= form.getFormName() %>' context="html"/>
-                        <span class="muted"><carlos:encode value='<%= form.getEdited() %>' context="html"/></span>
-                    </label>
+                    </span>
+                    <span class="muted" id="<%= formDateId %>"><carlos:encode value='<%= form.getEdited() %>' context="html"/></span>
                 </div>
                 <% } } %>
             </div>

@@ -213,6 +213,17 @@ class EFormJspMigrationRegressionTest {
     }
 
     @Test
+    @DisplayName("attachment popup checkboxes should expose accessible names through aria-labelledby")
+    void shouldExposeAccessibleAttachmentCheckboxNames_whenRenderingAttachPopup() throws IOException {
+        String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/eform/attachEform.jsp"), StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("aria-labelledby=\"<%= hrmLabelId %> <%= hrmDateId %>\"")
+                .contains("aria-labelledby=\"<%= eformLabelId %>\"")
+                .contains("aria-labelledby=\"<%= formLabelId %> <%= formDateId %>\"");
+    }
+
+    @Test
     @DisplayName("admin nav Create eForm dropdown should use a button element with aria-expanded and proper Bootstrap 5 nav-item structure")
     void shouldUseButtonToggle_forCreateEFormDropdown() throws IOException {
         String nav = Files.readString(EFM_TOP_NAV_JSPF, StandardCharsets.UTF_8);
