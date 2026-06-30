@@ -109,6 +109,16 @@ class OAuthScopesUnitTest {
             assertThat(OAuthScopes.requiredScope("GET", "/carlos/ws/services/other/../schedule/day"))
                     .isEqualTo("schedule.read");
         }
+
+        @Test
+        @DisplayName("should not let a leading dot-dot segment hide a piloted domain")
+        void shouldResolveDomain_whenLeadingDotDotSegment() {
+            // A leading '..' must not pop the pilot domain off and make the request look unpiloted.
+            assertThat(OAuthScopes.requiredScope("GET", "/carlos/ws/services/../schedule/day"))
+                    .isEqualTo("schedule.read");
+            assertThat(OAuthScopes.requiredScope("POST", "/carlos/ws/services/../../tickler/add"))
+                    .isEqualTo("tickler.write");
+        }
     }
 
     @Nested
