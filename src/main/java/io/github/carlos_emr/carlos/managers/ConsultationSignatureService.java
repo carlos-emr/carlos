@@ -188,8 +188,12 @@ public class ConsultationSignatureService {
                 return null;
             }
         } else {
-            // Stamp preview: enforce the same authorization as saveConsultationStamp before reading bytes.
-            if (loggedInInfo == null || !canUseProviderStamp(loggedInInfo, signatureProviderNo)) {
+            // Stamp preview: enforce the same facility/authorization gating as saveConsultationStamp so
+            // a preview cannot embed a stamp that the save path would suppress.
+            if (loggedInInfo == null
+                    || loggedInInfo.getCurrentFacility() == null
+                    || !loggedInInfo.getCurrentFacility().isEnableDigitalSignatures()
+                    || !canUseProviderStamp(loggedInInfo, signatureProviderNo)) {
                 return null;
             }
             return readProviderStampImage(signatureProviderNo);
@@ -215,6 +219,13 @@ public class ConsultationSignatureService {
             Path stampPath = stampFile.toPath();
             if (!Files.isRegularFile(stampPath)) {
                 MiscUtils.getLogger().debug("Consultation stamp signature file not found: {}", stampFilename);
+                return null;
+            }
+            // 5 MB sanity cap — a stamp PNG should be well under 1 MB; reject oversized files before
+            // allocating heap so a misconfigured large file cannot cause OOM on every stamped request.
+            long fileSize = Files.size(stampPath);
+            if (fileSize > 5 * 1024 * 1024L) {
+                MiscUtils.getLogger().error("Consultation stamp signature file exceeds size limit ({} bytes) for provider {}", fileSize, LogSafe.sanitize(providerNo));
                 return null;
             }
             return Files.readAllBytes(stampPath);

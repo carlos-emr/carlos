@@ -13,6 +13,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
@@ -404,6 +408,7 @@ async function runPrescriptionSignatureCheck(context) {
   wirePage(page, 'prescription-signature');
   let originalSignatureId = '';
   let uploadedSignatureId = '';
+  let associationCleared = false;
 
   try {
     await openPrescriptionView(page, 'initial-prescription-view');
@@ -411,6 +416,7 @@ async function runPrescriptionSignatureCheck(context) {
     originalSignatureId = initialPreview.storedSignatureId;
 
     await savePrescriptionSignatureAssociation(page, null);
+    associationCleared = true;
     await openPrescriptionView(page, 'unsigned-prescription-view');
     await waitForSignatureFrame(page);
 
@@ -438,7 +444,7 @@ async function runPrescriptionSignatureCheck(context) {
       storedPreview,
     };
   } finally {
-    if (uploadedSignatureId) {
+    if (associationCleared || uploadedSignatureId) {
       try {
         await savePrescriptionSignatureAssociation(page, originalSignatureId || null);
       } catch (error) {

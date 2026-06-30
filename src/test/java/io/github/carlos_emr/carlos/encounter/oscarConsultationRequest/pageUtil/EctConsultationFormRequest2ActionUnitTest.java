@@ -78,6 +78,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
     private AutoCloseable mocks;
+    private Path pdfPath;
 
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
@@ -133,7 +134,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
                 .thenReturn(SIGNATURE_BYTES);
         when(demographicManager.getDemographicFormattedName(loggedInInfo, 1)).thenReturn("Patient, Test");
 
-        Path pdfPath = Files.createTempFile("consult-preview", ".pdf");
+        pdfPath = Files.createTempFile("consult-preview", ".pdf");
         when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response)).thenReturn(pdfPath);
         when(documentAttachmentManager.convertPDFToBase64(pdfPath)).thenReturn(PDF_BASE64);
 
@@ -161,6 +162,9 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         }
         if (mocks != null) {
             mocks.close();
+        }
+        if (pdfPath != null) {
+            Files.deleteIfExists(pdfPath);
         }
     }
 
@@ -198,6 +202,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
     @DisplayName("reuses the stored signature id when a manual re-sign produces no new signature on update")
     void shouldReuseStoredSignatureId_whenManualReSignReturnsNullOnUpdate() throws Exception {
         ConsultationRequest existing = new ConsultationRequest();
+        existing.setSignatureImg("123"); // pre-existing DB-stored signature id
         // AbstractDao has find(Object) and find(int); the action calls find(Integer), so stub the Object overload.
         when(consultationRequestDao.find(Integer.valueOf(9))).thenReturn(existing);
 
@@ -205,7 +210,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         action.setRequestId("9");
         action.setService("1");
         action.setSpecialist("0");
-        action.setSignatureImg("123");
+        action.setSignatureImg("123"); // submitted form value — now untrusted for fallback
         request.setParameter("newSignature", "true");
 
         when(consultationSignatureService.resolveManualSignatureRequestId("123", "sig-request"))

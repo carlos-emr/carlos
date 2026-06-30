@@ -112,7 +112,7 @@ class RxRePrescribe2ActionTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should associate a saved digital signature with a prescription")
-    void shouldAssociateSavedDigitalSignatureWithPrescription() throws Exception {
+    void shouldAssociateSavedDigitalSignature_withPrescription() throws Exception {
         request.setParameter("scriptId", String.valueOf(SCRIPT_ID));
         request.setParameter("digitalSignatureId", String.valueOf(SIGNATURE_ID));
 
@@ -126,7 +126,7 @@ class RxRePrescribe2ActionTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should clear the prescription signature when signature id is absent")
-    void shouldClearPrescriptionSignatureWhenSignatureIdIsAbsent() throws Exception {
+    void shouldClearPrescriptionSignature_whenSignatureIdIsAbsent() throws Exception {
         request.setParameter("scriptId", String.valueOf(SCRIPT_ID));
 
         String result = action.saveDigitalSignature();
@@ -138,7 +138,7 @@ class RxRePrescribe2ActionTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should reject malformed digital signature ids")
-    void shouldRejectMalformedDigitalSignatureId() throws Exception {
+    void shouldRejectMalformedDigitalSignature_whenIdIsMalformed() throws Exception {
         request.setParameter("scriptId", String.valueOf(SCRIPT_ID));
         request.setParameter("digitalSignatureId", "7<script>");
 
@@ -151,7 +151,7 @@ class RxRePrescribe2ActionTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should reject malformed prescription script ids")
-    void shouldRejectMalformedScriptId() throws Exception {
+    void shouldRejectMalformedScriptId_whenIdIsMalformed() throws Exception {
         request.setParameter("scriptId", "../123");
         request.setParameter("digitalSignatureId", String.valueOf(SIGNATURE_ID));
 
@@ -164,7 +164,7 @@ class RxRePrescribe2ActionTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should redirect when prescription session is missing")
-    void shouldRedirectWhenPrescriptionSessionIsMissing() throws Exception {
+    void shouldRedirect_whenPrescriptionSessionIsMissing() throws Exception {
         request.getSession().removeAttribute("RxSessionBean");
         request.setParameter("scriptId", String.valueOf(SCRIPT_ID));
         request.setParameter("digitalSignatureId", String.valueOf(SIGNATURE_ID));

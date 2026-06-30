@@ -37,7 +37,7 @@ class RxPrescriptionSignatureFlowIntegrationTest {
             Path.of("src/main/webapp/WEB-INF/jsp/rx/Preview2.jsp");
 
     @Test
-    void shouldKeepPrescriptionSignatureUploadAndAssociationWired() throws Exception {
+    void shouldKeepPrescriptionSignatureUploadAndAssociation_whenBrowserFlowWiringChanges() throws Exception {
         String strutsPrescription = Files.readString(STRUTS_PRESCRIPTION_XML, StandardCharsets.UTF_8);
         String strutsIntegration = Files.readString(STRUTS_INTEGRATION_XML, StandardCharsets.UTF_8);
         String viewScript = Files.readString(VIEW_SCRIPT_JSP, StandardCharsets.UTF_8);
@@ -62,7 +62,7 @@ class RxPrescriptionSignatureFlowIntegrationTest {
     }
 
     @Test
-    void shouldKeepStoredPrescriptionSignatureRenderingWired() throws Exception {
+    void shouldKeepStoredPrescriptionSignatureRendering_whenPreviewWiringChanges() throws Exception {
         String preview = Files.readString(PREVIEW_JSP, StandardCharsets.UTF_8);
 
         assertThat(preview)

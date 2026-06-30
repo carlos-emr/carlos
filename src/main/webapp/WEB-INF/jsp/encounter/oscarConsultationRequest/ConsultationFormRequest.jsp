@@ -1963,12 +1963,19 @@ String storedImgUrl=request.getContextPath()+"/imageRenderingServlet?source="+Im
             var signatureImg = document.getElementById('signatureImg');
             if (signatureImg != null && isStoredSignatureId(signatureImg.value)) {
                 var signatureImgTag = document.getElementById('signatureImgTag');
-                signatureImgTag.onload = null;
-                signatureImgTag.onerror = null;
+                signatureImgTag.onload = function() {
+                    document.getElementById('newSignature').value = "false";
+                    document.getElementById("signatureFrame").style.display = "none";
+                    document.getElementById('signatureShow').style.display = "block";
+                };
+                signatureImgTag.onerror = function() {
+                    // Stored signature is unrenderable — fall back to manual signing rather than
+                    // leaving a broken image visible while newSignature=false would silently persist it.
+                    document.getElementById('newSignature').value = "true";
+                    document.getElementById('signatureShow').style.display = "none";
+                    document.getElementById("signatureFrame").style.display = "block";
+                };
                 signatureImgTag.src = "<%=storedImgUrl %>" + encodeURIComponent(signatureImg.value);
-                document.getElementById('newSignature').value = "false";
-                document.getElementById("signatureFrame").style.display = "none";
-                document.getElementById('signatureShow').style.display = "block";
             } else if (!hasPendingManualSignature()) {
                 var signatureProviderNo = document.getElementById('signatureProviderNo');
                 if (signatureProviderNo) {

@@ -364,6 +364,12 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                     return INPUT;
                 }
 
+                // Load the consultation record before signature assignment so fallback branches use the
+                // DB-stored signature id rather than the client-submitted field (prevents a tampered
+                // form from associating an arbitrary DigitalSignature id with this consultation).
+                ConsultationRequest consult = consultationRequestDao.find(Integer.valueOf(requestId));
+                String existingSignatureId = consult.getSignatureImg();
+
                 if (newSignature) {
                     // Manual re-sign from tablet/signature pad. See create-path note: warn only when a
                     // signature was actually collected but failed to persist.
@@ -371,9 +377,10 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                     DigitalSignature signature = digitalSignatureManager.processAndSaveDigitalSignature(loggedInInfo, manualSignatureRequestId, demographicId, ModuleType.CONSULTATION);
                     if (signature != null) {
                         signatureId = "" + signature.getId();
-                    } else if (SignatureReference.isStoredId(trimmedSignatureImg)) {
-                        // Manual capture failed but an existing stored signature is on the form - keep it.
-                        signatureId = trimmedSignatureImg;
+                    } else if (SignatureReference.isStoredId(existingSignatureId)) {
+                        // Manual capture failed - fall back to the existing stored signature already on the
+                        // consultation record; do not trust the submitted field value.
+                        signatureId = existingSignatureId;
                     } else if (manualCaptured) {
                         // A signature was collected but could not be persisted and there is nothing to fall
                         // back to; the update still saves. Log at error and warn the provider.
@@ -397,11 +404,9 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                         request.setAttribute(ATTR_SIGNATURE_NOT_APPLIED, Boolean.TRUE);
                     }
                 } else {
-                    // Already has a DigitalSignature ID - keep it
-                    signatureId = trimmedSignatureImg;
+                    // Already has a DigitalSignature ID - preserve the DB-stored value, not the submitted field.
+                    signatureId = existingSignatureId;
                 }
-
-                ConsultationRequest consult = consultationRequestDao.find(Integer.valueOf(requestId));
                 Date date = null;
 
                 // By default, the referral date will not have a value on edit, so we need to make sure

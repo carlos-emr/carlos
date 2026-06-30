@@ -747,7 +747,11 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
      * @param pdfPTable PdfPTable the main consultation request table to append the signature to
      */
     private void addSignature(PdfPTable pdfPTable) {
-        DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
+        // Skip the stored-signature lookup when override bytes are already present.
+        DigitalSignatureManager digitalSignatureManager =
+                signatureImageOverride != null && signatureImageOverride.length > 0
+                        ? null
+                        : SpringUtils.getBean(DigitalSignatureManager.class);
         byte[] signatureImage = resolveSignatureBytes(signatureImageOverride, reqFrm.getSignatureImg(), digitalSignatureManager);
 
         if (signatureImage != null && signatureImage.length > 0) {
