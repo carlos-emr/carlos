@@ -67,9 +67,12 @@ class OAuthScopesUnitTest {
         }
 
         @Test
-        @DisplayName("should require no scope for an endpoint outside the pilot")
-        void shouldRequireNoScope_forUnpilotedDomain() {
-            assertThat(OAuthScopes.requiredScope("GET", "/services/demographic/1"))
+        @DisplayName("should require no scope for a root that is not in the domain map")
+        void shouldRequireNoScope_forUnmappedRoot() {
+            // OAuthStatusService (/oauth/info) and any unknown root are intentionally not scope-mapped.
+            assertThat(OAuthScopes.requiredScope("GET", "/services/oauth/info"))
+                    .isEqualTo(OAuthScopes.NO_SCOPE_REQUIRED);
+            assertThat(OAuthScopes.requiredScope("POST", "/services/madeup/x"))
                     .isEqualTo(OAuthScopes.NO_SCOPE_REQUIRED);
         }
 
@@ -91,6 +94,66 @@ class OAuthScopesUnitTest {
     }
 
     @Nested
+    @DisplayName("requiredScope — full service map and per-endpoint read/write")
+    class FullMapClassification {
+
+        @Test
+        @DisplayName("should map newly-covered services to their domain by HTTP method")
+        void shouldMapDomain_forNewlyCoveredServices() {
+            assertThat(OAuthScopes.requiredScope("GET", "/services/demographics/1")).isEqualTo("demographic.read");
+            assertThat(OAuthScopes.requiredScope("POST", "/services/demographics")).isEqualTo("demographic.write");
+            assertThat(OAuthScopes.requiredScope("GET", "/services/labs/123")).isEqualTo("lab.read");
+            assertThat(OAuthScopes.requiredScope("POST", "/services/allergies")).isEqualTo("allergy.write");
+        }
+
+        @Test
+        @DisplayName("should share one domain across related path roots")
+        void shouldShareDomain_acrossRelatedRoots() {
+            // rx + rxlookup -> rx ; reporting + reportbytemplate -> report ; eform + eforms -> eform
+            assertThat(OAuthScopes.requiredScope("POST", "/services/rx/new")).isEqualTo("rx.write");
+            assertThat(OAuthScopes.requiredScope("POST", "/services/rxlookup/parse")).isEqualTo("rx.read");
+            assertThat(OAuthScopes.requiredScope("GET", "/services/reportbytemplate/1")).isEqualTo("report.read");
+            assertThat(OAuthScopes.requiredScope("GET", "/services/eforms/1")).isEqualTo("eform.read");
+        }
+
+        @Test
+        @DisplayName("should classify a read-only POST as a read on a mixed service")
+        void shouldRequireRead_whenNonSafeMethodHitsReadOperation() {
+            assertThat(OAuthScopes.requiredScope("POST", "/services/tickler/search")).isEqualTo("tickler.read");
+            assertThat(OAuthScopes.requiredScope("POST", "/services/schedule/getAppointment"))
+                    .isEqualTo("schedule.read");
+            assertThat(OAuthScopes.requiredScope("POST", "/services/demographics/search"))
+                    .isEqualTo("demographic.read");
+            assertThat(OAuthScopes.requiredScope("POST", "/services/notes/123/all")).isEqualTo("note.read");
+            assertThat(OAuthScopes.requiredScope("POST", "/services/consults/searchRequests"))
+                    .isEqualTo("consultation.read");
+            assertThat(OAuthScopes.requiredScope("POST", "/services/reporting/preventionReport/getReport/5"))
+                    .isEqualTo("report.read");
+        }
+
+        @Test
+        @DisplayName("should keep a mutating POST as a write on a mixed service")
+        void shouldRequireWrite_whenNonSafeMethodHitsMutation() {
+            assertThat(OAuthScopes.requiredScope("POST", "/services/schedule/add")).isEqualTo("schedule.write");
+            assertThat(OAuthScopes.requiredScope("POST", "/services/tickler/add")).isEqualTo("tickler.write");
+            assertThat(OAuthScopes.requiredScope("POST", "/services/notes/123/save")).isEqualTo("note.write");
+            assertThat(OAuthScopes.requiredScope("POST", "/services/consults/saveRequest"))
+                    .isEqualTo("consultation.write");
+        }
+
+        @Test
+        @DisplayName("should treat a non-safe method as a read on a wholly read-only service")
+        void shouldRequireRead_whenServiceIsReadOnlyOnNonSafeMethods() {
+            assertThat(OAuthScopes.requiredScope("POST", "/services/measurements/123"))
+                    .isEqualTo("measurement.read");
+            assertThat(OAuthScopes.requiredScope("POST", "/services/recordUX/searchTemplates"))
+                    .isEqualTo("recordux.read");
+            assertThat(OAuthScopes.requiredScope("POST", "/services/patientDetailStatusService/validateHC"))
+                    .isEqualTo("patientstatus.read");
+        }
+    }
+
+    @Nested
     @DisplayName("isKnownScope(scope)")
     class IsKnownScope {
 
@@ -100,6 +163,10 @@ class OAuthScopesUnitTest {
             assertThat(OAuthScopes.isKnownScope("schedule.read")).isTrue();
             assertThat(OAuthScopes.isKnownScope("tickler.write")).isTrue();
             assertThat(OAuthScopes.isKnownScope("  SCHEDULE.READ  ")).isTrue();
+            // newly-mapped domains are part of the /initiate vocabulary too
+            assertThat(OAuthScopes.isKnownScope("demographic.read")).isTrue();
+            assertThat(OAuthScopes.isKnownScope("rx.write")).isTrue();
+            assertThat(OAuthScopes.isKnownScope("report.read")).isTrue();
         }
 
         @Test
