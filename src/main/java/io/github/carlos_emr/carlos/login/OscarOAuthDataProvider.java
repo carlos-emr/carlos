@@ -199,26 +199,6 @@ public class OscarOAuthDataProvider {
         return at;
     }
 
-    public AccessToken getAccessToken(String tokenId) {
-        ServiceAccessToken sat = findUnexpiredAccessToken(tokenId);
-        if (sat == null) return null;
-
-        ServiceClient sc = serviceClientDao.find(sat.getClientId());
-        Client client = getClient(sc.getKey());
-
-        AccessToken at = new AccessToken(client, sat.getTokenId(), sat.getTokenSecret(),
-            sat.getLifetime(), sat.getIssued());
-        at.setSubject(new UserSubject(sat.getProviderNo(), new ArrayList<>()));
-
-        List<OAuth1Permission> perms = new ArrayList<>();
-        for (String scope : sat.getScopes().split(" ")) {
-            perms.add(new OAuth1Permission(scope, scope));
-        }
-        at.setScopes(perms);
-
-        return at;
-    }
-
     public void removeToken(String tokenId) {
         ServiceRequestToken srt = serviceRequestTokenDao.findByTokenId(tokenId);
         if (srt != null) serviceRequestTokenDao.remove(srt);
@@ -359,7 +339,13 @@ public class OscarOAuthDataProvider {
         }
     }
 
-    private ServiceAccessToken findUnexpiredAccessToken(String accessTokenId) {
+    /**
+     * The persisted access token for {@code accessTokenId} if it exists and is unexpired, otherwise
+     * {@code null} (an expired token is removed as a side effect). Callers can read both the provider
+     * ({@link ServiceAccessToken#getProviderNo()}) and the granted scopes ({@link ServiceAccessToken#getScopes()})
+     * off the returned entity in a single lookup, rather than loading the token twice.
+     */
+    public ServiceAccessToken findUnexpiredAccessToken(String accessTokenId) {
         ServiceAccessToken sat = serviceAccessTokenDao.findByTokenId(accessTokenId);
         if (sat == null) {
             return null;
