@@ -48,14 +48,22 @@ class EFormJspMigrationRegressionTest {
 
     private static final Path PATIENT_FORM_LIST_JSP =
             Path.of("src/main/webapp/WEB-INF/jsp/eform/efmpatientformlist.jsp");
+    private static final Path UPLOAD_PARTIAL_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/eform/partials/upload.jsp");
     private static final Path IMPORT_PARTIAL_JSP =
             Path.of("src/main/webapp/WEB-INF/jsp/eform/partials/import.jsp");
+    private static final Path EFM_TOP_NAV_JSPF =
+            Path.of("src/main/webapp/WEB-INF/jsp/eform/efmTopNav.jspf");
+    private static final Path EFM_FORM_MANAGER_EDIT_JSP =
+            Path.of("src/main/webapp/WEB-INF/jsp/eform/efmformmanageredit.jsp");
     private static final Path STRUTS_EFORM_XML =
             Path.of("src/main/webapp/WEB-INF/classes/struts-eform.xml");
     private static final Path STRUTS_FORM_XML =
             Path.of("src/main/webapp/WEB-INF/classes/struts-form.xml");
     private static final Path STRUTS_XML =
             Path.of("src/main/webapp/WEB-INF/classes/struts.xml");
+    private static final Path RTL_ATTACHMENT_ROUTE_FIX_SQL =
+            Path.of("database/mysql/updates/update-2026-06-29-rtl-attachment-route-fix.sql");
     private static final Pattern STRUTS_ACTION_EXCLUDE_PATTERN = Pattern.compile(
             "<constant name=\"struts\\.action\\.excludePattern\" value=\"([^\"]+)\"\\s*/>");
 
@@ -126,6 +134,31 @@ class EFormJspMigrationRegressionTest {
     }
 
     @Test
+    @DisplayName("eForm admin nav should use a Bootstrap button dropdown for Create eForm")
+    void shouldUseBootstrapButtonDropdown_whenRenderingEFormTopNav() throws IOException {
+        String jsp = Files.readString(EFM_TOP_NAV_JSPF, StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("<button type=\"button\"")
+                .contains("data-bs-toggle=\"dropdown\"")
+                .contains("aria-haspopup=\"true\"")
+                .contains("aria-expanded=\"false\"")
+                .contains("<fmt:message key=\"eform.create\"/>")
+                .doesNotContain("Create eForm")
+                .doesNotContain("<a href=\"javascript:void(0);\" class=\"dropdown-toggle\"");
+    }
+
+    @Test
+    @DisplayName("eForm editor save should return the popup to the library without navigating the main CARLOS window")
+    void shouldRedirectCurrentWindow_whenAdminEditorSaveSucceeds() throws IOException {
+        String jsp = Files.readString(EFM_FORM_MANAGER_EDIT_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("window.location.href = '<%=request.getContextPath()%>/eform/efmformmanager';")
+                .doesNotContain("window.opener.location.href = '<%=request.getContextPath()%>/administration?show=Forms';");
+    }
+
+    @Test
     @DisplayName("struts eForm config should keep both extensionless and legacy displayImage routes")
     void shouldKeepDisplayImageCompatibilityRoutes_whenReadingStrutsEFormConfig() throws IOException {
         String struts = Files.readString(STRUTS_EFORM_XML, StandardCharsets.UTF_8);
@@ -163,6 +196,110 @@ class EFormJspMigrationRegressionTest {
     }
 
     @Test
+    @DisplayName("Rich Text Letter attachment migration should use gated routes and saved hidden inputs")
+    void shouldUseGatedAttachmentRoutesAndSavedHiddenInputs_whenUpdatingRichTextLetterTemplate()
+            throws IOException {
+        String sql = Files.readString(RTL_ATTACHMENT_ROUTE_FIX_SQL, StandardCharsets.UTF_8);
+
+        assertThat(sql)
+                .contains("../eform/attachEform.jsp")
+                .contains("../eform/attachEform")
+                .contains("../eform/displayAttachedFiles.jsp")
+                .contains("../eform/displayAttachedFiles")
+                .contains("document.getElementById(\"fdid\")")
+                .contains("document.getElementById(\"demographicNo\")")
+                .contains("gup(\"fid\")")
+                .contains("gup(\"demographic_no\")");
+    }
+
+    @Test
+    @DisplayName("attachment popup checkboxes should expose accessible names through aria-labelledby")
+    void shouldExposeAccessibleAttachmentCheckboxNames_whenRenderingAttachPopup() throws IOException {
+        String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/eform/attachEform.jsp"), StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("SafeEncode.forHtmlAttribute(labLabelId + \" \" + labDateId)")
+                .contains("SafeEncode.forHtmlAttribute(labVersionLabelId + \" \" + labVersionDateId)")
+                .contains("SafeEncode.forHtmlAttribute(hrmLabelId + \" \" + hrmDateId)")
+                .contains("SafeEncode.forHtmlAttribute(eformLabelId)")
+                .contains("SafeEncode.forHtmlAttribute(formLabelId + \" \" + formDateId)");
+    }
+
+    @Test
+    @DisplayName("attachment popup should preserve already-attached older encounter form revisions")
+    void shouldPreserveAlreadyAttachedOlderEncounterForms_whenRenderingAttachPopup() throws IOException {
+        String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/eform/attachEform.jsp"), StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("getEncounterFormsbyDemographicNumber(loggedInInfo, demographicNo, false, true)")
+                .contains("getEncounterFormsbyDemographicNumber(loggedInInfo, demographicNo, true, true)")
+                .contains("List<EctFormData.PatientForm> attachedOlderForms = new ArrayList<>()")
+                .contains("!currentFormIds.contains(attachedFormId)")
+                .contains("allForms.isEmpty() && attachedOlderForms.isEmpty()")
+                .contains("Earlier version");
+    }
+
+    @Test
+    @DisplayName("attachment popup should HTML-attribute encode generated ids and values")
+    void shouldEncodeAttachmentCheckboxAttributes_whenRenderingAttachPopup() throws IOException {
+        String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/eform/attachEform.jsp"), StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("SafeEncode.forHtmlAttribute(documentCheckboxId)")
+                .contains("SafeEncode.forHtmlAttribute(documentId)")
+                .contains("SafeEncode.forHtmlAttribute(labCheckboxId)")
+                .contains("SafeEncode.forHtmlAttribute(labVersionCheckboxId)")
+                .contains("SafeEncode.forHtmlAttribute(hrmCheckboxId)")
+                .contains("SafeEncode.forHtmlAttribute(eformCheckboxId)")
+                .contains("SafeEncode.forHtmlAttribute(formCheckboxId)");
+    }
+
+    @Test
+    @DisplayName("attached file sidebar should gate category lookups by category privileges")
+    void shouldGateAttachedSidebarLookupsByCategoryPrivilege_whenRenderingDisplayAttachedFiles() throws IOException {
+        String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/eform/displayAttachedFiles.jsp"), StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("hasPrivilege(loggedInInfo, \"_edoc\", \"r\", null)")
+                .contains("hasPrivilege(loggedInInfo, \"_lab\", \"r\", null)")
+                .contains("hasPrivilege(loggedInInfo, \"_hrm\", \"r\", null)")
+                .contains("hasPrivilege(loggedInInfo, \"_eform\", \"r\", null)")
+                .contains("hasPrivilege(loggedInInfo, \"_form\", \"r\", null)")
+                .contains("Collections.emptyList()");
+    }
+
+    @Test
+    @DisplayName("admin nav Create eForm dropdown should use a button element with aria-expanded and proper Bootstrap 5 nav-item structure")
+    void shouldUseButtonToggle_forCreateEFormDropdown() throws IOException {
+        String nav = Files.readString(EFM_TOP_NAV_JSPF, StandardCharsets.UTF_8);
+
+        assertThat(nav)
+            .containsSubsequence(
+                "<li class=\"nav-item dropdown\">",
+                "<button type=\"button\"",
+                "class=\"contentLink nav-link dropdown-toggle\"",
+                "data-bs-toggle=\"dropdown\"",
+                "aria-haspopup=\"true\"",
+                "aria-expanded=\"false\"",
+                "<fmt:message key=\"eform.create\"/>")
+            .doesNotContain("javascript:void(0)")
+            .doesNotContain("Create eForm");
+    }
+
+    @Test
+    @DisplayName("eForm editor should navigate current window to eForm library after save, not the opener window")
+    void shouldNavigateCurrentWindow_notOpener_afterSave() throws IOException {
+        String jsp = Files.readString(EFM_FORM_MANAGER_EDIT_JSP, StandardCharsets.UTF_8);
+
+        // window.opener.location navigates the main CARLOS window (opener of the admin popup),
+        // which would replace Schedule/Search/Inbox with the admin page — "losing the Carlos menu"
+        assertThat(jsp)
+            .doesNotContain("window.opener.location.href")
+            .doesNotContain("window.opener.location")
+            .contains("window.location.href");
+    }
+
+    @Test
     @DisplayName("import partial should encode import and action errors")
     void shouldEncodeImportErrors_whenRenderingUploadMetadata() throws IOException {
         String jsp = Files.readString(IMPORT_PARTIAL_JSP, StandardCharsets.UTF_8);
@@ -172,5 +309,26 @@ class EFormJspMigrationRegressionTest {
         assertThat(jsp).contains("<carlos:encode value='<%= importError %>' context=\"html\"/>");
         assertThat(jsp).doesNotContain("<li><%= error %></li>");
         assertThat(jsp).doesNotContain("<%=importError%>");
+    }
+
+    @Test
+    @DisplayName("upload partial JS strings containing localized messages should use carlos:forJavaScript so neither apostrophes nor double quotes in any locale break JavaScript")
+    void shouldUseJavaScriptEncoding_forLocalizedMessagesInCheckFormAndDisable() throws IOException {
+        // Two locales expose two different failure modes if messages are placed raw in JS strings:
+        //   Polish (msgFileMissing): kliknąć przycisk "Prześlij" — double quotes break a double-quoted string
+        //   French (msgFileMissing): Veuillez d'abord... — apostrophe breaks a single-quoted string
+        // The safe solution for both is to capture the message into a JSTL var and encode it with
+        // ${carlos:forJavaScript(var)}, which escapes backslashes, quotes, and control characters.
+        String jsp = Files.readString(UPLOAD_PARTIAL_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+            .doesNotContain("alert(\"<fmt:message")
+            .doesNotContain("alert('<fmt:message")
+            .doesNotContain(".subm.value = \"<fmt:message")
+            .doesNotContain(".subm.value = '<fmt:message")
+            .contains("<fmt:message key=\"eform.uploadhtml.msgFileMissing\" var=")
+            .contains("<fmt:message key=\"eform.uploadimages.processing\" var=")
+            .containsPattern("alert\\(\"\\$\\{carlos:forJavaScript\\([^)]+\\)\\}\"\\)")
+            .containsPattern("\\.subm\\.value = \"\\$\\{carlos:forJavaScript\\([^)]+\\)\\}\"");
     }
 }

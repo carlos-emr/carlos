@@ -10,7 +10,7 @@ This directory contains technical documentation for CARLOS EMR (Clinical Assisti
 
 | Category | Documents | Description |
 |----------|-----------|-------------|
-| **Testing** | [📂 test/](test/) | Comprehensive modern test framework documentation (JUnit 5) |
+| **Testing** | [📂 test/](test/)<br>[📂 ui-tests/](ui-tests/)<br>[eForm PDF Render Smoke Test](ui-tests/eform-pdf-render-smoke-test.md) | Modern test framework docs, browser-backed UI testing, and the eForm PDF smoke runbook |
 | **Architecture** | [Struts Actions Summary](struts-actions-summary.md)<br>[Struts Actions Detailed](struts-actions-detailed.md)<br>[Struts Web Endpoints](struts-web-endpoints.md)<br>[Integrator System Architecture](integrator-system-architecture.md) | System architecture, action mappings, and current endpoint/JSP routing rules |
 | **Security** | [Password System](Password_System.md) | Authentication and security architecture |
 | **APIs** | [API Collections Index](api-collections-index.md) | REST API documentation and collections |

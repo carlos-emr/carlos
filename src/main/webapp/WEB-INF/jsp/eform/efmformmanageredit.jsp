@@ -112,7 +112,7 @@
 
             <% if ((request.getAttribute("success") != null) && (errors.size() == 0)) { %>
             if (elementExists == null) {
-                window.opener.location.href = '<%=request.getContextPath()%>/administration?show=Forms';
+                window.location.href = '<%=request.getContextPath()%>/eform/efmformmanager';
             }
             <%}%>
         </script>

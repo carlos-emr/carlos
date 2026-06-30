@@ -48,6 +48,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { chromium } = require('playwright');
+const { buildArtifactPath } = require('./eform-local-playwright-utils');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -345,8 +346,9 @@ function assertDisplayImageFetchesSucceeded(imageName) {
   const timestamp = Date.now();
   const importedFormName = `Playwright Render Pipeline ${timestamp}`;
   const importedFormSubject = `Render pipeline ${timestamp}`;
-  const renderedPdfPath = path.join(screenshotDir, `eform-render-pipeline-${timestamp}.pdf`);
-  const screenshotPath = path.join(screenshotDir, `eform-render-pipeline-${timestamp}.png`);
+  const artifactBaseName = `eform-render-pipeline-${timestamp}`;
+  const renderedPdfPath = buildArtifactPath(screenshotDir, artifactBaseName, '.pdf');
+  const screenshotPath = buildArtifactPath(screenshotDir, artifactBaseName);
   let importedFid = null;
   let managerPage = null;
 
@@ -398,7 +400,6 @@ function assertDisplayImageFetchesSucceeded(imageName) {
     await popup.locator('#remoteDownloadButton').click();
     const download = await downloadPromise;
 
-    fs.mkdirSync(screenshotDir, { recursive: true });
     await download.saveAs(renderedPdfPath);
     const pdfBytes = fs.readFileSync(renderedPdfPath);
     assert(pdfBytes.subarray(0, 5).toString('utf8') === '%PDF-', 'Downloaded payload was not a PDF');
@@ -413,7 +414,7 @@ function assertDisplayImageFetchesSucceeded(imageName) {
     assert(!postDownloadState.warningMessage, `Unexpected warning after remote download: ${postDownloadState.warningMessage}`);
     assert(!postDownloadState.errorMessage, `Unexpected error after remote download: ${postDownloadState.errorMessage}`);
 
-    await popup.screenshot({ path: screenshotPath, fullPage: true });
+    await popup.screenshot({ path: screenshotPath, fullPage: true }); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- buildArtifactPath constrains output to a validated local artifact directory with a sanitized basename
 
     const fatalBadResponses = badResponses.filter((response) => !(response.label === 'eform-popup' && response.url.includes('/oscar/eform/displayImage?imagefile=')));
     const fatalConsoleIssues = consoleIssues.filter((issue) => issue.type !== 'dialog' &&

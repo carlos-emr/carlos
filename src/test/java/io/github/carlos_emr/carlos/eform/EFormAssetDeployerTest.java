@@ -25,15 +25,20 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
 import jakarta.servlet.ServletContext;
+import org.apache.commons.io.FileUtils;
 import org.junit.jupiter.api.*;
 import org.mockito.*;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermission;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -88,16 +93,7 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
         if (carlosPropertiesMock != null) {
             carlosPropertiesMock.close();
         }
-        // Clean up temp directory
-        if (tempDir != null) {
-            File[] files = tempDir.toFile().listFiles();
-            if (files != null) {
-                for (File f : files) {
-                    f.delete();
-                }
-            }
-            tempDir.toFile().delete();
-        }
+        FileUtils.deleteQuietly(tempDir != null ? tempDir.toFile() : null);
     }
 
     private InputStream toStream(String content) {
@@ -111,6 +107,8 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
     }
 
     @Nested
+    @Tag("unit")
+    @Tag("eform")
     @DisplayName("Asset Deployment")
     class AssetDeployment {
 
@@ -145,6 +143,39 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("Should fall back to regular move when atomic move is unsupported")
+        void shouldFallbackToRegularMove_whenAtomicMoveUnsupported() throws Exception {
+            when(mockProperties.getEformImageDirectory()).thenReturn(tempDir.toString());
+            when(mockServletContext.getResourceAsStream(RESOURCE_EDITCONTROL)).thenReturn(toStream("js content"));
+            when(mockServletContext.getResourceAsStream(RESOURCE_BLANK)).thenReturn(null);
+            when(mockServletContext.getResourceAsStream(RESOURCE_HELP)).thenReturn(null);
+
+            boolean[] fallbackUsed = {false};
+            EFormAssetDeployer fallbackDeployer = new EFormAssetDeployer() {
+                @Override
+                void moveTempFileAtomically(Path tempFile, Path targetPath) throws IOException {
+                    throw new AtomicMoveNotSupportedException(tempFile.toString(), targetPath.toString(), "test filesystem");
+                }
+
+                @Override
+                void moveTempFileWithoutAtomicOption(Path tempFile, Path targetPath) throws IOException {
+                    fallbackUsed[0] = true;
+                    super.moveTempFileWithoutAtomicOption(tempFile, targetPath);
+                }
+            };
+            fallbackDeployer.setServletContext(mockServletContext);
+
+            fallbackDeployer.afterPropertiesSet();
+
+            File deployed = new File(tempDir.toFile(), "editControl2.js");
+            assertThat(fallbackUsed[0]).isTrue();
+            assertThat(deployed).exists();
+            assertThat(Files.readString(deployed.toPath())).isEqualTo("js content");
+            assertThat(tempDir.toFile().listFiles((dir, name) -> name.startsWith("editControl2.js.") && name.endsWith(".tmp")))
+                .isEmpty();
+        }
+
+        @Test
         @DisplayName("Should skip deployment when target file already exists")
         void shouldSkipDeployment_whenTargetFileAlreadyExists() throws Exception {
             when(mockProperties.getEformImageDirectory()).thenReturn(tempDir.toString());
@@ -167,6 +198,8 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
     }
 
     @Nested
+    @Tag("unit")
+    @Tag("eform")
     @DisplayName("Configuration Edge Cases")
     class ConfigurationEdgeCases {
 
@@ -191,17 +224,79 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("Should skip deployment when image directory does not exist")
-        void shouldSkipDeployment_whenImageDirectoryDoesNotExist() {
-            when(mockProperties.getEformImageDirectory()).thenReturn("/nonexistent/path/eform/images");
+        @DisplayName("Should create directory and deploy assets when image directory does not exist")
+        void shouldCreateDirectoryAndDeployAssets_whenImageDirectoryDoesNotExist() {
+            Path missingDir = tempDir.resolve("missing-eform-images");
+
+            when(mockProperties.getEformImageDirectory()).thenReturn(missingDir.toString());
+            stubAllAssets();
 
             deployer.afterPropertiesSet();
 
+            assertThat(missingDir).isDirectory();
+            assertThat(missingDir.resolve("editControl2.js")).isRegularFile();
+            assertThat(missingDir.resolve("blank.rtl")).isRegularFile();
+            assertThat(missingDir.resolve("editor_help.html")).isRegularFile();
+        }
+
+
+        @Test
+        @DisplayName("Should apply owner-only permissions when POSIX permissions are supported")
+        void shouldApplyOwnerOnlyPermissions_whenPosixPermissionsSupported() throws Exception {
+            Assumptions.assumeTrue(Files.getFileStore(tempDir).supportsFileAttributeView("posix"));
+            Path missingDir = tempDir.resolve("posix-eform-images");
+
+            when(mockProperties.getEformImageDirectory()).thenReturn(missingDir.toString());
+            stubAllAssets();
+
+            deployer.afterPropertiesSet();
+
+            Set<PosixFilePermission> actualPermissions = Files.getPosixFilePermissions(missingDir);
+            assertThat(actualPermissions).containsExactlyInAnyOrder(
+                    PosixFilePermission.OWNER_READ,
+                    PosixFilePermission.OWNER_WRITE,
+                    PosixFilePermission.OWNER_EXECUTE);
+        }
+
+        @Test
+        @DisplayName("Should skip deployment when image directory cannot be created")
+        void shouldSkipDeployment_whenImageDirectoryCannotBeCreated() throws Exception {
+            // Block mkdirs by placing a regular file where a directory component must be
+            Path blocker = tempDir.resolve("blocked");
+            Files.writeString(blocker, "file");
+            Path blockedDir = blocker.resolve("eform-images");
+
+            when(mockProperties.getEformImageDirectory()).thenReturn(blockedDir.toString());
+
+            deployer.afterPropertiesSet();
+
+            assertThat(blocker).isRegularFile();
+            assertThat(Files.isDirectory(blockedDir)).isFalse();
+            assertThat(tempDir.resolve("editControl2.js")).doesNotExist();
+            assertThat(tempDir.resolve("blank.rtl")).doesNotExist();
+            assertThat(tempDir.resolve("editor_help.html")).doesNotExist();
+            verifyNoInteractions(mockServletContext);
+        }
+
+        @Test
+        @DisplayName("Should skip deployment when image directory path points to a file")
+        void shouldSkipDeployment_whenImageDirectoryPathPointsToFile() throws Exception {
+            Path imagePath = tempDir.resolve("images-as-file");
+            Files.writeString(imagePath, "not a directory");
+
+            when(mockProperties.getEformImageDirectory()).thenReturn(imagePath.toString());
+
+            deployer.afterPropertiesSet();
+
+            assertThat(imagePath).isRegularFile();
+            assertThat(Files.readString(imagePath)).isEqualTo("not a directory");
             verifyNoInteractions(mockServletContext);
         }
     }
 
     @Nested
+    @Tag("unit")
+    @Tag("eform")
     @DisplayName("Error Handling")
     class ErrorHandling {
 
@@ -253,13 +348,49 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
 
             assertThatCode(() -> deployer.afterPropertiesSet()).doesNotThrowAnyException();
 
+            // editControl2.js copy failed — must not produce a zero-byte or partial final file
+            assertThat(new File(tempDir.toFile(), "editControl2.js")).doesNotExist();
+            assertThat(tempDir.toFile().listFiles((dir, name) -> name.startsWith("editControl2.js.") && name.endsWith(".tmp")))
+                .isEmpty();
             // blank.rtl and editor_help.html should have been deployed despite editControl2.js failure
+            assertThat(new File(tempDir.toFile(), "blank.rtl")).exists();
+            assertThat(new File(tempDir.toFile(), "editor_help.html")).exists();
+        }
+
+        @Test
+        @DisplayName("Should not delete asset created concurrently when copy fails")
+        void shouldNotDeleteAssetCreatedConcurrently_whenCopyFails() throws Exception {
+            when(mockProperties.getEformImageDirectory()).thenReturn(tempDir.toString());
+            File concurrentAsset = new File(tempDir.toFile(), "editControl2.js");
+
+            InputStream failingStream = mock(InputStream.class);
+            when(failingStream.read(any(byte[].class), anyInt(), anyInt()))
+                .thenAnswer(invocation -> {
+                    Files.writeString(concurrentAsset.toPath(), "concurrent valid content");
+                    throw new IOException("disk full");
+                });
+            when(failingStream.transferTo(any())).thenAnswer(invocation -> {
+                Files.writeString(concurrentAsset.toPath(), "concurrent valid content");
+                throw new IOException("disk full");
+            });
+            when(mockServletContext.getResourceAsStream(RESOURCE_EDITCONTROL)).thenReturn(failingStream);
+            when(mockServletContext.getResourceAsStream(RESOURCE_BLANK)).thenReturn(toStream("blank"));
+            when(mockServletContext.getResourceAsStream(RESOURCE_HELP)).thenReturn(toStream("help"));
+
+            assertThatCode(() -> deployer.afterPropertiesSet()).doesNotThrowAnyException();
+
+            assertThat(concurrentAsset).exists();
+            assertThat(Files.readString(concurrentAsset.toPath())).isEqualTo("concurrent valid content");
+            assertThat(tempDir.toFile().listFiles((dir, name) -> name.startsWith("editControl2.js.") && name.endsWith(".tmp")))
+                .isEmpty();
             assertThat(new File(tempDir.toFile(), "blank.rtl")).exists();
             assertThat(new File(tempDir.toFile(), "editor_help.html")).exists();
         }
     }
 
     @Nested
+    @Tag("unit")
+    @Tag("eform")
     @DisplayName("ServletContextAware")
     class ServletContextAwareTests {
 

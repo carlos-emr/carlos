@@ -1,63 +1,14 @@
-<%--
-
-    Copyright (c) 2024-2026. CARLOS EMR Project. All Rights Reserved.
-    This software is published under the GPL GNU General Public License.
-    This program is free software; you can redistribute it and/or
-    modify it under the terms of the GNU General Public License
-    as published by the Free Software Foundation; either version 2
-    of the License, or (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-
-    Maintained by the CARLOS EMR Project (2026+).
-    https://github.com/carlos-emr/carlos
-    CARLOS has no affiliation with OSCAR or McMaster University.
-
---%>
-<%--
-    displayAttachedFiles - AJAX endpoint returning attached file list HTML
-
-    Returns an HTML fragment listing files attached to a saved eForm instance,
-    with color-coded CSS classes (.doc, .lab, .hrm, .eform) matching the RTL
-    sidebar legend. Displayed in the #tdAttachedDocs panel on the right side
-    of the Rich Text Letter editor.
-
-    Architecture:
-      - Called by: fetchAttached() in the DB-stored form_html (via $.ajax)
-      - URL: ../eform/displayAttachedFiles?requestId=<fdid>
-      - Response: HTML fragment (not a full page) — injected via jQuery .html()
-      - The fdid comes from the ${fdid} token replaced by EForm.setFdid()
-
-    Note on ${fdid} token:
-      For NEW forms (via efmformadd_data), the ${fdid} token is NOT replaced
-      because no eform_data record exists yet. The request arrives with the literal
-      string "${fdid}" as the requestId, which fails the \d+ regex check and
-      returns "No attachments" — this is expected behavior.
-
-    Parameters:
-      - requestId: fdid of the eForm data instance (must be digits)
-
-    Security:
-      - Requires _eform read privilege
-      - requestId validated with \d+ regex before Integer.parseInt()
-      - All IDs OWASP-encoded in output
-
-    @since 2026-03-22
---%>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.EFormDataDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.EFormData" %>
+<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.data.EctFormData" %>
+<%@ page import="java.util.Collections" %>
 <%@ page import="java.util.List" %>
 <%@ page contentType="text/html; charset=UTF-8" %>
 <%
@@ -69,23 +20,38 @@
     }
 
     String requestId = request.getParameter("requestId");
-    if (requestId == null || !requestId.matches("\\d+")) {
+    if (!StringUtils.isInteger(requestId)) {
         out.print("<em>No attachments</em>");
         return;
     }
 
-    Integer fdid = Integer.parseInt(requestId);
+    Integer fdid = Integer.valueOf(requestId);
+    EFormDataDao eFormDataDao = SpringUtils.getBean(EFormDataDao.class);
+    EFormData eFormData = eFormDataDao.find(fdid);
+    Integer demographicNo = eFormData != null ? eFormData.getDemographicId() : null;
+    if (demographicNo == null) {
+        out.print("<em>No attachments</em>");
+        return;
+    }
+
     DocumentAttachmentManager attachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
+    boolean canReadDocuments = securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "r", null);
+    boolean canReadLabs = securityInfoManager.hasPrivilege(loggedInInfo, "_lab", "r", null);
+    boolean canReadHrm = securityInfoManager.hasPrivilege(loggedInInfo, "_hrm", "r", null);
+    boolean canReadEforms = securityInfoManager.hasPrivilege(loggedInInfo, "_eform", "r", null);
+    boolean canReadForms = securityInfoManager.hasPrivilege(loggedInInfo, "_form", "r", null);
 
     List<String> docIds;
     List<String> labIds;
     List<String> hrmIds;
     List<String> eformIds;
+    List<EctFormData.PatientForm> attachedForms;
     try {
-        docIds = attachmentManager.getEFormAttachments(loggedInInfo, fdid, DocumentType.DOC, null);
-        labIds = attachmentManager.getEFormAttachments(loggedInInfo, fdid, DocumentType.LAB, null);
-        hrmIds = attachmentManager.getEFormAttachments(loggedInInfo, fdid, DocumentType.HRM, null);
-        eformIds = attachmentManager.getEFormAttachments(loggedInInfo, fdid, DocumentType.EFORM, null);
+        docIds = canReadDocuments ? attachmentManager.getEFormAttachments(loggedInInfo, fdid, DocumentType.DOC, demographicNo) : Collections.emptyList();
+        labIds = canReadLabs ? attachmentManager.getEFormAttachments(loggedInInfo, fdid, DocumentType.LAB, demographicNo) : Collections.emptyList();
+        hrmIds = canReadHrm ? attachmentManager.getEFormAttachments(loggedInInfo, fdid, DocumentType.HRM, demographicNo) : Collections.emptyList();
+        eformIds = canReadEforms ? attachmentManager.getEFormAttachments(loggedInInfo, fdid, DocumentType.EFORM, demographicNo) : Collections.emptyList();
+        attachedForms = canReadForms ? attachmentManager.getFormsAttachedToEForms(loggedInInfo, fdid, DocumentType.FORM, demographicNo) : Collections.emptyList();
     } catch (Exception e) {
         io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Failed to load attachments for fdid=" + fdid, e);
         out.print("<em>Error loading attachments</em>");
@@ -95,7 +61,8 @@
     boolean hasAttachments = (docIds != null && !docIds.isEmpty())
             || (labIds != null && !labIds.isEmpty())
             || (hrmIds != null && !hrmIds.isEmpty())
-            || (eformIds != null && !eformIds.isEmpty());
+            || (eformIds != null && !eformIds.isEmpty())
+            || (attachedForms != null && !attachedForms.isEmpty());
 
     if (!hasAttachments) {
         out.print("<em>No attachments</em>");
@@ -113,4 +80,7 @@
 <% } } %>
 <% if (eformIds != null) { for (String id : eformIds) { %>
 <span class="eform">EForm #<carlos:encode value='<%= id %>' context="html"/></span><br>
+<% } } %>
+<% if (attachedForms != null) { for (EctFormData.PatientForm form : attachedForms) { %>
+<span class="form">Form #<carlos:encode value='<%= form.getFormId() %>' context="html"/></span><br>
 <% } } %>

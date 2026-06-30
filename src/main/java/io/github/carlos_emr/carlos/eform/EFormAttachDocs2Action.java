@@ -27,95 +27,147 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-
 package io.github.carlos_emr.carlos.eform;
 
 import java.io.IOException;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.commons.lang3.StringUtils;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-
-import io.github.carlos_emr.CarlosProperties;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
-public class EFormAttachDocs2Action
-        extends ActionSupport {
+/**
+ * Handles Rich Text Letter attachment submissions for saved eForms.
+ *
+ * <p>The action validates the saved eForm identifier and demographic number, then fans the
+ * incoming checkbox selections back out across the five attachment families supported by the
+ * popup: documents, labs, HRM reports, eForms, and encounter forms.</p>
+ */
+public class EFormAttachDocs2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+    private final transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final transient DocumentAttachmentManager documentAttachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-
-    public String execute()
-
-            throws ServletException, IOException {
-
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eform", "u", null)) {
+    /**
+     * Validates the request identifiers and persists the selected attachment ids for each
+     * supported document family.
+     *
+     * @return {@link ActionSupport#NONE} after writing the HTTP response directly
+     */
+    @Override
+    public String execute() throws ServletException, IOException {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", "u", null)) {
             throw new SecurityException("missing required sec object (_eform)");
         }
 
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-
-        String provNo = providerNo;
-
-        if (StringUtils.isEmpty(requestId)) {
+        if (StringUtils.isBlank(requestId) || !StringUtils.isNumeric(requestId)) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing requestId");
+            return NONE;
+        }
+        if (StringUtils.isBlank(demoNo) || !StringUtils.isNumeric(demoNo)) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing demoNo");
+            return NONE;
+        }
+
+        String effectiveProviderNo = StringUtils.defaultIfBlank(providerNo, loggedInInfo.getLoggedInProviderNo());
+        Integer requestIdInt;
+        Integer demographicNoInt;
+        try {
+            requestIdInt = Integer.valueOf(requestId);
+            demographicNoInt = Integer.valueOf(demoNo);
+        } catch (NumberFormatException e) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid requestId or demoNo");
+            return NONE;
+        }
+
+        attachSelections(loggedInInfo, DocumentType.DOC, collectDocIds(), "_edoc", effectiveProviderNo, requestIdInt, demographicNoInt);
+        attachSelections(loggedInInfo, DocumentType.LAB, collectTypedIds("labNo", 'L'), "_lab", effectiveProviderNo, requestIdInt, demographicNoInt);
+        attachSelections(loggedInInfo, DocumentType.HRM, collectTypedIds("hrmNo", 'H'), "_hrm", effectiveProviderNo, requestIdInt, demographicNoInt);
+        attachSelections(loggedInInfo, DocumentType.EFORM, collectTypedIds("eFormNo", 'E'), "_eform", effectiveProviderNo, requestIdInt, demographicNoInt);
+        attachSelections(loggedInInfo, DocumentType.FORM, collectTypedIds("formNo", 'F'), "_form", effectiveProviderNo, requestIdInt, demographicNoInt);
+
+        writeOkResponse();
+        return NONE;
+    }
+
+    private void attachSelections(LoggedInInfo loggedInInfo, DocumentType documentType, String[] submittedIds,
+            String requiredReadPrivilege, String effectiveProviderNo, Integer requestIdInt, Integer demographicNoInt) {
+        String[] effectiveSelections = securityInfoManager.hasPrivilege(loggedInInfo, requiredReadPrivilege, "r", null)
+                ? submittedIds
+                : getExistingAttachmentIds(loggedInInfo, documentType, requestIdInt, demographicNoInt);
+        documentAttachmentManager.attachToEForm(loggedInInfo, documentType, effectiveSelections, effectiveProviderNo, requestIdInt, demographicNoInt);
+    }
+
+    private String[] getExistingAttachmentIds(LoggedInInfo loggedInInfo, DocumentType documentType, Integer requestIdInt, Integer demographicNoInt) {
+        List<String> existingAttachmentIds = documentAttachmentManager.getEFormAttachments(loggedInInfo, requestIdInt, documentType, demographicNoInt);
+        return existingAttachmentIds.toArray(new String[0]);
+    }
+
+    private String[] collectDocIds() {
+        Set<String> values = new LinkedHashSet<>();
+        addTypedValues(values, request.getParameterValues("docNo"));
+        if (attachedDocs != null) {
+            for (String value : attachedDocs) {
+                String docId = normalizeAttachedDocId(value);
+                if (docId != null) {
+                    values.add(docId);
+                }
+            }
+        }
+        return values.toArray(new String[0]);
+    }
+
+    private String normalizeAttachedDocId(String value) {
+        if (StringUtils.isBlank(value)) {
             return null;
         }
-        if (!CarlosProperties.getInstance().isPropertyActive("consultation_indivica_attachment_enabled")) {
-            String[] arrDocs = attachedDocs;
-
-            EFormAttachDocs Doc = new EFormAttachDocs(provNo, demoNo, requestId, arrDocs);
-            Doc.attach(loggedInInfo);
-
-            EFormAttachLabs Lab = new EFormAttachLabs(provNo, demoNo, requestId, arrDocs);
-            Lab.attach(loggedInInfo);
-
-            EFormAttachHRMReports hrmReports = new EFormAttachHRMReports(provNo, demoNo, requestId, arrDocs);
-            hrmReports.attach();
-
-            EFormAttachEForms eForms = new EFormAttachEForms(provNo, demoNo, requestId, arrDocs);
-            eForms.attach(loggedInInfo);
-        } else {
-            String[] labs = request.getParameterValues("labNo");
-            String[] docs = request.getParameterValues("docNo");
-            String[] hrmReportIds = request.getParameterValues("hrmNo");
-            String[] eFormIds = request.getParameterValues("eFormNo");
-
-            if (labs == null) {
-                labs = new String[]{};
-            }
-            if (docs == null) {
-                docs = new String[]{};
-            }
-            if (hrmReportIds == null) {
-                hrmReportIds = new String[]{};
-            }
-            if (eFormIds == null) {
-                eFormIds = new String[]{};
-            }
-
-            EFormAttachDocs Doc = new EFormAttachDocs(provNo, demoNo, requestId, docs);
-            Doc.attach(loggedInInfo);
-
-            EFormAttachLabs Lab = new EFormAttachLabs(provNo, demoNo, requestId, labs);
-            Lab.attach(loggedInInfo);
-            EFormAttachHRMReports hrmReports = new EFormAttachHRMReports(provNo, demoNo, requestId, hrmReportIds);
-            hrmReports.attach();
-            EFormAttachEForms eForms = new EFormAttachEForms(provNo, demoNo, requestId, eFormIds);
-            eForms.attach(loggedInInfo);
+        if (!Character.isLetter(value.charAt(0))) {
+            return value;
         }
-        writeOkResponse();
-        return null;
+        return value.charAt(0) == 'D' && value.length() > 1 ? value.substring(1) : null;
+    }
+
+    private String[] collectTypedIds(String parameterName, char legacyPrefix) {
+        Set<String> values = new LinkedHashSet<>();
+        addTypedValues(values, request.getParameterValues(parameterName));
+        if (attachedDocs != null) {
+            for (String value : attachedDocs) {
+                if (StringUtils.isBlank(value) || value.length() < 2) {
+                    continue;
+                }
+                if (value.charAt(0) == legacyPrefix) {
+                    values.add(value.substring(1));
+                }
+            }
+        }
+        return values.toArray(new String[0]);
+    }
+
+    private void addTypedValues(Set<String> values, String[] parameters) {
+        if (parameters == null) {
+            return;
+        }
+        for (String value : parameters) {
+            if (StringUtils.isNotBlank(value)) {
+                values.add(value);
+            }
+        }
     }
 
     private void writeOkResponse() throws IOException {
