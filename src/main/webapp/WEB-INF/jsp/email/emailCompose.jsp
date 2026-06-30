@@ -271,16 +271,16 @@
                                 <div class="mb-3">
                                     <label class="form-label" for="receiverName">${emailComposePatientLabel}</label>
                                     <input class="autocomplete form-control" type="text" name="recipient"
-                                           value="${ receiverName }" id="receiverName" placeholder="${emailComposeSearchPatientPlaceholder}"
+                                           value="${carlos:forHtmlAttribute(receiverName)}" id="receiverName" placeholder="${emailComposeSearchPatientPlaceholder}"
                                            disabled/>
                                 </div>
                                 <div id="receiverEmailsContainer">
                                     <c:forEach items="${ receiverEmailList }" var="receiverEmail" varStatus="loop">
                                         <div class="mb-3">
-                                            <label class="form-label" for="receiverEmailAddress${loop.index + 1}">${emailComposeEmailAddressesLabel}</label>
+                                            <label class="form-label" for="receiverEmailAddress${loop.count}">${emailComposeEmailAddressesLabel}</label>
                                             <div class="input-group">
                                                 <input class="form-control" type="email" name="receiverEmailAddress"
-                                                       value="${ receiverEmail }" id="receiverEmailAddress${loop.index + 1}"
+                                                       value="${carlos:forHtmlAttribute(receiverEmail)}" id="receiverEmailAddress${loop.count}"
                                                        placeholder="example@example.com" disabled/>
                                                 <button type="button" title="${emailComposeRemoveEmail}" class="btn btn-danger"
                                                         onclick="removeReceiverEmail(this)"><i class="fa-solid fa-xmark"></i>
@@ -288,7 +288,7 @@
                                             </div>
                                             <c:if test="${not empty receiverEmail}">
                                                 <input type="hidden" name="receiverEmailAddress"
-                                                       value="${receiverEmail}"/>
+                                                       value="${carlos:forHtmlAttribute(receiverEmail)}"/>
                                             </c:if>
                                         </div>
                                     </c:forEach>
