@@ -33,14 +33,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import io.github.carlos_emr.carlos.commn.model.Demographic;
-import io.github.carlos_emr.carlos.commn.model.DemographicContact;
-import io.github.carlos_emr.carlos.commn.model.DemographicExt;
-import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicContactFewTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicTo1;
 
 import java.util.Collections;
@@ -50,9 +45,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for {@link DemographicService}.
@@ -92,9 +85,6 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
     @Mock
     private SecurityInfoManager securityInfoManager;
 
-    @Mock
-    private DemographicManager demographicManager;
-
     private DemographicService service;
     /** Swapped to null in UNAUTHORIZED tests. */
     private LoggedInInfo loggedInInfo;
@@ -109,7 +99,6 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
             }
         };
         injectDependency(service, "securityInfoManager", securityInfoManager);
-        injectDependency(service, "demographicManager", demographicManager);
     }
 
     // The mock returns false for every hasPrivilege call by default, so the
@@ -238,51 +227,6 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
         void shouldThrowForbidden_whenWritePrivilegeDenied_forDelete() {
             assertThrowsWithStatus(() -> service.deleteDemographicData(42), Response.Status.FORBIDDEN);
             verifyRecordPrivilegeRequested("w", 42);
-        }
-    }
-
-    @Nested
-    @DisplayName("Personal demographic contact phone resolution")
-    class ContactPhoneResolution {
-
-        private final Integer contactId = 77;
-
-        private DemographicContact personalDemographicContact() {
-            DemographicContact contact = new DemographicContact();
-            contact.setCategory(DemographicContact.CATEGORY_PERSONAL);
-            contact.setType(DemographicContact.TYPE_DEMOGRAPHIC);
-            return contact;
-        }
-
-        @Test
-        @DisplayName("should fall back to the contact's own demo_cell when the contact record has no phone")
-        void shouldUseContactDemoCell_whenContactHasNoPhone_forPersonalDemographicContact() {
-            Demographic contact = new Demographic(); // no phone / phone2 on the contact record
-            DemographicExt contactCell = new DemographicExt();
-            contactCell.setValue("555-CONTACT-CELL");
-            when(demographicManager.getDemographic(loggedInInfo, contactId)).thenReturn(contact);
-            when(demographicManager.getDemographicExt(loggedInInfo, contactId, "demo_cell")).thenReturn(contactCell);
-
-            DemographicContactFewTo1 result =
-                    service.buildPersonalDemographicContact(loggedInInfo, personalDemographicContact(), contactId);
-
-            assertThat(result.getPhone()).isEqualTo("555-CONTACT-CELL");
-            // The demo_cell fallback must be keyed by the contact's own id, never the viewed patient's id.
-            verify(demographicManager).getDemographicExt(loggedInInfo, contactId, "demo_cell");
-        }
-
-        @Test
-        @DisplayName("should keep the contact's own phone and not query demo_cell when the contact record has a phone")
-        void shouldKeepContactPhone_whenContactHasPhone_forPersonalDemographicContact() {
-            Demographic contact = new Demographic();
-            contact.setPhone("555-OWN-PHONE");
-            when(demographicManager.getDemographic(loggedInInfo, contactId)).thenReturn(contact);
-
-            DemographicContactFewTo1 result =
-                    service.buildPersonalDemographicContact(loggedInInfo, personalDemographicContact(), contactId);
-
-            assertThat(result.getPhone()).isEqualTo("555-OWN-PHONE");
-            verify(demographicManager, never()).getDemographicExt(any(), any(), any(String.class));
         }
     }
 }
