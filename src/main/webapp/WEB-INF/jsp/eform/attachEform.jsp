@@ -67,8 +67,12 @@
     List<AttachmentLabResultData> allLabsSortedByVersions = securityInfoManager.hasPrivilege(loggedInInfo, "_lab", "r", null)
             ? attachmentManager.getAllLabsSortedByVersions(loggedInInfo, demoNo)
             : new ArrayList<>();
-    List<EctFormData.PatientForm> allForms = securityInfoManager.hasPrivilege(loggedInInfo, "_form", "r", null)
+    boolean canReadForms = securityInfoManager.hasPrivilege(loggedInInfo, "_form", "r", null);
+    List<EctFormData.PatientForm> allForms = canReadForms
             ? formsManager.getEncounterFormsbyDemographicNumber(loggedInInfo, demographicNo, false, true)
+            : new ArrayList<>();
+    List<EctFormData.PatientForm> allFormVersions = canReadForms
+            ? formsManager.getEncounterFormsbyDemographicNumber(loggedInInfo, demographicNo, true, true)
             : new ArrayList<>();
     List<EFormData> allEForms = securityInfoManager.hasPrivilege(loggedInInfo, "_eform", "r", null)
             ? (fdid != null ? attachmentManager.getAllEFormsExpectFdid(loggedInInfo, demographicNo, fdid) : io.github.carlos_emr.carlos.eform.EFormUtil.listPatientEformsCurrent(demographicNo, true))
@@ -79,9 +83,25 @@
     Set<String> attachedHrmIds = fdid != null ? new HashSet<>(attachmentManager.getEFormAttachments(loggedInInfo, fdid, DocumentType.HRM, demographicNo)) : Collections.emptySet();
     Set<String> attachedEFormIds = fdid != null ? new HashSet<>(attachmentManager.getEFormAttachments(loggedInInfo, fdid, DocumentType.EFORM, demographicNo)) : Collections.emptySet();
     Set<String> attachedFormIds = new HashSet<>();
+    Set<String> currentFormIds = new HashSet<>();
+    List<EctFormData.PatientForm> attachedOlderForms = new ArrayList<>();
+    Map<String, EctFormData.PatientForm> allFormVersionsById = new HashMap<>();
+    for (EctFormData.PatientForm form : allForms) {
+        currentFormIds.add(form.getFormId());
+    }
+    for (EctFormData.PatientForm form : allFormVersions) {
+        allFormVersionsById.put(form.getFormId(), form);
+    }
     if (fdid != null) {
         for (EctFormData.PatientForm form : attachmentManager.getFormsAttachedToEForms(loggedInInfo, fdid, DocumentType.FORM, demographicNo)) {
-            attachedFormIds.add(form.getFormId());
+            String attachedFormId = form.getFormId();
+            attachedFormIds.add(attachedFormId);
+            if (!currentFormIds.contains(attachedFormId)) {
+                EctFormData.PatientForm attachedOlderForm = allFormVersionsById.get(attachedFormId);
+                if (attachedOlderForm != null) {
+                    attachedOlderForms.add(attachedOlderForm);
+                }
+            }
         }
     }
 %>
@@ -198,11 +218,21 @@
         <div class="section">
             <h4 class="form">Forms Current Only</h4>
             <div class="list">
-                <% if (allForms.isEmpty()) { %>
+                <% if (allForms.isEmpty() && attachedOlderForms.isEmpty()) { %>
                 <em class="muted">No encounter forms available</em>
                 <% } else { for (EctFormData.PatientForm form : allForms) { String formId = form.getFormId(); String formCheckboxId = buildDomId("formNo", formId); String formLabelId = buildDomId(formCheckboxId, "label"); String formDateId = buildDomId(formCheckboxId, "date"); %>
                 <div class="item">
                     <input type="checkbox" id="<%= SafeEncode.forHtmlAttribute(formCheckboxId) %>" name="formNo" value="<%= SafeEncode.forHtmlAttribute(formId) %>" aria-labelledby="<%= SafeEncode.forHtmlAttribute(formLabelId + " " + formDateId) %>" <%= attachedFormIds.contains(formId) ? "checked" : "" %>>
+                    <span id="<%= SafeEncode.forHtmlAttribute(formLabelId) %>">
+                        <carlos:encode value='<%= form.getFormName() %>' context="html"/>
+                    </span>
+                    <span class="muted" id="<%= SafeEncode.forHtmlAttribute(formDateId) %>"><carlos:encode value='<%= form.getEdited() %>' context="html"/></span>
+                </div>
+                <% }
+                   for (EctFormData.PatientForm form : attachedOlderForms) { String formId = form.getFormId(); String formCheckboxId = buildDomId("formNo", formId); String formLabelId = buildDomId(formCheckboxId, "label"); String formDateId = buildDomId(formCheckboxId, "date"); %>
+                <div class="item">
+                    <input type="checkbox" id="<%= SafeEncode.forHtmlAttribute(formCheckboxId) %>" name="formNo" value="<%= SafeEncode.forHtmlAttribute(formId) %>" aria-labelledby="<%= SafeEncode.forHtmlAttribute(formLabelId + " " + formDateId) %>" checked>
+                    <span class="muted">Earlier version</span>
                     <span id="<%= SafeEncode.forHtmlAttribute(formLabelId) %>">
                         <carlos:encode value='<%= form.getFormName() %>' context="html"/>
                     </span>

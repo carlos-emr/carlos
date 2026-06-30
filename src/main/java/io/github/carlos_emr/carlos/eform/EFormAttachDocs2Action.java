@@ -31,6 +31,7 @@ package io.github.carlos_emr.carlos.eform;
 
 import java.io.IOException;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 import jakarta.servlet.ServletException;
@@ -95,14 +96,27 @@ public class EFormAttachDocs2Action extends ActionSupport {
             return NONE;
         }
 
-        documentAttachmentManager.attachToEForm(loggedInInfo, DocumentType.DOC, collectDocIds(), effectiveProviderNo, requestIdInt, demographicNoInt);
-        documentAttachmentManager.attachToEForm(loggedInInfo, DocumentType.LAB, collectTypedIds("labNo", 'L'), effectiveProviderNo, requestIdInt, demographicNoInt);
-        documentAttachmentManager.attachToEForm(loggedInInfo, DocumentType.HRM, collectTypedIds("hrmNo", 'H'), effectiveProviderNo, requestIdInt, demographicNoInt);
-        documentAttachmentManager.attachToEForm(loggedInInfo, DocumentType.EFORM, collectTypedIds("eFormNo", 'E'), effectiveProviderNo, requestIdInt, demographicNoInt);
-        documentAttachmentManager.attachToEForm(loggedInInfo, DocumentType.FORM, collectTypedIds("formNo", 'F'), effectiveProviderNo, requestIdInt, demographicNoInt);
+        attachSelections(loggedInInfo, DocumentType.DOC, collectDocIds(), "_edoc", effectiveProviderNo, requestIdInt, demographicNoInt);
+        attachSelections(loggedInInfo, DocumentType.LAB, collectTypedIds("labNo", 'L'), "_lab", effectiveProviderNo, requestIdInt, demographicNoInt);
+        attachSelections(loggedInInfo, DocumentType.HRM, collectTypedIds("hrmNo", 'H'), "_hrm", effectiveProviderNo, requestIdInt, demographicNoInt);
+        attachSelections(loggedInInfo, DocumentType.EFORM, collectTypedIds("eFormNo", 'E'), "_eform", effectiveProviderNo, requestIdInt, demographicNoInt);
+        attachSelections(loggedInInfo, DocumentType.FORM, collectTypedIds("formNo", 'F'), "_form", effectiveProviderNo, requestIdInt, demographicNoInt);
 
         writeOkResponse();
         return NONE;
+    }
+
+    private void attachSelections(LoggedInInfo loggedInInfo, DocumentType documentType, String[] submittedIds,
+            String requiredReadPrivilege, String effectiveProviderNo, Integer requestIdInt, Integer demographicNoInt) {
+        String[] effectiveSelections = securityInfoManager.hasPrivilege(loggedInInfo, requiredReadPrivilege, "r", null)
+                ? submittedIds
+                : getExistingAttachmentIds(loggedInInfo, documentType, requestIdInt, demographicNoInt);
+        documentAttachmentManager.attachToEForm(loggedInInfo, documentType, effectiveSelections, effectiveProviderNo, requestIdInt, demographicNoInt);
+    }
+
+    private String[] getExistingAttachmentIds(LoggedInInfo loggedInInfo, DocumentType documentType, Integer requestIdInt, Integer demographicNoInt) {
+        List<String> existingAttachmentIds = documentAttachmentManager.getEFormAttachments(loggedInInfo, requestIdInt, documentType, demographicNoInt);
+        return existingAttachmentIds.toArray(new String[0]);
     }
 
     private String[] collectDocIds() {

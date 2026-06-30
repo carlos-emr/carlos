@@ -226,6 +226,20 @@ class EFormJspMigrationRegressionTest {
     }
 
     @Test
+    @DisplayName("attachment popup should preserve already-attached older encounter form revisions")
+    void shouldPreserveAlreadyAttachedOlderEncounterForms_whenRenderingAttachPopup() throws IOException {
+        String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/eform/attachEform.jsp"), StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("getEncounterFormsbyDemographicNumber(loggedInInfo, demographicNo, false, true)")
+                .contains("getEncounterFormsbyDemographicNumber(loggedInInfo, demographicNo, true, true)")
+                .contains("List<EctFormData.PatientForm> attachedOlderForms = new ArrayList<>()")
+                .contains("!currentFormIds.contains(attachedFormId)")
+                .contains("allForms.isEmpty() && attachedOlderForms.isEmpty()")
+                .contains("Earlier version");
+    }
+
+    @Test
     @DisplayName("attachment popup should HTML-attribute encode generated ids and values")
     void shouldEncodeAttachmentCheckboxAttributes_whenRenderingAttachPopup() throws IOException {
         String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/eform/attachEform.jsp"), StandardCharsets.UTF_8);
