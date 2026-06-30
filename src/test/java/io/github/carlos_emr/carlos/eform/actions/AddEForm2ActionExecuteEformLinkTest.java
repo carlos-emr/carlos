@@ -85,6 +85,7 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
         mockitoMocks = MockitoAnnotations.openMocks(this);
 
         mockRequest = new MockHttpServletRequest();
+        mockRequest.setMethod("POST");
         mockResponse = new MockHttpServletResponse();
 
         // Explicitly register only the Spring beans this test expects to use.
@@ -148,6 +149,35 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
         if (loggedInInfoMock != null) loggedInInfoMock.close();
         if (servletActionContextMock != null) servletActionContextMock.close();
         if (mockitoMocks != null) mockitoMocks.close();
+    }
+
+    @Test
+    @DisplayName("should reject GET requests before saving")
+    void shouldRejectGetRequests_beforeSaving() {
+        mockRequest.setMethod("GET");
+
+        AddEForm2Action action = new AddEForm2Action();
+        String result = action.execute();
+
+        assertThat(result).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(jakarta.servlet.http.HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        verify(mockEformDataManager, never()).saveEformData(any(), any());
+    }
+
+    @Test
+    @DisplayName("should expose toolbar error state when saveAsEdoc generation fails")
+    void shouldExposeToolbarErrorState_whenSaveAsEdocGenerationFails() throws Exception {
+        mockRequest.setParameter("saveAsEdoc", "true");
+        doThrow(new io.github.carlos_emr.carlos.utility.PDFGenerationException("save failed"))
+                .when(mockDocumentAttachmentManager).saveEFormAsEDoc(any(), any());
+
+        AddEForm2Action action = new AddEForm2Action();
+        String result = action.execute();
+
+        assertThat(result).isEqualTo("error");
+        assertThat(mockRequest.getAttribute("error")).isEqualTo("true");
+        assertThat(mockRequest.getAttribute("errorMessage"))
+                .isEqualTo("This eForm (and attachments, if applicable) could not be added to this patient’s documents.");
     }
 
     @Test

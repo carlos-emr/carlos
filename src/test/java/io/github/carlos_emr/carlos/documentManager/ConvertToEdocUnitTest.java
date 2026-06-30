@@ -2,6 +2,7 @@ package io.github.carlos_emr.carlos.documentManager;
 
 import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import org.jsoup.nodes.Document;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -34,29 +35,34 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
         assertThat(document.outerHtml()).doesNotContain("bad -- comment--");
     }
 
+
     @Test
-    @DisplayName("should translate inline background asset paths during tidy")
-    void shouldTranslateInlineBackgroundAssetPaths_whenTidyingDocument(@TempDir Path tempDir) throws Exception {
-        Path image = Files.createFile(tempDir.resolve("stamp.png"));
+    @DisplayName("should remove unresolved external background and css urls during tidy")
+    void shouldRemoveUnresolvedExternalBackgroundAndCssUrls_whenTidyingDocument() {
+        String html = "<html><body background=\"https://evil.example/tracker.png\" style=\"background-image:url('https://evil.example/tracker.png')\">x</body></html>";
 
-        String html = "<html><body style=\"background-image:url('stamp.png')\"><div background=\"stamp.png\">x</div></body></html>";
+        String tidied = ConvertToEdoc.tidyDocument(html);
 
-        String tidied = ConvertToEdoc.tidyDocument(html, tempDir.toString());
-
-        assertThat(tidied).contains(image.toAbsolutePath().toString());
+        assertThat(tidied)
+                .doesNotContain("https://evil.example/tracker.png")
+                .doesNotContain("background=\"https://evil.example/tracker.png\"")
+                .contains("background-image:url('')");
     }
 
     @Test
-    @DisplayName("should not translate inline background asset paths outside the allowed real path root")
-    void shouldNotTranslateInlineBackgroundAssetPaths_whenOutsideAllowedRealPathRoot(@TempDir Path tempDir) throws Exception {
-        Path externalDir = Files.createDirectory(tempDir.resolve("external"));
-        Path externalImage = Files.createFile(externalDir.resolve("outside-stamp.png"));
+    @DisplayName("should preserve embedded data resource urls during tidy")
+    void shouldPreserveEmbeddedDataResourceUrls_whenTidyingDocument() {
+        String html = "<html><body background=\"data:image/png;base64,abc\" style=\"background-image:url('data:image/png;base64,abc')\">x</body></html>";
 
-        String html = "<html><body style=\"background-image:url('" + externalImage.toAbsolutePath() + "')\"><div>x</div></body></html>";
+        String tidied = ConvertToEdoc.tidyDocument(html);
 
-        String tidied = ConvertToEdoc.tidyDocument(html, tempDir.toString());
-
-        assertThat(tidied).doesNotContain(externalImage.toAbsolutePath().toString());
+        // data: URIs pass through translateSingleResourcePath unchanged, then SafeEncode.forCssString
+        // encodes '/' as '\2f' in the CSS url() context (FlyingSaucer's CSS parser decodes it back).
+        // The background= attribute is not CSS-encoded, so the raw URI is preserved there.
+        assertThat(tidied)
+                .contains("data:image/png;base64,abc")
+                .contains("background-image:url('" + SafeEncode.forCssString("data:image/png;base64,abc") + "')")
+                .contains("background=\"data:image/png;base64,abc\"");
     }
 
     @Test
@@ -68,34 +74,35 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
 
         String tidied = ConvertToEdoc.tidyDocument(html, tempDir.toString());
 
-        assertThat(tidied).contains(image.toAbsolutePath().toString());
+        // SafeEncode.forCssString encodes '/' in the absolute path — match the encoded form.
+        assertThat(tidied).contains("url('" + SafeEncode.forCssString(image.toAbsolutePath().toString()) + "')");
     }
 
     @Test
-    @DisplayName("should preserve data uri backgrounds during tidy")
-    void shouldPreserveDataUriBackgrounds_whenTidyingDocument(@TempDir Path tempDir) {
-        String dataUri = "data:image/png;base64,ZmFrZQ==";
-        String html = "<html><body style=\"background-image:url('" + dataUri + "')\"><div background=\"" + dataUri + "\">x</div></body></html>";
+    @DisplayName("should strip unresolved absolute file paths during tidy")
+    void shouldStripUnresolvedAbsoluteFilePaths_whenTidyingDocument(@TempDir Path tempDir) {
+        String html = "<html><body><img src=\"/etc/passwd\"><div background=\"/etc/passwd\">x</div></body></html>";
 
         String tidied = ConvertToEdoc.tidyDocument(html, tempDir.toString());
 
         assertThat(tidied)
-                .contains("background-image:url('" + dataUri + "')")
-                .contains("background=\"" + dataUri + "\"");
+                .doesNotContain("/etc/passwd")
+                .doesNotContain("background=\"/etc/passwd\"");
     }
 
     @Test
-    @DisplayName("should strip unresolved traversal shaped background asset paths during tidy")
-    void shouldStripUnresolvedTraversalShapedBackgroundAssetPaths_whenTidyingDocument(@TempDir Path tempDir) {
-        String traversalPath = "../../../../etc/passwd.png";
-        String html = "<html><body style=\"background-image:url('" + traversalPath + "')\"><div background=\"" + traversalPath + "\">x</div></body></html>";
+    @DisplayName("should translate inline background asset paths during tidy")
+    void shouldTranslateInlineBackgroundAssetPaths_whenTidyingDocument(@TempDir Path tempDir) throws Exception {
+        Path image = Files.createFile(tempDir.resolve("stamp(1).png"));
+
+        String html = "<html><body style=\"background-image:url( 'stamp(1).png' )\"><div background=\"stamp(1).png\">x</div></body></html>";
 
         String tidied = ConvertToEdoc.tidyDocument(html, tempDir.toString());
 
         assertThat(tidied)
-                .doesNotContain(traversalPath)
-                .contains("background-image:url('')")
-                .doesNotContain("background=\"");
+                .contains("background=\"" + image.toAbsolutePath() + "\"")
+                .contains("background-image:url('" + SafeEncode.forCssString(image.toAbsolutePath().toString()) + "')")
+                .doesNotContain("background-image:url( 'stamp(1).png' )");
     }
 
     @Test
