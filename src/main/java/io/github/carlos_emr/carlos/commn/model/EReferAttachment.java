@@ -12,6 +12,10 @@ import jakarta.persistence.Table;
 import java.util.Date;
 import java.util.List;
 
+/**
+ * Persistent entity mapping the metadata for an eReferral attachment.
+ * Links a specific referral object to its underlying file data.
+ */
 @Entity
 @Table(name = "erefer_attachment")
 public class EReferAttachment extends AbstractModel<Integer> {
@@ -34,6 +38,7 @@ public class EReferAttachment extends AbstractModel<Integer> {
     private List<EReferAttachmentData> attachments;
 
     public EReferAttachment() {
+        // Link the binary payload reference to the specific demographic encounter timeline
     }
 
     public EReferAttachment(Integer demographicNo) {

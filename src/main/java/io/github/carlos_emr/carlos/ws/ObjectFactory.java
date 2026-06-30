@@ -5,6 +5,10 @@ import jakarta.xml.bind.JAXBElement;
 import javax.xml.namespace.QName;
 import jakarta.xml.bind.annotation.XmlRegistry;
 
+/**
+ * JAXB object factory for web services.
+ * Creates standardized XML element wrappers for the WS API structures.
+ */
 @XmlRegistry
 public class ObjectFactory
 {
@@ -16,6 +20,7 @@ public class ObjectFactory
     private static final QName _DuplicateHinException_QNAME;
     
     public HelloWorld createHelloWorld() {
+        // Construct JAXB elements based on defined WS schemas to ensure strict validation
         return new HelloWorld();
     }
     

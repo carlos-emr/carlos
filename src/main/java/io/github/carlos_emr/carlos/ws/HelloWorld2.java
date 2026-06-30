@@ -5,6 +5,10 @@ import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
 
+/**
+ * Simple web service model for basic connectivity testing.
+ * Provides a known object structure for endpoint checks.
+ */
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "helloWorld2", propOrder = { "arg0" })
 public class HelloWorld2 implements Serializable
@@ -13,6 +17,7 @@ public class HelloWorld2 implements Serializable
     protected String arg0;
     
     public String getArg0() {
+        // Data mapping for endpoint health checks during initial deployment
         return this.arg0;
     }
     

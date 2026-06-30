@@ -5,6 +5,10 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import java.io.Serializable;
 import java.util.Objects;
+/**
+ * Composite key representation for eReferral attachment data.
+ * Ensures unique identification across different attachment shards or types.
+ */
 
 public class EReferAttachmentDataCompositeKey implements Serializable {
     @ManyToOne
@@ -18,6 +22,7 @@ public class EReferAttachmentDataCompositeKey implements Serializable {
     private String labType;
 
     public EReferAttachmentDataCompositeKey() {
+        // Define multi-column identity to accurately track sharded or segmented payload data
     }
 
     public EReferAttachmentDataCompositeKey(EReferAttachment eReferAttachment, Integer labId, String labType) {

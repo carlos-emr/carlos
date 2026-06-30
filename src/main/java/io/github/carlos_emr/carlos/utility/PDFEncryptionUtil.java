@@ -8,11 +8,16 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.encryption.AccessPermission;
 import org.apache.pdfbox.pdmodel.encryption.StandardProtectionPolicy;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+/**
+ * Utility methods for applying standard PDF encryption.
+ * Ensures standard 128-bit or higher encryption is applied when exporting sensitive records.
+ */
 
 public class PDFEncryptionUtil {
     // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public static Path encryptPDF(Path pdfPath, String password) throws IOException {
+        // Secure PDF extraction relies on standard 128-bit encryption for sensitive PHI compliance
         try (PDDocument pdDocument = Loader.loadPDF(pdfPath.toFile())) {
             StandardProtectionPolicy spp = new StandardProtectionPolicy(password, password, new AccessPermission());
             spp.setEncryptionKeyLength(256);

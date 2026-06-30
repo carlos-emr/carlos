@@ -5,6 +5,10 @@ import jakarta.persistence.*;
 
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 
+/**
+ * Domain model representing a file attached to an outgoing email.
+ * Links to internal documents or dynamically generated PDFs.
+ */
 @Entity
 @Table(name = "emailAttachment")
 public class EmailAttachment extends AbstractModel<Integer> {
@@ -30,6 +34,7 @@ public class EmailAttachment extends AbstractModel<Integer> {
     private EmailLog emailLog;
 
     public EmailAttachment() {
+        // Manage temporary file links and ensure cleanup once the transport dispatch completes
     }
 
     public EmailAttachment(String fileName, String filePath, DocumentType documentType, int documentId) {

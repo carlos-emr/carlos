@@ -13,6 +13,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
+/**
+ * Base action or helper class for rendering JSON responses in the web tier.
+ * Simplifies Struts-based endpoints that need to output structured JSON data.
+ */
 
 public class JSONAction extends ActionSupport {
 
@@ -26,6 +30,7 @@ public class JSONAction extends ActionSupport {
     protected HttpServletResponse response;
 
     protected JSONAction() {
+        // Format the current action context to a JSON stream, satisfying AJAX client requirements
         if (ActionContext.getContext() != null) {
             request = ServletActionContext.getRequest();
             response = ServletActionContext.getResponse();

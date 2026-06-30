@@ -8,6 +8,10 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
+/**
+ * Persistent entity mapping the binary content of an eReferral attachment.
+ * Stored separately from the metadata to optimize standard query performance.
+ */
 @Entity
 @IdClass(EReferAttachmentDataCompositeKey.class)
 @Table(name = "erefer_attachment_data")
@@ -26,6 +30,7 @@ public class EReferAttachmentData extends AbstractModel<EReferAttachmentDataComp
     private String labType;
 
     public EReferAttachmentData() {
+        // Isolate binary data fetches from the main metadata query to improve overall performance
     }
 
     public EReferAttachmentData(EReferAttachment eReferAttachment, Integer labId, String labType) {

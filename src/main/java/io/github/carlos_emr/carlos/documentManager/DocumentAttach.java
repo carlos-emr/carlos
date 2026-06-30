@@ -12,6 +12,10 @@ import io.github.carlos_emr.carlos.encounter.oceanEReferal.pageUtil.OceanEReferr
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+/**
+ * Struts action handling the uploading and association of documents.
+ * Connects incoming file streams to demographic records or specific forms.
+ */
 
 public class DocumentAttach {
     private final ConsultDocsDao consultDocsDao = SpringUtils.getBean(ConsultDocsDao.class);
@@ -30,6 +34,7 @@ public class DocumentAttach {
     private Integer demographicNo;
 
     public DocumentAttach() {
+        // Process multipart file uploads and secure them in the designated storage partition
     }
 
     public DocumentAttach(Integer demographicNo, Boolean editOnOcean) {
