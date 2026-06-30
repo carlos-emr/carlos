@@ -347,6 +347,88 @@ class LogoutBroadcastFilterUnitTest {
         }
     }
 
+    /**
+     * Exclusion list mirroring the production {@code web.xml} LogoutBroadcastFilter init-param.
+     * The eForm document routes must be excluded so the Rich Text Letter editor never reads the
+     * injected logout/session script as editable letter content (issue #3099). The {@code .jsp}
+     * alias is listed explicitly because the matcher treats it as a sibling, not a child, of the
+     * extensionless route.
+     */
+    private static final String EFORM_DOCUMENT_EXCLUSIONS =
+            "/logoutPage,/status/SessionHeartbeat,/eform/efmformadd_data,/eform/efmshowform_data,"
+            + "/eform/efmformrtl_templates,/eform/efmformrtl_templates.jsp";
+
+    @Test
+    @DisplayName("should not inject logout script into eForm Rich Text Letter document routes")
+    void shouldNotInjectLogoutScript_intoEformDocumentRoutes() throws Exception {
+        LogoutBroadcastFilter eformAwareFilter = eformExclusionFilter();
+        try {
+            for (String route : new String[]{
+                    "/eform/efmformadd_data",
+                    "/eform/efmshowform_data",
+                    "/eform/efmformrtl_templates",
+                    "/eform/efmformrtl_templates.jsp"}) {
+                MockHttpServletRequest request = authenticatedRequest(route);
+                TrackingMockHttpServletResponse response = new TrackingMockHttpServletResponse();
+
+                FilterChain chain = (servletRequest, servletResponse) -> {
+                    servletResponse.setContentType("text/html;charset=UTF-8");
+                    servletResponse.getWriter().write("<html><body>eform document</body></html>");
+                };
+
+                eformAwareFilter.doFilter(request, response, chain);
+
+                assertThat(response.getContentAsString())
+                        .as("eForm document route %s must be returned verbatim", route)
+                        .isEqualTo("<html><body>eform document</body></html>");
+                assertThat(response.getContentAsString()).doesNotContain("window.__carlosLogoutActive=true;");
+                assertThat(response.getSetBufferSizeCallCount())
+                        .as("excluded eForm route %s must skip the injection buffer", route)
+                        .isZero();
+            }
+        } finally {
+            eformAwareFilter.destroy();
+        }
+    }
+
+    @Test
+    @DisplayName("should still inject logout script on normal authenticated pages when eForm routes are excluded")
+    void shouldStillInjectLogoutScript_onNormalPagesWhenEformRoutesExcluded() throws Exception {
+        LogoutBroadcastFilter eformAwareFilter = eformExclusionFilter();
+        try {
+            MockHttpServletRequest request = authenticatedRequest("/provider/providercontrol");
+            TrackingMockHttpServletResponse response = new TrackingMockHttpServletResponse();
+
+            FilterChain chain = (servletRequest, servletResponse) -> {
+                servletResponse.setContentType("text/html;charset=UTF-8");
+                servletResponse.getWriter().write("<html><body>schedule</body></html>");
+            };
+
+            eformAwareFilter.doFilter(request, response, chain);
+
+            String content = response.getContentAsString();
+            assertThat(content).contains("<html><body>schedule</body></html>");
+            assertThat(content).contains("window.__carlosLogoutActive=true;");
+            assertThat(content).contains("fetch(cp+'/status/SessionHeartbeat?autoRefresh=true')");
+        } finally {
+            eformAwareFilter.destroy();
+        }
+    }
+
+    /**
+     * Builds a filter configured with the production eForm exclusion list.
+     *
+     * @return an initialized LogoutBroadcastFilter mirroring the web.xml exclusions
+     * @throws ServletException if filter initialization fails
+     */
+    private LogoutBroadcastFilter eformExclusionFilter() throws ServletException {
+        FilterConfig config = mock(FilterConfig.class);
+        when(config.getInitParameter("exclusions")).thenReturn(EFORM_DOCUMENT_EXCLUSIONS);
+        LogoutBroadcastFilter eformAwareFilter = new LogoutBroadcastFilter();
+        eformAwareFilter.init(config);
+        return eformAwareFilter;
+    }
+
     @Test
     @DisplayName("should suppress stale content length when logout script is appended")
     void shouldSuppressStaleContentLength_whenLogoutScriptIsAppended() throws Exception {
