@@ -1909,7 +1909,7 @@ public class CaseManagementView2Action extends ActionSupport {
         } else if (!demono.matches("\\d+")) {
             // Reject tainted value (don't store in session) but fall back to session value
             // to avoid crashing 36+ callers that pass the return value to Integer.parseInt()
-            logger.error("Invalid non-numeric demographicNo rejected, falling back to session: {}", LogSafe.sanitize(demono));
+            logger.error("Invalid non-numeric demographicNo rejected, falling back to session: {}", LogSafe.sanitize(demono)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
             demono = (String) request.getSession().getAttribute("casemgmt_DemoNo"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): fallback read of own-session demographic scope (regex-validated on store)
         } else {
             // demographicNo validated as numeric
