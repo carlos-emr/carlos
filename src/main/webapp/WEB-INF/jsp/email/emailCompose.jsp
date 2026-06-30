@@ -259,15 +259,55 @@
                 <input type="hidden" name="deleteEFormAfterEmail" value="${deleteEFormAfterEmail}"/>
                 <input type="hidden" name="transactionType" id="transactionType" value="${transactionType}"/>
 
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="card-title"><fmt:message key="messenger.ViewMessage.msgFrom"/></h5>
+                <%-- To and From sit side by side: recipient (To) first/leftmost, sender (From) on the right.
+                     Equal-height cards keep the row tidy when the To card grows with extra recipients. --%>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-header">
+                                <h5 class="card-title"><fmt:message key="messenger.ViewMessage.msgTo"/></h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label class="form-label" for="receiverName">${emailComposePatientLabel}</label>
+                                    <input class="autocomplete form-control" type="text" name="recipient"
+                                           value="${ receiverName }" id="receiverName" placeholder="${emailComposeSearchPatientPlaceholder}"
+                                           disabled/>
+                                </div>
+                                <div id="receiverEmailsContainer">
+                                    <c:forEach items="${ receiverEmailList }" var="receiverEmail" varStatus="loop">
+                                        <div class="mb-3">
+                                            <label class="form-label" for="receiverEmailAddress${loop.index + 1}">${emailComposeEmailAddressesLabel}</label>
+                                            <div class="input-group">
+                                                <input class="form-control" type="email" name="receiverEmailAddress"
+                                                       value="${ receiverEmail }" id="receiverEmailAddress${loop.index + 1}"
+                                                       placeholder="example@example.com" disabled/>
+                                                <button type="button" title="${emailComposeRemoveEmail}" class="btn btn-danger"
+                                                        onclick="removeReceiverEmail(this)"><i class="fa-solid fa-xmark"></i>
+                                                </button>
+                                            </div>
+                                            <c:if test="${not empty receiverEmail}">
+                                                <input type="hidden" name="receiverEmailAddress"
+                                                       value="${receiverEmail}"/>
+                                            </c:if>
+                                        </div>
+                                    </c:forEach>
+                                </div>
+                            </div>
+                            <div class="card-footer">
+                                <span class="fa-solid fa-triangle-exclamation"></span> ${carlos:forHtml(emailConsentName)}: <b>${carlos:forHtml(emailConsentStatus)}</b>
+                                <input type="hidden" name="emailConsentStatus" value="${emailConsentStatus}"/>
+                            </div>
+                        </div>
                     </div>
-                    <div class="card-body">
-                        <div class="container">
-                            <div class="row">
-                                <div class="col-sm-12 mb-3">
-                                    <label for="senderEmailAddress">${emailComposeSenderLabel}</label>
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-header">
+                                <h5 class="card-title"><fmt:message key="messenger.ViewMessage.msgFrom"/></h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label class="form-label" for="senderEmailAddress">${emailComposeSenderLabel}</label>
                                     <select class="form-select" name="senderConfigId" id="senderEmailAddress"
                                             onchange="showAdditionalParamOption()">
                                         <c:forEach items="${ senderAccounts }" var="senderAccount">
@@ -281,53 +321,6 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </div>
-
-                <div class="card mt-4">
-                    <div class="card-header">
-                        <h5 class="card-title"><fmt:message key="messenger.ViewMessage.msgTo"/></h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="container">
-                            <div class="row mb-3 align-items-center">
-                                <div class="col-sm-3">
-                                    <label class="col-form-label" for="receiverName">${emailComposePatientLabel}</label>
-                                </div>
-                                <div class="col-sm-9">
-                                    <input class="autocomplete form-control" type="text" name="recipient"
-                                           value="${ receiverName }" id="receiverName" placeholder="${emailComposeSearchPatientPlaceholder}"
-                                           disabled/>
-                                </div>
-                            </div>
-                            <div id="receiverEmailsContainer">
-                                <c:forEach items="${ receiverEmailList }" var="receiverEmail" varStatus="loop">
-                                    <div class="row mb-3 mt-3 align-items-center">
-                                        <div class="col-sm-3">
-                                            <label class="col-form-label" for="receiverEmailAddress${loop.index + 1}">${emailComposeEmailAddressesLabel}</label>
-                                        </div>
-                                        <div class="col-sm-8">
-                                            <input class="form-control" type="email" name="receiverEmailAddress"
-                                                   value="${ receiverEmail }" id="receiverEmailAddress${loop.index + 1}"
-                                                   placeholder="example@example.com" disabled/>
-                                            <c:if test="${not empty receiverEmail}">
-                                                <input type="hidden" name="receiverEmailAddress"
-                                                       value="${receiverEmail}"/>
-                                            </c:if>
-                                        </div>
-                                        <div class="col-sm-1">
-                                            <button type="button" title="${emailComposeRemoveEmail}" class="btn btn-danger"
-                                                    onclick="removeReceiverEmail(this)"><i class="fa-solid fa-xmark"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </c:forEach>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card-footer">
-                        <span class="fa-solid fa-triangle-exclamation"></span> ${carlos:forHtml(emailConsentName)}: <b>${carlos:forHtml(emailConsentStatus)}</b>
-                        <input type="hidden" name="emailConsentStatus" value="${emailConsentStatus}"/>
                     </div>
                 </div>
 
