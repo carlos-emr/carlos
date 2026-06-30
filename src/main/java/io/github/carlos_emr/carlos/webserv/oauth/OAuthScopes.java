@@ -21,7 +21,9 @@
  */
 package io.github.carlos_emr.carlos.webserv.oauth;
 
+import java.util.ArrayDeque;
 import java.util.Collection;
+import java.util.Deque;
 import java.util.Map;
 import java.util.Set;
 
@@ -166,11 +168,12 @@ public final class OAuthScopes {
      * The domain root of the request: the first non-empty path segment after the {@code /services/} marker,
      * lower-cased; {@code null} if the URI has no {@code /services/} segment or nothing usable follows it.
      *
-     * <p>The segment is percent-decoded and has any matrix parameters ({@code ;k=v}) stripped <b>before</b>
-     * it is matched, so it reflects what JAX-RS/CXF actually routes to. Without this, requests such as
-     * {@code /ws/services/%73chedule/...} or {@code /ws/services/schedule;x=1/...} would resolve to a
+     * <p>Each segment is percent-decoded and has any matrix parameters ({@code ;k=v}) stripped, and
+     * {@code .}/{@code ..} segments are resolved away, <b>before</b> the root is matched — so it reflects
+     * what JAX-RS/CXF actually routes to. Without this, requests such as {@code /ws/services/%73chedule/...},
+     * {@code /ws/services/schedule;x=1/...}, or {@code /ws/services/./schedule/...} would resolve to a
      * non-matching root, fall back to {@link #NO_SCOPE_REQUIRED}, and silently bypass scope enforcement
-     * while still reaching the {@code schedule} resource.
+     * while still reaching the {@code schedule} resource. Resolution errs toward enforcement, never bypass.
      */
     private static String pathRootUnderServices(String requestUri) {
         if (requestUri == null) {
@@ -187,18 +190,25 @@ public final class OAuthScopes {
         if (q >= 0) {
             rest = rest.substring(0, q);
         }
+        Deque<String> segments = new ArrayDeque<>();
         for (String rawSegment : rest.split("/")) {
             if (rawSegment.isEmpty()) {
                 continue;
             }
             // Decode first so a percent-encoded matrix delimiter (%3B) is also stripped, then drop
-            // matrix parameters. Resolving aggressively here errs toward enforcement, never toward bypass.
+            // matrix parameters, then collapse dot-segments — mirroring container/JAX-RS path resolution.
             String segment = stripMatrixParameters(percentDecode(rawSegment));
-            if (!segment.isEmpty()) {
-                return asciiLowerCase(segment);
+            if (segment.isEmpty() || segment.equals(".")) {
+                continue;
             }
+            if (segment.equals("..")) {
+                segments.pollLast();
+                continue;
+            }
+            segments.addLast(segment);
         }
-        return null;
+        String root = segments.peekFirst();
+        return root == null ? null : asciiLowerCase(root);
     }
 
     private static String stripMatrixParameters(String segment) {

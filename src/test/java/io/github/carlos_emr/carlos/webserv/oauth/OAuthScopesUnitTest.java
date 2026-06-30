@@ -95,6 +95,20 @@ class OAuthScopesUnitTest {
             assertThat(OAuthScopes.requiredScope("POST", "/carlos/ws/services/tickler%3Bx=1/add"))
                     .isEqualTo("tickler.write");
         }
+
+        @Test
+        @DisplayName("should collapse a leading dot segment when resolving the domain")
+        void shouldResolveDomain_whenLeadingDotSegment() {
+            assertThat(OAuthScopes.requiredScope("GET", "/carlos/ws/services/./schedule/day"))
+                    .isEqualTo("schedule.read");
+        }
+
+        @Test
+        @DisplayName("should resolve dot-dot segments to the routed domain")
+        void shouldResolveDomain_whenDotDotSegmentPresent() {
+            assertThat(OAuthScopes.requiredScope("GET", "/carlos/ws/services/other/../schedule/day"))
+                    .isEqualTo("schedule.read");
+        }
     }
 
     @Nested

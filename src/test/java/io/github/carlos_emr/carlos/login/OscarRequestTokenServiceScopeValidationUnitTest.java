@@ -47,7 +47,7 @@ class OscarRequestTokenServiceScopeValidationUnitTest {
 
     @BeforeEach
     void captureEnforcementFlag() {
-        previousEnforcementValue = CarlosProperties.getInstance().getProperty(ENFORCEMENT_PROPERTY);
+        previousEnforcementValue = CarlosProperties.getInstance().getProperty(ENFORCEMENT_PROPERTY, null);
     }
 
     @AfterEach
@@ -92,6 +92,8 @@ class OscarRequestTokenServiceScopeValidationUnitTest {
 
         assertThat(ex).isNotNull();
         assertThat(ex.getHttpCode()).isEqualTo(400);
+        // An empty scope set must be rejected before any token is persisted.
+        verify(dataProvider, never()).createRequestToken(any());
     }
 
     @Test

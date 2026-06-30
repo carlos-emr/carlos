@@ -55,7 +55,7 @@ class OAuthInterceptorScopeEnforcementUnitTest {
 
     @BeforeEach
     void captureEnforcementFlag() {
-        previousEnforcementValue = CarlosProperties.getInstance().getProperty(ENFORCEMENT_PROPERTY);
+        previousEnforcementValue = CarlosProperties.getInstance().getProperty(ENFORCEMENT_PROPERTY, null);
     }
 
     @AfterEach
@@ -77,6 +77,21 @@ class OAuthInterceptorScopeEnforcementUnitTest {
     void shouldRaiseFault_withHttp403WhenScopeInsufficient() {
         enableEnforcement();
         OAuthInterceptor interceptor = interceptorWith(authenticatedTokenGranting("tickler.read"));
+        Message message = scheduleReadRequest();
+
+        Fault fault = catchThrowableOfType(() -> interceptor.handleMessage(message), Fault.class);
+
+        assertThat(fault).isNotNull();
+        assertThat(fault.getStatusCode()).isEqualTo(403);
+    }
+
+    @Test
+    @DisplayName("should fail closed with HTTP 403 when the token has no granted scopes")
+    void shouldRaiseFault_withHttp403WhenTokenHasNoScopes() {
+        enableEnforcement();
+        AccessToken noScopes = mock(AccessToken.class);
+        when(noScopes.getScopes()).thenReturn(null);
+        OAuthInterceptor interceptor = interceptorWith(noScopes);
         Message message = scheduleReadRequest();
 
         Fault fault = catchThrowableOfType(() -> interceptor.handleMessage(message), Fault.class);
