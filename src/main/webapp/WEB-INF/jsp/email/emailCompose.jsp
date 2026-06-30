@@ -296,7 +296,7 @@
                             </div>
                             <div class="card-footer">
                                 <span class="fa-solid fa-triangle-exclamation"></span> ${carlos:forHtml(emailConsentName)}: <b>${carlos:forHtml(emailConsentStatus)}</b>
-                                <input type="hidden" name="emailConsentStatus" value="${emailConsentStatus}"/>
+                                <input type="hidden" name="emailConsentStatus" value="${carlos:forHtmlAttribute(emailConsentStatus)}"/>
                             </div>
                         </div>
                     </div>
@@ -540,23 +540,23 @@
                                 <div class="accordion col-sm-12" id="emailAttachmentList">
                                     <c:forEach items="${ emailAttachmentList }" var="emailAttachment" varStatus="loop">
                                         <div class="accordion-item emailAttachmentItem">
-                                            <div class="accordion-header" id="emailAttachmentHeader${loop.index + 1}">
+                                            <div class="accordion-header" id="emailAttachmentHeader${loop.count}">
                                                 <button class="accordion-button collapsed" type="button"
                                                         data-bs-toggle="collapse"
-                                                        data-bs-target="#emailAttachmentBody${loop.index + 1}"
+                                                        data-bs-target="#emailAttachmentBody${loop.count}"
                                                         aria-expanded="false"
-                                                        aria-controls="emailAttachmentBody${loop.index + 1}">
+                                                        aria-controls="emailAttachmentBody${loop.count}">
                                                     <i class="fa-solid fa-file attachmentIcon"></i> <span
                                                         class="attachmentName">${carlos:forHtml(emailAttachment.fileName)}</span>
                                                     <span class="text-muted attachmentSize">${carlos:forHtml(emailAttachment.fileSize)}</span>
                                                 </button>
                                             </div>
-                                            <div id="emailAttachmentBody${loop.index + 1}"
+                                            <div id="emailAttachmentBody${loop.count}"
                                                  class="accordion-collapse collapse"
-                                                 aria-labelledby="emailAttachmentHeader${loop.index + 1}"
+                                                 aria-labelledby="emailAttachmentHeader${loop.count}"
                                                  data-bs-parent="#emailAttachmentList">
                                                 <div class="accordion-body">
-                                                    <object id="emailAttachmentPDF${loop.index + 1}"
+                                                    <object id="emailAttachmentPDF${loop.count}"
                                                             data="${ctx}/previewDocs?method=renderPDF&pdfPath=${emailAttachment.filePath}"
                                                             type="application/pdf" width="100%" height="500">
                                                     </object>
