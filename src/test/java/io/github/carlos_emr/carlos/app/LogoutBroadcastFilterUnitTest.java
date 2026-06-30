@@ -27,6 +27,7 @@ import io.github.carlos_emr.carlos.utility.ResponseSanitizationFilter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.FilterConfig;
+import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.WriteListener;
@@ -344,6 +345,195 @@ class LogoutBroadcastFilterUnitTest {
             assertThat(response.getSetBufferSizeCallCount()).isZero();
         } finally {
             customFilter.destroy();
+        }
+    }
+
+    /**
+     * Exclusion list mirroring the production {@code web.xml} LogoutBroadcastFilter init-param.
+     * The eForm document routes must be excluded so the Rich Text Letter editor never reads the
+     * injected logout/session script as editable letter content (issue #3099). The {@code .jsp}
+     * alias is listed explicitly because the matcher treats it as a sibling, not a child, of the
+     * extensionless route.
+     */
+    private static final String EFORM_DOCUMENT_EXCLUSIONS =
+            "/logoutPage,/status/SessionHeartbeat,/eform/efmformadd_data,/eform/efmshowform_data,"
+            + "/eform/efmformrtl_templates,/eform/efmformrtl_templates.jsp";
+
+    @Test
+    @DisplayName("should not inject logout script into eForm Rich Text Letter document routes")
+    void shouldNotInjectLogoutScript_intoEformDocumentRoutes() throws Exception {
+        LogoutBroadcastFilter eformAwareFilter = eformExclusionFilter();
+        try {
+            for (String route : new String[]{
+                    "/eform/efmformadd_data",
+                    "/eform/efmshowform_data",
+                    "/eform/efmformrtl_templates",
+                    "/eform/efmformrtl_templates.jsp"}) {
+                MockHttpServletRequest request = authenticatedRequest(route);
+                TrackingMockHttpServletResponse response = new TrackingMockHttpServletResponse();
+
+                FilterChain chain = (servletRequest, servletResponse) -> {
+                    servletResponse.setContentType("text/html;charset=UTF-8");
+                    servletResponse.getWriter().write("<html><body>eform document</body></html>");
+                };
+
+                eformAwareFilter.doFilter(request, response, chain);
+
+                assertThat(response.getContentAsString())
+                        .as("eForm document route %s must be returned verbatim", route)
+                        .isEqualTo("<html><body>eform document</body></html>");
+                assertThat(response.getContentAsString()).doesNotContain("window.__carlosLogoutActive=true;");
+                assertThat(response.getSetBufferSizeCallCount())
+                        .as("excluded eForm route %s must skip the injection buffer", route)
+                        .isZero();
+            }
+        } finally {
+            eformAwareFilter.destroy();
+        }
+    }
+
+    @Test
+    @DisplayName("should still inject logout script on normal authenticated pages when eForm routes are excluded")
+    void shouldStillInjectLogoutScript_onNormalPagesWhenEformRoutesExcluded() throws Exception {
+        LogoutBroadcastFilter eformAwareFilter = eformExclusionFilter();
+        try {
+            MockHttpServletRequest request = authenticatedRequest("/provider/providercontrol");
+            TrackingMockHttpServletResponse response = new TrackingMockHttpServletResponse();
+
+            FilterChain chain = (servletRequest, servletResponse) -> {
+                servletResponse.setContentType("text/html;charset=UTF-8");
+                servletResponse.getWriter().write("<html><body>schedule</body></html>");
+            };
+
+            eformAwareFilter.doFilter(request, response, chain);
+
+            String content = response.getContentAsString();
+            assertThat(content).contains("<html><body>schedule</body></html>");
+            assertThat(content).contains("window.__carlosLogoutActive=true;");
+            assertThat(content).contains("fetch(cp+'/status/SessionHeartbeat?autoRefresh=true')");
+        } finally {
+            eformAwareFilter.destroy();
+        }
+    }
+
+    /**
+     * Builds a filter configured with the production eForm exclusion list.
+     *
+     * @return an initialized LogoutBroadcastFilter mirroring the web.xml exclusions
+     * @throws ServletException if filter initialization fails
+     */
+    private LogoutBroadcastFilter eformExclusionFilter() throws ServletException {
+        FilterConfig config = mock(FilterConfig.class);
+        when(config.getInitParameter("exclusions")).thenReturn(EFORM_DOCUMENT_EXCLUSIONS);
+        LogoutBroadcastFilter eformAwareFilter = new LogoutBroadcastFilter();
+        eformAwareFilter.init(config);
+        return eformAwareFilter;
+    }
+
+    @Test
+    @DisplayName("should not inject logout script when an excluded eForm route is forwarded to its internal WEB-INF view")
+    void shouldNotInjectLogoutScript_whenEformRouteForwardedToInternalView() throws Exception {
+        // The eForm gate actions forward the client route (e.g. /eform/efmformadd_data) to an
+        // internal /WEB-INF/jsp view. The heartbeat script is appended on the FORWARD dispatch, where
+        // getServletPath() reflects the JSP target, not the excluded route — so exclusion must be
+        // resolved from the original request URI (issue #3099).
+        LogoutBroadcastFilter eformAwareFilter = eformExclusionFilter();
+        try {
+            MockHttpServletRequest request = authenticatedRequest("/eform/efmformadd_data");
+            request.setServletPath("/eform/efmformadd_data");
+            TrackingMockHttpServletResponse response = new TrackingMockHttpServletResponse();
+
+            FilterChain forwardingChain = (servletRequest, servletResponse) -> {
+                MockHttpServletRequest forwarded = (MockHttpServletRequest) servletRequest;
+                forwarded.setDispatcherType(DispatcherType.FORWARD);
+                forwarded.setAttribute(RequestDispatcher.FORWARD_REQUEST_URI, "/carlos/eform/efmformadd_data");
+                forwarded.setServletPath("/WEB-INF/jsp/eform/efmformadd_data.jsp");
+                forwarded.setRequestURI("/carlos/WEB-INF/jsp/eform/efmformadd_data.jsp");
+                eformAwareFilter.doFilter(forwarded, servletResponse, (nestedRequest, nestedResponse) -> {
+                    nestedResponse.setContentType("text/html;charset=UTF-8");
+                    nestedResponse.getWriter().write("<html><body>eform document</body></html>");
+                });
+            };
+
+            eformAwareFilter.doFilter(request, response, forwardingChain);
+
+            assertThat(response.getContentAsString())
+                    .as("eForm document forwarded to its internal view must be returned verbatim")
+                    .isEqualTo("<html><body>eform document</body></html>");
+            assertThat(response.getContentAsString()).doesNotContain("window.__carlosLogoutActive=true;");
+            assertThat(response.getSetBufferSizeCallCount())
+                    .as("excluded eForm forward must skip the injection buffer on both dispatches")
+                    .isZero();
+        } finally {
+            eformAwareFilter.destroy();
+        }
+    }
+
+    @Test
+    @DisplayName("should still inject logout script when a normal authenticated page is forwarded to its internal WEB-INF view")
+    void shouldStillInjectLogoutScript_whenNormalPageForwardedToInternalView() throws Exception {
+        LogoutBroadcastFilter eformAwareFilter = eformExclusionFilter();
+        try {
+            MockHttpServletRequest request = authenticatedRequest("/provider/providercontrol");
+            request.setServletPath("/provider/providercontrol");
+            TrackingMockHttpServletResponse response = new TrackingMockHttpServletResponse();
+
+            FilterChain forwardingChain = (servletRequest, servletResponse) -> {
+                MockHttpServletRequest forwarded = (MockHttpServletRequest) servletRequest;
+                forwarded.setDispatcherType(DispatcherType.FORWARD);
+                forwarded.setAttribute(RequestDispatcher.FORWARD_REQUEST_URI, "/carlos/provider/providercontrol");
+                forwarded.setServletPath("/WEB-INF/jsp/provider/providercontrol.jsp");
+                forwarded.setRequestURI("/carlos/WEB-INF/jsp/provider/providercontrol.jsp");
+                eformAwareFilter.doFilter(forwarded, servletResponse, (nestedRequest, nestedResponse) -> {
+                    nestedResponse.setContentType("text/html;charset=UTF-8");
+                    nestedResponse.getWriter().write("<html><body>schedule</body></html>");
+                });
+            };
+
+            eformAwareFilter.doFilter(request, response, forwardingChain);
+
+            String content = response.getContentAsString();
+            assertThat(content).contains("<html><body>schedule</body></html>");
+            assertThat(content).contains("window.__carlosLogoutActive=true;");
+            assertThat(content).contains("fetch(cp+'/status/SessionHeartbeat?autoRefresh=true')");
+        } finally {
+            eformAwareFilter.destroy();
+        }
+    }
+
+    @Test
+    @DisplayName("should not inject logout script when an excluded eForm forward carries a rewritten jsessionid")
+    void shouldNotInjectLogoutScript_whenEformForwardCarriesRewrittenSessionId() throws Exception {
+        // With URL-rewritten sessions the original request URI carries ;jsessionid=...; path parameters
+        // must be stripped before matching so the excluded route still matches on the forward dispatch.
+        LogoutBroadcastFilter eformAwareFilter = eformExclusionFilter();
+        try {
+            MockHttpServletRequest request = authenticatedRequest("/eform/efmformadd_data");
+            request.setServletPath("/eform/efmformadd_data");
+            TrackingMockHttpServletResponse response = new TrackingMockHttpServletResponse();
+
+            FilterChain forwardingChain = (servletRequest, servletResponse) -> {
+                MockHttpServletRequest forwarded = (MockHttpServletRequest) servletRequest;
+                forwarded.setDispatcherType(DispatcherType.FORWARD);
+                forwarded.setAttribute(RequestDispatcher.FORWARD_REQUEST_URI,
+                        "/carlos/eform/efmformadd_data;jsessionid=ABC123");
+                forwarded.setServletPath("/WEB-INF/jsp/eform/efmformadd_data.jsp");
+                forwarded.setRequestURI("/carlos/WEB-INF/jsp/eform/efmformadd_data.jsp");
+                eformAwareFilter.doFilter(forwarded, servletResponse, (nestedRequest, nestedResponse) -> {
+                    nestedResponse.setContentType("text/html;charset=UTF-8");
+                    nestedResponse.getWriter().write("<html><body>eform document</body></html>");
+                });
+            };
+
+            eformAwareFilter.doFilter(request, response, forwardingChain);
+
+            assertThat(response.getContentAsString())
+                    .as("excluded eForm forward with a rewritten jsessionid must be returned verbatim")
+                    .isEqualTo("<html><body>eform document</body></html>");
+            assertThat(response.getContentAsString()).doesNotContain("window.__carlosLogoutActive=true;");
+            assertThat(response.getSetBufferSizeCallCount()).isZero();
+        } finally {
+            eformAwareFilter.destroy();
         }
     }
 
