@@ -1,28 +1,73 @@
 #!/bin/bash
+set -euo pipefail
 
-command=$1
+command="${1:-}"
+MAIL_LOG_FILE="/var/log/mail.log"
+CAPTURE_FILE="/var/log/carlos-mail-capture.eml"
 
-case $command in
+# Make sure the capture file exists and stays writable by the Postfix pipe user
+# ('nobody'). The image creates it as nobody:nogroup 0660; if it was deleted and
+# recreated here by root, widening to 0666 keeps the pipe transport able to append.
+ensure_capture_file() {
+  touch "$CAPTURE_FILE"
+  chmod 0666 "$CAPTURE_FILE" 2>/dev/null || true
+}
+
+case "$command" in
     start)
       echo "Starting Postfix..."
       service postfix start
+      echo "Capture file: $CAPTURE_FILE"
     ;;
     stop)
       echo "Stopping Postfix..."
       service postfix stop
     ;;
     status)
-      service postfix status
+      service postfix status || true
+      echo
+      echo "Capture file: $CAPTURE_FILE"
+      if [ -f "$CAPTURE_FILE" ]; then
+        ls -lh "$CAPTURE_FILE"
+      else
+        echo "Capture file does not exist yet."
+      fi
     ;;
     restart)
       echo "Restarting Postfix..."
       service postfix restart
+      echo "Capture file: $CAPTURE_FILE"
     ;;
     log)
-      tail -f /var/log/mail.log
+      touch "$MAIL_LOG_FILE"
+      tail -f "$MAIL_LOG_FILE"
+    ;;
+    capture)
+      ensure_capture_file
+      tail -f "$CAPTURE_FILE"
+    ;;
+    show)
+      ensure_capture_file
+      cat "$CAPTURE_FILE"
+    ;;
+    clear)
+      ensure_capture_file
+      : > "$CAPTURE_FILE"
+      echo "Cleared $CAPTURE_FILE"
+    ;;
+    test)
+      ensure_capture_file
+      {
+        echo "From: noreply@openo-dev.local"
+        echo "To: patient@example.test"
+        echo "Subject: CARLOS dev mail capture test"
+        echo
+        echo "This is a test message captured by the devcontainer Postfix setup."
+      } | /usr/sbin/sendmail -f noreply@openo-dev.local patient@example.test
+      echo "Sent test message to Postfix. Run: mail capture"
     ;;
     *)
-      echo "Usage: mail {start|stop|restart|status|log}"
+      echo "Usage: mail {start|stop|restart|status|log|capture|show|clear|test}"
       exit 1
     ;;
 esac

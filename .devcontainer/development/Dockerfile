@@ -118,10 +118,50 @@ RUN /usr/local/bin/apt-install pipx && \
     pipx install aider-chat && \
     pipx ensurepath
 
-# Install Postfix for mail testing with default values
+# Install Postfix for local mail capture testing with default values
 RUN /usr/local/bin/apt-install postfix
 
-# Configure Postfix for simple localhost operation
+# Capture script: appends the full raw MIME message (stdin) plus envelope
+# metadata to a dev-only capture file. Runs as 'nobody' via the Postfix pipe
+# transport (see master.cf below), never as root. See docs/postfix-mail-server.md.
+RUN cat <<'EOF' > /usr/local/bin/postfix-capture-mail && chmod 0755 /usr/local/bin/postfix-capture-mail
+#!/bin/sh
+set -eu
+
+CAPTURE_FILE="/var/log/carlos-mail-capture.eml"
+sender="${1:-unknown-sender}"
+recipient="${2:-unknown-recipient}"
+
+{
+  printf '\n\n===== CARLOS DEV EMAIL CAPTURE =====\n'
+  printf 'Captured-At: %s\n' "$(date -Is)"
+  printf 'Envelope-From: %s\n' "$sender"
+  printf 'Envelope-To: %s\n' "$recipient"
+  printf -- '----- BEGIN RAW MESSAGE -----\n'
+  cat
+  printf -- '\n----- END RAW MESSAGE -----\n'
+} >> "$CAPTURE_FILE"
+
+exit 0
+EOF
+
+# Create the capture file writable by the Postfix pipe user ('nobody').
+RUN touch /var/log/carlos-mail-capture.eml && \
+    chown nobody:nogroup /var/log/carlos-mail-capture.eml && \
+    chmod 0660 /var/log/carlos-mail-capture.eml
+
+# Register a custom pipe transport that streams every accepted message to the
+# capture script. ${sender}/${recipient} pass envelope metadata; the raw
+# message body arrives on stdin.
+RUN printf '%s\n%s\n' \
+    'devcapture unix  -       n       n       -       -       pipe' \
+    '  flags=Fq user=nobody argv=/usr/local/bin/postfix-capture-mail ${sender} ${recipient}' \
+    >> /etc/postfix/master.cf
+
+# Route every recipient to the capture transport.
+RUN printf '/.*/ devcapture:\n' > /etc/postfix/carlos-transport-regexp
+
+# Configure Postfix for localhost-only operation with capture-everything delivery.
 RUN postconf -e 'myhostname=openo-dev.local' && \
     postconf -e 'mydestination=openo-dev.local, localhost' && \
     postconf -e 'mynetworks=127.0.0.0/8' && \
@@ -132,7 +172,15 @@ RUN postconf -e 'myhostname=openo-dev.local' && \
     postconf -e 'smtpd_use_tls=no' && \
     postconf -e 'smtpd_tls_security_level=none' && \
     # Allow local connections without auth
-    postconf -e 'smtpd_client_restrictions=permit_mynetworks,reject'
+    postconf -e 'smtpd_client_restrictions=permit_mynetworks,reject' && \
+    # Defense in depth: route ALL mail to the capture transport so no accepted
+    # message can ever use Postfix's normal outbound smtp delivery. The regexp
+    # map matches every recipient; the *_transport overrides catch anything the
+    # map somehow misses.
+    postconf -e 'transport_maps=regexp:/etc/postfix/carlos-transport-regexp' && \
+    postconf -e 'default_transport=devcapture:' && \
+    postconf -e 'relay_transport=devcapture:' && \
+    postconf -e 'local_transport=devcapture:'
 
 # Create custom bashrc with tool reminders
 COPY ./config/bashrc /root/.bashrc

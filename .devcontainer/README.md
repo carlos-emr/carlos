@@ -156,6 +156,13 @@ CARLOS logs are sent to the console and can be viewed using Docker commands. The
 - **SQL Logging**: Available but commented out by default (can be enabled in `local.env`)
 - **Hot Reload Logging**: Console only (viewable via `/tmp/webapp-watcher.log`)
 
+### Email Testing
+
+For local email testing, see [`docs/postfix-mail-server.md`](../docs/postfix-mail-server.md).
+The devcontainer captures outbound email to `/var/log/carlos-mail-capture.eml`
+instead of sending it externally. Start the local mail server with `mail start`
+and inspect captured messages with `mail capture`.
+
 ## Manual Container Management (Without VS Code)
 
 ### **Start containers manually:**
