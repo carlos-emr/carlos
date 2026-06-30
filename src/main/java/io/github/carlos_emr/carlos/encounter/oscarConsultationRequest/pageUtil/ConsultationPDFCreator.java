@@ -115,8 +115,8 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         reqFrm = new EctConsultationFormRequestUtil();
         reqFrm.estRequestFromId(LoggedInInfo.getLoggedInInfoFromSession(request), request.getParameter("reqId") == null ? (String) request.getAttribute("reqId") : request.getParameter("reqId"));
         Object signatureOverride = request.getAttribute(ConsultationSignatureService.SIGNATURE_IMAGE_OVERRIDE_ATTRIBUTE);
-        if (signatureOverride instanceof byte[]) {
-            signatureImageOverride = (byte[]) signatureOverride;
+        if (signatureOverride instanceof byte[] byteArray) {
+            signatureImageOverride = byteArray;
         }
         props = CarlosProperties.getInstance();
         clinic = new ClinicData();
@@ -795,6 +795,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
      * @return the chosen signature bytes, or {@code null} when none are available, the id is blank/invalid
      *         after trimming, or the signature cannot be loaded
      */
+    @SuppressWarnings("java:S1168")
     static byte[] resolveSignatureBytes(byte[] signatureImageOverride, String signatureImageId, DigitalSignatureManager mgr) {
         if (signatureImageOverride != null && signatureImageOverride.length > 0) {
             return signatureImageOverride;

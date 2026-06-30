@@ -46,6 +46,7 @@ import java.nio.file.Path;
  */
 @Service
 @Transactional
+@SuppressWarnings("java:S2629")
 public class ConsultationSignatureService {
 
     public static final String SIGNATURE_IMAGE_OVERRIDE_ATTRIBUTE = "consultationSignatureImageOverride";
@@ -171,6 +172,7 @@ public class ConsultationSignatureService {
      * @param signatureProviderNo   the resolved provider whose stamp is used in stamp mode
      * @return the preview signature bytes, or {@code null} when the persisted-signature path should be used
      */
+    @SuppressWarnings("java:S1168")
     public byte[] resolvePreviewSignatureImage(LoggedInInfo loggedInInfo, boolean newSignature, String submittedSignatureImg,
                                                String newSignatureImg, String signatureProviderNo) {
         if (!newSignature && SignatureReference.isStoredId(submittedSignatureImg)) {
@@ -198,6 +200,7 @@ public class ConsultationSignatureService {
 
     // FindSecBugs PATH_TRAVERSAL_IN: filename is constrained to a numeric provider stamp name and validated against the eForm image directory.
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "filename is constrained to a numeric provider stamp name and validated against the eForm image directory")
+    @SuppressWarnings("java:S1168")
     private byte[] readProviderStampImage(String providerNo) {
         if (!isNumericProviderNo(providerNo)) {
             MiscUtils.getLogger().warn("Rejected consultation signature stamp for non-numeric provider {}", LogSafe.sanitize(providerNo));
@@ -226,6 +229,7 @@ public class ConsultationSignatureService {
 
     // FindSecBugs PATH_TRAVERSAL_IN: DigitalSignatureUtils and PathValidationUtils constrain the temp signature path to java.io.tmpdir.
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "DigitalSignatureUtils and PathValidationUtils constrain the temp signature path to java.io.tmpdir")
+    @SuppressWarnings("java:S1168")
     private byte[] readTempSignatureImage(String signatureRequestId) {
         if (StringUtils.isBlank(signatureRequestId)) {
             return null;

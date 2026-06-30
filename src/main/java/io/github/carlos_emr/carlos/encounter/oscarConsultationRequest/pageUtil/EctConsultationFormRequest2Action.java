@@ -93,6 +93,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * @see ConsultationManager
  * @since 2003-07-21
  */
+@SuppressWarnings("java:S2629")
 public class EctConsultationFormRequest2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -105,9 +106,11 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
     private FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
 
     private final DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
-    private final ConsultationSignatureService consultationSignatureService = SpringUtils.getBean(ConsultationSignatureService.class);
+    private transient ConsultationSignatureService consultationSignatureService = SpringUtils.getBean(ConsultationSignatureService.class);
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
+    private static final String ATTR_SIGNATURE_NOT_APPLIED = "signatureNotApplied";
+    private static final String ATTR_ERROR_MESSAGE = "errorMessage";
 
     /**
      * Processes the consultation request form submission.
@@ -164,11 +167,11 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 
         boolean newSignature = request.getParameter("newSignature") != null && request.getParameter("newSignature").equalsIgnoreCase("true");
         String signatureId = null;
-        String signatureImg = StringUtils.trimToEmpty(this.getSignatureImg());
+        String trimmedSignatureImg = StringUtils.trimToEmpty(this.getSignatureImg());
         String newSignatureImg = StringUtils.trimToEmpty(request.getParameter("newSignatureImg"));
-        String manualSignatureRequestId = consultationSignatureService.resolveManualSignatureRequestId(signatureImg, newSignatureImg);
+        String manualSignatureRequestId = consultationSignatureService.resolveManualSignatureRequestId(trimmedSignatureImg, newSignatureImg);
         // Classify the overloaded signatureImg field once (stored id / manual re-sign / stamp).
-        SignatureReference signatureRef = SignatureReference.parse(newSignature, signatureImg, newSignatureImg);
+        SignatureReference signatureRef = SignatureReference.parse(newSignature, trimmedSignatureImg, newSignatureImg);
         String signatureProviderNo = consultationSignatureService.resolveSignatureProviderNo(
                 request.getParameter("signatureProviderNo"), providerNo, loggedInInfo.getLoggedInProviderNo());
 
@@ -204,7 +207,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                         // saved. Log at error so it surfaces at the production default root level and warn
                         // the provider that the consultation saved without a signature.
                         logger.error("Captured manual signature could not be persisted for provider {} on new consultation", LogSafe.sanitize(signatureProviderNo));
-                        request.setAttribute("signatureNotApplied", Boolean.TRUE);
+                        request.setAttribute(ATTR_SIGNATURE_NOT_APPLIED, Boolean.TRUE);
                     } else {
                         // No signature was collected - benign, save unsigned without alarming the provider.
                         logger.debug("No manual signature captured for new consultation; saved without a signature");
@@ -219,7 +222,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                         // Consultation is still persisted; the service logged the specific failure at
                         // error. Warn the provider that the stamp was not applied (benign disabled /
                         // no-session outcomes are intentionally silent).
-                        request.setAttribute("signatureNotApplied", Boolean.TRUE);
+                        request.setAttribute(ATTR_SIGNATURE_NOT_APPLIED, Boolean.TRUE);
                     }
                 }
 
@@ -368,15 +371,15 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                     DigitalSignature signature = digitalSignatureManager.processAndSaveDigitalSignature(loggedInInfo, manualSignatureRequestId, demographicId, ModuleType.CONSULTATION);
                     if (signature != null) {
                         signatureId = "" + signature.getId();
-                    } else if (SignatureReference.isStoredId(signatureImg)) {
+                    } else if (SignatureReference.isStoredId(trimmedSignatureImg)) {
                         // Manual capture failed but an existing stored signature is on the form - keep it.
-                        signatureId = signatureImg;
+                        signatureId = trimmedSignatureImg;
                     } else if (manualCaptured) {
                         // A signature was collected but could not be persisted and there is nothing to fall
                         // back to; the update still saves. Log at error and warn the provider.
                         signatureId = null;
                         logger.error("Captured manual signature could not be persisted for provider {} on consultation update (requestId={})", LogSafe.sanitize(signatureProviderNo), LogSafe.sanitize(requestId));
-                        request.setAttribute("signatureNotApplied", Boolean.TRUE);
+                        request.setAttribute(ATTR_SIGNATURE_NOT_APPLIED, Boolean.TRUE);
                     } else {
                         // No signature was collected - benign, leave the update unsigned silently.
                         signatureId = null;
@@ -391,11 +394,11 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                     } else if (outcome.isGenuineFailure()) {
                         // Update is still persisted; the service logged the specific failure at error.
                         // Warn the provider that the stamp was not applied.
-                        request.setAttribute("signatureNotApplied", Boolean.TRUE);
+                        request.setAttribute(ATTR_SIGNATURE_NOT_APPLIED, Boolean.TRUE);
                     }
                 } else {
                     // Already has a DigitalSignature ID - keep it
-                    signatureId = signatureImg;
+                    signatureId = trimmedSignatureImg;
                 }
 
                 ConsultationRequest consult = consultationRequestDao.find(Integer.valueOf(requestId));
@@ -514,10 +517,10 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
             requestId = this.getRequestId();
             try {
                 if (StringUtils.isBlank(requestId)) {
-                    request.setAttribute("errorMessage", "A print preview of this consultation could not be generated. \n\nMissing consultation request id.");
+                    request.setAttribute(ATTR_ERROR_MESSAGE, "A print preview of this consultation could not be generated. \n\nMissing consultation request id.");
                 } else {
                     byte[] signatureImageOverride = consultationSignatureService.resolvePreviewSignatureImage(
-                            loggedInInfo, newSignature, signatureImg, newSignatureImg, signatureProviderNo);
+                            loggedInInfo, newSignature, trimmedSignatureImg, newSignatureImg, signatureProviderNo);
                     if (signatureImageOverride != null && signatureImageOverride.length > 0) {
                         request.setAttribute(ConsultationSignatureService.SIGNATURE_IMAGE_OVERRIDE_ATTRIBUTE, signatureImageOverride);
                     }
@@ -527,7 +530,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 // Log the full exception server-side only; do not surface e.getMessage() to the
                 // browser (it can carry internal/identifier detail and renders "null" when absent).
                 logger.error("Error generating consultation print preview for requestId={}", LogSafe.sanitize(requestId), e);
-                request.setAttribute("errorMessage", "A print preview of this consultation could not be generated. Please try again or contact support.");
+                request.setAttribute(ATTR_ERROR_MESSAGE, "A print preview of this consultation could not be generated. Please try again or contact support.");
             }
             generatePDFResponse(request, response);
             return NONE;
@@ -625,7 +628,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         // A genuine signature failure was flagged as a request attribute above, but this is a 302
         // redirect to a separate request, so request attributes do not survive. Re-encode the signal as
         // a query parameter (a non-sensitive constant) so the confirmation page can render the warning.
-        if (Boolean.TRUE.equals(request.getAttribute("signatureNotApplied"))) {
+        if (Boolean.TRUE.equals(request.getAttribute(ATTR_SIGNATURE_NOT_APPLIED))) {
             forward += "&signatureNotApplied=1";
         }
         response.sendRedirect(forward);
@@ -679,7 +682,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
             // Log the full exception server-side only; the browser-facing message must not echo
             // e.getMessage() (internal/identifier leakage, and renders "null" when absent).
             logger.error(e.getMessage(), e);
-            request.setAttribute("errorMessage", "A print preview of this consultation could not be generated. Please try again or contact support.");
+            request.setAttribute(ATTR_ERROR_MESSAGE, "A print preview of this consultation could not be generated. Please try again or contact support.");
             return false;
         }
 
@@ -701,7 +704,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         ObjectNode json = objectMapper.createObjectNode();
         json.put("consultPDF", (String) request.getAttribute("consultPDF"));
         json.put("consultPDFName", (String) request.getAttribute("consultPDFName"));
-        json.put("errorMessage", (String) request.getAttribute("errorMessage"));
+        json.put(ATTR_ERROR_MESSAGE, (String) request.getAttribute(ATTR_ERROR_MESSAGE));
         try {
             if (!response.isCommitted()) {
                 response.resetBuffer();

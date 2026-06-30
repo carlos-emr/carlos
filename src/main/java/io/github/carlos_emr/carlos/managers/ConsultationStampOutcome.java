@@ -41,7 +41,7 @@ public record ConsultationStampOutcome(Status status, DigitalSignature signature
      * outcome (e.g. {@code SAVED} with no signature, or a failure carrying one) cannot be built.
      */
     public ConsultationStampOutcome {
-        status = Objects.requireNonNull(status, "status");
+        Objects.requireNonNull(status, "status");
         if ((status == Status.SAVED) != (signature != null)) {
             throw new IllegalArgumentException("signature must be present iff status is SAVED");
         }
