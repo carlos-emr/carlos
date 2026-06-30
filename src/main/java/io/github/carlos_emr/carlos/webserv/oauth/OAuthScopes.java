@@ -170,8 +170,10 @@ public final class OAuthScopes {
      *
      * <p>Each segment is percent-decoded and has any matrix parameters ({@code ;k=v}) stripped, and
      * {@code .}/{@code ..} segments are resolved away, <b>before</b> the root is matched — so it reflects
-     * what JAX-RS/CXF actually routes to. Without this, requests such as {@code /ws/services/%73chedule/...},
-     * {@code /ws/services/schedule;x=1/...}, or {@code /ws/services/./schedule/...} would resolve to a
+     * what JAX-RS/CXF actually routes to. Decoded segments are re-split on {@code /} so a percent-encoded
+     * slash ({@code %2F}, or {@code %2e%2e%2f} → {@code ../}) is treated as a path boundary too. Without
+     * this, requests such as {@code /ws/services/%73chedule/...}, {@code /ws/services/schedule;x=1/...},
+     * {@code /ws/services/./schedule/...}, or {@code /ws/services/%2e%2e%2fschedule/...} would resolve to a
      * non-matching root, fall back to {@link #NO_SCOPE_REQUIRED}, and silently bypass scope enforcement
      * while still reaching the {@code schedule} resource. Resolution errs toward enforcement, never bypass.
      */
@@ -195,17 +197,20 @@ public final class OAuthScopes {
             if (rawSegment.isEmpty()) {
                 continue;
             }
-            // Decode first so a percent-encoded matrix delimiter (%3B) is also stripped, then drop
-            // matrix parameters, then collapse dot-segments — mirroring container/JAX-RS path resolution.
-            String segment = stripMatrixParameters(percentDecode(rawSegment));
-            if (segment.isEmpty() || segment.equals(".")) {
-                continue;
+            // Decode first so a percent-encoded matrix delimiter (%3B) or slash (%2F) is revealed, then
+            // re-split on any decoded '/' so an encoded slash is a path boundary, drop matrix parameters,
+            // and collapse dot-segments — mirroring container/JAX-RS path resolution.
+            for (String part : percentDecode(rawSegment).split("/")) {
+                String segment = stripMatrixParameters(part);
+                if (segment.isEmpty() || segment.equals(".")) {
+                    continue;
+                }
+                if (segment.equals("..")) {
+                    segments.pollLast();
+                    continue;
+                }
+                segments.addLast(segment);
             }
-            if (segment.equals("..")) {
-                segments.pollLast();
-                continue;
-            }
-            segments.addLast(segment);
         }
         String root = segments.peekFirst();
         return root == null ? null : asciiLowerCase(root);

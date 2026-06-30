@@ -119,6 +119,17 @@ class OAuthScopesUnitTest {
             assertThat(OAuthScopes.requiredScope("POST", "/carlos/ws/services/../../tickler/add"))
                     .isEqualTo("tickler.write");
         }
+
+        @Test
+        @DisplayName("should treat an encoded slash as a path separator when resolving the domain")
+        void shouldResolveDomain_whenEncodedSlashPresent() {
+            // %2F decodes to '/'; a decoded slash must be re-split so it cannot mask the pilot root.
+            assertThat(OAuthScopes.requiredScope("GET", "/carlos/ws/services/schedule%2Fday"))
+                    .isEqualTo("schedule.read");
+            // %2e%2e%2f decodes to '../' -> must still resolve through the pilot root, not bypass it.
+            assertThat(OAuthScopes.requiredScope("GET", "/carlos/ws/services/%2e%2e%2fschedule/day"))
+                    .isEqualTo("schedule.read");
+        }
     }
 
     @Nested
