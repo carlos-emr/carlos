@@ -88,10 +88,9 @@ import io.github.carlos_emr.carlos.login.AppOAuth1Config;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.commn.model.ServiceAccessToken;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.utility.LogSafe;
-import io.github.carlos_emr.carlos.webserv.oauth.AccessToken;
-import io.github.carlos_emr.carlos.webserv.oauth.OAuth1Permission;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1SignatureVerifier;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuthScopes;
 import io.github.carlos_emr.CarlosProperties;
@@ -175,8 +174,14 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
                 throw new OAuth1Exception(401, "invalid_signature");
             }
 
-            // 5) Resolve provider from ACCESS token and attach LoggedInInfo
-            String providerNo = oauthDataProvider.getProviderNoByAccessToken(token);
+            // 5) Resolve provider AND scopes from a single access-token load (the token's provider and its
+            //    granted scopes both come off the same ServiceAccessToken, so we avoid a second lookup that
+            //    could race token expiry/revocation between the two reads).
+            ServiceAccessToken accessToken = oauthDataProvider.findUnexpiredAccessToken(token);
+            if (accessToken == null) {
+                throw new OAuth1Exception(401, "unknown_provider");
+            }
+            String providerNo = accessToken.getProviderNo();
             Provider provider = providerDao.getProvider(providerNo);
             if (provider == null) {
                 throw new OAuth1Exception(401, "unknown_provider");
@@ -185,7 +190,7 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
             // 5a) Enforce the granted OAuth scopes (issue #3083). No-op unless enforcement is enabled
             //     AND the target endpoint is in the scope-enforcement pilot. Done before attaching
             //     LoggedInInfo so an out-of-scope call never reaches the resource with a security context.
-            enforceScope(req, token);
+            enforceScope(req, accessToken);
 
             LoggedInInfo info = new LoggedInInfo();
             info.setLoggedInProvider(provider);
@@ -266,7 +271,7 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
      * granted scopes do not satisfy it, throws {@link OAuth1Exception} with HTTP 403 {@code insufficient_scope};
      * the caller's catch block records the rejection in the audit trail.
      */
-    private void enforceScope(HttpServletRequest req, String token) {
+    private void enforceScope(HttpServletRequest req, ServiceAccessToken accessToken) {
         if (!isScopeEnforcementEnabled()) {
             return;
         }
@@ -277,7 +282,7 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
         if (requiredScope == null) {  // OAuthScopes.NO_SCOPE_REQUIRED: endpoint outside the pilot
             return;
         }
-        if (!OAuthScopes.isSatisfiedBy(requiredScope, grantedScopes(token))) {
+        if (!OAuthScopes.isSatisfiedBy(requiredScope, grantedScopes(accessToken))) {
             throw new OAuth1Exception(403, "insufficient_scope");
         }
     }
@@ -296,16 +301,20 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
         }
     }
 
-    /** The scope strings granted on the access token, or an empty list when none are present. */
-    private List<String> grantedScopes(String token) {
-        AccessToken at = oauthDataProvider.getAccessToken(token);
-        if (at == null || at.getScopes() == null) {
+    /**
+     * The scope strings granted on the access token, or an empty list when none are present. Persisted
+     * scopes are a space-delimited string that may be null/blank (e.g. tokens minted before scopes carried
+     * meaning); that is treated as no granted scopes so enforcement fails closed (403) rather than NPE-ing.
+     */
+    private static List<String> grantedScopes(ServiceAccessToken accessToken) {
+        String raw = accessToken == null ? null : accessToken.getScopes();
+        if (raw == null || raw.isBlank()) {
             return Collections.emptyList();
         }
         List<String> scopes = new ArrayList<>();
-        for (OAuth1Permission perm : at.getScopes()) {
-            if (perm != null && perm.getPermission() != null) {
-                scopes.add(perm.getPermission());
+        for (String scope : raw.split(" ")) {
+            if (!scope.isEmpty()) {
+                scopes.add(scope);
             }
         }
         return scopes;

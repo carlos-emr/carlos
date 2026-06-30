@@ -36,6 +36,8 @@ class OAuthScopesUnitTest {
         void shouldRequireRead_whenSafeMethodOnPilotedEndpoint() {
             assertThat(OAuthScopes.requiredScope("GET", SCHEDULE_DAY_PATH)).isEqualTo("schedule.read");
             assertThat(OAuthScopes.requiredScope("HEAD", TICKLER_MINE_PATH)).isEqualTo("tickler.read");
+            assertThat(OAuthScopes.requiredScope("OPTIONS", SCHEDULE_DAY_PATH)).isEqualTo("schedule.read");
+            assertThat(OAuthScopes.requiredScope("TRACE", TICKLER_MINE_PATH)).isEqualTo("tickler.read");
         }
 
         @Test

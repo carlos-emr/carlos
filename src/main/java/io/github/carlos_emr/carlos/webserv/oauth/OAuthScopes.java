@@ -155,12 +155,14 @@ public final class OAuthScopes {
         return normalized != null && KNOWN_SCOPES.contains(normalized);
     }
 
+    /** The RFC 7231 safe (read-only) methods. {@code TRACE} is included for completeness even though the
+     *  container normally rejects it and no JAX-RS resource handles it. */
     private static boolean isSafeMethod(String httpMethod) {
         if (httpMethod == null) {
             return false;
         }
         String m = asciiLowerCase(httpMethod.trim());
-        return m.equals("get") || m.equals("head") || m.equals("options");
+        return m.equals("get") || m.equals("head") || m.equals("options") || m.equals("trace");
     }
 
     /**
