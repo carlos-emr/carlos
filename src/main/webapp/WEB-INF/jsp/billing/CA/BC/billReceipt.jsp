@@ -423,13 +423,13 @@
                                                         <div style="padding-left: 5px;">
                                                             <carlos:encode value='<%= demo.getAddress() %>' context="html"/><br>
                                                             <carlos:encode value='<%= demo.getCity() %>' context="html"/>,
-                                                            <%=demo.getProvince()%><br>
+                                                            <carlos:encode value='<%= demo.getProvince() %>' context="html"/><br>
                                                             <carlos:encode value='<%= demo.getPostal() %>' context="html"/>
                                                         </div>
                                                         <strong>Gender:</strong>
-                                                        <%=demo.getSex()%>                              <br>
+                                                        <carlos:encode value='<%= demo.getSex() %>' context="html"/><br>
                                                         <strong>Birth Date :</strong>
-                                                        <%=DemographicData.getDob(demo, "-")%>
+                                                        <carlos:encode value='<%= DemographicData.getDob(demo, "-") %>' context="html"/>
                                                     </td>
                                                 </tr>
                                             </table>

@@ -57,6 +57,7 @@
 <%@ page import="io.github.carlos_emr.BillingItemBean" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <jsp:useBean id="billing" scope="session" class="io.github.carlos_emr.BillingBean"/>
 <jsp:useBean id="billingItem" scope="page" class="io.github.carlos_emr.BillingItemBean"/>
@@ -121,34 +122,34 @@
     </tr>
     <tr>
         <td width="54%"><b><font face="Arial, Helvetica, sans-serif"
-                                 size="2">Patient Name: <%=_p0_10%>
+                                 size="2">Patient Name: <carlos:encode value='<%= _p0_10 %>' context="html"/>
         </font></b></td>
         <td width="46%"><b><font face="Arial, Helvetica, sans-serif"
-                                 size="2">Health# : <%=_p0_2%>
+                                 size="2">Health# : <carlos:encode value='<%= _p0_2 %>' context="html"/>
         </font></b></td>
     </tr>
     <tr bgcolor="#EEEEFF">
         <td><font size="2" face="Arial, Helvetica, sans-serif"><b>Sex:
-            <%=_p0_15%>
+            <carlos:encode value='<%= _p0_15 %>' context="html"/>
         </b></font></td>
         <td><font size="2"><b><font
-                face="Arial, Helvetica, sans-serif">D.O.B. : <%=_p0_6%>
+                face="Arial, Helvetica, sans-serif">D.O.B. : <carlos:encode value='<%= _p0_6 %>' context="html"/>
         </font></b></font></td>
     </tr>
     <tr>
         <td><b><font size="2" face="Arial, Helvetica, sans-serif">Address:
-            <%=_p0_11%>
+            <carlos:encode value='<%= _p0_11 %>' context="html"/>
         </font></b></td>
         <td><b><font size="2" face="Arial, Helvetica, sans-serif">City:
-            <%=_p0_13%>
+            <carlos:encode value='<%= _p0_13 %>' context="html"/>
         </font></b></td>
     </tr>
     <tr bgcolor="#EEEEFF">
         <td><b><font size="2" face="Arial, Helvetica, sans-serif">Province:
-            <%=_p0_12%>
+            <carlos:encode value='<%= _p0_12 %>' context="html"/>
         </font></b></td>
         <td><b><font size="2" face="Arial, Helvetica, sans-serif">Postal
-            Code: <%=_p0_14%>
+            Code: <carlos:encode value='<%= _p0_14 %>' context="html"/>
         </font></b></td>
     </tr>
     <tr>
