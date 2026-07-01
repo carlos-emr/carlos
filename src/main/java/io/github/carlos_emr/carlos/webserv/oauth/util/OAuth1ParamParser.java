@@ -93,7 +93,7 @@ public class OAuth1ParamParser {
 
         // 3) Body params for x-www-form-urlencoded
         String ctype = req.getContentType();
-        if (ctype != null && ctype.toLowerCase().startsWith("application/x-www-form-urlencoded")) {
+        if (ctype != null && ctype.regionMatches(true, 0, "application/x-www-form-urlencoded", 0, 33)) {
             req.getParameterMap().forEach((k, arr) -> {
                 for (String v : arr) r.addParam(k, v);
             });
