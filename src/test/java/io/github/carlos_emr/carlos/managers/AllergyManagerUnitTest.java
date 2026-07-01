@@ -57,11 +57,8 @@ import static org.mockito.Mockito.*;
  *   <li>Consent-based result filtering for provider-specific access</li>
  *   <li>Audit logging verification (LogAction calls)</li>
  *   <li>Null and empty result edge cases</li>
+ *   <li>_allergy read privilege enforcement for read methods</li>
  * </ul>
- *
- * <p><b>Note:</b> AllergyManagerImpl does not perform SecurityInfoManager
- * privilege checks. Security is enforced at the action/controller layer
- * for this manager. Therefore, no security failure tests are included.</p>
  *
  * @since 2026-02-09
  * @see AllergyManagerImpl
@@ -102,6 +99,18 @@ public class AllergyManagerUnitTest extends AllergyUnitTestBase {
         allergyManager = new AllergyManagerImpl();
         injectDependency(allergyManager, "allergyDao", mockAllergyDao);
         injectDependency(allergyManager, "patientConsentManager", mockPatientConsentManager);
+        injectDependency(allergyManager, "securityInfoManager", mockSecurityInfoManager);
+        grantAllergyReadPrivilege();
+    }
+
+    private void grantAllergyReadPrivilege() {
+        when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_allergy"),
+                eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
+    }
+
+    private void denyAllergyReadPrivilege() {
+        when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_allergy"),
+                eq(SecurityInfoManager.READ), isNull())).thenReturn(false);
     }
 
     /**
@@ -189,6 +198,62 @@ public class AllergyManagerUnitTest extends AllergyUnitTestBase {
             // Then
             assertThat(result.getDescription()).isEqualTo("Amoxicillin");
             assertThat(result.getSeverityOfReaction()).isEqualTo("3");
+        }
+    }
+
+    @Nested
+    @DisplayName("security")
+    @Tag("security")
+    class SecurityChecks {
+
+        @Test
+        @DisplayName("should throw and skip DAO when getAllergy is called without _allergy read privilege")
+        void shouldThrow_whenGetAllergyPrivilegeDenied() {
+            denyAllergyReadPrivilege();
+
+            assertThatThrownBy(() -> allergyManager.getAllergy(mockLoggedInInfo, TEST_ALLERGY_ID))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("_allergy");
+
+            verifyNoInteractions(mockAllergyDao);
+        }
+
+        @Test
+        @DisplayName("should throw and skip DAO when getUpdatedAfterDate is called without _allergy read privilege")
+        void shouldThrow_whenGetUpdatedAfterDatePrivilegeDenied() {
+            denyAllergyReadPrivilege();
+
+            assertThatThrownBy(() -> allergyManager.getUpdatedAfterDate(mockLoggedInInfo, new Date(), 5))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("_allergy");
+
+            verifyNoInteractions(mockAllergyDao, mockPatientConsentManager);
+        }
+
+        @Test
+        @DisplayName("should throw and skip consent and DAO when demographic query is called without _allergy read privilege")
+        void shouldThrow_whenDemographicQueryPrivilegeDenied() {
+            denyAllergyReadPrivilege();
+
+            assertThatThrownBy(() -> allergyManager.getByDemographicIdUpdatedAfterDate(
+                    mockLoggedInInfo, TEST_DEMO_NO, new Date()))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("_allergy");
+
+            verifyNoInteractions(mockAllergyDao, mockPatientConsentManager);
+        }
+
+        @Test
+        @DisplayName("should throw and skip DAO when composite query is called without _allergy read privilege")
+        void shouldThrow_whenCompositeQueryPrivilegeDenied() {
+            denyAllergyReadPrivilege();
+
+            assertThatThrownBy(() -> allergyManager.getAllergiesByProgramProviderDemographicDate(
+                    mockLoggedInInfo, 100, TEST_PROVIDER, TEST_DEMO_NO, Calendar.getInstance(), 5))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("_allergy");
+
+            verifyNoInteractions(mockAllergyDao);
         }
     }
 
