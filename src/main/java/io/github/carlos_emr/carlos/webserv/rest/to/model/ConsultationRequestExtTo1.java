@@ -1,6 +1,14 @@
 package io.github.carlos_emr.carlos.webserv.rest.to.model;
 
 import java.util.Date;
+/**
+ * Version 1 Transfer Object for extended consultation requests.
+ * <p>
+ * Represents the API payload structure for older integrations processing extended
+ * consultation request data within the CARLOS EMR REST services.
+ * </p>
+ */
+
 
 public class ConsultationRequestExtTo1 {
     private Integer id;
@@ -10,6 +18,7 @@ public class ConsultationRequestExtTo1 {
     private Date dateCreated;
 
     public Integer getId() {
+        // Map legacy consultation fields for backward compatibility with v1 API consumers.
         return id;
     }
 

@@ -1,4 +1,12 @@
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.data;
+/**
+ * Data Transfer Object representing a specialist in the consultation request workflow.
+ * <p>
+ * Encapsulates the demographic and professional details of a referred specialist
+ * within CARLOS EMR.
+ * </p>
+ */
+
 
 public class SpecialistDto {
     private Integer specId;
@@ -10,6 +18,7 @@ public class SpecialistDto {
 
     public SpecialistDto(Integer specId, String name, String phone,
                          String fax, String address, String annotation) {
+        // Extract specialist demographics required for populating the external referral form payload.
         this.specId = specId;
         this.name = name;
         this.phone = phone;

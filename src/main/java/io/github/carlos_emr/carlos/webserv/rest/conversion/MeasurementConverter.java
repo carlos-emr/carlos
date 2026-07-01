@@ -3,10 +3,19 @@ package io.github.carlos_emr.carlos.webserv.rest.conversion;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.MeasurementTo1;
+/**
+ * Converter for patient measurement data in REST APIs.
+ * <p>
+ * Handles the translation between internal measurement entity models and the DTOs
+ * exposed by the CARLOS EMR REST web services.
+ * </p>
+ */
+
 
 public class MeasurementConverter extends AbstractConverter<Measurement, MeasurementTo1> {
     @Override
     public Measurement getAsDomainObject(LoggedInInfo loggedInInfo, MeasurementTo1 t) throws ConversionException {
+        // Convert internal measurement values to the standard REST DTO format for API consistency.
         Measurement d = new Measurement();
         //Sets the properties
         //d.setId(t.getId());

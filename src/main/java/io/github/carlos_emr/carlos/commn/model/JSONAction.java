@@ -13,6 +13,14 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
+/**
+ * Abstract base class for Struts actions that return JSON responses.
+ * <p>
+ * Simplifies the creation of AJAX-compatible endpoints by providing standard
+ * serialization and response headers for CARLOS EMR.
+ * </p>
+ */
+
 
 public class JSONAction extends ActionSupport {
 
@@ -26,6 +34,7 @@ public class JSONAction extends ActionSupport {
     protected HttpServletResponse response;
 
     protected JSONAction() {
+        // Prepare JSON response serialization context to ensure proper client-side parsing.
         if (ActionContext.getContext() != null) {
             request = ServletActionContext.getRequest();
             response = ServletActionContext.getResponse();

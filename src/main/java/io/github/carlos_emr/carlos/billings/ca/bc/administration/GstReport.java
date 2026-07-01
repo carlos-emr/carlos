@@ -17,10 +17,16 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import java.util.Properties;
 import java.util.Vector;
+/**
+ * Represents the GST report data structure used for generating GST-related
+ * billing summaries within the BC billing administration module of CARLOS EMR.
+ */
+
 
 public class GstReport {
 
     public Vector<Properties> getGST(LoggedInInfo loggedInInfo, String[] providerNos, String startDate, String endDate) {
+        // Initialize GST report tracking to calculate accurate tax boundaries for billing summaries.
         Properties props;
         Vector<Properties> list = new Vector<Properties>();
         BillingDao dao = SpringUtils.getBean(BillingDao.class);

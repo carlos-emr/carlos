@@ -5,11 +5,20 @@ import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import java.io.IOException;
 import java.util.Calendar;
+/**
+ * Serializer for formatting dates into JavaScript-compatible ISO formats.
+ * <p>
+ * Ensures consistent date serialization for API responses across CARLOS EMR, overcoming
+ * legacy date formatting quirks for frontend compatibility.
+ * </p>
+ */
+
 
 public class JsDateSerializer extends JsonSerializer<java.sql.Date> {
     @Override
     public void serialize(java.sql.Date value, JsonGenerator gen, SerializerProvider serializers) 
             throws IOException {
+        // Format date string explicitly to prevent timezone offset bugs in the frontend client.
         if (value == null) {
             gen.writeNull();
             return;

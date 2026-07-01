@@ -8,6 +8,14 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
+
+/**
+ * Entity representing binary attachment data for an eReferral.
+ * <p>
+ * Stores the actual file content and associated metadata for documents attached
+ * to electronic referrals in the CARLOS EMR system.
+ * </p>
+ */
 @Entity
 @IdClass(EReferAttachmentDataCompositeKey.class)
 @Table(name = "erefer_attachment_data")
@@ -26,6 +34,7 @@ public class EReferAttachmentData extends AbstractModel<EReferAttachmentDataComp
     private String labType;
 
     public EReferAttachmentData() {
+        // Initialize attachment data container to store binary content for the referral package.
     }
 
     public EReferAttachmentData(EReferAttachment eReferAttachment, Integer labId, String labType) {

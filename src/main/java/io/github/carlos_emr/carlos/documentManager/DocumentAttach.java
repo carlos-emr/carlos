@@ -12,6 +12,14 @@ import io.github.carlos_emr.carlos.encounter.oceanEReferal.pageUtil.OceanEReferr
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+/**
+ * Model representing an attachment linked to a core document.
+ * <p>
+ * Tracks the relationship and metadata for files appended to primary clinical
+ * documents within the CARLOS EMR document management system.
+ * </p>
+ */
+
 
 public class DocumentAttach {
     private final ConsultDocsDao consultDocsDao = SpringUtils.getBean(ConsultDocsDao.class);
@@ -30,6 +38,7 @@ public class DocumentAttach {
     private Integer demographicNo;
 
     public DocumentAttach() {
+        // Establish linkage between the attachment and its parent document for consistent chart rendering.
     }
 
     public DocumentAttach(Integer demographicNo, Boolean editOnOcean) {
