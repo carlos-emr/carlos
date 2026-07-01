@@ -22,6 +22,7 @@ ARG DOCS_PATH='/home/oscar/development/volumes'
 ARG OSCAR_DOCUMENT="${DOCS_PATH}/OscarDocument"
 ARG DB_DOCS="/db-data/documents"
 ARG DOCS_DEST="/var/lib/OscarDocument/oscar/document"
+ARG EFORM_IMAGES_DEST="/var/lib/OscarDocument/oscar/eform/images"
 
 WORKDIR /workspace
 
@@ -179,7 +180,8 @@ RUN mkdir -p $OSCAR_DOCUMENT/oscar/document \
     $OSCAR_DOCUMENT/oscar/incomingdocs \
     $OSCAR_DOCUMENT/oscar/export \
     $DB_DOCS \
-    $DOCS_DEST
+    $DOCS_DEST \
+    $EFORM_IMAGES_DEST
 
 # Set up GPG for PGP encryption (used by demographic export)
 # Create the GNUPGHOME directory and generate a test key for development
