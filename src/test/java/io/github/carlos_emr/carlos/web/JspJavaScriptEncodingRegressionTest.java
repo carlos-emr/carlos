@@ -51,6 +51,7 @@ class JspJavaScriptEncodingRegressionTest {
     void shouldContainEncodedSessionValues_inJavaScriptStrings() throws Exception {
         String sentJsp = readJsp("mcedt/mailbox/sent.jsp");
         String autoDownloadJsp = readJsp("mcedt/mailbox/autoDownload.jsp");
+        String closeNReloadJsp = readJsp("common/closenreload.jsp");
 
         assertThat(sentJsp)
                 .doesNotContain("'<%= session.getAttribute(\"info\") %>'")
@@ -59,6 +60,9 @@ class JspJavaScriptEncodingRegressionTest {
                 .doesNotContain("'<%= session.getAttribute(\"resourceID\") %>'")
                 .contains("SafeEncode.forJavaScript(")
                 .contains("session.getAttribute(\"resourceID\")");
+        assertThat(closeNReloadJsp)
+                .contains("const parentAjaxId = \"<carlos:encode value='${parentAjaxId}' context=\"javaScript\"/>\";")
+                .doesNotContain("context=\"forHtml\"/>");
     }
 
     @Test
