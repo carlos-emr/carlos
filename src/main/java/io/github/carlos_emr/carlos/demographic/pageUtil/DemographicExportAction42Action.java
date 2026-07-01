@@ -270,13 +270,13 @@ public class DemographicExportAction42Action extends ActionSupport {
     public String execute() throws Exception {
         String strEditable = oscarProperties.getProperty("ENABLE_EDIT_APPT_STATUS");
 
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        LoggedInInfo loggedInInfo = LoggedInInfo.requireLoggedInInfoFromSession(request);
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
             throw new SecurityException("missing required security object (_demographic)");
         }
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographicExport", "r", null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographicExport", "r", null)) {
             throw new SecurityException("missing required security object (_demographicExport)");
         }
 
@@ -382,7 +382,7 @@ public class DemographicExportAction42Action extends ActionSupport {
 
                         Demographic demographic = null;
                         try {
-                            demographic = d.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), demoNo);
+                            demographic = d.getDemographic(loggedInInfo, demoNo);
                         } catch (PatientDirectiveException e) {
                             exportError.add("Unable to export patient " + demoNo + " due to Patient Directive");
                             continue;

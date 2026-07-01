@@ -68,7 +68,9 @@ public class AddDemographicRelationship2Action extends ActionSupport {
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() {
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "w", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.requireLoggedInInfoFromSession(request);
+
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
@@ -139,7 +141,7 @@ public class AddDemographicRelationship2Action extends ActionSupport {
         CtlRelationships cr = ctlRelationshipsDao.findByValue(relation);
         if (cr != null && ((cr.getMaleInverse() != null && cr.getMaleInverse().length() > 0) || (cr.getFemaleInverse() != null && cr.getFemaleInverse().length() > 0))) {
             //need sex of the relation
-            Demographic d = demographicManager.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), origDemo);
+            Demographic d = demographicManager.getDemographic(loggedInInfo, origDemo);
             if (d != null && d.getSex().equalsIgnoreCase("M")) {
                 relation = cr.getMaleInverse();
                 relationset = true;
