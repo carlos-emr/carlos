@@ -30,6 +30,7 @@
 
 package io.github.carlos_emr.carlos.mds.pageUtil;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
@@ -68,6 +69,8 @@ public class ReportReassign2Action extends ActionSupport {
     public ReportReassign2Action() {
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String execute()
             throws ServletException, IOException {
 

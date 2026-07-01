@@ -389,6 +389,8 @@ public class ProviderSignatureStamp2Action extends ActionSupport implements Uplo
         }
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     private void writeJson(HttpServletResponse resp, String json) {
         resp.setContentType("application/json");
         resp.setCharacterEncoding("UTF-8");

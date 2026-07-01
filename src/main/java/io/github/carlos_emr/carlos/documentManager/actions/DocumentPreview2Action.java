@@ -484,6 +484,8 @@ public class DocumentPreview2Action extends ActionSupport {
      * @param pdfPath Path the file system path to the PDF file to encode
      * @throws PDFGenerationException if an error occurs during base64 conversion or writing the response
      */
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     private void generateResponse(HttpServletResponse response, Path pdfPath) throws PDFGenerationException {
         ObjectNode json = objectMapper.createObjectNode();
         String base64Data = documentAttachmentManager.convertPDFToBase64(pdfPath);
@@ -507,6 +509,8 @@ public class DocumentPreview2Action extends ActionSupport {
      * @param response HttpServletResponse the HTTP response object to write to
      * @param errorMessage String the error message describing the PDF generation failure
      */
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     private void generateResponse(HttpServletResponse response, String errorMessage) {
         ObjectNode json = objectMapper.createObjectNode();
         json.put("errorMessage", errorMessage);

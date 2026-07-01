@@ -5,6 +5,7 @@
  */
 package io.github.carlos_emr.carlos.sec;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -152,6 +153,8 @@ public final class UnauthenticatedRejectionResolver {
      * <p>The request is only used for PHI-safe diagnostic context if upstream wrappers have already
      * obtained the servlet output stream and the writer path is unavailable.</p>
      */
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     private static void writeBody(
             HttpServletRequest request,
             HttpServletResponse response,

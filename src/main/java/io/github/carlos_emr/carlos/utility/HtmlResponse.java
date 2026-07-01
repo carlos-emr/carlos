@@ -162,6 +162,8 @@ public final class HtmlResponse {
      * @return {@link ActionSupport#NONE}
      * @throws IOException when response writing fails
      */
+    // FindSecBugs XSS_SERVLET: intentionally renders stored HTML; callers must provide validated/encoded content.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "intentionally renders stored HTML; callers must provide validated/encoded content")
     @SuppressWarnings({"XSS_SERVLET", "findsecbugs:XSS_SERVLET"})
     public String writeTo(HttpServletResponse response) throws IOException {
         Charset charset = prepareHtmlResponse(response, contentType);

@@ -1061,11 +1061,11 @@
   }, {
     "groupId" : "net.java.dev.jna",
     "artifactId" : "jna",
-    "version" : "5.18.1",
+    "version" : "5.19.0",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:6Fmqe/AyJdrN0EPGf5OeklDj4iPvAxoMtncXl0Ni6d8r0dnXBOe1LnQIIw8B2Ba6t+wadF2c8v6ybr2DmAJsfg=="
+    "integrity" : "sha512:39wcr9Gn/7RBOMYsO3PSpIyW71rpXFEnWplfp31kueAGhvrLltpWXdRFH95prpe+2UHhjr5YzN2bXpC6V2iKDQ=="
   }, {
     "groupId" : "net.sf.jasperreports",
     "artifactId" : "jasperreports-data-adapters",

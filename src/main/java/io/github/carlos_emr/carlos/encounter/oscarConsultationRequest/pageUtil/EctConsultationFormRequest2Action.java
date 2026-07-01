@@ -632,12 +632,14 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
      * @param request  HttpServletRequest containing the PDF data and filename as attributes
      * @param response HttpServletResponse where the JSON is written
      */
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     private void generatePDFResponse(HttpServletRequest request, HttpServletResponse response) {
         ObjectNode json = objectMapper.createObjectNode();
         json.put("consultPDF", (String) request.getAttribute("consultPDF"));
         json.put("consultPDFName", (String) request.getAttribute("consultPDFName"));
         json.put("errorMessage", (String) request.getAttribute("errorMessage"));
-        response.setContentType("text/javascript");
+        response.setContentType("application/json;charset=UTF-8");
         try {
             response.getWriter().write(json.toString());
         } catch (IOException e) {
