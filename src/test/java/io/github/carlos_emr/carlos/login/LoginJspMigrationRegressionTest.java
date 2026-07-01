@@ -285,7 +285,11 @@ class LoginJspMigrationRegressionTest {
                 .isLessThan(loginFailedJsp.indexOf("request.getParameter(\"errormsg\")"));
         assertThat(loginFailedJsp)
                 .contains("request.setAttribute(\"errormsg\", errormsg)")
+                .contains("${pageContext.request.contextPath}/images/favicon.ico")
+                .contains("request.getContextPath() %>/js/global.js")
                 .contains("value=\"${errormsg}\"")
+                .doesNotContain("<base href")
+                .doesNotContain("request.getServerName()")
                 .doesNotContain("<%= errormsg %>")
                 .doesNotContain("owasp.encoder.jakarta.advanced");
     }
