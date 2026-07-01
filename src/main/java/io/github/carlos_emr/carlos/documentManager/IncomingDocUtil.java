@@ -40,6 +40,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FilenameFilter;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -108,8 +109,6 @@ public final class IncomingDocUtil {
      * @param targetPath The path to validate
      * @return true if the path is within bounds, false otherwise
      */
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private static boolean isPathWithinBounds(String basePath, String targetPath) {
         try {
             File baseDir = new File(basePath).getCanonicalFile();
@@ -221,8 +220,10 @@ public final class IncomingDocUtil {
      * @throws IllegalArgumentException if pdfName contains path traversal sequences
      * @throws SecurityException if the resolved path is outside the allowed directory
      */
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
+    // validateStrictFileName() rejects traversal sequences in pdfName; validateExistingPath() then confirms the resolved path stays inside INCOMINGDOCUMENT_DIR.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
+        justification = "validateStrictFileName() rejects traversal sequences in pdfName; "
+            + "validateExistingPath() then confirms the resolved path stays inside INCOMINGDOCUMENT_DIR.")
     public static String getIncomingDocumentFilePathName(String queueId, String pdfDir, String pdfName) {
         // Validate pdfName to prevent path traversal
         pdfName = PathValidationUtils.validateStrictFileName(pdfName);
@@ -248,8 +249,10 @@ public final class IncomingDocUtil {
      * @throws IllegalArgumentException if pdfName contains path traversal sequences
      * @throws SecurityException if the resolved path is outside the allowed directory
      */
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
+    // validatePathComponent() rejects traversal sequences in pdfName; the resolved path is then contained inside INCOMINGDOCUMENT_DIR.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
+        justification = "validatePathComponent() rejects traversal sequences in pdfName; "
+            + "the resolved path is then contained inside INCOMINGDOCUMENT_DIR.")
     public static String getAndCreateIncomingDocumentFilePathName(String queueId, String pdfDir, String pdfName) {
         // Validate pdfName to prevent path traversal
         pdfName = validatePathComponent(pdfName, "pdfName");
@@ -276,8 +279,10 @@ public final class IncomingDocUtil {
      * @throws IllegalArgumentException if queueId or pdfDir contains invalid characters
      * @throws SecurityException if the resolved path is outside the allowed directory
      */
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
+    // pdfDir is whitelisted to {Fax, Mail, File, Refile}; PathValidationUtils.validateExistingPath() then confirms the path stays inside INCOMINGDOCUMENT_DIR.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
+        justification = "pdfDir is whitelisted to {Fax, Mail, File, Refile}; "
+            + "PathValidationUtils.validateExistingPath() then confirms the path stays inside INCOMINGDOCUMENT_DIR.")
     public static String getIncomingDocumentDeletedFilePath(String queueId, String pdfDir) {
         String filePath;
 
@@ -331,13 +336,11 @@ public final class IncomingDocUtil {
      * @throws IllegalStateException if INCOMINGDOCUMENT_DIR is not configured
      * @throws IllegalArgumentException if queueId or pdfDir contains invalid values
      */
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static String getIncomingDocumentFilePath(String queueId, String pdfDir) {
         String filePath;
 
         filePath = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
-
+        
         if (filePath == null || filePath.isEmpty()) {
             throw new IllegalStateException("INCOMINGDOCUMENT_DIR property not configured");
         }
@@ -370,8 +373,6 @@ public final class IncomingDocUtil {
      * @throws IllegalStateException if INCOMINGDOCUMENT_DIR is not configured
      * @throws SecurityException if the resolved path is outside the allowed directory
      */
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static String getAndCreateIncomingDocumentFilePath(String queueId, String pdfDir) {
         String filePath = getIncomingDocumentFilePath(queueId, pdfDir);
         
@@ -420,7 +421,7 @@ public final class IncomingDocUtil {
      * @param degrees int the rotation angle in degrees (e.g., 90, 180, -90)
      * @throws Exception if the rotation, file deletion, or rename operation fails
      */
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    // path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static void rotatePage(String queueId, String myPdfDir, String myPdfName, String MyPdfPageNumber, int degrees) throws Exception {
         long lastModified;
@@ -477,7 +478,7 @@ public final class IncomingDocUtil {
      * @param degrees int the rotation angle in degrees (e.g., 90, 180, -90)
      * @throws Exception if the rotation, file deletion, or rename operation fails
      */
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    // path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static void rotateAlPages(String queueId, String myPdfDir, String myPdfName, int degrees) throws Exception {
         long lastModified;
@@ -536,7 +537,7 @@ public final class IncomingDocUtil {
      * @param PageNumberToDelete String the 1-based page number to delete
      * @throws Exception if the page deletion, file operations, or rename fails
      */
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    // path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static void deletePage(String queueId, String myPdfDir, String myPdfName, String PageNumberToDelete) throws Exception {
         long lastModified;
@@ -557,10 +558,16 @@ public final class IncomingDocUtil {
 
         File deleteDir = PathValidationUtils.validateConfiguredDirectory(getIncomingDocumentDeletedFilePath(queueId, myPdfDir), "incoming deleted directory");
         File validatedDeleteFile = null;
-        int index = myPdfName.indexOf(".pdf");
-
-        String myPdfNameF = myPdfName.substring(0, index);
-        String myPdfNameExt = myPdfName.substring(index, myPdfName.length());
+        int index = myPdfName.toLowerCase(Locale.ROOT).lastIndexOf(".pdf");
+        String myPdfNameF;
+        String myPdfNameExt;
+        if (index < 0) {
+            myPdfNameF = myPdfName;
+            myPdfNameExt = "";
+        } else {
+            myPdfNameF = myPdfName.substring(0, index);
+            myPdfNameExt = myPdfName.substring(index, myPdfName.length());
+        }
 
         try (PdfReader reader = new PdfReader(filePathName);
              FileOutputStream copyFos = new FileOutputStream(validatedTempFile)) {
@@ -590,27 +597,25 @@ public final class IncomingDocUtil {
             }
         }
 
-        boolean success;
-        if (!CarlosProperties.getInstance().getBooleanProperty("INCOMINGDOCUMENT_RECYCLEBIN", "true")) {
-            if (validatedDeleteFile != null) {
-                success = validatedDeleteFile.delete();
-                if (!success) {
-                    throw new Exception("Error in deleting file:" + validatedDeleteFile.getPath());
-                }
-            }
-        }
+        deleteRecycledPageIfDisabled(validatedDeleteFile);
 
-        success = f.delete();
-        if (success) {
-            File f1 = PathValidationUtils.validateExistingPath(new File(tempFilePathName), new File(basePath));
-            f1.setLastModified(lastModified);
-            success = f1.renameTo(f);
-            if (!success) {
-                throw new Exception("Error in renaming file from:" + tempFilePathName + "to " + filePathName);
-            }
-        } else {
-            throw new Exception("Error in deleting file:" + filePathName);
+        Files.delete(f.toPath());
+        File f1 = PathValidationUtils.validateExistingPath(new File(tempFilePathName), new File(basePath));
+        if (!f1.setLastModified(lastModified)) {
+            throw new IOException("Error in setting last modified time for file:" + tempFilePathName);
         }
+        boolean success = f1.renameTo(f);
+        if (!success) {
+            throw new Exception("Error in renaming file from:" + tempFilePathName + "to " + filePathName);
+        }
+    }
+
+    private static void deleteRecycledPageIfDisabled(File validatedDeleteFile) throws IOException {
+        if (CarlosProperties.getInstance().getBooleanProperty("INCOMINGDOCUMENT_RECYCLEBIN", "true")
+                || validatedDeleteFile == null) {
+            return;
+        }
+        Files.delete(validatedDeleteFile.toPath());
     }
 
     /**
@@ -628,8 +633,7 @@ public final class IncomingDocUtil {
      * @param pageNumbersToExtract String comma-separated page numbers and/or ranges (e.g., "1,3-5")
      * @throws Exception if the page specification is invalid or file operations fail
      */
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    // case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path validated for directory containment via PathValidationUtils before use")
     public static void extractPage(String queueId, String myPdfDir, String myPdfName, String pageNumbersToExtract) throws Exception {
         long lastModified;
@@ -653,9 +657,7 @@ public final class IncomingDocUtil {
         String myPdfNameF = myPdfName.substring(0, index);
         String myPdfNameExt = myPdfName.substring(index, myPdfName.length());
 
-        ArrayList<String> extractList = new ArrayList<String>();
-        int startPage, endPage;
-        boolean cancelExtract = false;
+        ArrayList<String> extractList;
 
         PdfReader reader = null;
         Document document = null;
@@ -671,62 +673,7 @@ public final class IncomingDocUtil {
             File validatedExtractFile = PathValidationUtils.validatePath(extractFileName, extractBaseDir);
             extractPath = validatedExtractFile.getPath();
 
-            // extractList uses 1-based indexing (matching PDF page numbers),
-            // so index 0 is an unused placeholder
-            for (int pgIndex = 0; pgIndex <= reader.getNumberOfPages(); pgIndex++) {
-                extractList.add(pgIndex, "0");
-            }
-
-            String tmpPageNumbersToExtract = pageNumbersToExtract;
-            String[] pageList = tmpPageNumbersToExtract.split(",");
-            for (int i = 0; i < pageList.length; i++) {
-                if (!pageList[i].isEmpty()) {
-                    String[] rangeList = pageList[i].split("-");
-                    if (rangeList.length > 2) {
-                        cancelExtract = true;
-                    }
-                    for (int j = 0; j < rangeList.length; j++) {
-                        if (!rangeList[j].matches("^[0-9]+$")) {
-                            cancelExtract = true;
-                        }
-                    }
-                    if (!cancelExtract) {
-                        if (rangeList.length == 1) {
-                            startPage = Integer.parseInt(rangeList[0], 10);
-                            if (startPage > extractList.size() || startPage == 0) {
-                                cancelExtract = true;
-                            } else {
-                                extractList.set(startPage, "1");
-                            }
-                        } else if (rangeList.length == 2) {
-                            startPage = Integer.parseInt(rangeList[0], 10);
-                            endPage = Integer.parseInt(rangeList[1], 10);
-
-                            for (int k = startPage; k <= endPage; k++) {
-
-                                if (k > extractList.size() || k == 0) {
-                                    cancelExtract = true;
-                                } else {
-                                    extractList.set(k, "1");
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            // Reject extraction if ALL pages would be extracted (nothing would remain)
-            if (!cancelExtract) {
-                cancelExtract = true;
-                for (int pageNumber = 1; pageNumber <= reader.getNumberOfPages(); pageNumber++) {
-                    if (!(extractList.get(pageNumber).equals("1"))) {
-                        cancelExtract = false;
-                    }
-                }
-            }
-            if (cancelExtract == true) {
-                reader.close();
-                throw new Exception(myPdfName + " : Invalid Pages to Extract " + pageNumbersToExtract);
-            }
+            extractList = buildExtractList(myPdfName, pageNumbersToExtract, reader.getNumberOfPages());
 
             document = new Document(reader.getPageSizeWithRotation(1));
             copyFos = new FileOutputStream(validatedTempFile);
@@ -734,31 +681,9 @@ public final class IncomingDocUtil {
             extractFos = new FileOutputStream(validatedExtractFile);
             extractCopy = new PdfCopy(document, extractFos);
             document.open();
-            for (int pageNumber = 1; pageNumber <= reader.getNumberOfPages(); pageNumber++) {
-                if (!(extractList.get(pageNumber).equals("1"))) {
-                    copy.addPage(copy.getImportedPage(reader, pageNumber));
-                } else {
-                    extractCopy.addPage(copy.getImportedPage(reader, pageNumber));
-                }
-            }
-
-
+            copyExtractedPages(reader, extractList, copy, extractCopy);
         } finally {
-            // Each close is independently protected so a failure in one
-            // does not prevent cleanup of the remaining resources.
-            // PdfCopy closed before Document to match deletePage ordering.
-            try { if (copy != null) copy.close(); }
-            catch (Exception e) { MiscUtils.getLogger().error("Error closing copy writer during page extraction", e); }
-            try { if (extractCopy != null) extractCopy.close(); }
-            catch (Exception e) { MiscUtils.getLogger().error("Error closing extract writer during page extraction", e); }
-            try { if (document != null) document.close(); }
-            catch (Exception e) { MiscUtils.getLogger().error("Error closing PDF document during page extraction", e); }
-            try { if (copyFos != null) copyFos.close(); }
-            catch (Exception e) { MiscUtils.getLogger().error("Error closing copy output stream during page extraction", e); }
-            try { if (extractFos != null) extractFos.close(); }
-            catch (Exception e) { MiscUtils.getLogger().error("Error closing extract output stream during page extraction", e); }
-            try { if (reader != null) reader.close(); }
-            catch (Exception e) { MiscUtils.getLogger().error("Error closing PDF reader during page extraction", e); }
+            closePageExtractionResources(copy, extractCopy, document, copyFos, extractFos, reader);
         }
 
         boolean success = f.delete();
@@ -778,6 +703,139 @@ public final class IncomingDocUtil {
         }
     }
 
+    private static ArrayList<String> buildExtractList(String pdfName, String pageNumbersToExtract, int pageCount) {
+        String sanitizedPageNumbersToExtract = LogSafe.sanitize(pageNumbersToExtract);
+        if (pageNumbersToExtract == null || pageNumbersToExtract.trim().isEmpty()) {
+            throw new IllegalArgumentException(pdfName + " : Invalid Pages to Extract " + sanitizedPageNumbersToExtract);
+        }
+
+        ArrayList<String> extractList = initializeExtractList(pageCount);
+        boolean validPages = true;
+        boolean hasPageSpec = false;
+
+        for (String pageSpec : pageNumbersToExtract.split(",")) {
+            pageSpec = pageSpec.trim();
+            if (!pageSpec.isEmpty()) {
+                hasPageSpec = true;
+                validPages = markPagesForExtraction(extractList, pageSpec, pageCount) && validPages;
+            }
+        }
+
+        if (!hasPageSpec || !validPages || !hasPageRemaining(extractList, pageCount)) {
+            throw new IllegalArgumentException(pdfName + " : Invalid Pages to Extract " + sanitizedPageNumbersToExtract);
+        }
+
+        return extractList;
+    }
+
+    private static ArrayList<String> initializeExtractList(int pageCount) {
+        ArrayList<String> extractList = new ArrayList<String>();
+        for (int pgIndex = 0; pgIndex <= pageCount; pgIndex++) {
+            extractList.add(pgIndex, "0");
+        }
+        return extractList;
+    }
+
+    private static boolean markPagesForExtraction(ArrayList<String> extractList, String pageSpec, int pageCount) {
+        String[] rangeList = pageSpec.split("-");
+        if (rangeList.length == 1) {
+            return markExtractPage(extractList, rangeList[0], pageCount);
+        }
+        if (rangeList.length == 2 && isNumericPage(rangeList[0]) && isNumericPage(rangeList[1])) {
+            try {
+                int startPage = Integer.parseInt(rangeList[0], 10);
+                int endPage = Integer.parseInt(rangeList[1], 10);
+                return markExtractRange(extractList, startPage, endPage, pageCount);
+            } catch (NumberFormatException e) {
+                return false;
+            }
+        }
+        return false;
+    }
+
+    private static boolean markExtractPage(ArrayList<String> extractList, String pageSpec, int pageCount) {
+        if (!isNumericPage(pageSpec)) {
+            return false;
+        }
+        int pageNumber;
+        try {
+            pageNumber = Integer.parseInt(pageSpec, 10);
+        } catch (NumberFormatException e) {
+            return false;
+        }
+        if (!isValidPageNumber(pageNumber, pageCount)) {
+            return false;
+        }
+        extractList.set(pageNumber, "1");
+        return true;
+    }
+
+    private static boolean markExtractRange(ArrayList<String> extractList, int startPage, int endPage, int pageCount) {
+        if (startPage > endPage) {
+            return false;
+        }
+        for (int pageNumber = startPage; pageNumber <= endPage; pageNumber++) {
+            if (!isValidPageNumber(pageNumber, pageCount)) {
+                return false;
+            }
+            extractList.set(pageNumber, "1");
+        }
+        return true;
+    }
+
+    private static boolean isNumericPage(String pageSpec) {
+        return pageSpec.matches("^\\d+$");
+    }
+
+    private static boolean isValidPageNumber(int pageNumber, int pageCount) {
+        return pageNumber >= 1 && pageNumber <= pageCount;
+    }
+
+    private static boolean hasPageRemaining(ArrayList<String> extractList, int pageCount) {
+        for (int pageNumber = 1; pageNumber <= pageCount; pageNumber++) {
+            if (!"1".equals(extractList.get(pageNumber))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void copyExtractedPages(PdfReader reader, ArrayList<String> extractList, PdfCopy copy,
+            PdfCopy extractCopy) throws IOException {
+        for (int pageNumber = 1; pageNumber <= reader.getNumberOfPages(); pageNumber++) {
+            if ("1".equals(extractList.get(pageNumber))) {
+                extractCopy.addPage(copy.getImportedPage(reader, pageNumber));
+            } else {
+                copy.addPage(copy.getImportedPage(reader, pageNumber));
+            }
+        }
+    }
+
+    private static void closePageExtractionResources(PdfCopy copy, PdfCopy extractCopy, Document document,
+            FileOutputStream copyFos, FileOutputStream extractFos, PdfReader reader) {
+        closePdfResource(copy, "Error closing copy writer during page extraction");
+        closePdfResource(extractCopy, "Error closing extract writer during page extraction");
+        closePdfResource(document, "Error closing PDF document during page extraction");
+        closePdfResource(copyFos, "Error closing copy output stream during page extraction");
+        closePdfResource(extractFos, "Error closing extract output stream during page extraction");
+        closePdfResource(reader, "Error closing PDF reader during page extraction");
+    }
+
+    // message is always one of the fixed internal cleanup strings passed by closePageExtractionResources().
+    @SuppressFBWarnings(
+            value = "CRLF_INJECTION_LOGS",
+            justification = "message is always one of the fixed internal cleanup strings passed by closePageExtractionResources().")
+    private static void closePdfResource(AutoCloseable resource, String message) {
+        if (resource == null) {
+            return;
+        }
+        try {
+            resource.close();
+        } catch (Exception e) {
+            MiscUtils.getLogger().error(message, e);
+        }
+    }
+
     /**
      * Deletes an entire PDF file. If the INCOMINGDOCUMENT_RECYCLEBIN property is enabled
      * (default: true), the file is moved to the deleted-documents directory instead of
@@ -788,7 +846,7 @@ public final class IncomingDocUtil {
      * @param myPdfName String the PDF filename to delete
      * @throws Exception if the file cannot be deleted or moved to the recycle bin
      */
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    // path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static void DeletePDF(String queueId, String myPdfDir, String myPdfName) throws Exception {
         String filePathName;

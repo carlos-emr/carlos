@@ -206,7 +206,7 @@ public class SubmitLabByForm2Action extends ActionSupport {
         String filePath = Utilities.saveFile(is, filename);
         is.close();
         File uploadDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
-        File file = PathValidationUtils.validateExistingPath(new File(filePath), uploadDir);
+        File file = PathValidationUtils.validateExistingPath(filePath, uploadDir);
 
         int checkFileUploadedSuccessfully;
         try (FileInputStream fis = new FileInputStream(file)) {

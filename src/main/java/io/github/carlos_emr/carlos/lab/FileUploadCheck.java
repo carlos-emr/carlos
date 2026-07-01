@@ -29,9 +29,6 @@
 
 package io.github.carlos_emr.carlos.lab;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.Date;
 import java.util.HashMap;
@@ -43,9 +40,7 @@ import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.IOUtils;
 import io.github.carlos_emr.carlos.commn.dao.FileUploadCheckDao;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
@@ -62,25 +57,6 @@ public final class FileUploadCheck {
         FileUploadCheckDao dao = SpringUtils.getBean(FileUploadCheckDao.class);
         List<io.github.carlos_emr.carlos.commn.model.FileUploadCheck> checks = dao.findByMd5Sum(md5sum);
         return !checks.isEmpty();
-    }
-
-    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
-    public static boolean hasFileBeenUploadedByFileLocation(String fileLocation) throws IOException {
-        InputStream is = null;
-
-        try {
-            is = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(fileLocation)));
-            String md5sum = DigestUtils.md5Hex(IOUtils.toByteArray(is));
-            return hasFileBeenUploaded(md5sum);
-        } catch (SecurityException e) {
-            // Honour the declared throws IOException: a canonicalization failure on the (trusted)
-            // file location surfaces as IOException rather than an unchecked SecurityException.
-            throw new IOException("Unable to resolve uploaded file location", e);
-        } finally {
-            IOUtils.closeQuietly(is);
-        }
-
     }
 
     public static Map<String, String> getFileInfo(Integer id) {

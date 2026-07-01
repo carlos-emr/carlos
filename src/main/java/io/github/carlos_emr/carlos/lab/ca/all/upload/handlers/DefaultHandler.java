@@ -46,6 +46,8 @@ import java.util.ArrayList;
 
 import javax.xml.parsers.DocumentBuilderFactory;
 
+import io.github.carlos_emr.CarlosProperties;
+
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -56,7 +58,6 @@ import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
 import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
-import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
@@ -132,8 +133,7 @@ public class DefaultHandler implements MessageHandler {
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private Document getXML(String fileName) {
         try {
-            // Validate the file path using PathValidationUtils
-            File file = new File(fileName);
+            File file = PathValidationUtils.validateExistingDocumentPath(fileName);
 
             // Validate the file is within the expected document directory
             CarlosProperties props = CarlosProperties.getInstance();
@@ -152,7 +152,6 @@ public class DefaultHandler implements MessageHandler {
             }
 
             DocumentBuilderFactory factory = XmlUtils.createSecureDocumentBuilderFactory();
-            // Use the validated file object instead of creating a new FileInputStream with the raw path
             Document doc = factory.newDocumentBuilder().parse(file);
             return (doc);
 
@@ -170,10 +169,13 @@ public class DefaultHandler implements MessageHandler {
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public String readTextFile(String fullPathFilename) throws IOException {
-        // Validate the file path using PathValidationUtils
-        File file = new File(fullPathFilename);
+        File file;
+        try {
+            file = PathValidationUtils.validateExistingDocumentPath(fullPathFilename);
+        } catch (SecurityException e) {
+            throw new IOException("Path traversal attempt detected: " + fullPathFilename, e);
+        }
 
-        // Ensure the file exists and is a regular file
         if (!file.exists() || !file.isFile()) {
             throw new IOException("File does not exist or is not a regular file: " + fullPathFilename);
         }
@@ -188,16 +190,13 @@ public class DefaultHandler implements MessageHandler {
         file = PathValidationUtils.validateExistingPath(file, docDir);
 
         StringBuilder sb = new StringBuilder(1024);
-        // Use the validated file object instead of the raw path
-        BufferedReader reader = new BufferedReader(new FileReader(file));
-
-        char[] chars = new char[1024];
-        int numRead = 0;
-        while ((numRead = reader.read(chars)) > -1) {
-            sb.append(chars, 0, numRead);
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            char[] chars = new char[1024];
+            int numRead = 0;
+            while ((numRead = reader.read(chars)) > -1) {
+                sb.append(chars, 0, numRead);
+            }
         }
-
-        reader.close();
 
         return sb.toString();
     }

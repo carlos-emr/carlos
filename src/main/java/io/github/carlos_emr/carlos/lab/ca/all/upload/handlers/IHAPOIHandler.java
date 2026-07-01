@@ -46,7 +46,6 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -58,6 +57,7 @@ import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
+
 
 import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -253,31 +253,16 @@ public class IHAPOIHandler implements MessageHandler {
             throw new IllegalArgumentException("File name cannot be null or empty");
         }
         
-        // Get the base directory for documents
-        CarlosProperties props = CarlosProperties.getInstance();
-        String documentDir = props.getProperty("DOCUMENT_DIR");
-        
-        if (documentDir == null || documentDir.isEmpty()) {
-            // If DOCUMENT_DIR is not configured, use system temp directory as fallback
-            documentDir = System.getProperty("java.io.tmpdir");
-        }
-        
-        // Create File object
-        File file = new File(fileName);
-        File baseDirFile = new File(documentDir);
-
-        // Check if the file is within the allowed base directory or temp directory
-        boolean isValidPath = false;
+        File file;
         try {
-            file = PathValidationUtils.validateExistingPath(file, baseDirFile);
-            isValidPath = true;
-        } catch (SecurityException e) {
-            // Try allowed temp directories as fallback
-            isValidPath = PathValidationUtils.isInAllowedTempDirectory(file);
-        }
-        if (!isValidPath) {
-            logger.error("Path traversal attempt detected: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-            throw new IllegalArgumentException("Invalid file path - access denied");
+            file = PathValidationUtils.validateExistingDocumentPath(fileName);
+        } catch (SecurityException documentPathFailure) {
+            try {
+                file = PathValidationUtils.validateUpload(new File(fileName));
+            } catch (SecurityException uploadPathFailure) {
+                logger.error("Path traversal attempt detected: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                throw new IllegalArgumentException("Invalid file path - access denied", uploadPathFailure);
+            }
         }
         
         // Ensure the file exists and is readable

@@ -138,7 +138,9 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                 }
                 //SAVE FILE TO DISK
                 is.reset();
-                saveFile(is, filename);
+                if (!saveFile(is, filename)) {
+                    outcome = OUTCOME_EXCEPTION;
+                }
             } else {
                 outcome = "uploadedPreviously";
             }
@@ -175,18 +177,16 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             //properties must exist
             String place = props.getProperty("DOCUMENT_DIR");
 
-            if (!place.endsWith("/"))
-                place = new StringBuilder(place).insert(place.length(), "/").toString();
             File baseDir = PathValidationUtils.resolveConfiguredDirectory(place, "PathNet lab upload directory");
-            File outputFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName("LabUpload." + filename + "." + (new Date()).getTime()), baseDir);
+            File outputFile = PathValidationUtils.validateGeneratedChildPath(
+                    PathValidationUtils.validateGeneratedFileName("LabUpload." + filename + "." + (new Date()).getTime()),
+                    baseDir);
             retVal = outputFile.getPath();
             MiscUtils.getLogger().debug(retVal);
-            //write the file to the file specified
             try (OutputStream bos = new FileOutputStream(outputFile)) {
                 stream.transferTo(bos);
             }
 
-            //close the stream
             stream.close();
         } catch (FileNotFoundException fnfe) {
 
@@ -194,7 +194,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             MiscUtils.getLogger().error("Error", fnfe);
             return isAdded = false;
 
-        } catch (IOException ioe) {
+        } catch (IOException | SecurityException ioe) {
             MiscUtils.getLogger().error("Error", ioe);
             return isAdded = false;
         }

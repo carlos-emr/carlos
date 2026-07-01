@@ -52,9 +52,9 @@ import org.apache.pdfbox.rendering.PDFRenderer;
 import org.apache.pdfbox.rendering.ImageType;
 import javax.imageio.ImageIO;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import io.github.carlos_emr.carlos.utility.LogSafe;
@@ -144,8 +144,6 @@ public class NioFileManagerImpl implements NioFileManager {
         return outfile;
     }
 
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public Path getDocumentCacheDirectory(LoggedInInfo loggedInInfo) {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, "")) {
@@ -170,8 +168,6 @@ public class NioFileManagerImpl implements NioFileManager {
      * <p>
      * Returns a file path to the cached version of the given PDF
      */
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public Path createCacheVersion2(LoggedInInfo loggedInInfo, String sourceDirectory, String filename, Integer pageNum) {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.WRITE, "")) {
@@ -336,8 +332,6 @@ public class NioFileManagerImpl implements NioFileManager {
      * @param fileName the filename to sanitize
      * @return sanitized filename with only the base name
      */
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private String sanitizeFileName(String fileName) {
         if (fileName == null) {
             return "";
@@ -368,8 +362,6 @@ public class NioFileManagerImpl implements NioFileManager {
      *
      * @throws IOException
      */
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public Path saveTempFile(final String fileName, ByteArrayOutputStream os, String fileType) throws IOException {
         Path directory = Files.createTempDirectory(TEMP_PDF_DIRECTORY + System.currentTimeMillis());
         if (fileType == null) {
@@ -396,8 +388,6 @@ public class NioFileManagerImpl implements NioFileManager {
         return saveTempFile(fileName, os, null);
     }
 
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public Path createTempFile(final String fileName, ByteArrayOutputStream os) throws IOException {
         String sanitizedName = new File(fileName).getName();
         
@@ -466,8 +456,6 @@ public class NioFileManagerImpl implements NioFileManager {
      * Oscar properties.
      * Filename string in File out
      */
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public File getOscarDocument(String fileName) {
         // Sanitize the filename to prevent path traversal
         String sanitizedFileName = sanitizeFileName(fileName);
@@ -499,31 +487,34 @@ public class NioFileManagerImpl implements NioFileManager {
      * This method deletes the temporary file after successful copy.
      * Uses Apache Commons FilenameUtils for robust path security.
      */
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
+    // PATH_TRAVERSAL_IN: validateTempDeletionTarget() canonicalizes the source inside approved temp dirs, and validatePath() contains the destination inside DOCUMENT_DIR.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
+        justification = "validateTempDeletionTarget() canonicalizes the source inside approved temp dirs, "
+            + "and PathValidationUtils.validatePath() confirms the destination stays within the document directory.")
     public String copyFileToOscarDocuments(String tempFilePath) {
         try {
             // Use FilenameUtils.getName() to extract just the filename, removing any path components
             // This is more reliable than manual path manipulation as it handles edge cases
             String sanitizedFileName = FilenameUtils.getName(tempFilePath);
             if (sanitizedFileName == null || sanitizedFileName.isEmpty()) {
-                log.error("Invalid file path provided: " + tempFilePath);
+                if (log.isErrorEnabled()) {
+                    log.error("Invalid file path provided: {}", LogSafe.sanitize(tempFilePath, 1024));
+                }
                 return null;
             }
 
             // Get source and destination directories
             File documentDir = new File(getDocumentDirectory());
-            File sourceFile = new File(tempFilePath);
-            File destinationFile = new File(documentDir, sanitizedFileName);
-
-            // Validate that source file exists and is a regular file
-            if (!sourceFile.exists() || !sourceFile.isFile()) {
-                log.error("Source file does not exist or is not a regular file: " + tempFilePath);
+            File sourceFile = validateTempDeletionTarget(tempFilePath);
+            if (sourceFile == null) {
+                if (log.isErrorEnabled()) {
+                    log.error("Source file does not exist or is not a regular file: {}", LogSafe.sanitize(tempFilePath, 1024));
+                }
                 return null;
             }
 
             // Validate destination path using PathValidationUtils
-            destinationFile = PathValidationUtils.validatePath(sanitizedFileName, documentDir);
+            File destinationFile = PathValidationUtils.validatePath(sanitizedFileName, documentDir);
 
             // Perform the copy operation
             Files.copy(sourceFile.toPath(), destinationFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
@@ -539,6 +530,9 @@ public class NioFileManagerImpl implements NioFileManager {
             }
 
             return destinationFile.getPath();
+        } catch (SecurityException e) {
+            log.warn("Rejected temporary source file for document copy", e);
+            return null;
         } catch (IOException e) {
             log.error("An error occurred while moving the PDF file", e);
             return null;
@@ -551,8 +545,6 @@ public class NioFileManagerImpl implements NioFileManager {
      * not for the full DOCUMENT_DIRECTORY path in Oscar.properties.
      * This method considers both locations.
      */
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private String getDocumentDirectory() {
         String document_dir = DOCUMENT_DIRECTORY;
         if (document_dir == null || !Files.isDirectory(Paths.get(document_dir))) {

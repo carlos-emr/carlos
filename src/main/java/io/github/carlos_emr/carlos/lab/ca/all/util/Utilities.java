@@ -73,10 +73,7 @@ public class Utilities {
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static ArrayList<String> separateMessages(String fileName) throws Exception {
 
-        // Validate the file path is within DOCUMENT_DIR to prevent path traversal
-        CarlosProperties props = CarlosProperties.getInstance();
-        String place = props.getProperty("DOCUMENT_DIR");
-        File validatedFile = PathValidationUtils.validateExistingPath(new File(fileName), new File(place));
+        File validatedFile = PathValidationUtils.validateExistingDocumentPath(fileName);
 
         ArrayList<String> messages = new ArrayList<String>();
         try (InputStream is = new FileInputStream(validatedFile);
@@ -132,22 +129,23 @@ public class Utilities {
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static String saveFile(InputStream stream, String filename) {
         String retVal = null;
+        File outputFile = null;
 
         try {
-            CarlosProperties props = CarlosProperties.getInstance();
-            String place = props.getProperty("DOCUMENT_DIR");
-
-            // Validate filename and construct path using PathValidationUtils
-            File safeDir = new File(place);
+            File safeDir = PathValidationUtils.getRequiredDocumentDirectory();
             File targetFile = PathValidationUtils.validatePath(filename, safeDir);
 
-            // Construct retVal using the validated targetFile path
-            File outputFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName("LabUpload." + targetFile.getName().replaceAll(".enc", "") + "." + (new Date()).getTime()), targetFile.getParentFile());
-            retVal = outputFile.getPath();
+            outputFile = PathValidationUtils.validateGeneratedChildPath(
+                    PathValidationUtils.validateGeneratedFileName(
+                            "LabUpload." + targetFile.getName().replaceFirst("\\.enc$", "") + "." + (new Date()).getTime()),
+                    targetFile.getParentFile());
+            String outputPath = outputFile.getPath();
 
-            logger.debug("saveFile place={}, retVal={}",
-                    LogSafe.sanitize(place, 1024),
-                    LogSafe.sanitize(retVal, 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            if (logger.isDebugEnabled()) {
+                logger.debug("saveFile place={}, retVal={}",
+                        LogSafe.sanitize(safeDir.getPath(), 1024),
+                        LogSafe.sanitize(outputPath, 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            }
 
             try (OutputStream os = Files.newOutputStream(outputFile.toPath());
                 BufferedInputStream bis = new BufferedInputStream(stream)) {
@@ -158,12 +156,26 @@ public class Utilities {
                     os.write(buffer, 0, bytesRead);
                 }
             }
+            retVal = outputPath;
         } catch (FileNotFoundException fnfe) {
+            deletePartialOutput(outputFile);
             logger.error("Unable to create or write to file: {}", LogSafe.sanitize(filename), fnfe); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         } catch (IOException ioe) {
+            deletePartialOutput(outputFile);
             logger.error("Error processing file: {}", LogSafe.sanitize(filename), ioe); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         }
         return retVal;
+    }
+
+    private static void deletePartialOutput(File outputFile) {
+        if (outputFile == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(outputFile.toPath());
+        } catch (IOException deleteException) {
+            logger.error("Error deleting partial output file: {}", LogSafe.sanitize(outputFile.getPath()), deleteException); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+        }
     }
 
     public static String saveHRMFile(InputStream stream, String filename) {
@@ -171,14 +183,12 @@ public class Utilities {
         String place = CarlosProperties.getInstance().getProperty("OMD_hrm");
 
         try {
-            if (!place.endsWith("/")) {
-                place = new StringBuilder(place).insert(place.length(), "/").toString();
-            }
             File baseDir = PathValidationUtils.resolveConfiguredDirectory(place, "OMD_hrm");
-            File outputFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName("KeyUpload." + filename + "." + (new Date()).getTime()), baseDir);
+            File outputFile = PathValidationUtils.validateGeneratedChildPath(
+                    PathValidationUtils.validateGeneratedFileName("KeyUpload." + filename + "." + (new Date()).getTime()),
+                    baseDir);
             retVal = outputFile.getPath();
 
-            //write the  file to the file specified
             try (OutputStream os = new FileOutputStream(outputFile)) {
                 int bytesRead;
                 while ((bytesRead = stream.read()) != -1) {
@@ -186,19 +196,12 @@ public class Utilities {
                 }
             }
 
-            //close the stream
             stream.close();
         } catch (FileNotFoundException fnfe) {
             logger.error("Error", fnfe);
             return retVal;
-        } catch (IOException ioe) {
+        } catch (IOException | SecurityException ioe) {
             logger.error("Error", ioe);
-            return retVal;
-        } catch (SecurityException se) {
-            // A blank/misconfigured OMD_hrm directory or an unsafe generated filename throws here;
-            // degrade to the same null/partial-path return as the I/O failure paths rather than
-            // letting an unchecked exception escape saveHRMFile.
-            logger.error("Error", se);
             return retVal;
         }
         return retVal;
@@ -211,15 +214,7 @@ public class Utilities {
                 throw new IllegalArgumentException("Filename cannot be null or empty");
             }
 
-            CarlosProperties props = CarlosProperties.getInstance();
-            String place = props.getProperty("DOCUMENT_DIR");
-
-            if (!place.endsWith("/")) {
-                place = place + "/";
-            }
-
-            // Validate filename using PathValidationUtils
-            File baseDir = PathValidationUtils.resolveConfiguredDirectory(place, "lab document directory");
+            File baseDir = PathValidationUtils.getRequiredDocumentDirectory();
             File targetFile = PathValidationUtils.validatePath(filename, baseDir);
 
             // Derive the safe output name from the validated file (not the raw input)
@@ -230,7 +225,9 @@ public class Utilities {
                 safeName = safeName.substring(0, safeName.length() - 4);
             }
 
-            File outputFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName("DocUpload." + safeName + "." + System.currentTimeMillis() + ".pdf"), baseDir);
+            File outputFile = PathValidationUtils.validateGeneratedChildPath(
+                    PathValidationUtils.validateGeneratedFileName("DocUpload." + safeName + "." + System.currentTimeMillis() + ".pdf"),
+                    baseDir);
             retVal = outputFile.toString();
 
             try (OutputStream os = new FileOutputStream(outputFile)) {
@@ -247,7 +244,7 @@ public class Utilities {
         } catch (IOException ioe) {
             logger.error("Error", ioe);
             return retVal;
-        } catch (IllegalArgumentException iae) {
+        } catch (IllegalArgumentException | SecurityException iae) {
             logger.error("Invalid filename: {}", LogSafe.sanitize(filename), iae); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             return null;
         }

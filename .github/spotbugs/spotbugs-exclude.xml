@@ -1138,6 +1138,180 @@
     </Match>
 
     <!-- ================================================================
+         PATH_TRAVERSAL_IN — PURE FALSE POSITIVES (no file operations)
+         SpotBugs traces HTTP taint through these classes but the flagged
+         lines contain only string comparisons, DB queries, HL7 parsing,
+         session management, or arithmetic — no file constructors or streams.
+
+         Three patterns cause these alerts:
+           A) HAPI HL7 segment-path notation ("/.OBR-7-1") treated as
+              filesystem paths when the field identifier comes from HL7 data.
+           B) Long taint chains: a String from request.getParameter() flows
+              through many method calls; SpotBugs flags every string use in
+              those methods even when no file is opened at the flagged line.
+           C) URL/URI path manipulation confused with filesystem paths.
+
+         These are confirmed false positives after per-file code review.
+         Do not remove without re-reviewing the affected classes.
+         ================================================================ -->
+
+    <!-- (A) HAPI HL7 parsers — "/.OBR-7-1" path notation mistaken for filesystem paths -->
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Package name="io.github.carlos_emr.carlos.lab.ca.all.parsers"/>
+    </Match>
+    <!-- PathNet Connection.CreateInputStream() is an HTTP call to a medical device API, not FileInputStream -->
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.lab.ca.bc.PathNet.Connection"/>
+    </Match>
+    <!-- Lab upload message routing — HL7 demographics DB matching; no file ops at flagged lines -->
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader"/>
+    </Match>
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.lab.ca.all.upload.ProviderLabRouting"/>
+    </Match>
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.lab.ca.on.HRMResultsData"/>
+    </Match>
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData"/>
+    </Match>
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData"/>
+    </Match>
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.inboxhub.inboxdata.LabDataController"/>
+    </Match>
+
+    <!-- (B) Prescription text parsing: dosing frequency/duration/route comparisons; no file ops -->
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.prescript.util.RxUtil"/>
+    </Match>
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.prescription.util.RxUtil"/>
+    </Match>
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2Action"/>
+    </Match>
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.prescript.pageUtil.RxRePrescribe2Action"/>
+    </Match>
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.prescript.pageUtil.RxUpdateFavorite2Action"/>
+    </Match>
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData"/>
+    </Match>
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.prescript.data.RxInstructionPolicy"/>
+    </Match>
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Package name="io.github.carlos_emr.carlos.prescript.gate"/>
+    </Match>
+
+    <!-- (B) Login/auth — mobile detection, session attribute assignment from authenticated results -->
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.login.Login2Action"/>
+    </Match>
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.login.Logout2Action"/>
+    </Match>
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.login.LoginResourceAction"/>
+    </Match>
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.login.OscarRequestTokenService"/>
+    </Match>
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.login.RootEntryRedirectFilter"/>
+    </Match>
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Package name="io.github.carlos_emr.carlos.login.gate"/>
+    </Match>
+
+    <!-- (B) HRM method dispatch and report matching — method.equalsIgnoreCase / demographic string matching -->
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.hospitalReportManager.HRMModifyDocument2Action"/>
+    </Match>
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.hospitalReportManager.HRMReportParser"/>
+    </Match>
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.hospitalReportManager.HRMUtil"/>
+    </Match>
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentDao"/>
+    </Match>
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao"/>
+    </Match>
+
+    <!-- (C) OAuth — URL and parameter parsing for request signature verification -->
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Package name="io.github.carlos_emr.carlos.webserv.oauth"/>
+    </Match>
+
+    <!-- (B) Schedule, waiting list, and report actions — DB operations only at flagged lines -->
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Package name="io.github.carlos_emr.carlos.schedule.web"/>
+    </Match>
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Package name="io.github.carlos_emr.carlos.waitinglist"/>
+    </Match>
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Package name="io.github.carlos_emr.carlos.report.data"/>
+    </Match>
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Package name="io.github.carlos_emr.carlos.report.reportByTemplate"/>
+    </Match>
+
+    <!-- (B) Misc: URL path rewriting (request URI → redirect), HL7 HCValidation, FHIR model mapping -->
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.util.FullPathReWrite"/>
+    </Match>
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Package name="io.github.carlos_emr.carlos.integration.mchcv"/>
+    </Match>
+    <Match>
+        <Bug pattern="PATH_TRAVERSAL_IN"/>
+        <Class name="io.github.carlos_emr.carlos.integration.fhir.model.Immunization"/>
+    </Match>
+
+    <!-- ================================================================
          FIND SECURITY BUGS INFORMATIONAL TAINT-SOURCE / ENDPOINT MARKERS
          These detectors are NOT vulnerabilities. Find Security Bugs emits
          them to map attack surface: SERVLET_PARAMETER flags every point
