@@ -46,6 +46,25 @@ check_already_running() {
 # Utility Functions
 # ============================================================================
 
+enable_devcontainer_javamelody_system_actions() {
+  local web_xml="$1"
+
+  if [ ! -f "$web_xml" ]; then
+    echo "[$(date +'%H:%M:%S')] WARN: JavaMelody web.xml not found at $web_xml; system actions not enabled for devcontainer" >> "$LOG_FILE"
+    return 0
+  fi
+
+  local tmp_file="${web_xml}.tmp"
+  awk '
+    /<param-name>[[:space:]]*system-actions-enabled[[:space:]]*<\/param-name>/ { in_system_actions = 1 }
+    in_system_actions && /<param-value>/ {
+      sub(/<param-value>[[:space:]]*[^<]*[[:space:]]*<\/param-value>/, "<param-value>true</param-value>")
+      in_system_actions = 0
+    }
+    { print }
+  ' "$web_xml" > "$tmp_file" && mv "$tmp_file" "$web_xml"
+}
+
 # Rotate log file if it exceeds MAX_LOG_LINES
 rotate_log() {
   if [ -f "$LOG_FILE" ]; then
@@ -137,6 +156,10 @@ process_file_event() {
   elif [ -f "$SOURCE_FILE" ]; then
     mkdir -p "$(dirname "$DEST_FILE")"
     if cp "$SOURCE_FILE" "$DEST_FILE" 2>/dev/null; then
+      if [[ "$RELATIVE_PATH/$filename" == "WEB-INF/web.xml" ]]; then
+        enable_devcontainer_javamelody_system_actions "$DEST_FILE"
+      fi
+
       if [ -z "$RELATIVE_PATH" ]; then
         echo "[$(date +'%H:%M:%S')] Updated: $filename" | tee -a "$LOG_FILE"
       else
