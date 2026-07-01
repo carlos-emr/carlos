@@ -640,6 +640,7 @@ public final class Login2Action extends ActionSupport {
             logger.warn("Expired password: user={}, remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(userName), LogSafe.sanitize(ip));
             cl.updateLoginList(ip, userName);
+            LogAction.addLog(userName, "login", "failed", "bad_credentials", ip);
             String expiredMessage = message("login.errorAccountExpired");
             String newURL = loginFailedRedirectUrl(expiredMessage);
 
@@ -658,6 +659,7 @@ public final class Login2Action extends ActionSupport {
             logger.debug("go to normal directory");
 
             cl.updateLoginList(ip, userName);
+            LogAction.addLog(userName, "login", "failed", "bad_credentials", ip);
 
             if (ajaxResponse) {
                 ObjectNode json = objectMapper.createObjectNode();
@@ -1709,6 +1711,7 @@ public final class Login2Action extends ActionSupport {
             logger.warn("Unable to update login-failure counter after authentication exception: user={}, remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(userName), LogSafe.sanitize(ip), updateFailure);
         }
+        LogAction.addLog(userName, "login", "failed", "bad_credentials", ip);
     }
 
     /**
