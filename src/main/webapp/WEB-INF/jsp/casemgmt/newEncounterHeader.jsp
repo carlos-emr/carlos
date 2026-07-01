@@ -74,19 +74,17 @@
 <script type="text/javascript">
 function copyToClip(text, el) {
     var orig = el.title;
-    function showFeedback() {
-        el.title = 'Copied!';
+    function showFeedback(success) {
+        el.title = success ? 'Copied!' : 'Copy failed — please copy manually';
         el.style.opacity = '0.5';
-        setTimeout(function() { el.style.opacity = '1'; el.title = orig; }, 600);
+        setTimeout(function() { el.style.opacity = '1'; el.title = orig; }, success ? 600 : 2500);
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(showFeedback).catch(function() {
-            fallbackCopy(text);
-            showFeedback();
-        });
+        navigator.clipboard.writeText(text)
+            .then(function() { showFeedback(true); })
+            .catch(function() { showFeedback(false); });
     } else {
-        fallbackCopy(text);
-        showFeedback();
+        showFeedback(fallbackCopy(text));
     }
 }
 function fallbackCopy(text) {
@@ -95,9 +93,14 @@ function fallbackCopy(text) {
     ta.style.position = 'fixed';
     ta.style.left = '-9999px';
     document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
+    try {
+        ta.select();
+        return !!document.execCommand('copy');
+    } catch (e) {
+        return false;
+    } finally {
+        document.body.removeChild(ta);
+    }
 }
 </script>
 

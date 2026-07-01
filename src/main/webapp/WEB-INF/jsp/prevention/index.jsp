@@ -803,7 +803,7 @@
                     <% } %>
 
 
-                    <a href="#" onclick="popup(600,800,'http://www.phac-aspc.gc.ca/im/is-cv/index-eng.php')">Immunization
+                    <a href="#" onclick="popup(600,800,'https://www.phac-aspc.gc.ca/im/is-cv/index-eng.php')">Immunization
                         Schedules - Public Health Agency of Canada</a>
 
 
