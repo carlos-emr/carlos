@@ -32,6 +32,7 @@
 <%@page import="java.util.List" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingDao" %>
 <%@page import="io.github.carlos_emr.carlos.billings.ca.on.dto.BillFluRow" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <table width="100%" border="2" cellpadding="0" cellspacing="0">
 
@@ -108,9 +109,9 @@ int rowCount1 = 0;
 		<TD align="left" width="20%"><b><font size="2"
 			face="Arial, Helvetica, sans-serif"><a href=#
 			onClick='popupPage(700,720, "<%= request.getContextPath() %>/billing/CA/BC/billingView?billing_no=<%=bId%>&dboperation=search_bill&hotclick=0")'
-			title="<%=reason%>"> <%=bId%></a></font></b></TD>
+			title="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(reason) %>"> <%=bId%></a></font></b></TD>
 		<TD align="left" width="20%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif"><%=demoName%></font></b></TD>
+			face="Arial, Helvetica, sans-serif"><carlos:encode value='<%= demoName %>' context="html"/></font></b></TD>
 		<TD align="left" width="20%"><b><font size="2"
 			face="Arial, Helvetica, sans-serif"><%=apptDate%></font></b></TD>
 
@@ -133,9 +134,9 @@ int rowCount1 = 0;
 		<TD align="left" width="20%"><b><font size="2"
 			face="Arial, Helvetica, sans-serif"><a href=#
 			onClick='popupPage(700,720, "<%= request.getContextPath() %>/billing/CA/oscarBilling/billingView?billing_no=<%=bId%>&dboperation=search_bill&hotclick=0")'
-			title="<%=reason%>"> <%=bId%></a></font></b></TD>
+			title="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(reason) %>"> <%=bId%></a></font></b></TD>
 		<TD align="left" width="20%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif"><%=demoName%></font></b></TD>
+			face="Arial, Helvetica, sans-serif"><carlos:encode value='<%= demoName %>' context="html"/></font></b></TD>
 		<TD align="left" width="20%"><b><font size="2"
 			face="Arial, Helvetica, sans-serif"><%=apptDate%></font></b></TD>
 		<TD align="right" width="10%"><b> <font size="2"

@@ -44,6 +44,16 @@ class RemovedJspReferenceRegressionTest {
     private static final Pattern OSCAR_JS_SCRIPT =
             Pattern.compile("<script\\b[^>]*src=[\"'][^\"']*/share/javascript/Oscar\\.js[\"'][^>]*>",
                     Pattern.CASE_INSENSITIVE);
+    private static final List<Path> BC_BILLING_REPORT_FRAGMENTS = List.of(
+            Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingReport_flu.jspf"),
+            Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingReport_billed.jspf"),
+            Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingReport_unsettled.jspf"),
+            Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingReport_billob.jspf"),
+            Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingReport_unbilled.jspf"));
+    private static final Pattern CARLOS_TAGLIB = Pattern.compile(
+            "<%@\\s*taglib\\s+uri=\"carlos\"\\s+prefix=\"carlos\"\\s*%>");
+    private static final Pattern HTML_ENCODED_DEMO_NAME = Pattern.compile(
+            "<carlos:encode\\s+value\\s*=\\s*['\"]<%=\\s*demoName\\s*%>['\"]\\s+context\\s*=\\s*['\"]html['\"]\\s*/>");
 
     @Test
     @DisplayName("Appointment admin day should not link to removed PMmodule popup JSPs")
@@ -156,6 +166,58 @@ class RemovedJspReferenceRegressionTest {
     }
 
     @Test
+    @DisplayName("BC billing report fragments should HTML-encode demoName")
+    void shouldHtmlEncodeDemoName_inBcBillingReportFragments() throws IOException {
+        for (Path fragment : BC_BILLING_REPORT_FRAGMENTS) {
+            String jspf = Files.readString(fragment);
+
+            assertThat(jspf)
+                    .as("BC billing report fragments must encode demoName in HTML output: %s", fragment)
+                    .doesNotContain("<%=demoName%>");
+            assertThat(CARLOS_TAGLIB.matcher(jspf).find())
+                    .as("BC billing report fragments must declare the carlos taglib: %s", fragment)
+                    .isTrue();
+            assertThat(HTML_ENCODED_DEMO_NAME.matcher(jspf).find())
+                    .as("BC billing report fragments must HTML-encode demoName: %s", fragment)
+                    .isTrue();
+        }
+    }
+
+    @Test
+    @DisplayName("BC billing report fragments should encode related reason and note fields")
+    void shouldEncodeRelatedReasonAndNoteFields_inBcBillingReportFragments() throws IOException {
+        String flu = readBcBillingReportFragment("billingReport_flu.jspf");
+        String billOb = readBcBillingReportFragment("billingReport_billob.jspf");
+        String billed = readBcBillingReportFragment("billingReport_billed.jspf");
+        String unsettled = readBcBillingReportFragment("billingReport_unsettled.jspf");
+        String unbilled = readBcBillingReportFragment("billingReport_unbilled.jspf");
+
+        assertThat(flu)
+                .contains("title=\"<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(reason) %>\"")
+                .doesNotContain("title=\"<%=reason%>\"");
+        assertThat(billOb)
+                .contains("title=\"<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(reason) %>\"")
+                .contains("<carlos:encode value='<%= reason %>' context=\"html\"/>")
+                .doesNotContain("title=\"<%=reason%>\"")
+                .doesNotContain("><%=reason%><");
+        assertThat(billed)
+                .contains("title=\"<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(reason) %>\"")
+                .contains("<carlos:encode value='<%= reason %>' context=\"html\"/>(<carlos:encode value='<%= note %>' context=\"html\"/>)")
+                .doesNotContain("<%=reason%>(<%=note%>)")
+                .doesNotContain("title=\"<%=reason%>\"");
+        assertThat(unsettled)
+                .contains("<carlos:encode value='<%= note %>' context=\"html\"/>")
+                .contains("title=\"<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(reason) %>\"")
+                .doesNotContain("<%=note%>")
+                .doesNotContain("title=\"<%=reason%>\"");
+        assertThat(unbilled)
+                .contains("<carlos:encode value='<%= reason %>' context=\"html\"/>")
+                .contains("title=\"<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(reason) %>\"")
+                .doesNotContain("<%=reason%> ")
+                .doesNotContain("title=\"<%=reason%>\"");
+    }
+
+    @Test
     @DisplayName("Admin routes, UI, permissions, and docs should not expose removed Traceability report")
     void shouldNotExposeTraceabilityReport_fromAdminSurfaces() throws IOException {
         String strutsAdmin = Files.readString(Path.of("src/main/webapp/WEB-INF/classes/struts-admin.xml"));
@@ -253,6 +315,14 @@ class RemovedJspReferenceRegressionTest {
         } catch (IOException e) {
             throw new IllegalStateException("Unable to inspect " + path, e);
         }
+    }
+
+    private static String readBcBillingReportFragment(String fileName) throws IOException {
+        Path fragment = BC_BILLING_REPORT_FRAGMENTS.stream()
+                .filter(path -> path.getFileName().toString().equals(fileName))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Unknown BC billing fragment: " + fileName));
+        return Files.readString(fragment);
     }
 
     private static final Pattern GLOBAL_HEAD_INCLUDE = Pattern.compile(
