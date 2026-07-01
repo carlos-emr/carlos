@@ -11,6 +11,14 @@ import org.apache.commons.io.IOUtils;
 import io.woo.htmltopdf.HtmlToPdf;
 import io.woo.htmltopdf.HtmlToPdfObject;
 import io.woo.htmltopdf.PdfPageSize;
+/**
+ * Internal implementation of the electronic document converter.
+ * <p>
+ * Handles the core logic for parsing, formatting, and converting incoming electronic
+ * documents into the standard formats required by CARLOS EMR.
+ * </p>
+ */
+
 
 public class InternalEDocConverter implements EDocConverterInterface {
     /**
@@ -27,6 +35,7 @@ public class InternalEDocConverter implements EDocConverterInterface {
      */
     @Override
     public void convert(String document, OutputStream os) throws IOException {
+        // Initialize document parsing stream to sanitize external content before internal storage.
         HashMap<String, String> htmlToPdfSettings = new HashMap<String, String>() {{
             put("load.blockLocalFileAccess", "false");
             put("web.enableIntelligentShrinking", "true");

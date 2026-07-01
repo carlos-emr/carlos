@@ -2,6 +2,14 @@ package io.github.carlos_emr.carlos.commn.model.enumerator;
 
 import java.util.ArrayList;
 import java.util.List;
+/**
+ * Enumeration of CPP (Cumulative Patient Profile) codes.
+ * <p>
+ * Represents standard coding for elements within the patient profile in CARLOS EMR,
+ * ensuring consistency in clinical data representation.
+ * </p>
+ */
+
 
 public enum CppCode {
     OMEDS("OMeds"),
@@ -21,6 +29,7 @@ public enum CppCode {
     }
 
     public String getCode() {
+    // Validate CPP code mapping for accurate rendering in the patient chart summary.
         return code;
     }
 

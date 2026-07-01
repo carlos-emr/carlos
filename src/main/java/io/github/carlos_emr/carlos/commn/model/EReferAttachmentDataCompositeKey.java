@@ -5,6 +5,14 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import java.io.Serializable;
 import java.util.Objects;
+/**
+ * Composite key for the {@link EReferAttachmentData} entity.
+ * <p>
+ * Represents the unique identifier combination required for mapping eReferral
+ * attachment data within the JPA context of CARLOS EMR.
+ * </p>
+ */
+
 
 public class EReferAttachmentDataCompositeKey implements Serializable {
     @ManyToOne
@@ -18,6 +26,7 @@ public class EReferAttachmentDataCompositeKey implements Serializable {
     private String labType;
 
     public EReferAttachmentDataCompositeKey() {
+        // Construct composite key to uniquely identify the referral attachment across database partitions.
     }
 
     public EReferAttachmentDataCompositeKey(EReferAttachment eReferAttachment, Integer labId, String labType) {

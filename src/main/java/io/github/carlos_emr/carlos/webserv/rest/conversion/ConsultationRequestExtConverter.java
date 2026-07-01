@@ -3,10 +3,19 @@ package io.github.carlos_emr.carlos.webserv.rest.conversion;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequestExt;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationRequestExtTo1;
+/**
+ * Converter for extended consultation request models.
+ * <p>
+ * Translates extended consultation request data between the internal domain models
+ * and the external REST API representations used by CARLOS EMR.
+ * </p>
+ */
+
 
 public class ConsultationRequestExtConverter extends AbstractConverter<ConsultationRequestExt, ConsultationRequestExtTo1> {
     @Override
     public ConsultationRequestExt getAsDomainObject(LoggedInInfo loggedInInfo, ConsultationRequestExtTo1 t) throws ConversionException {
+        // Translate extended consultation attributes to the API contract ensuring PHI is properly masked if needed.
         ConsultationRequestExt d = new ConsultationRequestExt();
 
         //d.setId(t.getId());

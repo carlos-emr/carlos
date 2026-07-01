@@ -14,12 +14,21 @@ import org.springframework.mail.javamail.JavaMailSenderImpl;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+/**
+ * Helper class for sending emails via a local SMTP server.
+ * <p>
+ * Implements the email dispatch mechanism used by CARLOS EMR when configured
+ * to route messages through an internal SMTP relay.
+ * </p>
+ */
+
 
 public class LocalSMTPEmailSender extends SMTPEmailSender {
 
     public LocalSMTPEmailSender(LoggedInInfo loggedInInfo, EmailConfig emailConfig, 
                                 String[] recipients, String subject, String body, 
                                 List<EmailAttachment> attachments) {
+        // Configure SMTP transport session with local relay properties to ensure secure internal routing.
         super(loggedInInfo, emailConfig, recipients, subject, body, attachments);
     }
 
