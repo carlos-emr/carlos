@@ -142,11 +142,11 @@ public class EConsult2Action extends ActionSupport {
 
         try {
             response.sendRedirect(stringBuilder.toString());
+            return NONE;
         } catch (IOException e) {
             MiscUtils.getLogger().error("There was a problem with the redirect of " + stringBuilder.toString(), e);
+            return "error";
         }
-
-        return null;
     }
 
     /**
@@ -177,11 +177,11 @@ public class EConsult2Action extends ActionSupport {
             stringBuilder.append(String.format("?%1$s=%2$s", "oscarReturnURL", URLEncoder.encode(oscarReturnUrl, StandardCharsets.UTF_8.toString())));
             stringBuilder.append(String.format("&%1$s=%2$s", "loginStart", new Date().getTime() / 1000));
             response.sendRedirect(stringBuilder.toString());
+            return NONE;
         } catch (IOException e) {
             MiscUtils.getLogger().error("There was a problem with the redirect of " + stringBuilder.toString(), e);
+            return "error";
         }
-
-        return null;
     }
 
     /**
@@ -415,14 +415,7 @@ public class EConsult2Action extends ActionSupport {
         if (task.contains("..") || task.contains("//") || task.contains("\\")) {
             return false;
         }
-        
-        // Prevent protocol injection (http://, https://, javascript:, etc.)
-        String lowerTask = task.toLowerCase();
-        if (lowerTask.contains("://") || lowerTask.startsWith("javascript:") 
-            || lowerTask.startsWith("data:") || lowerTask.startsWith("vbscript:")) {
-            return false;
-        }
-        
+
         return true;
     }
 
