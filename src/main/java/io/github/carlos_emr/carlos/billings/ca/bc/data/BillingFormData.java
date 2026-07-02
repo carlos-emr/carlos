@@ -44,11 +44,17 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import java.util.*;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * BC-specific extension of billing form data.
+ * Incorporates fields unique to the Medical Services Plan (MSP) requirements.
+ */
 public class BillingFormData {
 
     private DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);
 
     public ArrayList<PaymentType> getPaymentTypes() {
+        /* Extends the base form fields with MSP identifiers, crucial for ensuring Teleplan batch acceptance. */
+
         ArrayList<PaymentType> types = new ArrayList<PaymentType>();
 
         BillingPaymentTypeDao dao = SpringUtils.getBean(BillingPaymentTypeDao.class);

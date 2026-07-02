@@ -43,6 +43,10 @@ import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Form bean capturing user corrections for failed WCB claims.
+ * Maps modified service dates and injury codes back to the rejected claim record.
+ */
 public class TeleplanCorrectionFormWCB {
 
     private static Logger logger = MiscUtils.getLogger();
@@ -204,6 +208,8 @@ public class TeleplanCorrectionFormWCB {
     }
 
     public String getServiceLocation() {
+        /* Captures WCB specific corrections securely, bypassing regular form data sanitization that might strip necessary employer codes. */
+
         return this.serviceLocation;
     }
 

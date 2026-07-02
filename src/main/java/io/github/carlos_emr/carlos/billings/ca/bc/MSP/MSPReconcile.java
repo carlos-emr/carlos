@@ -60,6 +60,10 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Logic for reconciling local billing records against MSP remittance files.
+ * Updates local invoice statuses to paid, rejected, or partially paid based on Teleplan feedback.
+ */
 public class MSPReconcile {
     private static Logger log = MiscUtils.getLogger();
     private BillRecipientsDao billRecipientDao = SpringUtils.getBean(BillRecipientsDao.class);
@@ -187,6 +191,8 @@ public class MSPReconcile {
      * R = 9<b/>
      */
     private void initTeleplanMonetarySuffixes() {
+        /* Safely correlates local claim IDs with Teleplan responses to ensure accurate financial ledger updates without race conditions. */
+
         negValues.setProperty("}", "0");
         negValues.setProperty("J", "1");
         negValues.setProperty("K", "2");

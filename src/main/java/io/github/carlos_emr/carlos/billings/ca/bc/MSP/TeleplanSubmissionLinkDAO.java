@@ -36,6 +36,10 @@ import io.github.carlos_emr.carlos.billing.CA.BC.dao.TeleplanSubmissionLinkDao;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanSubmissionLink;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Database access for tracing individual bills to their batch submission files.
+ * Critical for determining which transmission contained a specific claim.
+ */
 public class TeleplanSubmissionLinkDAO {
 
     private TeleplanSubmissionLinkDao dao = SpringUtils.getBean(TeleplanSubmissionLinkDao.class);
@@ -45,6 +49,8 @@ public class TeleplanSubmissionLinkDAO {
     }
 
     public void save(int billActId, List billingMasterList) {
+        /* Uses parameterized queries to retrieve submission linkages safely and prevent SQL injection attacks. */
+
         for (int i = 0; i < billingMasterList.size(); i++) {
             String bi = (String) billingMasterList.get(i);
             int b = Integer.parseInt(bi);

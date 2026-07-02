@@ -29,6 +29,10 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * Encapsulates parsed laboratory results associated with a patient encounter.
+ * Holds discrete values like A1C and LDL for decision support rule evaluation.
+ */
 public class LabData {
     private String a1c;
     private String ldl;
@@ -44,6 +48,8 @@ public class LabData {
     }
 
     public String getA1c() {
+        /* Returning or setting raw strings since lab values might contain qualifiers (e.g., '< 5.0') which prevents strict numeric handling. */
+
         return a1c;
     }
 

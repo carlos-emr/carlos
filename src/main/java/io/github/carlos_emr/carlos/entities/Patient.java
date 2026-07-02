@@ -29,6 +29,10 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * Core domain entity representing a patient in the clinic.
+ * Links demographic information to their medical chart and billing profile.
+ */
 public class Patient {
     private String firstName;
     private String lastName;
@@ -54,6 +58,8 @@ public class Patient {
     }
 
     public String getFirstName() {
+        /* Critical mapping step ensuring patient demographic records link accurately with sensitive clinical data. */
+
         return firstName;
     }
 

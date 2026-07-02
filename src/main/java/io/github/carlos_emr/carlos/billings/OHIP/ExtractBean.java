@@ -54,6 +54,10 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Data container for OHIP billing extraction routines.
+ * Serializes billing claims into the format required by the Ontario Ministry of Health.
+ */
 public class ExtractBean extends Object implements Serializable {
 
     private static final long serialVersionUID = 1L;
@@ -145,6 +149,8 @@ public class ExtractBean extends Object implements Serializable {
     }
 
     private String buildBatchHeader() {
+        /* Structures the extraction payload to match strict MoH serialization requirements for OHIP claim files. */
+
         return (HE + "B" + ohipVer + ohipCenter + output + zero(batchOrder)
                 + batchCount + space(6) + groupNo + providerNo + specialty
                 + space(42) + "\r");

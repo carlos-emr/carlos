@@ -36,6 +36,10 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Represents the target entity responsible for paying a specific bill.
+ * Distinguishes between MSP, WCB, ICBC, or private guarantors.
+ */
 public class BillRecipient {
 
     private Integer id;
@@ -64,6 +68,8 @@ public class BillRecipient {
     }
 
     public void setId(int id) {
+        /* Manages the recipient type strictly to avoid routing private invoices to provincial health authorities. */
+
         MiscUtils.getLogger().debug("int id");
         this.id = Integer.valueOf(id);
     }

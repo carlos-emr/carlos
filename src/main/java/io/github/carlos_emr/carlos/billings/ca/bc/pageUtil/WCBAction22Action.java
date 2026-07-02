@@ -67,13 +67,19 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Handles specific workflows for WorkSafeBC/WCB occupational injury forms.
+ * Routes the user to the correct diagnostic and employer detail capture screens.
+ */
 public class WCBAction22Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    public String execute() throws Exception {        return save();
+    public String execute() throws Exception {
+        /* Validates context to secure access to WorkSafeBC records, which contain sensitive employer linkage and injury narratives. */
+        return save();
     }
 
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.

@@ -64,6 +64,10 @@ import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Struts2 action handling the initial loading of the BC Quick Billing interface.
+ * Pre-populates common service codes and diagnostic shortcuts for rapid entry.
+ */
 public class QuickBillingBC2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -81,6 +85,8 @@ public class QuickBillingBC2Action extends ActionSupport {
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public String execute() throws ServletException, IOException {
+        /* We enforce strict access control upfront because unauthorized access risks exposing unmasked patient service histories. */
+
         String creator = (String) request.getSession().getAttribute("user");
         if (creator == null) {
             return "Logout";

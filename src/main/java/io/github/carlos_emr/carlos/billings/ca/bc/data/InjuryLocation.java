@@ -29,6 +29,10 @@
 
 package io.github.carlos_emr.carlos.billings.ca.bc.data;
 
+/**
+ * Lookup entity for standardized anatomical injury locations.
+ * Required by WCB/WorkSafeBC for processing occupational injury claims.
+ */
 public class InjuryLocation {
     private String sidetype;
     private String sidedesc;
@@ -46,6 +50,8 @@ public class InjuryLocation {
     }
 
     public void setSidetype(String sidetype) {
+        /* Normalizes anatomical codes so they map perfectly onto the WorkSafeBC standardized injury dictionaries. */
+
         this.sidetype = sidetype;
     }
 

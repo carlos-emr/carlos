@@ -30,6 +30,10 @@
 package io.github.carlos_emr.carlos.entities;
 
 //
+/**
+ * Represents a specific laboratory test type within the system.
+ * Used to map HL7 observation identifiers to internal code catalogs.
+ */
 public class LabTest
         extends Test {
     private String observationDateTime = "";
@@ -38,6 +42,8 @@ public class LabTest
     private boolean defaultLab = true;
 
     public String getObservationDateTime() {
+        /* Properly aligning test types with internal catalogs to prevent mismatch during HL7 ingestion routines. */
+
         return observationDateTime;
     }
 

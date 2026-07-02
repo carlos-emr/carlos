@@ -46,6 +46,10 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 
+/**
+ * Registry mapping Teleplan error codes to user-friendly descriptions.
+ * Translates cryptic remittance rejection flags into actionable advice for staff.
+ */
 public class MspErrorCodes extends Properties {
 
     /**
@@ -64,6 +68,8 @@ public class MspErrorCodes extends Properties {
     }
 
     private InputStream openErrorCodesStream() throws Exception {
+        /* Translates raw provincial error codes into readable text so billing staff understand exactly why a claim was refused. */
+
         String configuredPath = CarlosProperties.getInstance().getProperty("msp_error_codes");
         if (configuredPath != null) {
             try {

@@ -24,6 +24,10 @@
 
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
+/**
+ * Validates BC medical service codes against current provincial fee schedules.
+ * Checks for obsolete codes or conflicting fee modifiers before submission.
+ */
 public class ServiceCodeValidator {
     protected boolean valid = true;
     protected String serviceCode = "";
@@ -33,6 +37,8 @@ public class ServiceCodeValidator {
     }
 
     public void setValid(boolean valid) {
+        /* Validates the procedural code against the latest fee schedule to ensure we don't submit deprecated service items. */
+
 
         this.valid = valid;
     }

@@ -27,8 +27,14 @@
 
 package io.github.carlos_emr.carlos.caisi;
 
+/**
+ * Utility class bridging standard EMR features with the CAISI community network module.
+ * Facilitates integration checks and shared program logic.
+ */
 public class CaisiUtil {
     public static String removeAttr(String str, String attr) {
+        /* This checks integration state to prevent CAISI-specific features from failing on generic OSCAR deployments. */
+
         if (str == null) return (null);
 
         /*delete a parameter from query string*/

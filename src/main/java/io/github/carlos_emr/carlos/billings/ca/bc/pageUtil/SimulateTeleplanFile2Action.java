@@ -53,6 +53,10 @@ import java.util.List;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Test utility action that parses test transmission files without committing changes.
+ * Allows billing clerks to preview claim errors prior to final submission.
+ */
 public class SimulateTeleplanFile2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -67,6 +71,8 @@ public class SimulateTeleplanFile2Action extends ActionSupport {
     }
 
     public String execute() throws Exception {
+        /* Access is restricted since even simulated error logs process and reveal real diagnostic codes associated with patients. */
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");

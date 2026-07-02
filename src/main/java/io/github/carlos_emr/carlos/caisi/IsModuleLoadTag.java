@@ -33,12 +33,18 @@ import jakarta.servlet.jsp.tagext.TagSupport;
 import io.github.carlos_emr.CarlosProperties;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Custom JSP tag evaluating if the CAISI module is currently enabled in the environment.
+ * Prevents rendering of community-specific UI components in generic deployments.
+ */
 public class IsModuleLoadTag extends TagSupport {
 
     private String moduleName;
     private boolean reverse = false;
 
     public void setModuleName(String moduleName) {
+        /* We skip the body content if the module isn't loaded to avoid rendering broken links or missing resources in the UI. */
+
         this.moduleName = moduleName;
     }
 

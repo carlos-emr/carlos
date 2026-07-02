@@ -38,6 +38,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 
+/**
+ * Holds the data submitted from the Quick Billing UI in BC.
+ * Includes arrays of service codes and corresponding fee values for batch processing.
+ */
 public class QuickBillingBCFormBean {
 
     /**
@@ -71,6 +75,8 @@ public class QuickBillingBCFormBean {
 
 
     public String getHalfBilling() {
+        /* Maps request arrays to internal lists to process multi-service BC claims in a single transaction block. */
+
         return halfBilling;
     }
 

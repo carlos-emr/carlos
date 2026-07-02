@@ -50,6 +50,10 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBillingManager.BillingItem;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Presentation model for rendering billing records in the UI.
+ * Flattens complex claim structures into view-friendly properties.
+ */
 public class BillingViewBean {
 
     private String apptProviderNo = null;
@@ -102,6 +106,8 @@ public class BillingViewBean {
     private String defaultPayeeInfo;
 
     public void loadBilling(String billing_no) {
+        /* Flattens nested diagnostic references so the JSP view layer can render the claim rows without triggering lazy-load exceptions. */
+
         BillingDao dao = SpringUtils.getBean(BillingDao.class);
         for (Object[] i : dao.findBillings(ConversionUtils.fromIntString(billing_no))) {
             Billingmaster bm = (Billingmaster) i[0];

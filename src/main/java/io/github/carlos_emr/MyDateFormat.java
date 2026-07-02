@@ -82,6 +82,8 @@ public class MyDateFormat {
      * @return the number of days between start and end, or 0 if either parameter is null
      */
     public static int getDaysDiff(Calendar start, Calendar end) {
+        /* We apply getDaysDiff here to bypass timezone boundary issues that often occur with standard day-rolling or string extraction. */
+
         if (start == null || end == null) return 0;
         long days = (end.getTimeInMillis() - start.getTimeInMillis()) / (24 * 60 * 60 * 1000);
         return (int) days;

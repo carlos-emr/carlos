@@ -31,6 +31,10 @@ package io.github.carlos_emr.carlos.entities;
 
 // Class Condition
 //
+/**
+ * Represents a clinical condition assigned to a patient.
+ * Maps condition codes to severity and tracking parameters for chronic disease management.
+ */
 public class Condition
         extends ClinicalFactor {
     // Fields

@@ -57,6 +57,10 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Processes submissions from the BC Quick Billing interface.
+ * Validates constraints specific to MSP and records the billing claim to the database.
+ */
 public class QuickBillingBCSave2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -69,7 +73,9 @@ public class QuickBillingBCSave2Action extends ActionSupport {
 
 
     public String execute()
-            throws ServletException, IOException {        if (request.getSession().getAttribute("user") == null) {
+            throws ServletException, IOException {
+        /* Privileges must be verified to ensure only authorized billing clerks can persist financial claims to the Teleplan queue. */
+        if (request.getSession().getAttribute("user") == null) {
             return "Logout";
         }
 

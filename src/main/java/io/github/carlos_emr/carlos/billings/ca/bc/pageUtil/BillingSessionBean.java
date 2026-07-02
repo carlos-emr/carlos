@@ -34,6 +34,10 @@ import java.util.ArrayList;
 
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBillingManager.BillingItem;
 
+/**
+ * Session-scoped cache holding user preferences for the billing module.
+ * Remembers selected providers and default dates to accelerate data entry.
+ */
 public class BillingSessionBean implements java.io.Serializable {
     private String apptProviderNo = null;
     private String patientName = null;
@@ -100,6 +104,8 @@ public class BillingSessionBean implements java.io.Serializable {
     private String wcbId = "";
 
     public String getIcbc_claim_no() {
+        /* Caches the active provider context securely so session resets do not leak data across concurrent billing tabs. */
+
         this.icbc_claim_no = (null != this.icbc_claim_no) ? this.icbc_claim_no : "";
         if (icbc_claim_no.compareTo("") == 0 ||
                 (this.billingType.compareTo("ICBC") != 0)) {

@@ -69,6 +69,10 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Action responsible for generating the final Teleplan Transmission (TA) file.
+ * Compiles all pending claims into the fixed-width text format mandated by BC MSP.
+ */
 public class GenTa2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -95,6 +99,8 @@ public class GenTa2Action extends ActionSupport {
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public String execute()
             throws IOException, ServletException, Exception {
+        /* Ensures generation of the fixed-width TA file only proceeds if the user possesses the requisite administrative billing role. */
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
             throw new SecurityException("missing required sec object (_admin.billing)");

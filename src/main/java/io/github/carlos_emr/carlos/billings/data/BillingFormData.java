@@ -42,11 +42,17 @@ import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Transports billing form inputs between the UI layer and billing validation services.
+ * Agnostic to the province, serving as a base for specific provincial overrides.
+ */
 public class BillingFormData {
 
     private DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);
 
     public String getBillingFormDesc(BillingForm[] billformlist, String billForm) {
+        /* Binds general billing attributes safely, allowing provincial specific subclasses to override without data loss. */
+
         for (int i = 0; i < billformlist.length; i++) {
             if (billformlist[i].getFormCode().equals(billForm)) {
                 return billformlist[i].getDescription();

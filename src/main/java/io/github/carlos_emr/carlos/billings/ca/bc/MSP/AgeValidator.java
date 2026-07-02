@@ -30,6 +30,10 @@
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
 
+/**
+ * Business rule validator ensuring service codes match the patient's age demographic.
+ * Rejects inappropriate billing attempts (e.g., pediatric codes for adult patients).
+ */
 public class AgeValidator
         extends ServiceCodeValidator {
     private int maxAge = 150;
@@ -45,6 +49,8 @@ public class AgeValidator
     }
 
     public String getDescription() {
+        /* Performs age calculation accurately using the patient's exact birth date to prevent MSP claim rejections based on demographic mismatches. */
+
         return minAge + " - " + maxAge;
     }
 

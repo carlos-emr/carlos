@@ -41,6 +41,10 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Action to compile and display summary reports of BC MSP billings.
+ * Filters by provider and date range to help reconcile submitted claims.
+ */
 public class CreateBillingReport2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -64,6 +68,8 @@ public class CreateBillingReport2Action extends ActionSupport {
      * Performs Report Generation Logic based on the supplied parameters form the submitted form
      */
     public String execute() {
+        /* This is restricted since the report aggregates sensitive financial metrics and patient diagnostic codes. */
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");

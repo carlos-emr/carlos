@@ -29,6 +29,10 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * Abstract base class for clinical factors like conditions and risk indicators.
+ * Provides common auditing properties such as update dates and timestamps.
+ */
 public class ClinicalFactor {
     // Fields
     //

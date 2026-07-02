@@ -29,6 +29,10 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * Generic entity mapping for medical tests or diagnostic procedures.
+ * Links procedural nomenclature to billing or clinical pathways.
+ */
 public class Test {
     private String id;
     private String description;
@@ -39,6 +43,8 @@ public class Test {
     }
 
     public String getId() {
+        /* State is handled safely to accommodate legacy diagnostic references spanning multiple provincial frameworks. */
+
         return id;
     }
 

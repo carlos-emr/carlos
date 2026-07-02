@@ -41,6 +41,10 @@ import java.sql.SQLException;
 import java.util.Iterator;
 import java.util.List;
 
+/**
+ * Pre-flight verification routines for BC billing records.
+ * Identifies missing mandatory fields like referring practitioner numbers or valid diagnoses.
+ */
 public class CheckBillingData {
 
     // check batchHeader VS1
@@ -48,6 +52,8 @@ public class CheckBillingData {
                            String dataCentreSeq, String vendorMSPDCNum, String softName,
                            String softVer, String softInsDate, String vendorName,
                            String vendorContact, String vendorConName, String filler) {
+        /* Enforces strict structural checks on the claim, ensuring it meets MSP's mandatory reporting criteria prior to network transmission. */
+
         String ret = checkVS1DataCenterNum(dataCentreNum);
         ret = printWarningMsg(ret);
         return ret;

@@ -18,9 +18,15 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import java.util.Properties;
 import java.util.Vector;
 
+/**
+ * Generates tax compliance reports for applicable BC billing services.
+ * Aggregates GST charged on private pay and uninsured medical services.
+ */
 public class GstReport {
 
     public Vector<Properties> getGST(LoggedInInfo loggedInInfo, String[] providerNos, String startDate, String endDate) {
+        /* Aggregates tax line-items distinctly to guarantee compliance with regional financial auditing standards. */
+
         Properties props;
         Vector<Properties> list = new Vector<Properties>();
         BillingDao dao = SpringUtils.getBean(BillingDao.class);

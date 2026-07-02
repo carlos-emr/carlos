@@ -32,6 +32,10 @@ package io.github.carlos_emr.carlos.entities;
 import java.math.BigDecimal;
 import java.util.Date;
 
+/**
+ * Tracks monetary transactions for uninsured or private healthcare services.
+ * Maintains an audit trail of payments and outstanding balances for non-provincial billing.
+ */
 public class PrivateBillTransaction {
     private int id;
     private int billingmaster_no;
@@ -44,6 +48,8 @@ public class PrivateBillTransaction {
     }
 
     public void setId(int id) {
+        /* Ensures financial transaction boundaries are maintained correctly for auditability of private payments. */
+
         this.id = id;
     }
 

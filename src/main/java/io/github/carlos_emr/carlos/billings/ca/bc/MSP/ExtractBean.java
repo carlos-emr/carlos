@@ -59,6 +59,10 @@ import java.text.SimpleDateFormat;
 import java.util.Arrays;
 
 
+/**
+ * Holds parameters configuring a Teleplan extraction run.
+ * Tracks which providers and date ranges are included in the outgoing MSP batch.
+ */
 public class ExtractBean extends Object implements Serializable {
     private static Logger logger = MiscUtils.getLogger();
     private LogTeleplanTxDao logTeleplanTxDao = SpringUtils.getBean(LogTeleplanTxDao.class);
@@ -115,6 +119,8 @@ public class ExtractBean extends Object implements Serializable {
 
 
     public synchronized void dbQuery() {
+        /* Handles dates and provider constraints so that the extraction batch contains exactly the targeted unbilled claims. */
+
         String dataCenterId = CarlosProperties.getInstance().getProperty("dataCenterId");
         if (HasBillingItemsToSubmit()) {
 

@@ -37,11 +37,17 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.tickler.TicklerCreator;
 import io.github.carlos_emr.carlos.util.SqlUtils;
 
+/**
+ * Helper logic for Chronic Disease Management (CDM) billing reminders in BC.
+ * Flags patients eligible for annual care incentive codes.
+ */
 public class CDMReminderHlp {
     public CDMReminderHlp() {
     }
 
     private String[] createCDMCodeArray(List<String[]> codes) {
+        /* Scans historical service codes to accurately calculate the elapsed time since the patient's last CDM billing interval. */
+
         String[] ret = new String[codes.size()];
         for (int i = 0; i < codes.size(); i++) {
             String[] row = codes.get(i);
