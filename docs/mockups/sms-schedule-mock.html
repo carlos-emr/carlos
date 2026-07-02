@@ -1,0 +1,1931 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CARLOS Schedule Baseline Mock</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            background: #486ebd;
+            color: #000;
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", "Liberation Sans", Arial, sans-serif;
+            font-size: 12px;
+            line-height: 1 !important;
+            overscroll-behavior: none;
+        }
+
+        a,
+        a:visited,
+        a:active {
+            color: #00283c;
+            font-weight: bold;
+            text-decoration: none;
+        }
+
+        a:hover,
+        a:focus {
+            color: red;
+            text-decoration: none;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        input,
+        select,
+        textarea {
+            background-color: #f4ead7;
+            border: 1px solid #0097cf;
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", "Liberation Sans", Arial, sans-serif;
+            font-size: 12px;
+        }
+
+        input[type="button"],
+        input[type="submit"],
+        button {
+            border: 1px solid #9aa8b6;
+            border-radius: 2px;
+            background: #f8f8f8;
+            color: #000;
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", "Liberation Sans", Arial, sans-serif;
+            font-size: 12px;
+            line-height: 1;
+            padding: 2px 7px;
+            cursor: pointer;
+        }
+
+        #main-container {
+            position: absolute;
+            inset: 0;
+            overflow: auto;
+            background: #486ebd;
+        }
+
+        #fixedHeaderWrapper {
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #firstTable {
+            width: 100%;
+            height: 24px;
+            background: #fff;
+        }
+
+        #firstTable tr {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 25px;
+        }
+
+        #firstTable td {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 0;
+        }
+
+        #firstMenu {
+            margin-left: 10px;
+        }
+
+        #firstMenu .logo {
+            width: 19px;
+            height: 19px;
+            display: inline-block;
+            position: relative;
+            margin-right: 3px;
+        }
+
+        #firstMenu .logo::before {
+            content: "";
+            position: absolute;
+            left: 4px;
+            top: 3px;
+            width: 12px;
+            height: 8px;
+            border-top: 3px solid #486ebd;
+            border-left: 3px solid #486ebd;
+            transform: skew(-28deg) rotate(-18deg);
+        }
+
+        #firstMenu .logo::after {
+            content: "";
+            position: absolute;
+            left: 10px;
+            top: 10px;
+            width: 8px;
+            height: 4px;
+            border-top: 3px solid #486ebd;
+            transform: skew(-34deg) rotate(-25deg);
+        }
+
+        #navlist,
+        #userSettingsMenu {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            margin: 0;
+            padding: 0;
+            white-space: nowrap;
+            list-style: none;
+        }
+
+        #navlist li,
+        #userSettingsMenu li {
+            display: inline-block;
+            line-height: 1;
+        }
+
+        #firstTable a,
+        #firstTable a:visited,
+        #firstTable a:active {
+            display: inline-block;
+            padding: 5px;
+            color: #00283c;
+            font-weight: bold;
+        }
+
+        #firstTable a:hover,
+        #firstTable a:focus {
+            color: #fff;
+            background: #486ebd;
+        }
+
+        .tabalert {
+            color: red !important;
+            font-weight: bold;
+        }
+
+        #userSettings {
+            margin-right: 8px;
+        }
+
+        #userSettings .mini-icon {
+            padding: 3px 4px;
+        }
+
+        .menu-icon {
+            width: 14px;
+            height: 10px;
+            display: inline-block;
+            position: relative;
+            border-top: 1px solid #00283c;
+            border-bottom: 1px solid #00283c;
+            vertical-align: middle;
+        }
+
+        .menu-icon::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 4px;
+            border-top: 1px solid #00283c;
+        }
+
+        .user-icon {
+            width: 12px;
+            height: 12px;
+            display: inline-block;
+            position: relative;
+            margin-right: 3px;
+            vertical-align: -2px;
+        }
+
+        .user-icon::before {
+            content: "";
+            position: absolute;
+            left: 4px;
+            top: 0;
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: #00283c;
+        }
+
+        .user-icon::after {
+            content: "";
+            position: absolute;
+            left: 1px;
+            bottom: 0;
+            width: 11px;
+            height: 6px;
+            border-radius: 7px 7px 2px 2px;
+            background: #00283c;
+        }
+
+        #logoutButton {
+            padding: 3px 4px !important;
+        }
+
+        .power-icon {
+            width: 14px;
+            height: 14px;
+            display: inline-block;
+            position: relative;
+            border: 2px solid #00283c;
+            border-top-color: transparent;
+            border-radius: 50%;
+            vertical-align: -3px;
+        }
+
+        .power-icon::before {
+            content: "";
+            position: absolute;
+            left: 4px;
+            top: -5px;
+            width: 2px;
+            height: 8px;
+            background: #00283c;
+        }
+
+        #scheduleNavigation {
+            width: 100%;
+            height: 25px;
+            background: whitesmoke;
+        }
+
+        #ivoryBar {
+            display: flex;
+            justify-content: space-between;
+            gap: 5px;
+            min-height: 29px;
+            background: whitesmoke;
+        }
+
+        #scheduleNavigation td {
+            padding: 3px 0;
+            white-space: nowrap;
+        }
+
+        #dateAndCalendar {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin-left: 10px;
+            min-width: 0;
+        }
+
+        #group {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin-right: 15px;
+        }
+
+        #quickSearchWrapper {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            margin-right: 4px;
+            vertical-align: middle;
+        }
+
+        #quickSearch {
+            width: 170px;
+            height: 24px;
+            padding: 2px 26px 2px 6px;
+            border: 1px solid #adb5bd;
+            border-radius: 4px;
+            background: #fff;
+            font-size: 0.8rem;
+        }
+
+        .redArrow {
+            width: 12px;
+            height: 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            vertical-align: middle;
+        }
+
+        .step-icon {
+            position: relative;
+            width: 10px;
+            height: 10px;
+            display: inline-block;
+        }
+
+        .step-icon::before {
+            content: "";
+            position: absolute;
+            top: 1px;
+            width: 0;
+            height: 0;
+            border-top: 4px solid transparent;
+            border-bottom: 4px solid transparent;
+        }
+
+        .step-icon::after {
+            content: "";
+            position: absolute;
+            top: 1px;
+            width: 2px;
+            height: 8px;
+            background: #00283c;
+        }
+
+        .step-icon.prev::before {
+            left: 1px;
+            border-right: 6px solid #00283c;
+        }
+
+        .step-icon.prev::after {
+            left: 0;
+        }
+
+        .step-icon.next::before {
+            right: 1px;
+            border-left: 6px solid #00283c;
+        }
+
+        .step-icon.next::after {
+            right: 0;
+        }
+
+        .dateAppointment {
+            color: #00283c;
+            font-size: inherit;
+            font-weight: bold;
+        }
+
+        .quick-btn {
+            height: 20px;
+            min-width: 28px;
+            margin: 0 1px;
+            padding: 1px 6px;
+        }
+
+        #dateMultiplier {
+            width: 34px;
+            height: 20px;
+            text-align: center;
+        }
+
+        #toggleCancelledBtn {
+            width: 18px;
+            height: 18px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: 5px;
+            padding: 0;
+            vertical-align: middle;
+        }
+
+        .eye-icon {
+            width: 15px;
+            height: 9px;
+            display: inline-block;
+            position: relative;
+            border: 1px solid #777;
+            border-radius: 50% / 60%;
+        }
+
+        .eye-icon::after {
+            content: "";
+            position: absolute;
+            left: 5px;
+            top: 2px;
+            width: 3px;
+            height: 3px;
+            border-radius: 50%;
+            background: #777;
+        }
+
+        .sms-day-button {
+            width: 32px;
+            height: 21px;
+            margin-left: 2px;
+            padding: 1px 2px;
+            border: 1px solid #0097cf;
+            border-radius: 2px;
+            background: #f4ead7;
+            color: #00283c;
+            font-weight: bold;
+            line-height: 1;
+            vertical-align: middle;
+        }
+
+        .sms-day-button:hover,
+        .sms-inline:hover,
+        .appt-more:hover,
+        .sms-menu button:hover {
+            color: #fff;
+            background: #486ebd;
+        }
+
+        .title {
+            flex: 1 0 auto;
+            color: #000;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        #findProviderInput {
+            width: 156px;
+            height: 20px;
+            padding: 1px 5px;
+        }
+
+        #group select {
+            width: 140px;
+            height: 21px;
+        }
+
+        #scheduleTable {
+            background: #c0c0c0;
+        }
+
+        #scheduleTable td,
+        #scheduleTable tr,
+        #scheduleTable th,
+        #scheduleTable thead,
+        #scheduleTable tbody,
+        #scheduleTable tfoot {
+            border-style: none;
+            border-width: 0;
+        }
+
+        #scheduleTable > tbody > tr > td,
+        #scheduleTable > tbody > tr > td > table > tbody > tr > td {
+            padding: 0;
+        }
+
+        .providerSchedule {
+            background: #486ebd;
+            border-collapse: collapse;
+        }
+
+        #providerSchedule,
+        #providerSchedule td {
+            border-collapse: collapse;
+        }
+
+        .infirmaryView {
+            position: sticky;
+            top: 50px;
+            left: 0;
+            right: 0;
+            height: 25px;
+            padding: 0 5px !important;
+            background: #c0c0c0;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .infirmaryView input[type="button"] {
+            height: 19px;
+            padding: 1px 7px;
+            vertical-align: middle;
+        }
+
+        .infirmaryView input[type="radio"] {
+            margin: 0 2px;
+            vertical-align: middle;
+        }
+
+        .scheduleTime00,
+        .scheduleTimeNot00 {
+            width: 64px;
+            min-width: 64px;
+            border-top: #486ebd 2px solid;
+            border-right: #486ebd 2px solid;
+            border-bottom: #486ebd 2px solid;
+        }
+
+        .scheduleTime00 {
+            background: #3ea4e1;
+        }
+
+        .scheduleTimeNot00 {
+            background: #00a488;
+        }
+
+        .adhour {
+            display: block;
+            padding: 3px;
+            color: #fff !important;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .hourmin {
+            width: 14px;
+            min-width: 14px;
+            padding: 0 3px !important;
+            border-top: #486ebd 2px solid;
+            border-bottom: #486ebd 2px solid;
+            background: transparent;
+            color: #000;
+            text-align: center;
+        }
+
+        .hourmin.open {
+            background: #bfefff;
+        }
+
+        .hourmin.closed {
+            background: transparent;
+            color: #000;
+        }
+
+        td.appt {
+            overflow: hidden;
+            padding-top: 3px !important;
+            padding-right: 3px !important;
+            padding-left: 3px !important;
+            vertical-align: top;
+            border-top: #486ebd 2px solid !important;
+            border-right: #486ebd 2px solid !important;
+            border-bottom: #486ebd 2px solid !important;
+            border-left: #486ebd 2px solid !important;
+            background: #ffffc7;
+            white-space: nowrap;
+        }
+
+        td.blocked-appt {
+            background: #e9e2cf;
+            color: #333;
+            font-weight: bold;
+        }
+
+        td.appt a {
+            padding: 0 2px;
+        }
+
+        .sms-inline,
+        .appt-more {
+            display: inline-block;
+            min-width: 24px;
+            height: 16px;
+            margin-left: 2px;
+            padding: 1px 3px;
+            border: 1px solid #0097cf;
+            border-radius: 2px;
+            background: #fff;
+            color: #00283c;
+            font-size: 10px;
+            font-weight: bold;
+            line-height: 12px;
+            text-align: center;
+            vertical-align: 1px;
+        }
+
+        .appt-more {
+            width: 24px;
+            padding: 0 3px;
+            color: #000;
+            font-size: 14px;
+            line-height: 8px;
+        }
+
+        .sms-inline.disabled {
+            border-color: #aaa;
+            background: #e7e7e7;
+            color: #777;
+            cursor: not-allowed;
+        }
+
+        .sms-inline.disabled:hover {
+            background: #e7e7e7;
+            color: #777;
+        }
+
+        .sms-state {
+            display: inline-block;
+            flex: 0 0 auto;
+            min-width: 28px;
+            height: 16px;
+            margin-left: 2px;
+            padding: 2px 3px;
+            border: 1px solid #777;
+            border-radius: 2px;
+            background: #eef5ff;
+            color: #00283c;
+            font-size: 10px;
+            font-weight: bold;
+            line-height: 10px;
+            text-align: center;
+            vertical-align: 1px;
+        }
+
+        .sms-state.sent {
+            border-color: #58945a;
+            background: #e4f2df;
+            color: #19511c;
+        }
+
+        .sms-state.due {
+            border-color: #c28b00;
+            background: #fff2bd;
+            color: #5f4300;
+        }
+
+        .sms-state.none {
+            border-color: #aaa;
+            background: #e7e7e7;
+            color: #777;
+        }
+
+        .sms-menu {
+            position: fixed;
+            z-index: 2000;
+            display: none;
+            min-width: 160px;
+            padding: 3px;
+            border: 1px solid #777;
+            background: #fff;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+        }
+
+        .sms-menu.open {
+            display: block;
+        }
+
+        .sms-menu button {
+            display: block;
+            width: 100%;
+            min-height: 23px;
+            padding: 4px 6px;
+            border: 0;
+            border-radius: 0;
+            background: #fff;
+            color: #00283c;
+            font-weight: bold;
+            text-align: left;
+        }
+
+        td.appt .folder {
+            display: inline-block;
+            margin: 0 4px 0 2px;
+            color: #836f00;
+            font-size: 13px;
+            vertical-align: -1px;
+        }
+
+        .apptStatus {
+            display: inline-block;
+            min-width: 9px;
+            color: #000;
+            text-align: center;
+        }
+
+        .reason {
+            color: #000;
+            font-style: italic;
+            font-weight: bold;
+        }
+
+        .timeline-marker {
+            height: 0;
+            margin: 0;
+            padding: 0;
+            border: none;
+            border-top: 2px dotted tomato;
+            color: tomato;
+            opacity: 1;
+        }
+
+        .noGrid {
+            border: none;
+        }
+
+        .slot-row td {
+            height: 20px;
+        }
+
+        .provider-spacer td {
+            height: 1px !important;
+            padding: 0 !important;
+            background: #486ebd;
+        }
+
+        .timeline-indicator td {
+            height: 2px !important;
+            padding: 0 !important;
+        }
+
+        .appointment-text {
+            display: block;
+            padding-top: 2px;
+            line-height: 1.1;
+        }
+
+        body.week-view #scheduleTable {
+            table-layout: fixed;
+        }
+
+        .weekDayCell {
+            width: 20%;
+            padding: 0 !important;
+            vertical-align: top;
+            background: #486ebd;
+        }
+
+        .weekDaySchedule {
+            width: 100%;
+            table-layout: fixed;
+        }
+
+        .weekDaySchedule .infirmaryView {
+            position: static;
+            top: auto;
+            right: auto;
+            left: auto;
+            height: 25px;
+        }
+
+        .week-day-sms {
+            height: 17px;
+            margin-left: 4px;
+            padding: 1px 4px;
+            border: 1px solid #0097cf;
+            background: #fff;
+            color: #00283c;
+            font-size: 10px;
+            font-weight: bold;
+            line-height: 12px;
+            vertical-align: 1px;
+        }
+
+        .weekDaySchedule .scheduleTime00,
+        .weekDaySchedule .scheduleTimeNot00 {
+            width: 51px;
+            min-width: 51px;
+        }
+
+        .weekDaySchedule .hourmin {
+            width: 14px;
+            min-width: 14px;
+        }
+
+        .weekDaySchedule .noGrid {
+            width: auto;
+        }
+
+        .week-appointment {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        .week-appt-main {
+            flex: 1 1 auto;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .week-appointment .sms-inline,
+        .week-appointment .appt-more,
+        .week-appointment .sms-state {
+            flex: 0 0 auto;
+        }
+
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 3000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.42);
+        }
+
+        .modal-backdrop.open {
+            display: flex;
+        }
+
+        .sms-modal {
+            width: min(720px, 100%);
+            max-height: 88vh;
+            overflow: auto;
+            border: 1px solid #777;
+            background: #fff;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+            line-height: 1.25;
+        }
+
+        .sms-modal header,
+        .sms-modal footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 9px 10px;
+            background: whitesmoke;
+            border-bottom: 1px solid #c0c0c0;
+        }
+
+        .sms-modal footer {
+            justify-content: flex-end;
+            border-top: 1px solid #c0c0c0;
+            border-bottom: 0;
+        }
+
+        .sms-modal h2 {
+            margin: 0;
+            font-size: 16px;
+        }
+
+        .sms-modal p {
+            margin: 3px 0 0;
+            color: #555;
+        }
+
+        .sms-modal-body {
+            padding: 10px;
+        }
+
+        .sms-status-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .sms-status-card {
+            min-height: 54px;
+            padding: 7px;
+            border: 1px solid #c0c0c0;
+            background: #f8fafc;
+        }
+
+        .sms-status-card strong {
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .sms-form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+        }
+
+        .sms-field {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .sms-field.full {
+            grid-column: 1 / -1;
+        }
+
+        .sms-field label {
+            font-weight: bold;
+        }
+
+        .sms-field input,
+        .sms-field select,
+        .sms-field textarea {
+            width: 100%;
+            padding: 5px;
+            background: #fff;
+        }
+
+        .sms-field textarea {
+            min-height: 88px;
+            resize: vertical;
+        }
+
+        .batch-table {
+            width: 100%;
+            margin-top: 8px;
+            border-collapse: collapse;
+        }
+
+        .batch-table th,
+        .batch-table td {
+            padding: 5px;
+            border: 1px solid #c0c0c0;
+            text-align: left;
+        }
+
+        .batch-table th {
+            background: whitesmoke;
+        }
+
+        @media (max-width: 900px) {
+            #navlist {
+                max-width: calc(100vw - 145px);
+                overflow-x: auto;
+            }
+
+            #ivoryBar {
+                align-items: stretch;
+                flex-direction: column;
+            }
+
+            #dateAndCalendar,
+            #group {
+                margin: 0 8px;
+                overflow-x: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+<div id="main-container">
+    <div id="fixedHeaderWrapper">
+        <table id="firstTable" class="noprint">
+            <tr>
+                <td id="firstMenu">
+                    <span class="logo" aria-hidden="true"></span>
+                    <ul id="navlist">
+                        <li><a href="#">Schedule</a></li>
+                        <li><a href="#">Search</a></li>
+                        <li><a href="#">Inbox</a></li>
+                        <li><a href="#"><span class="tabalert">U</span></a></li>
+                        <li><a href="#">Tickler<span class="tabalert">81</span></a></li>
+                        <li><a href="#">Msg</a></li>
+                        <li><a href="#">Consultations</a></li>
+                        <li><a href="#">eDoc</a></li>
+                        <li><a href="#">Report</a></li>
+                        <li><a href="#">Administration</a></li>
+                        <li><a href="#">Resources</a></li>
+                    </ul>
+                </td>
+                <td id="userSettings">
+                    <ul id="userSettingsMenu">
+                        <li><a href="#" class="mini-icon"><span class="menu-icon" aria-hidden="true"></span></a></li>
+                        <li><a href="#"><span class="user-icon" aria-hidden="true"></span>doctor carlosdoc</a></li>
+                    </ul>
+                    <a id="logoutButton" href="#" title="Logout"><span class="power-icon" aria-hidden="true"></span></a>
+                </td>
+            </tr>
+        </table>
+
+        <table id="scheduleNavigation">
+            <tr id="ivoryBar">
+                <td id="dateAndCalendar">
+                    <span id="quickSearchWrapper" class="quick-search-wrapper noprint">
+                        <input type="text" id="quickSearch" name="quickSearch" placeholder="Search" autocomplete="off">
+                    </span>
+                    <a class="redArrow" href="#" title="Previous day"><span class="step-icon prev" aria-hidden="true"></span></a>
+                    <b><a href="#" class="clickable-date"><span class="dateAppointment">Fri, 2026-05-29</span></a></b>
+                    <a class="redArrow" href="#" title="Next day"><span class="step-icon next" aria-hidden="true"></span></a>
+                    <input type="button" value="M-" class="quick-btn">
+                    <input type="button" value="W-" class="quick-btn">
+                    <input type="number" id="dateMultiplier" value="1" min="1" max="99">
+                    <input type="button" value="W+" class="quick-btn">
+                    <input type="button" value="M+" class="quick-btn">
+                    <span>|</span>
+                    <input type="button" value="2W" class="quick-btn">
+                    <input type="button" value="4W" class="quick-btn">
+                    <input type="button" value="3M" class="quick-btn">
+                    <input type="button" value="6M" class="quick-btn">
+                    <a id="toggleCancelledBtn" href="#" title="Hide cancelled"><span class="eye-icon" aria-hidden="true"></span></a>
+                    <u><a href="#">All</a></u>
+                    <a href="#">Today</a>
+                    <a href="#">Month</a>
+                    <button class="sms-day-button" type="button" data-open="batch" title="Review and send SMS reminders for visible appointments">SMS</button>
+                </td>
+                <td class="title noprint"></td>
+                <td id="group">
+                    <form method="post" name="findprovider">
+                        <input id="findProviderInput" type="text" name="providername" value="" maxlength="10" placeholder="Enter Lastname">
+                        <input type="submit" name="Go" value="GO">
+                    </form>
+                    <form name="appointmentForm">
+                        <span>Group:</span>
+                        <select id="mygroup_no" name="mygroup_no">
+                            <option>.default</option>
+                            <option>carlosdoc, doctor</option>
+                            <option>openodoc, doctor</option>
+                        </select>
+                    </form>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <table id="scheduleTable" bgcolor="#c0c0c0">
+        <tr>
+            <td colspan="3">
+                <table class="providerSchedule" id="providerSchedule" bgcolor="#486ebd">
+                    <tr>
+                        <td class="infirmaryView" nowrap align="center" bgcolor="#c0c0c0" colspan="3">
+                            <input type="button" value="W" name="weekview">
+                            <input type="button" value="S" name="searchview">
+                            <input type="radio" name="flipview">
+                            <a href="#">carlosdoc, doctor (14)</a>
+                            <a href="#" title="Expand reason">*</a>
+                        </td>
+                    </tr>
+                    <tr class="provider-spacer">
+                        <td colspan="3"></td>
+                    </tr>
+
+                    <tr class="slot-row">
+                        <td class="scheduleTime00"><a href="#" class="adhour">08:00</a></td>
+                        <td class="hourmin closed">-</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">08:15</a></td>
+                        <td class="hourmin closed">-</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">08:30</a></td>
+                        <td class="hourmin closed">-</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">08:45</a></td>
+                        <td class="hourmin closed">-</td>
+                        <td class="noGrid"></td>
+                    </tr>
+
+                    <tr class="slot-row">
+                        <td class="scheduleTime00"><a href="#" class="adhour">09:00</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="appt" rowspan="3" nowrap>
+                            <span class="appointment-text">
+                                <a class="apptStatus" href="#">[]</a>
+                                <span class="folder">[ ]</span>
+                                <a href="#">!</a>
+                                <a class="apptLink" href="#">Lee, Jordan</a>
+                                <span>|</span><a href="#">E</a>
+                                <span>|</span><a href="#">B</a>
+                                <span>|</span><a href="#">M</a>
+                                <span>|</span><a href="#">Rx</a>
+                                <span>|</span><span class="reason">Follow-Up</span>
+                                <button class="sms-inline" type="button" data-open="sms" data-patient="Jordan Lee" title="Text Jordan Lee">SMS</button>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">09:15</a></td>
+                        <td class="hourmin open">1</td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">09:30</a></td>
+                        <td class="hourmin open">1</td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">09:45</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="appt" nowrap>
+                            <span class="appointment-text">
+                                <a class="apptStatus" href="#">[]</a>
+                                <a class="apptLink" href="#">Morales, Sofia</a>
+                                <span>|</span><a href="#">E</a>
+                                <span>|</span><a href="#">M</a>
+                                <span>|</span><span class="reason">Sore Throat</span>
+                            </span>
+                        </td>
+                    </tr>
+
+                    <tr class="slot-row">
+                        <td class="scheduleTime00"><a href="#" class="adhour">10:00</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="appt" nowrap>
+                            <span class="appointment-text">
+                                <a class="apptStatus" href="#">[]</a>
+                                <a class="apptLink" href="#">Chen, Jamie</a>
+                                <span>|</span><a href="#">E</a>
+                                <span>|</span><a href="#">M</a>
+                                <button class="appt-more" type="button" data-menu="menu-jamie" data-patient="Jamie Chen" title="More appointment actions">...</button>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">10:15</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="appt" nowrap>
+                            <span class="appointment-text">
+                                <a class="apptStatus" href="#">[]</a>
+                                <a class="apptLink" href="#">Patil, Avery</a>
+                                <span>|</span><a href="#">E</a>
+                                <span>|</span><a href="#">M</a>
+                                <button class="sms-inline disabled" type="button" disabled title="SMS unavailable: consent missing">SMS</button>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">10:30</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="timeline-indicator noprint">
+                        <td colspan="3"><hr class="timeline-marker"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">10:45</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="appt" nowrap>
+                            <span class="appointment-text">
+                                <a class="apptStatus" href="#">[]</a>
+                                <a class="apptLink" href="#">Garcia, Mateo</a>
+                                <span>|</span><a href="#">E</a>
+                                <span>|</span><a href="#">M</a>
+                                <span>|</span><span class="reason">Rash</span>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTime00"><a href="#" class="adhour">11:00</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="appt" rowspan="2" nowrap>
+                            <span class="appointment-text">
+                                <a class="apptStatus" href="#">[]</a>
+                                <span class="folder">[ ]</span>
+                                <a class="apptLink" href="#">Brown, Taylor</a>
+                                <span>|</span><a href="#">E</a>
+                                <span>|</span><a href="#">B</a>
+                                <span>|</span><a href="#">M</a>
+                                <span>|</span><span class="reason">Annual Physical</span>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">11:15</a></td>
+                        <td class="hourmin open">1</td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">11:30</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="appt" nowrap>
+                            <span class="appointment-text">
+                                <a class="apptStatus" href="#">[]</a>
+                                <a class="apptLink" href="#">Nguyen, Priya</a>
+                                <span>|</span><a href="#">E</a>
+                                <span>|</span><a href="#">M</a>
+                                <span>|</span><span class="reason">Prenatal</span>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">11:45</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTime00"><a href="#" class="adhour">12:00</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="appt blocked-appt" rowspan="2" nowrap>
+                            <span class="appointment-text">
+                                Lunch / admin
+                            </span>
+                        </td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">12:15</a></td>
+                        <td class="hourmin open">1</td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">12:30</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">12:45</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTime00"><a href="#" class="adhour">13:00</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="appt" nowrap>
+                            <span class="appointment-text">
+                                <a class="apptStatus" href="#">[]</a>
+                                <a class="apptLink" href="#">Williams, Noah</a>
+                                <span>|</span><a href="#">E</a>
+                                <span>|</span><a href="#">M</a>
+                                <span>|</span><span class="reason">Cough</span>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">13:15</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="appt" nowrap>
+                            <span class="appointment-text">
+                                <a class="apptStatus" href="#">[]</a>
+                                <a class="apptLink" href="#">Rossi, Eli</a>
+                                <span>|</span><a href="#">E</a>
+                                <span>|</span><a href="#">M</a>
+                                <span>|</span><span class="reason">Immunization</span>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">13:30</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="appt" rowspan="2" nowrap>
+                            <span class="appointment-text">
+                                <a class="apptStatus" href="#">[]</a>
+                                <span class="folder">[ ]</span>
+                                <a class="apptLink" href="#">Ahmed, Lina</a>
+                                <span>|</span><a href="#">E</a>
+                                <span>|</span><a href="#">B</a>
+                                <span>|</span><a href="#">M</a>
+                                <span>|</span><span class="reason">Chronic Care</span>
+                                <button class="sms-inline" type="button" data-open="sms" data-patient="Lina Ahmed" title="Text Lina Ahmed">SMS</button>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">13:45</a></td>
+                        <td class="hourmin open">1</td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTime00"><a href="#" class="adhour">14:00</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">14:15</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="appt" nowrap>
+                            <span class="appointment-text">
+                                <a class="apptStatus" href="#">[]</a>
+                                <a class="apptLink" href="#">Singh, Nara</a>
+                                <span>|</span><a href="#">E</a>
+                                <span>|</span><a href="#">M</a>
+                                <span>|</span><span class="reason">BP Check</span>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">14:30</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">14:45</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="appt" nowrap>
+                            <span class="appointment-text">
+                                <a class="apptStatus" href="#">[]</a>
+                                <a class="apptLink" href="#">Davis, Harper</a>
+                                <span>|</span><a href="#">Phone</a>
+                                <span>|</span><span class="reason">Rx Renewal</span>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTime00"><a href="#" class="adhour">15:00</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="appt" rowspan="2" nowrap>
+                            <span class="appointment-text">
+                                <a class="apptStatus" href="#">[]</a>
+                                <a class="apptLink" href="#">Murphy, Drew</a>
+                                <span>|</span><a href="#">E</a>
+                                <span>|</span><a href="#">M</a>
+                                <span>|</span><span class="reason">Mental Health</span>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">15:15</a></td>
+                        <td class="hourmin open">1</td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">15:30</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">15:45</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="appt" nowrap>
+                            <span class="appointment-text">
+                                <a class="apptStatus" href="#">[]</a>
+                                <a class="apptLink" href="#">Zhou, Mei</a>
+                                <span>|</span><a href="#">Phone</a>
+                                <span>|</span><span class="reason">Results</span>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTime00"><a href="#" class="adhour">16:00</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">16:15</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="appt" nowrap>
+                            <span class="appointment-text">
+                                <a class="apptStatus" href="#">[]</a>
+                                <a class="apptLink" href="#">Cooper, Quinn</a>
+                                <span>|</span><a href="#">E</a>
+                                <span>|</span><a href="#">M</a>
+                                <span>|</span><span class="reason">Same Day</span>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">16:30</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">16:45</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTime00"><a href="#" class="adhour">17:00</a></td>
+                        <td class="hourmin closed">-</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">17:15</a></td>
+                        <td class="hourmin closed">-</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">17:30</a></td>
+                        <td class="hourmin closed">-</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">17:45</a></td>
+                        <td class="hourmin closed">-</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTime00"><a href="#" class="adhour">18:00</a></td>
+                        <td class="hourmin closed">-</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">18:15</a></td>
+                        <td class="hourmin closed">-</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">18:30</a></td>
+                        <td class="hourmin closed">-</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">18:45</a></td>
+                        <td class="hourmin closed">-</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</div>
+
+<div class="sms-menu" id="menu-jamie">
+    <button type="button">Edit appointment</button>
+    <button type="button">Open master file</button>
+    <button type="button">Open eChart</button>
+    <button type="button" data-open="sms" data-patient="Jamie Chen">Text patient</button>
+</div>
+
+<div class="modal-backdrop" id="smsModal" role="dialog" aria-modal="true" aria-labelledby="smsTitle">
+    <section class="sms-modal">
+        <header>
+            <div>
+                <h2 id="smsTitle">Text patient</h2>
+                <p id="smsSubtitle">Appointment context is attached to this message.</p>
+            </div>
+            <button type="button" data-close aria-label="Close">x</button>
+        </header>
+        <div class="sms-modal-body">
+            <div class="sms-status-grid">
+                <div class="sms-status-card">
+                    <strong>Mobile</strong>
+                    <span id="smsNumber">Verified mobile number on file</span>
+                </div>
+                <div class="sms-status-card">
+                    <strong>Consent</strong>
+                    <span id="smsConsent">SMS consent active. No STOP recorded.</span>
+                </div>
+                <div class="sms-status-card">
+                    <strong>Chart</strong>
+                    <span>Log message to this appointment and patient.</span>
+                </div>
+            </div>
+            <div class="sms-form-grid">
+                <div class="sms-field">
+                    <label for="smsTemplate">Template</label>
+                    <select id="smsTemplate">
+                        <option>Appointment reminder</option>
+                        <option>Appointment confirmation</option>
+                        <option>Cancellation notice</option>
+                        <option>Reschedule request</option>
+                    </select>
+                </div>
+                <div class="sms-field">
+                    <label for="smsSender">Send from</label>
+                    <select id="smsSender">
+                        <option>Main clinic line</option>
+                        <option>Reception desk</option>
+                        <option>Provider pool</option>
+                    </select>
+                </div>
+                <div class="sms-field full">
+                    <label for="smsBody">Message</label>
+                    <textarea id="smsBody">Reminder from Riverside Clinic: you have an appointment on Fri May 29. Reply STOP to opt out.</textarea>
+                </div>
+            </div>
+        </div>
+        <footer>
+            <button type="button" data-close>Cancel</button>
+            <button type="button">Preview</button>
+            <button type="button">Send SMS</button>
+        </footer>
+    </section>
+</div>
+
+<div class="modal-backdrop" id="batchModal" role="dialog" aria-modal="true" aria-labelledby="batchTitle">
+    <section class="sms-modal">
+        <header>
+            <div>
+                <h2 id="batchTitle">Send SMS reminders</h2>
+                <p>Review visible schedule appointments before sending.</p>
+            </div>
+            <button type="button" data-close aria-label="Close">x</button>
+        </header>
+        <div class="sms-modal-body">
+            <table class="batch-table">
+                <thead>
+                    <tr>
+                        <th>Patient</th>
+                        <th>Appointment</th>
+                        <th>SMS status</th>
+                        <th>Send</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Jordan Lee</td>
+                        <td>09:00 Follow-Up</td>
+                        <td>Eligible</td>
+                        <td><input type="checkbox" checked></td>
+                    </tr>
+                    <tr>
+                        <td>Sofia Morales</td>
+                        <td>09:45 Sore Throat</td>
+                        <td>Eligible</td>
+                        <td><input type="checkbox" checked></td>
+                    </tr>
+                    <tr>
+                        <td>Jamie Chen</td>
+                        <td>10:00</td>
+                        <td>Eligible</td>
+                        <td><input type="checkbox" checked></td>
+                    </tr>
+                    <tr>
+                        <td>Avery Patil</td>
+                        <td>10:15</td>
+                        <td>No SMS consent</td>
+                        <td>Excluded</td>
+                    </tr>
+                    <tr>
+                        <td>Mateo Garcia</td>
+                        <td>10:45 Rash</td>
+                        <td>Eligible</td>
+                        <td><input type="checkbox" checked></td>
+                    </tr>
+                    <tr>
+                        <td>Taylor Brown</td>
+                        <td>11:00 Annual Physical</td>
+                        <td>Eligible</td>
+                        <td><input type="checkbox" checked></td>
+                    </tr>
+                    <tr>
+                        <td>Priya Nguyen</td>
+                        <td>11:30 Prenatal</td>
+                        <td>Eligible</td>
+                        <td><input type="checkbox" checked></td>
+                    </tr>
+                    <tr>
+                        <td>Lina Ahmed</td>
+                        <td>13:30 Chronic Care</td>
+                        <td>Eligible</td>
+                        <td><input type="checkbox" checked></td>
+                    </tr>
+                    <tr>
+                        <td>Nara Singh</td>
+                        <td>14:15 BP Check</td>
+                        <td>Eligible</td>
+                        <td><input type="checkbox" checked></td>
+                    </tr>
+                    <tr>
+                        <td>Drew Murphy</td>
+                        <td>15:00 Mental Health</td>
+                        <td>Eligible</td>
+                        <td><input type="checkbox" checked></td>
+                    </tr>
+                    <tr>
+                        <td>Quinn Cooper</td>
+                        <td>16:15 Same Day</td>
+                        <td>Eligible</td>
+                        <td><input type="checkbox" checked></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <footer>
+            <button type="button" data-close>Cancel</button>
+            <button type="button">Preview batch</button>
+            <button type="button">Send 10 SMS</button>
+        </footer>
+    </section>
+</div>
+
+<script>
+    (function () {
+        var smsModal = document.getElementById('smsModal');
+        var batchModal = document.getElementById('batchModal');
+        var activeMenu = null;
+        var smsTitle = document.getElementById('smsTitle');
+        var smsSubtitle = document.getElementById('smsSubtitle');
+        var smsNumber = document.getElementById('smsNumber');
+        var smsConsent = document.getElementById('smsConsent');
+        var scheduleTable = document.getElementById('scheduleTable');
+        var dateLabel = document.querySelector('.dateAppointment');
+        var dayMarkup = scheduleTable.innerHTML;
+        var baseMonday = new Date(2026, 4, 25);
+        var weekOffset = 0;
+        var times = [
+            '08:00', '08:15', '08:30', '08:45',
+            '09:00', '09:15', '09:30', '09:45',
+            '10:00', '10:15', '10:30', '10:45',
+            '11:00', '11:15', '11:30', '11:45',
+            '12:00', '12:15', '12:30', '12:45',
+            '13:00', '13:15', '13:30', '13:45',
+            '14:00', '14:15', '14:30', '14:45',
+            '15:00', '15:15', '15:30', '15:45',
+            '16:00', '16:15', '16:30', '16:45',
+            '17:00', '17:15', '17:30', '17:45',
+            '18:00', '18:15', '18:30', '18:45'
+        ];
+        var dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        var patientState = {
+            'Jordan Lee': ['416-555-0132 verified', 'SMS consent active. No STOP recorded.', '09:00 Follow-Up with doctor carlosdoc'],
+            'Jamie Chen': ['416-555-0184 verified', 'SMS consent active. No STOP recorded.', '10:00 appointment with doctor carlosdoc'],
+            'Lina Ahmed': ['416-555-0198 verified', 'SMS consent active. No STOP recorded.', '13:30 Chronic Care with doctor carlosdoc']
+        };
+        var weekAppointments = {
+            '09:00': { patient: 'Lee, Jordan', patientKey: 'Jordan Lee', reason: 'Follow-Up', rowspan: 3, action: 'sms' },
+            '09:45': { patient: 'Morales, Sofia', reason: 'Sore Throat' },
+            '10:00': { patient: 'Chen, Jamie', action: 'menu' },
+            '10:15': { patient: 'Patil, Avery', action: 'disabled' },
+            '10:45': { patient: 'Garcia, Mateo', reason: 'Rash' },
+            '11:00': { patient: 'Brown, Taylor', reason: 'Annual Physical', rowspan: 2 },
+            '11:30': { patient: 'Nguyen, Priya', reason: 'Prenatal' },
+            '12:00': { block: 'Lunch / admin', rowspan: 2 },
+            '13:00': { patient: 'Williams, Noah', reason: 'Cough' },
+            '13:15': { patient: 'Rossi, Eli', reason: 'Immunization' },
+            '13:30': { patient: 'Ahmed, Lina', patientKey: 'Lina Ahmed', reason: 'Chronic Care', rowspan: 2, action: 'sms' },
+            '14:15': { patient: 'Singh, Nara', reason: 'BP Check' },
+            '14:45': { patient: 'Davis, Harper', reason: 'Rx Renewal' },
+            '15:00': { patient: 'Murphy, Drew', reason: 'Mental Health', rowspan: 2 },
+            '15:45': { patient: 'Zhou, Mei', reason: 'Results' },
+            '16:15': { patient: 'Cooper, Quinn', reason: 'Same Day' }
+        };
+        var weekSkipSlots = {
+            '09:15': true,
+            '09:30': true,
+            '11:15': true,
+            '12:15': true,
+            '13:45': true,
+            '15:15': true
+        };
+        var weekAppointmentsByDay = [
+            {
+                '09:00': { patient: 'Okafor, Amara', reason: 'Follow-Up', action: 'sms' },
+                '10:30': { patient: 'Li, Ethan', reason: 'Cough', action: 'sms' },
+                '11:00': { patient: 'Walsh, Erin', reason: 'Annual Physical', rowspan: 2, action: 'sms' },
+                '13:30': { patient: 'Patel, Rohan', reason: 'Diabetes', rowspan: 2, action: 'sms' },
+                '15:15': { patient: 'Martin, Claire', reason: 'Phone', action: 'sms' }
+            },
+            {
+                '09:15': { patient: 'Young, Theo', reason: 'Ear Pain', action: 'menu' },
+                '10:00': { patient: 'Robinson, Maya', reason: 'Prenatal', action: 'menu' },
+                '11:30': { patient: 'Clark, Owen', reason: 'Forms', action: 'menu' },
+                '14:00': { patient: 'Ibrahim, Noor', reason: 'Immunization', action: 'menu' },
+                '15:00': { patient: 'Ellis, June', reason: 'Mental Health', rowspan: 2, action: 'menu' }
+            },
+            {
+                '08:45': { patient: 'Campbell, Ari', reason: 'Rash', state: 'Sent' },
+                '09:30': { patient: 'Park, Hana', reason: 'Results', state: 'Due' },
+                '10:45': { patient: 'Bennett, Miles', reason: 'BP Check', state: 'No' },
+                '13:00': { patient: 'Scott, Remy', reason: 'Chronic Care', rowspan: 2, state: 'Sent' },
+                '15:30': { patient: 'Ortiz, Elena', reason: 'Same Day', state: 'Due' }
+            },
+            {
+                '09:00': { patient: 'Foster, Alex', reason: 'New Patient', rowspan: 2 },
+                '10:15': { patient: 'Tran, Kim', reason: 'Rx Renewal' },
+                '11:15': { patient: 'Hall, Morgan', reason: 'Phone' },
+                '13:30': { patient: 'Wright, Sam', reason: 'Procedure', rowspan: 3 },
+                '15:00': { patient: 'Morris, Jules', reason: 'Results' }
+            },
+            weekAppointments
+        ];
+        var weekDaySmsMode = ['inline', 'overflow', 'status', 'day', 'mixed'];
+        var weekSkipSlotsByDay = [
+            { '11:15': true, '13:45': true },
+            { '15:15': true },
+            { '13:15': true },
+            { '09:15': true, '13:45': true, '14:00': true },
+            weekSkipSlots
+        ];
+
+        function pad(value) {
+            return String(value).padStart(2, '0');
+        }
+
+        function formatDate(date) {
+            return dayNames[date.getDay()] + ', ' + date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate());
+        }
+
+        function getWeekNumber(date) {
+            var weekDate = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+            var dayNumber = weekDate.getUTCDay() || 7;
+            weekDate.setUTCDate(weekDate.getUTCDate() + 4 - dayNumber);
+            var yearStart = new Date(Date.UTC(weekDate.getUTCFullYear(), 0, 1));
+            return Math.ceil((((weekDate - yearStart) / 86400000) + 1) / 7);
+        }
+
+        function isOpenSlot(time) {
+            var hour = parseInt(time.slice(0, 2), 10);
+            return hour >= 9 && hour < 17;
+        }
+
+        function getPatientKey(patient) {
+            var parts;
+            if (!patient) return 'Patient';
+            if (patient.indexOf(',') === -1) return patient;
+            parts = patient.split(',');
+            return (parts[1].trim() + ' ' + parts[0].trim()).trim();
+        }
+
+        function getSmsStateClass(state) {
+            if (state === 'No') return 'none';
+            return state.toLowerCase();
+        }
+
+        function buildAppointment(time, dayIndex) {
+            var action = '';
+            var dayAppointments = weekAppointmentsByDay[dayIndex] || {};
+            var appt = dayAppointments[time];
+            var patientKey = '';
+            var rowspan = '';
+
+            if (!appt) return '';
+
+            rowspan = appt.rowspan ? ' rowspan="' + appt.rowspan + '"' : '';
+
+            if (appt.block) {
+                return [
+                    '<td class="appt blocked-appt"' + rowspan + ' nowrap>',
+                        '<span class="appointment-text">',
+                            appt.block,
+                        '</span>',
+                    '</td>'
+                ].join('');
+            }
+
+            patientKey = appt.patientKey || getPatientKey(appt.patient);
+
+            if (appt.action === 'sms') {
+                action = '<button class="sms-inline" type="button" data-open="sms" data-patient="' + patientKey + '" title="Text ' + patientKey + '">SMS</button>';
+            } else if (appt.action === 'menu') {
+                action = '<button class="appt-more" type="button" data-menu="menu-jamie" data-patient="' + patientKey + '" title="More appointment actions">...</button>';
+            } else if (appt.action === 'disabled') {
+                action = '<button class="sms-inline disabled" type="button" disabled title="SMS unavailable: consent missing">SMS</button>';
+            } else if (appt.state) {
+                action = '<span class="sms-state ' + getSmsStateClass(appt.state) + '" title="SMS status">' + appt.state + '</span>';
+            }
+
+            return [
+                '<td class="appt"' + rowspan + ' nowrap>',
+                        '<span class="appointment-text week-appointment">',
+                            '<span class="week-appt-main">',
+                                '<a class="apptStatus" href="#">[]</a> ',
+                                '<a class="apptLink" href="#">' + appt.patient + '</a>',
+                                appt.reason ? ' <span>|</span> <span class="reason">' + appt.reason + '</span>' : '',
+                            '</span>',
+                            action,
+                        '</span>',
+                    '</td>'
+            ].join('');
+        }
+
+        function buildSlot(time, dayIndex) {
+            var timeClass = time.slice(3) === '00' ? 'scheduleTime00' : 'scheduleTimeNot00';
+            var open = isOpenSlot(time);
+            var appointment = buildAppointment(time, dayIndex);
+            var daySkipSlots = weekSkipSlotsByDay[dayIndex] || {};
+
+            if (daySkipSlots[time]) {
+                appointment = '';
+            } else if (!appointment) {
+                appointment = '<td class="noGrid"></td>';
+            }
+
+            return [
+                '<tr class="slot-row">',
+                    '<td class="' + timeClass + '"><a href="#" class="adhour">' + time + '</a></td>',
+                    '<td class="hourmin ' + (open ? 'open' : 'closed') + '">' + (open ? '1' : '-') + '</td>',
+                    appointment,
+                '</tr>'
+            ].join('');
+        }
+
+        function buildWeekDay(date, dayIndex) {
+            var headerAction = weekDaySmsMode[dayIndex] === 'day'
+                ? '<button class="week-day-sms" type="button" data-open="batch" title="Review SMS reminders for this day">SMS</button>'
+                : '';
+
+            return [
+                '<table class="providerSchedule weekDaySchedule" bgcolor="#486ebd">',
+                    '<colgroup><col style="width:51px"><col style="width:14px"><col></colgroup>',
+                    '<tr>',
+                        '<td class="infirmaryView" nowrap align="center" bgcolor="#c0c0c0" colspan="3">',
+                            formatDate(date),
+                            headerAction,
+                        '</td>',
+                    '</tr>',
+                    '<tr class="provider-spacer"><td colspan="3"></td></tr>',
+                    times.map(function (time) {
+                        return buildSlot(time, dayIndex);
+                    }).join(''),
+                '</table>'
+            ].join('');
+        }
+
+        function renderWeek(offset) {
+            var monday = new Date(baseMonday);
+            var columns = '';
+            var index;
+            weekOffset = offset;
+            monday.setDate(baseMonday.getDate() + (weekOffset * 7));
+
+            for (index = 0; index < 5; index += 1) {
+                var date = new Date(monday);
+                date.setDate(monday.getDate() + index);
+                columns += '<td class="weekDayCell">' + buildWeekDay(date, index) + '</td>';
+            }
+
+            closeMenus();
+            closeModals();
+            document.body.classList.add('week-view');
+            dateLabel.textContent = 'Week ' + getWeekNumber(monday);
+            scheduleTable.innerHTML = '<tr>' + columns + '</tr>';
+        }
+
+        function renderDay() {
+            closeMenus();
+            closeModals();
+            document.body.classList.remove('week-view');
+            dateLabel.textContent = 'Fri, 2026-05-29';
+            scheduleTable.innerHTML = dayMarkup;
+        }
+
+        function handleScheduleNavigation(event) {
+            var button = event.target.closest('input[type="button"]');
+            var link = event.target.closest('a');
+            var linkText = link ? link.textContent.trim() : '';
+
+            if (button && button.value === 'W') {
+                event.preventDefault();
+                renderWeek(weekOffset);
+                return true;
+            }
+
+            if (button && button.value === 'W-') {
+                event.preventDefault();
+                renderWeek(weekOffset - 1);
+                return true;
+            }
+
+            if (button && button.value === 'W+') {
+                event.preventDefault();
+                renderWeek(weekOffset + 1);
+                return true;
+            }
+
+            if (linkText === 'Today') {
+                event.preventDefault();
+                weekOffset = 0;
+                renderDay();
+                return true;
+            }
+
+            return false;
+        }
+
+        function closeMenus() {
+            if (activeMenu) {
+                activeMenu.classList.remove('open');
+                activeMenu = null;
+            }
+        }
+
+        function openMenu(button) {
+            var menu = document.getElementById(button.getAttribute('data-menu'));
+            var textPatientButton;
+            var patient = button.getAttribute('data-patient');
+            if (!menu) return;
+            closeMenus();
+            textPatientButton = menu.querySelector('[data-open="sms"]');
+            if (textPatientButton && patient) {
+                textPatientButton.setAttribute('data-patient', patient);
+            }
+            var rect = button.getBoundingClientRect();
+            menu.style.left = Math.min(rect.left, window.innerWidth - 180) + 'px';
+            menu.style.top = Math.min(rect.bottom + 2, window.innerHeight - 140) + 'px';
+            menu.classList.add('open');
+            activeMenu = menu;
+        }
+
+        function openSms(patient) {
+            var state = patientState[patient] || ['Mobile number on file', 'SMS consent available.', 'Selected appointment'];
+            smsTitle.textContent = 'Text ' + patient;
+            smsSubtitle.textContent = state[2];
+            smsNumber.textContent = state[0];
+            smsConsent.textContent = state[1];
+            smsModal.classList.add('open');
+            closeMenus();
+        }
+
+        function closeModals() {
+            smsModal.classList.remove('open');
+            batchModal.classList.remove('open');
+        }
+
+        document.addEventListener('click', function (event) {
+            var menuButton = event.target.closest('[data-menu]');
+            var opener = event.target.closest('[data-open]');
+            var closer = event.target.closest('[data-close]');
+
+            if (handleScheduleNavigation(event)) {
+                return;
+            }
+
+            if (menuButton) {
+                event.preventDefault();
+                openMenu(menuButton);
+                return;
+            }
+
+            if (opener) {
+                event.preventDefault();
+                if (opener.getAttribute('data-open') === 'sms') {
+                    openSms(opener.getAttribute('data-patient') || 'Patient');
+                } else if (opener.getAttribute('data-open') === 'batch') {
+                    batchModal.classList.add('open');
+                    closeMenus();
+                }
+                return;
+            }
+
+            if (closer) {
+                closeModals();
+                return;
+            }
+
+            if (event.target.classList.contains('modal-backdrop')) {
+                closeModals();
+                return;
+            }
+
+            if (!event.target.closest('.sms-menu')) {
+                closeMenus();
+            }
+        });
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+                closeModals();
+                closeMenus();
+            }
+        });
+    })();
+</script>
+</body>
+</html>

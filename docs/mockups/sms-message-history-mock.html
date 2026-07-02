@@ -1,0 +1,691 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CARLOS SMS Message History Mock</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            margin: 0;
+            min-height: 100%;
+            background: #f3f3f3;
+            color: #111;
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+            font-size: 12px;
+            line-height: 1.35;
+        }
+
+        a,
+        a:visited {
+            color: #1f66ad;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        button,
+        input,
+        select,
+        textarea {
+            font: inherit;
+        }
+
+        button,
+        input[type="button"] {
+            border: 1px solid #2d74b6;
+            border-radius: 4px;
+            background: #337ab7;
+            color: #fff;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        button:hover,
+        input[type="button"]:hover {
+            background: #286090;
+        }
+
+        .patient-shell {
+            min-height: 100vh;
+            display: grid;
+            grid-template-columns: 245px 1fr;
+            grid-template-rows: 56px 1fr;
+        }
+
+        .patient-header {
+            grid-column: 1 / -1;
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            padding: 0 24px;
+            background: #337ab7;
+            color: #fff;
+        }
+
+        .patient-name {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .patient-meta {
+            font-size: 13px;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: auto;
+        }
+
+        .header-button,
+        .header-button:visited {
+            min-height: 30px;
+            padding: 6px 10px;
+            border: 1px solid #155d9c;
+            border-radius: 4px;
+            background: #fff;
+            color: #155d9c;
+            font-weight: 700;
+        }
+
+        .header-button:hover {
+            background: #e9f3ff;
+            color: #0d4776;
+        }
+
+        .side-nav {
+            grid-row: 2;
+            background: #337ab7;
+            color: #fff;
+            border-right: 1px solid #d5d5d5;
+        }
+
+        .side-nav a {
+            display: block;
+            padding: 8px 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+            color: #fff;
+            font-weight: 700;
+        }
+
+        .side-nav a.active,
+        .side-nav a:hover {
+            background: #286090;
+        }
+
+        .main-content {
+            grid-row: 2;
+            padding: 0 6px 46px;
+            background: #f3f3f3;
+        }
+
+        .search-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 36px;
+            padding: 0 8px;
+            border-bottom: 1px solid #ddd;
+            background: #f8f8f8;
+        }
+
+        .record-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            min-height: 40px;
+            margin: 0 0 10px;
+            padding: 7px 12px;
+            border: 1px solid #d5d5d5;
+            border-radius: 4px;
+            background: #f8f8f8;
+        }
+
+        .record-title {
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+        }
+
+        .record-title h2 {
+            margin: 0;
+            font-size: 16px;
+        }
+
+        .content-band {
+            min-height: 780px;
+            padding: 18px;
+            background: #ececec;
+        }
+
+        .panel {
+            margin: 0 0 10px;
+            border: 1px solid #d5d5d5;
+            border-radius: 4px;
+            background: #fff;
+            overflow: hidden;
+        }
+
+        .panel-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            min-height: 34px;
+            padding: 7px 13px;
+            background: #337ab7;
+            color: #fff;
+            font-weight: 700;
+        }
+
+        .panel-title-actions {
+            display: inline-flex;
+            gap: 8px;
+        }
+
+        .panel-title-button,
+        .panel-title-button:visited {
+            min-height: 22px;
+            padding: 3px 8px;
+            border: 1px solid rgba(255, 255, 255, 0.75);
+            border-radius: 4px;
+            background: #fff;
+            color: #155d9c;
+            font-size: 11px;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+
+        .panel-body {
+            padding: 12px;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 8px;
+        }
+
+        .summary-cell {
+            min-height: 58px;
+            padding: 9px;
+            border: 1px solid #d7d7d7;
+            border-radius: 4px;
+            background: #f8f8f8;
+        }
+
+        .summary-cell strong {
+            display: block;
+            margin-bottom: 4px;
+            color: #333;
+        }
+
+        .filter-grid {
+            display: grid;
+            grid-template-columns: 1.2fr repeat(4, minmax(120px, 1fr)) auto;
+            gap: 8px;
+            align-items: end;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .field label {
+            font-weight: 700;
+        }
+
+        .field input,
+        .field select {
+            width: 100%;
+            height: 31px;
+            padding: 5px 7px;
+            border: 1px solid #b7c5d2;
+            border-radius: 3px;
+            background: #fff;
+        }
+
+        .filter-button {
+            min-height: 31px;
+            padding: 5px 12px;
+        }
+
+        .history-layout {
+            display: grid;
+            grid-template-columns: minmax(620px, 1.35fr) minmax(320px, 0.65fr);
+            gap: 12px;
+            align-items: start;
+        }
+
+        .message-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .message-table th,
+        .message-table td {
+            padding: 7px 8px;
+            border-bottom: 1px solid #e7e7e7;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .message-table th {
+            background: #fafafa;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .message-table tr.selected {
+            background: #e9f3ff;
+        }
+
+        .message-preview {
+            max-width: 310px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .status-pill {
+            display: inline-block;
+            min-width: 58px;
+            padding: 3px 7px;
+            border: 1px solid #6ea76e;
+            border-radius: 3px;
+            background: #e5f4df;
+            color: #225b22;
+            font-size: 11px;
+            font-weight: 700;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .status-pill.queued {
+            border-color: #cc9a2c;
+            background: #fff2c2;
+            color: #684800;
+        }
+
+        .status-pill.failed {
+            border-color: #b94a48;
+            background: #f7dddd;
+            color: #7d1d1b;
+        }
+
+        .status-pill.received {
+            border-color: #6f8fb7;
+            background: #e5eef9;
+            color: #244d7a;
+        }
+
+        .status-pill.event {
+            border-color: #aaa;
+            background: #ededed;
+            color: #555;
+        }
+
+        .detail-list {
+            display: grid;
+            grid-template-columns: 120px 1fr;
+            gap: 7px 10px;
+            margin-bottom: 12px;
+        }
+
+        .detail-label {
+            color: #555;
+            font-weight: 700;
+        }
+
+        .message-bubble {
+            margin: 0 0 8px;
+            padding: 9px 10px;
+            border: 1px solid #d7d7d7;
+            border-radius: 4px;
+            background: #f8f8f8;
+        }
+
+        .message-bubble.inbound {
+            background: #eef5ff;
+            border-color: #c8d8ee;
+        }
+
+        .bubble-meta {
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 5px;
+            color: #555;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .footer-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-top: 10px;
+            padding: 10px 0 0;
+            border-top: 1px solid #d1d1d1;
+        }
+
+        .footer-left,
+        .footer-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .secondary-button {
+            min-height: 32px;
+            padding: 6px 14px;
+        }
+
+        .back-button {
+            min-height: 32px;
+            padding: 6px 14px;
+            border-color: #777;
+            background: #6f7478;
+        }
+
+        .back-button:hover {
+            background: #5f6468;
+        }
+
+        @media (max-width: 1050px) {
+            .filter-grid,
+            .history-layout,
+            .summary-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 900px) {
+            .patient-shell {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto 1fr;
+            }
+
+            .patient-header {
+                flex-wrap: wrap;
+                min-height: 62px;
+                padding: 10px 14px;
+            }
+
+            .header-actions {
+                margin-left: 0;
+            }
+
+            .side-nav {
+                grid-row: 2;
+                display: flex;
+                overflow-x: auto;
+            }
+
+            .side-nav a {
+                flex: 0 0 auto;
+                border-right: 1px solid rgba(255, 255, 255, 0.18);
+            }
+
+            .main-content {
+                grid-row: 3;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="patient-shell">
+    <header class="patient-header">
+        <h1 class="patient-name">FAKE-Olivia, FAKE-Lee</h1>
+        <span class="patient-meta">Other &middot; 59 years &middot; DOB: 1966-06-06</span>
+        <div class="header-actions">
+            <a class="header-button" href="sms-patient-master-mock.html">Back to master file</a>
+            <button class="header-button" type="button">Text patient</button>
+        </div>
+    </header>
+
+    <nav class="side-nav" aria-label="Patient actions">
+        <a href="#">Appointment History</a>
+        <a href="#">Billing History</a>
+        <a href="#">Create Invoice</a>
+        <a href="#">Consultations</a>
+        <a href="#">Prescriptions</a>
+        <a href="#">E-Chart</a>
+        <a href="#">Preventions</a>
+        <a href="#">Tickler</a>
+        <a href="#">Documents</a>
+        <a class="active" href="#">Message History</a>
+        <a href="#">Current eForms</a>
+    </nav>
+
+    <main class="main-content">
+        <div class="search-row">
+            <a href="#">Search Patient</a>
+            <a href="sms-patient-master-mock.html">#14</a>
+        </div>
+
+        <section class="record-toolbar">
+            <div class="record-title">
+                <h2>Patient Communication History</h2>
+                <span>SMS and MMS for demographic #14</span>
+            </div>
+            <button type="button">Export CSV</button>
+        </section>
+
+        <section class="content-band">
+            <section class="panel">
+                <div class="panel-title">Communication Summary</div>
+                <div class="panel-body">
+                    <div class="summary-grid">
+                        <div class="summary-cell">
+                            <strong>Default number</strong>
+                            Cell 6476476471
+                        </div>
+                        <div class="summary-cell">
+                            <strong>SMS consent</strong>
+                            Active since 2026-05-14
+                        </div>
+                        <div class="summary-cell">
+                            <strong>Last outbound</strong>
+                            2026-05-28 16:42
+                        </div>
+                        <div class="summary-cell">
+                            <strong>Last inbound</strong>
+                            2026-05-22 09:21
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="panel">
+                <div class="panel-title">Filters</div>
+                <div class="panel-body">
+                    <div class="filter-grid">
+                        <div class="field">
+                            <label for="query">Search</label>
+                            <input id="query" type="search" value="" placeholder="Template, status, linked record">
+                        </div>
+                        <div class="field">
+                            <label for="channel">Channel</label>
+                            <select id="channel">
+                                <option>SMS and MMS</option>
+                                <option>SMS only</option>
+                                <option>MMS only</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label for="direction">Direction</label>
+                            <select id="direction">
+                                <option>All</option>
+                                <option>Outbound</option>
+                                <option>Inbound</option>
+                                <option>Consent events</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label for="status">Status</label>
+                            <select id="status">
+                                <option>All statuses</option>
+                                <option>Sent</option>
+                                <option>Queued</option>
+                                <option>Failed</option>
+                                <option>Received</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label for="range">Date range</label>
+                            <select id="range">
+                                <option>Last 90 days</option>
+                                <option>Last 30 days</option>
+                                <option>This year</option>
+                                <option>All history</option>
+                            </select>
+                        </div>
+                        <button class="filter-button" type="button">Apply</button>
+                    </div>
+                </div>
+            </section>
+
+            <div class="history-layout">
+                <section class="panel">
+                    <div class="panel-title">
+                        <span>Messages</span>
+                        <span class="panel-title-actions">
+                            <a class="panel-title-button" href="#">Show consent log</a>
+                        </span>
+                    </div>
+                    <table class="message-table">
+                        <thead>
+                            <tr>
+                                <th>Date/time</th>
+                                <th>Dir</th>
+                                <th>Type</th>
+                                <th>Status</th>
+                                <th>Linked to</th>
+                                <th>Preview</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="selected">
+                                <td>2026-05-28 16:42</td>
+                                <td>Out</td>
+                                <td>Appointment reminder</td>
+                                <td><span class="status-pill">Sent</span></td>
+                                <td>Appt 2026-05-29</td>
+                                <td><div class="message-preview">Reminder from Riverside Clinic: you have an appointment tomorrow...</div></td>
+                            </tr>
+                            <tr>
+                                <td>2026-05-22 09:21</td>
+                                <td>In</td>
+                                <td>Patient reply</td>
+                                <td><span class="status-pill received">Received</span></td>
+                                <td>Tickler #812</td>
+                                <td><div class="message-preview">I can come Tuesday morning if there is still an opening.</div></td>
+                            </tr>
+                            <tr>
+                                <td>2026-05-22 09:15</td>
+                                <td>Out</td>
+                                <td>Call-back request</td>
+                                <td><span class="status-pill queued">Queued</span></td>
+                                <td>Tickler #812</td>
+                                <td><div class="message-preview">Riverside Clinic: we tried to reach you. Please call...</div></td>
+                            </tr>
+                            <tr>
+                                <td>2026-05-14 13:04</td>
+                                <td>Event</td>
+                                <td>Consent captured</td>
+                                <td><span class="status-pill event">Logged</span></td>
+                                <td>Master file</td>
+                                <td><div class="message-preview">SMS consent active. Source: front desk confirmation.</div></td>
+                            </tr>
+                            <tr>
+                                <td>2026-05-10 08:32</td>
+                                <td>Out</td>
+                                <td>Form reminder</td>
+                                <td><span class="status-pill failed">Failed</span></td>
+                                <td>eForm intake</td>
+                                <td><div class="message-preview">Please complete your intake form before your visit.</div></td>
+                            </tr>
+                            <tr>
+                                <td>2026-04-17 15:12</td>
+                                <td>Out</td>
+                                <td>Results notice</td>
+                                <td><span class="status-pill">Sent</span></td>
+                                <td>E-Chart note</td>
+                                <td><div class="message-preview">Please call the clinic about your recent results.</div></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+
+                <aside class="panel">
+                    <div class="panel-title">Selected Message</div>
+                    <div class="panel-body">
+                        <div class="detail-list">
+                            <span class="detail-label">Status</span>
+                            <span><span class="status-pill">Sent</span></span>
+                            <span class="detail-label">Channel</span>
+                            <span>SMS</span>
+                            <span class="detail-label">To</span>
+                            <span>6476476471</span>
+                            <span class="detail-label">From</span>
+                            <span>Main clinic line</span>
+                            <span class="detail-label">Provider</span>
+                            <span>doctor carlosdoc</span>
+                            <span class="detail-label">Linked record</span>
+                            <span>Appointment 2026-05-29</span>
+                        </div>
+
+                        <div class="message-bubble">
+                            <div class="bubble-meta">
+                                <span>Outbound</span>
+                                <span>2026-05-28 16:42</span>
+                            </div>
+                            <div>Reminder from Riverside Clinic: you have an appointment on Fri May 29. Reply STOP to opt out.</div>
+                        </div>
+
+                        <div class="message-bubble inbound">
+                            <div class="bubble-meta">
+                                <span>Delivery receipt</span>
+                                <span>2026-05-28 16:43</span>
+                            </div>
+                            <div>Carrier accepted message. Provider reference: SM-82741.</div>
+                        </div>
+
+                        <div class="footer-toolbar">
+                            <div class="footer-left">
+                                <button class="secondary-button" type="button">Open linked appt</button>
+                            </div>
+                            <div class="footer-right">
+                                <button class="secondary-button" type="button">Resend</button>
+                            </div>
+                        </div>
+                    </div>
+                </aside>
+            </div>
+
+            <footer class="footer-toolbar">
+                <div class="footer-left">
+                    <button class="secondary-button" type="button">Print history</button>
+                    <button class="secondary-button" type="button">Audit log</button>
+                </div>
+                <div class="footer-right">
+                    <a class="header-button" href="sms-patient-master-mock.html">Back to master file</a>
+                    <button class="back-button" type="button">Back</button>
+                </div>
+            </footer>
+        </section>
+    </main>
+</div>
+</body>
+</html>

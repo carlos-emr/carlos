@@ -1,0 +1,1122 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CARLOS Schedule Baseline Mock</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            background: #486ebd;
+            color: #000;
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", "Liberation Sans", Arial, sans-serif;
+            font-size: 12px;
+            line-height: 1 !important;
+            overscroll-behavior: none;
+        }
+
+        a,
+        a:visited,
+        a:active {
+            color: #00283c;
+            font-weight: bold;
+            text-decoration: none;
+        }
+
+        a:hover,
+        a:focus {
+            color: red;
+            text-decoration: none;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        input,
+        select,
+        textarea {
+            background-color: #f4ead7;
+            border: 1px solid #0097cf;
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", "Liberation Sans", Arial, sans-serif;
+            font-size: 12px;
+        }
+
+        input[type="button"],
+        input[type="submit"],
+        button {
+            border: 1px solid #9aa8b6;
+            border-radius: 2px;
+            background: #f8f8f8;
+            color: #000;
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", "Liberation Sans", Arial, sans-serif;
+            font-size: 12px;
+            line-height: 1;
+            padding: 2px 7px;
+            cursor: pointer;
+        }
+
+        #main-container {
+            position: absolute;
+            inset: 0;
+            overflow: auto;
+            background: #486ebd;
+        }
+
+        #fixedHeaderWrapper {
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #firstTable {
+            width: 100%;
+            height: 24px;
+            background: #fff;
+        }
+
+        #firstTable tr {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 25px;
+        }
+
+        #firstTable td {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 0;
+        }
+
+        #firstMenu {
+            margin-left: 10px;
+        }
+
+        #firstMenu .logo {
+            width: 19px;
+            height: 19px;
+            display: inline-block;
+            position: relative;
+            margin-right: 3px;
+        }
+
+        #firstMenu .logo::before {
+            content: "";
+            position: absolute;
+            left: 4px;
+            top: 3px;
+            width: 12px;
+            height: 8px;
+            border-top: 3px solid #486ebd;
+            border-left: 3px solid #486ebd;
+            transform: skew(-28deg) rotate(-18deg);
+        }
+
+        #firstMenu .logo::after {
+            content: "";
+            position: absolute;
+            left: 10px;
+            top: 10px;
+            width: 8px;
+            height: 4px;
+            border-top: 3px solid #486ebd;
+            transform: skew(-34deg) rotate(-25deg);
+        }
+
+        #navlist,
+        #userSettingsMenu {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            margin: 0;
+            padding: 0;
+            white-space: nowrap;
+            list-style: none;
+        }
+
+        #navlist li,
+        #userSettingsMenu li {
+            display: inline-block;
+            line-height: 1;
+        }
+
+        #firstTable a,
+        #firstTable a:visited,
+        #firstTable a:active {
+            display: inline-block;
+            padding: 5px;
+            color: #00283c;
+            font-weight: bold;
+        }
+
+        #firstTable a:hover,
+        #firstTable a:focus {
+            color: #fff;
+            background: #486ebd;
+        }
+
+        .tabalert {
+            color: red !important;
+            font-weight: bold;
+        }
+
+        #userSettings {
+            margin-right: 8px;
+        }
+
+        #userSettings .mini-icon {
+            padding: 3px 4px;
+        }
+
+        .menu-icon {
+            width: 14px;
+            height: 10px;
+            display: inline-block;
+            position: relative;
+            border-top: 1px solid #00283c;
+            border-bottom: 1px solid #00283c;
+            vertical-align: middle;
+        }
+
+        .menu-icon::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 4px;
+            border-top: 1px solid #00283c;
+        }
+
+        .user-icon {
+            width: 12px;
+            height: 12px;
+            display: inline-block;
+            position: relative;
+            margin-right: 3px;
+            vertical-align: -2px;
+        }
+
+        .user-icon::before {
+            content: "";
+            position: absolute;
+            left: 4px;
+            top: 0;
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: #00283c;
+        }
+
+        .user-icon::after {
+            content: "";
+            position: absolute;
+            left: 1px;
+            bottom: 0;
+            width: 11px;
+            height: 6px;
+            border-radius: 7px 7px 2px 2px;
+            background: #00283c;
+        }
+
+        #logoutButton {
+            padding: 3px 4px !important;
+        }
+
+        .power-icon {
+            width: 14px;
+            height: 14px;
+            display: inline-block;
+            position: relative;
+            border: 2px solid #00283c;
+            border-top-color: transparent;
+            border-radius: 50%;
+            vertical-align: -3px;
+        }
+
+        .power-icon::before {
+            content: "";
+            position: absolute;
+            left: 4px;
+            top: -5px;
+            width: 2px;
+            height: 8px;
+            background: #00283c;
+        }
+
+        #scheduleNavigation {
+            width: 100%;
+            height: 25px;
+            background: whitesmoke;
+        }
+
+        #ivoryBar {
+            display: flex;
+            justify-content: space-between;
+            gap: 5px;
+            min-height: 29px;
+            background: whitesmoke;
+        }
+
+        #scheduleNavigation td {
+            padding: 3px 0;
+            white-space: nowrap;
+        }
+
+        #dateAndCalendar {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin-left: 10px;
+            min-width: 0;
+        }
+
+        #group {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin-right: 15px;
+        }
+
+        #quickSearchWrapper {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            margin-right: 4px;
+            vertical-align: middle;
+        }
+
+        #quickSearch {
+            width: 170px;
+            height: 24px;
+            padding: 2px 26px 2px 6px;
+            border: 1px solid #adb5bd;
+            border-radius: 4px;
+            background: #fff;
+            font-size: 0.8rem;
+        }
+
+        .redArrow {
+            width: 12px;
+            height: 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            vertical-align: middle;
+        }
+
+        .step-icon {
+            position: relative;
+            width: 10px;
+            height: 10px;
+            display: inline-block;
+        }
+
+        .step-icon::before {
+            content: "";
+            position: absolute;
+            top: 1px;
+            width: 0;
+            height: 0;
+            border-top: 4px solid transparent;
+            border-bottom: 4px solid transparent;
+        }
+
+        .step-icon::after {
+            content: "";
+            position: absolute;
+            top: 1px;
+            width: 2px;
+            height: 8px;
+            background: #00283c;
+        }
+
+        .step-icon.prev::before {
+            left: 1px;
+            border-right: 6px solid #00283c;
+        }
+
+        .step-icon.prev::after {
+            left: 0;
+        }
+
+        .step-icon.next::before {
+            right: 1px;
+            border-left: 6px solid #00283c;
+        }
+
+        .step-icon.next::after {
+            right: 0;
+        }
+
+        .dateAppointment {
+            color: #00283c;
+            font-size: inherit;
+            font-weight: bold;
+        }
+
+        .quick-btn {
+            height: 20px;
+            min-width: 28px;
+            margin: 0 1px;
+            padding: 1px 6px;
+        }
+
+        #dateMultiplier {
+            width: 34px;
+            height: 20px;
+            text-align: center;
+        }
+
+        #toggleCancelledBtn {
+            width: 18px;
+            height: 18px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: 5px;
+            padding: 0;
+            vertical-align: middle;
+        }
+
+        .eye-icon {
+            width: 15px;
+            height: 9px;
+            display: inline-block;
+            position: relative;
+            border: 1px solid #777;
+            border-radius: 50% / 60%;
+        }
+
+        .eye-icon::after {
+            content: "";
+            position: absolute;
+            left: 5px;
+            top: 2px;
+            width: 3px;
+            height: 3px;
+            border-radius: 50%;
+            background: #777;
+        }
+
+        .title {
+            flex: 1 0 auto;
+            color: #000;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        #findProviderInput {
+            width: 156px;
+            height: 20px;
+            padding: 1px 5px;
+        }
+
+        #group select {
+            width: 140px;
+            height: 21px;
+        }
+
+        #scheduleTable {
+            background: #c0c0c0;
+        }
+
+        #scheduleTable td,
+        #scheduleTable tr,
+        #scheduleTable th,
+        #scheduleTable thead,
+        #scheduleTable tbody,
+        #scheduleTable tfoot {
+            border-style: none;
+            border-width: 0;
+        }
+
+        #scheduleTable > tbody > tr > td,
+        #scheduleTable > tbody > tr > td > table > tbody > tr > td {
+            padding: 0;
+        }
+
+        .providerSchedule {
+            background: #486ebd;
+            border-collapse: collapse;
+        }
+
+        #providerSchedule,
+        #providerSchedule td {
+            border-collapse: collapse;
+        }
+
+        .infirmaryView {
+            position: sticky;
+            top: 50px;
+            left: 0;
+            right: 0;
+            height: 25px;
+            padding: 0 5px !important;
+            background: #c0c0c0;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .infirmaryView input[type="button"] {
+            height: 19px;
+            padding: 1px 7px;
+            vertical-align: middle;
+        }
+
+        .infirmaryView input[type="radio"] {
+            margin: 0 2px;
+            vertical-align: middle;
+        }
+
+        .scheduleTime00,
+        .scheduleTimeNot00 {
+            width: 64px;
+            min-width: 64px;
+            border-top: #486ebd 2px solid;
+            border-right: #486ebd 2px solid;
+            border-bottom: #486ebd 2px solid;
+        }
+
+        .scheduleTime00 {
+            background: #3ea4e1;
+        }
+
+        .scheduleTimeNot00 {
+            background: #00a488;
+        }
+
+        .adhour {
+            display: block;
+            padding: 3px;
+            color: #fff !important;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .hourmin {
+            width: 14px;
+            min-width: 14px;
+            padding: 0 3px !important;
+            border-top: #486ebd 2px solid;
+            border-bottom: #486ebd 2px solid;
+            background: transparent;
+            color: #000;
+            text-align: center;
+        }
+
+        .hourmin.open {
+            background: #bfefff;
+        }
+
+        .hourmin.closed {
+            background: transparent;
+            color: #000;
+        }
+
+        td.appt {
+            overflow: hidden;
+            padding-top: 3px !important;
+            padding-right: 3px !important;
+            padding-left: 3px !important;
+            vertical-align: top;
+            border-top: #486ebd 2px solid !important;
+            border-right: #486ebd 2px solid !important;
+            border-bottom: #486ebd 2px solid !important;
+            border-left: #486ebd 2px solid !important;
+            background: #ffffc7;
+            white-space: nowrap;
+        }
+
+        td.appt a {
+            padding: 0 2px;
+        }
+
+        td.appt .folder {
+            display: inline-block;
+            margin: 0 4px 0 2px;
+            color: #836f00;
+            font-size: 13px;
+            vertical-align: -1px;
+        }
+
+        .apptStatus {
+            display: inline-block;
+            min-width: 9px;
+            color: #000;
+            text-align: center;
+        }
+
+        .reason {
+            color: #000;
+            font-style: italic;
+            font-weight: bold;
+        }
+
+        .timeline-marker {
+            height: 0;
+            margin: 0;
+            padding: 0;
+            border: none;
+            border-top: 2px dotted tomato;
+            color: tomato;
+            opacity: 1;
+        }
+
+        .noGrid {
+            border: none;
+        }
+
+        .slot-row td {
+            height: 20px;
+        }
+
+        .provider-spacer td {
+            height: 1px !important;
+            padding: 0 !important;
+            background: #486ebd;
+        }
+
+        .timeline-indicator td {
+            height: 2px !important;
+            padding: 0 !important;
+        }
+
+        .appointment-text {
+            display: block;
+            padding-top: 2px;
+            line-height: 1.1;
+        }
+
+        body.week-view #scheduleTable {
+            table-layout: fixed;
+        }
+
+        .weekDayCell {
+            width: 20%;
+            padding: 0 !important;
+            vertical-align: top;
+            background: #486ebd;
+        }
+
+        .weekDaySchedule {
+            width: 100%;
+            table-layout: fixed;
+        }
+
+        .weekDaySchedule .infirmaryView {
+            position: static;
+            top: auto;
+            right: auto;
+            left: auto;
+            height: 25px;
+        }
+
+        .weekDaySchedule .scheduleTime00,
+        .weekDaySchedule .scheduleTimeNot00 {
+            width: 51px;
+            min-width: 51px;
+        }
+
+        .weekDaySchedule .hourmin {
+            width: 14px;
+            min-width: 14px;
+        }
+
+        .weekDaySchedule .noGrid {
+            width: auto;
+        }
+
+        .week-appointment {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        .week-appt-main {
+            flex: 1 1 auto;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        @media (max-width: 900px) {
+            #navlist {
+                max-width: calc(100vw - 145px);
+                overflow-x: auto;
+            }
+
+            #ivoryBar {
+                align-items: stretch;
+                flex-direction: column;
+            }
+
+            #dateAndCalendar,
+            #group {
+                margin: 0 8px;
+                overflow-x: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+<div id="main-container">
+    <div id="fixedHeaderWrapper">
+        <table id="firstTable" class="noprint">
+            <tr>
+                <td id="firstMenu">
+                    <span class="logo" aria-hidden="true"></span>
+                    <ul id="navlist">
+                        <li><a href="#">Schedule</a></li>
+                        <li><a href="#">Search</a></li>
+                        <li><a href="#">Inbox</a></li>
+                        <li><a href="#"><span class="tabalert">U</span></a></li>
+                        <li><a href="#">Tickler<span class="tabalert">81</span></a></li>
+                        <li><a href="#">Msg</a></li>
+                        <li><a href="#">Consultations</a></li>
+                        <li><a href="#">eDoc</a></li>
+                        <li><a href="#">Report</a></li>
+                        <li><a href="#">Administration</a></li>
+                        <li><a href="#">Resources</a></li>
+                    </ul>
+                </td>
+                <td id="userSettings">
+                    <ul id="userSettingsMenu">
+                        <li><a href="#" class="mini-icon"><span class="menu-icon" aria-hidden="true"></span></a></li>
+                        <li><a href="#"><span class="user-icon" aria-hidden="true"></span>doctor carlosdoc</a></li>
+                    </ul>
+                    <a id="logoutButton" href="#" title="Logout"><span class="power-icon" aria-hidden="true"></span></a>
+                </td>
+            </tr>
+        </table>
+
+        <table id="scheduleNavigation">
+            <tr id="ivoryBar">
+                <td id="dateAndCalendar">
+                    <span id="quickSearchWrapper" class="quick-search-wrapper noprint">
+                        <input type="text" id="quickSearch" name="quickSearch" placeholder="Search" autocomplete="off">
+                    </span>
+                    <a class="redArrow" href="#" title="Previous day"><span class="step-icon prev" aria-hidden="true"></span></a>
+                    <b><a href="#" class="clickable-date"><span class="dateAppointment">Fri, 2026-05-29</span></a></b>
+                    <a class="redArrow" href="#" title="Next day"><span class="step-icon next" aria-hidden="true"></span></a>
+                    <input type="button" value="M-" class="quick-btn">
+                    <input type="button" value="W-" class="quick-btn">
+                    <input type="number" id="dateMultiplier" value="1" min="1" max="99">
+                    <input type="button" value="W+" class="quick-btn">
+                    <input type="button" value="M+" class="quick-btn">
+                    <span>|</span>
+                    <input type="button" value="2W" class="quick-btn">
+                    <input type="button" value="4W" class="quick-btn">
+                    <input type="button" value="3M" class="quick-btn">
+                    <input type="button" value="6M" class="quick-btn">
+                    <a id="toggleCancelledBtn" href="#" title="Hide cancelled"><span class="eye-icon" aria-hidden="true"></span></a>
+                    <u><a href="#">All</a></u>
+                    <a href="#">Today</a>
+                    <a href="#">Month</a>
+                </td>
+                <td class="title noprint"></td>
+                <td id="group">
+                    <form method="post" name="findprovider">
+                        <input id="findProviderInput" type="text" name="providername" value="" maxlength="10" placeholder="Enter Lastname">
+                        <input type="submit" name="Go" value="GO">
+                    </form>
+                    <form name="appointmentForm">
+                        <span>Group:</span>
+                        <select id="mygroup_no" name="mygroup_no">
+                            <option>.default</option>
+                            <option>carlosdoc, doctor</option>
+                            <option>openodoc, doctor</option>
+                        </select>
+                    </form>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <table id="scheduleTable" bgcolor="#c0c0c0">
+        <tr>
+            <td colspan="3">
+                <table class="providerSchedule" id="providerSchedule" bgcolor="#486ebd">
+                    <tr>
+                        <td class="infirmaryView" nowrap align="center" bgcolor="#c0c0c0" colspan="3">
+                            <input type="button" value="W" name="weekview">
+                            <input type="button" value="S" name="searchview">
+                            <input type="radio" name="flipview">
+                            <a href="#">carlosdoc, doctor (0)</a>
+                            <a href="#" title="Expand reason">*</a>
+                        </td>
+                    </tr>
+                    <tr class="provider-spacer">
+                        <td colspan="3"></td>
+                    </tr>
+
+                    <tr class="slot-row">
+                        <td class="scheduleTime00"><a href="#" class="adhour">08:00</a></td>
+                        <td class="hourmin closed">-</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">08:15</a></td>
+                        <td class="hourmin closed">-</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">08:30</a></td>
+                        <td class="hourmin closed">-</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">08:45</a></td>
+                        <td class="hourmin closed">-</td>
+                        <td class="noGrid"></td>
+                    </tr>
+
+                    <tr class="slot-row">
+                        <td class="scheduleTime00"><a href="#" class="adhour">09:00</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">09:15</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">09:30</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">09:45</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="noGrid"></td>
+                    </tr>
+
+                    <tr class="slot-row">
+                        <td class="scheduleTime00"><a href="#" class="adhour">10:00</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">10:15</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">10:30</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="timeline-indicator noprint">
+                        <td colspan="3"><hr class="timeline-marker"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">10:45</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTime00"><a href="#" class="adhour">11:00</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">11:15</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">11:30</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">11:45</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTime00"><a href="#" class="adhour">12:00</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">12:15</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">12:30</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">12:45</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTime00"><a href="#" class="adhour">13:00</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">13:15</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">13:30</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">13:45</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTime00"><a href="#" class="adhour">14:00</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">14:15</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">14:30</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">14:45</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTime00"><a href="#" class="adhour">15:00</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">15:15</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">15:30</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">15:45</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTime00"><a href="#" class="adhour">16:00</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">16:15</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">16:30</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">16:45</a></td>
+                        <td class="hourmin open">1</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTime00"><a href="#" class="adhour">17:00</a></td>
+                        <td class="hourmin closed">-</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">17:15</a></td>
+                        <td class="hourmin closed">-</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">17:30</a></td>
+                        <td class="hourmin closed">-</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">17:45</a></td>
+                        <td class="hourmin closed">-</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTime00"><a href="#" class="adhour">18:00</a></td>
+                        <td class="hourmin closed">-</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">18:15</a></td>
+                        <td class="hourmin closed">-</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">18:30</a></td>
+                        <td class="hourmin closed">-</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                    <tr class="slot-row">
+                        <td class="scheduleTimeNot00"><a href="#" class="adhour">18:45</a></td>
+                        <td class="hourmin closed">-</td>
+                        <td class="noGrid"></td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</div>
+<script>
+    (function () {
+        var scheduleTable = document.getElementById('scheduleTable');
+        var dateLabel = document.querySelector('.dateAppointment');
+        var dayMarkup = scheduleTable.innerHTML;
+        var baseMonday = new Date(2026, 4, 25);
+        var weekOffset = 0;
+        var times = [
+            '08:00', '08:15', '08:30', '08:45',
+            '09:00', '09:15', '09:30', '09:45',
+            '10:00', '10:15', '10:30', '10:45',
+            '11:00', '11:15', '11:30', '11:45',
+            '12:00', '12:15', '12:30', '12:45',
+            '13:00', '13:15', '13:30', '13:45',
+            '14:00', '14:15', '14:30', '14:45',
+            '15:00', '15:15', '15:30', '15:45',
+            '16:00', '16:15', '16:30', '16:45',
+            '17:00', '17:15', '17:30', '17:45',
+            '18:00', '18:15', '18:30', '18:45'
+        ];
+        var dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+        function pad(value) {
+            return String(value).padStart(2, '0');
+        }
+
+        function formatDate(date) {
+            return dayNames[date.getDay()] + ', ' + date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate());
+        }
+
+        function getWeekNumber(date) {
+            var weekDate = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+            var dayNumber = weekDate.getUTCDay() || 7;
+            weekDate.setUTCDate(weekDate.getUTCDate() + 4 - dayNumber);
+            var yearStart = new Date(Date.UTC(weekDate.getUTCFullYear(), 0, 1));
+            return Math.ceil((((weekDate - yearStart) / 86400000) + 1) / 7);
+        }
+
+        function isOpenSlot(time) {
+            var hour = parseInt(time.slice(0, 2), 10);
+            return hour >= 9 && hour < 17;
+        }
+
+        function buildSlot(time) {
+            var timeClass = time.slice(3) === '00' ? 'scheduleTime00' : 'scheduleTimeNot00';
+            var open = isOpenSlot(time);
+            return [
+                '<tr class="slot-row">',
+                    '<td class="' + timeClass + '"><a href="#" class="adhour">' + time + '</a></td>',
+                    '<td class="hourmin ' + (open ? 'open' : 'closed') + '">' + (open ? '1' : '-') + '</td>',
+                    '<td class="noGrid"></td>',
+                '</tr>'
+            ].join('');
+        }
+
+        function buildWeekDay(date) {
+            return [
+                '<table class="providerSchedule weekDaySchedule" bgcolor="#486ebd">',
+                    '<colgroup><col style="width:51px"><col style="width:14px"><col></colgroup>',
+                    '<tr>',
+                        '<td class="infirmaryView" nowrap align="center" bgcolor="#c0c0c0" colspan="3">',
+                            formatDate(date),
+                        '</td>',
+                    '</tr>',
+                    '<tr class="provider-spacer"><td colspan="3"></td></tr>',
+                    times.map(buildSlot).join(''),
+                '</table>'
+            ].join('');
+        }
+
+        function renderWeek(offset) {
+            var monday = new Date(baseMonday);
+            var columns = '';
+            var index;
+            weekOffset = offset;
+            monday.setDate(baseMonday.getDate() + (weekOffset * 7));
+
+            for (index = 0; index < 5; index += 1) {
+                var date = new Date(monday);
+                date.setDate(monday.getDate() + index);
+                columns += '<td class="weekDayCell">' + buildWeekDay(date) + '</td>';
+            }
+
+            document.body.classList.add('week-view');
+            dateLabel.textContent = 'Week ' + getWeekNumber(monday);
+            scheduleTable.innerHTML = '<tr>' + columns + '</tr>';
+        }
+
+        function renderDay() {
+            document.body.classList.remove('week-view');
+            dateLabel.textContent = 'Fri, 2026-05-29';
+            scheduleTable.innerHTML = dayMarkup;
+        }
+
+        document.addEventListener('click', function (event) {
+            var button = event.target.closest('input[type="button"]');
+            var link = event.target.closest('a');
+            var linkText = link ? link.textContent.trim() : '';
+
+            if (button && button.value === 'W') {
+                event.preventDefault();
+                renderWeek(weekOffset);
+                return;
+            }
+
+            if (button && button.value === 'W-') {
+                event.preventDefault();
+                renderWeek(weekOffset - 1);
+                return;
+            }
+
+            if (button && button.value === 'W+') {
+                event.preventDefault();
+                renderWeek(weekOffset + 1);
+                return;
+            }
+
+            if (linkText === 'Today') {
+                event.preventDefault();
+                weekOffset = 0;
+                renderDay();
+            }
+        });
+    })();
+</script>
+</body>
+</html>

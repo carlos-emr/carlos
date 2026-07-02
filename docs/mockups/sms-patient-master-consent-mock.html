@@ -1,0 +1,1708 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CARLOS Patient Master Consent Mock</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            margin: 0;
+            min-height: 100%;
+            background: #f3f3f3;
+            color: #111;
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+            font-size: 12px;
+            line-height: 1.35;
+        }
+
+        a,
+        a:visited {
+            color: #1f66ad;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        button,
+        input,
+        select,
+        textarea {
+            font: inherit;
+        }
+
+        button,
+        input[type="button"] {
+            border: 1px solid #2d74b6;
+            border-radius: 4px;
+            background: #337ab7;
+            color: #fff;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        button:hover,
+        input[type="button"]:hover {
+            background: #286090;
+        }
+
+        .patient-shell {
+            min-height: 100vh;
+            display: grid;
+            grid-template-columns: 245px 1fr;
+            grid-template-rows: 56px 1fr;
+        }
+
+        .patient-header {
+            grid-column: 1 / -1;
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            padding: 0 24px;
+            background: #337ab7;
+            color: #fff;
+        }
+
+        .patient-name {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .patient-meta {
+            font-size: 13px;
+        }
+
+        .next-appt {
+            margin-left: 4px;
+            color: #dceeff;
+            font-style: italic;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: auto;
+        }
+
+        .header-sms {
+            height: 30px;
+            padding: 0 10px;
+            border-color: #155d9c;
+            background: #fff;
+            color: #155d9c;
+        }
+
+        .header-sms:hover {
+            background: #e9f3ff;
+            color: #0d4776;
+        }
+
+        .side-nav {
+            grid-row: 2;
+            background: #337ab7;
+            color: #fff;
+            border-right: 1px solid #d5d5d5;
+        }
+
+        .side-nav a {
+            display: block;
+            padding: 8px 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+            color: #fff;
+            font-weight: 700;
+        }
+
+        .side-nav a:hover {
+            background: #286090;
+        }
+
+        .main-content {
+            grid-row: 2;
+            padding: 0 6px 46px;
+            background: #f3f3f3;
+        }
+
+        .search-row {
+            display: flex;
+            align-items: center;
+            height: 36px;
+            padding: 0 8px;
+            border-bottom: 1px solid #ddd;
+            background: #f8f8f8;
+        }
+
+        .search-row a {
+            color: #1f66ad;
+            font-size: 13px;
+        }
+
+        .record-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            min-height: 40px;
+            margin: 0 0 10px;
+            padding: 7px 12px;
+            border: 1px solid #d5d5d5;
+            border-radius: 4px;
+            background: #f8f8f8;
+        }
+
+        .record-toolbar button {
+            min-height: 26px;
+            padding: 4px 10px;
+        }
+
+        .show-fields {
+            display: block;
+            margin: 4px 14px 10px auto;
+            width: max-content;
+        }
+
+        .content-band {
+            min-height: 668px;
+            padding: 18px;
+            background: #ececec;
+        }
+
+        .two-column {
+            display: grid;
+            grid-template-columns: minmax(360px, 1fr) minmax(360px, 1fr);
+            gap: 14px;
+            align-items: start;
+        }
+
+        .panel {
+            margin: 0 0 8px;
+            border: 1px solid #d5d5d5;
+            border-radius: 4px;
+            background: #fff;
+            overflow: hidden;
+        }
+
+        .panel-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            justify-content: space-between;
+            min-height: 34px;
+            padding: 7px 13px;
+            background: #337ab7;
+            color: #fff;
+            font-weight: 700;
+        }
+
+        .panel-title .pill {
+            height: 21px;
+            padding: 2px 8px;
+            border: 1px solid rgba(255, 255, 255, 0.7);
+            border-radius: 4px;
+            background: transparent;
+            color: #fff;
+            font-size: 11px;
+        }
+
+        .panel-title-left,
+        .panel-title-actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .panel-title-button,
+        .panel-title-button:visited {
+            min-height: 22px;
+            padding: 3px 8px;
+            border: 1px solid rgba(255, 255, 255, 0.75);
+            border-radius: 4px;
+            background: #fff;
+            color: #155d9c;
+            font-size: 11px;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+
+        .panel-title-button:hover {
+            background: #e9f3ff;
+            color: #0d4776;
+        }
+
+        .info-row {
+            display: grid;
+            grid-template-columns: minmax(145px, auto) 1fr auto;
+            align-items: center;
+            gap: 8px;
+            min-height: 30px;
+            padding: 7px 12px;
+            border-bottom: 1px solid #e9e9e9;
+        }
+
+        .info-row:last-child {
+            border-bottom: 0;
+        }
+
+        .info-label {
+            font-weight: 400;
+        }
+
+        .info-value {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .row-actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            white-space: nowrap;
+        }
+
+        .sms-row-button,
+        .sms-ghost-button {
+            min-height: 23px;
+            padding: 3px 8px;
+            font-size: 11px;
+            line-height: 1;
+        }
+
+        .sms-ghost-button {
+            border-color: #b7c5d2;
+            background: #fff;
+            color: #1f66ad;
+        }
+
+        .sms-ghost-button:hover {
+            background: #e9f3ff;
+            color: #155d9c;
+        }
+
+        .sms-disabled {
+            border-color: #aaa;
+            background: #e7e7e7;
+            color: #777;
+            cursor: not-allowed;
+        }
+
+        .sms-disabled:hover {
+            background: #e7e7e7;
+            color: #777;
+        }
+
+        .status-pill {
+            display: inline-block;
+            min-width: 58px;
+            padding: 3px 7px;
+            border: 1px solid #6ea76e;
+            border-radius: 3px;
+            background: #e5f4df;
+            color: #225b22;
+            font-size: 11px;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .status-pill.warn {
+            border-color: #cc9a2c;
+            background: #fff2c2;
+            color: #684800;
+        }
+
+        .status-pill.muted {
+            border-color: #bbb;
+            background: #ededed;
+            color: #666;
+        }
+
+        .communication-summary {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px;
+            padding: 10px 12px;
+            border-bottom: 1px solid #e9e9e9;
+        }
+
+        .consent-list {
+            display: grid;
+            gap: 0;
+        }
+
+        .consent-item {
+            display: grid;
+            grid-template-columns: minmax(180px, 1fr) minmax(130px, auto) minmax(250px, auto);
+            gap: 8px 12px;
+            align-items: start;
+            padding: 10px 12px;
+            border-bottom: 1px solid #e9e9e9;
+        }
+
+        .consent-item:last-child {
+            border-bottom: 0;
+        }
+
+        .consent-name {
+            display: block;
+            margin-bottom: 3px;
+            font-weight: 700;
+        }
+
+        .consent-note {
+            display: block;
+            color: #555;
+            font-size: 11px;
+        }
+
+        .consent-meta,
+        .consent-recorder {
+            display: block;
+            margin-top: 4px;
+            color: #666;
+            font-size: 11px;
+        }
+
+        .consent-status {
+            display: grid;
+            justify-items: start;
+            gap: 2px;
+        }
+
+        .consent-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: end;
+            white-space: nowrap;
+        }
+
+        .consent-controls label {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .consent-controls button {
+            min-height: 23px;
+            padding: 3px 8px;
+            border-color: #b7c5d2;
+            background: #fff;
+            color: #1f66ad;
+            font-size: 11px;
+        }
+
+        .consent-controls button:hover {
+            background: #e9f3ff;
+            color: #155d9c;
+        }
+
+        .review-action {
+            border-color: #cc9a2c;
+            color: #684800;
+        }
+
+        .review-action:hover {
+            background: #fff2c2;
+            color: #684800;
+        }
+
+        .consent-context {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: 42px minmax(0, 1fr);
+            gap: 8px;
+            align-items: center;
+            color: #555;
+            font-size: 11px;
+        }
+
+        .consent-context input {
+            width: 100%;
+            min-height: 26px;
+            padding: 4px 6px;
+            border: 1px solid #b7c5d2;
+            border-radius: 3px;
+            background: #fff;
+        }
+
+        .document-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 9px 12px;
+            border-top: 1px solid #e9e9e9;
+            border-bottom: 1px solid #e9e9e9;
+            background: #fafafa;
+        }
+
+        .document-toolbar strong {
+            font-size: 12px;
+        }
+
+        .document-toolbar button,
+        .document-action {
+            min-height: 24px;
+            padding: 3px 8px;
+            border-color: #b7c5d2;
+            background: #fff;
+            color: #1f66ad;
+            font-size: 11px;
+        }
+
+        .document-toolbar button:hover,
+        .document-action:hover {
+            background: #e9f3ff;
+            color: #155d9c;
+        }
+
+        .document-empty {
+            display: none;
+            padding: 12px;
+            color: #555;
+        }
+
+        .document-empty.visible {
+            display: block;
+        }
+
+        .summary-cell {
+            min-height: 52px;
+            padding: 8px;
+            border: 1px solid #d7d7d7;
+            border-radius: 4px;
+            background: #f8f8f8;
+        }
+
+        .summary-cell strong {
+            display: block;
+            margin-bottom: 3px;
+            color: #333;
+        }
+
+        .log-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .consent-documents-table {
+            border-top: 2px solid #1f66ad;
+        }
+
+        .log-table th,
+        .log-table td {
+            padding: 7px 8px;
+            border-bottom: 1px solid #e7e7e7;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .log-table th {
+            background: #fafafa;
+            font-weight: 700;
+        }
+
+        .footer-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-top: 10px;
+            padding: 10px 0 0;
+            border-top: 1px solid #d1d1d1;
+        }
+
+        .footer-left,
+        .footer-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .secondary-button {
+            min-height: 32px;
+            padding: 6px 14px;
+        }
+
+        .back-button {
+            min-height: 32px;
+            padding: 6px 14px;
+            border-color: #777;
+            background: #6f7478;
+        }
+
+        .back-button:hover {
+            background: #5f6468;
+        }
+
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 2000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 22px;
+            background: rgba(0, 0, 0, 0.42);
+        }
+
+        .modal-backdrop.open {
+            display: flex;
+        }
+
+        .sms-modal {
+            width: min(720px, 100%);
+            max-height: 90vh;
+            overflow: auto;
+            border: 1px solid #777;
+            border-radius: 4px;
+            background: #fff;
+            box-shadow: 0 14px 35px rgba(0, 0, 0, 0.35);
+        }
+
+        .sms-modal header,
+        .sms-modal footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 10px 12px;
+            border-bottom: 1px solid #d1d1d1;
+            background: #f8f8f8;
+        }
+
+        .sms-modal footer {
+            justify-content: flex-end;
+            border-top: 1px solid #d1d1d1;
+            border-bottom: 0;
+        }
+
+        .sms-modal h2 {
+            margin: 0;
+            font-size: 16px;
+        }
+
+        .sms-modal p {
+            margin: 3px 0 0;
+            color: #555;
+        }
+
+        .modal-body {
+            padding: 12px;
+        }
+
+        .modal-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .modal-field-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 9px;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .field.full {
+            grid-column: 1 / -1;
+        }
+
+        .checkbox-field {
+            flex-direction: row;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .field.checkbox-field input {
+            width: auto;
+        }
+
+        .field-error {
+            display: none;
+            margin-top: 8px;
+            color: #9f2f25;
+            font-weight: 700;
+        }
+
+        .field-error.visible {
+            display: block;
+        }
+
+        .field label {
+            font-weight: 700;
+        }
+
+        .field input,
+        .field select,
+        .field textarea {
+            width: 100%;
+            padding: 6px;
+            border: 1px solid #b7c5d2;
+            border-radius: 3px;
+            background: #fff;
+        }
+
+        .field textarea {
+            min-height: 96px;
+            resize: vertical;
+        }
+
+        @media (max-width: 900px) {
+            .patient-shell {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto 1fr;
+            }
+
+            .patient-header {
+                flex-wrap: wrap;
+                min-height: 62px;
+                padding: 10px 14px;
+            }
+
+            .header-actions {
+                margin-left: 0;
+            }
+
+            .side-nav {
+                grid-row: 2;
+                display: flex;
+                overflow-x: auto;
+            }
+
+            .side-nav a {
+                flex: 0 0 auto;
+                border-right: 1px solid rgba(255, 255, 255, 0.18);
+            }
+
+            .main-content {
+                grid-row: 3;
+            }
+
+            .two-column,
+            .communication-summary,
+            .consent-item,
+            .modal-grid,
+            .modal-field-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .consent-controls {
+                justify-content: start;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="patient-shell">
+    <header class="patient-header">
+        <h1 class="patient-name">FAKE-Olivia, FAKE-Lee</h1>
+        <span class="patient-meta">Other &middot; 59 years &middot; DOB: 1966-06-06</span>
+        <span class="next-appt">Next Appointment:</span>
+        <div class="header-actions">
+            <span class="status-pill">SMS OK</span>
+            <button class="header-sms" type="button" data-open-sms data-template="general" data-context="Patient master file">Text patient</button>
+        </div>
+    </header>
+
+    <nav class="side-nav" aria-label="Patient actions">
+        <a href="#">Appointment History</a>
+        <a href="#">Billing History</a>
+        <a href="#">Create Invoice</a>
+        <a href="#">Consultations</a>
+        <a href="#">Prescriptions</a>
+        <a href="#">E-Chart</a>
+        <a href="#">Preventions</a>
+        <a href="#">Tickler</a>
+        <a href="#">Documents</a>
+        <a href="#">Current eForms</a>
+    </nav>
+
+    <main class="main-content">
+        <div class="search-row">
+            <a href="#">Search Patient</a>
+        </div>
+
+        <section class="record-toolbar">
+            <a href="#">#14</a>
+            <button type="button">Edit</button>
+        </section>
+
+        <a class="show-fields" href="#">Show all fields</a>
+
+        <section class="content-band">
+            <div class="two-column">
+                <div>
+                    <section class="panel">
+                        <div class="panel-title">Demographic</div>
+                        <div class="info-row">
+                            <span class="info-label">Title:</span>
+                            <span class="info-value">Ms</span>
+                            <span></span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Last Name:</span>
+                            <span class="info-value">FAKE-Olivia</span>
+                            <span></span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">First Name:</span>
+                            <span class="info-value">FAKE-Lee</span>
+                            <span></span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Sex:</span>
+                            <span class="info-value">Other</span>
+                            <span></span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Age:</span>
+                            <span class="info-value">59 years ( DOB: 1966-06-06)</span>
+                            <span></span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Language:</span>
+                            <span class="info-value">English</span>
+                            <span></span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Spoken Language:</span>
+                            <span class="info-value">Amharic</span>
+                            <span></span>
+                        </div>
+                    </section>
+
+                    <section class="panel">
+                        <div class="panel-title">
+                            Other Contacts
+                            <button class="pill" type="button">Add Relation</button>
+                        </div>
+                    </section>
+
+                    <section class="panel">
+                        <div class="panel-title">
+                            Clinic Status
+                            <button class="pill" type="button">Enrollment History</button>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Enrolment Status:</span>
+                            <span class="info-value">Rostered</span>
+                            <span></span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Enrolment Date:</span>
+                            <span class="info-value">2023-11-13</span>
+                            <span></span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Patient Status:</span>
+                            <span class="info-value">AC</span>
+                            <span></span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Patient Status Date:</span>
+                            <span class="info-value">2023-11-13</span>
+                            <span></span>
+                        </div>
+                    </section>
+
+                    <section class="panel">
+                        <div class="panel-title">Alerts</div>
+                        <div class="info-row">
+                            <span class="info-label">&nbsp;</span>
+                            <span class="info-value"></span>
+                            <span></span>
+                        </div>
+                    </section>
+
+                    <section class="panel">
+                        <div class="panel-title">Rx Interaction Warning Level</div>
+                        <div class="info-row">
+                            <span class="info-label">Rx Interaction Warning Level:</span>
+                            <span class="info-value">Not Specified</span>
+                            <span></span>
+                        </div>
+                    </section>
+
+                    <section class="panel">
+                        <div class="panel-title">Paper Chart</div>
+                    </section>
+
+                    <section class="panel">
+                        <div class="panel-title">Custom</div>
+                    </section>
+                </div>
+
+                <div>
+                    <section class="panel">
+                        <div class="panel-title">Contact Information</div>
+                        <div class="info-row">
+                            <span class="info-label">Phone(H)(History):</span>
+                            <span class="info-value">555-555-5555</span>
+                            <span class="row-actions">
+                                <button class="sms-ghost-button sms-disabled" type="button" disabled title="Landline not marked SMS-capable">SMS</button>
+                            </span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Phone(W)(History):</span>
+                            <span class="info-value">555-555-5555</span>
+                            <span class="row-actions">
+                                <button class="sms-ghost-button" type="button" data-open-sms data-template="call-back" data-context="Work phone">Text</button>
+                            </span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Cell Phone(History):</span>
+                            <span class="info-value">6476476471</span>
+                            <span class="row-actions">
+                                <span class="status-pill">Verified</span>
+                                <button class="sms-row-button" type="button" data-open-sms data-template="general" data-context="Mobile number on master file">SMS</button>
+                            </span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">City:</span>
+                            <span class="info-value">Toronto</span>
+                            <span></span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Province :</span>
+                            <span class="info-value">Ontario,Canada</span>
+                            <span></span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Residential City:</span>
+                            <span class="info-value">Toronto</span>
+                            <span></span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Residential Province:</span>
+                            <span class="info-value">Ontario,Canada</span>
+                            <span></span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Email:</span>
+                            <span class="info-value">generic@gmail.com</span>
+                            <span></span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Newsletter:</span>
+                            <span class="info-value">Unknown</span>
+                            <span></span>
+                        </div>
+                    </section>
+
+                    <section class="panel">
+                        <div class="panel-title">
+                            <span class="panel-title-left">Patient Communication</span>
+                            <span class="panel-title-actions">
+                                <a class="panel-title-button" href="sms-message-history-mock.html">Message history</a>
+                            </span>
+                        </div>
+                        <div class="communication-summary">
+                            <div class="summary-cell">
+                                <strong>SMS consent</strong>
+                                Active since 2026-05-14
+                            </div>
+                            <div class="summary-cell">
+                                <strong>Opt-out</strong>
+                                No STOP recorded
+                            </div>
+                            <div class="summary-cell">
+                                <strong>Default number</strong>
+                                Cell 6476476471
+                            </div>
+                        </div>
+                        <table class="log-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Type</th>
+                                    <th>Status</th>
+                                    <th>Logged to</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>2026-05-28</td>
+                                    <td>Appointment reminder</td>
+                                    <td><span class="status-pill">Sent</span></td>
+                                    <td>Master file</td>
+                                </tr>
+                                <tr>
+                                    <td>2026-05-22</td>
+                                    <td>Call-back request</td>
+                                    <td><span class="status-pill warn">Queued</span></td>
+                                    <td>Tickler</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </section>
+
+                    <section class="panel">
+                        <div class="panel-title">
+                            <span class="panel-title-left">Consent</span>
+                            <span class="panel-title-actions">
+                                <button class="pill" type="button" data-open-doc-upload>Add document</button>
+                                <button class="pill" type="button" data-open-type>Add type</button>
+                            </span>
+                        </div>
+                        <div class="consent-list" id="consentList">
+                            <div class="consent-item" data-consent-row="email_consent">
+                                <div>
+                                    <span class="consent-name">Email consent</span>
+                                    <span class="consent-note">Electronic communication including email, telephone, and video conferencing.</span>
+                                    <span class="consent-meta" data-consent-updated="email_consent">Last updated 2026-05-14</span>
+                                </div>
+                                <div class="consent-status">
+                                    <span class="status-pill" data-consent-status="email_consent">Consented</span>
+                                    <span class="consent-recorder" data-consent-recorder="email_consent">Recorded by carlosdoc</span>
+                                </div>
+                                <div class="consent-controls">
+                                    <label><input type="radio" name="email_consent" value="opt_in" checked data-consent-choice> Opt In</label>
+                                    <label><input type="radio" name="email_consent" value="opt_out" data-consent-choice> Opt Out</label>
+                                    <button type="button" data-reset-consent="email_consent">Reset answer</button>
+                                    <button type="button" data-show-documents="email_consent">Docs (<span data-doc-count="email_consent">1</span>)</button>
+                                </div>
+                                <label class="consent-context" for="emailConsentNote">
+                                    <span>Note</span>
+                                    <input id="emailConsentNote" type="text" data-consent-note="email_consent" value="Patient agreed to receive clinic email reminders and administrative messages.">
+                                </label>
+                            </div>
+                            <div class="consent-item" data-consent-row="sms_consent">
+                                <div>
+                                    <span class="consent-name">SMS/Text messaging</span>
+                                    <span class="consent-note">Messages to the verified mobile number on the patient master file.</span>
+                                    <span class="consent-meta" data-consent-updated="sms_consent">Last updated 2026-05-28</span>
+                                </div>
+                                <div class="consent-status">
+                                    <span class="status-pill warn" data-consent-status="sms_consent">Needs review</span>
+                                    <span class="consent-recorder" data-consent-recorder="sms_consent">Recorded by frontdesk</span>
+                                </div>
+                                <div class="consent-controls">
+                                    <label><input type="radio" name="sms_consent" value="opt_in" data-consent-choice> Opt In</label>
+                                    <label><input type="radio" name="sms_consent" value="opt_out" data-consent-choice> Opt Out</label>
+                                    <button class="review-action" type="button" data-review-consent="sms_consent">Review</button>
+                                    <button type="button" data-reset-consent="sms_consent">Reset answer</button>
+                                    <button type="button" data-show-documents="sms_consent">Docs (<span data-doc-count="sms_consent">1</span>)</button>
+                                </div>
+                                <label class="consent-context" for="smsConsentNote">
+                                    <span>Note</span>
+                                    <input id="smsConsentNote" type="text" data-consent-note="sms_consent" value="STOP status unclear; confirm preferred texting consent with patient.">
+                                </label>
+                            </div>
+                            <div class="consent-item" data-consent-row="dhir_consent">
+                                <div>
+                                    <span class="consent-name">DHIR vaccine reporting</span>
+                                    <span class="consent-note">Permission to submit ISPA and non-ISPA prevention records.</span>
+                                    <span class="consent-meta" data-consent-updated="dhir_consent">Last updated not recorded</span>
+                                </div>
+                                <div class="consent-status">
+                                    <span class="status-pill muted" data-consent-status="dhir_consent">Not set</span>
+                                    <span class="consent-recorder" data-consent-recorder="dhir_consent">Recorded by not recorded</span>
+                                </div>
+                                <div class="consent-controls">
+                                    <label><input type="radio" name="dhir_consent" value="opt_in" data-consent-choice> Opt In</label>
+                                    <label><input type="radio" name="dhir_consent" value="opt_out" data-consent-choice> Opt Out</label>
+                                    <button type="button" data-reset-consent="dhir_consent">Reset answer</button>
+                                    <button type="button" data-show-documents="dhir_consent">Docs (<span data-doc-count="dhir_consent">0</span>)</button>
+                                </div>
+                                <label class="consent-context" for="dhirConsentNote">
+                                    <span>Note</span>
+                                    <input id="dhirConsentNote" type="text" data-consent-note="dhir_consent" placeholder="Add context when the patient opts in or out.">
+                                </label>
+                            </div>
+                        </div>
+                        <table class="log-table consent-documents-table" id="consentDocuments">
+                            <thead>
+                                <tr>
+                                    <th>Consent documents</th>
+                                    <th>Consent type</th>
+                                    <th>Stored</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="consentDocumentRows">
+                                <tr data-doc-consent="email_consent" data-doc-name="Email consent signed form.pdf" data-doc-status="Signed" data-doc-stored="2024-05-23" data-doc-source="Scanned paper form">
+                                    <td>Email consent signed form.pdf</td>
+                                    <td>Email consent</td>
+                                    <td>2024-05-23</td>
+                                    <td><span class="status-pill">Signed</span></td>
+                                    <td><button class="document-action" type="button" data-view-document>View</button></td>
+                                </tr>
+                                <tr data-doc-consent="sms_consent" data-doc-name="SMS verbal consent note" data-doc-status="Verbal" data-doc-stored="2026-05-14" data-doc-source="Phone call note">
+                                    <td>SMS verbal consent note</td>
+                                    <td>SMS/Text messaging</td>
+                                    <td>2026-05-14</td>
+                                    <td><span class="status-pill warn">Verbal</span></td>
+                                    <td><button class="document-action" type="button" data-view-document>View</button></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <div class="document-empty" id="consentDocumentEmpty">No consent documents stored yet.</div>
+                        <table class="log-table">
+                            <thead>
+                                <tr>
+                                    <th>Last changed</th>
+                                    <th>Consent type</th>
+                                    <th>Changed by</th>
+                                    <th>Source</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>2024-05-23</td>
+                                    <td>Email consent</td>
+                                    <td>carlosdoc</td>
+                                    <td>Demographic edit</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </section>
+
+                    <section class="panel">
+                        <div class="panel-title">Health Insurance</div>
+                    </section>
+
+                    <section class="panel">
+                        <div class="panel-title">???demographic.manageHealthCareTeam.heading???</div>
+                    </section>
+
+                    <section class="panel">
+                        <div class="panel-title">Patient Clinic Status</div>
+                    </section>
+
+                    <section class="panel">
+                        <div class="panel-title">Notes</div>
+                        <div class="info-row">
+                            <span class="info-value">Testing the patient notes field</span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                    </section>
+                </div>
+            </div>
+
+            <footer class="footer-toolbar">
+                <div class="footer-left">
+                    <button class="secondary-button" type="button">Export this Demographic</button>
+                    <button class="secondary-button" type="button">Audit Information</button>
+                </div>
+                <div class="footer-right">
+                    <button class="secondary-button" type="button">Print / Labels</button>
+                    <button class="back-button" type="button">Back</button>
+                </div>
+            </footer>
+        </section>
+    </main>
+</div>
+
+<div class="modal-backdrop" id="smsModal" role="dialog" aria-modal="true" aria-labelledby="smsTitle">
+    <section class="sms-modal">
+        <header>
+            <div>
+                <h2 id="smsTitle">Text FAKE-Lee FAKE-Olivia</h2>
+                <p id="smsContext">Patient master file</p>
+            </div>
+            <button type="button" data-close aria-label="Close">x</button>
+        </header>
+        <div class="modal-body">
+            <div class="modal-grid">
+                <div class="summary-cell">
+                    <strong>Mobile</strong>
+                    6476476471 verified
+                </div>
+                <div class="summary-cell">
+                    <strong>Consent</strong>
+                    SMS consent active
+                </div>
+                <div class="summary-cell">
+                    <strong>Chart</strong>
+                    Log to master file
+                </div>
+            </div>
+            <div class="modal-field-grid">
+                <div class="field">
+                    <label for="smsTemplate">Template</label>
+                    <select id="smsTemplate">
+                        <option value="general">General message</option>
+                        <option value="call-back">Please call clinic</option>
+                        <option value="booking">Book appointment</option>
+                        <option value="form">Complete form</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="smsFrom">Send from</label>
+                    <select id="smsFrom">
+                        <option>Main clinic line</option>
+                        <option>Reception desk</option>
+                        <option>Provider pool</option>
+                    </select>
+                </div>
+                <div class="field full">
+                    <label for="smsBody">Message</label>
+                    <textarea id="smsBody">Riverside Clinic: please call us when convenient. Reply STOP to opt out.</textarea>
+                </div>
+            </div>
+        </div>
+        <footer>
+            <button class="back-button" type="button" data-close>Cancel</button>
+            <button type="button">Preview</button>
+            <button type="button">Send SMS</button>
+        </footer>
+    </section>
+</div>
+
+<div class="modal-backdrop" id="consentDocumentModal" role="dialog" aria-modal="true" aria-labelledby="consentDocumentTitle">
+    <section class="sms-modal">
+        <header>
+            <div>
+                <h2 id="consentDocumentTitle">Add consent document</h2>
+                <p>Store a signed form, verbal consent note, or uploaded consent record with this patient.</p>
+            </div>
+            <button type="button" data-close aria-label="Close">x</button>
+        </header>
+        <div class="modal-body">
+            <div class="modal-field-grid">
+                <div class="field">
+                    <label for="documentConsentType">Consent type</label>
+                    <select id="documentConsentType">
+                        <option value="email_consent">Email consent</option>
+                        <option value="sms_consent">SMS/Text messaging</option>
+                        <option value="dhir_consent">DHIR vaccine reporting</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="documentStatus">Document status</label>
+                    <select id="documentStatus">
+                        <option>Signed</option>
+                        <option>Verbal</option>
+                        <option>Witnessed</option>
+                        <option>Refusal</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="documentStoredDate">Stored date</label>
+                    <input id="documentStoredDate" type="date" value="2026-06-02">
+                </div>
+                <div class="field">
+                    <label for="documentSource">Source</label>
+                    <select id="documentSource">
+                        <option>Scanned paper form</option>
+                        <option>Phone call note</option>
+                        <option>Patient portal upload</option>
+                        <option>Clinic staff entry</option>
+                    </select>
+                </div>
+                <div class="field full">
+                    <label for="documentFile">Document file</label>
+                    <input id="documentFile" type="file">
+                </div>
+                <div class="field full">
+                    <label for="documentNote">Note</label>
+                    <textarea id="documentNote">Consent reviewed with patient and stored with the demographic record.</textarea>
+                </div>
+            </div>
+        </div>
+        <footer>
+            <button class="back-button" type="button" data-close>Cancel</button>
+            <button type="button" id="saveConsentDocument">Store document</button>
+        </footer>
+    </section>
+</div>
+
+<div class="modal-backdrop" id="consentTypeModal" role="dialog" aria-modal="true" aria-labelledby="consentTypeTitle">
+    <section class="sms-modal">
+        <header>
+            <div>
+                <h2 id="consentTypeTitle">Add consent type</h2>
+                <p>Create another consent row for this patient and make it available for document storage.</p>
+            </div>
+            <button type="button" data-close aria-label="Close">x</button>
+        </header>
+        <div class="modal-body">
+            <div class="modal-field-grid">
+                <div class="field">
+                    <label for="newConsentTypeName">Consent type name</label>
+                    <input id="newConsentTypeName" type="text" value="Research participation">
+                </div>
+                <div class="field">
+                    <label for="newConsentTypeStatus">Starting status</label>
+                    <select id="newConsentTypeStatus">
+                        <option value="not_set">Not set</option>
+                        <option value="needs_review">Needs review</option>
+                    </select>
+                </div>
+                <div class="field full">
+                    <label for="newConsentTypeDescription">Description</label>
+                    <textarea id="newConsentTypeDescription">Permission to contact the patient about clinic-approved research opportunities.</textarea>
+                </div>
+                <label class="field checkbox-field full" for="newConsentTypeRequiresDocument">
+                    <input id="newConsentTypeRequiresDocument" type="checkbox" checked>
+                    Require a supporting document for this consent type
+                </label>
+            </div>
+            <div class="field-error" id="consentTypeError">Enter a consent type name.</div>
+        </div>
+        <footer>
+            <button class="back-button" type="button" data-close>Cancel</button>
+            <button type="button" id="saveConsentType">Add consent type</button>
+        </footer>
+    </section>
+</div>
+
+<script>
+    (function () {
+        var modal = document.getElementById('smsModal');
+        var contextText = document.getElementById('smsContext');
+        var template = document.getElementById('smsTemplate');
+        var smsBody = document.getElementById('smsBody');
+        var docModal = document.getElementById('consentDocumentModal');
+        var typeModal = document.getElementById('consentTypeModal');
+        var consentList = document.getElementById('consentList');
+        var docRows = document.getElementById('consentDocumentRows');
+        var docEmpty = document.getElementById('consentDocumentEmpty');
+        var docConsentType = document.getElementById('documentConsentType');
+        var docStatus = document.getElementById('documentStatus');
+        var docStoredDate = document.getElementById('documentStoredDate');
+        var docSource = document.getElementById('documentSource');
+        var docFile = document.getElementById('documentFile');
+        var docNote = document.getElementById('documentNote');
+        var saveConsentDocument = document.getElementById('saveConsentDocument');
+        var newConsentTypeName = document.getElementById('newConsentTypeName');
+        var newConsentTypeStatus = document.getElementById('newConsentTypeStatus');
+        var newConsentTypeDescription = document.getElementById('newConsentTypeDescription');
+        var newConsentTypeRequiresDocument = document.getElementById('newConsentTypeRequiresDocument');
+        var consentTypeError = document.getElementById('consentTypeError');
+        var saveConsentType = document.getElementById('saveConsentType');
+        var consentTypeCounter = 0;
+        var templateBodies = {
+            'general': 'Riverside Clinic: please call us when convenient. Reply STOP to opt out.',
+            'call-back': 'Riverside Clinic: we tried to reach you. Please call the clinic when convenient. Reply STOP to opt out.',
+            'booking': 'Riverside Clinic: please contact us to book your follow-up appointment. Reply STOP to opt out.',
+            'form': 'Riverside Clinic: please complete your intake form before your next visit. Reply STOP to opt out.'
+        };
+        var consentLabels = {
+            email_consent: 'Email consent',
+            sms_consent: 'SMS/Text messaging',
+            dhir_consent: 'DHIR vaccine reporting'
+        };
+        var mockConsentPdfBase64 = 'JVBERi0xLjQKJeLjz9MKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA2MTIgNzkyXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSA0IDAgUiA+PiA+PiAvQ29udGVudHMgNSAwIFIgPj4KZW5kb2JqCjQgMCBvYmoKPDwgL1R5cGUgL0ZvbnQgL1N1YnR5cGUgL1R5cGUxIC9CYXNlRm9udCAvSGVsdmV0aWNhID4+CmVuZG9iago1IDAgb2JqCjw8IC9MZW5ndGggNjY0ID4+CnN0cmVhbQpCVAovRjEgMTggVGYKNzIgNzQwIFRkCihDQVJMT1MgRU1SIC0gTW9jayBDb25zZW50IERvY3VtZW50KSBUagovRjEgMTEgVGYKMCAtMjggVGQKKFBhdGllbnQ6IEZBS0UtT2xpdmlhLCBGQUtFLUxlZSAgICBEZW1vZ3JhcGhpYyAjOiAxNCkgVGoKMCAtMTggVGQKKENvbnNlbnQgdHlwZTogRW1haWwgY29uc2VudCkgVGoKMCAtMTggVGQKKFN0YXR1czogU2lnbmVkIC8gQ29uc2VudGVkKSBUagowIC0xOCBUZAooU3RvcmVkIGRhdGU6IDIwMjQtMDUtMjMpIFRqCjAgLTE4IFRkCigpIFRqCjAgLTE4IFRkCihJIGNvbnNlbnQgdG8gZWxlY3Ryb25pYyBjb21tdW5pY2F0aW9uIHdpdGggdGhlIGNsaW5pYywgaW5jbHVkaW5nIGVtYWlsLCkgVGoKMCAtMTggVGQKKHRlbGVwaG9uZSwgdmlkZW8gY29uZmVyZW5jaW5nLCBhbmQgcmVsYXRlZCBhZG1pbmlzdHJhdGl2ZSBtZXNzYWdlcy4pIFRqCjAgLTE4IFRkCigpIFRqCjAgLTE4IFRkCihUaGlzIGlzIG1vY2sgY29udGVudCBmb3IgdGhlIGNvbnNlbnQgZG9jdW1lbnQgcG9wdXAgaW4gdGhlIFVJIHByb3RvdHlwZS4pIFRqCjAgLTE4IFRkCigpIFRqCjAgLTE4IFRkCihQYXRpZW50IHNpZ25hdHVyZTogX19fX19fX19fX19fX19fX19fX19fX19fX18pIFRqCjAgLTE4IFRkCihXaXRuZXNzL3Byb3ZpZGVyOiBjYXJsb3Nkb2MpIFRqCkVUCmVuZHN0cmVhbQplbmRvYmoKeHJlZgowIDYKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDE1IDAwMDAwIG4gCjAwMDAwMDAwNjQgMDAwMDAgbiAKMDAwMDAwMDEyMSAwMDAwMCBuIAowMDAwMDAwMjQ3IDAwMDAwIG4gCjAwMDAwMDAzMTcgMDAwMDAgbiAKdHJhaWxlcgo8PCAvU2l6ZSA2IC9Sb290IDEgMCBSID4+CnN0YXJ0eHJlZgoxMDMyCiUlRU9GCg==';
+
+        function openSms(button) {
+            var selectedTemplate = button.getAttribute('data-template') || 'general';
+            contextText.textContent = button.getAttribute('data-context') || 'Patient master file';
+            template.value = selectedTemplate;
+            smsBody.value = templateBodies[selectedTemplate] || templateBodies.general;
+            modal.classList.add('open');
+        }
+
+        function closeSms() {
+            modal.classList.remove('open');
+        }
+
+        function closeAllModals() {
+            modal.classList.remove('open');
+            docModal.classList.remove('open');
+            typeModal.classList.remove('open');
+        }
+
+        function openDocUpload(consentType) {
+            docConsentType.value = consentType || 'email_consent';
+            docModal.classList.add('open');
+        }
+
+        function openTypeModal() {
+            consentTypeError.classList.remove('visible');
+            typeModal.classList.add('open');
+            newConsentTypeName.focus();
+            newConsentTypeName.select();
+        }
+
+        function updateDocumentCounts() {
+            var counts = {};
+            var rows = docRows.querySelectorAll('tr[data-doc-consent]');
+            var countTargets = document.querySelectorAll('[data-doc-count]');
+            var i;
+            var key;
+
+            for (i = 0; i < rows.length; i++) {
+                key = rows[i].getAttribute('data-doc-consent');
+                counts[key] = (counts[key] || 0) + 1;
+            }
+
+            for (i = 0; i < countTargets.length; i++) {
+                key = countTargets[i].getAttribute('data-doc-count');
+                countTargets[i].textContent = counts[key] || 0;
+            }
+
+            docEmpty.classList.toggle('visible', rows.length === 0);
+        }
+
+        function statusClass(status) {
+            if (status === 'Signed') return '';
+            if (status === 'Verbal' || status === 'Witnessed') return ' warn';
+            return ' muted';
+        }
+
+        function consentKeyFromName(name) {
+            var base = name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'custom';
+            var key;
+
+            if (base.indexOf('consent') === -1) {
+                base += '_consent';
+            }
+
+            key = base;
+
+            while (consentLabels[key]) {
+                consentTypeCounter += 1;
+                key = base + '_' + consentTypeCounter;
+            }
+
+            return key;
+        }
+
+        function appendConsentTypeOption(key, label) {
+            var option = document.createElement('option');
+
+            option.value = key;
+            option.textContent = label;
+            docConsentType.appendChild(option);
+        }
+
+        function appendText(parent, tagName, className, text) {
+            var node = document.createElement(tagName);
+
+            if (className) {
+                node.className = className;
+            }
+
+            node.textContent = text;
+            parent.appendChild(node);
+
+            return node;
+        }
+
+        function appendConsentRadio(controls, key, value, labelText) {
+            var label = document.createElement('label');
+            var input = document.createElement('input');
+
+            input.type = 'radio';
+            input.name = key;
+            input.value = value;
+            input.setAttribute('data-consent-choice', '');
+            label.appendChild(input);
+            label.appendChild(document.createTextNode(' ' + labelText));
+            controls.appendChild(label);
+        }
+
+        function appendConsentButton(controls, text, attributeName, key, className) {
+            var button = document.createElement('button');
+
+            button.type = 'button';
+            button.textContent = text;
+            button.setAttribute(attributeName, key);
+
+            if (className) {
+                button.className = className;
+            }
+
+            controls.appendChild(button);
+
+            return button;
+        }
+
+        function appendConsentTypeRow(key, label, description, startingStatus, requiresDocument) {
+            var row = document.createElement('div');
+            var details = document.createElement('div');
+            var status = document.createElement('div');
+            var statusPill;
+            var controls = document.createElement('div');
+            var docsButton;
+            var docsCount;
+            var context = document.createElement('label');
+            var contextLabel = document.createElement('span');
+            var note = document.createElement('input');
+            var isReview = startingStatus === 'needs_review';
+
+            row.className = 'consent-item';
+            row.setAttribute('data-consent-row', key);
+
+            appendText(details, 'span', 'consent-name', label);
+            appendText(details, 'span', 'consent-note', description || 'Patient-specific consent type.');
+
+            if (requiresDocument) {
+                appendText(details, 'span', 'consent-note', 'Supporting document required.');
+            }
+
+            appendText(details, 'span', 'consent-meta', 'Last updated not recorded').setAttribute('data-consent-updated', key);
+
+            status.className = 'consent-status';
+            statusPill = appendText(status, 'span', 'status-pill ' + (isReview ? 'warn' : 'muted'), isReview ? 'Needs review' : 'Not set');
+            statusPill.setAttribute('data-consent-status', key);
+            appendText(status, 'span', 'consent-recorder', 'Recorded by not recorded').setAttribute('data-consent-recorder', key);
+
+            controls.className = 'consent-controls';
+            appendConsentRadio(controls, key, 'opt_in', 'Opt In');
+            appendConsentRadio(controls, key, 'opt_out', 'Opt Out');
+
+            if (isReview) {
+                appendConsentButton(controls, 'Review', 'data-review-consent', key, 'review-action');
+            }
+
+            appendConsentButton(controls, 'Reset answer', 'data-reset-consent', key);
+            docsButton = appendConsentButton(controls, 'Docs (', 'data-show-documents', key);
+            docsCount = document.createElement('span');
+            docsCount.setAttribute('data-doc-count', key);
+            docsCount.textContent = '0';
+            docsButton.appendChild(docsCount);
+            docsButton.appendChild(document.createTextNode(')'));
+
+            context.className = 'consent-context';
+            context.htmlFor = key + 'Note';
+            contextLabel.textContent = 'Note';
+            note.id = key + 'Note';
+            note.type = 'text';
+            note.setAttribute('data-consent-note', key);
+            note.placeholder = requiresDocument ? 'Add document details and decision context.' : 'Add context when the patient opts in or out.';
+            context.appendChild(contextLabel);
+            context.appendChild(note);
+
+            row.appendChild(details);
+            row.appendChild(status);
+            row.appendChild(controls);
+            row.appendChild(context);
+            consentList.appendChild(row);
+        }
+
+        function addConsentType() {
+            var name = newConsentTypeName.value.trim();
+            var key;
+
+            if (!name) {
+                consentTypeError.classList.add('visible');
+                newConsentTypeName.focus();
+                return;
+            }
+
+            consentTypeError.classList.remove('visible');
+            key = consentKeyFromName(name);
+            consentLabels[key] = name;
+            appendConsentTypeOption(key, name);
+            appendConsentTypeRow(key, name, newConsentTypeDescription.value.trim(), newConsentTypeStatus.value, newConsentTypeRequiresDocument.checked);
+            updateDocumentCounts();
+            closeAllModals();
+
+            newConsentTypeName.value = '';
+            newConsentTypeStatus.value = 'not_set';
+            newConsentTypeDescription.value = '';
+            newConsentTypeRequiresDocument.checked = false;
+        }
+
+        function addDocumentRow() {
+            var row = document.createElement('tr');
+            var consentType = docConsentType.value;
+            var status = docStatus.value;
+            var fileName = docFile.files && docFile.files.length ? docFile.files[0].name : consentLabels[consentType] + ' document';
+            var storedDate = docStoredDate.value || '2026-06-02';
+            var source = docSource.value + (docNote.value ? ': ' + docNote.value : '');
+
+            row.setAttribute('data-doc-consent', consentType);
+            row.setAttribute('data-doc-name', fileName);
+            row.setAttribute('data-doc-status', status);
+            row.setAttribute('data-doc-stored', storedDate);
+            row.setAttribute('data-doc-source', source);
+            row.innerHTML = '<td></td><td></td><td></td><td><span class="status-pill' + statusClass(status) + '"></span></td><td><button class="document-action" type="button" data-view-document>View</button></td>';
+            row.children[0].textContent = fileName;
+            row.children[1].textContent = consentLabels[consentType];
+            row.children[2].textContent = storedDate;
+            row.children[3].querySelector('span').textContent = status;
+            docRows.appendChild(row);
+            updateDocumentCounts();
+            closeAllModals();
+        }
+
+        function openDocumentPdf(row) {
+            var binary = atob(mockConsentPdfBase64);
+            var bytes = new Uint8Array(binary.length);
+            var i;
+            var pdfUrl;
+            var popup;
+
+            for (i = 0; i < binary.length; i++) {
+                bytes[i] = binary.charCodeAt(i);
+            }
+
+            pdfUrl = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+            popup = window.open(pdfUrl, 'consentDocumentPdf', 'width=920,height=760,resizable=yes,scrollbars=yes');
+
+            if (popup) {
+                popup.focus();
+            } else {
+                window.location.href = pdfUrl;
+            }
+        }
+
+        function todayString() {
+            var today = new Date();
+            var month = String(today.getMonth() + 1).padStart(2, '0');
+            var day = String(today.getDate()).padStart(2, '0');
+
+            return today.getFullYear() + '-' + month + '-' + day;
+        }
+
+        function setConsentStatus(groupName, statusText, statusModifier) {
+            var status = document.querySelector('[data-consent-status="' + groupName + '"]');
+
+            if (!status) return;
+
+            status.className = 'status-pill' + (statusModifier ? ' ' + statusModifier : '');
+            status.textContent = statusText;
+        }
+
+        function setConsentMeta(groupName, updatedText, recorderText) {
+            var updated = document.querySelector('[data-consent-updated="' + groupName + '"]');
+            var recorder = document.querySelector('[data-consent-recorder="' + groupName + '"]');
+
+            if (updated) updated.textContent = updatedText;
+            if (recorder) recorder.textContent = recorderText;
+        }
+
+        function consentNote(groupName) {
+            return document.querySelector('[data-consent-note="' + groupName + '"]');
+        }
+
+        function resetConsent(groupName) {
+            var inputs = document.querySelectorAll('input[name="' + groupName + '"]');
+            var note = consentNote(groupName);
+            var i;
+
+            for (i = 0; i < inputs.length; i++) {
+                inputs[i].checked = false;
+            }
+
+            setConsentStatus(groupName, 'Not set', 'muted');
+            setConsentMeta(groupName, 'Last updated not recorded', 'Recorded by not recorded');
+
+            if (note) {
+                note.value = '';
+                note.placeholder = 'Add context when the patient opts in or out.';
+            }
+        }
+
+        function updateConsentChoice(input) {
+            var groupName = input.name;
+            var note = consentNote(groupName);
+            var statusText = input.value === 'opt_out' ? 'Opted out' : 'Consented';
+            var statusModifier = input.value === 'opt_out' ? 'muted' : '';
+
+            if (!input.checked) return;
+
+            setConsentStatus(groupName, statusText, statusModifier);
+            setConsentMeta(groupName, 'Last updated ' + todayString(), 'Recorded by current user');
+
+            if (note && !note.value) {
+                note.placeholder = 'Add context for this consent decision.';
+                note.focus();
+            }
+        }
+
+        function reviewConsent(groupName) {
+            var note = consentNote(groupName);
+
+            setConsentStatus(groupName, 'In review', 'warn');
+            setConsentMeta(groupName, 'Last reviewed ' + todayString(), 'Review started by current user');
+
+            if (note) {
+                note.focus();
+                note.select();
+            }
+        }
+
+        document.addEventListener('click', function (event) {
+            var opener = event.target.closest('[data-open-sms]');
+            var closer = event.target.closest('[data-close]');
+            var resetButton = event.target.closest('[data-reset-consent]');
+            var reviewButton = event.target.closest('[data-review-consent]');
+            var docUploadButton = event.target.closest('[data-open-doc-upload]');
+            var typeButton = event.target.closest('[data-open-type]');
+            var showDocumentsButton = event.target.closest('[data-show-documents]');
+            var viewDocumentButton = event.target.closest('[data-view-document]');
+
+            if (opener) {
+                event.preventDefault();
+                openSms(opener);
+                return;
+            }
+
+            if (resetButton) {
+                resetConsent(resetButton.getAttribute('data-reset-consent'));
+                return;
+            }
+
+            if (reviewButton) {
+                reviewConsent(reviewButton.getAttribute('data-review-consent'));
+                return;
+            }
+
+            if (docUploadButton) {
+                openDocUpload(docUploadButton.getAttribute('data-open-doc-upload'));
+                return;
+            }
+
+            if (typeButton) {
+                openTypeModal();
+                return;
+            }
+
+            if (showDocumentsButton) {
+                document.getElementById('consentDocuments').scrollIntoView({ behavior: 'smooth', block: 'start' });
+                return;
+            }
+
+            if (viewDocumentButton) {
+                openDocumentPdf(viewDocumentButton.closest('tr'));
+                return;
+            }
+
+            if (closer || event.target.classList.contains('modal-backdrop')) {
+                closeAllModals();
+            }
+        });
+
+        document.addEventListener('change', function (event) {
+            var consentChoice = event.target.closest('[data-consent-choice]');
+
+            if (consentChoice) {
+                updateConsentChoice(consentChoice);
+            }
+        });
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+                closeAllModals();
+            }
+        });
+
+        template.addEventListener('change', function () {
+            smsBody.value = templateBodies[template.value] || templateBodies.general;
+        });
+
+        saveConsentDocument.addEventListener('click', addDocumentRow);
+        saveConsentType.addEventListener('click', addConsentType);
+        updateDocumentCounts();
+    })();
+</script>
+</body>
+</html>
