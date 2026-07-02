@@ -84,6 +84,20 @@ class LabDisplayJspRegressionTest {
                 Files.readString(LAB_DISPLAY_AJAX_JSP, StandardCharsets.UTF_8));
     }
 
+    @Test
+    @DisplayName("should close inboxhub iframe after successful lab macro")
+    void shouldCloseInboxhubIframe_afterSuccessfulLabMacro() throws IOException {
+        String jsp = Files.readString(LAB_DISPLAY_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("return response.json();")
+                .contains("if (json && json.success)")
+                .contains("closeLabAfterMacro(formid);")
+                .contains("if (window.frameElement)")
+                .contains("window.frameElement.closest('.document-card.card')")
+                .contains("new BroadcastChannel('inboxhub-refresh')");
+    }
+
     private void assertAcknowledgementHandlerUsesHtmlAttributeEncoding(String jsp) {
         // ackLabFunc is already executable JavaScript built server-side with dynamic values
         // pre-encoded via SafeEncode.forJavaScriptAttribute. The enclosing onclick attribute
