@@ -103,7 +103,7 @@ This JSP is a fragment that is pulled in via <jsp:include> from mfa_handler.jsp 
                        placeholder="${carlos:forHtmlAttribute(otpPlaceholder)}"
                        aria-label="${carlos:forHtmlAttribute(otpPlaceholder)}"
                        style="width: 16.6ch; text-align: left;"
-                       oninput="if(this.value.length===6)this.form.submit();">
+                       oninput="if(this.value.length===6 && this.form.requestSubmit)this.form.requestSubmit();">
                 <div id="otpInputFeedback" class="invalid-feedback">
                     ${carlos:forHtml(requestScope.mfaValidateCodeErr)}
                 </div>
@@ -124,5 +124,4 @@ This JSP is a fragment that is pulled in via <jsp:include> from mfa_handler.jsp 
     const input = document.querySelector('[autocomplete=one-time-code]');
     input.addEventListener('input', () => input.style.setProperty('--_otp-digit', input.selectionStart));
   </script>
-
 

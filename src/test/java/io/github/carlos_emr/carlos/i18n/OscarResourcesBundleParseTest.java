@@ -63,6 +63,9 @@ class OscarResourcesBundleParseTest {
             Path.of("src/main/webapp/WEB-INF/jsp/mfa/mfa_registration.jsp");
     private static final Path MFA_OTP_HANDLER_JSP =
             Path.of("src/main/webapp/WEB-INF/jsp/mfa/mfa_otp_handler.jsp");
+    private static final Path CARLOS_PROPERTIES = Path.of("src/main/resources/carlos.properties");
+    private static final Path MFA_MANAGER_IMPL =
+            Path.of("src/main/java/io/github/carlos_emr/carlos/managers/MfaManagerImpl.java");
     private static final String[] LOCALES = {"en", "fr", "es", "pt_BR", "pl"};
     private static final String[] LOGIN_ERROR_KEYS = {
             "login.errorApplicationError",
@@ -170,6 +173,23 @@ class OscarResourcesBundleParseTest {
     }
 
     @Test
+    @DisplayName("should decode Spanish MFA copy without mojibake")
+    void shouldDecodeSpanishMfaCopy_withoutMojibake() throws Exception {
+        Properties spanish = loadBundle("es");
+
+        assertThat(spanish.getProperty("admin.securityAddRecord.mfa.reset.confirm"))
+                .contains("deber\u00e1 volver", "\u00bfEst\u00e1 seguro", "configuraci\u00f3n de MFA");
+        assertThat(spanish.getProperty("mfa.registration.instruct.1"))
+                .contains("aplicaci\u00f3n", "c\u00f3digo de verificaci\u00f3n");
+
+        for (String key : MFA_COPY_KEYS) {
+            assertThat(spanish.getProperty(key))
+                    .as("Spanish MFA key %s should not contain UTF-8 mojibake sentinels", key)
+                    .doesNotContain("\u00c3", "\u00c2");
+        }
+    }
+
+    @Test
     @DisplayName("should render MFA JSPs with UTF-8 and localized strings")
     void shouldRenderMfaJsps_withUtf8LocalizedStrings() throws Exception {
         String mfaHandler = Files.readString(MFA_HANDLER_JSP, StandardCharsets.UTF_8);
@@ -182,14 +202,35 @@ class OscarResourcesBundleParseTest {
         assertThat(mfaRegistration)
                 .contains("<fmt:message key=\"mfa.registration.qr.alt\" var=\"mfaQrAlt\"/>")
                 .contains("alt=\"${carlos:forHtmlAttribute(mfaQrAlt)}\"")
+                .doesNotContain("<html>")
+                .doesNotContain("<body")
                 .doesNotContain("QR Code for Multi-Factor Authentication Setup");
         assertThat(mfaOtpHandler)
                 .contains("<fmt:message key=\"mfa.otp.handler.placeholder\" var=\"otpPlaceholder\"/>")
                 .contains("<fmt:message key=\"mfa.otp.handler.verify.button\" var=\"otpVerifyButton\"/>")
                 .contains("placeholder=\"${carlos:forHtmlAttribute(otpPlaceholder)}\"")
+                .contains("aria-label=\"${carlos:forHtmlAttribute(otpPlaceholder)}\"")
                 .contains("value=\"${carlos:forHtmlAttribute(otpVerifyButton)}\"")
+                .contains(":where([autocomplete=one-time-code]):focus-visible")
+                .contains("this.form.requestSubmit")
+                .doesNotContain("this.form.submit()")
                 .doesNotContain("placeholder=\"Enter code\"")
                 .doesNotContain("value=\"Verify Code\"");
+    }
+
+    @Test
+    @DisplayName("should use CARLOS EMR branding for MFA QR issuer")
+    void shouldUseCarlosEmrBranding_forMfaQrIssuer() throws Exception {
+        Properties carlos = new Properties();
+        try (InputStream is = Files.newInputStream(CARLOS_PROPERTIES)) {
+            carlos.load(is);
+        }
+        String mfaManagerImpl = Files.readString(MFA_MANAGER_IMPL, StandardCharsets.UTF_8);
+
+        assertThat(carlos.getProperty("mfa.registration.qrcode.provider.name"))
+                .isEqualTo("CARLOS EMR");
+        assertThat(mfaManagerImpl)
+                .contains("getProperty(MFA_PROVIDER_NAME_KEY, \"CARLOS EMR\")");
     }
 
     @Test
