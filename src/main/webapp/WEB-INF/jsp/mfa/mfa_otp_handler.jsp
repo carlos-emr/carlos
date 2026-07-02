@@ -34,7 +34,6 @@ This JSP is a fragment that is pulled in via <jsp:include> from mfa_handler.jsp 
   It provides the field to input the MFA key
   and the submit button
 
-@since 2025-03-05
 --%>
 
 <%@ page contentType="text/html;charset=UTF-8" pageEncoding="UTF-8" %>
@@ -79,6 +78,11 @@ This JSP is a fragment that is pulled in via <jsp:include> from mfa_handler.jsp 
       padding-left: 0.9ch !important;
     }
 
+    :where([autocomplete=one-time-code]):focus-visible {
+      outline: 2px solid #0d6efd;
+      outline-offset: 2px;
+    }
+
   </style>
 
 
@@ -96,7 +100,8 @@ This JSP is a fragment that is pulled in via <jsp:include> from mfa_handler.jsp 
                        inputmode="numeric"
                        maxlength="6"
                        pattern="\d{6}"
-                       aria-label="Enter Code"
+                       placeholder="${carlos:forHtmlAttribute(otpPlaceholder)}"
+                       aria-label="${carlos:forHtmlAttribute(otpPlaceholder)}"
                        style="width: 16.6ch; text-align: left;"
                        oninput="if(this.value.length===6)this.form.submit();">
                 <div id="otpInputFeedback" class="invalid-feedback">
@@ -119,6 +124,5 @@ This JSP is a fragment that is pulled in via <jsp:include> from mfa_handler.jsp 
     const input = document.querySelector('[autocomplete=one-time-code]');
     input.addEventListener('input', () => input.style.setProperty('--_otp-digit', input.selectionStart));
   </script>
-
 
 

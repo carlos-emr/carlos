@@ -35,8 +35,6 @@
 
 
 
-<html>
-<body>
 <p><fmt:message key="mfa.registration.title"/></p>
 <div class="row p-2">
 
@@ -59,4 +57,3 @@
         </div>
     </div>
 </div>
-</body>

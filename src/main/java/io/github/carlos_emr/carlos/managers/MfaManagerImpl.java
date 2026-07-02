@@ -89,7 +89,7 @@ public class MfaManagerImpl implements MfaManager {
         }
 
         byte[] qrCodeImageData = this.getQRCodeImageData(
-                CarlosProperties.getInstance().getProperty(MFA_PROVIDER_NAME_KEY, "Carlos"),
+                CarlosProperties.getInstance().getProperty(MFA_PROVIDER_NAME_KEY, "CARLOS"),
                 security.getUserName(), secret
         );
 
