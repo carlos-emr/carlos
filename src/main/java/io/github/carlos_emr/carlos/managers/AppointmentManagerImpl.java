@@ -278,6 +278,22 @@ public class AppointmentManagerImpl implements AppointmentManager {
         return itemsList;
     }
 
+    /**
+     * Returns the provider's appointments for the given calendar month.
+     *
+     * <p>The query window is half-open: {@code startDate} is the first instant of the
+     * requested month (00:00:00.000) and {@code endDate} is the first instant of the
+     * following month (00:00:00.000). This matches the exclusive upper bound
+     * ({@code appointmentDate < endTime}) applied by
+     * {@link OscarAppointmentDao#findByDateRangeAndProvider(Date, Date, String)}, so
+     * every appointment on the last calendar day of the month is included.</p>
+     *
+     * @param loggedInInfo the logged-in user context used for audit logging
+     * @param providerNo   the provider whose appointments are queried
+     * @param year         the calendar year
+     * @param month        the zero-based calendar month ({@code 0} = January)
+     * @return the matching appointments, or an empty list when none are found
+     */
     public List<Appointment> findMonthlyAppointments(LoggedInInfo loggedInInfo, String providerNo, int year, int month) {
 
         Calendar cal = Calendar.getInstance();
@@ -290,6 +306,8 @@ public class AppointmentManagerImpl implements AppointmentManager {
         cal.set(Calendar.MILLISECOND, 0);
         Date startDate = cal.getTime();
 
+        // Exclusive upper bound: the first instant of the next month. The DAO filters
+        // with appointmentDate < endTime, so this includes the entire last day of the month.
         cal.set(Calendar.DAY_OF_MONTH, 1);
         cal.add(Calendar.MONTH, 1);
         cal.set(Calendar.HOUR_OF_DAY, 0);
@@ -298,7 +316,7 @@ public class AppointmentManagerImpl implements AppointmentManager {
         cal.set(Calendar.MILLISECOND, 0);
         Date endDate = cal.getTime();
 
-        logger.info("monthly - checking from " + startDate + " to " + endDate);
+        logger.info("monthly - checking from " + startDate + " (inclusive) to " + endDate + " (exclusive)");
 
         List<Appointment> results = appointmentDao.findByDateRangeAndProvider(startDate, endDate, providerNo);
 
