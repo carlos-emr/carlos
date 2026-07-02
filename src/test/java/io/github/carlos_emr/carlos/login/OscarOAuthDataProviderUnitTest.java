@@ -222,6 +222,37 @@ class OscarOAuthDataProviderUnitTest {
     }
 
     @Test
+    @DisplayName("should return the unexpired access token entity for provider and scope reads")
+    void shouldReturnUnexpiredAccessToken_forProviderAndScopeReads() {
+        ServiceAccessTokenDao accessTokenDao = mock(ServiceAccessTokenDao.class);
+        ServiceAccessToken token = accessToken("live-token", "secret", "999998",
+                System.currentTimeMillis() / 1000, 3600);
+        token.setScopes("schedule.read");
+        when(accessTokenDao.findByTokenId("live-token")).thenReturn(token);
+        OscarOAuthDataProvider provider = provider(accessTokenDao);
+
+        ServiceAccessToken found = provider.findUnexpiredAccessToken("live-token");
+
+        // The interceptor reads both the provider and the granted scopes off this one entity.
+        assertThat(found).isNotNull();
+        assertThat(found.getProviderNo()).isEqualTo("999998");
+        assertThat(found.getScopes()).isEqualTo("schedule.read");
+    }
+
+    @Test
+    @DisplayName("should return null from the unexpired lookup when the token is expired")
+    void shouldReturnNull_whenAccessTokenExpired() {
+        ServiceAccessTokenDao accessTokenDao = mock(ServiceAccessTokenDao.class);
+        ServiceAccessToken token = accessToken("expired-token", "secret", "999998",
+                (System.currentTimeMillis() / 1000) - 7200, 3600);
+        when(accessTokenDao.findByTokenId("expired-token")).thenReturn(token);
+        OscarOAuthDataProvider provider = provider(accessTokenDao);
+
+        assertThat(provider.findUnexpiredAccessToken("expired-token")).isNull();
+        verify(accessTokenDao).remove(token);
+    }
+
+    @Test
     @DisplayName("should persist a consumed nonce when seen for the first time")
     void shouldPersistConsumedNonce_whenSeenForFirstTime() {
         ServiceOAuthNonceDao nonceDao = mock(ServiceOAuthNonceDao.class);
