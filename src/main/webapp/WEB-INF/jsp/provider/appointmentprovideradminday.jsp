@@ -2029,7 +2029,7 @@
 
                                                                   String preventionWarning = "";
                                                                   if (!providerPreventionManager.isDisabled() && demographic_no != 0) {
-                                                                      // prevention warnings is concacted "[" + me.getKey() + "=" + me.getValue() + "]"
+							// prevention warnings is concatenated "[" + me.getKey() + "=" + me.getValue() + "]"
                                                                       preventionWarning = providerPreventionManager.getWarnings(loggedInInfo1, String.valueOf(demographic_no));
                                                                       preventionWarning = preventionWarning.replaceAll(
                                                                           "\\[[^=\\]]*=([^\\]]*)\\](?:\\r?\\n)?",
