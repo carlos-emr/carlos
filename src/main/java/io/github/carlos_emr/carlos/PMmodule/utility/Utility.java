@@ -34,10 +34,9 @@ import java.util.Enumeration;
 import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Locale;
 import java.util.ResourceBundle;
 import java.util.StringTokenizer;
-import java.util.Locale;
-import java.util.MissingResourceException;
 import jakarta.servlet.http.HttpServletRequest;
 
 import org.apache.logging.log4j.Logger;
@@ -512,17 +511,17 @@ public class Utility {
 
     // ################################################################################
     /**
-     * Retrieves the CARLOS resource bundle for the specified locale with automatic fallback.
+     * Retrieves the CARLOS resource bundle for the specified locale.
      *
      * <p>This method provides the localized message resources:
      * <ol>
-     *   <li>Attempts to load "oscarResources" bundle for the requested locale</li>
-     *   <li>Falls back to LocaleContextHolder if the requested locale is null</li>
-     *   <li>ResourceBundle handles the usual fallbacks if the resource is not available</li>
+     *   <li>Uses {@code LocaleContextHolder.getLocale()} when the requested locale is null</li>
+     *   <li>Loads the "oscarResources" bundle for the resolved locale</li>
+     *   <li>Delegates any locale fallback to {@link ResourceBundle#getBundle(String, Locale)}</li>
      * </ol>
      *
-     * @param locale the desired locale for the resource bundle; if null, uses the current request's locale
-     * @return the resource bundle for the requested locale, or the best available fallback bundle
+     * @param locale the desired locale for the resource bundle; if null, uses the current context locale
+     * @return the resource bundle selected by {@link ResourceBundle#getBundle(String, Locale)}
      */
     public static ResourceBundle getOscarBundle(Locale locale) {
         if (locale == null) {
@@ -719,8 +718,8 @@ public class Utility {
      * @param DOB the patient's date of birth; if null, returns null
      * @param pointInTime the reference date for age calculation (e.g., current date or a future appointment date);
      *                    if before DOB, returns a localized "not born yet" message
-     * @param locale the locale for formatting age strings; if null, falls back to the system default locale,
-     *               then English, then the default bundle locale (see {@link #getOscarBundle(Locale)})
+     * @param locale the locale for formatting age strings; if null, uses the current context locale before
+     *               delegating locale fallback to {@link ResourceBundle#getBundle(String, Locale)}
      * @return formatted age string at the specified date (e.g., "45 years", "3 months", "not born yet"),
      *         or null if DOB is null
      */

@@ -42,8 +42,6 @@ import java.io.Serializable;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.Date;
-import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.springframework.context.i18n.LocaleContextHolder;
@@ -1308,10 +1306,10 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
      * <p>This method constructs a birth date from the demographic's year, month, and day of birth fields
      * (using defaults if any component is missing), then calculates age relative to the given date.
      *
-     * @param asofDate the reference date for age calculation (must not be null)
+     * @param asofDate the reference date for age calculation; if null, the current date is used
      * @param locale the locale for formatting age strings (e.g., "2 years", "3 months");
-     *               if null, falls back to the system default locale, then English,
-     *               then the default bundle locale
+     *               if null, {@link Utility#getOscarBundle(Locale)} uses the current context locale before
+     *               delegating locale fallback to {@link ResourceBundle#getBundle(String, Locale)}
      * @return formatted age string at the specified date (e.g., "45 years", "3 months", "not born yet"),
      *         or null if the birth date cannot be calculated
      */
