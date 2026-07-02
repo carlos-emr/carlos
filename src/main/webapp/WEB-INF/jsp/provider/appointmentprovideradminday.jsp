@@ -3092,17 +3092,14 @@
         });
     })();
 
-	function tooltipStart() {
-		document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
-			const full = el.getAttribute('data-title-full') || '';
-			el.setAttribute('title', full);
-			
-			new bootstrap.Tooltip(el, {
-				html: true
-
-			});
-		});
-	};
+function tooltipStart() {
+	if (typeof bootstrap === 'undefined' || !bootstrap.Tooltip) return;
+	document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
+		const full = el.getAttribute('data-title-full') || '';
+		el.setAttribute('title', full);
+		new bootstrap.Tooltip(el, { html: true });
+	});
+}
 
 
     </script>
