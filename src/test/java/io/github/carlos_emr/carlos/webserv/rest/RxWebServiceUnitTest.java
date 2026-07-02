@@ -231,6 +231,19 @@ class RxWebServiceUnitTest {
             assertThat(resp.getContent()).hasSize(1);
             assertThat(resp.getContent().get(0).getBrandName()).isEqualTo("Metformin XR");
         }
+
+        @Test
+        @DisplayName("should deny access for unauthorized demographic across status paths")
+        void shouldDenyAccess_forUnauthorizedDemographicAcrossStatusPaths() {
+            assertThatThrownBy(() -> service.drugs("all", 6))
+                    .isInstanceOf(AccessDeniedException.class);
+            assertThatThrownBy(() -> service.drugs("current", 6))
+                    .isInstanceOf(AccessDeniedException.class);
+            assertThatThrownBy(() -> service.drugs("archived", 6))
+                    .isInstanceOf(AccessDeniedException.class);
+            assertThatThrownBy(() -> service.drugs("longterm", 6))
+                    .isInstanceOf(AccessDeniedException.class);
+        }
     }
 
     /** Tests for add drug operations. */
