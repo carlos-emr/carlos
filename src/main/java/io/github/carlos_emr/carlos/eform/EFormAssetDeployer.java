@@ -30,6 +30,7 @@ import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.ArrayList;
@@ -166,7 +167,7 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
         Path targetPath = targetDir.toPath();
         List<Path> createdDirectories = collectMissingDirectories(targetPath);
         try {
-            Files.createDirectories(targetPath);
+            createDirectoriesWithOwnerOnlyPermissions(targetPath);
         } catch (IOException e) {
             logger.warn("eForm image directory does not exist and could not be created: {}; skipping asset deployment", imageDir, e);
             return false;
@@ -199,6 +200,16 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
             current = current.getParent();
         }
         return missingDirectories;
+    }
+
+    void createDirectoriesWithOwnerOnlyPermissions(Path targetPath) throws IOException {
+        try {
+            FileAttribute<Set<PosixFilePermission>> ownerOnlyAttributes =
+                    PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------"));
+            Files.createDirectories(targetPath, ownerOnlyAttributes);
+        } catch (UnsupportedOperationException e) {
+            Files.createDirectories(targetPath);
+        }
     }
 
     boolean applyOwnerOnlyPermissions(Path targetPath, String imageDir) {

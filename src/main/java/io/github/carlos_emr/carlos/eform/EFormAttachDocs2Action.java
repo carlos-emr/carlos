@@ -138,9 +138,9 @@ public class EFormAttachDocs2Action extends ActionSupport {
             return null;
         }
         if (!Character.isLetter(value.charAt(0))) {
-            return value;
+            return numericIdOrNull(value);
         }
-        return value.charAt(0) == 'D' && value.length() > 1 ? value.substring(1) : null;
+        return value.charAt(0) == 'D' && value.length() > 1 ? numericIdOrNull(value.substring(1)) : null;
     }
 
     private String[] collectTypedIds(String parameterName, char legacyPrefix) {
@@ -152,7 +152,10 @@ public class EFormAttachDocs2Action extends ActionSupport {
                     continue;
                 }
                 if (value.charAt(0) == legacyPrefix) {
-                    values.add(value.substring(1));
+                    String normalizedId = numericIdOrNull(value.substring(1));
+                    if (normalizedId != null) {
+                        values.add(normalizedId);
+                    }
                 }
             }
         }
@@ -164,10 +167,15 @@ public class EFormAttachDocs2Action extends ActionSupport {
             return;
         }
         for (String value : parameters) {
-            if (StringUtils.isNotBlank(value)) {
-                values.add(value);
+            String normalizedId = numericIdOrNull(value);
+            if (normalizedId != null) {
+                values.add(normalizedId);
             }
         }
+    }
+
+    private String numericIdOrNull(String value) {
+        return StringUtils.isNumeric(value) ? value : null;
     }
 
     private void writeOkResponse() throws IOException {

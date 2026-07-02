@@ -80,8 +80,9 @@ const config = {
     ]);
     await popup.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     const popupBodyText = await popup.locator('body').innerText({ timeout: 10000 }).catch(() => '');
-    assert(!/HTTP Status 500|Exception Report|CARLOS has encountered an unexpected error/i.test(popupBodyText), `Attachment submit crashed the popup: ${popupBodyText}`);
-    assert(/ok/i.test(popupBodyText), `Attachment submit did not complete cleanly: ${popupBodyText}`);
+    const normalizedPopupBodyText = popupBodyText.trim();
+    assert(!/HTTP Status 500|Exception Report|CARLOS has encountered an unexpected error/i.test(normalizedPopupBodyText), `Attachment submit crashed the popup: ${normalizedPopupBodyText}`);
+    assert(normalizedPopupBodyText === 'ok', `Attachment submit did not complete cleanly: ${normalizedPopupBodyText}`);
     await screenshot(popup, config.screenshotDir, 'rtl-attachment-behavior-popup-after-submit');
     await popup.close();
 

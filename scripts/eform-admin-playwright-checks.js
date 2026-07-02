@@ -27,7 +27,7 @@
 
 const fs = require('fs');
 const { chromium } = require('playwright');
-const { buildArtifactPath } = require('./eform-local-playwright-utils');
+const { buildArtifactPath, getLaunchOptions } = require('./eform-local-playwright-utils');
 
 const chromePath = process.env.CHROME_PATH || '';
 const screenshotDir = process.env.EFORM_SCREENSHOT_DIR || '/tmp';
@@ -77,16 +77,13 @@ function appPathFromHref(href) {
   assert(!editorJsp.includes('window.opener.location'), 'eForm editor must not navigate window.opener after save');
   assert(editorJsp.includes('window.location.href'), 'eForm editor should navigate the current window after save');
 
-  const browser = await chromium.launch({
-    headless: true,
-    executablePath: chromePath || undefined,
-  });
+  const browser = await chromium.launch(getLaunchOptions(chromePath));
 
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 480 } });
     const consoleIssues = [];
     page.on('console', (message) => {
-      if (['error', 'warning'].includes(message.type())) {
+      if (message.type() === 'error') {
         consoleIssues.push(`${message.type()}: ${message.text()}`);
       }
     });

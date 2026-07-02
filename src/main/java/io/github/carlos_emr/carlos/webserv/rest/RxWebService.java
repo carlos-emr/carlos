@@ -187,13 +187,13 @@ public class RxWebService extends AbstractServiceImpl {
                 drugResponse = getAllDrugs(demographicNo);
                 break;
             case ARCHIVED:
-                drugResponse = getCurrentDrugs(demographicNo);
+                drugResponse = getArchivedDrugs(demographicNo);
                 break;
             case CURRENT:
-                drugResponse = getLongtermDrugs(demographicNo);
+                drugResponse = getCurrentDrugs(demographicNo);
                 break;
             case LONGTERM:
-                drugResponse = getArchivedDrugs(demographicNo);
+                drugResponse = getLongtermDrugs(demographicNo);
                 break;
             default:
                 drugResponse = null;
