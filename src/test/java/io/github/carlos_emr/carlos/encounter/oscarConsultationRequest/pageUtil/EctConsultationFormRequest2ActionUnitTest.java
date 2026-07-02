@@ -88,6 +88,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
     private DocumentAttachmentManager documentAttachmentManager;
     private DemographicManager demographicManager;
     private DigitalSignatureManager digitalSignatureManager;
+    private ConsultationManager consultationManager;
     private ConsultationRequestDao consultationRequestDao;
     private EctConsultationFormRequest2Action action;
 
@@ -102,10 +103,11 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         documentAttachmentManager = mock(DocumentAttachmentManager.class);
         demographicManager = mock(DemographicManager.class);
         digitalSignatureManager = mock(DigitalSignatureManager.class);
+        consultationManager = mock(ConsultationManager.class);
         consultationRequestDao = mock(ConsultationRequestDao.class);
 
         registerMock(SecurityInfoManager.class, securityInfoManager);
-        registerMock(ConsultationManager.class, mock(ConsultationManager.class));
+        registerMock(ConsultationManager.class, consultationManager);
         registerMock(DocumentAttachmentManager.class, documentAttachmentManager);
         registerMock(FaxManager.class, mock(FaxManager.class));
         registerMock(DigitalSignatureManager.class, digitalSignatureManager);
@@ -204,7 +206,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         ConsultationRequest existing = new ConsultationRequest();
         existing.setSignatureImg("123"); // pre-existing DB-stored signature id
         // AbstractDao has find(Object) and find(int); the action calls find(Integer), so stub the Object overload.
-        when(consultationRequestDao.find(Integer.valueOf(9))).thenReturn(existing);
+        when(consultationRequestDao.find(9)).thenReturn(existing);
 
         action.setSubmission("Update");
         action.setRequestId("9");
@@ -227,11 +229,28 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("returns input without archiving when the consultation update request id is malformed")
+    void shouldReturnInput_withoutArchivingWhenUpdateRequestIdIsMalformed() throws Exception {
+        action.setSubmission("Update");
+        action.setRequestId("../9");
+        action.setDemographicNo("1");
+        action.setService("1");
+        action.setSpecialist("0");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.INPUT);
+        verify(consultationManager, never()).archiveConsultationRequest(any(Integer.class));
+        verify(consultationRequestDao, never()).find(any());
+        verify(consultationRequestDao, never()).merge(any());
+    }
+
+    @Test
     @DisplayName("saves a stamp for the selected signature provider when an update has no stored signature")
     void shouldSaveStampForSelectedProvider_whenUpdateHasNoStoredSignature() throws Exception {
         ConsultationRequest existing = new ConsultationRequest();
         // AbstractDao has find(Object) and find(int); the action calls find(Integer), so stub the Object overload.
-        when(consultationRequestDao.find(Integer.valueOf(9))).thenReturn(existing);
+        when(consultationRequestDao.find(9)).thenReturn(existing);
 
         DigitalSignature savedStamp = mock(DigitalSignature.class);
         when(savedStamp.getId()).thenReturn(55);
@@ -401,7 +420,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
     @DisplayName("warns the provider but still saves when a stamp cannot be applied on update")
     void shouldWarnButStillSave_whenStampFailsOnUpdate() throws Exception {
         ConsultationRequest existing = new ConsultationRequest();
-        when(consultationRequestDao.find(Integer.valueOf(9))).thenReturn(existing);
+        when(consultationRequestDao.find(9)).thenReturn(existing);
 
         action.setSubmission("Update");
         action.setRequestId("9");
@@ -424,7 +443,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
     @DisplayName("warns the provider but still saves when a collected manual signature fails to persist on update")
     void shouldWarnButStillSave_whenCapturedManualFailsOnUpdate() throws Exception {
         ConsultationRequest existing = new ConsultationRequest();
-        when(consultationRequestDao.find(Integer.valueOf(9))).thenReturn(existing);
+        when(consultationRequestDao.find(9)).thenReturn(existing);
 
         action.setSubmission("Update");
         action.setRequestId("9");

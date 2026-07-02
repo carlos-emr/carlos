@@ -352,9 +352,17 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 
         } else if (submission.startsWith("Update")) {
             requestId = this.getRequestId();
-            consultationManager.archiveConsultationRequest(Integer.parseInt(requestId));
 
             try {
+                int consultationRequestId;
+                try {
+                    consultationRequestId = Integer.parseInt(requestId);
+                } catch (NumberFormatException e) {
+                    MiscUtils.getLogger().error("Invalid consultation request id for update: {}", LogSafe.sanitize(requestId));
+                    addActionError("Invalid consultation request id");
+                    return INPUT;
+                }
+
                 int demographicId;
                 try {
                     demographicId = Integer.parseInt(demographicNo);
@@ -364,10 +372,12 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                     return INPUT;
                 }
 
+                consultationManager.archiveConsultationRequest(consultationRequestId);
+
                 // Load the consultation record before signature assignment so fallback branches use the
                 // DB-stored signature id rather than the client-submitted field (prevents a tampered
                 // form from associating an arbitrary DigitalSignature id with this consultation).
-                ConsultationRequest consult = consultationRequestDao.find(Integer.valueOf(requestId));
+                ConsultationRequest consult = consultationRequestDao.find(consultationRequestId);
                 String existingSignatureId = consult.getSignatureImg();
 
                 if (newSignature) {

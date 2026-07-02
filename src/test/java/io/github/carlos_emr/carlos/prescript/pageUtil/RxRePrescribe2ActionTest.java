@@ -7,6 +7,15 @@
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
  *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
@@ -14,7 +23,7 @@ package io.github.carlos_emr.carlos.prescript.pageUtil;
 
 import io.github.carlos_emr.carlos.managers.PrescriptionManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -43,9 +52,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @DisplayName("RxRePrescribe2Action prescription signature tests")
-@Tag("unit")
+@Tag("integration")
 @Tag("prescript")
-class RxRePrescribe2ActionTest extends CarlosUnitTestBase {
+class RxRePrescribe2ActionTest extends CarlosWebTestBase {
 
     private static final int SCRIPT_ID = 1234;
     private static final int SIGNATURE_ID = 5678;
@@ -80,8 +89,8 @@ class RxRePrescribe2ActionTest extends CarlosUnitTestBase {
         rxSessionBean.setProviderNo("999998");
         request.getSession().setAttribute("RxSessionBean", rxSessionBean);
 
-        registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
-        registerMock(PrescriptionManager.class, mockPrescriptionManager);
+        replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
+        replaceSpringUtilsBean(PrescriptionManager.class, mockPrescriptionManager);
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("w"), isNull()))
                 .thenReturn(true);
         when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
