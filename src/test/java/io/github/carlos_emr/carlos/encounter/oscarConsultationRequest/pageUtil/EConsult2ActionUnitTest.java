@@ -21,12 +21,31 @@
  */
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 
-import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.io.IOException;
+
+import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
+import org.springframework.mock.web.MockHttpServletRequest;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import jakarta.servlet.http.HttpServletResponse;
 
 /**
  * Unit tests for {@link EConsult2Action}'s eConsult SSO return URL construction.
@@ -181,5 +200,102 @@ class EConsult2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(EConsult2Action.econsultBaseUrlMisconfigured("https://econsult.example.com", "https://emr.example.com")).isFalse();
         assertThat(EConsult2Action.econsultBaseUrlMisconfigured(null, null)).isFalse();
         assertThat(EConsult2Action.econsultBaseUrlMisconfigured("", "")).isFalse();
+    }
+
+    /**
+     * CARLOS direct-response contract fix for issue #3068
+     * It ensures that {@code frontend()} and {@code login()} 
+     * return {@link ActionSupport#NONE} immediately after a redirect. Also, if {@code sendRedirect} 
+     * fails, it safely returns an {@code error} instead of just returning {@code null}.
+     *
+     * <p>Because the action sets up its dependencies (like the request, response, 
+     * {@link SecurityInfoManager}, and {@link CarlosProperties}) the moment it is created, 
+     * we must mock these dependencies <em>before</em> building the action. To make sure 
+     * tests can run safely in parallel, {@code CarlosProperties} is mocked using a thread-local 
+     * {@code mockStatic} instead of changing the global singleton.
+     */
+    @Nested
+    @DisplayName("Redirect return-value contract (issue #3068)")
+    class RedirectReturnValues {
+
+        private MockedStatic<ServletActionContext> servletActionContextMock;
+        private MockedStatic<CarlosProperties> carlosPropertiesMock;
+        private MockHttpServletRequest mockRequest;
+        private HttpServletResponse mockResponse;
+        private EConsult2Action action;
+
+        @BeforeEach
+        void setUp() {
+            // Provide valid, trusted URLs so both redirects build successfully; only the
+            // sendRedirect outcome (success vs IOException) is varied per test.
+            CarlosProperties mockProperties = mock(CarlosProperties.class);
+            when(mockProperties.getProperty("frontendEconsultUrl")).thenReturn("https://frontend.example.com");
+            when(mockProperties.getProperty("backendEconsultUrl")).thenReturn("https://econsult.example.com");
+            when(mockProperties.getProperty("carlosBaseUrl")).thenReturn("https://emr.example.com");
+            carlosPropertiesMock = mockStatic(CarlosProperties.class);
+            carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(mockProperties);
+
+            // The constructor pulls SecurityInfoManager from SpringUtils (mocked by the base).
+            registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
+
+            mockRequest = new MockHttpServletRequest();
+            mockRequest.setContextPath("/carlos");
+            mockResponse = mock(HttpServletResponse.class);
+
+            servletActionContextMock = mockStatic(ServletActionContext.class);
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(mockRequest);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(mockResponse);
+
+            action = new EConsult2Action();
+        }
+
+        @AfterEach
+        void tearDown() {
+            if (servletActionContextMock != null) {
+                servletActionContextMock.close();
+            }
+            if (carlosPropertiesMock != null) {
+                carlosPropertiesMock.close();
+            }
+        }
+
+        @Test
+        @DisplayName("login() returns NONE after a successful redirect")
+        void shouldReturnNone_whenLoginRedirectSucceeds() throws Exception {
+            String result = action.login();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            verify(mockResponse).sendRedirect(anyString());
+        }
+
+        @Test
+        @DisplayName("login() returns the error result when the redirect throws IOException")
+        void shouldReturnError_whenLoginRedirectThrowsIOException() throws Exception {
+            doThrow(new IOException("redirect failed")).when(mockResponse).sendRedirect(anyString());
+
+            assertThat(action.login()).isEqualTo(ActionSupport.ERROR);
+        }
+
+        @Test
+        @DisplayName("frontend() returns NONE after a successful redirect")
+        void shouldReturnNone_whenFrontendRedirectSucceeds() throws Exception {
+            mockRequest.getSession().setAttribute("oneid_token", "token-value");
+            mockRequest.getSession().setAttribute("oneIdEmail", "provider@example.com");
+
+            String result = action.frontend();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            verify(mockResponse).sendRedirect(anyString());
+        }
+
+        @Test
+        @DisplayName("frontend() returns the error result when the redirect throws IOException")
+        void shouldReturnError_whenFrontendRedirectThrowsIOException() throws Exception {
+            mockRequest.getSession().setAttribute("oneid_token", "token-value");
+            mockRequest.getSession().setAttribute("oneIdEmail", "provider@example.com");
+            doThrow(new IOException("redirect failed")).when(mockResponse).sendRedirect(anyString());
+
+            assertThat(action.frontend()).isEqualTo(ActionSupport.ERROR);
+        }
     }
 }
