@@ -32,6 +32,8 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
@@ -162,7 +164,7 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
      */
     private boolean createDirectory(File targetDir, String imageDir) {
         Path targetPath = targetDir.toPath();
-        boolean created = !Files.isDirectory(targetPath);
+        List<Path> createdDirectories = collectMissingDirectories(targetPath);
         try {
             Files.createDirectories(targetPath);
         } catch (IOException e) {
@@ -170,13 +172,33 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
             return false;
         }
 
-        if (!applyOwnerOnlyPermissions(targetPath, imageDir)) {
+        if (createdDirectories.isEmpty()) {
+            applyOwnerOnlyPermissions(targetPath, imageDir);
             return true;
         }
-        if (created) {
+
+        boolean targetVerified = true;
+        for (Path createdDirectory : createdDirectories) {
+            String directoryLabel = createdDirectory.equals(targetPath) ? imageDir : createdDirectory.toString();
+            boolean verified = applyOwnerOnlyPermissions(createdDirectory, directoryLabel);
+            if (createdDirectory.equals(targetPath)) {
+                targetVerified = verified;
+            }
+        }
+        if (targetVerified) {
             logger.info("Created eForm image directory with verified owner-only permissions: {}", imageDir);
         }
         return true;
+    }
+
+    List<Path> collectMissingDirectories(Path targetPath) {
+        List<Path> missingDirectories = new ArrayList<>();
+        Path current = targetPath;
+        while (current != null && !Files.exists(current)) {
+            missingDirectories.add(0, current);
+            current = current.getParent();
+        }
+        return missingDirectories;
     }
 
     boolean applyOwnerOnlyPermissions(Path targetPath, String imageDir) {

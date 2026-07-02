@@ -85,7 +85,7 @@ public class EFormAttachDocs2Action extends ActionSupport {
             return NONE;
         }
 
-        String effectiveProviderNo = StringUtils.defaultIfBlank(providerNo, loggedInInfo.getLoggedInProviderNo());
+        String effectiveProviderNo = loggedInInfo.getLoggedInProviderNo();
         Integer requestIdInt;
         Integer demographicNoInt;
         try {

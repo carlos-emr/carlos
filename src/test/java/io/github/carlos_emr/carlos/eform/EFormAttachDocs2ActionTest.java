@@ -134,7 +134,7 @@ class EFormAttachDocs2ActionTest extends CarlosUnitTestBase {
                 eq("999998"),
                 eq(123),
                 eq(456));
-        assertThat(responseBuffer.toString()).isEqualTo("ok");
+        assertThat(responseBuffer).hasToString("ok");
     }
 
     @Test
@@ -170,6 +170,23 @@ class EFormAttachDocs2ActionTest extends CarlosUnitTestBase {
                 eq(mockLoggedInInfo),
                 eq(DocumentType.FORM),
                 argThat(values -> values != null && values.length == 2 && values[0].equals("77") && values[1].equals("88")),
+                eq("999998"),
+                eq(123),
+                eq(456));
+    }
+
+
+    @Test
+    void shouldIgnoreRequestProviderNo_whenWritingAttachments() throws Exception {
+        action.setProviderNo("attacker-provider");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        verify(mockDocumentAttachmentManager).attachToEForm(
+                eq(mockLoggedInInfo),
+                eq(DocumentType.DOC),
+                argThat(values -> values != null && values.length == 0),
                 eq("999998"),
                 eq(123),
                 eq(456));

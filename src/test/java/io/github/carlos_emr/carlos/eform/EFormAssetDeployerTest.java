@@ -38,6 +38,8 @@ import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermission;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.*;
@@ -256,6 +258,31 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
                     PosixFilePermission.OWNER_READ,
                     PosixFilePermission.OWNER_WRITE,
                     PosixFilePermission.OWNER_EXECUTE);
+        }
+
+        @Test
+        @DisplayName("Should restrict every created directory in nested paths")
+        void shouldRestrictEveryCreatedDirectory_inNestedPaths() {
+            Path nestedRoot = tempDir.resolve("nested-root");
+            Path nestedChild = nestedRoot.resolve("nested-child");
+            Path missingDir = nestedChild.resolve("posix-eform-images");
+            List<Path> restrictedPaths = new ArrayList<>();
+
+            EFormAssetDeployer recordingDeployer = new EFormAssetDeployer() {
+                @Override
+                boolean applyOwnerOnlyPermissions(Path targetPath, String imageDir) {
+                    restrictedPaths.add(targetPath);
+                    return true;
+                }
+            };
+            recordingDeployer.setServletContext(mockServletContext);
+
+            when(mockProperties.getEformImageDirectory()).thenReturn(missingDir.toString());
+            stubAllAssets();
+
+            recordingDeployer.afterPropertiesSet();
+
+            assertThat(restrictedPaths).containsExactly(nestedRoot, nestedChild, missingDir);
         }
 
         @Test
