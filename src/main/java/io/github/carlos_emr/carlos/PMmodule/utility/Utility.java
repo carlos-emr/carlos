@@ -517,7 +517,8 @@ public class Utility {
      * <ol>
      *   <li>Uses {@code LocaleContextHolder.getLocale()} when the requested locale is null</li>
      *   <li>Loads the "oscarResources" bundle for the resolved locale</li>
-     *   <li>Delegates any locale fallback to {@link ResourceBundle#getBundle(String, Locale)}</li>
+     *   <li>Delegates to {@link ResourceBundle#getBundle(String, Locale)}, which handles the standard
+     *       locale fallback chain</li>
      * </ol>
      *
      * @param locale the desired locale for the resource bundle; if null, uses the current context locale
@@ -718,8 +719,8 @@ public class Utility {
      * @param DOB the patient's date of birth; if null, returns null
      * @param pointInTime the reference date for age calculation (e.g., current date or a future appointment date);
      *                    if before DOB, returns a localized "not born yet" message
-     * @param locale the locale for formatting age strings; if null, uses the current context locale before
-     *               delegating locale fallback to {@link ResourceBundle#getBundle(String, Locale)}
+     * @param locale the locale for formatting age strings; if null, uses the current context locale;
+     *               {@link ResourceBundle#getBundle(String, Locale)} handles further locale fallback
      * @return formatted age string at the specified date (e.g., "45 years", "3 months", "not born yet"),
      *         or null if DOB is null
      */

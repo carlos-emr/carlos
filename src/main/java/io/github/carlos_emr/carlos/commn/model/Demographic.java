@@ -1308,8 +1308,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
      *
      * @param asofDate the reference date for age calculation; if null, the current date is used
      * @param locale the locale for formatting age strings (e.g., "2 years", "3 months");
-     *               if null, {@link Utility#getOscarBundle(Locale)} uses the current context locale before
-     *               delegating locale fallback to {@link ResourceBundle#getBundle(String, Locale)}
+     *               if null, uses the current context locale; {@link ResourceBundle#getBundle(String, Locale)}
+     *               handles further locale fallback
      * @return formatted age string at the specified date (e.g., "45 years", "3 months", "not born yet"),
      *         or null if the birth date cannot be calculated
      */
