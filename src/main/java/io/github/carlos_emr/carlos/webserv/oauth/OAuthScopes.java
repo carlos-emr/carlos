@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.webserv.oauth;
 
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -74,7 +75,7 @@ public final class OAuthScopes {
     }
 
     private static Set<String> buildKnownScopes() {
-        java.util.Set<String> scopes = new java.util.HashSet<>();
+        Set<String> scopes = new HashSet<>();
         for (String domain : PILOT_DOMAIN_BY_PATH_ROOT.values()) {
             scopes.add(domain + "." + READ);
             scopes.add(domain + "." + WRITE);
