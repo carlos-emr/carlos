@@ -137,6 +137,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             "observation_date_asc", "observation_date_desc",
             "providerName", "programName", "roleName", "update_date");
 
+    private static final String ISSUE_LIST_AJAX_RESULT = "issueList_ajax";
+    private static final Set<String> ALLOWED_CHAIN_RESULT_NAMES = Set.of("list", "view", ISSUE_LIST_AJAX_RESULT);
+
     public String execute() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
@@ -532,12 +535,16 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         mySessionMap.put(frmName, cform);
 
         String fwd, finalFwd = null;
-        if (chain != null && chain.length() > 0) {
-            fwd = chain;
+        String chainResult = sanitizeChainResultName(chain);
+        if (chainResult != null) {
+            fwd = chainResult;
         } else {
+            if (StringUtils.isNotBlank(chain)) {
+                logger.warn("Rejected invalid chain result target");
+            }
             String ajax = request.getParameter("ajax");
             if (ajax != null && ajax.equalsIgnoreCase("true")) {
-                fwd = "issueList_ajax";
+                fwd = ISSUE_LIST_AJAX_RESULT;
             } else {
                 fwd = "view";
             }
@@ -1722,9 +1729,12 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         /* prepare the message */
         addActionMessage(getText("note.saved"));
         String chain = request.getParameter("chain");
+        String chainResult = sanitizeChainResultName(chain);
 
-        if (chain != null && !chain.equals("")) {
-            return chain;
+        if (chainResult != null) {
+            return chainResult;
+        } else if (StringUtils.isNotBlank(chain)) {
+            logger.warn("Rejected invalid chain result target");
         }
 
         return "view";
@@ -1913,7 +1923,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), logAction, LogConst.CON_CME_NOTE, String.valueOf(note.getId()), request.getRemoteAddr(), demo, note.getAuditString());
 
-        return "issueList_ajax";
+        return ISSUE_LIST_AJAX_RESULT;
     }
 
     /**
@@ -2073,24 +2083,39 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             logger.debug("Redirecting to billing form for appointment_no={}, demographic_no={}",
                     appointmentNo, demoNo);
             sendBillingRedirect(url);
+            return NONE;
         }
 
         String chain = request.getParameter("chain");
 
         if (chain != null && !chain.equals("")) {
-            // FP for open-redirect scanners (CodeQL java/OR): isValidInternalRedirect enforces
-            // relative-only (via RedirectValidationUtils.isValidRelativeRedirect) OR
-            // same-scheme+host+port match; rejects protocol-relative (//evil), backslash and %5c
-            // (/\evil.com -> //evil.com), userinfo (@evil), and suffix (host.evil) bypasses.
-            if (isValidInternalRedirect(chain, request)) {
-                response.sendRedirect(chain); // nosemgrep: java.lang.security.audit.servlets.unvalidated-redirect.unvalidated-redirect-java -- gated by isValidInternalRedirect // lgtm[java/unvalidated-url-redirection]
+            String redirectTarget = sanitizeInternalRedirect(chain);
+            // Redirect guard: only slash-prefixed relative paths are allowed. The shared
+            // validator rejects protocol-relative URLs, absolute schemes, backslashes,
+            // encoded control characters, and traversal escapes.
+            if (redirectTarget != null) {
+                sendChainRedirect(redirectTarget);
+                return NONE;
             } else {
-                logger.warn("Attempted redirect to invalid URL: {}", LogSafe.sanitize(chain));
+                logger.warn("Rejected invalid chain redirect target");
                 // Fall through to return "windowClose" without redirect
             }
         }
 
         return "windowClose";
+    }
+
+    // FindSecBugs UNVALIDATED_REDIRECT: redirectTarget is returned by sanitizeInternalRedirect,
+    // which only permits trimmed, slash-prefixed relative URLs accepted by RedirectValidationUtils.
+    @SuppressFBWarnings(
+            value = "UNVALIDATED_REDIRECT",
+            justification = "redirectTarget is returned by sanitizeInternalRedirect, which only permits trimmed, "
+                    + "slash-prefixed relative URLs accepted by RedirectValidationUtils")
+    private void sendChainRedirect(String redirectTarget) throws IOException {
+        // Intentionally rebuild at the sink so static analysis sees a same-host path
+        // constructed from a literal slash after sanitizeInternalRedirect validates it.
+        String sameHostRedirectTarget = "/" + redirectTarget.substring(1);
+        response.sendRedirect(sameHostRedirectTarget); // nosemgrep: java.lang.security.audit.servlets.unvalidated-redirect.unvalidated-redirect-java -- gated by sanitizeInternalRedirect
     }
 
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a fixed same-origin billing path (contextPath + "/billing"); only query parameters (billing/appointment request and session values) vary and cannot alter the host or scheme.
@@ -2392,7 +2417,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String ajax = request.getParameter("ajax");
         if (ajax != null && ajax.equalsIgnoreCase("true")) {
             request.setAttribute("caseManagementEntryForm", sessionFrm);
-            return "issueList_ajax";
+            return ISSUE_LIST_AJAX_RESULT;
         } else return "view";
     }
 
@@ -2512,7 +2537,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
         request.setAttribute("caseManagementEntryForm", sessionFrm);
 
-        return "issueList_ajax";
+        return ISSUE_LIST_AJAX_RESULT;
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
@@ -2576,7 +2601,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String ajax = request.getParameter("ajax");
         if (ajax != null && ajax.equalsIgnoreCase("true")) {
             request.setAttribute("caseManagementEntryForm", sessionFrm);
-            return "issueList_ajax";
+            return ISSUE_LIST_AJAX_RESULT;
         } else return "view";
     }
 
@@ -2660,7 +2685,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String ajax = request.getParameter("ajax");
         if (ajax != null && ajax.equalsIgnoreCase("true")) {
             request.setAttribute("caseManagementEntryForm", sessionFrm);
-            return "issueList_ajax";
+            return ISSUE_LIST_AJAX_RESULT;
         } else return "view";
     }
 
@@ -3921,70 +3946,46 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     }
 
     /**
+     * Returns a normalized internal redirect target, or {@code null} when unsafe.
+     *
+     * @param url The URL to validate
+     * @return trimmed safe redirect URL, or null when unsafe
+     */
+    static String sanitizeInternalRedirect(String url) {
+        String trimmedUrl = StringUtils.trimToNull(url);
+        if (trimmedUrl == null || !isValidInternalRedirect(trimmedUrl)) {
+            return null;
+        }
+        return trimmedUrl;
+    }
+
+    /**
+     * Returns a whitelisted Struts result name for the legacy {@code chain} parameter.
+     *
+     * @param chain raw requested result name
+     * @return safe result name, or null when absent or unsafe
+     */
+    static String sanitizeChainResultName(String chain) {
+        String trimmedChain = StringUtils.trimToNull(chain);
+        if (trimmedChain == null || !ALLOWED_CHAIN_RESULT_NAMES.contains(trimmedChain)) {
+            return null;
+        }
+        return trimmedChain;
+    }
+
+    /**
      * Validates that a redirect URL is safe and points to an internal application URL.
      * This prevents open redirect vulnerabilities.
-     * 
+     *
      * @param url The URL to validate
-     * @param request The HTTP request object for context
      * @return true if the URL is safe for redirect, false otherwise
      */
-    private boolean isValidInternalRedirect(String url, HttpServletRequest request) {
-        if (url == null || url.trim().isEmpty()) {
+    static boolean isValidInternalRedirect(String url) {
+        if (url == null || url.isEmpty()) {
             return false;
         }
 
-        // Remove any leading/trailing whitespace
-        url = url.trim();
-
-        // Check for relative URLs (safe). Delegate to the shared validator, which — beyond the
-        // naive "no ://" check this method used to do — also rejects backslash and %5c
-        // (browsers normalise /\evil.com to //evil.com after a redirect), percent-encoded
-        // control characters, and path-traversal escapes.
-        if (url.startsWith("/") && !url.startsWith("//")) {
-            return RedirectValidationUtils.isValidRelativeRedirect(url);
-        }
-
-        // Check if URL starts with the application's context path
-        String contextPath = request.getContextPath();
-        if (!contextPath.isEmpty() && url.startsWith(contextPath + "/")) {
-            return true;
-        }
-
-        // Check for absolute URLs - must match the current server
-        try {
-            // Parse the URL to check if it's absolute
-            if (url.contains("://")) {
-                // Get the current server URL components
-                String scheme = request.getScheme();
-                String serverName = request.getServerName();
-                int serverPort = request.getServerPort();
-                
-                // Build the expected server prefix
-                StringBuilder expectedPrefix = new StringBuilder();
-                expectedPrefix.append(scheme).append("://").append(serverName);
-                
-                // Add port if it's not the default for the scheme
-                if ((scheme.equals("http") && serverPort != 80) || 
-                    (scheme.equals("https") && serverPort != 443)) {
-                    expectedPrefix.append(":").append(serverPort);
-                }
-                
-                // Check if the URL starts with our server prefix
-                if (url.startsWith(expectedPrefix.toString() + "/") ||
-                    url.startsWith(expectedPrefix.toString() + contextPath + "/")) {
-                    return true;
-                }
-                
-                // Reject any other absolute URLs
-                return false;
-            }
-        } catch (Exception e) {
-            logger.error("Error validating redirect URL: {}", LogSafe.sanitize(url), e);
-            return false;
-        }
-
-        // Default to rejecting unknown patterns
-        return false;
+        return url.startsWith("/") && RedirectValidationUtils.isValidRelativeRedirect(url);
     }
 
     /**

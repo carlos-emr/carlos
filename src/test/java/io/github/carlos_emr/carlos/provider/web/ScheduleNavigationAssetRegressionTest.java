@@ -47,6 +47,8 @@ class ScheduleNavigationAssetRegressionTest {
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "provider", "schedulePage.js.jsp");
     private static final Path PROVIDER_PREFERENCE_JSP =
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "provider", "providerpreference.jsp");
+    private static final Path PROVIDER_UPDATE_PREFERENCE_JSP =
+            Path.of("src", "main", "webapp", "WEB-INF", "jsp", "provider", "providerupdatepreference.jsp");
     private static final Path DOCUMENT_REPORT_JSP =
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "documentManager", "documentReport.jsp");
     private static final Path DISPLAY_MESSAGES_JSP =
@@ -57,6 +59,8 @@ class ScheduleNavigationAssetRegressionTest {
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "messenger", "CreateMessage.jsp");
     private static final Path SENT_MESSAGE_JSP =
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "messenger", "SentMessage.jsp");
+    private static final Path MESSENGER_SCHEDULE_NAV_JSPF =
+            Path.of("src", "main", "webapp", "WEB-INF", "jsp", "messenger", "messengerScheduleNav.jspf");
     private static final Path INBOXHUB_JSP =
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "web", "inboxhub", "Inboxhub.jsp");
     private static final Path TICKLER_MAIN_JSP =
@@ -105,6 +109,42 @@ class ScheduleNavigationAssetRegressionTest {
                 .doesNotContain("CARLOSDOC_PROVIDER_NO");
     }
 
+    @Test
+    @DisplayName("should broadcast saved schedule navigation mode with shared resolver")
+    void shouldBroadcastScheduleNavigationMode_whenPreferenceSaved() throws IOException {
+        String providerUpdatePreference = Files.readString(PROVIDER_UPDATE_PREFERENCE_JSP, StandardCharsets.UTF_8);
+        String normalizedProviderUpdatePreference = normalizeWhitespace(providerUpdatePreference);
+
+        assertThat(normalizedProviderUpdatePreference)
+                .contains("savedScheduleNavigationMode = UserProperty.resolveScheduleNavigationMode("
+                        + " submittedScheduleNavigationMode, false);")
+                .contains("mode: '<%= SafeEncode.forJavaScript(savedScheduleNavigationMode) %>'")
+                .contains("self.opener.applyScheduleNavigationPreference(scheduleNavigationPreferencePayload.mode);")
+                .contains("new BroadcastChannel('carlos_schedule_navigation_mode')")
+                .contains("localStorage.setItem('carlos_schedule_navigation_mode',"
+                        + " JSON.stringify(scheduleNavigationPreferencePayload));")
+                .doesNotContain("!UserProperty.SCHEDULE_NAVIGATION_MODE_TAB.equals(savedScheduleNavigationMode)");
+    }
+
+    @Test
+    @DisplayName("should compose menu preference opener hook")
+    void shouldComposePreferenceHook_whenMenuIncluded() throws IOException {
+        String mainMenu = Files.readString(MAIN_MENU_JSP, StandardCharsets.UTF_8);
+        String normalizedMainMenu = normalizeWhitespace(mainMenu);
+
+        assertThat(normalizedMainMenu)
+                .contains("var existingApplyScheduleNavigationPreference ="
+                        + " window.applyScheduleNavigationPreference;")
+                .contains("window.applyScheduleNavigationPreference = function(mode) {"
+                        + " applyScheduleMenuNavigationPreference(mode);"
+                        + " if (typeof existingApplyScheduleNavigationPreference === 'function'"
+                        + " && existingApplyScheduleNavigationPreference !=="
+                        + " applyScheduleMenuNavigationPreference) {"
+                        + " existingApplyScheduleNavigationPreference(mode); } };")
+                .doesNotContain("if (typeof window.applyScheduleNavigationPreference !== 'function') {"
+                        + " window.applyScheduleNavigationPreference = applyScheduleMenuNavigationPreference; }");
+    }
+
 
     @Test
     @DisplayName("should keep schedule navigation styled and propagated on destination pages")
@@ -114,6 +154,8 @@ class ScheduleNavigationAssetRegressionTest {
         String viewMessage = Files.readString(VIEW_MESSAGE_JSP, StandardCharsets.UTF_8);
         String createMessage = Files.readString(CREATE_MESSAGE_JSP, StandardCharsets.UTF_8);
         String sentMessage = Files.readString(SENT_MESSAGE_JSP, StandardCharsets.UTF_8);
+        String messengerScheduleNav = Files.readString(MESSENGER_SCHEDULE_NAV_JSPF, StandardCharsets.UTF_8);
+        String normalizedMessengerScheduleNav = normalizeWhitespace(messengerScheduleNav);
         String normalizedSentMessage = normalizeWhitespace(sentMessage);
         String inboxhub = Files.readString(INBOXHUB_JSP, StandardCharsets.UTF_8);
         String ticklerMain = Files.readString(TICKLER_MAIN_JSP, StandardCharsets.UTF_8);
@@ -149,24 +191,34 @@ class ScheduleNavigationAssetRegressionTest {
                 .contains("li.nav-active > a.tabalert")
                 .contains("li.nav-active > a span");
         assertThat(displayMessages)
+                .contains("<%@ include file=\"messengerScheduleNav.jspf\" %>")
                 .contains("String boxTypeQuerySuffix = pageType > 0 ? \"&boxType=\" + pageType : \"\";")
                 .contains("String demographicQuerySuffix = pageType == 3 && demographic_no != null")
                 .contains("ViewCreateMessage<%=scheduleNavFirstQuerySuffix%>")
                 .contains(STATUS_SORT_LINK_PATTERN)
                 .contains(MESSAGE_LINK_PATTERN);
-        assertThat(viewMessage)
+        assertThat(messengerScheduleNav)
                 .contains("boolean showScheduleNav = \"1\".equals(request.getParameter(\"scheduleNav\"));")
+                .contains("String scheduleNavQuerySuffix = showScheduleNav ? \"&scheduleNav=1\" : \"\";")
+                .contains("String scheduleNavFirstQuerySuffix = showScheduleNav ? \"?scheduleNav=1\" : \"\";");
+        assertThat(normalizedMessengerScheduleNav)
+                .contains("boolean showMessengerExitButton = !showScheduleNav "
+                        + "|| !UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED.equals(messengerScheduleNavigationMode);")
+                .doesNotContain("UserProperty.SCHEDULE_NAVIGATION_MODE_TAB.equals(messengerScheduleNavigationMode)");
+        assertThat(viewMessage)
+                .contains("<%@ include file=\"messengerScheduleNav.jspf\" %>")
                 .contains("<jsp:include page=\"/WEB-INF/jsp/provider/mainMenu.jsp\"/>")
                 .contains("DisplayMessages<%=scheduleNavFirstQuerySuffix%>")
-                .contains("DisplayMessages?boxType=1<%=scheduleNavQuerySuffix%>");
+                .contains("DisplayMessages?boxType=1<%=scheduleNavQuerySuffix%>")
+                .contains("ViewCreateMessage<%=scheduleNavFirstQuerySuffix%>");
         assertThat(createMessage)
-                .contains("boolean showScheduleNav = \"1\".equals(request.getParameter(\"scheduleNav\"));")
+                .contains("<%@ include file=\"messengerScheduleNav.jspf\" %>")
                 .contains("<jsp:include page=\"/WEB-INF/jsp/provider/mainMenu.jsp\"/>")
                 .contains("<input type=\"hidden\" name=\"scheduleNav\" value=\"1\">")
                 .contains("ClearMessage<%=scheduleNavFirstQuerySuffix%>")
                 .contains("DisplayMessages<%=scheduleNavFirstQuerySuffix%>");
         assertThat(sentMessage)
-                .contains("boolean showScheduleNav = \"1\".equals(request.getParameter(\"scheduleNav\"));")
+                .contains("<%@ include file=\"messengerScheduleNav.jspf\" %>")
                 .contains("ViewCreateMessage<%=scheduleNavFirstQuerySuffix%>")
                 .contains("DisplayMessages<%=scheduleNavFirstQuerySuffix%>");
         assertThat(normalizedSentMessage)
@@ -256,6 +308,28 @@ class ScheduleNavigationAssetRegressionTest {
                 .contains("var targetUrl = usesScheduleShell ? appendQueryParam(url, 'scheduleNav', '1')"
                         + " : url;")
                 .contains("popupAction(targetUrl);");
+    }
+
+    @Test
+    @DisplayName("should expose appointment hover details on schedule entries")
+    void shouldExposeAppointmentHoverDetails_onScheduleEntries() throws IOException {
+        String appointmentProviderDay = Files.readString(APPOINTMENT_PROVIDER_DAY_JSP, StandardCharsets.UTF_8);
+        String scheduleScript = Files.readString(SCHEDULE_PAGE_SCRIPT, StandardCharsets.UTF_8);
+
+        assertThat(appointmentProviderDay)
+                .contains("appendTooltipLine(appointmentTooltipSummaryBuilder, \"Reason\", reasonCodeName);")
+                .contains("appendTooltipLine(appointmentTooltipFullBuilder, \"Appointment notes\", notes);")
+                .contains("appendTooltipLine(appointmentTooltipFullBuilder, \"Ticklers\", tickler_note);")
+                .contains("appendTooltipLine(appointmentTooltipFullBuilder, \"Demographic alerts\", demographicAlert);")
+                .contains("appendTooltipLine(appointmentTooltipFullBuilder, \"Demographic notes\", demographicNotes);")
+                .contains("appendTooltipLine(appointmentTooltipFullBuilder, \"Prevention alerts\", preventionWarning);")
+                .contains("class=\"appt<%= isCancelled ? \" Cancelled\" : \"\" %><%= showTooltip ?"
+                        + " \" appt-reason-tooltip appt-tooltip-provider-\" + curProvider_no[nProvider] : \"\" %>\"")
+                .contains("data-title-full=\\\"\" + appointmentTooltipFull + \"\\\"")
+                .contains("data-title-short=\\\"\" + appointmentTooltipSummary + \"\\\"");
+        assertThat(scheduleScript)
+                .contains("updateTooltipsForProvider(providerNo, showReason);")
+                .contains("const titleAttr = showReason ? el.dataset.titleFull : el.dataset.titleShort;");
     }
 
     /**

@@ -93,6 +93,26 @@ class JspJavaScriptEncodingRegressionTest {
     }
 
     @Test
+    void shouldDeriveDocumentReportCurrentUserFromSession_andGuardOpenerRefresh() throws Exception {
+        String addDocumentJsp = readJsp("documentManager/addDocument.jsp");
+        String documentReportJsp = readJsp("documentManager/documentReport.jsp");
+
+        // Assert intent (whitespace-tolerant patterns), not exact source formatting. The
+        // doesNotContain guards are the durable regression net: curUser must not be read from a
+        // request parameter, and the opener URL map must not be dereferenced unguarded.
+        assertThat(addDocumentJsp)
+                .containsPattern("curUser\\s*=\\s*user_no\\s*!=\\s*null")
+                .doesNotContain("request.getParameter(\"curUser\")");
+        assertThat(documentReportJsp)
+                .containsPattern("curUser\\s*=\\s*LoggedInInfo\\.getLoggedInInfoFromSession\\(request\\)\\.getLoggedInProviderNo\\(\\)")
+                .containsPattern("hasOwnProperty\\.call\\(\\s*window\\.opener\\.URLs")
+                // Gate forwards the validated lowercased function token; the JSP must prefer it so a
+                // mixed-case "function" param cannot skip the case-sensitive "demographic" branch.
+                .containsPattern("getAttribute\\(\\s*\"normalizedFunction\"\\s*\\)")
+                .doesNotContain("var Url = window.opener.URLs;");
+    }
+
+    @Test
     void shouldUseGuardedIpAddressVariable_forChartNotesAjax() throws Exception {
         String chartNotesJsp = readJsp("casemgmt/ChartNotesAjax.jsp");
         int declarationStart = chartNotesJsp.indexOf("String noteLockIpAddress");
@@ -137,6 +157,26 @@ class JspJavaScriptEncodingRegressionTest {
                 .contains("SafeEncode.forJavaScriptAttribute(billlist1[i].getServiceCode())")
                 .contains("SafeEncode.forJavaScriptAttribute(billlist2[i].getServiceCode())")
                 .contains("SafeEncode.forJavaScriptAttribute(billlist3[i].getServiceCode())");
+    }
+
+    @Test
+    @DisplayName("should encode bill status table fields in HTML and JavaScript attribute contexts")
+    @Tag("security")
+    void shouldContainEncodedBillingStatusNamesAndDescriptions_inSafeContexts() throws Exception {
+        String billStatusJsp = readJsp("billing/CA/BC/billStatus.jsp");
+
+        assertThat(billStatusJsp)
+                .doesNotContain("<a href=\"javascript: setDemographic('<%=b.demoNo%>');\"><%=b.demoName%>")
+                .doesNotContain("<td><%=b.providerLastName%>,<%=b.providerFirstName%>")
+                .doesNotContain("<td title=\"<%=msp.getStatusDesc(b.reason)%>\"><%=msp.getStatusDesc(b.reason) == null ? \"&nbsp\" : msp.getStatusDesc(b.reason)%>")
+                .doesNotContain("SafeEncode.forJavaScriptAttribute(String.valueOf(b.demoNo))")
+                .contains("SafeEncode.forJavaScriptAttribute(b.demoNo)")
+                .contains("SafeEncode.forHtml(b.demoName)")
+                .contains("SafeEncode.forHtml(b.providerLastName)")
+                .contains("SafeEncode.forHtml(b.providerFirstName)")
+                .contains("String statusDesc = msp.getStatusDesc(b.reason);")
+                .contains("title=\"<%=SafeEncode.forHtmlAttribute(statusDesc)%>\"")
+                .contains("statusDesc == null ? \"&nbsp;\" : SafeEncode.forHtml(statusDesc)");
     }
 
     @Test

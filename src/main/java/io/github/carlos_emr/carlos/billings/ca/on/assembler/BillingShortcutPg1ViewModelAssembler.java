@@ -30,6 +30,8 @@ import java.util.Properties;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import org.apache.logging.log4j.Logger;
+
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.SxmlMisc;
@@ -286,14 +288,18 @@ public class BillingShortcutPg1ViewModelAssembler {
                         billingHistoryDetails.add(detail);
                     } catch (ClassCastException ccEx) {
                         historyPartialRowCount++;
-                        io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
-                                "Shortcut history: data-shape regression at pair index {} for demo={}",
-                                i, demoNo, ccEx);
+                        Logger logger = MiscUtils.getLogger();
+                        if (logger.isErrorEnabled()) {
+                            logger.error("Shortcut history: data-shape regression at pair index {}; demo omitted from log",
+                                    i, ccEx);
+                        }
                     } catch (RuntimeException rowEx) {
                         historyPartialRowCount++;
-                        io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
-                                "Shortcut history: skipping malformed pair at index {} for demo={}",
-                                i, demoNo, rowEx);
+                        Logger logger = MiscUtils.getLogger();
+                        if (logger.isWarnEnabled()) {
+                            logger.warn("Shortcut history: skipping malformed pair at index {}; demo omitted from log",
+                                    i, rowEx);
+                        }
                     }
                 }
             }

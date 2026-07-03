@@ -104,11 +104,16 @@ public class Startup implements ServletContextListener {
                     p.readFromFile("/WEB-INF/" + propName);
                     logger.info("loading properties from /WEB-INF/" + propName);
                 } catch (java.io.FileNotFoundException e) {
-                    logger.error("Configuration file: " + propName + " cannot be found, it should be put either in the User's home or in WEB-INF ");
-                    return;
+                    /*
+                     * No configuration in either location means the app has no DB connection and,
+                     * critically, no encryption key. Booting on would defer the failure to the first
+                     * PHI/credential operation. Fail fast at startup instead.
+                     */
+                    throw new IllegalStateException("Configuration file " + propName
+                            + " not found in user home or WEB-INF; refusing to start.", e);
                 } catch (Exception e) {
-                    logger.error("Error", e);
-                    return;
+                    throw new IllegalStateException("Failed to read configuration file " + propName
+                            + "; refusing to start.", e);
                 }
             }
             try {
@@ -136,17 +141,36 @@ public class Startup implements ServletContextListener {
 			// 	Ensure that a secret key for encryption is available when OSCAR starts, either by retrieving a
 			// 	previously saved key or generating a new one and storing it for future use.
 			String secretKey = p.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR);
-			if (Objects.isNull(secretKey)) {
+			if (Objects.isNull(secretKey) || secretKey.isBlank()) {
 				try {
 					secretKey = EncryptionUtils.generateSecretKey();
 					p.saveProperty(propFileName, EncryptionUtils.SECRET_KEY_ENV_VAR, secretKey);
-					EncryptionUtils.prepareSecretKeySpec();
 					logger.info("New Secret Key generated...");
 				} catch (IOException | NoSuchAlgorithmException e) {
-					logger.error("Error generating new Secret Key - ", e);
+					/*
+					 * A usable encryption key is mandatory: it protects stored PHI and provider
+					 * credentials. Fail fast rather than booting with no key, which would defer the
+					 * failure to the first credential save (an opaque runtime error for clinicians).
+					 */
+					throw new IllegalStateException("Unable to generate and persist a new encryption key at startup", e);
 				}
 			} else {
 				logger.info("Using existing Secret Key...");
+			}
+
+			/*
+			 * EncryptionUtils may be loaded before the application properties are read, leaving its
+			 * cached SecretKeySpec unset even when a key already exists in the properties file.
+			 * Always prepare the key after startup has ensured a key exists so credential saves can
+			 * encrypt passwords reliably. An invalid existing key is NOT auto-rotated: regenerating
+			 * over it would permanently orphan everything already encrypted under the real key.
+			 * Instead, abort startup so an operator can restore the correct key.
+			 */
+			try {
+				EncryptionUtils.prepareSecretKeySpec();
+			} catch (IllegalArgumentException e) {
+				throw new IllegalStateException("Configured encryption key is invalid (" + e.getMessage()
+						+ "); refusing to start. Restore the correct encryption key, or remove it to have a new one generated.", e);
 			}
 
 			// CHECK FOR DEFAULT PROPERTIES
