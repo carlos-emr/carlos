@@ -17,6 +17,8 @@
  */
 package io.github.carlos_emr.carlos.email.action;
 
+import java.util.List;
+
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.struts2.ActionSupport;
@@ -42,8 +44,11 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
@@ -115,6 +120,38 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should preserve session attachments when cancel arrives via GET")
+    void shouldPreserveSessionAttachments_whenCancelArrivesViaGet() {
+        grantEmailWritePrivilege();
+        request.setMethod("GET");
+        request.setParameter("method", "cancel");
+        request.setParameter("transactionType", "DIRECT");
+        request.getSession().setAttribute("emailAttachmentList", List.of());
+
+        String result = newAction().execute();
+
+        assertThat(result).isEqualTo("DIRECT");
+        assertThat(request.getSession().getAttribute("emailAttachmentList")).isNotNull();
+        verifyNoInteractions(emailManager, eformDataManager);
+    }
+
+    @Test
+    @DisplayName("should clear session attachments when cancel arrives via POST")
+    void shouldClearSessionAttachments_whenCancelArrivesViaPost() {
+        grantEmailWritePrivilege();
+        request.setMethod("POST");
+        request.setParameter("method", "cancel");
+        request.setParameter("transactionType", "DIRECT");
+        request.getSession().setAttribute("emailAttachmentList", List.of());
+
+        String result = newAction().execute();
+
+        assertThat(result).isEqualTo("DIRECT");
+        assertThat(request.getSession().getAttribute("emailAttachmentList")).isNull();
+        verifyNoInteractions(emailManager, eformDataManager);
+    }
+
+    @Test
     @DisplayName("should encode fdid when cancel redirects to eForm")
     void shouldEncodeFdid_whenCancelRedirectsToEForm() {
         request.setParameter("transactionType", "EFORM");
@@ -177,6 +214,25 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
 
             assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            verifyNoInteractions(emailManager, eformDataManager);
+        }
+
+        @Test
+        @DisplayName("should still block mutation when 405 sendError hits a committed response")
+        void shouldStillBlockMutation_whenSendErrorHitsCommittedResponse() throws Exception {
+            grantEmailWritePrivilege();
+            request.setMethod("GET");
+            // Per the Servlet spec, sendError throws IllegalStateException once the
+            // response is committed (e.g. client abort); the rejection must still hold.
+            HttpServletResponse committedResponse = mock(HttpServletResponse.class);
+            doThrow(new IllegalStateException("Response already committed"))
+                .when(committedResponse).sendError(anyInt(), anyString());
+            EmailSend2Action action = newAction();
+            action.response = committedResponse;
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
             verifyNoInteractions(emailManager, eformDataManager);
         }
 

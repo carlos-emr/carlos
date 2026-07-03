@@ -99,8 +99,9 @@ public class EmailSend2Action extends ActionSupport {
             response.setHeader("Allow", "POST");
             try {
                 response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
-            } catch (IOException e) {
-                // Response may already be committed (client abort). The mutation is still
+            } catch (IOException | IllegalStateException e) {
+                // sendError throws IllegalStateException if the response is already committed
+                // (e.g. client abort) and IOException on write failure. The mutation is still
                 // blocked by returning NONE below; log for observability only.
                 logger.warn("Failed to send 405 on non-POST email send attempt", e);
             }
@@ -176,14 +177,17 @@ public class EmailSend2Action extends ActionSupport {
      *
      * <p>This method handles the cancel workflow by:</p>
      * <ul>
-     *   <li>Preparing email fields from the request (to determine transaction type)</li>
+     *   <li>Reading the transaction type from the request (via {@link EmailData} for the
+     *       shared string-to-enum mapping) to determine the return destination</li>
      *   <li>Performing context-specific redirects based on the transaction type</li>
      *   <li>For EFORM transactions: redirects to the EForm display page with original form data</li>
      * </ul>
      *
-     * <p>The method uses the transaction type from the email data to determine the
-     * appropriate return destination, ensuring users are returned to their original
-     * workflow context when canceling an email operation.</p>
+     * <p>Cancel stays reachable via GET as pure navigation, so it must not consume
+     * session state: the {@code emailAttachmentList} cleanup (a mutation) only runs for
+     * POST requests, keeping a crafted GET link from clearing an in-progress email's
+     * attachments. The legitimate cancel path in {@code emailCompose.jsp} submits the
+     * compose form via POST and retains the cleanup.</p>
      *
      * @return String Struts2 result identifier matching the transaction type name
      * @throws RuntimeException if IOException occurs during redirect for EFORM transactions
@@ -191,7 +195,13 @@ public class EmailSend2Action extends ActionSupport {
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
     @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String cancel() {
-        EmailData emailData = prepareEmailFields(request);
+        EmailData emailData = new EmailData();
+        emailData.setTransactionType(request.getParameter("transactionType"));
+        // Session cleanup is a mutation, so it is POST-gated: cancel is GET-reachable
+        // navigation and a crafted GET link must not clear in-progress attachments.
+        if ("POST".equals(request.getMethod())) {
+            request.getSession().removeAttribute("emailAttachmentList");
+        }
         String emailRedirect = emailData.getTransactionType().name();
         if (emailData.getTransactionType().equals(EmailLog.TransactionType.EFORM)) {
             try {
