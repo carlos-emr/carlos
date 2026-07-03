@@ -1,4 +1,33 @@
 <!doctype html>
+<!--
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    CARLOS EMR Project
+    https://github.com/carlos-emr/carlos
+-->
+<!--
+    Interactive design mockup: SMS actions integrated into the provider schedule (per-appointment SMS buttons, action menus, and bulk-send modal variants shown on different weekdays for comparison).
+
+    Discussion artifact for the proposed SMS features (issue #2443).
+    Not shipped UI; all patient data shown is synthetic.
+
+    @since 2026-07-02
+-->
 <html lang="en">
 <head>
     <meta charset="utf-8">
@@ -1108,7 +1137,7 @@
                                 <a class="apptLink" href="#">Chen, Jamie</a>
                                 <span>|</span><a href="#">E</a>
                                 <span>|</span><a href="#">M</a>
-                                <button class="appt-more" type="button" data-menu="menu-jamie" data-patient="Jamie Chen" title="More appointment actions">...</button>
+                                <button class="appt-more" type="button" data-menu="apptActionsMenu" data-patient="Jamie Chen" title="More appointment actions">...</button>
                             </span>
                         </td>
                     </tr>
@@ -1395,7 +1424,7 @@
     </table>
 </div>
 
-<div class="sms-menu" id="menu-jamie">
+<div class="sms-menu" id="apptActionsMenu">
     <button type="button">Edit appointment</button>
     <button type="button">Open master file</button>
     <button type="button">Open eChart</button>
@@ -1714,7 +1743,7 @@
             if (appt.action === 'sms') {
                 action = '<button class="sms-inline" type="button" data-open="sms" data-patient="' + patientKey + '" title="Text ' + patientKey + '">SMS</button>';
             } else if (appt.action === 'menu') {
-                action = '<button class="appt-more" type="button" data-menu="menu-jamie" data-patient="' + patientKey + '" title="More appointment actions">...</button>';
+                action = '<button class="appt-more" type="button" data-menu="apptActionsMenu" data-patient="' + patientKey + '" title="More appointment actions">...</button>';
             } else if (appt.action === 'disabled') {
                 action = '<button class="sms-inline disabled" type="button" disabled title="SMS unavailable: consent missing">SMS</button>';
             } else if (appt.state) {
@@ -1795,6 +1824,9 @@
             closeModals();
             document.body.classList.add('week-view');
             dateLabel.textContent = 'Week ' + getWeekNumber(monday);
+            // Mockup-only: the interpolated values are hard-coded synthetic data.
+            // A real implementation fed by backend patient/appointment data must
+            // escape dynamic text or build rows via DOM APIs, not innerHTML.
             scheduleTable.innerHTML = '<tr>' + columns + '</tr>';
         }
 

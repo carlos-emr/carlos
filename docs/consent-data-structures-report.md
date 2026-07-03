@@ -265,9 +265,14 @@ The code assumes this:
 one patient + one consent type = one current answer
 ```
 
-But the database does not enforce it.
+But the database does not enforce it. The `Consent` table only has the primary key on `id` and an index on `demographic_no` — nothing stops two rows for the same patient/type pair.
 
-If expanding this module, add a constraint or application guard so duplicate current consent rows cannot happen.
+The code today maintains the invariant by convention: `PatientConsentManagerImpl` looks up the existing row via `ConsentDao.findByDemographicAndConsentTypeId(...)` (which returns a single `Consent`), then persists a new row only when none exists and merges otherwise. Deletes are soft (`deleted` flag on the same row), so the pair stays unique — as long as every writer goes through that path.
+
+If expanding this module, make the guard explicit with **both** of:
+
+1. A composite unique key on `Consent (demographic_no, consent_type_id)` via a date-based migration (`database/mysql/updates/update-YYYY-MM-DD-consent-unique-pair.sql`). This is safe with the current soft-delete lifecycle because opt-out/delete updates the existing row rather than inserting a replacement.
+2. Keeping all writes routed through the `PatientConsentManagerImpl` lookup-then-persist/merge path — new code must not insert `Consent` rows directly.
 
 ## 12. Files That Matter
 
