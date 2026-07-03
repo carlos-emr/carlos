@@ -6,6 +6,7 @@ import java.util.Properties;
 
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
+import io.github.carlos_emr.carlos.email.core.EmailConfigSecrets;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -46,7 +47,9 @@ public class LocalSMTPEmailSender extends SMTPEmailSender {
                 mailSender.setUsername(jsonNode.get("username").asText());
             }
             if (jsonNode.has("password")) {
-                mailSender.setPassword(jsonNode.get("password").asText());
+                // Decrypt the at-rest credential only here, at send time. Legacy plaintext passwords
+                // pass through unchanged during the migration window.
+                mailSender.setPassword(EmailConfigSecrets.decryptSecret(jsonNode.get("password").asText()));
             }
 
             Properties properties = new Properties();
