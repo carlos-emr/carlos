@@ -180,7 +180,7 @@ public class EConsult2Action extends ActionSupport {
             return NONE;
         } catch (IOException e) {
             MiscUtils.getLogger().error("There was a problem with the redirect of " + stringBuilder.toString(), e);
-            return "error";
+            return ERROR;
         }
     }
 
