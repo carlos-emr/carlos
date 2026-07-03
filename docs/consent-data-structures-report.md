@@ -36,6 +36,8 @@ Important fields:
 | `name` | The display name. Example: `Email consent`. |
 | `description` | The explanation shown to users. |
 | `active` | `1` means show/use it. `0` means inactive. |
+| `providerNo` | Optional. Scopes the consent type to one provider — `ConsentTypeDao.findConsentTypeForProvider(...)` filters on it. Leave empty for a general consent type. |
+| `remoteEnabled` | Whether this consent type applies to Integrator/remote sharing. Defaults to `0` (off). |
 
 Current useful row:
 
@@ -58,6 +60,7 @@ Important fields:
 |---|---|
 | `demographic_no` | The patient id. |
 | `consent_type_id` | Links to `consentType.id`. |
+| `explicit` | `1` means the patient gave direct (verbal/written) consent. `0` means consent was implied or assumed. Tracked separately from the opt-in/opt-out answer; `PatientConsentManagerImpl.addEditConsentRecord(...)` sets it on every write. |
 | `optout` | The actual yes/no answer. |
 | `deleted` | Whether the answer was reset/cleared. |
 | `last_entered_by` | Who last changed it. |
@@ -271,7 +274,7 @@ The code today maintains the invariant by convention: `PatientConsentManagerImpl
 
 If expanding this module, make the guard explicit with **both** of:
 
-1. A composite unique key on `Consent (demographic_no, consent_type_id)` via a date-based migration (`database/mysql/updates/update-YYYY-MM-DD-consent-unique-pair.sql`). This is safe with the current soft-delete lifecycle because opt-out/delete updates the existing row rather than inserting a replacement.
+1. A composite unique key on `Consent (demographic_no, consent_type_id)` via a date-based migration (`database/mysql/updates/update-YYYY-MM-DD-consent-unique-pair.sql`). This is safe with the current soft-delete lifecycle because opt-out/delete updates the existing row rather than inserting a replacement. The constraint can only be added once the table already satisfies the invariant, so the migration must first dedupe any legacy duplicate patient/type rows (keep the newest by `edit_date`, soft-delete or remove the rest) — or gate the `ALTER TABLE` on a preflight duplicate check — otherwise it fails before the guard lands.
 2. Keeping all writes routed through the `PatientConsentManagerImpl` lookup-then-persist/merge path — new code must not insert `Consent` rows directly.
 
 ## 12. Files That Matter
