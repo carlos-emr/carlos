@@ -242,14 +242,18 @@ public final class RxRePrescribe2Action extends ActionSupport {
  * 
  * @return null - indicating no specific view forward (Ajax-style call)
  * @throws IOException if there's an error redirecting to the error page
- * @throws RuntimeException if the user lacks read privileges for prescriptions
+ * @throws RuntimeException if the user lacks write privileges for prescriptions
  * 
  * Expected request parameters:
  * - digitalSignatureId: Integer ID of the digital signature (optional, can be null)
  * - scriptId: String ID of the prescription script (required)
  */
 public String saveDigitalSignature() throws IOException {
-    
+    if ("GET".equalsIgnoreCase(request.getMethod()) || "HEAD".equalsIgnoreCase(request.getMethod())) {
+        response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        return NONE;
+    }
+
     // Validate user session and privileges
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);

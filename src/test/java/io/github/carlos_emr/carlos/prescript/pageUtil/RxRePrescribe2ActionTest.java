@@ -120,6 +120,21 @@ class RxRePrescribe2ActionTest extends CarlosWebTestBase {
     }
 
     @Test
+    @DisplayName("should reject GET before mutating prescription signatures")
+    void shouldRejectGet_beforeMutatingPrescriptionSignatures() throws Exception {
+        request.setMethod("GET");
+        request.setParameter("scriptId", String.valueOf(SCRIPT_ID));
+        request.setParameter("digitalSignatureId", String.valueOf(SIGNATURE_ID));
+
+        String result = action.saveDigitalSignature();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        verify(mockSecurityInfoManager, never()).hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("w"), isNull());
+        verify(mockPrescriptionManager, never()).setPrescriptionSignature(any(), any(Integer.class), any());
+    }
+
+    @Test
     @DisplayName("should associate a saved digital signature with a prescription")
     void shouldAssociateSavedDigitalSignature_withPrescription() throws Exception {
         request.setParameter("scriptId", String.valueOf(SCRIPT_ID));

@@ -259,6 +259,12 @@ public class ConsultationSignatureService {
                 return null;
             }
 
+            long fileSize = Files.size(filePath);
+            if (fileSize > 5 * 1024 * 1024L) {
+                MiscUtils.getLogger().error("Temporary consultation signature file exceeds size limit ({} bytes)", fileSize);
+                return null;
+            }
+
             return Files.readAllBytes(filePath);
         } catch (SecurityException e) {
             MiscUtils.getLogger().warn("Blocked unsafe temporary consultation signature access", e);

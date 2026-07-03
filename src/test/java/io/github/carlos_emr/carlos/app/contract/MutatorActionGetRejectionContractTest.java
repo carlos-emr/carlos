@@ -254,7 +254,9 @@ class MutatorActionGetRejectionContractTest {
         "io.github.carlos_emr.carlos.schedule.web.ScheduleTemplateCodeSetting2Action",
         // Waitinglist: reject GET on Save/Delete submit values.
         "io.github.carlos_emr.carlos.waitinglist.pageUtil.WLEditWaitingListName2Action",
-        "io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayWaitingList2Action"
+        "io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayWaitingList2Action",
+        // Prescription: read methods permit GET; saveDigitalSignature is a method-mapped POST-only mutator.
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxRePrescribe2Action"
     );
 
     /**

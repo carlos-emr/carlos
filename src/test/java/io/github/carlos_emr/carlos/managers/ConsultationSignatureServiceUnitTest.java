@@ -240,6 +240,22 @@ class ConsultationSignatureServiceUnitTest {
     }
 
     @Test
+    @DisplayName("reports no manual signature captured when the temp file exceeds the size limit")
+    void shouldReportNoManualSignatureCaptured_whenTempFileExceedsSizeLimit() throws Exception {
+        Path oversized = tempDir.resolve("signature_oversized.png");
+
+        try (var digitalSignatureUtils = mockStatic(DigitalSignatureUtils.class)) {
+            digitalSignatureUtils.when(() -> DigitalSignatureUtils.getTempFilePath("sig-request"))
+                    .thenReturn(oversized.toString());
+            Files.write(oversized, new byte[5 * 1024 * 1024 + 1]);
+
+            boolean captured = service.wasManualSignatureCaptured("sig-request");
+
+            assertThat(captured).isFalse();
+        }
+    }
+
+    @Test
     @DisplayName("uses temporary manual signature bytes for non-mutating print preview")
     void shouldCreatePreviewOverride_forManualSignatureTempFile() throws Exception {
         String requestId = "9999981000";
