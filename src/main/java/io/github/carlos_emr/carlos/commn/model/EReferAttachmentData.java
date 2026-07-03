@@ -8,6 +8,9 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
+/**
+ * Represents the EReferAttachmentData domain entity for persistence.
+ */
 @Entity
 @IdClass(EReferAttachmentDataCompositeKey.class)
 @Table(name = "erefer_attachment_data")

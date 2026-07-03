@@ -6,6 +6,9 @@ import java.util.Map;
 
 import io.github.carlos_emr.carlos.utility.DateUtils;
 
+/**
+ * Represents the AttachmentLabResultData data transfer object.
+ */
 public class AttachmentLabResultData {
     private String segmentID;
     private String labName;

@@ -1,5 +1,8 @@
 package io.github.carlos_emr.carlos.commn.model.enumerator;
 
+/**
+ * Represents the DocumentType data transfer object.
+ */
 public enum DocumentType {
     EFORM("E", "eForm"),
     DOC("D", "doc"),

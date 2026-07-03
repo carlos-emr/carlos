@@ -2,6 +2,9 @@ package io.github.carlos_emr.carlos.webserv.rest.to.model;
 
 import java.util.Date;
 
+/**
+ * Represents the ConsultationRequestExtTo1 data transfer object.
+ */
 public class ConsultationRequestExtTo1 {
     private Integer id;
     private Integer requestId;

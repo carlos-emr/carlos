@@ -7,6 +7,9 @@ import jakarta.servlet.ServletContext;
 
 import org.springframework.web.context.ServletContextAware;
 
+/**
+ * Configures the Servlet context and initializes core beans for the web application.
+ */
 @Configuration
 public class ServletContextConfig implements ServletContextAware {
 

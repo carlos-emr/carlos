@@ -6,6 +6,9 @@ import jakarta.persistence.ManyToOne;
 import java.io.Serializable;
 import java.util.Objects;
 
+/**
+ * Represents the EReferAttachmentDataCompositeKey data transfer object.
+ */
 public class EReferAttachmentDataCompositeKey implements Serializable {
     @ManyToOne
     @JoinColumn(name = "erefer_attachment_id", referencedColumnName = "id")
