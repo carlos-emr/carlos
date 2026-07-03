@@ -1,6 +1,6 @@
 # OHIP Error Report Rejection Conditions / Error Codes
 
-> **Source**: <https://www.health.gov.on.ca/en/pro/programs/ohip/claims_submission/error_report_rejection_conditions.pdf>
+> **Source**: [https://www.health.gov.on.ca/en/pro/programs/ohip/claims_submission/error_report_rejection_conditions.pdf]
 > **Fetched**: 2026-04-29
 > **Pages**: 14
 > **Format**: extracted text from PDF via `pypdfium2`; code/description rows have been re-aligned into GFM tables. Section headings come from the PDF's Table of Contents (multi-line wrapped headings are merged). Where a description wraps across multiple lines in the PDF, those continuations have been merged into a single cell.

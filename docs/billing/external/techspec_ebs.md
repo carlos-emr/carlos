@@ -1,6 +1,6 @@
 # Technical Specifications for Electronic Business Services (EBS)
 
-> **Source**: http://www.health.gov.on.ca/en/pro/publications/ohip/docs/techspec_ebs.pdf
+> **Source**: [http://www.health.gov.on.ca/en/pro/publications/ohip/docs/techspec_ebs.pdf]
 > **Fetched**: 2026-04-29  
 > **Format**: extracted text from PDF via pypdfium2; tables may be space-aligned rather than GFM.  
 > **Authoritative source**: the PDF at the URL above. If this MD and the PDF disagree, the PDF wins.
@@ -8,6 +8,8 @@
 Page count: 37
 
 ---
+
+```xml
 <!-- page 1 -->
 
 Technical Specifications for Electronic
@@ -1092,3 +1094,4 @@ ValueType="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-x509-token-pr
 
 Catalogue # CIB-XXXXXXX Month/Year © Queen’s Printer for Ontario
 
+```

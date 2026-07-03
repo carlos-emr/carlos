@@ -1,6 +1,6 @@
 # Technical Specification for Medical Claims Electronic Data Transfer (MCEDT) Service via Electronic Business Services (EBS)
 
-> **Source**: http://www.health.gov.on.ca/en/pro/publications/ohip/docs/techspec_mcedt_ebs.pdf
+> **Source**: [http://www.health.gov.on.ca/en/pro/publications/ohip/docs/techspec_mcedt_ebs.pdf]
 > **Fetched**: 2026-04-29  
 > **Format**: extracted text from PDF via pypdfium2; tables may be space-aligned rather than GFM.  
 > **Authoritative source**: the PDF at the URL above. If this MD and the PDF disagree, the PDF wins.
@@ -8,6 +8,7 @@
 Page count: 69
 
 ---
+```xml
 <!-- page 1 -->
 
 Technical Specification for Medical
@@ -1772,4 +1773,4 @@ ESDCL0007 Mal Formed Trailer. Item Record count does not match number of Item Re
 <!-- page 69 -->
 
 Catalogue # CIB-XXXXXXX Month/Year © Queen’s Printer for Ontario
-
+```

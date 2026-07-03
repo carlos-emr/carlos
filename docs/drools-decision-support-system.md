@@ -81,7 +81,7 @@ The Drools system was originally written for the Drools 2.0 API (XML rule format
 
 ## Architecture
 
-```
+```text
 +-------------------------------------------------------------+
 |                    Flowsheet XML Configs                      |
 |  (diabetesFlowsheet.xml, hivFlowsheet.xml, chf.xml, etc.)   |
@@ -429,15 +429,15 @@ Located in `src/main/resources/oscar/encounter/oscarMeasurements/flowsheets/deci
 |------|-----------|-----------|------------|---------|
 | `diab-A1C.drl` | MeasurementDSHelper | A1C value | >=7.0% or 0.07-2.0 (fraction) = HIGH | diabetesFlowsheet.xml, omdDiabetesFlowsheet.xml |
 | `diab-ACR.drl` | MeasurementDSHelper | Albumin/Creatinine Ratio | M: >=2.0 HIGH; F: >=2.0 HIGH | diabetesFlowsheet.xml, chf.xml |
-| `diab-BMI.drl` | MeasurementDSHelper | Body Mass Index | 25-30 HIGH, >30 HIGH 1, <18.5 LOW | diabetesFlowsheet.xml |
+| `diab-BMI.drl` | MeasurementDSHelper | Body Mass Index | 25-30 HIGH, `>30` HIGH 1, `<18.5` LOW | diabetesFlowsheet.xml |
 | `diab-BP.drl` | MeasurementDSHelper | Blood Pressure (sys/dia) | >130/80 combinations = HIGH | 5 XML configs (most widely used) |
 | `diab-C-no-is-high.drl` | MeasurementDSHelper | Yes/No questions | "No" = HIGH (concerning) | FGLC, EYEE, FTE, FTLS items |
 | `diab-C-yes-is-high.drl` | MeasurementDSHelper | Yes/No questions | "Yes" = HIGH (concerning) | PANE, EDGI items |
-| `diab-EFGR.drl` | MeasurementDSHelper | eGFR | <=60 = LOW (CKD stage 3+) | diabetesFlowsheet.xml, chf.xml |
+| `diab-EFGR.drl` | MeasurementDSHelper | eGFR | `<=60` = LOW (CKD stage 3+) | diabetesFlowsheet.xml, chf.xml |
 | `diab-LDL.drl` | MeasurementDSHelper | LDL Cholesterol | 2.0-3.4 HIGH, >=3.5 HIGH 1 | diabetesFlowsheet.xml, chf.xml |
 | `diab-TCHDL.drl` | MeasurementDSHelper | TC/HDL Ratio | 4.0-4.9 HIGH, >=5.0 HIGH 1 | diabetesFlowsheet.xml, chf.xml |
 | `diab-TG.drl` | MeasurementDSHelper | Triglycerides | >=2.0 = HIGH | diabetesFlowsheet.xml, chf.xml |
-| `INR.drl` | MeasurementDSHelper | INR value | <2.0 LOW, 4.0-4.9 HIGH, >=5.0 HIGH 1 | inrFlowsheet.xml |
+| `INR.drl` | MeasurementDSHelper | INR value | `<2.0` LOW, 4.0-4.9 HIGH, >=5.0 HIGH 1 | inrFlowsheet.xml |
 
 ### Clinical Report Test DRL Files
 
@@ -447,13 +447,13 @@ Referenced by `ClinicalReports.xml` for population health indicator reporting.
 
 | File | Evaluates | Criteria for `setInRange(true)` |
 |------|-----------|-------------------------------|
-| `testA1C.drl` | A1C control | A1C <= 7.0% (or fraction <= 0.07) AND within 13 months |
+| `testA1C.drl` | A1C control | `A1C <= 7.0%` (or fraction `<= 0.07`) AND within 13 months |
 | `testA1Cabove7p9.drl` | Poor A1C control | A1C > 7.9% AND within 13 months |
 | `testBPabove139.drl` | Elevated BP | Systolic > 139 AND within 13 months |
-| `testBPlower130_80.drl` | BP at target | BP <= 130/80 AND within 13 months |
+| `testBPlower130_80.drl` | BP at target | BP `<= 130/80` AND within 13 months |
 | `testBPlower131.drl` | Systolic at target | Systolic < 131 AND within 13 months |
 | `testLDLlower2p6.drl` | LDL at target | LDL < 2.0 AND within 13 months (NOTE: filename says 2.6, code uses 2.0) |
-| `testTripleWhammy.drl` | Triple target met | LDL < 2.0 AND BP <= 130/80 AND A1C <= 7.0% (sequential AND) |
+| `testTripleWhammy.drl` | Triple target met | LDL < 2.0 AND BP `<= 130/80` AND `A1C <= 7.0%` (sequential AND) |
 | `testCD4lower200.drl` | AIDS-defining CD4 | CD4 < 200 AND within 13 months |
 | `testCD4between200350.drl` | Moderate immunosuppression | CD4 200-349 AND within 13 months |
 | `testCD4high350.drl` | Preserved immunity | CD4 >= 350 AND within 13 months |
@@ -479,8 +479,8 @@ These files exist in the `decisionSupport/` directory but are **NOT referenced**
 | `testBPabove140_90.drl` | BP >140/90 with 13-month window | Custom report numerator |
 | `testBPabove140_90_1.drl` | BP >140/90 with 7-month window | Variant with stricter recency |
 | `testBPhigher130_80.drl` | BP >130/80 with no recency window | Diabetes-specific BP threshold |
-| `testBPlower140_90.drl` | BP <=140/90 with 13-month window | General hypertension target |
-| `testBPlower140_90_1.drl` | BP <=140/90 with 7-month window | Variant with stricter recency |
+| `testBPlower140_90.drl` | BP `<=140/90` with 13-month window | General hypertension target |
+| `testBPlower140_90_1.drl` | BP `<=140/90` with 7-month window | Variant with stricter recency |
 
 ---
 
@@ -566,10 +566,10 @@ The DRL rules implement thresholds from these Canadian clinical practice guideli
 
 | Guideline Organization | Rules Using It |
 |-----------------------|---------------|
-| **Diabetes Canada** (formerly CDA) | A1C target <=7.0%, BP target <130/80, LDL <2.0 mmol/L |
-| **Hypertension Canada** | BP targets, DASH diet, sodium <2000mg, alcohol limits |
-| **Canadian Cardiovascular Society (CCS)** | LDL tiers (2.0-3.4 moderate, >=3.5 significant), TC/HDL ratio |
-| **KDIGO (CKD staging)** | eGFR <=60 (Stage 3+), ACR thresholds |
+| **Diabetes Canada** (formerly CDA) | A1C target `<=7.0%`, BP target `<130/80`, LDL `<2.0` mmol/L |
+| **Hypertension Canada** | BP targets, DASH diet, sodium `<2000mg`, alcohol limits |
+| **Canadian Cardiovascular Society (CCS)** | LDL tiers (2.0-3.4 moderate, `>=3.5` significant), TC/HDL ratio |
+| **KDIGO (CKD staging)** | eGFR `<=60` (Stage 3+), ACR thresholds |
 | **NACI (National Advisory Committee on Immunization)** | All vaccine schedules in prevention.drl |
 | **Canadian Task Force on Preventive Health Care** | PAP (3yr), HPV-CERVIX (5yr), MAM (2yr), FOBT (2yr), Smoking, BMD |
 | **Osteoporosis Canada** | BMD screening at 65+ |

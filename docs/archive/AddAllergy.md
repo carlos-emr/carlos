@@ -35,15 +35,17 @@ Oscar
 3. Compiles List of Allergy records added/modified since last sent to MyOscar
 4. For each changed Allergy, 
 	4.1 Calls toXML(), which converts the Allergy object to an XML representation.
-	4.2 Creates an object of type MedicalDataTransfter4, a wrapper for the XML
+	4.2 Creates an object of type MedicalDataTransfer4, a wrapper for the XML
 	4.3 calls addMedicalData() on the MyOscarMedicalDataManagerUtils class, passing medicalDataTransfer object
 
-		`MedicalDataTransfer4 medicalDataTransfer = toMedicalDataTransfer(myOscarLoggedInInfo, allergy);
-		MyOscarMedicalDataManagerUtils.addMedicalData(myOscarLoggedInInfo, medicalDataTransfer, OSCAR_ALLERGIES_DATA_TYPE, allergy.getId(), false, true);`
-
+		```java
+		MedicalDataTransfer4 medicalDataTransfer = toMedicalDataTransfer(myOscarLoggedInInfo, allergy);
+		MyOscarMedicalDataManagerUtils.addMedicalData(myOscarLoggedInInfo, medicalDataTransfer, OSCAR_ALLERGIES_DATA_TYPE, allergy.getId(), false, true);
+		```
 	This is the web service call:
 
-		`public static Long addMedicalData(MyOscarLoggedInInfo myOscarLoggedInInfo, MedicalDataTransfer4 medicalDataTransfer, String oscarDataType, Object localOscarObjectId, boolean completed, boolean active)
+		```java
+		public static Long addMedicalData(MyOscarLoggedInInfo myOscarLoggedInInfo, MedicalDataTransfer4 medicalDataTransfer, String oscarDataType, Object localOscarObjectId, boolean completed, boolean active)
 				throws NotAuthorisedException_Exception, 
 				UnsupportedEncodingException_Exception, 
 				InvalidRequestException_Exception {
@@ -53,7 +55,8 @@ Oscar
 			addSendRemoteDataLog(oscarDataType, localOscarObjectId, medicalDataTransfer.getData());
 		
 			return(resultId);
-		}`
+		}
+		```
 
 MyOscar 
 1. Converts the XML format of the Medical data to object of type MedicalData. If the XML is invalid, it throws UnsupportedEncodingException.

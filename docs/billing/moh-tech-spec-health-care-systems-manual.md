@@ -12,6 +12,7 @@ Page boundaries from the source PDF are marked with `<!-- page NNN -->` HTML com
 
 ---
 
+```xml
 <!-- page 001 -->
 
 Claims Services Branch, OHIP, Pharmaceuticals and Devices Division, Ministry of Health Version 6.2
@@ -3829,3 +3830,4 @@ Access to the MCEDT services is restricted to authorized users with the appropri
 #### **Workplace Safety and Insurance Board (WSIB) Claim**
 
 A claim for a service to which WSIB benefits are applicable. This board was formerly referred to as the Workers' Compensation Board (WCB).
+```
