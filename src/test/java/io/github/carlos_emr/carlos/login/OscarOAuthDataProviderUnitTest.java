@@ -12,7 +12,6 @@ import io.github.carlos_emr.carlos.commn.dao.ServiceRequestTokenDao;
 import io.github.carlos_emr.carlos.commn.model.ServiceAccessToken;
 import io.github.carlos_emr.carlos.commn.model.ServiceClient;
 import io.github.carlos_emr.carlos.commn.model.ServiceOAuthNonce;
-import io.github.carlos_emr.carlos.webserv.oauth.AccessToken;
 import io.github.carlos_emr.carlos.webserv.oauth.Client;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1Exception;
 import io.github.carlos_emr.carlos.webserv.oauth.RequestToken;
@@ -223,30 +222,34 @@ class OscarOAuthDataProviderUnitTest {
     }
 
     @Test
-    @DisplayName("should return a token with no scopes when persisted scopes are null")
-    void shouldReturnTokenWithoutScopes_whenPersistedScopesAreNull() {
+    @DisplayName("should return the unexpired access token entity for provider and scope reads")
+    void shouldReturnUnexpiredAccessToken_forProviderAndScopeReads() {
         ServiceAccessTokenDao accessTokenDao = mock(ServiceAccessTokenDao.class);
-        Integer clientId = 7;
-        ServiceAccessToken token = accessToken("scopeless-token", "secret", "999998",
+        ServiceAccessToken token = accessToken("live-token", "secret", "999998",
                 System.currentTimeMillis() / 1000, 3600);
-        token.setClientId(clientId);
-        // scopes intentionally left unset -> getScopes() is null (legacy/empty token)
-        when(accessTokenDao.findByTokenId("scopeless-token")).thenReturn(token);
+        token.setScopes("schedule.read");
+        when(accessTokenDao.findByTokenId("live-token")).thenReturn(token);
+        OscarOAuthDataProvider provider = provider(accessTokenDao);
 
-        ServiceClientDao clientDao = mock(ServiceClientDao.class);
-        ServiceClient client = new ServiceClient();
-        client.setKey("consumer");
-        when(clientDao.find(clientId)).thenReturn(client);
-        when(clientDao.findByKey("consumer")).thenReturn(client);
+        ServiceAccessToken found = provider.findUnexpiredAccessToken("live-token");
 
-        OscarOAuthDataProvider provider = new OscarOAuthDataProvider();
-        ReflectionTestUtils.setField(provider, "serviceAccessTokenDao", accessTokenDao);
-        ReflectionTestUtils.setField(provider, "serviceClientDao", clientDao);
+        // The interceptor reads both the provider and the granted scopes off this one entity.
+        assertThat(found).isNotNull();
+        assertThat(found.getProviderNo()).isEqualTo("999998");
+        assertThat(found.getScopes()).isEqualTo("schedule.read");
+    }
 
-        AccessToken at = provider.getAccessToken("scopeless-token");
+    @Test
+    @DisplayName("should return null from the unexpired lookup when the token is expired")
+    void shouldReturnNull_whenAccessTokenExpired() {
+        ServiceAccessTokenDao accessTokenDao = mock(ServiceAccessTokenDao.class);
+        ServiceAccessToken token = accessToken("expired-token", "secret", "999998",
+                (System.currentTimeMillis() / 1000) - 7200, 3600);
+        when(accessTokenDao.findByTokenId("expired-token")).thenReturn(token);
+        OscarOAuthDataProvider provider = provider(accessTokenDao);
 
-        assertThat(at).isNotNull();
-        assertThat(at.getScopes()).isEmpty();
+        assertThat(provider.findUnexpiredAccessToken("expired-token")).isNull();
+        verify(accessTokenDao).remove(token);
     }
 
     @Test

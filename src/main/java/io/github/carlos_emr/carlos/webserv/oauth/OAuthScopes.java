@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.webserv.oauth;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -160,7 +161,7 @@ public final class OAuthScopes {
     }
 
     private static Set<String> buildKnownScopes() {
-        java.util.Set<String> scopes = new java.util.HashSet<>();
+        Set<String> scopes = new HashSet<>();
         for (String domain : DOMAIN_BY_PATH_ROOT.values()) {
             scopes.add(domain + "." + READ);
             scopes.add(domain + "." + WRITE);
@@ -291,12 +292,14 @@ public final class OAuthScopes {
         return normalized != null && KNOWN_SCOPES.contains(normalized);
     }
 
+    /** The RFC 7231 safe (read-only) methods. {@code TRACE} is included for completeness even though the
+     *  container normally rejects it and no JAX-RS resource handles it. */
     private static boolean isSafeMethod(String httpMethod) {
         if (httpMethod == null) {
             return false;
         }
         String m = asciiLowerCase(httpMethod.trim());
-        return m.equals("get") || m.equals("head") || m.equals("options");
+        return m.equals("get") || m.equals("head") || m.equals("options") || m.equals("trace");
     }
 
     /**

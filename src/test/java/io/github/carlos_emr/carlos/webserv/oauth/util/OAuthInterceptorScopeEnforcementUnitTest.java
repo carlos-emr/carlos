@@ -2,19 +2,32 @@
  * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
  *
  * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.webserv.oauth.util;
-
-import java.util.List;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.commn.model.ServiceAccessToken;
 import io.github.carlos_emr.carlos.login.OscarOAuthDataProvider;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.webserv.oauth.AccessToken;
 import io.github.carlos_emr.carlos.webserv.oauth.Client;
-import io.github.carlos_emr.carlos.webserv.oauth.OAuth1Permission;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1SignatureVerifier;
 
 import org.apache.cxf.interceptor.Fault;
@@ -92,9 +105,7 @@ class OAuthInterceptorScopeEnforcementUnitTest {
     @DisplayName("should fail closed with HTTP 403 when the token has no granted scopes")
     void shouldRaiseFault_withHttp403WhenTokenHasNoScopes() {
         enableEnforcement();
-        AccessToken noScopes = mock(AccessToken.class);
-        when(noScopes.getScopes()).thenReturn(null);
-        OAuthInterceptor interceptor = interceptorWith(noScopes);
+        OAuthInterceptor interceptor = interceptorWith(accessToken(null));  // null persisted scopes
         Message message = scheduleReadRequest();
 
         Fault fault = catchThrowableOfType(() -> interceptor.handleMessage(message), Fault.class);
@@ -133,13 +144,12 @@ class OAuthInterceptorScopeEnforcementUnitTest {
 
     /**
      * Builds an interceptor whose collaborators authenticate {@link #TOKEN} successfully (valid client,
-     * good signature, resolvable provider) and report the supplied granted scope on the access token.
+     * good signature, resolvable provider) and return the supplied access token from the single token load.
      */
-    private OAuthInterceptor interceptorWith(AccessToken accessToken) {
+    private OAuthInterceptor interceptorWith(ServiceAccessToken accessToken) {
         OscarOAuthDataProvider dataProvider = mock(OscarOAuthDataProvider.class);
         when(dataProvider.getClient(CONSUMER_KEY)).thenReturn(mock(Client.class));
-        when(dataProvider.getProviderNoByAccessToken(TOKEN)).thenReturn(PROVIDER_NO);
-        when(dataProvider.getAccessToken(TOKEN)).thenReturn(accessToken);
+        when(dataProvider.findUnexpiredAccessToken(TOKEN)).thenReturn(accessToken);
 
         ProviderDao providerDao = mock(ProviderDao.class);
         when(providerDao.getProvider(PROVIDER_NO)).thenReturn(mock(Provider.class));
@@ -154,10 +164,16 @@ class OAuthInterceptorScopeEnforcementUnitTest {
         return interceptor;
     }
 
-    private static AccessToken authenticatedTokenGranting(String scope) {
-        AccessToken accessToken = mock(AccessToken.class);
-        when(accessToken.getScopes()).thenReturn(List.of(new OAuth1Permission(scope, scope)));
-        return accessToken;
+    private static ServiceAccessToken authenticatedTokenGranting(String scopes) {
+        return accessToken(scopes);
+    }
+
+    /** A persisted access token bound to {@link #PROVIDER_NO} with the given space-delimited scopes. */
+    private static ServiceAccessToken accessToken(String scopes) {
+        ServiceAccessToken sat = new ServiceAccessToken();
+        sat.setProviderNo(PROVIDER_NO);
+        sat.setScopes(scopes);
+        return sat;
     }
 
     private static Message scheduleReadRequest() {
