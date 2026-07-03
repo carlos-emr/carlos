@@ -170,7 +170,10 @@ public class EctDisplayAction extends ActionSupport {
         }
 
         String demographicNo = request.getParameter("demographicNo");
-        if (demographicNo != null && !demographicNo.isEmpty() && !demographicNo.matches("\\d+")) {
+        if (demographicNo == null || demographicNo.isEmpty()) {
+            throw new SecurityException("Missing required demographicNo");
+        }
+        if (!demographicNo.matches("\\d+")) {
             throw new SecurityException("Invalid non-numeric demographicNo");
         }
         return demographicNo;
@@ -405,7 +408,8 @@ public class EctDisplayAction extends ActionSupport {
         }
         if (isJsonRequest) {
             ObjectNode json = objectMapper.valueToTree(dao.getMap());
-            response.getOutputStream().write(json.toString().getBytes());
+            response.setContentType("application/json;charset=UTF-8");
+            response.getOutputStream().write(json.toString().getBytes(StandardCharsets.UTF_8));
             return null;
         }
         return "success";

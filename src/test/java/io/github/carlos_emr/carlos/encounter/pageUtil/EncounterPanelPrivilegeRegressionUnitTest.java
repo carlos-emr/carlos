@@ -72,6 +72,7 @@ class EncounterPanelPrivilegeRegressionUnitTest extends CarlosUnitTestBase {
     @Mock private LoggedInInfo loggedInInfo;
 
     private MockHttpServletRequest request;
+    private MockHttpServletResponse response;
 
     @BeforeEach
     void setUp() {
@@ -86,9 +87,11 @@ class EncounterPanelPrivilegeRegressionUnitTest extends CarlosUnitTestBase {
         request.getSession().setAttribute("user", "999998");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
 
+        response = new MockHttpServletResponse();
+
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
-        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
 
         rolePrivilegeMock = mockStatic(OscarRoleObjectPrivilege.class);
         when(secobjprivilegeDao.getByObjectNameAndRoles("_episode", List.of("doctor", "999998")))
@@ -147,6 +150,42 @@ class EncounterPanelPrivilegeRegressionUnitTest extends CarlosUnitTestBase {
         assertThat(action.wasInvoked()).isTrue();
         assertThat(dao).isNotNull();
         assertThat(dao.getRightHeadingID()).isEqualTo("episode");
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_eChart", "r", "123");
+        verifyNoInteractions(episodeDao);
+        rolePrivilegeMock.verifyNoInteractions();
+    }
+
+    @Test
+    @DisplayName("should reject panel loading when demographic is missing for rebuild")
+    void shouldRejectPanelLoading_whenDemographicMissingForRebuild() {
+        request.setParameter("cmd", "episode");
+
+        EctDisplayEpisode2Action action = new EctDisplayEpisode2Action();
+
+        assertThatThrownBy(action::execute)
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("Missing required demographicNo");
+
+        verifyNoInteractions(securityInfoManager, episodeDao);
+        rolePrivilegeMock.verifyNoInteractions();
+    }
+
+    @Test
+    @DisplayName("shouldWriteUtf8Json_whenJsonPanelRequestSucceeds")
+    @SuppressWarnings("deprecation")
+    void shouldWriteUtf8Json_whenJsonPanelRequestSucceeds() throws Exception {
+        EctSessionBean bean = encounterSession();
+        RecordingDisplayAction action = new RecordingDisplayAction();
+        request.getSession().setAttribute("EctSessionBean", bean);
+        request.setParameter("cmd", "episode");
+        request.setParameter("json", "TRUE");
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_eChart", "r", "123")).thenReturn(true);
+
+        String result = action.execute();
+
+        assertThat(result).isNull();
+        assertThat(response.getContentType()).isEqualTo("application/json;charset=UTF-8");
+        assertThat(response.getContentAsString()).contains("episode");
         verify(securityInfoManager).hasPrivilege(loggedInInfo, "_eChart", "r", "123");
         verifyNoInteractions(episodeDao);
         rolePrivilegeMock.verifyNoInteractions();
