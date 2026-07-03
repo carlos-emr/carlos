@@ -115,13 +115,9 @@ public class ConsultationSignatureService {
      *         provider on a genuine failure while staying silent for benign disabled/no-session states
      */
     public ConsultationStampOutcome saveConsultationStamp(LoggedInInfo loggedInInfo, String providerNo, Integer demographicNo) {
-        if (loggedInInfo == null || loggedInInfo.getCurrentFacility() == null) {
-            MiscUtils.getLogger().debug("No facility in session - consultation stamp not saved");
-            return ConsultationStampOutcome.of(ConsultationStampOutcome.Status.NO_SESSION);
-        }
-        if (!loggedInInfo.getCurrentFacility().isEnableDigitalSignatures()) {
-            MiscUtils.getLogger().debug("Digital signatures disabled for facility - consultation stamp not saved");
-            return ConsultationStampOutcome.of(ConsultationStampOutcome.Status.SIGNATURES_DISABLED);
+        ConsultationStampOutcome invalidSessionOutcome = validateDigitalSignatureSession(loggedInInfo);
+        if (invalidSessionOutcome != null) {
+            return invalidSessionOutcome;
         }
         if (!canUseProviderStamp(loggedInInfo, providerNo)) {
             // canUseProviderStamp logs the specific reason (non-numeric / missing _con write) at error.
@@ -190,15 +186,26 @@ public class ConsultationSignatureService {
         } else {
             // Stamp preview: enforce the same facility/authorization gating as saveConsultationStamp so
             // a preview cannot embed a stamp that the save path would suppress.
-            if (loggedInInfo == null
-                    || loggedInInfo.getCurrentFacility() == null
-                    || !loggedInInfo.getCurrentFacility().isEnableDigitalSignatures()
+            if (validateDigitalSignatureSession(loggedInInfo) != null
                     || !canUseProviderStamp(loggedInInfo, signatureProviderNo)) {
                 return null;
             }
             return readProviderStampImage(signatureProviderNo);
         }
 
+        return null;
+    }
+
+    @SuppressWarnings("java:S1168")
+    private ConsultationStampOutcome validateDigitalSignatureSession(LoggedInInfo loggedInInfo) {
+        if (loggedInInfo == null || loggedInInfo.getCurrentFacility() == null) {
+            MiscUtils.getLogger().debug("No facility in session - consultation stamp not saved");
+            return ConsultationStampOutcome.of(ConsultationStampOutcome.Status.NO_SESSION);
+        }
+        if (!loggedInInfo.getCurrentFacility().isEnableDigitalSignatures()) {
+            MiscUtils.getLogger().debug("Digital signatures disabled for facility - consultation stamp not saved");
+            return ConsultationStampOutcome.of(ConsultationStampOutcome.Status.SIGNATURES_DISABLED);
+        }
         return null;
     }
 
