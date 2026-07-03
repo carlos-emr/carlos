@@ -181,7 +181,8 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
 
         @BeforeEach
         void denyPrivilege() {
-            when(securityInfoManager.hasPrivilege(any(), eq("_appointment"), eq("w"), any())).thenReturn(false);
+            lenient().when(securityInfoManager.hasPrivilege(any(), eq("_appointment"), eq("w"), any())).thenReturn(false);
+            lenient().when(securityInfoManager.hasPrivilege(any(), eq("_appointment"), eq("d"), any())).thenReturn(false);
         }
 
         /** Confirms the mutator gated on the {@code _appointment} write privilege before rejecting. */
