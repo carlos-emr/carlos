@@ -40,6 +40,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.commn.model.Drug;
@@ -208,28 +210,16 @@ class RxWebServiceUnitTest {
             assertThat(resp.getContent().get(1).getBrandName()).isEqualTo("Tylenol");
         }
 
-        @Test
-        @DisplayName("should map current status path to current drugs")
-        void shouldMapCurrentStatusPath_toCurrentDrugs() {
-            DrugSearchResponse resp = service.drugs("current", 1);
+        @ParameterizedTest(name = "should map {0} status path to {1}")
+        @CsvSource({
+                "current,Tylenol",
+                "archived,Aspirin",
+                "longterm,Metformin XR"
+        })
+        void shouldMapSingleDrugStatusPaths_toExpectedBrand(String status, String expectedBrandName) {
+            DrugSearchResponse resp = service.drugs(status, 1);
             assertThat(resp.getContent()).hasSize(1);
-            assertThat(resp.getContent().get(0).getBrandName()).isEqualTo("Tylenol");
-        }
-
-        @Test
-        @DisplayName("should map archived status path to archived drugs")
-        void shouldMapArchivedStatusPath_toArchivedDrugs() {
-            DrugSearchResponse resp = service.drugs("archived", 1);
-            assertThat(resp.getContent()).hasSize(1);
-            assertThat(resp.getContent().get(0).getBrandName()).isEqualTo("Aspirin");
-        }
-
-        @Test
-        @DisplayName("should map longterm status path to longterm drugs")
-        void shouldMapLongtermStatusPath_toLongtermDrugs() {
-            DrugSearchResponse resp = service.drugs("longterm", 1);
-            assertThat(resp.getContent()).hasSize(1);
-            assertThat(resp.getContent().get(0).getBrandName()).isEqualTo("Metformin XR");
+            assertThat(resp.getContent().get(0).getBrandName()).isEqualTo(expectedBrandName);
         }
 
         @Test
