@@ -409,6 +409,9 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                     if (outcome.isSaved()) {
                         signatureId = "" + outcome.signature().getId();
                     } else if (outcome.isGenuineFailure()) {
+                        // Preserve an already-stored immutable signature when the client submits a stale
+                        // or blank signatureImg field and the replacement stamp cannot be created.
+                        signatureId = SignatureReference.isStoredId(existingSignatureId) ? existingSignatureId : null;
                         // Update is still persisted; the service logged the specific failure at error.
                         // Warn the provider that the stamp was not applied.
                         request.setAttribute(ATTR_SIGNATURE_NOT_APPLIED, Boolean.TRUE);

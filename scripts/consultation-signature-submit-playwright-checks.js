@@ -40,8 +40,10 @@
  *   CONSULT_SERVICE_ID=<id>     Service ID to use when creating consultation requests
  *
  * Optional environment variables:
- *   CONSULT_STAMP_PROVIDER_NO=<providerNo>   Provider whose stamp PNG exists in the
- *                                             eForm image dir (default: 999998)
+ *   CONSULT_STAMP_PROVIDER_NO=<providerNo>           Provider whose stamp PNG exists in the
+ *                                                     eForm image dir (default: 999998)
+ *   CONSULT_MISSING_STAMP_PROVIDER_NO=<providerNo>   Provider with no stamp PNG, used to assert
+ *                                                     the warning flow (default: 99999)
  *   CONSULT_UNSIGNED_REQUEST_ID=<id>          Existing consultation with no signature;
  *                                             required for stamp-update and stamp-print-preview
  *                                             scenarios (those scenarios are skipped when absent)
@@ -70,6 +72,7 @@ const testPin = process.env.TEST_PIN || '2026';
 const consultDemoNo = process.env.CONSULT_DEMO_NO || '';
 const consultServiceId = process.env.CONSULT_SERVICE_ID || '';
 const stampProviderNo = process.env.CONSULT_STAMP_PROVIDER_NO || '999998';
+const missingStampProviderNo = process.env.CONSULT_MISSING_STAMP_PROVIDER_NO || '99999';
 const unsignedRequestId = process.env.CONSULT_UNSIGNED_REQUEST_ID || '';
 
 if (!/^\d+$/.test(consultDemoNo)) {
@@ -80,6 +83,9 @@ if (!/^\d+$/.test(consultServiceId)) {
 }
 if (!/^\d+$/.test(stampProviderNo)) {
   throw new Error('CONSULT_STAMP_PROVIDER_NO must be numeric when provided');
+}
+if (!/^\d+$/.test(missingStampProviderNo)) {
+  throw new Error('CONSULT_MISSING_STAMP_PROVIDER_NO must be numeric when provided');
 }
 if (unsignedRequestId && !/^\d+$/.test(unsignedRequestId)) {
   throw new Error('CONSULT_UNSIGNED_REQUEST_ID must be numeric when provided');
@@ -360,7 +366,7 @@ async function runStampCreateHappy(context, csrfToken) {
 
 async function runStampCreateWarning(context, csrfToken) {
   const label = 'stamp-create-warning';
-  // Provider 99999 has no stamp file → triggers STAMP_FILE_MISSING → isGenuineFailure() → signatureNotApplied=1
+  // The configured missing-stamp provider should have no stamp file so the warning flow is exercised.
   const response = await postConsultation(context, {
     submission: 'Submit Consultation Request',
     demographicNo: consultDemoNo,
@@ -369,7 +375,7 @@ async function runStampCreateWarning(context, csrfToken) {
     sendTo: '',
     newSignature: 'false',
     signatureImg: '',
-    signatureProviderNo: '99999',
+    signatureProviderNo: missingStampProviderNo,
     newSignatureImg: '',
   }, csrfToken, label);
 

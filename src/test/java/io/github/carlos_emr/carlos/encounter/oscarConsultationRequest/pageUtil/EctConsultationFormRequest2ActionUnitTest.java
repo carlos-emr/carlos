@@ -417,9 +417,10 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("warns the provider but still saves when a stamp cannot be applied on update")
-    void shouldWarnButStillSave_whenStampFailsOnUpdate() throws Exception {
+    @DisplayName("warns the provider but preserves an existing stored signature when a stamp cannot be applied on update")
+    void shouldWarnButPreserveStoredSignature_whenStampFailsOnUpdate() throws Exception {
         ConsultationRequest existing = new ConsultationRequest();
+        existing.setSignatureImg("123");
         when(consultationRequestDao.find(9)).thenReturn(existing);
 
         action.setSubmission("Update");
@@ -434,8 +435,9 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
 
         action.execute();
 
-        assertThat(existing.getSignatureImg()).isNull();
+        assertThat(existing.getSignatureImg()).isEqualTo("123");
         assertThat(response.getRedirectedUrl()).contains("signatureNotApplied=1");
+        verify(consultationSignatureService).saveConsultationStamp(loggedInInfo, "999998", 1);
         verify(consultationRequestDao).merge(existing);
     }
 
