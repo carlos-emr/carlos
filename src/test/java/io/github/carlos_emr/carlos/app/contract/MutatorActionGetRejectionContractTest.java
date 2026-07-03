@@ -225,6 +225,9 @@ class MutatorActionGetRejectionContractTest {
         "io.github.carlos_emr.carlos.appointment.gate.ViewAppointmentSelfPost2Action",
         // Decision: rejects GET when submit param starts with "save".
         "io.github.carlos_emr.carlos.decision.gate.ViewDecision2Action",
+        // Email: method=cancel navigation permits GET; send dispatches (sendDirectEmail or the
+        // default eForm send) are POST-only. Focused test: EmailSend2ActionTest.
+        "io.github.carlos_emr.carlos.email.action.EmailSend2Action",
         // HRM: rejects GET when statement param is present.
         "io.github.carlos_emr.carlos.hospitalReportManager.HRMStatementModify2Action",
         // Login gate: GET renders the selector, but selectedFacilityId is mutation intent.
@@ -325,6 +328,9 @@ class MutatorActionGetRejectionContractTest {
         "io.github.carlos_emr.carlos.billings.ca.on.web.MoveMohFiles2Action",
         "io.github.carlos_emr.carlos.billings.ca.on.web.ScheduleOfBenefitsUpload2Action",
         "io.github.carlos_emr.carlos.commn.web.FlowSheetCustom2Action",
+        // email slice: only EmailSend2Action is registered (issue #3111); the broader email
+        // production-readiness audit that surfaced it is tracked via PR #3096.
+        "io.github.carlos_emr.carlos.email.action.EmailSend2Action",
         "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action",
         "io.github.carlos_emr.carlos.form.pageUtil.FrmXmlUpload2Action",
         "io.github.carlos_emr.carlos.login.gate.SelectFacility2Action",

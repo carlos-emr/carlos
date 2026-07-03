@@ -68,13 +68,19 @@ public class EmailSend2Action extends ActionSupport {
      *
      * <p>This method implements method-based routing for the following email workflows:</p>
      * <ul>
-     *   <li><strong>sendDirectEmail</strong> - Sends email directly without EForm context</li>
+     *   <li><strong>sendDirectEmail</strong> - Sends email directly without EForm context (POST only)</li>
      *   <li><strong>cancel</strong> - Cancels email operation and redirects to source</li>
-     *   <li><strong>default</strong> - Sends email with EForm context (if no method parameter specified)</li>
+     *   <li><strong>default</strong> - Sends email with EForm context (if no method parameter specified; POST only)</li>
      * </ul>
      *
+     * <p><strong>HTTP-method contract:</strong> every dispatch except {@code method=cancel} is a
+     * mutation — it transmits patient email outbound, persists an {@link EmailLog}, and may delete
+     * eForm data. Those paths reject non-POST requests with 405 before any side effect fires, per
+     * the mutator GET/HEAD rejection contract ({@code MutatorActionGetRejectionContractTest}).
+     * The {@code cancel} dispatch is pure navigation and stays reachable via GET.</p>
+     *
      * @return String Struts2 result identifier - "success" for successful email operations,
-     *         or transaction type name for cancel operations
+     *         transaction type name for cancel operations, or NONE after a 405 rejection
      */
     public String execute () {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -82,10 +88,27 @@ public class EmailSend2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_email)");
         }
 
+        if ("cancel".equals(request.getParameter("method"))) {
+            return cancel();
+        }
+
+        // Send intent (method=sendDirectEmail or the default eForm send): a crafted GET link
+        // could otherwise send PHI outbound and delete eForm data cross-site, since CSRFGuard's
+        // form-POST token protection does not cover GET-triggerable mutations.
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            try {
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            } catch (IOException e) {
+                // Response may already be committed (client abort). The mutation is still
+                // blocked by returning NONE below; log for observability only.
+                logger.warn("Failed to send 405 on non-POST email send attempt", e);
+            }
+            return NONE;
+        }
+
         if ("sendDirectEmail".equals(request.getParameter("method"))) {
             return sendDirectEmail();
-        } else if ("cancel".equals(request.getParameter("method"))) {
-            return cancel();
         }
         return sendEFormEmail();
     }
