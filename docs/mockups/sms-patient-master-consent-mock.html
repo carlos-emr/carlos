@@ -1057,6 +1057,7 @@
                                     <th>Consent documents</th>
                                     <th>Consent type</th>
                                     <th>Stored</th>
+                                    <th>Source / note</th>
                                     <th>Status</th>
                                     <th>Action</th>
                                 </tr>
@@ -1066,6 +1067,7 @@
                                     <td>Email consent signed form.pdf</td>
                                     <td>Email consent</td>
                                     <td>2024-05-23</td>
+                                    <td>Scanned paper form</td>
                                     <td><span class="status-pill">Signed</span></td>
                                     <td><button class="document-action" type="button" data-view-document>View</button></td>
                                 </tr>
@@ -1073,6 +1075,7 @@
                                     <td>SMS verbal consent note</td>
                                     <td>SMS/Text messaging</td>
                                     <td>2026-05-14</td>
+                                    <td>Phone call note</td>
                                     <td><span class="status-pill warn">Verbal</span></td>
                                     <td><button class="document-action" type="button" data-view-document>View</button></td>
                                 </tr>
@@ -1136,7 +1139,7 @@
     </main>
 </div>
 
-<div class="modal-backdrop" id="smsModal" role="dialog" aria-modal="true" aria-labelledby="smsTitle">
+<div class="modal-backdrop" id="smsModal" role="dialog" aria-modal="true" aria-labelledby="smsTitle" aria-describedby="smsContext">
     <section class="sms-modal">
         <header>
             <div>
@@ -1548,11 +1551,12 @@
             row.setAttribute('data-doc-status', status);
             row.setAttribute('data-doc-stored', storedDate);
             row.setAttribute('data-doc-source', source);
-            row.innerHTML = '<td></td><td></td><td></td><td><span class="status-pill' + statusClass(status) + '"></span></td><td><button class="document-action" type="button" data-view-document>View</button></td>';
+            row.innerHTML = '<td></td><td></td><td></td><td></td><td><span class="status-pill' + statusClass(status) + '"></span></td><td><button class="document-action" type="button" data-view-document>View</button></td>';
             row.children[0].textContent = fileName;
             row.children[1].textContent = consentLabels[consentType];
             row.children[2].textContent = storedDate;
-            row.children[3].querySelector('span').textContent = status;
+            row.children[3].textContent = source;
+            row.children[4].querySelector('span').textContent = status;
             docRows.appendChild(row);
             updateDocumentCounts();
             closeAllModals();

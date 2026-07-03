@@ -60,7 +60,7 @@ Important fields:
 |---|---|
 | `demographic_no` | The patient id. |
 | `consent_type_id` | Links to `consentType.id`. |
-| `explicit` | `1` means the patient gave direct (verbal/written) consent. `0` means consent was implied or assumed. Tracked separately from the opt-in/opt-out answer; `PatientConsentManagerImpl.addEditConsentRecord(...)` sets it on every write. |
+| `explicit` | `1` means the patient gave direct (verbal/written) consent. `0` means consent was implied or assumed. Tracked separately from the opt-in/opt-out answer; `PatientConsentManagerImpl.addEditConsentRecord(...)` sets it when a new `Consent` row is created. |
 | `optout` | The actual yes/no answer. |
 | `deleted` | Whether the answer was reset/cleared. |
 | `last_entered_by` | Who last changed it. |
@@ -306,4 +306,3 @@ Add status/note fields to Consent.
 Add document metadata to consentType.
 Add a new ConsentDocument table.
 ```
-
