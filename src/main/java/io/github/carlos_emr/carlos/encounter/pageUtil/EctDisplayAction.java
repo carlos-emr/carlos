@@ -45,9 +45,13 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
+import java.util.StringJoiner;
 import java.util.regex.Pattern;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -141,7 +145,16 @@ public class EctDisplayAction extends ActionSupport {
     }
 
     private boolean isJsonRequest() {
-        return request.getParameter("json") != null && request.getParameter("json").equalsIgnoreCase("true");
+        return isAsciiTrue(request.getParameter("json"));
+    }
+
+    private boolean isAsciiTrue(String value) {
+        return value != null
+                && value.length() == 4
+                && ((value.charAt(0) | 0x20) == 't')
+                && ((value.charAt(1) | 0x20) == 'r')
+                && ((value.charAt(2) | 0x20) == 'u')
+                && ((value.charAt(3) | 0x20) == 'e');
     }
 
     private EctSessionBean prepareEncounterSessionBean(EctSessionBean bean) {
@@ -356,9 +369,32 @@ public class EctDisplayAction extends ActionSupport {
             dao.setHeadingColour(headingColour);
         }
 
-        dao.setReloadUrl(request.getRequestURL().toString() + "?" + request.getQueryString());
+        dao.setReloadUrl(buildReloadUrl());
         dao.setDivId(cmd);
         return dao;
+    }
+
+    private String buildReloadUrl() {
+        String baseUrl = request.getRequestURL().toString();
+        String encodedQuery = buildEncodedQueryString();
+        return encodedQuery.isEmpty() ? baseUrl : baseUrl + "?" + encodedQuery;
+    }
+
+    private String buildEncodedQueryString() {
+        StringJoiner joiner = new StringJoiner("&");
+        for (Map.Entry<String, String[]> entry : request.getParameterMap().entrySet()) {
+            String encodedKey = URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8);
+            String[] values = entry.getValue();
+            if (values == null || values.length == 0) {
+                joiner.add(encodedKey);
+                continue;
+            }
+            for (String value : values) {
+                String encodedValue = value == null ? "" : URLEncoder.encode(value, StandardCharsets.UTF_8);
+                joiner.add(encodedKey + "=" + encodedValue);
+            }
+        }
+        return joiner.toString();
     }
 
     private String resolveForward(String cmd, String params, NavBarDisplayDAO dao, boolean isJsonRequest) throws IOException {
