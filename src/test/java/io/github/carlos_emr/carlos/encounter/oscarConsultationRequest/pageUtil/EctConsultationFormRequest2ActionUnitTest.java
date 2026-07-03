@@ -30,6 +30,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.nio.file.Files;
@@ -241,7 +242,25 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.INPUT);
         verify(consultationManager, never()).archiveConsultationRequest(any(Integer.class));
-        verify(consultationRequestDao, never()).find(any());
+        verifyNoInteractions(consultationRequestDao);
+    }
+
+    @Test
+    @DisplayName("returns input after archiving when the consultation update target no longer exists")
+    void shouldReturnInput_whenConsultationUpdateTargetIsMissing() throws Exception {
+        when(consultationRequestDao.find(9)).thenReturn(null);
+
+        action.setSubmission("Update");
+        action.setRequestId("9");
+        action.setDemographicNo("1");
+        action.setService("1");
+        action.setSpecialist("0");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.INPUT);
+        verify(consultationManager).archiveConsultationRequest(9);
+        verify(consultationRequestDao).find(9);
         verify(consultationRequestDao, never()).merge(any());
     }
 
@@ -414,6 +433,31 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(persisted[0].getSignatureImg()).isNull();
         // Benign unsigned save: the redirect must NOT carry the warning flag.
         assertThat(response.getRedirectedUrl()).doesNotContain("signatureNotApplied");
+    }
+
+    @Test
+    @DisplayName("preserves an existing stored signature when stamp mode is skipped for a benign update outcome")
+    void shouldPreserveStoredSignature_whenStampUpdateReturnsBenignNonSavedOutcome() throws Exception {
+        ConsultationRequest existing = new ConsultationRequest();
+        existing.setSignatureImg("123");
+        when(consultationRequestDao.find(9)).thenReturn(existing);
+
+        action.setSubmission("Update");
+        action.setRequestId("9");
+        action.setService("1");
+        action.setSpecialist("0");
+        action.setSignatureImg("");
+        request.setParameter("newSignature", "false");
+
+        when(consultationSignatureService.saveConsultationStamp(loggedInInfo, "999998", 1))
+                .thenReturn(new ConsultationStampOutcome(ConsultationStampOutcome.Status.SIGNATURES_DISABLED, null));
+
+        action.execute();
+
+        assertThat(existing.getSignatureImg()).isEqualTo("123");
+        assertThat(response.getRedirectedUrl()).doesNotContain("signatureNotApplied");
+        verify(consultationSignatureService).saveConsultationStamp(loggedInInfo, "999998", 1);
+        verify(consultationRequestDao).merge(existing);
     }
 
     @Test

@@ -120,9 +120,9 @@ class RxRePrescribe2ActionTest extends CarlosWebTestBase {
     }
 
     @Test
-    @DisplayName("should reject GET before mutating prescription signatures")
-    void shouldRejectGet_beforeMutatingPrescriptionSignatures() throws Exception {
-        request.setMethod("GET");
+    @DisplayName("should reject non-POST methods before mutating prescription signatures")
+    void shouldRejectNonPost_beforeMutatingPrescriptionSignatures() throws Exception {
+        request.setMethod("PUT");
         request.setParameter("scriptId", String.valueOf(SCRIPT_ID));
         request.setParameter("digitalSignatureId", String.valueOf(SIGNATURE_ID));
 

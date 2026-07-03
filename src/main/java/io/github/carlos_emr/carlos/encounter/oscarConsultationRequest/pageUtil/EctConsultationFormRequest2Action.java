@@ -112,6 +112,16 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
     private static final String ATTR_SIGNATURE_NOT_APPLIED = "signatureNotApplied";
     private static final String ATTR_ERROR_MESSAGE = "errorMessage";
 
+    private Integer parseUpdateInteger(String rawValue, String logMessage, String actionErrorMessage) {
+        try {
+            return Integer.parseInt(rawValue);
+        } catch (NumberFormatException e) {
+            MiscUtils.getLogger().error(logMessage, LogSafe.sanitize(rawValue));
+            addActionError(actionErrorMessage);
+            return null;
+        }
+    }
+
     /**
      * Processes the consultation request form submission.
      *
@@ -353,32 +363,38 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         } else if (submission.startsWith("Update")) {
             requestId = this.getRequestId();
 
+            Integer parsedConsultationRequestId = parseUpdateInteger(requestId,
+                    "Invalid consultation request id for update: {}",
+                    "Invalid consultation request id");
+            if (parsedConsultationRequestId == null) {
+                return INPUT;
+            }
+            int consultationRequestId = parsedConsultationRequestId;
+
+            Integer parsedDemographicId = parseUpdateInteger(demographicNo,
+                    "Invalid demographic number for consultation update: {}",
+                    "Invalid demographic number");
+            if (parsedDemographicId == null) {
+                return INPUT;
+            }
+            int demographicId = parsedDemographicId;
+
             try {
-                int consultationRequestId;
-                try {
-                    consultationRequestId = Integer.parseInt(requestId);
-                } catch (NumberFormatException e) {
-                    MiscUtils.getLogger().error("Invalid consultation request id for update: {}", LogSafe.sanitize(requestId));
-                    addActionError("Invalid consultation request id");
-                    return INPUT;
-                }
-
-                int demographicId;
-                try {
-                    demographicId = Integer.parseInt(demographicNo);
-                } catch (NumberFormatException e) {
-                    MiscUtils.getLogger().error("Invalid demographic number for consultation update: {}", demographicNo);
-                    addActionError("Invalid demographic number");
-                    return INPUT;
-                }
-
                 consultationManager.archiveConsultationRequest(consultationRequestId);
 
                 // Load the consultation record before signature assignment so fallback branches use the
                 // DB-stored signature id rather than the client-submitted field (prevents a tampered
                 // form from associating an arbitrary DigitalSignature id with this consultation).
                 ConsultationRequest consult = consultationRequestDao.find(consultationRequestId);
+                if (consult == null) {
+                    MiscUtils.getLogger().error("Consultation request not found for update: {}", consultationRequestId);
+                    addActionError("Consultation request not found");
+                    return INPUT;
+                }
                 String existingSignatureId = consult.getSignatureImg();
+                String preservedStoredSignatureId = SignatureReference.isStoredId(existingSignatureId)
+                        ? existingSignatureId
+                        : null;
 
                 if (newSignature) {
                     // Manual re-sign from tablet/signature pad. See create-path note: warn only when a
@@ -387,10 +403,10 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                     DigitalSignature signature = digitalSignatureManager.processAndSaveDigitalSignature(loggedInInfo, manualSignatureRequestId, demographicId, ModuleType.CONSULTATION);
                     if (signature != null) {
                         signatureId = "" + signature.getId();
-                    } else if (SignatureReference.isStoredId(existingSignatureId)) {
+                    } else if (preservedStoredSignatureId != null) {
                         // Manual capture failed - fall back to the existing stored signature already on the
                         // consultation record; do not trust the submitted field value.
-                        signatureId = existingSignatureId;
+                        signatureId = preservedStoredSignatureId;
                     } else if (manualCaptured) {
                         // A signature was collected but could not be persisted and there is nothing to fall
                         // back to; the update still saves. Log at error and warn the provider.
@@ -408,13 +424,13 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                             loggedInInfo, signatureProviderNo, demographicId);
                     if (outcome.isSaved()) {
                         signatureId = "" + outcome.signature().getId();
-                    } else if (outcome.isGenuineFailure()) {
-                        // Preserve an already-stored immutable signature when the client submits a stale
-                        // or blank signatureImg field and the replacement stamp cannot be created.
-                        signatureId = SignatureReference.isStoredId(existingSignatureId) ? existingSignatureId : null;
-                        // Update is still persisted; the service logged the specific failure at error.
-                        // Warn the provider that the stamp was not applied.
-                        request.setAttribute(ATTR_SIGNATURE_NOT_APPLIED, Boolean.TRUE);
+                    } else {
+                        signatureId = preservedStoredSignatureId;
+                        if (outcome.isGenuineFailure()) {
+                            // Update is still persisted; the service logged the specific failure at error.
+                            // Warn the provider that the stamp was not applied.
+                            request.setAttribute(ATTR_SIGNATURE_NOT_APPLIED, Boolean.TRUE);
+                        }
                     }
                 } else {
                     // Already has a DigitalSignature ID - preserve the DB-stored value, not the submitted field.

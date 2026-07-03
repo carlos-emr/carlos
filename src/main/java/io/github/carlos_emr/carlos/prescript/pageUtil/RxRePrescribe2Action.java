@@ -249,7 +249,7 @@ public final class RxRePrescribe2Action extends ActionSupport {
  * - scriptId: String ID of the prescription script (required)
  */
 public String saveDigitalSignature() throws IOException {
-    if ("GET".equalsIgnoreCase(request.getMethod()) || "HEAD".equalsIgnoreCase(request.getMethod())) {
+    if (!"POST".equals(request.getMethod())) {
         response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         return NONE;
     }
