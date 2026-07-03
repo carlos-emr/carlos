@@ -189,6 +189,11 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
             verify(securityInfoManager).hasPrivilege(eq(loggedInInfo), eq("_appointment"), eq("w"), isNull());
         }
 
+        /** Confirms the mutator gated on the {@code _appointment} delete privilege before rejecting. */
+        private void verifyDeletePrivilegeChecked() {
+            verify(securityInfoManager).hasPrivilege(eq(loggedInInfo), eq("_appointment"), eq("d"), isNull());
+        }
+
         @Test
         @DisplayName("should throw 403 and not persist when caller lacks write privilege on addAppointment")
         void shouldThrow403_whenCallerLacksWritePrivilegeOnAddAppointment() {
@@ -201,8 +206,8 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should return 403 and not delete when caller lacks write privilege on deleteAppointment")
-        void shouldReturn403_whenCallerLacksWritePrivilegeOnDeleteAppointment() {
+        @DisplayName("should return 403 and not delete when caller lacks delete privilege on deleteAppointment")
+        void shouldReturn403_whenCallerLacksDeletePrivilegeOnDeleteAppointment() {
             AppointmentTo1 apptTo = new AppointmentTo1();
             apptTo.setId(42);
 
@@ -210,7 +215,7 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
 
             assertThat(response.getStatus()).isEqualTo(Response.Status.FORBIDDEN.getStatusCode());
             verifyNoInteractions(appointmentManager);
-            verifyWritePrivilegeChecked();
+            verifyDeletePrivilegeChecked();
         }
 
         @Test

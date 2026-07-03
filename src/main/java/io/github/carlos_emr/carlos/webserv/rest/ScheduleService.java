@@ -244,7 +244,7 @@ public class ScheduleService extends AbstractServiceImpl {
     @Consumes("application/json")
     @Produces("application/json")
     public Response deleteAppointment(AppointmentTo1 appointmentTo) {
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_appointment", "w", null)) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_appointment", "d", null)) {
             return Response.status(Response.Status.FORBIDDEN).build();
         }
 
