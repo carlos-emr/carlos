@@ -60,6 +60,7 @@ public class EmailSend2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static final Logger logger = MiscUtils.getLogger();
+    private static final String EMAIL_ATTACHMENT_LIST_SESSION_KEY = "emailAttachmentList";
     private EmailManager emailManager = SpringUtils.getBean(EmailManager.class);
     private EformDataManager eformDataManager = SpringUtils.getBean(EformDataManager.class);
 
@@ -200,7 +201,7 @@ public class EmailSend2Action extends ActionSupport {
         // Session cleanup is a mutation, so it is POST-gated: cancel is GET-reachable
         // navigation and a crafted GET link must not clear in-progress attachments.
         if ("POST".equals(request.getMethod())) {
-            request.getSession().removeAttribute("emailAttachmentList");
+            request.getSession().removeAttribute(EMAIL_ATTACHMENT_LIST_SESSION_KEY);
         }
         String emailRedirect = emailData.getTransactionType().name();
         if (emailData.getTransactionType().equals(EmailLog.TransactionType.EFORM)) {
@@ -271,7 +272,8 @@ public class EmailSend2Action extends ActionSupport {
         String transactionType = request.getParameter("transactionType");
         String demographicNo = request.getParameter("demographicId");
         String additionalParams = request.getParameter("additionalURLParams");
-        List<EmailAttachment> emailAttachmentList = (List<EmailAttachment>) request.getSession().getAttribute("emailAttachmentList");
+        List<EmailAttachment> emailAttachmentList = (List<EmailAttachment>) request.getSession()
+                .getAttribute(EMAIL_ATTACHMENT_LIST_SESSION_KEY);
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -294,7 +296,7 @@ public class EmailSend2Action extends ActionSupport {
         emailData.setAdditionalParams(additionalParams);
         emailData.setAttachments(emailAttachmentList);
 
-        request.getSession().removeAttribute("emailAttachmentList");
+        request.getSession().removeAttribute(EMAIL_ATTACHMENT_LIST_SESSION_KEY);
 
         return emailData;
     }
