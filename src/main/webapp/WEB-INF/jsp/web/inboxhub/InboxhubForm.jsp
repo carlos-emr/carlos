@@ -619,7 +619,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     var activeTypeFilter = null;
     var ackToggleState = false;
     var rapidReviewState = false;
-    var savedStartDate = '';  // preserves the original start date when toggling Acknowledged
 
     /**
      * Filters the inbox to show only one type (DOC, HL7, HRM) or all types.
@@ -677,17 +676,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         var radioId = checked ? 'statusAcknowledged' : 'statusNew';
         var radio = document.getElementById(radioId);
         if (radio) radio.checked = true;
-
-        // When showing acknowledged items, scope to today only so the list
-        // isn't overwhelmed with historical data. Clear the date when toggling back.
-        var startDateEl = document.getElementById('startDate');
-        var fp = startDateEl._flatpickr;
-        if (checked) {
-            savedStartDate = startDateEl.value;
-            if (fp) { fp.setDate(new Date(), true); } else { startDateEl.value = new Date().toISOString().slice(0, 10); }
-        } else {
-            if (fp) { fp.setDate(savedStartDate || '', true); } else { startDateEl.value = savedStartDate || ''; }
-        }
 
         fetchInboxhubData();
     }

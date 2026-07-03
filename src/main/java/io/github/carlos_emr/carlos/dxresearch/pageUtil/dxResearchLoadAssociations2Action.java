@@ -37,9 +37,6 @@ import java.util.Map;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAO;
 import io.github.carlos_emr.carlos.casemgmt.dao.IssueDAO;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
@@ -49,6 +46,7 @@ import io.github.carlos_emr.carlos.commn.dao.DxDao;
 import io.github.carlos_emr.carlos.commn.dao.DxresearchDAO;
 import io.github.carlos_emr.carlos.commn.model.DxAssociation;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.JsonResponseWriter;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -75,9 +73,6 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
     private static final String PRIVILEGE_READ = "r";
     private static final String PRIVILEGE_UPDATE = "u";
     private static final String PRIVILEGE_WRITE = "w";
-
-    
-    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
@@ -130,9 +125,7 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
             assoc.setDescription(getDescription(assoc.getCodeType(), assoc.getCode()));
         }
 
-        //serialize and return
-        ArrayNode jsonArray = objectMapper.valueToTree(associations);
-        response.getWriter().print(jsonArray);
+        JsonResponseWriter.write(response, associations);
         return null;
     }
 
@@ -150,7 +143,7 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
 
         Map<String, Integer> map = new HashMap<String, Integer>();
         map.put("recordsUpdated", recordsUpdated);
-        response.getWriter().print(objectMapper.valueToTree(map));
+        JsonResponseWriter.write(response, map);
         return null;
     }
 
@@ -167,7 +160,7 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
 
         Map<String, String> map = new HashMap<String, String>();
         map.put("result", "success");
-        response.getWriter().print(objectMapper.valueToTree(map));
+        JsonResponseWriter.write(response, map);
         return null;
     }
 
@@ -246,7 +239,7 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
 
         Map<String, Integer> map = new HashMap<String, Integer>();
         map.put("recordsAdded", rowsInserted);
-        response.getWriter().print(objectMapper.valueToTree(map));
+        JsonResponseWriter.write(response, map);
 
         return SUCCESS;
     }
@@ -280,7 +273,7 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
 
         Map<String, Integer> map = new HashMap<String, Integer>();
         map.put("recordsAdded", recordsAdded);
-        response.getWriter().print(objectMapper.valueToTree(map));
+        JsonResponseWriter.write(response, map);
 
         return null;
     }

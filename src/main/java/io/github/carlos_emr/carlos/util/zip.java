@@ -113,7 +113,9 @@ public class zip {
         Enumeration<? extends ZipEntry> entries;
         boolean result = false;
         if (fName == null || fName.length() < 4 || !fName.toLowerCase().endsWith(".zip")) {
-            logger.error("unzipXML: " + fName + " does not have .zip extension.");
+            if (logger.isErrorEnabled()) {
+                logger.error("unzipXML rejected file without .zip extension; file name omitted from log.");
+            }
             return result;
         }
         File targetDir;
@@ -160,9 +162,9 @@ public class zip {
 
                     try (BufferedOutputStream dest = new BufferedOutputStream(new FileOutputStream(z), BUFFER)) {
                         while ((count = is.read(data, 0, BUFFER)) != -1) {
-                            dest.write(data, 0, count);
+                            dest.write(data, 0, count); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- writes ZIP entry bytes to a validated file target, not HTTP response HTML
                         }
-                        dest.flush();
+                        dest.flush(); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- flushes file output stream, not HTTP response HTML
                     }
                 }
             }
@@ -188,4 +190,3 @@ public class zip {
         return result;
     }
 }
-

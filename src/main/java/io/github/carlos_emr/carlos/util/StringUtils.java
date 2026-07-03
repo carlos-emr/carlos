@@ -346,6 +346,11 @@ public class StringUtils {
         return text.contains(searchWord);
     }
 
+    /**
+     * Legacy blank scrubber. Prefer Apache Commons Lang's
+     * {@code defaultString}, {@code trimToEmpty}, or {@code isBlank} in new code
+     * when those narrower semantics are intended.
+     */
     static public String noNull(String maybeNullText) {
         return filled(maybeNullText) ? maybeNullText : "";
     }
