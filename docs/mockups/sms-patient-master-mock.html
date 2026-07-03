@@ -221,10 +221,13 @@
             gap: 8px;
             justify-content: space-between;
             min-height: 34px;
+            margin: 0;
             padding: 7px 13px;
             background: #337ab7;
             color: #fff;
+            font-size: 12px;
             font-weight: 700;
+            line-height: 1.35;
         }
 
         .panel-title .pill {
@@ -602,7 +605,7 @@
             <div class="two-column">
                 <div>
                     <section class="panel">
-                        <div class="panel-title">Demographic</div>
+                        <h2 class="panel-title">Demographic</h2>
                         <div class="info-row">
                             <span class="info-label">Title:</span>
                             <span class="info-value">Ms</span>
@@ -641,17 +644,17 @@
                     </section>
 
                     <section class="panel">
-                        <div class="panel-title">
+                        <h2 class="panel-title">
                             Other Contacts
                             <button class="pill" type="button">Add Relation</button>
-                        </div>
+                        </h2>
                     </section>
 
                     <section class="panel">
-                        <div class="panel-title">
+                        <h2 class="panel-title">
                             Clinic Status
                             <button class="pill" type="button">Enrollment History</button>
-                        </div>
+                        </h2>
                         <div class="info-row">
                             <span class="info-label">Enrolment Status:</span>
                             <span class="info-value">Rostered</span>
@@ -675,7 +678,7 @@
                     </section>
 
                     <section class="panel">
-                        <div class="panel-title">Alerts</div>
+                        <h2 class="panel-title">Alerts</h2>
                         <div class="info-row">
                             <span class="info-label">&nbsp;</span>
                             <span class="info-value"></span>
@@ -684,7 +687,7 @@
                     </section>
 
                     <section class="panel">
-                        <div class="panel-title">Rx Interaction Warning Level</div>
+                        <h2 class="panel-title">Rx Interaction Warning Level</h2>
                         <div class="info-row">
                             <span class="info-label">Rx Interaction Warning Level:</span>
                             <span class="info-value">Not Specified</span>
@@ -693,17 +696,17 @@
                     </section>
 
                     <section class="panel">
-                        <div class="panel-title">Paper Chart</div>
+                        <h2 class="panel-title">Paper Chart</h2>
                     </section>
 
                     <section class="panel">
-                        <div class="panel-title">Custom</div>
+                        <h2 class="panel-title">Custom</h2>
                     </section>
                 </div>
 
                 <div>
                     <section class="panel">
-                        <div class="panel-title">Contact Information</div>
+                        <h2 class="panel-title">Contact Information</h2>
                         <div class="info-row">
                             <span class="info-label">Phone(H)(History):</span>
                             <span class="info-value">555-555-5555</span>
@@ -759,12 +762,12 @@
                     </section>
 
                     <section class="panel">
-                        <div class="panel-title">
+                        <h2 class="panel-title">
                             <span class="panel-title-left">Patient Communication</span>
                             <span class="panel-title-actions">
                                 <a class="panel-title-button" href="sms-message-history-mock.html">Message history</a>
                             </span>
-                        </div>
+                        </h2>
                         <div class="communication-summary">
                             <div class="summary-cell">
                                 <strong>SMS consent</strong>
@@ -806,19 +809,19 @@
                     </section>
 
                     <section class="panel">
-                        <div class="panel-title">Health Insurance</div>
+                        <h2 class="panel-title">Health Insurance</h2>
                     </section>
 
                     <section class="panel">
-                        <div class="panel-title">Health Care Team</div>
+                        <h2 class="panel-title">Health Care Team</h2>
                     </section>
 
                     <section class="panel">
-                        <div class="panel-title">Patient Clinic Status</div>
+                        <h2 class="panel-title">Patient Clinic Status</h2>
                     </section>
 
                     <section class="panel">
-                        <div class="panel-title">Notes</div>
+                        <h2 class="panel-title">Notes</h2>
                         <div class="info-row">
                             <span class="info-value">Testing the patient notes field</span>
                             <span></span>
@@ -917,6 +920,7 @@
             template.value = selectedTemplate;
             smsBody.value = templateBodies[selectedTemplate] || templateBodies.general;
             modal.classList.add('open');
+            template.focus();
         }
 
         function closeSms() {

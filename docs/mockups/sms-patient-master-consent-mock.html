@@ -221,10 +221,13 @@
             gap: 8px;
             justify-content: space-between;
             min-height: 34px;
+            margin: 0;
             padding: 7px 13px;
             background: #337ab7;
             color: #fff;
+            font-size: 12px;
             font-weight: 700;
+            line-height: 1.35;
         }
 
         .panel-title .pill {
@@ -774,7 +777,7 @@
             <div class="two-column">
                 <div>
                     <section class="panel">
-                        <div class="panel-title">Demographic</div>
+                        <h2 class="panel-title">Demographic</h2>
                         <div class="info-row">
                             <span class="info-label">Title:</span>
                             <span class="info-value">Ms</span>
@@ -813,17 +816,17 @@
                     </section>
 
                     <section class="panel">
-                        <div class="panel-title">
+                        <h2 class="panel-title">
                             Other Contacts
                             <button class="pill" type="button">Add Relation</button>
-                        </div>
+                        </h2>
                     </section>
 
                     <section class="panel">
-                        <div class="panel-title">
+                        <h2 class="panel-title">
                             Clinic Status
                             <button class="pill" type="button">Enrollment History</button>
-                        </div>
+                        </h2>
                         <div class="info-row">
                             <span class="info-label">Enrolment Status:</span>
                             <span class="info-value">Rostered</span>
@@ -847,7 +850,7 @@
                     </section>
 
                     <section class="panel">
-                        <div class="panel-title">Alerts</div>
+                        <h2 class="panel-title">Alerts</h2>
                         <div class="info-row">
                             <span class="info-label">&nbsp;</span>
                             <span class="info-value"></span>
@@ -856,7 +859,7 @@
                     </section>
 
                     <section class="panel">
-                        <div class="panel-title">Rx Interaction Warning Level</div>
+                        <h2 class="panel-title">Rx Interaction Warning Level</h2>
                         <div class="info-row">
                             <span class="info-label">Rx Interaction Warning Level:</span>
                             <span class="info-value">Not Specified</span>
@@ -865,17 +868,17 @@
                     </section>
 
                     <section class="panel">
-                        <div class="panel-title">Paper Chart</div>
+                        <h2 class="panel-title">Paper Chart</h2>
                     </section>
 
                     <section class="panel">
-                        <div class="panel-title">Custom</div>
+                        <h2 class="panel-title">Custom</h2>
                     </section>
                 </div>
 
                 <div>
                     <section class="panel">
-                        <div class="panel-title">Contact Information</div>
+                        <h2 class="panel-title">Contact Information</h2>
                         <div class="info-row">
                             <span class="info-label">Phone(H)(History):</span>
                             <span class="info-value">555-555-5555</span>
@@ -931,12 +934,12 @@
                     </section>
 
                     <section class="panel">
-                        <div class="panel-title">
+                        <h2 class="panel-title">
                             <span class="panel-title-left">Patient Communication</span>
                             <span class="panel-title-actions">
                                 <a class="panel-title-button" href="sms-message-history-mock.html">Message history</a>
                             </span>
-                        </div>
+                        </h2>
                         <div class="communication-summary">
                             <div class="summary-cell">
                                 <strong>SMS consent</strong>
@@ -978,13 +981,13 @@
                     </section>
 
                     <section class="panel">
-                        <div class="panel-title">
+                        <h2 class="panel-title">
                             <span class="panel-title-left">Consent</span>
                             <span class="panel-title-actions">
                                 <button class="pill" type="button" data-open-doc-upload>Add document</button>
                                 <button class="pill" type="button" data-open-type>Add type</button>
                             </span>
-                        </div>
+                        </h2>
                         <div class="consent-list" id="consentList">
                             <div class="consent-item" data-consent-row="email_consent">
                                 <div>
@@ -1103,19 +1106,19 @@
                     </section>
 
                     <section class="panel">
-                        <div class="panel-title">Health Insurance</div>
+                        <h2 class="panel-title">Health Insurance</h2>
                     </section>
 
                     <section class="panel">
-                        <div class="panel-title">Health Care Team</div>
+                        <h2 class="panel-title">Health Care Team</h2>
                     </section>
 
                     <section class="panel">
-                        <div class="panel-title">Patient Clinic Status</div>
+                        <h2 class="panel-title">Patient Clinic Status</h2>
                     </section>
 
                     <section class="panel">
-                        <div class="panel-title">Notes</div>
+                        <h2 class="panel-title">Notes</h2>
                         <div class="info-row">
                             <span class="info-value">Testing the patient notes field</span>
                             <span></span>
@@ -1195,12 +1198,12 @@
     </section>
 </div>
 
-<div class="modal-backdrop" id="consentDocumentModal" role="dialog" aria-modal="true" aria-labelledby="consentDocumentTitle">
+<div class="modal-backdrop" id="consentDocumentModal" role="dialog" aria-modal="true" aria-labelledby="consentDocumentTitle" aria-describedby="consentDocumentDescription">
     <section class="sms-modal">
         <header>
             <div>
                 <h2 id="consentDocumentTitle">Add consent document</h2>
-                <p>Store a signed form, verbal consent note, or uploaded consent record with this patient.</p>
+                <p id="consentDocumentDescription">Store a signed form, verbal consent note, or uploaded consent record with this patient.</p>
             </div>
             <button type="button" data-close aria-label="Close">x</button>
         </header>
@@ -1253,12 +1256,12 @@
     </section>
 </div>
 
-<div class="modal-backdrop" id="consentTypeModal" role="dialog" aria-modal="true" aria-labelledby="consentTypeTitle">
+<div class="modal-backdrop" id="consentTypeModal" role="dialog" aria-modal="true" aria-labelledby="consentTypeTitle" aria-describedby="consentTypeDescription">
     <section class="sms-modal">
         <header>
             <div>
                 <h2 id="consentTypeTitle">Add consent type</h2>
-                <p>Create another consent row for this patient and make it available for document storage.</p>
+                <p id="consentTypeDescription">Create another consent row for this patient and make it available for document storage.</p>
             </div>
             <button type="button" data-close aria-label="Close">x</button>
         </header>
@@ -1337,6 +1340,7 @@
             template.value = selectedTemplate;
             smsBody.value = templateBodies[selectedTemplate] || templateBodies.general;
             modal.classList.add('open');
+            template.focus();
         }
 
         function closeAllModals() {
@@ -1348,6 +1352,7 @@
         function openDocUpload(consentType) {
             docConsentType.value = consentType || 'email_consent';
             docModal.classList.add('open');
+            docConsentType.focus();
         }
 
         function openTypeModal() {
