@@ -415,6 +415,13 @@ public class RxWebService extends AbstractServiceImpl {
     public DrugResponse represcribe(@PathParam("drugId") Integer drugId) {
         LoggedInInfo info = getLoggedInInfo();
         Drug drug = rxManager.getDrug(info, drugId);
+        if (drug == null) {
+            throw new WebApplicationException(Response.Status.NOT_FOUND);
+        }
+        int demographicNo = drug.getDemographicId();
+        if (!securityInfoManager.hasPrivilege(info, "_rx", "w", demographicNo)) {
+             throw new AccessDeniedException("_rx", "w", demographicNo);
+        }
         DrugResponse resp = new DrugResponse();
         String special = RxUtil.trimSpecial(drug);
         drug.setSpecial(special);
@@ -561,10 +568,14 @@ public class RxWebService extends AbstractServiceImpl {
 
         LoggedInInfo info = getLoggedInInfo();
 
-        // Determine if the user has privileges to view this data.
-        //if (!securityInfoManager.hasPrivilege(info, "_rx", "r", demographicNo)) {
-        //    throw new AccessDeniedException("_rx", "r", demographicNo);
-        //}
+        Prescription existing = prescriptionManager.getPrescription(info, scriptNo);
+        if (existing == null) {
+            throw new WebApplicationException(Response.Status.NOT_FOUND);
+        }
+        int demographicNo = existing.getDemographicNo();
+        if (!securityInfoManager.hasPrivilege(info, "_rx", "r", demographicNo)) {
+            throw new AccessDeniedException("_rx", "r", demographicNo);
+        }
 
 
         prescriptionManager.print(info, scriptNo);
@@ -640,6 +651,7 @@ public class RxWebService extends AbstractServiceImpl {
     @Path("/{demographicNo}/watermark/{rxNo}")
     @Produces("image/png")
     public StreamingOutput watermark(@PathParam("demographicNo") Integer demographicNo, @PathParam("rxNo") Integer rxNo, @Context HttpServletRequest request, @Context HttpServletResponse response) {
+        requireRxReadPrivilege(demographicNo);
         LoggedInInfo loggedInInfo = getLoggedInInfo();
         response.setContentType("image/png");
         List<Drug> list = prescriptionManager.getDrugsByScriptNo(loggedInInfo, rxNo, null);
@@ -673,7 +685,7 @@ public class RxWebService extends AbstractServiceImpl {
     @Produces("application/pdf")
     @Consumes(MediaType.APPLICATION_JSON)
     public StreamingOutput print(@PathParam("demographicNo") Integer demographicNo, @PathParam("rxNo") Integer rxNo, @Context HttpServletRequest request, PrintRxTo1 transferObject) {
-
+        requireRxReadPrivilege(demographicNo);
         LoggedInInfo loggedInInfo = getLoggedInInfo();
         Demographic demographic = demographicManager.getDemographic(getLoggedInInfo(), demographicNo);
 
