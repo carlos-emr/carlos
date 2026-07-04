@@ -47,6 +47,13 @@ import io.github.carlos_emr.carlos.dxresearch.bean.dxQuickListBeanHandler;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Handles Struts action requests and responses for the dxResearchLoadQuickList2Action workflow.
+ * Manages the interaction between the web layer and the underlying business services,
+ * ensuring appropriate request validation and response routing.
+ */
+
+
 public class dxResearchLoadQuickList2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -55,6 +62,8 @@ public class dxResearchLoadQuickList2Action extends ActionSupport {
 
     public String execute()
             throws ServletException, IOException {
+        // Ensure execute adheres to legacy boundaries and system invariants for data processing
+
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_dxresearch", "r", null)) {
             throw new RuntimeException("missing required sec object (_dxresearch)");
         }

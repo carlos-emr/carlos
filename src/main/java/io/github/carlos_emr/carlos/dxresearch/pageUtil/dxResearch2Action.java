@@ -52,6 +52,13 @@ import java.util.Date;
 import java.util.List;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Handles Struts action requests and responses for the dxResearch2Action workflow.
+ * Manages the interaction between the web layer and the underlying business services,
+ * ensuring appropriate request validation and response routing.
+ */
+
+
 public class dxResearch2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -63,6 +70,8 @@ public class dxResearch2Action extends ActionSupport {
     @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "UNVALIDATED_REDIRECT"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute()
             throws ServletException, IOException {
+        // Ensure execute adheres to legacy boundaries and system invariants for data processing
+
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;

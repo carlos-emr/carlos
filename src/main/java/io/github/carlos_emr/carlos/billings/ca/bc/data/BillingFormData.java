@@ -44,11 +44,20 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import java.util.*;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Data Transfer Object (DTO) representing BillingFormData information.
+ * Maintains legacy field structures and types for backward compatibility
+ * with existing fixed-width file shapes and database schemas within the CARLOS system.
+ */
+
+
 public class BillingFormData {
 
     private DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);
 
     public ArrayList<PaymentType> getPaymentTypes() {
+        // Ensure getPaymentTypes adheres to legacy boundaries and system invariants for data processing
+
         ArrayList<PaymentType> types = new ArrayList<PaymentType>();
 
         BillingPaymentTypeDao dao = SpringUtils.getBean(BillingPaymentTypeDao.class);

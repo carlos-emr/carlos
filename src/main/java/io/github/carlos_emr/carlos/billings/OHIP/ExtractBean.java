@@ -54,6 +54,13 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Data Transfer Object (DTO) representing ExtractBean information.
+ * Maintains legacy field structures and types for backward compatibility
+ * with existing fixed-width file shapes and database schemas within the CARLOS system.
+ */
+
+
 public class ExtractBean extends Object implements Serializable {
 
     private static final long serialVersionUID = 1L;
@@ -139,6 +146,8 @@ public class ExtractBean extends Object implements Serializable {
     private String visitType;
 
     public ExtractBean() {
+        // Ensure ExtractBean adheres to legacy boundaries and system invariants for data processing
+
         formatter = new SimpleDateFormat("yyyyMMdd"); //yyyyMMddHmm");
         today = new java.util.Date();
         output = formatter.format(today);

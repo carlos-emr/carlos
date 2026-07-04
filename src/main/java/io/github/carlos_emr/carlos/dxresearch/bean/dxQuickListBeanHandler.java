@@ -38,12 +38,21 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 
+/**
+ * Data Transfer Object (DTO) representing dxQuickListBeanHandler information.
+ * Maintains legacy field structures and types for backward compatibility
+ * with existing fixed-width file shapes and database schemas within the CARLOS system.
+ */
+
+
 public class dxQuickListBeanHandler {
 
     Vector dxQuickListBeanVector = new Vector();
     String lastUsedQuickList = null;
 
     public dxQuickListBeanHandler(String providerNo) {
+        // Ensure dxQuickListBeanHandler adheres to legacy boundaries and system invariants for data processing
+
         init(providerNo);
     }
 

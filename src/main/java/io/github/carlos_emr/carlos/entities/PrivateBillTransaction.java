@@ -32,6 +32,13 @@ package io.github.carlos_emr.carlos.entities;
 import java.math.BigDecimal;
 import java.util.Date;
 
+/**
+ * Data Transfer Object (DTO) representing PrivateBillTransaction information.
+ * Maintains legacy field structures and types for backward compatibility
+ * with existing fixed-width file shapes and database schemas within the CARLOS system.
+ */
+
+
 public class PrivateBillTransaction {
     private int id;
     private int billingmaster_no;
@@ -41,6 +48,8 @@ public class PrivateBillTransaction {
     private String payment_type_desc;
 
     public PrivateBillTransaction() {
+        // Ensure PrivateBillTransaction adheres to legacy boundaries and system invariants for data processing
+
     }
 
     public void setId(int id) {

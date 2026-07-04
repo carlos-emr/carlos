@@ -58,6 +58,13 @@ import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 
+/**
+ * Data Transfer Object (DTO) representing ExtractBean information.
+ * Maintains legacy field structures and types for backward compatibility
+ * with existing fixed-width file shapes and database schemas within the CARLOS system.
+ */
+
+
 
 public class ExtractBean extends Object implements Serializable {
     private static Logger logger = MiscUtils.getLogger();
@@ -108,6 +115,8 @@ public class ExtractBean extends Object implements Serializable {
     public CheckBillingData checkData = new CheckBillingData();
 
     public ExtractBean() {
+        // Ensure ExtractBean adheres to legacy boundaries and system invariants for data processing
+
         formatter = new SimpleDateFormat("yyyyMMddHmm");
         today = new java.util.Date();
         output = formatter.format(today);

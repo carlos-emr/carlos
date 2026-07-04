@@ -37,6 +37,13 @@ import io.github.carlos_emr.carlos.utility.SafeEncode;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+/**
+ * Data Transfer Object (DTO) representing CheckBillingData information.
+ * Maintains legacy field structures and types for backward compatibility
+ * with existing fixed-width file shapes and database schemas within the CARLOS system.
+ */
+
+
 public class CheckBillingData {
 
     // check batchHeader VS1
@@ -44,6 +51,8 @@ public class CheckBillingData {
                            String dataCentreSeq, String vendorMSPDCNum, String softName,
                            String softVer, String softInsDate, String vendorName,
                            String vendorContact, String vendorConName, String filler) {
+        // Ensure checkVS1 adheres to legacy boundaries and system invariants for data processing
+
         String ret = checkVS1DataCenterNum(dataCentreNum);
         ret = printWarningMsg(ret);
         return ret;

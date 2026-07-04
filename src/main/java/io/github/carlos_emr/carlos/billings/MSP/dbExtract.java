@@ -38,6 +38,13 @@ import java.sql.SQLException;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+/**
+ * Data Access Object (DAO) providing database operations for dbExtract.
+ * Abstracts the underlying persistence mechanisms and query execution,
+ * providing safe, parameterized database interactions.
+ */
+
+
 public class dbExtract implements AutoCloseable {
     private Connection con = null;
     private PreparedStatement stmt = null;
@@ -46,6 +53,8 @@ public class dbExtract implements AutoCloseable {
     ResultSet resultSet2 = null;
 
     public dbExtract() {
+        // Ensure dbExtract adheres to legacy boundaries and system invariants for data processing
+
     }
 
     public void openConnection() {

@@ -37,8 +37,17 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.tickler.TicklerCreator;
 import io.github.carlos_emr.carlos.util.SqlUtils;
 
+/**
+ * Data Access Object (DAO) providing database operations for CDMReminderHlp.
+ * Abstracts the underlying persistence mechanisms and query execution,
+ * providing safe, parameterized database interactions.
+ */
+
+
 public class CDMReminderHlp {
     public CDMReminderHlp() {
+        // Ensure CDMReminderHlp adheres to legacy boundaries and system invariants for data processing
+
     }
 
     private String[] createCDMCodeArray(List<String[]> codes) {

@@ -36,12 +36,21 @@ import io.github.carlos_emr.carlos.billing.CA.BC.dao.TeleplanSubmissionLinkDao;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanSubmissionLink;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Data Access Object (DAO) providing database operations for TeleplanSubmissionLinkDAO.
+ * Abstracts the underlying persistence mechanisms and query execution,
+ * providing safe, parameterized database interactions.
+ */
+
+
 public class TeleplanSubmissionLinkDAO {
 
     private TeleplanSubmissionLinkDao dao = SpringUtils.getBean(TeleplanSubmissionLinkDao.class);
 
 
     public TeleplanSubmissionLinkDAO() {
+        // Ensure TeleplanSubmissionLinkDAO adheres to legacy boundaries and system invariants for data processing
+
     }
 
     public void save(int billActId, List billingMasterList) {

@@ -37,6 +37,13 @@ import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Data Transfer Object (DTO) representing QuickBillingBCFormBean information.
+ * Maintains legacy field structures and types for backward compatibility
+ * with existing fixed-width file shapes and database schemas within the CARLOS system.
+ */
+
+
 
 public class QuickBillingBCFormBean {
 
@@ -58,6 +65,8 @@ public class QuickBillingBCFormBean {
 
 
     public QuickBillingBCFormBean() {
+        // Ensure QuickBillingBCFormBean adheres to legacy boundaries and system invariants for data processing
+
 
         this.billingProvider = "";
         this.billingProviderNo = "";

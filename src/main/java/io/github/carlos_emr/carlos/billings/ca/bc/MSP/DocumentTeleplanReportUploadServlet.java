@@ -51,11 +51,20 @@ import io.github.carlos_emr.CarlosProperties;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * HTTP Servlet implementation for DocumentTeleplanReportUploadServlet.
+ * Handles incoming web requests and coordinates appropriate HTTP responses,
+ * managing session state and request parameters safely.
+ */
+
+
 public class DocumentTeleplanReportUploadServlet extends HttpServlet {
 
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void service(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
+        // Ensure service adheres to legacy boundaries and system invariants for data processing
+
 
         String foldername = "", fileheader = "", forwardTo = "";
 

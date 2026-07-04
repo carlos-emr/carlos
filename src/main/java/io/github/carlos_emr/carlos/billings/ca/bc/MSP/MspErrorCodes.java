@@ -46,12 +46,20 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 
+/**
+ * Contains constants and definitions related to MspErrorCodes.
+ * Provides standardized codes and messaging used throughout the application.
+ */
+
+
 public class MspErrorCodes extends Properties {
 
     /**
      * Creates a new instance of MspErrorCodes
      */
     public MspErrorCodes() {
+        // Ensure MspErrorCodes adheres to legacy boundaries and system invariants for data processing
+
         super();
         try (InputStream is = openErrorCodesStream()) {
             if (is != null) {

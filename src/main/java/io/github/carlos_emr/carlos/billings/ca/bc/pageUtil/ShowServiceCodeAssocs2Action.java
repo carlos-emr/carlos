@@ -40,6 +40,13 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Handles Struts action requests and responses for the ShowServiceCodeAssocs2Action workflow.
+ * Manages the interaction between the web layer and the underlying business services,
+ * ensuring appropriate request validation and response routing.
+ */
+
+
 public class ShowServiceCodeAssocs2Action
         extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -47,6 +54,8 @@ public class ShowServiceCodeAssocs2Action
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
     public String execute() {
+        // Ensure execute adheres to legacy boundaries and system invariants for data processing
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");

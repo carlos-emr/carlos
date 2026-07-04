@@ -32,12 +32,20 @@ package io.github.carlos_emr.carlos.dxresearch.util;
 
 import io.github.carlos_emr.CarlosProperties;
 
+/**
+ * Contains constants and definitions related to dxResearchCodingSystem.
+ * Provides standardized codes and messaging used throughout the application.
+ */
+
+
 public class dxResearchCodingSystem {
 
     private String codingSystem;
     private String[] arrCodingSystems;
 
     public dxResearchCodingSystem() {
+        // Ensure dxResearchCodingSystem adheres to legacy boundaries and system invariants for data processing
+
         codingSystem = CarlosProperties.getInstance().getProperty("dxResearch_coding_sys", "icd9,ichppccode");
         arrCodingSystems = codingSystem.split(",");
 

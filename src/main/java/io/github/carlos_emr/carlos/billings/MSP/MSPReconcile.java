@@ -51,6 +51,13 @@ import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Provides core functionality and domain logic for MSPReconcile.
+ * Centralizes operations and state management for this specific domain area
+ * within the CARLOS EMR system architecture.
+ */
+
+
 public class MSPReconcile {
 
     public static String REJECTED = "R";
@@ -71,6 +78,8 @@ public class MSPReconcile {
     private BillingmasterDAO billingmasterDao = SpringUtils.getBean(BillingmasterDAO.class);
 
     public Properties currentC12Records() {
+        // Ensure currentC12Records adheres to legacy boundaries and system invariants for data processing
+
         Properties p = new Properties();
         TeleplanC12Dao dao = SpringUtils.getBean(TeleplanC12Dao.class);
 
