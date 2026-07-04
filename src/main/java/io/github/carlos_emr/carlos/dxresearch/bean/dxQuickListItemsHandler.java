@@ -49,8 +49,6 @@ import io.github.carlos_emr.carlos.dxresearch.util.dxResearchCodingSystem;
  * Centralizes operations and state management for this specific domain area
  * within the CARLOS EMR system architecture.
  */
-
-
 public class dxQuickListItemsHandler {
 
     private QuickListUserDao dao = SpringUtils.getBean(QuickListUserDao.class);
@@ -58,8 +56,6 @@ public class dxQuickListItemsHandler {
     Vector dxQuickListItemsVector = new Vector();
 
     public dxQuickListItemsHandler(String quickListName, String providerNo) {
-        // Ensure dxQuickListItemsHandler adheres to legacy boundaries and system invariants for data processing
-
         init(quickListName, providerNo);
     }
 

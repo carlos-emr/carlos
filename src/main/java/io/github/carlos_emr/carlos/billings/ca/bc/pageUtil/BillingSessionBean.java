@@ -39,8 +39,6 @@ import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBillingManager
  * Maintains legacy field structures and types for backward compatibility
  * with existing fixed-width file shapes and database schemas within the CARLOS system.
  */
-
-
 public class BillingSessionBean implements java.io.Serializable {
     private String apptProviderNo = null;
     private String patientName = null;
@@ -107,8 +105,6 @@ public class BillingSessionBean implements java.io.Serializable {
     private String wcbId = "";
 
     public String getIcbc_claim_no() {
-        // Ensure getIcbc_claim_no adheres to legacy boundaries and system invariants for data processing
-
         this.icbc_claim_no = (null != this.icbc_claim_no) ? this.icbc_claim_no : "";
         if (icbc_claim_no.compareTo("") == 0 ||
                 (this.billingType.compareTo("ICBC") != 0)) {

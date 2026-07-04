@@ -60,8 +60,6 @@ import org.apache.struts2.ServletActionContext;
  * Manages the interaction between the web layer and the underlying business services,
  * ensuring appropriate request validation and response routing.
  */
-
-
 public class dxCodeSearchJSON2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -72,8 +70,6 @@ public class dxCodeSearchJSON2Action extends ActionSupport {
     private static Logger logger = MiscUtils.getLogger();
 
     public String execute() {
-        // Ensure execute adheres to legacy boundaries and system invariants for data processing
-
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!hasCodeSearchPrivilege(loggedInInfo)) {
             throw new SecurityException("missing required sec object (_dxresearch/_rx/_billing/_report r)");

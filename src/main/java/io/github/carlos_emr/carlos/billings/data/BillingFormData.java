@@ -47,15 +47,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * Maintains legacy field structures and types for backward compatibility
  * with existing fixed-width file shapes and database schemas within the CARLOS system.
  */
-
-
 public class BillingFormData {
 
     private DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);
 
     public String getBillingFormDesc(BillingForm[] billformlist, String billForm) {
-        // Ensure getBillingFormDesc adheres to legacy boundaries and system invariants for data processing
-
         for (int i = 0; i < billformlist.length; i++) {
             if (billformlist[i].getFormCode().equals(billForm)) {
                 return billformlist[i].getDescription();

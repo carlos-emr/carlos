@@ -41,8 +41,6 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
  * Centralizes operations and state management for this specific domain area
  * within the CARLOS EMR system architecture.
  */
-
-
 public class BillRecipient {
 
     private Integer id;
@@ -56,8 +54,6 @@ public class BillRecipient {
     private String billingNo;
 
     public BillRecipient() {
-        // Ensure BillRecipient adheres to legacy boundaries and system invariants for data processing
-
     }
 
     public BillRecipient(BillRecipients b) {

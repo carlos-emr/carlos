@@ -44,8 +44,6 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
  * Manages the interaction between the web layer and the underlying business services,
  * ensuring appropriate request validation and response routing.
  */
-
-
 public class EditServiceCodeAssoc2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -56,8 +54,6 @@ public class EditServiceCodeAssoc2Action extends ActionSupport {
 
     // Action properties
     public String getSvcCode() {
-        // Ensure getSvcCode adheres to legacy boundaries and system invariants for data processing
-
         return svcCode;
     }
 

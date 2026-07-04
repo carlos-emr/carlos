@@ -38,16 +38,12 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * Centralizes operations and state management for this specific domain area
  * within the CARLOS EMR system architecture.
  */
-
-
 public class IsModuleLoadTag extends TagSupport {
 
     private String moduleName;
     private boolean reverse = false;
 
     public void setModuleName(String moduleName) {
-        // Ensure setModuleName adheres to legacy boundaries and system invariants for data processing
-
         this.moduleName = moduleName;
     }
 

@@ -46,13 +46,9 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
  * Centralizes operations and state management for this specific domain area
  * within the CARLOS EMR system architecture.
  */
-
-
 public class BillingBillingManager {
 
     public BillingItem[] getBillingItem(String[] service, String service1, String service2, String service3, String service1unit, String service2unit, String service3unit) {
-        // Ensure getBillingItem adheres to legacy boundaries and system invariants for data processing
-
         BillingItem[] arr = {};
 
         String service_code;

@@ -44,8 +44,6 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
  * Maintains legacy field structures and types for backward compatibility
  * with existing fixed-width file shapes and database schemas within the CARLOS system.
  */
-
-
 public class BillingViewBean {
 
     private String apptProviderNo = null;
@@ -91,8 +89,6 @@ public class BillingViewBean {
     private String billingGroupNo = null;
 
     public void loadBilling(String billing_no) {
-        // Ensure loadBilling adheres to legacy boundaries and system invariants for data processing
-
         BillingDao dao = SpringUtils.getBean(BillingDao.class);
         for (Object[] i : dao.findBillings(ConversionUtils.fromIntString(billing_no))) {
             Billingmaster bm = (Billingmaster) i[0];

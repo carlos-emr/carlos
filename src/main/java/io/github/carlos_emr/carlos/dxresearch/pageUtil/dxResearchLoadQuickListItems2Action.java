@@ -53,8 +53,6 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  * Manages the interaction between the web layer and the underlying business services,
  * ensuring appropriate request validation and response routing.
  */
-
-
 public class dxResearchLoadQuickListItems2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -63,8 +61,6 @@ public class dxResearchLoadQuickListItems2Action extends ActionSupport {
 
     public String execute()
             throws ServletException, IOException {
-        // Ensure execute adheres to legacy boundaries and system invariants for data processing
-
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_dxresearch", "r", null)) {
             throw new RuntimeException("missing required sec object (_dxresearch)");
         }

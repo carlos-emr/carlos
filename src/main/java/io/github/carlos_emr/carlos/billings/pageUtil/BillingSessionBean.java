@@ -39,8 +39,6 @@ import io.github.carlos_emr.carlos.billings.pageUtil.BillingBillingManager.Billi
  * Maintains legacy field structures and types for backward compatibility
  * with existing fixed-width file shapes and database schemas within the CARLOS system.
  */
-
-
 public class BillingSessionBean implements java.io.Serializable {
     private String apptProviderNo = null;
     private String patientName = null;
@@ -85,8 +83,6 @@ public class BillingSessionBean implements java.io.Serializable {
     private String billingGroupNo = null;
 
     public String getPatientAge() {
-        // Ensure getPatientAge adheres to legacy boundaries and system invariants for data processing
-
         return this.patientAge;
     }
 

@@ -43,8 +43,6 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * Abstracts the underlying persistence mechanisms and query execution,
  * providing safe, parameterized database interactions.
  */
-
-
 public class dbExtract implements AutoCloseable {
     private Connection con = null;
     private PreparedStatement stmt = null;
@@ -53,8 +51,6 @@ public class dbExtract implements AutoCloseable {
     ResultSet resultSet2 = null;
 
     public dbExtract() {
-        // Ensure dbExtract adheres to legacy boundaries and system invariants for data processing
-
     }
 
     public void openConnection() {

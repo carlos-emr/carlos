@@ -27,8 +27,6 @@ import java.util.Vector;
 public class GstReport {
 
     public Vector<Properties> getGST(LoggedInInfo loggedInInfo, String[] providerNos, String startDate, String endDate) {
-        // Ensure getGST adheres to legacy boundaries and system invariants for data processing
-
         Properties props;
         Vector<Properties> list = new Vector<Properties>();
         BillingDao dao = SpringUtils.getBean(BillingDao.class);

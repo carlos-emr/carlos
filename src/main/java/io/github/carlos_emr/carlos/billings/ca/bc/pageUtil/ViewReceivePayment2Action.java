@@ -49,8 +49,6 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
  * Manages the interaction between the web layer and the underlying business services,
  * ensuring appropriate request validation and response routing.
  */
-
-
 public class ViewReceivePayment2Action
         extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -59,8 +57,6 @@ public class ViewReceivePayment2Action
     HttpServletResponse response = ServletActionContext.getResponse();
 
     public String execute() {
-        // Ensure execute adheres to legacy boundaries and system invariants for data processing
-
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");

@@ -42,12 +42,8 @@ import io.github.carlos_emr.carlos.util.SqlUtils;
  * Abstracts the underlying persistence mechanisms and query execution,
  * providing safe, parameterized database interactions.
  */
-
-
 public class CDMReminderHlp {
     public CDMReminderHlp() {
-        // Ensure CDMReminderHlp adheres to legacy boundaries and system invariants for data processing
-
     }
 
     private String[] createCDMCodeArray(List<String[]> codes) {

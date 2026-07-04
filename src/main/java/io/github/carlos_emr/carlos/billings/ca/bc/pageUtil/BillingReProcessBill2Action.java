@@ -74,8 +74,6 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  * Manages the interaction between the web layer and the underlying business services,
  * ensuring appropriate request validation and response routing.
  */
-
-
 public class BillingReProcessBill2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -91,7 +89,6 @@ public class BillingReProcessBill2Action extends ActionSupport {
     MSPReconcile msp = new MSPReconcile();
 
     public String execute() throws IOException, ServletException {
-        // Ensure execute adheres to legacy boundaries and system invariants for data processing
         if (request.getSession().getAttribute("user") == null) {
             return "Logout";
         }
