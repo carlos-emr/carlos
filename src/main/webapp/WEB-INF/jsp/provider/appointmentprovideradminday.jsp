@@ -2017,6 +2017,7 @@
 
                                                                   String appointmentTooltipSummary = appointmentTooltipSummaryBuilder.toString();
 
+                                                                  name = name + " (" + demographic.getAgeAsOf(new Date(), request.getLocale()) + ")";  // add i18n age as (64 years) 
                                                                   StringBuilder appointmentTooltipFullBuilder = new StringBuilder();
                                                                   appendTooltipLine(appointmentTooltipFullBuilder, "<i class='fa-solid fa-person' aria-hidden='true'></i>", name);
                                                                   appendTooltipLine(appointmentTooltipFullBuilder, "<i class='fa-regular fa-clock' aria-hidden='true'></i>", timeRange);
@@ -2029,7 +2030,7 @@
 
                                                                   String preventionWarning = "";
                                                                   if (!providerPreventionManager.isDisabled() && demographic_no != 0) {
-							// prevention warnings is concatenated "[" + me.getKey() + "=" + me.getValue() + "]"
+                                                                      // prevention warnings is concatenated "[" + me.getKey() + "=" + me.getValue() + "]"
                                                                       preventionWarning = providerPreventionManager.getWarnings(loggedInInfo1, String.valueOf(demographic_no));
                                                                       preventionWarning = preventionWarning.replaceAll(
                                                                           "\\[[^=\\]]*=([^\\]]*)\\](?:\\r?\\n)?",
