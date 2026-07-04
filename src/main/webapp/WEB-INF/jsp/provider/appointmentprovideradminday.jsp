@@ -2017,7 +2017,9 @@
 
                                                                   String appointmentTooltipSummary = appointmentTooltipSummaryBuilder.toString();
 
-                                                                  name = name + " (" + demographic.getAgeAsOf(new Date(), request.getLocale()) + ")";  // add i18n age as (64 years) 
+                                                                  if (demographic != null) {
+                                                                      name = name + " - " + demographic.getAgeAsOf(new Date(), request.getLocale()) ;
+                                                                  }
                                                                   StringBuilder appointmentTooltipFullBuilder = new StringBuilder();
                                                                   appendTooltipLine(appointmentTooltipFullBuilder, "<i class='fa-solid fa-person' aria-hidden='true'></i>", name);
                                                                   appendTooltipLine(appointmentTooltipFullBuilder, "<i class='fa-regular fa-clock' aria-hidden='true'></i>", timeRange);
