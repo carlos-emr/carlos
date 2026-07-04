@@ -88,8 +88,8 @@ public class BillingReProcessBill2Action extends ActionSupport {
     //Misc misc = new Misc();
     MSPReconcile msp = new MSPReconcile();
 
-    public String execute() throws IOException, ServletException {
-        if (request.getSession().getAttribute("user") == null) {
+    @Override
+    public String execute() throws IOException, ServletException {        if (request.getSession().getAttribute("user") == null) {
             return "Logout";
         }
 
