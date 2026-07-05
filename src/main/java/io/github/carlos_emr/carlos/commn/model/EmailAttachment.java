@@ -5,6 +5,9 @@ import jakarta.persistence.*;
 
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 
+/**
+ * JPA entity tracking files attached to outbound system emails, ensuring related clinical documents or invoices are properly recorded in the email log.
+ */
 @Entity
 @Table(name = "emailAttachment")
 public class EmailAttachment extends AbstractModel<Integer> {
@@ -99,6 +102,9 @@ public class EmailAttachment extends AbstractModel<Integer> {
         this.documentId = documentId;
     }
 
+    /**
+     * Retrieves the size of the attachment in bytes, used to enforce email size limits before sending.
+     */
     public long getFileSize() {
         return fileSize;
     }

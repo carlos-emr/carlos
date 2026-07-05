@@ -1,5 +1,8 @@
 package io.github.carlos_emr.carlos.commn.model.enumerator;
 
+/**
+ * Enumeration defining the various classifications of clinical documents (e.g., Lab, Consult, Image) used to categorize patient files in the document manager.
+ */
 public enum DocumentType {
     EFORM("E", "eForm"),
     DOC("D", "doc"),

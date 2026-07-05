@@ -18,8 +18,15 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import java.util.Properties;
 import java.util.Vector;
 
+/**
+ * Generates and processes GST (Goods and Services Tax) reporting for BC provincial billing.
+ * Aggregates tax amounts across billed services within a specified date range and returns a collection of property maps for rendering.
+ */
 public class GstReport {
 
+    /**
+     * Calculates GST totals for specific providers over a date range, retrieving matching billing records and summing the applicable tax amounts.
+     */
     public Vector<Properties> getGST(LoggedInInfo loggedInInfo, String[] providerNos, String startDate, String endDate) {
         Properties props;
         Vector<Properties> list = new Vector<Properties>();

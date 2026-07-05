@@ -6,6 +6,9 @@ import jakarta.persistence.ManyToOne;
 import java.io.Serializable;
 import java.util.Objects;
 
+/**
+ * Composite primary key class for the EReferAttachmentData entity, uniquely identifying attachment binary data by referral ID and attachment sequence.
+ */
 public class EReferAttachmentDataCompositeKey implements Serializable {
     @ManyToOne
     @JoinColumn(name = "erefer_attachment_id", referencedColumnName = "id")
@@ -50,6 +53,9 @@ public class EReferAttachmentDataCompositeKey implements Serializable {
         this.labType = labType;
     }
 
+    /**
+     * Compares this composite key to another object for equality, necessary for JPA primary key resolution.
+     */
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

@@ -4,6 +4,9 @@ import java.io.Serializable;
 
 import jakarta.xml.bind.annotation.XmlRootElement;
 
+/**
+ * Model representing an attachment specifically bound to a consultation request, including references to the file content and display metadata.
+ */
 @XmlRootElement
 public class ConsultationAttachment implements Serializable {
     private Integer id;

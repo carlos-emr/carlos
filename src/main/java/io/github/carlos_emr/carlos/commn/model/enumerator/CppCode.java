@@ -3,6 +3,9 @@ package io.github.carlos_emr.carlos.commn.model.enumerator;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Enumeration of Cumulative Patient Profile (CPP) codes that categorize critical health information sections such as Medical History, Social History, and Ongoing Concerns.
+ */
 public enum CppCode {
     OMEDS("OMeds"),
     SOC_HISTORY("SocHistory"),
@@ -20,6 +23,9 @@ public enum CppCode {
         this.code = code;
     }
 
+    /**
+     * Returns the standardized short code representing this CPP category.
+     */
     public String getCode() {
         return code;
     }

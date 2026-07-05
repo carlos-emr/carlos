@@ -4,6 +4,9 @@ import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.MeasurementTo1;
 
+/**
+ * Utility component that transforms internal Measurement entities into DTOs for external API consumption, and vice versa, applying necessary formatting rules.
+ */
 public class MeasurementConverter extends AbstractConverter<Measurement, MeasurementTo1> {
     @Override
     public Measurement getAsDomainObject(LoggedInInfo loggedInInfo, MeasurementTo1 t) throws ConversionException {

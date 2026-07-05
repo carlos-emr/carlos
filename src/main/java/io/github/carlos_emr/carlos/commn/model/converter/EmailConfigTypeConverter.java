@@ -3,6 +3,9 @@ package io.github.carlos_emr.carlos.commn.model.converter;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig.EmailType;
 import jakarta.persistence.Converter;
 
+/**
+ * JPA AttributeConverter translating the EmailConfigType enum (e.g., SYSTEM, PROVIDER) into its database equivalent to differentiate mail configurations.
+ */
 @Converter
 public class EmailConfigTypeConverter extends NullSafeEnumConverter<EmailType> {
     public EmailConfigTypeConverter() {
