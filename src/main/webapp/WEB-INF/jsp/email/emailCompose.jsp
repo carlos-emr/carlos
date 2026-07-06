@@ -30,6 +30,8 @@
     <fmt:message key="email.compose.heading.body" var="emailComposeBodyLabel"/>
     <fmt:message key="email.compose.placeholder.body" var="emailComposeBodyPlaceholder"/>
     <fmt:message key="email.compose.msg.unencryptedBody" var="emailComposeUnencryptedBody"/>
+    <fmt:message key="email.compose.msg.unencryptedSubject" var="emailComposeUnencryptedSubject"/>
+    <fmt:message key="email.compose.msg.encryptionDisabledWarning" var="emailComposeEncryptionDisabledWarning"/>
     <fmt:message key="email.compose.label.encryption" var="emailComposeEncryptionLabel"/>
     <fmt:message key="email.compose.tooltip.encryption" var="emailComposeEncryptionTooltip"/>
     <fmt:message key="email.compose.label.encryptedMessage" var="emailComposeEncryptedMessageLabel"/>
@@ -166,8 +168,19 @@
             border-color: red;
         }
 
-        .encryptionLock {
-            float: right;
+        /*
+         * Compose form is a normal vertical document, not a flex/grid dashboard.
+         * Each major section is a full-width card stacked top to bottom; constraining
+         * the overall width keeps line lengths readable on wide desktops.
+         */
+        .email-compose-form {
+            max-width: 980px;
+        }
+
+        .email-compose-form > .card,
+        .email-compose-form > #additionalParams,
+        .email-compose-form > #form-control-buttons {
+            width: 100%;
         }
 
         #isEncryption {
@@ -237,7 +250,7 @@
             <input type="hidden" name="totalInvalidRecipintEmails" id="totalInvalidRecipintEmails"
                    value="${fn:length(invalidReceiverEmailList)}"/>
 
-            <form id="emailComposeForm" class="d-flex flex-wrap align-items-center gap-2" action='${ emailSendAction }' method="post"
+            <form id="emailComposeForm" class="email-compose-form" action='${ emailSendAction }' method="post"
                   onsubmit="return validateEmailForm()" novalidate>
                 <input type="hidden" name="demographicId" value="${demographicId}"/>
                 <input type="hidden" name="fdid" value="${fdid}"/>
@@ -246,15 +259,55 @@
                 <input type="hidden" name="deleteEFormAfterEmail" value="${deleteEFormAfterEmail}"/>
                 <input type="hidden" name="transactionType" id="transactionType" value="${transactionType}"/>
 
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="card-title"><fmt:message key="messenger.ViewMessage.msgFrom"/></h5>
+                <%-- To and From sit side by side: recipient (To) first/leftmost, sender (From) on the right.
+                     Equal-height cards keep the row tidy when the To card grows with extra recipients. --%>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-header">
+                                <h5 class="card-title"><fmt:message key="messenger.ViewMessage.msgTo"/></h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label class="form-label" for="receiverName">${emailComposePatientLabel}</label>
+                                    <input class="autocomplete form-control" type="text" name="recipient"
+                                           value="${carlos:forHtmlAttribute(receiverName)}" id="receiverName" placeholder="${emailComposeSearchPatientPlaceholder}"
+                                           disabled/>
+                                </div>
+                                <div id="receiverEmailsContainer">
+                                    <c:forEach items="${ receiverEmailList }" var="receiverEmail" varStatus="loop">
+                                        <div class="mb-3">
+                                            <label class="form-label" for="receiverEmailAddress${loop.count}">${emailComposeEmailAddressesLabel}</label>
+                                            <div class="input-group">
+                                                <input class="form-control" type="email" name="receiverEmailAddress"
+                                                       value="${carlos:forHtmlAttribute(receiverEmail)}" id="receiverEmailAddress${loop.count}"
+                                                       placeholder="example@example.com" disabled/>
+                                                <button type="button" title="${emailComposeRemoveEmail}" class="btn btn-danger"
+                                                        onclick="removeReceiverEmail(this)"><i class="fa-solid fa-xmark"></i>
+                                                </button>
+                                            </div>
+                                            <c:if test="${not empty receiverEmail}">
+                                                <input type="hidden" name="receiverEmailAddress"
+                                                       value="${carlos:forHtmlAttribute(receiverEmail)}"/>
+                                            </c:if>
+                                        </div>
+                                    </c:forEach>
+                                </div>
+                            </div>
+                            <div class="card-footer">
+                                <span class="fa-solid fa-triangle-exclamation"></span> ${carlos:forHtml(emailConsentName)}: <b>${carlos:forHtml(emailConsentStatus)}</b>
+                                <input type="hidden" name="emailConsentStatus" value="${carlos:forHtmlAttribute(emailConsentStatus)}"/>
+                            </div>
+                        </div>
                     </div>
-                    <div class="card-body">
-                        <div class="container">
-                            <div class="row">
-                                <div class="col-sm-12 mb-3">
-                                    <label for="senderEmailAddress">${emailComposeSenderLabel}</label>
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-header">
+                                <h5 class="card-title"><fmt:message key="messenger.ViewMessage.msgFrom"/></h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label class="form-label" for="senderEmailAddress">${emailComposeSenderLabel}</label>
                                     <select class="form-select" name="senderConfigId" id="senderEmailAddress"
                                             onchange="showAdditionalParamOption()">
                                         <c:forEach items="${ senderAccounts }" var="senderAccount">
@@ -268,53 +321,6 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </div>
-
-                <div class="card mt-4">
-                    <div class="card-header">
-                        <h5 class="card-title"><fmt:message key="messenger.ViewMessage.msgTo"/></h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="container">
-                            <div class="row mb-3">
-                                <div class="col-sm-1">
-                                    <label for="receiverName">${emailComposePatientLabel}</label>
-                                </div>
-                                <div class="col-sm-10">
-                                    <input class="autocomplete form-control" type="text" name="recipient"
-                                           value="${ receiverName }" id="receiverName" placeholder="${emailComposeSearchPatientPlaceholder}"
-                                           disabled/>
-                                </div>
-                            </div>
-                            <div id="receiverEmailsContainer">
-                                <c:forEach items="${ receiverEmailList }" var="receiverEmail" varStatus="loop">
-                                    <div class="row mb-3 mt-3">
-                                        <div class="col-sm-1">
-                                            <label for="receiverEmailAddress${loop.index + 1}">${emailComposeEmailAddressesLabel}</label>
-                                        </div>
-                                        <div class="col-sm-10">
-                                            <input class="form-control" type="email" name="receiverEmailAddress"
-                                                   value="${ receiverEmail }" id="receiverEmailAddress${loop.index + 1}"
-                                                   placeholder="example@example.com" disabled/>
-                                            <c:if test="${not empty receiverEmail}">
-                                                <input type="hidden" name="receiverEmailAddress"
-                                                       value="${receiverEmail}"/>
-                                            </c:if>
-                                        </div>
-                                        <div class="col-sm-1">
-                                            <button type="button" title="${emailComposeRemoveEmail}" class="btn btn-danger"
-                                                    onclick="removeReceiverEmail(this)"><i class="fa-solid fa-xmark"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </c:forEach>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card-footer">
-                        <span class="fa-solid fa-triangle-exclamation"></span> ${carlos:forHtml(emailConsentName)}: <b>${carlos:forHtml(emailConsentStatus)}</b>
-                        <input type="hidden" name="emailConsentStatus" value="${emailConsentStatus}"/>
                     </div>
                 </div>
 
@@ -392,6 +398,9 @@
                             </div>
                         </div>
                     </div>
+                    <div class="card-footer text-danger">
+                        <span class="fa-solid fa-triangle-exclamation me-2"></span> ${emailComposeUnencryptedSubject}
+                    </div>
                 </div>
 
                 <div class="card mt-4">
@@ -409,25 +418,28 @@
                             </div>
                         </div>
                     </div>
-                    <div class="card-footer">
-                        <span class="fa-solid fa-triangle-exclamation"></span> ${emailComposeUnencryptedBody}
+                    <div class="card-footer text-danger">
+                        <span class="fa-solid fa-triangle-exclamation me-2"></span> ${emailComposeUnencryptedBody}
                     </div>
                 </div>
 
                 <div class="card mt-4">
-                    <div class="card-header">
-                        <h5 class="card-title">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
                             <span class="fa-solid fa-lock"></span> ${emailComposeEncryptionLabel} <span id="encryptionOptionsInfo"
                                                                              class="fa-solid fa-circle-info"
                                                                              data-bs-toggle="tooltip"
                                                                              data-bs-placement="right"
                                                                              title="${emailComposeEncryptionTooltip}"></span>
-                            <div class="form-check form-switch encryptionLock">
-                                <input class="form-check-input" type="checkbox" id="encryptionSwitch"
-                                       onClick="showEncryptionOptions()" ${ isEmailEncrypted ? 'checked' : '' }>
-                                <label class="form-check-label" for="encryptionSwitch" id="isEncryption">${emailComposeStateOn}</label>
-                            </div>
                         </h5>
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input" type="checkbox" id="encryptionSwitch"
+                                   onClick="showEncryptionOptions()" ${ isEmailEncrypted ? 'checked' : '' }>
+                            <label class="form-check-label" for="encryptionSwitch" id="isEncryption">${emailComposeStateOn}</label>
+                        </div>
+                    </div>
+                    <div class="alert alert-danger rounded-0 border-0 mb-0 d-flex align-items-center ${ isEmailEncrypted ? 'd-none' : '' }" id="encryptionDisabledWarning" role="alert">
+                        <span class="fa-solid fa-triangle-exclamation me-2"></span> ${emailComposeEncryptionDisabledWarning}
                     </div>
                     <div class="card-body" id="encryptionOptions">
                         <div class="container">
@@ -441,11 +453,11 @@
                                     <div class="error-message" id="encryptedMessageError"></div>
                                 </div>
                             </div>
-                            <div class="row mt-3 mb-3">
-                                <div class="col-sm-2">
-                                    <label>${emailComposePasswordLabel}</label>
+                            <div class="row mt-3 mb-3 align-items-center">
+                                <div class="col-sm-3">
+                                    <label class="col-form-label" for="emailPDFPassword">${emailComposePasswordLabel}</label>
                                 </div>
-                                <div class="col-sm-10">
+                                <div class="col-sm-9">
                                     <input class="form-control" type="text" name="emailPDFPassword"
                                            id="emailPDFPassword" placeholder="${emailComposePasswordPlaceholder}"
                                            value="${carlos:forHtmlAttribute(not empty param.passwordEmail ? param.passwordEmail : emailPDFPassword)}"
@@ -453,25 +465,25 @@
                                     <div class="error-message" id="emailPDFPasswordError"></div>
                                 </div>
                             </div>
-                            <div class="row mt-3 mb-3">
-                                <div class="col-sm-2">
-                                    <label>${emailComposeClueLabel} <span id="clueInfo" class="fa-solid fa-circle-info" data-bs-toggle="tooltip"
+                            <div class="row mt-3 mb-3 align-items-center">
+                                <div class="col-sm-3">
+                                    <label class="col-form-label" for="emailPDFPasswordClue">${emailComposeClueLabel} <span id="clueInfo" class="fa-solid fa-circle-info" data-bs-toggle="tooltip"
                                                       data-bs-placement="right"
                                                       title="${emailComposeClueTooltip}"></span></label>
                                 </div>
-                                <div class="col-sm-10">
+                                <div class="col-sm-9">
                                     <textarea class="form-control" name="emailPDFPasswordClue" id="emailPDFPasswordClue"
                                               rows="2" placeholder="${emailComposeCluePlaceholder}">${carlos:forHtml(not empty param.passwordClueEmail ? param.passwordClueEmail : emailPDFPasswordClue)}</textarea>
                                     <div class="error-message" id="emailPDFPasswordClueError"></div>
                                 </div>
                             </div>
-                            <div class="row mt-3 mb-3">
-                                <div class="col-sm-2">
-                                    <label>${emailComposeEncryptAttachmentsLabel} <span id="encryptAttachmentInfo" class="fa-solid fa-circle-info"
+                            <div class="row mt-3 mb-3 align-items-center">
+                                <div class="col-sm-3">
+                                    <label class="col-form-label" for="encryptAttachmentSwitch">${emailComposeEncryptAttachmentsLabel} <span id="encryptAttachmentInfo" class="fa-solid fa-circle-info"
                                                                      data-bs-toggle="tooltip" data-bs-placement="right"
                                                                      title="${emailComposeEncryptAttachmentsTooltip}"></span></label>
                                 </div>
-                                <div class="col-sm-10">
+                                <div class="col-sm-9">
                                     <div class="form-check form-switch">
                                         <input class="form-check-input" type="checkbox" id="encryptAttachmentSwitch"
                                                onClick="toggleEncryptAttachmentStatus(this)" ${ isEmailAttachmentEncrypted ? 'checked' : '' }>
@@ -528,25 +540,27 @@
                                 <div class="accordion col-sm-12" id="emailAttachmentList">
                                     <c:forEach items="${ emailAttachmentList }" var="emailAttachment" varStatus="loop">
                                         <div class="accordion-item emailAttachmentItem">
-                                            <div class="accordion-header" id="emailAttachmentHeader${loop.index + 1}">
+                                            <div class="accordion-header" id="emailAttachmentHeader${loop.count}">
                                                 <button class="accordion-button collapsed" type="button"
                                                         data-bs-toggle="collapse"
-                                                        data-bs-target="#emailAttachmentBody${loop.index + 1}"
+                                                        data-bs-target="#emailAttachmentBody${loop.count}"
                                                         aria-expanded="false"
-                                                        aria-controls="emailAttachmentBody${loop.index + 1}">
+                                                        aria-controls="emailAttachmentBody${loop.count}">
                                                     <i class="fa-solid fa-file attachmentIcon"></i> <span
                                                         class="attachmentName">${carlos:forHtml(emailAttachment.fileName)}</span>
                                                     <span class="text-muted attachmentSize">${carlos:forHtml(emailAttachment.fileSize)}</span>
                                                 </button>
                                             </div>
-                                            <div id="emailAttachmentBody${loop.index + 1}"
+                                            <div id="emailAttachmentBody${loop.count}"
                                                  class="accordion-collapse collapse"
-                                                 aria-labelledby="emailAttachmentHeader${loop.index + 1}"
+                                                 aria-labelledby="emailAttachmentHeader${loop.count}"
                                                  data-bs-parent="#emailAttachmentList">
                                                 <div class="accordion-body">
-                                                    <object id="emailAttachmentPDF${loop.index + 1}"
+                                                    <object id="emailAttachmentPDF${loop.count}"
                                                             data="${ctx}/previewDocs?method=renderPDF&pdfPath=${emailAttachment.filePath}"
                                                             type="application/pdf" width="100%" height="500">
+                                                        <%-- Accessible fallback shown when the browser cannot render the inline PDF preview. --%>
+                                                        <p class="text-muted mb-0">${carlos:forHtml(emailAttachment.fileName)}</p>
                                                     </object>
                                                 </div>
                                             </div>
@@ -762,6 +776,9 @@
         document.getElementById("isEmailEncrypted").value = checkbox.checked ? "true" : "false";
         document.getElementById("isEncryption").innerHTML = checkbox.checked ? emailComposeStateOnMsg : emailComposeStateOffMsg;
         document.getElementById("isEncryption").classList.toggle("off", !checkbox.checked);
+        // Make the risk explicit whenever encryption is turned off: the message and any
+        // attachments will leave CARLOS unencrypted, so PHI must not be included.
+        document.getElementById("encryptionDisabledWarning").classList.toggle('d-none', checkbox.checked);
     }
 
     function toggleEncryptAttachmentStatus(checkbox) {
