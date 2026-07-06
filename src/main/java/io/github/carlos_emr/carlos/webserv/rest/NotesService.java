@@ -1440,14 +1440,15 @@ public class NotesService extends AbstractServiceImpl {
         casemgmtNote = caseManagementMgr.getNote(String.valueOf(noteId));
 
         // Bind the note to a patient the caller is actually authorized to see. A
-        // missing note and an unauthorized note both reject identically so a bare
-        // noteId can't be used to enumerate which ids exist (IDOR, issue #2839).
+        // missing note and an unauthorized note both reject identically -- same
+        // exception, no note-specific state attached -- so a bare noteId can't be
+        // used to enumerate which ids exist (IDOR, issue #2839).
         String providerNo = loggedInInfo.getLoggedInProviderNo();
         String demoNo = casemgmtNote == null ? null : casemgmtNote.getDemographic_no();
         if (demoNo == null || providerNo == null
                 || (!caseManagementMgr.isClientInProgramDomain(providerNo, demoNo)
                         && !caseManagementMgr.isClientReferredInProgramDomain(providerNo, demoNo))) {
-            throw new AccessDeniedException(SEC_OBJECT_ECHART, "r", demoNo);
+            throw new AccessDeniedException(SEC_OBJECT_ECHART, "r");
         }
 
         NoteTo1 note = new NoteTo1();
