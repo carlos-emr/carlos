@@ -181,6 +181,7 @@ RUN mkdir -p $OSCAR_DOCUMENT/oscar/document \
     $OSCAR_DOCUMENT/oscar/export \
     $DB_DOCS \
     $DOCS_DEST \
+    $EFORM_IMAGES_DIR \
     && /scripts/bootstrap-property-directories /root/carlos.properties EFORM_IMAGES_DIR
 
 # Set up GPG for PGP encryption (used by demographic export)

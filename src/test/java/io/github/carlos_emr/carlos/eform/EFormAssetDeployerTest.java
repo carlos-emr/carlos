@@ -241,7 +241,6 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
             assertThat(missingDir.resolve("editor_help.html")).isRegularFile();
         }
 
-
         @Test
         @DisplayName("Should apply owner-only permissions when POSIX permissions are supported")
         void shouldApplyOwnerOnlyPermissions_whenPosixPermissionsSupported() throws Exception {
