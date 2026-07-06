@@ -86,8 +86,15 @@ public class RxFaxPrescription2Action extends ActionSupport {
             faxNo = faxNo.trim().replaceAll("\\D", "");
         }
 
-        if (faxNo != null && faxNo.length() < 7) {
+        if (faxNo == null || faxNo.length() < 7) {
             writer.println("<div id='fax-failure'><h3>Error: Valid fax number not found!</h3></div>");
+            writer.flush();
+            return NONE;
+        }
+
+        String demographicNo = request.getParameter("demographic_no");
+        if (demographicNo == null || !demographicNo.matches("\\d+")) {
+            writer.println("<div id='fax-failure'><h3>Error: Valid demographic number not found!</h3></div>");
             writer.flush();
             return NONE;
         }
@@ -106,6 +113,8 @@ public class RxFaxPrescription2Action extends ActionSupport {
                         + " ("
                         + SafeEncode.forHtml(faxViewModel.faxNumber())
                         + ")</p><br><p>This window will close in <b>3</b> seconds...</p></div><script>setTimeout(() => window.top.close(), 3000);</script>");
+            } else {
+                writer.println("<div id='fax-failure'><h3>Error: No matching clinic fax configuration found!</h3></div>");
             }
         }
 

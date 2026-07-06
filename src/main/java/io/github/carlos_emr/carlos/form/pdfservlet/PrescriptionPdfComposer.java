@@ -47,6 +47,7 @@ import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.web.PrescriptionQrCodeUIBean;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -362,8 +363,11 @@ public class PrescriptionPdfComposer {
                  *  with the bottom left corner located at X: 75f Y: -31f
                  *  Also need to account for the height of the signature
                  */
-                if (this.imgPath != null) {
-                    Image img = Image.getInstance(this.imgPath);
+                if (this.imgPath != null && !this.imgPath.isBlank()) {
+                    File signatureFile = PathValidationUtils.validateExistingPath(
+                            new File(this.imgPath),
+                            new File(System.getProperty("java.io.tmpdir")));
+                    Image img = Image.getInstance(signatureFile.getAbsolutePath());
                     float imageWidth = 185f;
                     float imageHeight = 40f;
                     // scale the origin image to fix these exact parameters width x height
@@ -417,15 +421,32 @@ public class PrescriptionPdfComposer {
      */
     private HashMap<String, String> parseSCAddress(String s) {
         HashMap<String, String> hm = new HashMap<String, String>();
+        hm.put("clinicName", "");
+        hm.put("clinicTel", "");
+        hm.put("clinicFax", "");
+        if (s == null || !s.contains("</b>")) {
+            return hm;
+        }
+
         String[] ar = s.split("</b>");
+        if (ar.length < 2) {
+            return hm;
+        }
+
         String[] ar2 = ar[1].split("<br>");
         ArrayList<String> lst = new ArrayList<String>(Arrays.asList(ar2));
-        lst.remove(0);
-        String tel = lst.get(3);
+        if (!lst.isEmpty()) {
+            lst.remove(0);
+        }
+
+        String tel = lst.size() > 3 ? lst.get(3) : "";
         tel = tel.replace("Tel: ", "");
-        String fax = lst.get(4);
+        String fax = lst.size() > 4 ? lst.get(4) : "";
         fax = fax.replace("Fax: ", "");
-        String clinicName = lst.get(0) + "\n" + lst.get(1) + "\n" + lst.get(2);
+        String clinicName = "";
+        if (lst.size() > 2) {
+            clinicName = lst.get(0) + "\n" + lst.get(1) + "\n" + lst.get(2);
+        }
         logger.debug("tel: {}", LogSafe.sanitize(tel));
         logger.debug("fax: {}", LogSafe.sanitize(fax));
         logger.debug("clinicName: {}", LogSafe.sanitize(clinicName));
