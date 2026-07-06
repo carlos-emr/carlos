@@ -12,6 +12,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
+import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.utility.LogSafe;
@@ -273,6 +274,11 @@ public class EmailCompose2Action extends ActionSupport {
         request.setAttribute("emailPDFPasswordClue", emailPDFPasswordClue);
         request.setAttribute("senderEmail", senderEmail);
         request.setAttribute("subjectEmail", subjectEmail);
+        // The compose screen now has a single "Message" field (issue #3118). Seed it from whichever
+        // legacy channel is populated for this workflow, preferring the one matching the encryption
+        // state so pre-filled content is preserved when opening the composer.
+        boolean isEmailEncrypted = Boolean.TRUE.equals(session.getAttribute("isEmailEncrypted"));
+        request.setAttribute("message", EmailData.mergeMessage(isEmailEncrypted, bodyEmail, encryptedMessageEmail));
         request.setAttribute("bodyEmail", bodyEmail);
         request.setAttribute("encryptedMessageEmail", encryptedMessageEmail);
         request.setAttribute("emailPatientChartOption", emailPatientChartOption);

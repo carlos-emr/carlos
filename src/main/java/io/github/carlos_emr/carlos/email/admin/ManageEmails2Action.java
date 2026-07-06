@@ -11,6 +11,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
+import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailStatusResult;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -262,6 +263,10 @@ public class ManageEmails2Action extends ActionSupport {
         request.setAttribute("senderConfigId", emailLog.getEmailConfig() != null ? emailLog.getEmailConfig().getId() : null);
         request.setAttribute("senderEmail", emailLog.getFromEmail());
         request.setAttribute("subjectEmail", emailLog.getSubject());
+        // Map the stored two-field log back into the single "Message" field (issue #3118): an
+        // encrypted email's clinical content lives in encryptedMessage (the cleartext body is only
+        // the PHI-free notice + clue), while an unencrypted email's content lives in the body.
+        request.setAttribute("message", EmailData.mergeMessage(emailLog.getIsEncrypted(), emailLog.getBody(), emailLog.getEncryptedMessage()));
         request.setAttribute("bodyEmail", emailLog.getBody());
         request.setAttribute("encryptedMessageEmail", emailLog.getEncryptedMessage());
         request.setAttribute("emailPDFPassword", emailLog.getPassword());

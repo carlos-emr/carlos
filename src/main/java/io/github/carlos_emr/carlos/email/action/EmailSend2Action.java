@@ -227,11 +227,20 @@ public class EmailSend2Action extends ActionSupport {
         String senderConfigId = request.getParameter("senderConfigId");
         String[] receiverEmails = request.getParameterValues("receiverEmailAddress");
         String subject = request.getParameter("subjectEmail");
-        String body = request.getParameter("bodyEmail");
-        String encryptedMessage = request.getParameter("encryptedMessage");
+        String isEncrypted = request.getParameter("isEmailEncrypted");
+
+        // Single "Message" field routed server-side by the encryption toggle so the client can never
+        // populate both the cleartext body and the encrypted-PDF channel at once (see issue #3118).
+        // Encryption ON  -> the message becomes the password-protected PDF (encryptedMessage), and the
+        //                   visible email body is a fixed, PHI-free notice.
+        // Encryption OFF -> the message is sent as the cleartext MIME body; there is no encrypted PDF.
+        String message = request.getParameter("message");
+        boolean encrypted = "true".equals(isEncrypted);
+        String body = encrypted ? encryptedBodyNotice() : message;
+        String encryptedMessage = encrypted ? message : "";
+
         String password = request.getParameter("emailPDFPassword");
         String passwordClue = request.getParameter("emailPDFPasswordClue");
-        String isEncrypted = request.getParameter("isEmailEncrypted");
         String isAttachmentEncrypted = request.getParameter("isEmailAttachmentEncrypted");
         String chartDisplayOption = request.getParameter("patientChartOption");
         String internalComment = request.getParameter("internalComment");
@@ -264,5 +273,19 @@ public class EmailSend2Action extends ActionSupport {
         request.getSession().removeAttribute("emailAttachmentList");
 
         return emailData;
+    }
+
+    /**
+     * Resolves the fixed, PHI-free notice used as the visible cleartext email body when the
+     * message is delivered encrypted. The actual clinical content lives only inside the
+     * password-protected PDF; the body must never carry patient health information.
+     *
+     * <p>Extracted as a protected method so it can be overridden in unit tests without a live
+     * Struts container backing {@link #getText(String)}.</p>
+     *
+     * @return the localized secure-message notice for the encrypted email body
+     */
+    protected String encryptedBodyNotice() {
+        return getText("email.compose.msg.encryptedBodyNotice");
     }
 }

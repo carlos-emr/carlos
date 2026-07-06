@@ -27,16 +27,14 @@
     <fmt:message key="email.compose.msg.additionalSnippets" var="emailComposeAdditionalSnippets"/>
     <fmt:message key="email.compose.msg.warningAdditionalSnippets" var="emailComposeWarningAdditionalSnippets"/>
     <fmt:message key="email.compose.msg.correctEmailBeforeProceeding" var="emailComposeCorrectEmailBeforeProceeding"/>
-    <fmt:message key="email.compose.heading.body" var="emailComposeBodyLabel"/>
-    <fmt:message key="email.compose.placeholder.body" var="emailComposeBodyPlaceholder"/>
-    <fmt:message key="email.compose.msg.unencryptedBody" var="emailComposeUnencryptedBody"/>
+    <fmt:message key="email.compose.heading.message" var="emailComposeMessageLabel"/>
+    <fmt:message key="email.compose.placeholder.message" var="emailComposeMessagePlaceholder"/>
+    <fmt:message key="email.compose.msg.unencryptedMessage" var="emailComposeUnencryptedMessage"/>
+    <fmt:message key="email.compose.msg.encryptedMessageNotice" var="emailComposeEncryptedMessageNotice"/>
     <fmt:message key="email.compose.msg.unencryptedSubject" var="emailComposeUnencryptedSubject"/>
     <fmt:message key="email.compose.msg.encryptionDisabledWarning" var="emailComposeEncryptionDisabledWarning"/>
     <fmt:message key="email.compose.label.encryption" var="emailComposeEncryptionLabel"/>
     <fmt:message key="email.compose.tooltip.encryption" var="emailComposeEncryptionTooltip"/>
-    <fmt:message key="email.compose.label.encryptedMessage" var="emailComposeEncryptedMessageLabel"/>
-    <fmt:message key="email.compose.tooltip.encryptedMessage" var="emailComposeEncryptedMessageTooltip"/>
-    <fmt:message key="email.compose.placeholder.encryptedMessage" var="emailComposeEncryptedMessagePlaceholder"/>
     <fmt:message key="email.compose.label.password" var="emailComposePasswordLabel"/>
     <fmt:message key="email.compose.placeholder.password" var="emailComposePasswordPlaceholder"/>
     <fmt:message key="email.compose.label.clue" var="emailComposeClueLabel"/>
@@ -52,7 +50,7 @@
     <fmt:message key="email.compose.msg.windowClosing" var="emailComposeWindowClosing"/>
     <fmt:message key="email.compose.btn.close" var="emailComposeClose"/>
     <fmt:message key="email.compose.msg.subjectRequired" var="emailComposeSubjectRequired"/>
-    <fmt:message key="email.compose.msg.bodyRequired" var="emailComposeBodyRequired"/>
+    <fmt:message key="email.compose.msg.messageRequired" var="emailComposeMessageRequired"/>
     <fmt:message key="email.compose.msg.passwordRequired" var="emailComposePasswordRequired"/>
     <fmt:message key="email.compose.msg.clueRequired" var="emailComposeClueRequired"/>
     <fmt:message key="email.compose.msg.passwordMinLength" var="emailComposePasswordMinLength"/>
@@ -403,23 +401,34 @@
                     </div>
                 </div>
 
+                <%-- Single "Message" field. Its delivery is governed entirely by the encryption
+                     toggle below, so there is exactly one place to type content: when encryption is
+                     ON the message is rendered into the password-protected PDF (server-side routing in
+                     EmailSend2Action maps it to encryptedMessage); when OFF it is sent as the cleartext
+                     MIME body. The initial value is seeded server-side into the "message" request
+                     attribute (from bodyEmail/encryptedMessage on compose and resend) so the client can
+                     never populate both channels. The footer notice/warning is swapped by
+                     showEncryptionOptions() to keep the protection unambiguous. --%>
                 <div class="card mt-4">
                     <div class="card-header">
-                        <h5 class="card-title">${emailComposeBodyLabel}</h5>
+                        <h5 class="card-title">${emailComposeMessageLabel}</h5>
                     </div>
                     <div class="card-body">
                         <div class="container">
                             <div class="row">
                                 <div class="col-sm-12">
-                                    <textarea class="form-control" name="bodyEmail" id="bodyEmail" rows="7"
-                                              placeholder="${emailComposeBodyPlaceholder}">${carlos:forHtml(empty param.bodyEmail ? bodyEmail : param.bodyEmail)}</textarea>
-                                    <div class="error-message" id="bodyError"></div>
+                                    <textarea class="form-control" name="message" id="message" rows="7"
+                                              placeholder="${emailComposeMessagePlaceholder}"><carlos:encode value="${message}"/></textarea>
+                                    <div class="error-message" id="messageError"></div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div class="card-footer text-danger">
-                        <span class="fa-solid fa-triangle-exclamation me-2"></span> ${emailComposeUnencryptedBody}
+                    <div class="card-footer text-success ${ isEmailEncrypted ? '' : 'd-none' }" id="messageEncryptedNotice">
+                        <span class="fa-solid fa-lock me-2"></span> ${emailComposeEncryptedMessageNotice}
+                    </div>
+                    <div class="card-footer text-danger ${ isEmailEncrypted ? 'd-none' : '' }" id="messageUnencryptedWarning">
+                        <span class="fa-solid fa-triangle-exclamation me-2"></span> ${emailComposeUnencryptedMessage}
                     </div>
                 </div>
 
@@ -443,16 +452,9 @@
                     </div>
                     <div class="card-body" id="encryptionOptions">
                         <div class="container">
-                            <div class="row">
-                                <div class="col-sm-12 mb-3">
-                                    <label>${emailComposeEncryptedMessageLabel} <span id="encryptedMessageInfo" class="fa-solid fa-circle-info"
-                                                                   data-bs-toggle="tooltip" data-bs-placement="right"
-                                                                   title="${emailComposeEncryptedMessageTooltip}"></span></label>
-                                    <textarea class="form-control" name="encryptedMessage" id="encryptedMessage"
-                                              rows="5" placeholder="${emailComposeEncryptedMessagePlaceholder}">${carlos:forHtml(empty param.encryptedMessageEmail ? encryptedMessageEmail : param.encryptedMessageEmail)}</textarea>
-                                    <div class="error-message" id="encryptedMessageError"></div>
-                                </div>
-                            </div>
+                            <%-- The message content itself now lives in the single "Message" field above;
+                                 this card only carries the password / clue / encrypt-attachments controls
+                                 that govern how that message (and any attachments) are protected. --%>
                             <div class="row mt-3 mb-3 align-items-center">
                                 <div class="col-sm-3">
                                     <label class="col-form-label" for="emailPDFPassword">${emailComposePasswordLabel}</label>
@@ -687,7 +689,7 @@
     });
 
     const emailComposeSubjectRequiredMsg = "<carlos:encode value='${emailComposeSubjectRequired}' context="javaScript"/>";
-    const emailComposeBodyRequiredMsg = "<carlos:encode value='${emailComposeBodyRequired}' context="javaScript"/>";
+    const emailComposeMessageRequiredMsg = "<carlos:encode value='${emailComposeMessageRequired}' context="javaScript"/>";
     const emailComposePasswordRequiredMsg = "<carlos:encode value='${emailComposePasswordRequired}' context="javaScript"/>";
     const emailComposeClueRequiredMsg = "<carlos:encode value='${emailComposeClueRequired}' context="javaScript"/>";
     const emailComposePasswordMinLengthMsg = "<carlos:encode value='${emailComposePasswordMinLength}' context="javaScript"/>";
@@ -705,12 +707,12 @@
 
     function validateForm() {
         const subjectEmail = document.getElementById('subjectEmail');
-        const bodyEmail = document.getElementById('bodyEmail');
+        const message = document.getElementById('message');
         const isEncrypted = document.getElementById('encryptionSwitch').checked;
-        const hasEncryptedMessage = document.getElementById('encryptedMessage').value.trim() !== '';
         const isAttachmentEncrypted = document.getElementById('encryptAttachmentSwitch').checked;
         const emailPDFPassword = document.getElementById('emailPDFPassword');
         const emailPDFPasswordClue = document.getElementById('emailPDFPasswordClue');
+        const hasMessage = message.value.trim() !== '';
         const hasAttachments = document.querySelectorAll('.emailAttachmentItem').length > 0;
         const hasSender = document.getElementById('totalSenderEmails') && document.getElementById('totalSenderEmails').value > 0;
         const hasRecipint = document.getElementById('totalRecipintEmails') && document.getElementById('totalRecipintEmails').value > 0;
@@ -722,12 +724,12 @@
         const errors = {};
 
         validateField(subjectEmail, emailComposeSubjectRequiredMsg, errors, 'subjectError');
-        validateField(bodyEmail, emailComposeBodyRequiredMsg, errors, 'bodyError');
+        validateField(message, emailComposeMessageRequiredMsg, errors, 'messageError');
+        // When encryption is on the message is rendered into the password-protected PDF, so a
+        // password/clue is required whenever there is a message to encrypt (there always is, since
+        // the message field is mandatory) or encrypted attachments are being sent.
         if (isEncrypted) {
-            if (hasEncryptedMessage) {
-                validateField(emailPDFPassword, emailComposePasswordRequiredMsg, errors, 'emailPDFPasswordError');
-                validateField(emailPDFPasswordClue, emailComposeClueRequiredMsg, errors, 'emailPDFPasswordClueError');
-            } else if (hasAttachments && isAttachmentEncrypted) {
+            if (hasMessage || (hasAttachments && isAttachmentEncrypted)) {
                 validateField(emailPDFPassword, emailComposePasswordRequiredMsg, errors, 'emailPDFPasswordError');
                 validateField(emailPDFPasswordClue, emailComposeClueRequiredMsg, errors, 'emailPDFPasswordClueError');
             } else {
@@ -779,6 +781,10 @@
         // Make the risk explicit whenever encryption is turned off: the message and any
         // attachments will leave CARLOS unencrypted, so PHI must not be included.
         document.getElementById("encryptionDisabledWarning").classList.toggle('d-none', checkbox.checked);
+        // Swap the accompanying notice on the single Message field so its protection is
+        // unambiguous: a "secure PDF" notice when encryption is on, the unencrypted warning when off.
+        document.getElementById("messageEncryptedNotice").classList.toggle('d-none', !checkbox.checked);
+        document.getElementById("messageUnencryptedWarning").classList.toggle('d-none', checkbox.checked);
     }
 
     function toggleEncryptAttachmentStatus(checkbox) {

@@ -73,6 +73,30 @@ public class EmailData {
     }
 
     /**
+     * Merges the two legacy content channels ({@code body} and {@code encryptedMessage}) back into
+     * the single "Message" value the compose screen now displays (issue #3118).
+     *
+     * <p>The compose UI has one message field whose delivery is governed by the encryption toggle,
+     * but the underlying EmailLog still stores the cleartext body and the encrypted-PDF
+     * content in separate columns. When seeding the composer (fresh compose or resend), this picks
+     * the channel matching the encryption state and falls back to the other only when the preferred
+     * one is empty, so pre-filled content is never dropped.</p>
+     *
+     * @param isEncrypted      whether the email is (or defaults to) encrypted
+     * @param body             the cleartext body channel value (may be null)
+     * @param encryptedMessage the encrypted-PDF message channel value (may be null)
+     * @return the single message value to seed into the compose field, never null
+     */
+    public static String mergeMessage(boolean isEncrypted, String body, String encryptedMessage) {
+        String preferred = isEncrypted ? encryptedMessage : body;
+        String fallback = isEncrypted ? body : encryptedMessage;
+        if (!StringUtils.isNullOrEmpty(preferred)) {
+            return preferred;
+        }
+        return fallback != null ? fallback : "";
+    }
+
+    /**
      * Gets the ID of the email configuration selected by the user.
      *
      * @return Integer the email config ID, or null if not set
