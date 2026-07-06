@@ -122,6 +122,9 @@ public class EmailSend2Action extends ActionSupport {
         request.setAttribute("isOpenEForm", request.getParameter("openEFormAfterEmail"));
         request.setAttribute("fdid", request.getParameter("fdid"));
         request.setAttribute("emailLog", emailLog);
+        // Preserve the submitted message so a failed-send re-render keeps the provider's typed
+        // content in the merged Message field (parity with sendDirectEmail / the pre-refactor fallback).
+        request.setAttribute("message", request.getParameter("message"));
         return SUCCESS;
     }
 
