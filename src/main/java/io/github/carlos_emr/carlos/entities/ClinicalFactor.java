@@ -29,6 +29,12 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * Base class for various clinical observations and factors in a patient's history.
+ *
+ * Serves as a foundation for conditions, risk factors, and other relevant medical data
+ * points tracked over time.
+ */
 public class ClinicalFactor {
     // Fields
     //

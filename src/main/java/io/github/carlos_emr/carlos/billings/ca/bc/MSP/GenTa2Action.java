@@ -69,6 +69,12 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Action responsible for generating Turn Around (TA) documents in the BC billing module.
+ *
+ * Handles requests to produce physical or electronic forms required for specific types
+ * of specialized billing or pre-authorization.
+ */
 public class GenTa2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -95,6 +101,7 @@ public class GenTa2Action extends ActionSupport {
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public String execute()
             throws IOException, ServletException, Exception {
+        /* Coordinates the data gathering and PDF generation processes for the requested TA document. */
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
             throw new SecurityException("missing required sec object (_admin.billing)");

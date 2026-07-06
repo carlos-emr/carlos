@@ -42,6 +42,12 @@ import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Encapsulates form submission data for billing entry interfaces.
+ *
+ * Acts as a Data Transfer Object between the presentation layer and billing services,
+ * holding user input for claims.
+ */
 public class BillingFormData {
 
     private DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);
@@ -160,6 +166,7 @@ public class BillingFormData {
         }
 
         public String getDiagnosticCode() {
+        /* Diagnostic codes are mandatory for provincial claim validity and auditing. */
             return diagnostic_code;
         }
 

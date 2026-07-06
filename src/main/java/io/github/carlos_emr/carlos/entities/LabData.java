@@ -29,6 +29,12 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * Stores discrete laboratory test results and metadata for patient records.
+ *
+ * Provides the data structure needed to present lab values, ranges, and abnormalities
+ * within the clinical workflow.
+ */
 public class LabData {
     private String a1c;
     private String ldl;
@@ -44,6 +50,7 @@ public class LabData {
     }
 
     public String getA1c() {
+        /* A1C values are critical for diabetic patient tracking; ensure this is populated accurately. */
         return a1c;
     }
 

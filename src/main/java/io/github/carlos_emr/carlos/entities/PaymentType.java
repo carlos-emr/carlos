@@ -29,6 +29,12 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * Defines acceptable methods of payment for private billing transactions.
+ *
+ * Used to populate UI selection dropdowns and categorize financial receipts in
+ * accounting reports.
+ */
 public class PaymentType {
     private String id;
     private String paymentType;

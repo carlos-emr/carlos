@@ -38,6 +38,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 
+/**
+ * Form bean capturing user input from the British Columbia Quick Billing UI.
+ *
+ * Holds the specific service codes, diagnostic information, and modifiers required
+ * by the BC provincial billing rules.
+ */
 public class QuickBillingBCFormBean {
 
     /**

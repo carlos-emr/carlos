@@ -41,6 +41,12 @@ import java.sql.SQLException;
 import java.util.Iterator;
 import java.util.List;
 
+/**
+ * Provides pre-submission integrity checks for BC MSP billing records.
+ *
+ * Scans batches for common omissions like missing diagnostic codes or invalid provider
+ * numbers before the file is generated.
+ */
 public class CheckBillingData {
 
     // check batchHeader VS1

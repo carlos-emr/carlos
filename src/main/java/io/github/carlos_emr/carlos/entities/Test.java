@@ -29,6 +29,12 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * General representation of a clinical test order within the system.
+ *
+ * Used to track the lifecycle of a requested diagnostic procedure from order generation
+ * to result receipt.
+ */
 public class Test {
     private String id;
     private String description;

@@ -67,6 +67,12 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Secondary action flow for handling complex WorkSafeBC (WCB) claim requirements.
+ *
+ * Manages specialized form data and attachments that go beyond the standard medical
+ * billing data set for occupational injuries.
+ */
 public class WCBAction22Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -74,6 +80,7 @@ public class WCBAction22Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     public String execute() throws Exception {        return save();
+        /* Orchestrates the save process for the extended WCB dataset, ensuring all mandatory fields are present. */
     }
 
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.

@@ -33,6 +33,12 @@ import jakarta.servlet.jsp.tagext.TagSupport;
 import io.github.carlos_emr.CarlosProperties;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Custom JSP tag to conditionally render content based on module load status.
+ *
+ * Allows UI views to dynamically hide or show elements depending on whether
+ * specific optional modules (like CAISI) are active.
+ */
 public class IsModuleLoadTag extends TagSupport {
 
     private String moduleName;
@@ -45,6 +51,7 @@ public class IsModuleLoadTag extends TagSupport {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public int doStartTag() throws JspException {
+        /* Evaluates module configuration during JSP rendering to manage UI visibility. */
         try {
 
             CarlosProperties proper = CarlosProperties.getInstance();

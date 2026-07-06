@@ -53,6 +53,12 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Action for recording manual payments against private or third-party bills.
+ *
+ * Updates the financial ledger, logs the payment method, and adjusts the outstanding
+ * balance for the specific patient account.
+ */
 public class ReceivePayment2Action
         extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -61,6 +67,7 @@ public class ReceivePayment2Action
     HttpServletResponse response = ServletActionContext.getResponse();
 
     public String execute() {
+        /* Processes the incoming payment data and safely commits the transaction to the accounting records. */
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");

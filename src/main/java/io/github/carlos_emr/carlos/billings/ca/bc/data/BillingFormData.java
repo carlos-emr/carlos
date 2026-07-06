@@ -44,6 +44,12 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import java.util.*;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * BC-specific billing form data structure used during standard claim entry.
+ *
+ * Manages the collection of provincial-specific fields such as referring practitioners
+ * and facility numbers alongside core claim details.
+ */
 public class BillingFormData {
 
     private DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);

@@ -59,6 +59,12 @@ import java.text.SimpleDateFormat;
 import java.util.Arrays;
 
 
+/**
+ * Manages the state and logic for generating outgoing BC MSP Teleplan submission files.
+ *
+ * Formats accumulated claims into the specific flat-file structure required by the
+ * provincial telecommunications network.
+ */
 public class ExtractBean extends Object implements Serializable {
     private static Logger logger = MiscUtils.getLogger();
     private LogTeleplanTxDao logTeleplanTxDao = SpringUtils.getBean(LogTeleplanTxDao.class);

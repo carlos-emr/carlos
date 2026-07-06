@@ -32,6 +32,12 @@ package io.github.carlos_emr.carlos.entities;
 import java.math.BigDecimal;
 import java.util.Date;
 
+/**
+ * Represents a single transaction or service item on a private (uninsured) bill.
+ *
+ * Captures the code, description, and monetary value of a service rendered that is
+ * not covered by provincial health insurance plans.
+ */
 public class PrivateBillTransaction {
     private int id;
     private int billingmaster_no;

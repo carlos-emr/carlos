@@ -36,6 +36,12 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Identifies the entity responsible for paying a specific private or third-party bill in BC.
+ *
+ * Manages contact information and invoicing details for insurance companies, lawyers,
+ * or individual guarantors.
+ */
 public class BillRecipient {
 
     private Integer id;

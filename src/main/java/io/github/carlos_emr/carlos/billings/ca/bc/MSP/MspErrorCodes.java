@@ -46,6 +46,12 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 
+/**
+ * Reference dictionary mapping BC MSP rejection codes to human-readable explanations.
+ *
+ * Used to translate cryptic provincial error identifiers into actionable feedback for
+ * billing clerks in the UI.
+ */
 public class MspErrorCodes extends Properties {
 
     /**

@@ -74,6 +74,7 @@ public final class BillingUpdateBilling2Action
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() throws IOException,
             ServletException {
+        /* Validates the modifications and securely updates the target billing record if it hasn't been locked by submission. */
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
             response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);

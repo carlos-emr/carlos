@@ -64,6 +64,12 @@ import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Struts action handling the rendering of the British Columbia Quick Billing interface.
+ *
+ * Prepares the view with default codes and recent history to streamline the data entry
+ * process for routine BC claims.
+ */
 public class QuickBillingBC2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -81,6 +87,7 @@ public class QuickBillingBC2Action extends ActionSupport {
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public String execute() throws ServletException, IOException {
+        /* Initializes necessary billing contexts before displaying the fast-entry UI form. */
         String creator = (String) request.getSession().getAttribute("user");
         if (creator == null) {
             return "Logout";

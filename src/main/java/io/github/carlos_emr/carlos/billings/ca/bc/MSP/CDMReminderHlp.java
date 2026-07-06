@@ -37,6 +37,12 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.tickler.TicklerCreator;
 import io.github.carlos_emr.carlos.util.SqlUtils;
 
+/**
+ * Helper class for Chronic Disease Management (CDM) billing reminders in BC.
+ *
+ * Analyzes patient histories to prompt providers when annual or periodic CDM billing
+ * codes are eligible to be claimed again.
+ */
 public class CDMReminderHlp {
     public CDMReminderHlp() {
     }

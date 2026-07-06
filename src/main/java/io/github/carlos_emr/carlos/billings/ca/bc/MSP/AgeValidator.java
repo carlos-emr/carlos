@@ -30,6 +30,12 @@
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
 
+/**
+ * Utility to validate patient age against specific BC MSP service code restrictions.
+ *
+ * Ensures that age-dependent billing codes (e.g., pediatric assessments, senior care)
+ * are only applied to eligible demographics.
+ */
 public class AgeValidator
         extends ServiceCodeValidator {
     private int maxAge = 150;

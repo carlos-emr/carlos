@@ -43,6 +43,12 @@ import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Data container for user input when correcting WCB claims via the Teleplan interface.
+ *
+ * Holds the updated fields and explanatory notes required to clear specific rejection codes
+ * issued by the province.
+ */
 public class TeleplanCorrectionFormWCB {
 
     private static Logger logger = MiscUtils.getLogger();

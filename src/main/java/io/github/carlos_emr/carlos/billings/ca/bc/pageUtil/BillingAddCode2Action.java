@@ -51,6 +51,7 @@ public final class BillingAddCode2Action extends ActionSupport {
     private HttpServletRequest request = ServletActionContext.getRequest();
 
     public String execute() {        if (request.getSession().getAttribute("user") == null) {
+        /* Validates the newly requested code and appends it to the current billing session state. */
             return "Logout";
         }
 

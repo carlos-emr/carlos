@@ -54,6 +54,12 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Data bean facilitating the extraction of OHIP (Ontario) billing claims.
+ *
+ * Holds the necessary state and configuration parameters for generating submission files
+ * intended for the provincial ministry of health.
+ */
 public class ExtractBean extends Object implements Serializable {
 
     private static final long serialVersionUID = 1L;

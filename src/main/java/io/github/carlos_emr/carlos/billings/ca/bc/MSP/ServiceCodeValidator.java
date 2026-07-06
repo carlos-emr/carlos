@@ -24,6 +24,12 @@
 
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
+/**
+ * Central validator for BC MSP service codes during claim entry.
+ *
+ * Checks for mutual exclusivity, frequency limits, and required modifiers before a claim
+ * is saved, reducing provincial rejection rates.
+ */
 public class ServiceCodeValidator {
     protected boolean valid = true;
     protected String serviceCode = "";

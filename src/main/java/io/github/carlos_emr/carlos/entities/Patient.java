@@ -29,6 +29,12 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * Lightweight representation of a patient demographic record.
+ *
+ * Provides core patient identifying information needed for context in billing
+ * and scheduling without the overhead of the full demographic model.
+ */
 public class Patient {
     private String firstName;
     private String lastName;
@@ -62,6 +68,7 @@ public class Patient {
     }
 
     public String getLastName() {
+        /* Patient last name is frequently used in search indices and list sorting algorithms. */
         return lastName;
     }
 

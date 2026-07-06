@@ -27,6 +27,12 @@
 
 package io.github.carlos_emr.carlos.caisi;
 
+/**
+ * Utility methods for integrating with the CAISI (Community Action Initiative) module.
+ *
+ * Provides helper functions for determining module availability and managing
+ * CAISI-specific data transformations.
+ */
 public class CaisiUtil {
     public static String removeAttr(String str, String attr) {
         if (str == null) return (null);

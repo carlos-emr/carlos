@@ -76,6 +76,12 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Administrative action for managing overall Teleplan connectivity and batch operations.
+ *
+ * Serves as the dashboard controller for initiating submissions, downloading reports,
+ * and monitoring system communication status.
+ */
 public class ManageTeleplan2Action extends ActionSupport {
     private static final Set<String> POST_ONLY_METHODS = Set.of(
             "setUserName",
@@ -108,6 +114,7 @@ public class ManageTeleplan2Action extends ActionSupport {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() throws Exception {
+        /* Loads the necessary statistics and state indicators to populate the Teleplan management dashboard. */
         String method = request.getParameter("method");
         if (method != null && POST_ONLY_METHODS.contains(method) && !"POST".equalsIgnoreCase(request.getMethod())) {
             response.setHeader("Allow", "POST");

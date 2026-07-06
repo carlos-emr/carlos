@@ -29,6 +29,12 @@
 
 package io.github.carlos_emr.carlos.billings.ca.bc.data;
 
+/**
+ * Represents standard anatomical locations for injury reporting in BC WCB claims.
+ *
+ * Maps internal system codes to the specific injury site classifications mandated by
+ * the Workers' Compensation Board.
+ */
 public class InjuryLocation {
     private String sidetype;
     private String sidedesc;

@@ -34,6 +34,12 @@ import java.util.ArrayList;
 
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBillingManager.BillingItem;
 
+/**
+ * Maintains the state of a multi-step billing workflow within the user's session.
+ *
+ * Temporarily holds claim details as the user navigates between different diagnostic,
+ * service, and modifier selection screens.
+ */
 public class BillingSessionBean implements java.io.Serializable {
     private String apptProviderNo = null;
     private String patientName = null;

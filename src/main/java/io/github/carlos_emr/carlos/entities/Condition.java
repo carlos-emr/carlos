@@ -31,6 +31,12 @@ package io.github.carlos_emr.carlos.entities;
 
 // Class Condition
 //
+/**
+ * Represents a clinical condition or diagnosis associated with a patient in the EMR.
+ *
+ * This entity tracks the historical and current medical conditions for longitudinal care,
+ * mapping to the underlying database table for clinical factors.
+ */
 public class Condition
         extends ClinicalFactor {
     // Fields

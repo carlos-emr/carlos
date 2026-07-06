@@ -18,6 +18,12 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import java.util.Properties;
 import java.util.Vector;
 
+/**
+ * Generates reports detailing GST collected on private services and goods in BC.
+ *
+ * Aggregates financial transactions to assist clinics with tax remittance and
+ * accounting reconciliation.
+ */
 public class GstReport {
 
     public Vector<Properties> getGST(LoggedInInfo loggedInInfo, String[] providerNos, String startDate, String endDate) {

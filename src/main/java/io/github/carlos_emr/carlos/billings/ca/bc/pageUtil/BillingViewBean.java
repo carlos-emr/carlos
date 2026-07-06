@@ -50,6 +50,12 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBillingManager.BillingItem;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Presentation model for displaying complex billing records in the BC UI.
+ *
+ * Flattens various related entities (patient, provider, codes, payments) into a format
+ * easily consumable by Struts JSP tags.
+ */
 public class BillingViewBean {
 
     private String apptProviderNo = null;

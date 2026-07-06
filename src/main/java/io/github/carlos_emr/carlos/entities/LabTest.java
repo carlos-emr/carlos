@@ -30,6 +30,12 @@
 package io.github.carlos_emr.carlos.entities;
 
 //
+/**
+ * Defines an individual laboratory test type available in the system catalog.
+ *
+ * Contains nomenclature and reference data for specific diagnostic tests requested
+ * by providers.
+ */
 public class LabTest
         extends Test {
     private String observationDateTime = "";

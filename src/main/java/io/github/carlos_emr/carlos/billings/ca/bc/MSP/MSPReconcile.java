@@ -60,6 +60,12 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Core logic for reconciling returned MSP remittance files against original claims.
+ *
+ * Matches payments and explanatory codes from the province to internal billing records,
+ * updating their status to paid, partially paid, or rejected.
+ */
 public class MSPReconcile {
     private static Logger log = MiscUtils.getLogger();
     private BillRecipientsDao billRecipientDao = SpringUtils.getBean(BillRecipientsDao.class);

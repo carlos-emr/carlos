@@ -71,6 +71,12 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
         }
 )
 
+/**
+ * Central entity mapping to the core billing master records in the EMR.
+ *
+ * Aggregates information regarding a specific billable encounter, including patient,
+ * provider, and total costs, to facilitate provincial claim generation.
+ */
 public class Billingmaster {
 
     /**

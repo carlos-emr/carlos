@@ -57,6 +57,12 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Processes submissions from the British Columbia Quick Billing interface.
+ *
+ * Validates incoming form data, constructs the billing records, and persists them
+ * to the database for future provincial batch submission.
+ */
 public class QuickBillingBCSave2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -70,6 +76,7 @@ public class QuickBillingBCSave2Action extends ActionSupport {
 
     public String execute()
             throws ServletException, IOException {        if (request.getSession().getAttribute("user") == null) {
+        /* Transforms raw form input into valid BC claim records and triggers database persistence. */
             return "Logout";
         }
 
