@@ -63,6 +63,10 @@ public class EmailSend2Action extends ActionSupport {
     private EmailManager emailManager = SpringUtils.getBean(EmailManager.class);
     private EformDataManager eformDataManager = SpringUtils.getBean(EformDataManager.class);
 
+    private static final String PARAM_MESSAGE = "message";
+    private static final String PARAM_IS_EMAIL_ENCRYPTED = "isEmailEncrypted";
+    private static final String PARAM_IS_EMAIL_ATTACHMENT_ENCRYPTED = "isEmailAttachmentEncrypted";
+
     /**
      * Main execution method that routes to specific email handling methods based on the "method" request parameter.
      *
@@ -158,9 +162,11 @@ public class EmailSend2Action extends ActionSupport {
      * PHI-safety regression (issue #3118).
      */
     private void preserveComposeInputsForReRender() {
-        request.setAttribute("message", request.getParameter("message"));
-        request.setAttribute("isEmailEncrypted", "true".equals(request.getParameter("isEmailEncrypted")));
-        request.setAttribute("isEmailAttachmentEncrypted", "true".equals(request.getParameter("isEmailAttachmentEncrypted")));
+        request.setAttribute(PARAM_MESSAGE, request.getParameter(PARAM_MESSAGE));
+        // Fail closed on the message-encryption flag, matching prepareEmailFields: only an explicit
+        // "false" re-renders the toggle OFF, so a failed encrypted draft can never reopen as cleartext.
+        request.setAttribute(PARAM_IS_EMAIL_ENCRYPTED, !"false".equals(request.getParameter(PARAM_IS_EMAIL_ENCRYPTED)));
+        request.setAttribute(PARAM_IS_EMAIL_ATTACHMENT_ENCRYPTED, "true".equals(request.getParameter(PARAM_IS_EMAIL_ATTACHMENT_ENCRYPTED)));
     }
 
     /**
@@ -242,14 +248,14 @@ public class EmailSend2Action extends ActionSupport {
         String senderConfigId = request.getParameter("senderConfigId");
         String[] receiverEmails = request.getParameterValues("receiverEmailAddress");
         String subject = request.getParameter("subjectEmail");
-        String isEncrypted = request.getParameter("isEmailEncrypted");
+        String isEncrypted = request.getParameter(PARAM_IS_EMAIL_ENCRYPTED);
 
         // Single "Message" field routed server-side by the encryption toggle so the client can never
         // populate both the cleartext body and the encrypted-PDF channel at once (see issue #3118).
         // Encryption ON  -> the message becomes the password-protected PDF (encryptedMessage), and the
         //                   visible email body is a fixed, PHI-free notice.
         // Encryption OFF -> the message is sent as the cleartext MIME body; there is no encrypted PDF.
-        String message = request.getParameter("message");
+        String message = request.getParameter(PARAM_MESSAGE);
         // Defensive: a direct POST may omit the message param entirely. Coalesce to empty so the
         // cleartext body / encrypted-PDF content is never null downstream.
         if (message == null) {
@@ -264,7 +270,7 @@ public class EmailSend2Action extends ActionSupport {
 
         String password = request.getParameter("emailPDFPassword");
         String passwordClue = request.getParameter("emailPDFPasswordClue");
-        String isAttachmentEncrypted = request.getParameter("isEmailAttachmentEncrypted");
+        String isAttachmentEncrypted = request.getParameter(PARAM_IS_EMAIL_ATTACHMENT_ENCRYPTED);
         String chartDisplayOption = request.getParameter("patientChartOption");
         String internalComment = request.getParameter("internalComment");
         String transactionType = request.getParameter("transactionType");

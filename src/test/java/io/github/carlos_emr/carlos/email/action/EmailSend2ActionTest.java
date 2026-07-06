@@ -39,7 +39,6 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -94,7 +93,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         EmailSend2Action action = spy(new EmailSend2Action());
         // cancel() builds EmailData via prepareEmailFields, which resolves the encrypted-body notice
         // (encryption now fails closed by default). getText() has no live Struts container here.
-        doReturn("SECURE_NOTICE").when(action).getText(eq(ENCRYPTED_BODY_NOTICE_KEY));
+        doReturn("SECURE_NOTICE").when(action).getText(ENCRYPTED_BODY_NOTICE_KEY);
         action.request = request;
         action.response = response;
 
@@ -168,7 +167,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         when(emailManager.sendEmail(any(LoggedInInfo.class), any(EmailData.class))).thenReturn(emailLog);
 
         EmailSend2Action action = spy(new EmailSend2Action());
-        doReturn("SECURE_NOTICE").when(action).getText(eq(ENCRYPTED_BODY_NOTICE_KEY));
+        doReturn("SECURE_NOTICE").when(action).getText(ENCRYPTED_BODY_NOTICE_KEY);
         action.request = request;
         action.response = new MockHttpServletResponse();
 
@@ -179,6 +178,32 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("message")).isEqualTo("Draft to retry.");
         assertThat(request.getAttribute("isEmailEncrypted")).isEqualTo(true);
         assertThat(request.getAttribute("isEmailAttachmentEncrypted")).isEqualTo(true);
+    }
+
+    @Test
+    @DisplayName("should re-render the encryption toggle on when the flag is missing")
+    void shouldReRenderEncryptionOn_whenFlagMissing() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("message", "Draft to retry.");
+        // isEmailEncrypted omitted entirely, mirroring a direct/malformed POST.
+        request.setParameter("senderConfigId", "1");
+        request.setParameter("demographicId", "42");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+
+        EmailLog emailLog = mock(EmailLog.class);
+        when(emailLog.getStatus()).thenReturn(EmailStatus.SUCCESS);
+        when(emailManager.sendEmail(any(LoggedInInfo.class), any(EmailData.class))).thenReturn(emailLog);
+
+        EmailSend2Action action = spy(new EmailSend2Action());
+        doReturn("SECURE_NOTICE").when(action).getText(ENCRYPTED_BODY_NOTICE_KEY);
+        action.request = request;
+        action.response = new MockHttpServletResponse();
+
+        action.sendDirectEmail();
+
+        // Fail closed: a missing toggle must re-render ON so a retry stays encrypted, matching the
+        // fail-closed send-side routing.
+        assertThat(request.getAttribute("isEmailEncrypted")).isEqualTo(true);
     }
 
     /**
@@ -206,7 +231,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
 
         EmailSend2Action action = spy(new EmailSend2Action());
         // getText() has no live Struts container in a unit test, so stub the notice lookup.
-        doReturn("SECURE_NOTICE").when(action).getText(eq(ENCRYPTED_BODY_NOTICE_KEY));
+        doReturn("SECURE_NOTICE").when(action).getText(ENCRYPTED_BODY_NOTICE_KEY);
         action.request = request;
         action.response = new MockHttpServletResponse();
 
