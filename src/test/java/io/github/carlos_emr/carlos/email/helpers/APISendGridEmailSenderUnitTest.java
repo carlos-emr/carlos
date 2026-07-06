@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.email.helpers;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 import java.util.Collections;
 
@@ -32,6 +33,7 @@ import org.junit.jupiter.api.Test;
 
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
 /**
@@ -64,9 +66,55 @@ class APISendGridEmailSenderUnitTest extends CarlosUnitTestBase {
         String payload = sender.createEmailJSON();
 
         // The body must carry the message but neither the "apiKey" body field nor the key value.
-        assertThat(payload).doesNotContain("apiKey");
-        assertThat(payload).doesNotContain("SG.super-secret-key");
-        assertThat(payload).contains("patient@example.com");
-        assertThat(payload).contains("Subject line");
+        assertThat(payload)
+                .doesNotContain("apiKey", "SG.super-secret-key")
+                .contains("patient@example.com", "Subject line");
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return the stored key when a legacy plaintext api_key is configured")
+    void shouldReturnApiKey_whenPlaintextConfigured() throws Exception {
+        EmailConfig emailConfig = new EmailConfig();
+        emailConfig.setSenderEmail("clinic@example.com");
+        emailConfig.setConfigDetailsJson("{\"api_key\":\"SG.plaintext-key\"}");
+
+        APISendGridEmailSender sender = new APISendGridEmailSender(
+                null, emailConfig, new String[] {"patient@example.com"},
+                "Subject line", "Body text", Collections.emptyList());
+
+        assertThat(sender.getAPIKey()).isEqualTo("SG.plaintext-key");
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should throw exception when the api_key field is absent")
+    void shouldThrowException_whenApiKeyMissing() {
+        EmailConfig emailConfig = new EmailConfig();
+        emailConfig.setSenderEmail("clinic@example.com");
+        emailConfig.setConfigDetailsJson("{\"host\":\"smtp.example.com\"}");
+
+        APISendGridEmailSender sender = new APISendGridEmailSender(
+                null, emailConfig, new String[] {"patient@example.com"},
+                "Subject line", "Body text", Collections.emptyList());
+
+        assertThatExceptionOfType(EmailSendingException.class)
+                .isThrownBy(sender::getAPIKey);
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should throw exception when the stored configuration JSON is blank")
+    void shouldThrowException_whenConfigJsonBlank() {
+        EmailConfig emailConfig = new EmailConfig();
+        emailConfig.setSenderEmail("clinic@example.com");
+        emailConfig.setConfigDetailsJson("   ");
+
+        APISendGridEmailSender sender = new APISendGridEmailSender(
+                null, emailConfig, new String[] {"patient@example.com"},
+                "Subject line", "Body text", Collections.emptyList());
+
+        assertThatExceptionOfType(EmailSendingException.class)
+                .isThrownBy(sender::getAPIKey);
     }
 }

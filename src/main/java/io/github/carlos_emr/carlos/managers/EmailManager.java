@@ -175,9 +175,11 @@ public class EmailManager {
         } catch (EmailSendingException | RuntimeException e) {
             // Best-effort: neither a missing key (EmailSendingException) nor a persistence failure
             // from merge (RuntimeException, e.g. DataAccessException) may block outbound mail. The
-            // send proceeds with the existing value. Never log the secret or the raw config JSON.
+            // send proceeds with the existing value. The logged cause aids diagnosis and carries no
+            // plaintext secret or raw config JSON: encryptSecrets fails before the value is set, and
+            // by the time merge runs the stored value is already ciphertext.
             logger.warn("Unable to encrypt email transport credentials at rest for config id={}",
-                    emailConfig.getId());
+                    emailConfig.getId(), e);
         }
     }
 
@@ -595,12 +597,22 @@ public class EmailManager {
             EmailConfig emailConfig = result.getEmailConfig();
             Demographic demographic = result.getDemographic();
             Provider provider = result.getProvider();
+            // Null-guard the joined associations: an email log may legitimately have no linked
+            // demographic, provider, config, or recipient list, and an unguarded dereference would
+            // break the whole Manage Emails admin view with an NPE.
+            String senderFirstName = emailConfig != null ? emailConfig.getSenderFirstName() : "";
+            String senderLastName = emailConfig != null ? emailConfig.getSenderLastName() : "";
+            String demoFirstName = demographic != null ? demographic.getFirstName() : "";
+            String demoLastName = demographic != null ? demographic.getLastName() : "";
+            String provFirstName = provider != null ? provider.getFirstName() : "";
+            String provLastName = provider != null ? provider.getLastName() : "";
+            String toEmails = result.getToEmail() != null ? String.join(", ", result.getToEmail()) : "";
             // Do NOT surface the stored PDF password in the Manage Emails view. The password stays
             // out of the DTO by default (issue #3112); the encryption state is still shown so staff
             // can see an email was encrypted without the credential being exposed on screen.
-            EmailStatusResult emailStatusResult = new EmailStatusResult(result.getId(), result.getSubject(), emailConfig.getSenderFirstName(),
-                    emailConfig.getSenderLastName(), result.getFromEmail(), demographic.getFirstName(),
-                    demographic.getLastName(), String.join(", ", result.getToEmail()), provider.getFirstName(), provider.getLastName(),
+            EmailStatusResult emailStatusResult = new EmailStatusResult(result.getId(), result.getSubject(), senderFirstName,
+                    senderLastName, result.getFromEmail(), demoFirstName,
+                    demoLastName, toEmails, provFirstName, provLastName,
                     result.getIsEncrypted(), null, result.getStatus(), result.getErrorMessage(), result.getTimestamp());
             emailStatusResults.add(emailStatusResult);
         }

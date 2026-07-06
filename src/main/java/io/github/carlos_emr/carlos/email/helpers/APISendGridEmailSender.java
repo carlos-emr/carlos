@@ -273,11 +273,18 @@ public class APISendGridEmailSender {
         emailJson.put("additionalParams", additionalParams);
     }
 
-    private String getAPIKey() throws EmailSendingException {
+    // Package-private for unit testing the credential-validation branches without a live send.
+    String getAPIKey() throws EmailSendingException {
+        String configJson = emailConfig != null ? emailConfig.getConfigDetailsJson() : null;
+        if (configJson == null || configJson.isBlank()) {
+            // No stored configuration at all: surface a clean credential error, never an NPE.
+            throw new EmailSendingException("Invalid credentials configured for "
+                    + (emailConfig != null ? emailConfig.getSenderEmail() : "unknown"));
+        }
         String apiKey;
         try {
-            ObjectMapper objectMapper = new ObjectMapper();
-            JsonNode jsonNode = objectMapper.readTree(emailConfig.getConfigDetailsJson());
+            // Reuse the shared, thread-safe ObjectMapper field rather than allocating per call.
+            JsonNode jsonNode = objectMapper.readTree(configJson);
             JsonNode apiKeyNode = jsonNode.path("api_key");
             if (apiKeyNode.isMissingNode() || apiKeyNode.isNull() || apiKeyNode.asText().isBlank()) {
                 // Missing/blank api_key must surface as a clean credential error, not an NPE.
@@ -287,6 +294,12 @@ public class APISendGridEmailSender {
             // through unchanged during the migration window.
             apiKey = EmailConfigSecrets.decryptSecret(apiKeyNode.asText());
         } catch (IOException e) {
+            // Intentionally no cause: a Jackson parse exception can echo a fragment of the source
+            // JSON (which holds the secret), so we keep the message sanitized (issue #3112 invariant).
+            throw new EmailSendingException("Invalid credentials configured for " + emailConfig.getSenderEmail());
+        }
+        if (apiKey == null || apiKey.isBlank()) {
+            // A stored value that decrypts to blank must not travel as an empty Authorization: Bearer.
             throw new EmailSendingException("Invalid credentials configured for " + emailConfig.getSenderEmail());
         }
         return apiKey;
