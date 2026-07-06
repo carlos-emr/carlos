@@ -6,7 +6,9 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Date;
 
+import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
+import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailConsentStatus;
 
 /**
  * Represents the result of an email status query in the OpenO EMR email system.
@@ -44,6 +46,11 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
     private EmailStatus status;
     private String errorMessage;
     private Date created;
+    private EmailConsentStatus consentStatus;
+    private Integer consentId;
+    private Date consentLastUpdateDate;
+    private boolean consentOverride;
+    private String consentOverrideReason;
 
     /**
      * Default constructor for creating an empty EmailStatusResult instance.
@@ -383,6 +390,51 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
      */
     public void setPassword(String password) {
         this.password = password;
+    }
+
+    public EmailConsentStatus getConsentStatus() {
+        return consentStatus;
+    }
+
+    public void applyConsentSnapshot(EmailLog emailLog) {
+        this.consentStatus = emailLog.getConsentStatus();
+        this.consentId = emailLog.getConsentId();
+        this.consentLastUpdateDate = copyDate(emailLog.getConsentLastUpdateDate());
+        this.consentOverride = emailLog.getConsentOverride();
+        this.consentOverrideReason = emailLog.getConsentOverrideReason();
+    }
+
+    public Integer getConsentId() {
+        return consentId;
+    }
+
+    public Date getConsentLastUpdateDate() {
+        return copyDate(consentLastUpdateDate);
+    }
+
+    public boolean getConsentOverride() {
+        return consentOverride;
+    }
+
+    public String getConsentOverrideReason() {
+        return consentOverrideReason;
+    }
+
+    public String getConsentDisplayStatus() {
+        EmailConsentStatus displayStatus = getConsentStatus();
+        return displayStatus != null ? displayStatus.getDisplayName() : "";
+    }
+
+    public String getConsentLastUpdateDisplay() {
+        Date lastUpdate = getConsentLastUpdateDate();
+        if (lastUpdate == null) {
+            return "";
+        }
+        return new SimpleDateFormat("yyyy-MM-dd").format(lastUpdate);
+    }
+
+    private static Date copyDate(Date date) {
+        return date != null ? new Date(date.getTime()) : null;
     }
 
     /**
