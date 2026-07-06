@@ -435,6 +435,12 @@
                         <div class="container">
                             <div class="row">
                                 <div class="col-sm-12">
+                                    <%-- Visually-hidden label: the visible "Message" heading lives in the card
+                                         header, but the textarea still needs a programmatically associated label
+                                         for accessibility (SonarCloud Web:InputWithoutLabelCheck). The submitted
+                                         content is preserved across a failed-send re-render server-side, by
+                                         EmailSend2Action re-seeding the "message" request attribute. --%>
+                                    <label for="message" class="visually-hidden">${emailComposeMessageLabel}</label>
                                     <textarea class="form-control" name="message" id="message" rows="7"
                                               placeholder="${emailComposeMessagePlaceholder}"><carlos:encode value="${message}"/></textarea>
                                     <div class="error-message" id="messageError"></div>

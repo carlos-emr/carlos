@@ -127,13 +127,26 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         assertThat(sent.getIsEncrypted()).isFalse();
     }
 
+    @Test
+    @DisplayName("should default the body to empty when the message param is missing")
+    void shouldDefaultBodyToEmpty_whenMessageParamMissing() {
+        // A direct POST that omits the message param must not push null into the body/PDF channels.
+        EmailData sent = captureSentEmail(null, "false");
+
+        assertThat(sent.getBody()).isEmpty();
+        assertThat(sent.getEncryptedMessage()).isEmpty();
+    }
+
     /**
      * Drives sendDirectEmail() with the given single "message" field and encryption flag, and
-     * returns the EmailData the action handed to EmailManager so routing can be asserted.
+     * returns the EmailData the action handed to EmailManager so routing can be asserted. A null
+     * {@code message} omits the parameter entirely, mirroring a direct POST that leaves it out.
      */
     private EmailData captureSentEmail(String message, String isEmailEncrypted) {
         MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setParameter("message", message);
+        if (message != null) {
+            request.setParameter("message", message);
+        }
         request.setParameter("isEmailEncrypted", isEmailEncrypted);
         request.setParameter("senderConfigId", "1");
         request.setParameter("demographicId", "42");

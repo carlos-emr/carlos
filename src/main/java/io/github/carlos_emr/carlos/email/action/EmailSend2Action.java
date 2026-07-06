@@ -145,6 +145,9 @@ public class EmailSend2Action extends ActionSupport {
         boolean isEmailSuccessful = emailLog.getStatus() == EmailStatus.SUCCESS;
         request.setAttribute("isEmailSuccessful", isEmailSuccessful);
         request.setAttribute("emailLog", emailLog);
+        // Preserve the submitted message so a failed-send re-render keeps the provider's typed
+        // content in the merged Message field (parity with the pre-refactor param.bodyEmail fallback).
+        request.setAttribute("message", request.getParameter("message"));
         return SUCCESS;
     }
 
@@ -235,6 +238,11 @@ public class EmailSend2Action extends ActionSupport {
         //                   visible email body is a fixed, PHI-free notice.
         // Encryption OFF -> the message is sent as the cleartext MIME body; there is no encrypted PDF.
         String message = request.getParameter("message");
+        // Defensive: a direct POST may omit the message param entirely. Coalesce to empty so the
+        // cleartext body / encrypted-PDF content is never null downstream.
+        if (message == null) {
+            message = "";
+        }
         boolean encrypted = "true".equals(isEncrypted);
         String body = encrypted ? encryptedBodyNotice() : message;
         String encryptedMessage = encrypted ? message : "";
