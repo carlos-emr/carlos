@@ -241,7 +241,10 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
      * @return String[] array of recipient email addresses
      */
     public String[] getToEmail() {
-        return toEmail.split(";");
+        // Null-safe: a legacy row (or a not-yet-populated entity) can have a NULL toEmail column;
+        // return an empty array rather than NPE inside the getter and break callers like the
+        // Manage Emails view. New/updated rows are coalesced to "" by the constructor/setter.
+        return toEmail != null ? toEmail.split(";") : new String[0];
     }
 
     /**

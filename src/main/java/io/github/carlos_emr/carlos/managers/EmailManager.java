@@ -606,7 +606,7 @@ public class EmailManager {
             String demoLastName = demographic != null ? demographic.getLastName() : "";
             String provFirstName = provider != null ? provider.getFirstName() : "";
             String provLastName = provider != null ? provider.getLastName() : "";
-            String toEmails = result.getToEmail() != null ? String.join(", ", result.getToEmail()) : "";
+            String toEmails = String.join(", ", result.getToEmail()); // getToEmail() is null-safe (empty array)
             // Do NOT surface the stored PDF password in the Manage Emails view. The password stays
             // out of the DTO by default (issue #3112); the encryption state is still shown so staff
             // can see an email was encrypted without the credential being exposed on screen.
