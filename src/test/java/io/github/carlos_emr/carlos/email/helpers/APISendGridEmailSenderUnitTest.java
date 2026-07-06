@@ -53,12 +53,9 @@ class APISendGridEmailSenderUnitTest extends CarlosUnitTestBase {
     private String originalProp;
 
     @BeforeEach
-    void registerSecurityManager() {
+    void setUp() throws Exception {
         createAndRegisterMock(SecurityInfoManager.class);
-    }
 
-    @BeforeEach
-    void seedEncryptionKey() throws Exception {
         // Seed a fresh process-global AES key so the encrypted-api_key case can round-trip, and
         // restore prior state afterwards. Plaintext/blank/missing cases are unaffected by the key.
         keySpecField = EncryptionUtils.class.getDeclaredField("SECRET_KEY_SPEC");
