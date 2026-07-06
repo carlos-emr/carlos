@@ -53,4 +53,15 @@ class EmailLogUnitTest {
 
         assertThat(emailLog.getToEmail()).containsExactly("a@example.com", "b@example.com");
     }
+
+    @Test
+    @DisplayName("should return an empty array when recipients are explicitly set to an empty list")
+    void shouldReturnEmptyArray_whenToEmailSetToEmptyArray() {
+        // The setter coalesces an empty array to "", which must still read back as an empty array
+        // (not a stray one-element [""]).
+        EmailLog emailLog = new EmailLog();
+        emailLog.setToEmail(new String[0]);
+
+        assertThat(emailLog.getToEmail()).isEmpty();
+    }
 }

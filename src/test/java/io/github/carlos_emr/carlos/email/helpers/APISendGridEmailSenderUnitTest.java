@@ -24,16 +24,20 @@ package io.github.carlos_emr.carlos.email.helpers;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
+import java.lang.reflect.Field;
 import java.util.Collections;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
+import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
 /**
@@ -44,9 +48,39 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
  */
 class APISendGridEmailSenderUnitTest extends CarlosUnitTestBase {
 
+    private Field keySpecField;
+    private Object originalKeySpec;
+    private String originalProp;
+
     @BeforeEach
     void registerSecurityManager() {
         createAndRegisterMock(SecurityInfoManager.class);
+    }
+
+    @BeforeEach
+    void seedEncryptionKey() throws Exception {
+        // Seed a fresh process-global AES key so the encrypted-api_key case can round-trip, and
+        // restore prior state afterwards. Plaintext/blank/missing cases are unaffected by the key.
+        keySpecField = EncryptionUtils.class.getDeclaredField("SECRET_KEY_SPEC");
+        keySpecField.setAccessible(true);
+        originalKeySpec = keySpecField.get(null);
+
+        CarlosProperties props = CarlosProperties.getInstance();
+        originalProp = props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR);
+
+        props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, EncryptionUtils.generateSecretKey());
+        EncryptionUtils.prepareSecretKeySpec();
+    }
+
+    @AfterEach
+    void restoreEncryptionKey() throws Exception {
+        CarlosProperties props = CarlosProperties.getInstance();
+        if (originalProp != null) {
+            props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, originalProp);
+        } else {
+            props.remove(EncryptionUtils.SECRET_KEY_ENV_VAR);
+        }
+        keySpecField.set(null, originalKeySpec);
     }
 
     @Test
@@ -116,5 +150,22 @@ class APISendGridEmailSenderUnitTest extends CarlosUnitTestBase {
 
         assertThatExceptionOfType(EmailSendingException.class)
                 .isThrownBy(sender::getAPIKey);
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return the decrypted key when an encrypted api_key is configured")
+    void shouldReturnDecryptedApiKey_whenEncryptedApiKeyConfigured() throws Exception {
+        // The core at-rest behaviour: a stored {ENC}-wrapped api_key is decrypted only at send time.
+        String encryptedApiKey = EncryptionUtils.encrypt("SG.encrypted-key");
+        EmailConfig emailConfig = new EmailConfig();
+        emailConfig.setSenderEmail("clinic@example.com");
+        emailConfig.setConfigDetailsJson("{\"api_key\":\"" + encryptedApiKey + "\"}");
+
+        APISendGridEmailSender sender = new APISendGridEmailSender(
+                null, emailConfig, new String[] {"patient@example.com"},
+                "Subject line", "Body text", Collections.emptyList());
+
+        assertThat(sender.getAPIKey()).isEqualTo("SG.encrypted-key");
     }
 }
