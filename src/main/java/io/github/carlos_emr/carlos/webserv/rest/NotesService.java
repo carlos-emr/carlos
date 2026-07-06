@@ -77,6 +77,7 @@ import io.github.carlos_emr.carlos.casemgmt.web.NoteDisplayLocal;
 import io.github.carlos_emr.carlos.commn.dao.AdmissionDao;
 import io.github.carlos_emr.carlos.commn.dao.CaseManagementIssueNotesDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderDefaultProgramDao;
+import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.commn.model.Admission;
 import io.github.carlos_emr.carlos.commn.model.CaseManagementTmpSave;
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -120,6 +121,8 @@ public class NotesService extends AbstractServiceImpl {
 
     /** Shared, thread-safe ObjectMapper (safe after configuration). */
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+    private static final String SEC_OBJECT_ECHART = "_eChart";
 
     /**
      * In-memory concurrent editing tracker for clinical notes.
@@ -1428,8 +1431,8 @@ public class NotesService extends AbstractServiceImpl {
     public NoteIssueTo1 getIssueNote(@PathParam("noteId") Integer noteId) {
 
         LoggedInInfo loggedInInfo = getLoggedInInfo();
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eChart", "r", null)) {
-            throw new RuntimeException("Access Denied");
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, SEC_OBJECT_ECHART, "r", null)) {
+            throw new AccessDeniedException(SEC_OBJECT_ECHART, "r");
         }
 
         //get all note values NoteDisplay nd = new NoteDisplayLocal(loggedInInfo, note);
@@ -1443,7 +1446,7 @@ public class NotesService extends AbstractServiceImpl {
         if (demoNo == null
                 || (!caseManagementMgr.isClientInProgramDomain(loggedInInfo.getLoggedInProviderNo(), demoNo)
                         && !caseManagementMgr.isClientReferredInProgramDomain(loggedInInfo.getLoggedInProviderNo(), demoNo))) {
-            throw new RuntimeException("Access Denied");
+            throw new AccessDeniedException(SEC_OBJECT_ECHART, "r", demoNo);
         }
 
         NoteTo1 note = new NoteTo1();
@@ -1633,7 +1636,7 @@ public class NotesService extends AbstractServiceImpl {
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "r", null)) {
             throw new RuntimeException("Access Denied");
         }
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_eChart", "r", null)) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SEC_OBJECT_ECHART, "r", null)) {
             throw new RuntimeException("Access Denied");
         }
 
@@ -1667,7 +1670,7 @@ public class NotesService extends AbstractServiceImpl {
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "w", null)) {
             throw new RuntimeException("Access Denied");
         }
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_eChart", "w", null)) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SEC_OBJECT_ECHART, "w", null)) {
             throw new RuntimeException("Access Denied");
         }
 

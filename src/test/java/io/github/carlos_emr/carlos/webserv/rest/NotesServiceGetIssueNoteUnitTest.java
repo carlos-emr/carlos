@@ -31,6 +31,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
+import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -119,8 +120,7 @@ class NotesServiceGetIssueNoteUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.hasPrivilege(any(), eq("_eChart"), eq("r"), any())).thenReturn(false);
 
         assertThatThrownBy(() -> service.getIssueNote(NOTE_ID))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessage("Access Denied");
+                .isInstanceOf(AccessDeniedException.class);
         verify(caseManagementMgr, never()).getNote(any());
     }
 
@@ -131,8 +131,7 @@ class NotesServiceGetIssueNoteUnitTest extends CarlosUnitTestBase {
         when(caseManagementMgr.isClientReferredInProgramDomain(PROVIDER_NO, OWNING_DEMOGRAPHIC_NO)).thenReturn(false);
 
         assertThatThrownBy(() -> service.getIssueNote(NOTE_ID))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessage("Access Denied");
+                .isInstanceOf(AccessDeniedException.class);
     }
 
     @Test
@@ -141,7 +140,6 @@ class NotesServiceGetIssueNoteUnitTest extends CarlosUnitTestBase {
         when(caseManagementMgr.getNote(String.valueOf(NOTE_ID))).thenReturn(null);
 
         assertThatThrownBy(() -> service.getIssueNote(NOTE_ID))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessage("Access Denied");
+                .isInstanceOf(AccessDeniedException.class);
     }
 }
