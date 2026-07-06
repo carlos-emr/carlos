@@ -91,7 +91,10 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
 
         MockHttpServletResponse response = new MockHttpServletResponse();
-        EmailSend2Action action = new EmailSend2Action();
+        EmailSend2Action action = spy(new EmailSend2Action());
+        // cancel() builds EmailData via prepareEmailFields, which resolves the encrypted-body notice
+        // (encryption now fails closed by default). getText() has no live Struts container here.
+        doReturn("SECURE_NOTICE").when(action).getText(eq(ENCRYPTED_BODY_NOTICE_KEY));
         action.request = request;
         action.response = response;
 
@@ -137,17 +140,32 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         assertThat(sent.getEncryptedMessage()).isEmpty();
     }
 
+    @Test
+    @DisplayName("should encrypt by default when the encryption flag is missing")
+    void shouldEncryptByDefault_whenEncryptionFlagMissing() {
+        // Fail closed: a direct/malformed POST that omits the isEmailEncrypted toggle must route the
+        // message into the encrypted-PDF channel, never the cleartext body.
+        EmailData sent = captureSentEmail("Confidential note.", null);
+
+        assertThat(sent.getEncryptedMessage()).isEqualTo("Confidential note.");
+        assertThat(sent.getBody()).isEqualTo("SECURE_NOTICE");
+        assertThat(sent.getIsEncrypted()).isTrue();
+    }
+
     /**
      * Drives sendDirectEmail() with the given single "message" field and encryption flag, and
      * returns the EmailData the action handed to EmailManager so routing can be asserted. A null
-     * {@code message} omits the parameter entirely, mirroring a direct POST that leaves it out.
+     * {@code message} or {@code isEmailEncrypted} omits that parameter entirely, mirroring a direct
+     * POST that leaves it out.
      */
     private EmailData captureSentEmail(String message, String isEmailEncrypted) {
         MockHttpServletRequest request = new MockHttpServletRequest();
         if (message != null) {
             request.setParameter("message", message);
         }
-        request.setParameter("isEmailEncrypted", isEmailEncrypted);
+        if (isEmailEncrypted != null) {
+            request.setParameter("isEmailEncrypted", isEmailEncrypted);
+        }
         request.setParameter("senderConfigId", "1");
         request.setParameter("demographicId", "42");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());

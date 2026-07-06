@@ -246,7 +246,10 @@ public class EmailSend2Action extends ActionSupport {
         if (message == null) {
             message = "";
         }
-        boolean encrypted = "true".equals(isEncrypted);
+        // Fail closed: treat only an explicit "false" as encryption OFF. A direct or malformed POST
+        // that omits or garbles the toggle defaults to ENCRYPTED, so PHI is never routed to the
+        // cleartext body when intent is unclear (the compose flow defaults encryption on). See #3118.
+        boolean encrypted = !"false".equals(isEncrypted);
         String body = encrypted ? encryptedBodyNotice() : message;
         String encryptedMessage = encrypted ? message : "";
 
@@ -271,7 +274,7 @@ public class EmailSend2Action extends ActionSupport {
         emailData.setEncryptedMessage(encryptedMessage);
         emailData.setPassword(password);
         emailData.setPasswordClue(passwordClue);
-        emailData.setIsEncrypted(isEncrypted);
+        emailData.setIsEncrypted(encrypted);
         emailData.setIsAttachmentEncrypted(isAttachmentEncrypted);
         emailData.setChartDisplayOption(chartDisplayOption);
         emailData.setInternalComment(internalComment);
