@@ -29,10 +29,13 @@
     <fmt:message key="email.compose.msg.correctEmailBeforeProceeding" var="emailComposeCorrectEmailBeforeProceeding"/>
     <fmt:message key="email.compose.heading.message" var="emailComposeMessageLabel"/>
     <fmt:message key="email.compose.placeholder.message" var="emailComposeMessagePlaceholder"/>
-    <fmt:message key="email.compose.msg.unencryptedMessage" var="emailComposeUnencryptedMessage"/>
     <fmt:message key="email.compose.msg.encryptedMessageNotice" var="emailComposeEncryptedMessageNotice"/>
     <fmt:message key="email.compose.msg.unencryptedSubject" var="emailComposeUnencryptedSubject"/>
     <fmt:message key="email.compose.msg.encryptionDisabledWarning" var="emailComposeEncryptionDisabledWarning"/>
+    <fmt:message key="email.compose.modal.disableEncryption.title" var="emailComposeDisableEncryptionTitle"/>
+    <fmt:message key="email.compose.modal.disableEncryption.body" var="emailComposeDisableEncryptionBody"/>
+    <fmt:message key="email.compose.modal.disableEncryption.confirm" var="emailComposeDisableEncryptionConfirm"/>
+    <fmt:message key="email.compose.modal.disableEncryption.cancel" var="emailComposeDisableEncryptionCancel"/>
     <fmt:message key="email.compose.label.encryption" var="emailComposeEncryptionLabel"/>
     <fmt:message key="email.compose.tooltip.encryption" var="emailComposeEncryptionTooltip"/>
     <fmt:message key="email.compose.label.password" var="emailComposePasswordLabel"/>
@@ -442,9 +445,6 @@
                     <div class="card-footer text-success ${ isEmailEncrypted ? '' : 'd-none' }" id="messageEncryptedNotice">
                         <span class="fa-solid fa-lock me-2"></span> ${emailComposeEncryptedMessageNotice}
                     </div>
-                    <div class="card-footer text-danger ${ isEmailEncrypted ? 'd-none' : '' }" id="messageUnencryptedWarning">
-                        <span class="fa-solid fa-triangle-exclamation me-2"></span> ${emailComposeUnencryptedMessage}
-                    </div>
                     <%-- Encryption controls for the message above (issue #3118 follow-up): the disable-off
                          warning plus the password / clue / encrypt-attachments controls now live in this
                          same card, governed by the encryption toggle in the header. Ids are unchanged so
@@ -498,6 +498,31 @@
                                    value="${ isEmailAttachmentEncrypted ? 'true' : 'false' }"/>
                             <input type="hidden" name="isEmailEncrypted" id="isEmailEncrypted"
                                    value="${ isEmailEncrypted ? 'true' : 'false' }"/>
+                        </div>
+                    </div>
+                </div>
+
+                <%-- Confirmation gate shown when the provider turns encryption OFF. Disabling encryption
+                     sends the message and any attachments as unencrypted plain text, so require an explicit
+                     acknowledgement before applying it; dismissing/cancelling reverts the toggle to ON
+                     (see showEncryptionOptions / confirmDisableEncryption). --%>
+                <div class="modal fade" id="disableEncryptionModal" tabindex="-1"
+                     aria-labelledby="disableEncryptionModalLabel" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title text-danger" id="disableEncryptionModalLabel">
+                                    <span class="fa-solid fa-triangle-exclamation me-2"></span>${emailComposeDisableEncryptionTitle}
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="${emailComposeClose}"></button>
+                            </div>
+                            <div class="modal-body">
+                                <p class="mb-0">${emailComposeDisableEncryptionBody}</p>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">${emailComposeDisableEncryptionCancel}</button>
+                                <button type="button" class="btn btn-danger" id="confirmDisableEncryptionBtn" onclick="confirmDisableEncryption()">${emailComposeDisableEncryptionConfirm}</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -671,8 +696,21 @@
         // Display an error if there are 0 senders, 0 recipients, or if the recipients' addresses are invalid.
         displayErrorOnInvalidEmail();
 
-        // Show encryption options
-        showEncryptionOptions();
+        // Apply the initial encryption state without prompting (a resend may load with encryption off,
+        // and the confirmation modal must only appear on a deliberate user toggle, not on page load).
+        applyEncryptionState();
+
+        // If the disable-encryption confirmation is dismissed (Cancel / X / Esc / backdrop) without
+        // confirming, revert the toggle back to ON so encryption is never silently disabled.
+        const disableEncryptionModalEl = document.getElementById("disableEncryptionModal");
+        if (disableEncryptionModalEl) {
+            disableEncryptionModalEl.addEventListener("hidden.bs.modal", function () {
+                if (!disableEncryptionConfirmed) {
+                    document.getElementById("encryptionSwitch").checked = true;
+                    applyEncryptionState();
+                }
+            });
+        }
 
         // Select chart option from user's preference
         selectPatientChartOption();
@@ -774,19 +812,41 @@
         errorElement.parentNode.firstElementChild.classList.remove("is-invalid");
     }
 
-    function showEncryptionOptions() {
+    let disableEncryptionConfirmed = false;
+
+    // Applies the current encryption toggle state to the form: shows/hides the password/clue/attachment
+    // options, updates the hidden isEmailEncrypted flag and the On/Off label, and swaps the single
+    // message notice (green "secure PDF" when on) for the "encryption is off" warning (when off).
+    function applyEncryptionState() {
         const checkbox = document.getElementById("encryptionSwitch");
         document.getElementById("encryptionOptions").classList.toggle('d-none', !checkbox.checked);
         document.getElementById("isEmailEncrypted").value = checkbox.checked ? "true" : "false";
         document.getElementById("isEncryption").innerHTML = checkbox.checked ? emailComposeStateOnMsg : emailComposeStateOffMsg;
         document.getElementById("isEncryption").classList.toggle("off", !checkbox.checked);
-        // Make the risk explicit whenever encryption is turned off: the message and any
-        // attachments will leave CARLOS unencrypted, so PHI must not be included.
         document.getElementById("encryptionDisabledWarning").classList.toggle('d-none', checkbox.checked);
-        // Swap the accompanying notice on the single Message field so its protection is
-        // unambiguous: a "secure PDF" notice when encryption is on, the unencrypted warning when off.
         document.getElementById("messageEncryptedNotice").classList.toggle('d-none', !checkbox.checked);
-        document.getElementById("messageUnencryptedWarning").classList.toggle('d-none', checkbox.checked);
+    }
+
+    // Guards the encryption toggle. Turning encryption OFF sends the message and any attachments as
+    // plain text, so require an explicit confirmation via the modal before applying the off state;
+    // dismissing/cancelling the modal reverts the toggle to ON (handled by the hidden.bs.modal
+    // listener registered on load). Turning encryption back ON needs no confirmation.
+    function showEncryptionOptions() {
+        const checkbox = document.getElementById("encryptionSwitch");
+        if (!checkbox.checked) {
+            disableEncryptionConfirmed = false;
+            bootstrap.Modal.getOrCreateInstance(document.getElementById("disableEncryptionModal")).show();
+            return;
+        }
+        applyEncryptionState();
+    }
+
+    // Invoked by the modal's confirm button: the provider has acknowledged the risk, so record the
+    // confirmation, close the modal and apply the encryption-off state.
+    function confirmDisableEncryption() {
+        disableEncryptionConfirmed = true;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById("disableEncryptionModal")).hide();
+        applyEncryptionState();
     }
 
     function toggleEncryptAttachmentStatus(checkbox) {
