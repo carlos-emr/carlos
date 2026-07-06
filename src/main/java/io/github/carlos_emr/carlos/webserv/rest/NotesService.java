@@ -1427,10 +1427,24 @@ public class NotesService extends AbstractServiceImpl {
     @Produces("application/json")
     public NoteIssueTo1 getIssueNote(@PathParam("noteId") Integer noteId) {
 
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eChart", "r", null)) {
+            throw new RuntimeException("Access Denied");
+        }
 
         //get all note values NoteDisplay nd = new NoteDisplayLocal(loggedInInfo, note);
         CaseManagementNote casemgmtNote = null;
         casemgmtNote = caseManagementMgr.getNote(String.valueOf(noteId));
+
+        // Bind the note to a patient the caller is actually authorized to see. A
+        // missing note and an unauthorized note both reject identically so a bare
+        // noteId can't be used to enumerate which ids exist (IDOR, issue #2839).
+        String demoNo = casemgmtNote == null ? null : casemgmtNote.getDemographic_no();
+        if (demoNo == null
+                || (!caseManagementMgr.isClientInProgramDomain(loggedInInfo.getLoggedInProviderNo(), demoNo)
+                        && !caseManagementMgr.isClientReferredInProgramDomain(loggedInInfo.getLoggedInProviderNo(), demoNo))) {
+            throw new RuntimeException("Access Denied");
+        }
 
         NoteTo1 note = new NoteTo1();
         note.setNoteId(noteId);
@@ -1510,7 +1524,7 @@ public class NotesService extends AbstractServiceImpl {
         NoteIssueTo1 noteIssue = new NoteIssueTo1();
         noteIssue.setEncounterNote(note);
         noteIssue.setGroupNoteExt(noteExt);
-        noteIssue.setAssignedCMIssues(new CaseManagementIssueConverter().getAllAsTransferObjects(getLoggedInInfo(), cmeIssues));
+        noteIssue.setAssignedCMIssues(new CaseManagementIssueConverter().getAllAsTransferObjects(loggedInInfo, cmeIssues));
 
         return noteIssue;
 
