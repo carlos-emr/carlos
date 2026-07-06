@@ -198,9 +198,8 @@ public class RxPatientData {
                 return null;
             }
             if (allergy.getDemographicNo() != getDemographicNo()) {
-                MiscUtils.getLogger().warn("Blocked cross-patient allergy access: allergyId=" + id
-                        + " demographicNo=" + allergy.getDemographicNo()
-                        + " sessionDemographicNo=" + getDemographicNo());
+                MiscUtils.getLogger().warn("Blocked cross-patient allergy access: allergyId={} demographicNo={} sessionDemographicNo={}",
+                        id, allergy.getDemographicNo(), getDemographicNo());
                 return null;
             }
             PartialDate pd = partialDateDao.getPartialDate(PartialDate.ALLERGIES, allergy.getId(), PartialDate.ALLERGIES_STARTDATE);
@@ -233,9 +232,8 @@ public class RxPatientData {
                 return false;
             }
             if (allergy.getDemographicNo() != getDemographicNo()) {
-                MiscUtils.getLogger().warn("Blocked cross-patient allergy archive: allergyId=" + allergyId
-                        + " demographicNo=" + allergy.getDemographicNo()
-                        + " sessionDemographicNo=" + getDemographicNo());
+                MiscUtils.getLogger().warn("Blocked cross-patient allergy archive: allergyId={} demographicNo={} sessionDemographicNo={}",
+                        allergyId, allergy.getDemographicNo(), getDemographicNo());
                 return false;
             }
             allergy.setArchived(archive);

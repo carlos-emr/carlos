@@ -30,6 +30,7 @@ import org.mockito.MockitoAnnotations;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -73,7 +74,7 @@ class RxPatientDataAllergyOwnershipUnitTest extends CarlosUnitTestBase {
         // initialized in this JVM/fork: its <clinit> resolves AllergyDao via
         // SpringUtils.getBean, and an unmocked failure here permanently poisons
         // the class (NoClassDefFoundError) for every other test in the same fork.
-        registerMock(AllergyDao.class, org.mockito.Mockito.mock(AllergyDao.class));
+        registerMock(AllergyDao.class, mock(AllergyDao.class));
 
         mocks = MockitoAnnotations.openMocks(this);
 
