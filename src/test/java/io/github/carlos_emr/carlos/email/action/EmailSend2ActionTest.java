@@ -26,7 +26,10 @@ import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.test.util.ReflectionTestUtils;
 
+import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
 import io.github.carlos_emr.carlos.managers.EformDataManager;
 import io.github.carlos_emr.carlos.managers.EmailManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -55,6 +58,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
         registerMock(EmailManager.class, mock(EmailManager.class));
         registerMock(EformDataManager.class, mock(EformDataManager.class));
+        registerMock(EmailPdfPasswordService.class, mock(EmailPdfPasswordService.class));
         // EmailSend2Action reads request/response from ServletActionContext in field initializers
         // (evaluated at construction), so mock the static to keep `new EmailSend2Action()` from
         // NPEing before each test assigns action.request/response explicitly.
@@ -88,5 +92,36 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         assertThat(response.getRedirectedUrl()).isEqualTo(
                 "/carlos/eform/efmshowform_data?fdid="
                         + "123%26parentAjaxId%3Devil%23fragment%2525%20%2B%2F&parentAjaxId=eforms");
+    }
+
+    @Test
+    @DisplayName("should ignore submitted PDF password and use generated session password")
+    void shouldIgnoreSubmittedPdfPasswordAndUseGeneratedSessionPassword() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("senderConfigId", "1");
+        request.setParameter("receiverEmailAddress", "patient@example.com");
+        request.setParameter("subjectEmail", "Subject");
+        request.setParameter("bodyEmail", "Body");
+        request.setParameter("encryptedMessage", "Encrypted message");
+        request.setParameter("emailPDFPassword", "patient-chosen-or-tampered");
+        request.setParameter("emailPDFPasswordClue", "tampered clue");
+        request.setParameter("isEmailEncrypted", "true");
+        request.setParameter("isEmailAttachmentEncrypted", "false");
+        request.setParameter("patientChartOption", "addFullNote");
+        request.setParameter("transactionType", "DIRECT");
+        request.setParameter("demographicId", "123");
+        request.getSession().setAttribute("emailPDFPassword", "alpha-bravo-charlie-delta-echo-foxtrot");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        EmailSend2Action action = new EmailSend2Action();
+        action.request = request;
+        action.response = response;
+
+        EmailData emailData = ReflectionTestUtils.invokeMethod(action, "prepareEmailFields", request);
+
+        assertThat(emailData.getPassword()).isEqualTo("alpha-bravo-charlie-delta-echo-foxtrot");
+        assertThat(emailData.getPasswordClue()).isEqualTo(EmailPdfPasswordService.DELIVERY_INSTRUCTION);
+        assertThat(request.getSession().getAttribute("emailPDFPassword")).isNull();
     }
 }

@@ -223,20 +223,18 @@ public class EmailData {
     }
 
     /**
-     * Gets the password hint/clue for the encrypted email.
+     * Gets the non-secret password delivery instruction for the encrypted email.
      * 
-     * @return String the password clue, or empty string if not set
+     * @return String the password delivery instruction, or empty string if not set
      */
     public String getPasswordClue() {
         return passwordClue;
     }
 
     /**
-     * Sets the password hint/clue for the encrypted email.
-     * This clue is sent to the recipient to help them remember or derive the password
-     * needed to decrypt the email content.
+     * Sets the non-secret password delivery instruction for the encrypted email.
      * 
-     * @param passwordClue String the password hint/clue; null values are converted to empty string
+     * @param passwordClue String the password delivery instruction; null values are converted to empty string
      */
     public void setPasswordClue(String passwordClue) {
         this.passwordClue = passwordClue != null ? passwordClue : "";
@@ -489,5 +487,4 @@ public class EmailData {
         this.attachments = attachments != null ? attachments : Collections.emptyList();
     }
 }
-
 

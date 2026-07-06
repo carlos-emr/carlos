@@ -6,6 +6,7 @@
 package io.github.carlos_emr.carlos.email.action;
 
 import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
@@ -26,6 +27,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @Tag("unit")
@@ -38,9 +41,11 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
     void shouldSanitizeFid_whenInvalidValueIsLogged() throws Exception {
         DemographicManager demographicManager = mock(DemographicManager.class);
         EmailComposeManager emailComposeManager = mock(EmailComposeManager.class);
+        EmailPdfPasswordService emailPdfPasswordService = mock(EmailPdfPasswordService.class);
         SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
         registerMock(DemographicManager.class, demographicManager);
         registerMock(EmailComposeManager.class, emailComposeManager);
+        registerMock(EmailPdfPasswordService.class, emailPdfPasswordService);
         registerMock(SecurityInfoManager.class, securityInfoManager);
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -57,6 +62,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         when(emailComposeManager.prepareLabAttachments(any(), any())).thenReturn(List.of());
         when(emailComposeManager.prepareHRMAttachments(any(), any())).thenReturn(List.of());
         when(emailComposeManager.prepareFormAttachments(any(), any(), any(), anyInt())).thenReturn(List.of());
+        when(emailPdfPasswordService.generatePassphrase()).thenReturn("alpha-bravo-charlie-delta-echo-foxtrot");
 
         try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class);
              LogCapture capture = LogCapture.forLogger(EmailCompose2Action.class)) {
@@ -67,6 +73,9 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
 
             assertThat(action.prepareComposeEFormMailer()).isEqualTo("compose");
             assertThat(request.getAttribute("fid")).isNull();
+            assertThat(request.getAttribute("emailPDFPassword")).isEqualTo("alpha-bravo-charlie-delta-echo-foxtrot");
+            assertThat(request.getSession(false).getAttribute("emailPDFPassword")).isEqualTo("alpha-bravo-charlie-delta-echo-foxtrot");
+            verify(emailComposeManager, never()).createEmailPDFPassword(any(), anyInt());
             String logged = capture.messages().stream()
                     .filter(message -> message.startsWith("Invalid fid parameter received"))
                     .findFirst()

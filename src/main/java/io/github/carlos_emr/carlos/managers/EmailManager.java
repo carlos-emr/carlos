@@ -183,8 +183,8 @@ public class EmailManager {
         EmailLog emailLog = new EmailLog(emailConfig, emailConfig.getSenderEmail(), emailData.getRecipients(), emailData.getSubject(), emailData.getBody(), EmailStatus.FAILED);
         setEmailAttachments(emailLog, emailData.getAttachments());
         emailLog.setEncryptedMessage(emailData.getEncryptedMessage());
-        emailLog.setPassword(emailData.getPassword());
-        emailLog.setPasswordClue(emailData.getPasswordClue());
+        emailLog.setPassword("");
+        emailLog.setPasswordClue("");
         emailLog.setIsEncrypted(emailData.getIsEncrypted());
         emailLog.setIsAttachmentEncrypted(emailData.getIsAttachmentEncrypted());
         emailLog.setChartDisplayOption(emailData.getChartDisplayOption());
@@ -436,15 +436,13 @@ public class EmailManager {
      * Encrypts the email message and/or attachments as password-protected PDFs.
      *
      * This method handles encryption of PHI content for secure transmission. It converts
-     * the encrypted message to a PDF attachment and encrypts selected attachments, then
-     * appends the password clue to the email body.
+     * the encrypted message to a PDF attachment and encrypts selected attachments.
      *
      * Encryption workflow:
      * 1. Convert encrypted message text to PDF attachment (if present)
      * 2. Collect attachments to encrypt based on isAttachmentEncrypted flag
      * 3. Encrypt all selected attachments with the provided password
      * 4. Update email attachments list with encrypted files
-     * 5. Append password clue to email body
      *
      * @param emailData EmailData the email data containing content to encrypt
      * @throws EmailSendingException if PDF encryption fails
@@ -466,9 +464,6 @@ public class EmailManager {
             emailAttachments.addAll(emailData.getAttachments());
         }
         emailData.setAttachments(emailAttachments);
-
-        //append password clue
-        emailData.setBody(emailData.getBody() + "\n\n*****\n" + emailData.getPasswordClue().trim() + "\n*****\n");
     }
 
     /**
@@ -563,7 +558,7 @@ public class EmailManager {
             EmailStatusResult emailStatusResult = new EmailStatusResult(result.getId(), result.getSubject(), emailConfig.getSenderFirstName(),
                     emailConfig.getSenderLastName(), result.getFromEmail(), demographic.getFirstName(),
                     demographic.getLastName(), String.join(", ", result.getToEmail()), provider.getFirstName(), provider.getLastName(),
-                    result.getIsEncrypted(), result.getPassword(), result.getStatus(), result.getErrorMessage(), result.getTimestamp());
+                    result.getIsEncrypted(), "", result.getStatus(), result.getErrorMessage(), result.getTimestamp());
             emailStatusResults.add(emailStatusResult);
         }
         Collections.sort(emailStatusResults);

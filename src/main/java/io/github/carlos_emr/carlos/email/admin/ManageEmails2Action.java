@@ -11,6 +11,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
+import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
 import io.github.carlos_emr.carlos.email.core.EmailStatusResult;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -68,6 +69,7 @@ public class ManageEmails2Action extends ActionSupport {
     private final DocumentAttachmentManager documentAttachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
     private final FormsManager formsManager = SpringUtils.getBean(FormsManager.class);
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final EmailPdfPasswordService emailPdfPasswordService = SpringUtils.getBean(EmailPdfPasswordService.class);
 
     /**
      * Main entry point for the ManageEmails2Action, routing requests to appropriate handler methods.
@@ -250,6 +252,8 @@ public class ManageEmails2Action extends ActionSupport {
         String receiverName = demographicManager.getDemographicFormattedName(loggedInInfo, demographicNo);
         List<?>[] receiverEmailList = emailComposeManager.getRecipients(loggedInInfo, demographicNo);
         List<EmailConfig> senderAccounts = emailComposeManager.getAllSenderAccounts();
+        String emailPDFPassword = emailPdfPasswordService.generatePassphrase();
+        String emailPDFPasswordClue = EmailPdfPasswordService.DELIVERY_INSTRUCTION;
 
         request.setAttribute("demographicId", demographicNo);
         request.setAttribute("transactionType", TransactionType.DIRECT);
@@ -264,13 +268,15 @@ public class ManageEmails2Action extends ActionSupport {
         request.setAttribute("subjectEmail", emailLog.getSubject());
         request.setAttribute("bodyEmail", emailLog.getBody());
         request.setAttribute("encryptedMessageEmail", emailLog.getEncryptedMessage());
-        request.setAttribute("emailPDFPassword", emailLog.getPassword());
-        request.setAttribute("emailPDFPasswordClue", emailLog.getPasswordClue());
+        request.setAttribute("emailPDFPassword", emailPDFPassword);
+        request.setAttribute("emailPDFPasswordClue", emailPDFPasswordClue);
         request.setAttribute("isEmailEncrypted", emailLog.getIsEncrypted());
         request.setAttribute("isEmailAttachmentEncrypted", emailLog.getIsAttachmentEncrypted());
         request.setAttribute("emailPatientChartOption", emailLog.getChartDisplayOption().getValue());
         request.setAttribute("emailAdditionalParams", emailLog.getAdditionalParams());
         request.getSession().setAttribute("emailAttachmentList", emailAttachmentList); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        request.getSession().setAttribute("emailPDFPassword", emailPDFPassword);
+        request.getSession().setAttribute("emailPDFPasswordClue", emailPDFPasswordClue);
 
         return "compose";
     }

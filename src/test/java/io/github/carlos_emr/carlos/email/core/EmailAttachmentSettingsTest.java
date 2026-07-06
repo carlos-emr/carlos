@@ -104,7 +104,7 @@ class EmailAttachmentSettingsTest {
         @Test
         @DisplayName("should return email when at RFC 5321 length limit")
         void shouldReturnEmail_whenAtMaxLength() {
-            String local = "a".repeat(241);
+            String local = "a".repeat(242);
             String email = local + "@example.com";
             assertThat(email.length()).isEqualTo(254);
             assertThat(EmailAttachmentSettings.validateEmail(email)).isEqualTo(email);

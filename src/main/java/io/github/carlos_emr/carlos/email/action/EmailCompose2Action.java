@@ -12,6 +12,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
+import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.utility.LogSafe;
@@ -48,7 +49,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
  * This action is part of OpenO EMR's secure patient communication system, ensuring that Protected Health
  * Information (PHI) is transmitted with appropriate encryption, consent verification, and audit logging.
  * It supports PIPEDA/HIPAA compliance by enforcing patient consent for email communications and providing
- * password-protected PDF attachments based on patient demographic data.
+ * password-protected PDF attachments with server-generated random passphrases.
  *
  * Session Management:
  * The action retrieves email composition parameters from the HTTP session (allowing for redirect-based
@@ -59,7 +60,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
  * <ul>
  *   <li>Validates fid parameter to ensure numeric format (prevents injection)</li>
  *   <li>Uses log-safe sanitization for invalid fid values in logs</li>
- *   <li>Generates patient-specific PDF passwords based on demographic information</li>
+ *   <li>Generates random PDF passphrases without using patient demographic information</li>
  *   <li>Sanitizes attachment filenames through EmailComposeManager</li>
  *   <li>Session cleanup prevents information leakage across requests</li>
  * </ul>
@@ -80,6 +81,7 @@ public class EmailCompose2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
     private DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
     private EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManager.class);
+    private EmailPdfPasswordService emailPdfPasswordService = SpringUtils.getBean(EmailPdfPasswordService.class);
 
     private static final String[] EMAIL_SESSION_KEYS = {
         "attachEFormItSelf", "fdid", "demographicId",
@@ -124,7 +126,7 @@ public class EmailCompose2Action extends ActionSupport {
      *   <li>Fetches patient demographic information for recipient name display</li>
      *   <li>Retrieves and validates recipient email addresses (separates valid/invalid)</li>
      *   <li>Loads available sender email account configurations</li>
-     *   <li>Generates PDF password encryption based on patient demographics if not already set</li>
+     *   <li>Generates a server-assigned random PDF passphrase</li>
      *   <li>Prepares all attachment types: eForms, eDocuments, labs, forms, HRM documents</li>
      *   <li>Sanitizes attachment filenames for security</li>
      *   <li>Transfers session data to request attributes for JSP rendering</li>
@@ -136,8 +138,8 @@ public class EmailCompose2Action extends ActionSupport {
      *   <li>attachEFormItSelf (Boolean) - whether to attach the eForm itself</li>
      *   <li>fdid (String) - form data ID for the eForm</li>
      *   <li>demographicId (String) - patient demographic identifier (required)</li>
-     *   <li>emailPDFPassword (String) - password for PDF encryption</li>
-     *   <li>emailPDFPasswordClue (String) - hint for PDF password</li>
+     *   <li>emailPDFPassword (String) - ignored legacy session value; replaced with a generated passphrase</li>
+     *   <li>emailPDFPasswordClue (String) - ignored legacy session value; replaced with a delivery instruction</li>
      *   <li>attachedDocuments (String[]) - array of document IDs to attach</li>
      *   <li>attachedLabs (String[]) - array of lab result IDs to attach</li>
      *   <li>attachedForms (String[]) - array of form IDs to attach</li>
@@ -164,8 +166,8 @@ public class EmailCompose2Action extends ActionSupport {
      *   <li>receiverEmailList (List) - list of valid recipient email addresses</li>
      *   <li>invalidReceiverEmailList (List) - list of invalid email addresses</li>
      *   <li>senderAccounts (List&lt;EmailConfig&gt;) - available sender account configurations</li>
-     *   <li>emailPDFPassword (String) - generated or existing PDF password</li>
-     *   <li>emailPDFPasswordClue (String) - password hint for recipient</li>
+     *   <li>emailPDFPassword (String) - generated PDF passphrase shown once for separate delivery</li>
+     *   <li>emailPDFPasswordClue (String) - provider delivery instruction</li>
      *   <li>demographicId (String) - patient demographic identifier</li>
      *   <li>fdid (String) - form data ID</li>
      *   <li>fid (String) - validated form ID or null if invalid</li>
@@ -180,7 +182,7 @@ public class EmailCompose2Action extends ActionSupport {
      * <ul>
      *   <li>Validates fid parameter with regex pattern to ensure numeric format only</li>
      *   <li>Logs warnings for invalid fid values using OWASP-encoded output</li>
-     *   <li>Generates patient-specific PDF passwords: YYYYMMDD (DOB) + 10-digit HIN</li>
+     *   <li>Generates server-assigned random passphrases without patient identifiers</li>
      *   <li>Sanitizes all attachment filenames to prevent path traversal attacks</li>
      *   <li>Verifies patient email consent before allowing composition</li>
      *   <li>Cleans up session attributes after transfer to prevent information leakage</li>
@@ -195,7 +197,7 @@ public class EmailCompose2Action extends ActionSupport {
      *         "eFormError" if PDF generation fails for any attachment
      * @see io.github.carlos_emr.carlos.managers.EmailComposeManager#getEmailConsentStatus(LoggedInInfo, Integer)
      * @see io.github.carlos_emr.carlos.managers.EmailComposeManager#getRecipients(LoggedInInfo, Integer)
-     * @see io.github.carlos_emr.carlos.managers.EmailComposeManager#createEmailPDFPassword(LoggedInInfo, Integer)
+     * @see io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService#generatePassphrase()
      * @see io.github.carlos_emr.carlos.managers.EmailComposeManager#prepareEFormAttachments(LoggedInInfo, String, String[])
      * @see io.github.carlos_emr.carlos.managers.EmailComposeManager#sanitizeAttachments(List)
      * @see #cleanupEmailSessionAttributes(HttpServletRequest)
@@ -211,8 +213,6 @@ public class EmailCompose2Action extends ActionSupport {
         String fdid = attachEFormItSelf ? (String) session.getAttribute("fdid") : "";
         String demographicId = (String) session.getAttribute("demographicId");
         String fid = request.getParameter("fid");
-        String emailPDFPassword = (String) session.getAttribute("emailPDFPassword");
-        String emailPDFPasswordClue = (String) session.getAttribute("emailPDFPasswordClue");
         String[] attachedDocuments = (String[]) session.getAttribute("attachedDocuments");
         String[] attachedLabs = (String[]) session.getAttribute("attachedLabs");
         String[] attachedForms = (String[]) session.getAttribute("attachedForms");
@@ -243,10 +243,8 @@ public class EmailCompose2Action extends ActionSupport {
 
         List<EmailConfig> senderAccounts = emailComposeManager.getAllSenderAccounts();
 
-        if (emailPDFPassword == null) {
-            emailPDFPassword = emailComposeManager.createEmailPDFPassword(loggedInInfo, Integer.parseInt(demographicId));
-            emailPDFPasswordClue = "To protect your privacy, the PDF attachments in this email have been encrypted with a 18 digit password - your date of birth in the format YYYYMMDD followed by the 10 digits of your health insurance number.";
-        }
+        String emailPDFPassword = emailPdfPasswordService.generatePassphrase();
+        String emailPDFPasswordClue = EmailPdfPasswordService.DELIVERY_INSTRUCTION;
 
         List<EmailAttachment> emailAttachmentList = new ArrayList<>();
         try {
@@ -287,6 +285,8 @@ public class EmailCompose2Action extends ActionSupport {
         request.getSession().setAttribute("emailAttachmentList", emailAttachmentList); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- emailAttachmentList built from manager-prepared attachments (eForm, eDoc, lab, HRM, form PDFs), then sanitized by emailComposeManager.sanitizeAttachments()
 
         cleanupEmailSessionAttributes(request);
+        request.getSession().setAttribute("emailPDFPassword", emailPDFPassword);
+        request.getSession().setAttribute("emailPDFPasswordClue", emailPDFPasswordClue);
 
         return "compose";
     }

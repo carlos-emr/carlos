@@ -20,13 +20,13 @@ import io.github.carlos_emr.carlos.commn.dao.EmailLogDaoImpl;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.Consent;
 import io.github.carlos_emr.carlos.commn.model.ConsentType;
-import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
+import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -74,6 +74,8 @@ public class EmailComposeManager {
     private PatientConsentManager patientConsentManager;
     @Autowired
     private SecurityInfoManager securityInfoManager;
+    @Autowired
+    private EmailPdfPasswordService emailPdfPasswordService;
 
     /**
      * Prepares an existing email for resending by retrieving its log entry.
@@ -431,19 +433,13 @@ public class EmailComposeManager {
     }
 
     /**
-     * Creates a password for encrypting PDF attachments based on patient demographic data.
+     * Creates a server-assigned random passphrase for encrypting PDF attachments.
      *
-     * This method generates a password by concatenating the patient's birth date components
-     * (year, month, day) and health insurance number (HIN). This provides a patient-specific
-     * password that the patient can reconstruct using their own demographic information.
-     *
-     * @param loggedInInfo LoggedInInfo the current logged-in user session information
-     * @param demographicId Integer the patient demographic ID to create password for
-     * @return String the generated PDF password in format: YYYYMMDDHIN
+     * @deprecated Use {@link EmailPdfPasswordService#generatePassphrase()} directly.
      */
+    @Deprecated(since = "2026-07")
     public String createEmailPDFPassword(LoggedInInfo loggedInInfo, Integer demographicId) {
-        Demographic demographic = demographicManager.getDemographic(loggedInInfo, demographicId);
-        return demographic.getYearOfBirth() + demographic.getMonthOfBirth() + demographic.getDateOfBirth() + demographic.getHin();
+        return emailPdfPasswordService.generatePassphrase();
     }
 
     /**

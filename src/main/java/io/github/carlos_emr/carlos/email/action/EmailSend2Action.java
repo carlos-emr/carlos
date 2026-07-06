@@ -11,6 +11,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
 import io.github.carlos_emr.carlos.managers.EformDataManager;
 import io.github.carlos_emr.carlos.managers.EmailManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -21,6 +22,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.util.StringUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
@@ -62,6 +64,7 @@ public class EmailSend2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
     private EmailManager emailManager = SpringUtils.getBean(EmailManager.class);
     private EformDataManager eformDataManager = SpringUtils.getBean(EformDataManager.class);
+    private EmailPdfPasswordService emailPdfPasswordService = SpringUtils.getBean(EmailPdfPasswordService.class);
 
     /**
      * Main execution method that routes to specific email handling methods based on the "method" request parameter.
@@ -209,7 +212,7 @@ public class EmailSend2Action extends ActionSupport {
      *   <li>Extracting sender and recipient email addresses</li>
      *   <li>Retrieving subject, body, and internal comment fields</li>
      *   <li>Processing encryption settings (email body and attachment encryption)</li>
-     *   <li>Handling password protection parameters (password and password clue)</li>
+     *   <li>Resolving server-generated PDF password protection values</li>
      *   <li>Retrieving patient chart display options and demographic information</li>
      *   <li>Extracting transaction type and additional URL parameters</li>
      *   <li>Retrieving email attachments from session storage</li>
@@ -229,10 +232,10 @@ public class EmailSend2Action extends ActionSupport {
         String subject = request.getParameter("subjectEmail");
         String body = request.getParameter("bodyEmail");
         String encryptedMessage = request.getParameter("encryptedMessage");
-        String password = request.getParameter("emailPDFPassword");
-        String passwordClue = request.getParameter("emailPDFPasswordClue");
         String isEncrypted = request.getParameter("isEmailEncrypted");
         String isAttachmentEncrypted = request.getParameter("isEmailAttachmentEncrypted");
+        String password = resolveEmailPdfPassword(request, isEncrypted);
+        String passwordClue = "true".equals(isEncrypted) ? EmailPdfPasswordService.DELIVERY_INSTRUCTION : "";
         String chartDisplayOption = request.getParameter("patientChartOption");
         String internalComment = request.getParameter("internalComment");
         String transactionType = request.getParameter("transactionType");
@@ -262,7 +265,21 @@ public class EmailSend2Action extends ActionSupport {
         emailData.setAttachments(emailAttachmentList);
 
         request.getSession().removeAttribute("emailAttachmentList");
+        request.getSession().removeAttribute("emailPDFPassword");
+        request.getSession().removeAttribute("emailPDFPasswordClue");
 
         return emailData;
+    }
+
+    private String resolveEmailPdfPassword(HttpServletRequest request, String isEncrypted) {
+        if (!"true".equals(isEncrypted)) {
+            return "";
+        }
+
+        Object sessionPassword = request.getSession().getAttribute("emailPDFPassword");
+        if (sessionPassword instanceof String password && !StringUtils.isNullOrEmpty(password)) {
+            return password;
+        }
+        return emailPdfPasswordService.generatePassphrase();
     }
 }

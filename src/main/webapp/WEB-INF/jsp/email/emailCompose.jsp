@@ -458,10 +458,10 @@
                                     <label class="col-form-label" for="emailPDFPassword">${emailComposePasswordLabel}</label>
                                 </div>
                                 <div class="col-sm-9">
-                                    <input class="form-control" type="text" name="emailPDFPassword"
+                                    <input class="form-control" type="text"
                                            id="emailPDFPassword" placeholder="${emailComposePasswordPlaceholder}"
-                                           value="${carlos:forHtmlAttribute(not empty param.passwordEmail ? param.passwordEmail : emailPDFPassword)}"
-                                           autocomplete="off"/>
+                                           value="${carlos:forHtmlAttribute(emailPDFPassword)}"
+                                           autocomplete="off" readonly/>
                                     <div class="error-message" id="emailPDFPasswordError"></div>
                                 </div>
                             </div>
@@ -473,7 +473,7 @@
                                 </div>
                                 <div class="col-sm-9">
                                     <textarea class="form-control" name="emailPDFPasswordClue" id="emailPDFPasswordClue"
-                                              rows="2" placeholder="${emailComposeCluePlaceholder}">${carlos:forHtml(not empty param.passwordClueEmail ? param.passwordClueEmail : emailPDFPasswordClue)}</textarea>
+                                              rows="2" placeholder="${emailComposeCluePlaceholder}" readonly>${carlos:forHtml(emailPDFPasswordClue)}</textarea>
                                     <div class="error-message" id="emailPDFPasswordClueError"></div>
                                 </div>
                             </div>
