@@ -29,7 +29,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+
+import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
+import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -90,24 +96,51 @@ class NotesServiceGetIssueNoteUnitTest extends CarlosUnitTestBase {
                 .thenReturn(true);
         lenient().when(caseManagementMgr.getNote(String.valueOf(NOTE_ID))).thenReturn(casemgmtNote);
         lenient().when(casemgmtNote.getDemographic_no()).thenReturn(OWNING_DEMOGRAPHIC_NO);
-        lenient().when(caseManagementMgr.isClientInProgramDomain(PROVIDER_NO, OWNING_DEMOGRAPHIC_NO))
+        lenient().when(casemgmtNote.getIssues()).thenReturn(issuesWithOneCppAndOneRegular());
+        lenient().when(caseManagementMgr.isClientInProgramDomain(any(List.class), any(List.class))).thenReturn(true);
+        lenient().when(securityInfoManager.isAllowedAccessToPatientRecord(any(), any()))
                 .thenReturn(true);
     }
 
+    /**
+     * One CPP-code issue (must be filtered out of the returned assigned issues)
+     * plus one regular issue (must survive the filter), matching the shape
+     * NotesService.isCppCode/getIssueNote actually filters over.
+     */
+    private Set<CaseManagementIssue> issuesWithOneCppAndOneRegular() {
+        Issue cppIssueCode = new Issue();
+        cppIssueCode.setCode("OMeds");
+        CaseManagementIssue cppIssue = new CaseManagementIssue();
+        cppIssue.setIssue(cppIssueCode);
+
+        Issue regularIssueCode = new Issue();
+        regularIssueCode.setCode("diabetes");
+        CaseManagementIssue regularIssue = new CaseManagementIssue();
+        regularIssue.setIssue(regularIssueCode);
+
+        Set<CaseManagementIssue> issues = new LinkedHashSet<>();
+        issues.add(cppIssue);
+        issues.add(regularIssue);
+        return issues;
+    }
+
     @Test
-    @DisplayName("should return the note when caller is in the patient's program domain")
+    @DisplayName("should return the note with CPP issues filtered out when caller is in the patient's program domain")
     void shouldReturnNote_whenCallerInProgramDomain() {
         NoteIssueTo1 result = service.getIssueNote(NOTE_ID);
 
         assertThat(result).isNotNull();
         verify(caseManagementMgr).getNote(String.valueOf(NOTE_ID));
+        assertThat(result.getAssignedCMIssues())
+                .extracting(cmi -> cmi.getIssue().getCode())
+                .containsExactly("diabetes");
     }
 
     @Test
     @DisplayName("should return the note when caller was only referred into the patient's program domain")
     void shouldReturnNote_whenCallerOnlyReferredIntoProgramDomain() {
-        when(caseManagementMgr.isClientInProgramDomain(PROVIDER_NO, OWNING_DEMOGRAPHIC_NO)).thenReturn(false);
-        when(caseManagementMgr.isClientReferredInProgramDomain(PROVIDER_NO, OWNING_DEMOGRAPHIC_NO)).thenReturn(true);
+        when(caseManagementMgr.isClientInProgramDomain(any(List.class), any(List.class))).thenReturn(false);
+        when(caseManagementMgr.isClientReferredInProgramDomain(any(List.class), eq(OWNING_DEMOGRAPHIC_NO))).thenReturn(true);
 
         NoteIssueTo1 result = service.getIssueNote(NOTE_ID);
 
@@ -127,8 +160,17 @@ class NotesServiceGetIssueNoteUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should deny access when the note does not belong to any of the caller's program domains")
     void shouldDenyAccess_whenNoteNotInCallerProgramDomain() {
-        when(caseManagementMgr.isClientInProgramDomain(PROVIDER_NO, OWNING_DEMOGRAPHIC_NO)).thenReturn(false);
-        when(caseManagementMgr.isClientReferredInProgramDomain(PROVIDER_NO, OWNING_DEMOGRAPHIC_NO)).thenReturn(false);
+        when(caseManagementMgr.isClientInProgramDomain(any(List.class), any(List.class))).thenReturn(false);
+        when(caseManagementMgr.isClientReferredInProgramDomain(any(List.class), eq(OWNING_DEMOGRAPHIC_NO))).thenReturn(false);
+
+        assertThatThrownBy(() -> service.getIssueNote(NOTE_ID))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("should deny access when the patient has an eChart access opt-out override")
+    void shouldDenyAccess_whenPatientHasOptOutOverride() {
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(), any())).thenReturn(false);
 
         assertThatThrownBy(() -> service.getIssueNote(NOTE_ID))
                 .isInstanceOf(AccessDeniedException.class);
@@ -153,7 +195,7 @@ class NotesServiceGetIssueNoteUnitTest extends CarlosUnitTestBase {
 
         assertThatThrownBy(() -> service.getIssueNote(NOTE_ID))
                 .isInstanceOf(AccessDeniedException.class);
-        verify(caseManagementMgr, never()).isClientInProgramDomain(any(String.class), any(String.class));
-        verify(caseManagementMgr, never()).isClientReferredInProgramDomain(any(String.class), any(String.class));
+        verify(caseManagementMgr, never()).getProgramProviders(any());
+        verify(caseManagementMgr, never()).getAdmission(any());
     }
 }

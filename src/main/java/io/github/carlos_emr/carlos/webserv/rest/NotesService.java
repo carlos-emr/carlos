@@ -649,6 +649,15 @@ public class NotesService extends AbstractServiceImpl {
     }
 
 
+    /**
+     * Creates or updates a clinical encounter note, its issue association, and CPP data.
+     *
+     * @param demographicNo patient the note belongs to
+     * @param noteIssue     the note, its extended fields, and its assigned issues
+     * @return the persisted note's response
+     * @throws AccessDeniedException if the caller lacks the {@code _eChart} write privilege
+     *         or is not authorized to access this demographicNo
+     */
     @POST
     @Path("/{demographicNo}/saveIssueNote")
     @Consumes("application/json")
@@ -667,6 +676,14 @@ public class NotesService extends AbstractServiceImpl {
 
         String demo = "" + demographicNo;
         String noteId = String.valueOf(note.getNoteId());
+
+        // Ownership check (IDOR hardening, issue #2839 class): this endpoint had no
+        // privilege or ownership check at all, letting any authenticated caller create
+        // or update case-management notes/issues/CPP data for an arbitrary demographicNo.
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, SEC_OBJECT_ECHART, "w", null)
+                || !isNoteAccessAllowed(loggedInInfo, providerNo, demo)) {
+            throw new AccessDeniedException(SEC_OBJECT_ECHART, "w");
+        }
 
         String programId = getProgram(loggedInInfo, providerNo);
 
@@ -1150,6 +1167,16 @@ public class NotesService extends AbstractServiceImpl {
         return null;
     }
 
+    /**
+     * Fetches the current in-progress or newly created encounter note for a patient.
+     *
+     * @param demographicNo patient the note belongs to
+     * @param jsonobject    note-editing context (temp-save/existing-note/new-note selectors)
+     * @return the current note
+     * @throws AccessDeniedException if the caller lacks the {@code _eChart} read privilege,
+     *         is not authorized to access this demographicNo, or the request references an
+     *         existing note (by {@code noteId}) that does not belong to this patient
+     */
     @POST
     @Path("/{demographicNo}/getCurrentNote")
     @Consumes("application/json")
@@ -1171,6 +1198,15 @@ public class NotesService extends AbstractServiceImpl {
         if (!hasSessionAuth && !hasOAuthAuth) {
             logger.error("Unable to authenticate - neither session nor OAuth authentication available");
             return null;
+        }
+
+        // Ownership check (IDOR hardening, issue #2839 class): this endpoint takes
+        // demographicNo directly from the caller, so bind it the same way
+        // getNotesWithFilter/getIssueNote do before touching any note data.
+        String demoNo = String.valueOf(demographicNo);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, SEC_OBJECT_ECHART, "r", null)
+                || !isNoteAccessAllowed(loggedInInfo, providerNo, demoNo)) {
+            throw new AccessDeniedException(SEC_OBJECT_ECHART, "r");
         }
 
 //		CaseManagementEntryFormBean cform = (CaseManagementEntryFormBean) form;
@@ -1282,6 +1318,13 @@ public class NotesService extends AbstractServiceImpl {
             logger.debug("Using nId {} to fetch note", nId);
 //			session.setAttribute("newNote", "false");
             note = caseManagementMgr.getNote(nId);
+
+            // The caller only proved access to demographicNo above; nId is a separate,
+            // caller-supplied value that must itself resolve to a note owned by that
+            // same patient before it's used (IDOR hardening, issue #2839 class).
+            if (note == null || !demoNo.equals(note.getDemographic_no())) {
+                throw new AccessDeniedException(SEC_OBJECT_ECHART, "r");
+            }
 
             if (note.getHistory() == null || note.getHistory().equals("")) {
                 // old note - we need to save the original in here
@@ -1425,6 +1468,15 @@ public class NotesService extends AbstractServiceImpl {
 
     }
 
+    /**
+     * Fetches a clinical encounter note and its assigned issues by note id.
+     *
+     * @param noteId note identifier
+     * @return the note and its assigned issues
+     * @throws AccessDeniedException if the caller lacks the {@code _eChart} read privilege,
+     *         or if the note does not exist or belongs to a patient the caller is not
+     *         authorized to access
+     */
     @POST
     @Path("/getIssueNote/{noteId}")
     @Produces("application/json")
@@ -1439,15 +1491,13 @@ public class NotesService extends AbstractServiceImpl {
         CaseManagementNote casemgmtNote = null;
         casemgmtNote = caseManagementMgr.getNote(String.valueOf(noteId));
 
-        // Bind the note to a patient the caller is actually authorized to see. A
-        // missing note and an unauthorized note both reject identically -- same
-        // exception, no note-specific state attached -- so a bare noteId can't be
-        // used to enumerate which ids exist (IDOR, issue #2839).
+        // Bind the note to a patient the caller is actually authorized to see (see
+        // isNoteAccessAllowed). A missing note and an unauthorized note both reject
+        // identically -- same exception, no note-specific state attached -- so a bare
+        // noteId can't be used to enumerate which ids exist (IDOR, issue #2839).
         String providerNo = loggedInInfo.getLoggedInProviderNo();
         String demoNo = casemgmtNote == null ? null : casemgmtNote.getDemographic_no();
-        if (demoNo == null || providerNo == null
-                || (!caseManagementMgr.isClientInProgramDomain(providerNo, demoNo)
-                        && !caseManagementMgr.isClientReferredInProgramDomain(providerNo, demoNo))) {
+        if (!isNoteAccessAllowed(loggedInInfo, providerNo, demoNo)) {
             throw new AccessDeniedException(SEC_OBJECT_ECHART, "r");
         }
 
@@ -1537,6 +1587,42 @@ public class NotesService extends AbstractServiceImpl {
 
     private boolean isCppCode(CaseManagementIssue cmeIssue) {
         return Arrays.asList(cppCodes).contains(cmeIssue.getIssue().getCode());
+    }
+
+    /**
+     * Binds note access to a patient the caller is actually authorized to see
+     * (IDOR hardening, issue #2839 class). Combines program-domain membership
+     * (or referral) with the per-patient {@code _eChart}/{@code _demographic}
+     * opt-out override, fetching each provider-programs/admissions list only
+     * once regardless of how many of the two domain checks run.
+     *
+     * <p>isClientInProgramDomain/isClientReferredInProgramDomain allow access
+     * whenever the patient has no PMmodule admissions at all -- this is CARLOS's
+     * existing, intentional model (the identical fail-open check already gates
+     * the real note-list/chart screens in getNotesWithFilter and
+     * CaseManagementView2Action): ordinary, non-program patients are chart-wide
+     * visible to any provider holding the generic _eChart privilege, and
+     * program-domain membership is an additional restriction layered on top for
+     * program-enrolled (e.g. mental health/CAISI) patients.</p>
+     *
+     * @param loggedInInfo the caller's session/OAuth identity
+     * @param providerNo   the caller's provider number, or {@code null} if unavailable
+     * @param demoNo       the patient's demographic number, or {@code null} if unknown
+     * @return {@code true} when the caller may access notes for this patient
+     */
+    private boolean isNoteAccessAllowed(LoggedInInfo loggedInInfo, String providerNo, String demoNo) {
+        if (providerNo == null || demoNo == null) {
+            return false;
+        }
+
+        Integer demographicNo = Integer.valueOf(demoNo);
+        List<ProgramProvider> providerPrograms = caseManagementMgr.getProgramProviders(providerNo);
+        List<Admission> admissions = caseManagementMgr.getAdmission(demographicNo);
+
+        boolean inDomain = caseManagementMgr.isClientInProgramDomain(providerPrograms, admissions)
+                || caseManagementMgr.isClientReferredInProgramDomain(providerPrograms, demoNo);
+
+        return inDomain && securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo);
     }
 
     @POST
@@ -1629,16 +1715,26 @@ public class NotesService extends AbstractServiceImpl {
         return issueTo;
     }
 
+    /**
+     * Fetches the clinical note linked to a tickler, if any.
+     *
+     * @param ticklerNo tickler identifier
+     * @return the linked note, or an empty response if there is no link, the link's note
+     *         does not exist, or the caller is not authorized to access the linked patient
+     * @throws RuntimeException if the caller lacks the {@code _tickler} or {@code _eChart}
+     *         privilege
+     */
     @GET
     @Path("/ticklerGetNote/{ticklerNo}")
     @Produces("application/json")
     //{"ticklerNote":{"editor":"oscardoc, doctor","note":"note 2","noteId":6,"observationDate":"2014-09-13T13:18:41-04:00","revision":2}}
     public TicklerNoteResponse ticklerGetNote(@PathParam("ticklerNo") Integer ticklerNo) {
 
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "r", null)) {
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", null)) {
             throw new RuntimeException("Access Denied");
         }
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SEC_OBJECT_ECHART, "r", null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, SEC_OBJECT_ECHART, "r", null)) {
             throw new RuntimeException("Access Denied");
         }
 
@@ -1650,7 +1746,12 @@ public class NotesService extends AbstractServiceImpl {
 
             CaseManagementNote note = caseManagementMgr.getNote(noteId.toString());
 
-            if (note != null) {
+            // Bind the linked note to a patient the caller may access (IDOR hardening,
+            // issue #2839 class): a ticklerNo the caller can reach doesn't by itself
+            // prove they may see the patient the linked note belongs to.
+            String providerNo = loggedInInfo.getLoggedInProviderNo();
+            String demoNo = note == null ? null : note.getDemographic_no();
+            if (note != null && isNoteAccessAllowed(loggedInInfo, providerNo, demoNo)) {
                 TicklerNoteTo1 tNote = new TicklerNoteTo1();
                 tNote.setNoteId(note.getId().intValue());
                 tNote.setNote(note.getNote());
@@ -1663,6 +1764,18 @@ public class NotesService extends AbstractServiceImpl {
         return response;
     }
 
+    /**
+     * Creates a clinical note from a tickler and links them together.
+     *
+     * @param json request body containing {@code note}, optional {@code noteId}, and a
+     *             {@code tickler} object with {@code id}/{@code demographicNo}
+     * @return the save result
+     * @throws RuntimeException if the caller lacks the {@code _tickler} or {@code _eChart}
+     *         privilege
+     * @throws AccessDeniedException if the caller is not authorized to access the
+     *         tickler's demographicNo, or {@code noteId} references a note that does not
+     *         belong to that same patient
+     */
     @POST
     @Path("/ticklerSaveNote")
     @Produces("application/json")
@@ -1689,10 +1802,19 @@ public class NotesService extends AbstractServiceImpl {
 
         logger.info("tickler id " + ticklerId + ", demographicNo " + demographicNo);
 
-        Date creationDate = new Date();
         LoggedInInfo loggedInInfo = this.getLoggedInInfo();
         Provider loggedInProvider = loggedInInfo.getLoggedInProvider();
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
 
+        // Ownership check (IDOR hardening, issue #2839 class): demographicNo is
+        // caller-supplied, so bind it the same way getNotesWithFilter/getIssueNote do
+        // before creating or updating any note for this patient.
+        String demoNo = demographicNo == null ? null : String.valueOf(demographicNo);
+        if (!isNoteAccessAllowed(loggedInInfo, providerNo, demoNo)) {
+            throw new AccessDeniedException(SEC_OBJECT_ECHART, "w");
+        }
+
+        Date creationDate = new Date();
 
         String revision = "1";
         String history = strNote;
@@ -1700,6 +1822,13 @@ public class NotesService extends AbstractServiceImpl {
 
         if (noteId != null && noteId.intValue() > 0) {
             CaseManagementNote existingNote = caseManagementMgr.getNote(String.valueOf(noteId));
+
+            // The caller only proved access to demographicNo above; noteId is a
+            // separate, caller-supplied value that must itself resolve to a note
+            // owned by that same patient before its revision/history is reused.
+            if (existingNote == null || !demoNo.equals(existingNote.getDemographic_no())) {
+                throw new AccessDeniedException(SEC_OBJECT_ECHART, "w");
+            }
 
             revision = String.valueOf(Integer.valueOf(existingNote.getRevision()).intValue() + 1);
             history = strNote + "\n" + existingNote.getHistory();
