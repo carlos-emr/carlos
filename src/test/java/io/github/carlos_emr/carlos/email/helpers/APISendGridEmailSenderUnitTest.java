@@ -24,7 +24,6 @@ package io.github.carlos_emr.carlos.email.helpers;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
-import java.lang.reflect.Field;
 import java.util.Collections;
 
 import org.junit.jupiter.api.AfterEach;
@@ -48,8 +47,6 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
  */
 class APISendGridEmailSenderUnitTest extends CarlosUnitTestBase {
 
-    private Field keySpecField;
-    private Object originalKeySpec;
     private String originalProp;
 
     @BeforeEach
@@ -58,10 +55,6 @@ class APISendGridEmailSenderUnitTest extends CarlosUnitTestBase {
 
         // Seed a fresh process-global AES key so the encrypted-api_key case can round-trip, and
         // restore prior state afterwards. Plaintext/blank/missing cases are unaffected by the key.
-        keySpecField = EncryptionUtils.class.getDeclaredField("SECRET_KEY_SPEC");
-        keySpecField.setAccessible(true);
-        originalKeySpec = keySpecField.get(null);
-
         CarlosProperties props = CarlosProperties.getInstance();
         originalProp = props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR);
 
@@ -70,14 +63,17 @@ class APISendGridEmailSenderUnitTest extends CarlosUnitTestBase {
     }
 
     @AfterEach
-    void restoreEncryptionKey() throws Exception {
+    void restoreEncryptionKey() {
+        // Restore via the public property + prepareSecretKeySpec() contract (which re-derives the
+        // spec, or resets it to null when no key is configured) rather than reflecting into the
+        // private SECRET_KEY_SPEC field.
         CarlosProperties props = CarlosProperties.getInstance();
         if (originalProp != null) {
             props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, originalProp);
         } else {
             props.remove(EncryptionUtils.SECRET_KEY_ENV_VAR);
         }
-        keySpecField.set(null, originalKeySpec);
+        EncryptionUtils.prepareSecretKeySpec();
     }
 
     @Test

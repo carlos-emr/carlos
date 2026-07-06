@@ -24,8 +24,6 @@ package io.github.carlos_emr.carlos.email.core;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import java.lang.reflect.Field;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -52,16 +50,10 @@ class EmailConfigSecretsUnitTest {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    private Field keySpecField;
-    private Object originalKeySpec;
     private String originalProp;
 
     @BeforeEach
     void seedEncryptionKey() throws Exception {
-        keySpecField = EncryptionUtils.class.getDeclaredField("SECRET_KEY_SPEC");
-        keySpecField.setAccessible(true);
-        originalKeySpec = keySpecField.get(null);
-
         CarlosProperties props = CarlosProperties.getInstance();
         originalProp = props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR);
 
@@ -70,14 +62,17 @@ class EmailConfigSecretsUnitTest {
     }
 
     @AfterEach
-    void restoreEncryptionKey() throws Exception {
+    void restoreEncryptionKey() {
+        // Restore via the public property + prepareSecretKeySpec() contract (which re-derives the
+        // spec, or resets it to null when no key is configured) rather than reflecting into the
+        // private SECRET_KEY_SPEC field.
         CarlosProperties props = CarlosProperties.getInstance();
         if (originalProp != null) {
             props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, originalProp);
         } else {
             props.remove(EncryptionUtils.SECRET_KEY_ENV_VAR);
         }
-        keySpecField.set(null, originalKeySpec);
+        EncryptionUtils.prepareSecretKeySpec();
     }
 
     @Test
