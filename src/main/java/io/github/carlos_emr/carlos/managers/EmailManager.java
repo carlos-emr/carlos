@@ -33,6 +33,7 @@ import io.github.carlos_emr.carlos.commn.model.SecRole;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.ConvertToEdoc;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
+import io.github.carlos_emr.carlos.email.core.EmailConfigSecrets;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailSender;
 import io.github.carlos_emr.carlos.email.core.EmailStatusResult;
@@ -129,6 +130,7 @@ public class EmailManager {
 
         sanitizeEmailFields(emailData);
         EmailLog emailLog = prepareEmailForOutbox(loggedInInfo, emailData);
+        upgradeConfigCredentialsAtRest(emailLog.getEmailConfig());
         try {
             if (emailData.getIsEncrypted()) {
                 encryptEmail(emailData);
@@ -144,6 +146,39 @@ public class EmailManager {
             logger.error("Failed to send email", e);
         }
         return emailLog;
+    }
+
+    /**
+     * Transparently upgrades an email configuration's transport secrets to at-rest encryption on
+     * first use (the send path), so hand-inserted plaintext {@code emailConfig.configDetails} rows
+     * are migrated the first time they are used to send.
+     *
+     * <p>The upgrade is best-effort: if the encryption key is unavailable, or the persistence of the
+     * re-encrypted row fails, the row is left as-is and the send proceeds with the existing
+     * (plaintext) value rather than blocking outbound mail. Already-encrypted rows are detected by
+     * {@link EmailConfigSecrets} and produce no database write. Neither the secret nor the raw
+     * {@code configDetails} JSON is ever logged.</p>
+     *
+     * @param emailConfig the configuration whose secrets should be encrypted at rest, may be null
+     */
+    private void upgradeConfigCredentialsAtRest(EmailConfig emailConfig) {
+        if (emailConfig == null) {
+            return;
+        }
+        try {
+            String original = emailConfig.getConfigDetailsJson();
+            String encrypted = EmailConfigSecrets.encryptSecrets(original);
+            if (!java.util.Objects.equals(original, encrypted)) {
+                emailConfig.setConfigDetailsJson(encrypted);
+                emailConfigDao.merge(emailConfig);
+            }
+        } catch (EmailSendingException | RuntimeException e) {
+            // Best-effort: neither a missing key (EmailSendingException) nor a persistence failure
+            // from merge (RuntimeException, e.g. DataAccessException) may block outbound mail. The
+            // send proceeds with the existing value. Never log the secret or the raw config JSON.
+            logger.warn("Unable to encrypt email transport credentials at rest for config id={}",
+                    emailConfig.getId());
+        }
     }
 
     /**
@@ -560,10 +595,13 @@ public class EmailManager {
             EmailConfig emailConfig = result.getEmailConfig();
             Demographic demographic = result.getDemographic();
             Provider provider = result.getProvider();
+            // Do NOT surface the stored PDF password in the Manage Emails view. The password stays
+            // out of the DTO by default (issue #3112); the encryption state is still shown so staff
+            // can see an email was encrypted without the credential being exposed on screen.
             EmailStatusResult emailStatusResult = new EmailStatusResult(result.getId(), result.getSubject(), emailConfig.getSenderFirstName(),
                     emailConfig.getSenderLastName(), result.getFromEmail(), demographic.getFirstName(),
                     demographic.getLastName(), String.join(", ", result.getToEmail()), provider.getFirstName(), provider.getLastName(),
-                    result.getIsEncrypted(), result.getPassword(), result.getStatus(), result.getErrorMessage(), result.getTimestamp());
+                    result.getIsEncrypted(), null, result.getStatus(), result.getErrorMessage(), result.getTimestamp());
             emailStatusResults.add(emailStatusResult);
         }
         Collections.sort(emailStatusResults);

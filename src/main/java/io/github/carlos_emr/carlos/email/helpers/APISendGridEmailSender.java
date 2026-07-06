@@ -22,6 +22,7 @@ import org.apache.hc.core5.http.io.entity.StringEntity;
 import org.apache.hc.core5.ssl.SSLContexts;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
+import io.github.carlos_emr.carlos.email.core.EmailConfigSecrets;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -195,7 +196,8 @@ public class APISendGridEmailSender {
         }
     }
 
-    private String createEmailJSON() throws EmailSendingException {
+    // Package-private for unit testing that the serialized payload no longer carries the API key.
+    String createEmailJSON() throws EmailSendingException {
         ObjectNode emailJson = objectMapper.createObjectNode();
         addTo(emailJson);
         addFrom(emailJson);
@@ -203,7 +205,10 @@ public class APISendGridEmailSender {
         addBody(emailJson);
         addAttachments(emailJson);
         addAdditionalParams(emailJson);
-        addApiKey(emailJson);
+        // The API key is sent only in the Authorization: Bearer header (see send()). It is
+        // deliberately NOT embedded in the request body: SendGrid ignores a body "apiKey", but any
+        // request-logging intermediary or debug capture would record it, creating a second leak
+        // channel for the credential.
         return emailJson.toString();
     }
 
@@ -268,16 +273,19 @@ public class APISendGridEmailSender {
         emailJson.put("additionalParams", additionalParams);
     }
 
-    private void addApiKey(ObjectNode emailJson) throws EmailSendingException {
-        emailJson.put("apiKey", getAPIKey());
-    }
-
     private String getAPIKey() throws EmailSendingException {
         String apiKey;
         try {
             ObjectMapper objectMapper = new ObjectMapper();
             JsonNode jsonNode = objectMapper.readTree(emailConfig.getConfigDetailsJson());
-            apiKey = jsonNode.get("api_key").asText();
+            JsonNode apiKeyNode = jsonNode.path("api_key");
+            if (apiKeyNode.isMissingNode() || apiKeyNode.isNull() || apiKeyNode.asText().isBlank()) {
+                // Missing/blank api_key must surface as a clean credential error, not an NPE.
+                throw new EmailSendingException("Invalid credentials configured for " + emailConfig.getSenderEmail());
+            }
+            // Decrypt the at-rest credential only here, at send time. Legacy plaintext keys pass
+            // through unchanged during the migration window.
+            apiKey = EmailConfigSecrets.decryptSecret(apiKeyNode.asText());
         } catch (IOException e) {
             throw new EmailSendingException("Invalid credentials configured for " + emailConfig.getSenderEmail());
         }

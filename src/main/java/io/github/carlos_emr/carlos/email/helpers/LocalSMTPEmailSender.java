@@ -45,7 +45,11 @@ public class LocalSMTPEmailSender extends SMTPEmailSender {
             if (jsonNode.has("username")) {
                 mailSender.setUsername(jsonNode.get("username").asText());
             }
-            if (jsonNode.has("password")) {
+            if (jsonNode.has("password") && !jsonNode.get("password").isNull()) {
+                // LOCAL provider runs with mail.smtp.auth=false, so this optional password is never
+                // used for authentication. It is deliberately NOT decrypted here: doing so would let
+                // a missing/rotated encryption key block a local relay send that does not need the
+                // value. The stored (possibly encrypted) string is harmless when auth is off.
                 mailSender.setPassword(jsonNode.get("password").asText());
             }
 
