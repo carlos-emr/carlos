@@ -401,17 +401,32 @@
                     </div>
                 </div>
 
-                <%-- Single "Message" field. Its delivery is governed entirely by the encryption
-                     toggle below, so there is exactly one place to type content: when encryption is
-                     ON the message is rendered into the password-protected PDF (server-side routing in
-                     EmailSend2Action maps it to encryptedMessage); when OFF it is sent as the cleartext
-                     MIME body. The initial value is seeded server-side into the "message" request
-                     attribute (from bodyEmail/encryptedMessage on compose and resend) so the client can
-                     never populate both channels. The footer notice/warning is swapped by
-                     showEncryptionOptions() to keep the protection unambiguous. --%>
+                <%-- Message + encryption combined into a single card (issue #3118 follow-up): the one
+                     "Message" field and the controls that govern its protection now live together — the
+                     encryption toggle in this header, and the password / clue / encrypt-attachments in the
+                     body below. Delivery is governed entirely by the toggle: when encryption is ON the
+                     message is rendered into the password-protected PDF (server-side routing in
+                     EmailSend2Action maps it to encryptedMessage) and the visible email body is a fixed,
+                     PHI-free notice; when OFF it is sent as the cleartext MIME body. The initial value is
+                     seeded server-side into the "message" request attribute (from bodyEmail/encryptedMessage
+                     on compose and resend) so the client can never populate both channels. All element ids
+                     are unchanged, so showEncryptionOptions() keeps swapping the options and footer
+                     notice/warning on toggle to keep the protection unambiguous. --%>
                 <div class="card mt-4">
-                    <div class="card-header">
-                        <h5 class="card-title">${emailComposeMessageLabel}</h5>
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">${emailComposeMessageLabel}</h5>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="fa-solid fa-lock"></span>
+                            <span>${emailComposeEncryptionLabel}</span>
+                            <span id="encryptionOptionsInfo" class="fa-solid fa-circle-info"
+                                  data-bs-toggle="tooltip" data-bs-placement="right"
+                                  title="${emailComposeEncryptionTooltip}"></span>
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" id="encryptionSwitch"
+                                       onClick="showEncryptionOptions()" ${ isEmailEncrypted ? 'checked' : '' }>
+                                <label class="form-check-label" for="encryptionSwitch" id="isEncryption">${emailComposeStateOn}</label>
+                            </div>
+                        </div>
                     </div>
                     <div class="card-body">
                         <div class="container">
@@ -430,23 +445,10 @@
                     <div class="card-footer text-danger ${ isEmailEncrypted ? 'd-none' : '' }" id="messageUnencryptedWarning">
                         <span class="fa-solid fa-triangle-exclamation me-2"></span> ${emailComposeUnencryptedMessage}
                     </div>
-                </div>
-
-                <div class="card mt-4">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="card-title mb-0">
-                            <span class="fa-solid fa-lock"></span> ${emailComposeEncryptionLabel} <span id="encryptionOptionsInfo"
-                                                                             class="fa-solid fa-circle-info"
-                                                                             data-bs-toggle="tooltip"
-                                                                             data-bs-placement="right"
-                                                                             title="${emailComposeEncryptionTooltip}"></span>
-                        </h5>
-                        <div class="form-check form-switch mb-0">
-                            <input class="form-check-input" type="checkbox" id="encryptionSwitch"
-                                   onClick="showEncryptionOptions()" ${ isEmailEncrypted ? 'checked' : '' }>
-                            <label class="form-check-label" for="encryptionSwitch" id="isEncryption">${emailComposeStateOn}</label>
-                        </div>
-                    </div>
+                    <%-- Encryption controls for the message above (issue #3118 follow-up): the disable-off
+                         warning plus the password / clue / encrypt-attachments controls now live in this
+                         same card, governed by the encryption toggle in the header. Ids are unchanged so
+                         showEncryptionOptions() keeps toggling them. --%>
                     <div class="alert alert-danger rounded-0 border-0 mb-0 d-flex align-items-center ${ isEmailEncrypted ? 'd-none' : '' }" id="encryptionDisabledWarning" role="alert">
                         <span class="fa-solid fa-triangle-exclamation me-2"></span> ${emailComposeEncryptionDisabledWarning}
                     </div>
