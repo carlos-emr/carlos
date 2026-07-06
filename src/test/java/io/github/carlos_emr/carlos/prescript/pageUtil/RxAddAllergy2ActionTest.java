@@ -164,4 +164,18 @@ class RxAddAllergy2ActionTest extends CarlosUnitTestBase {
                 eq("provider1"), eq(LogConst.ARCHIVE), eq(LogConst.CON_ALLERGY),
                 eq("42"), any(String.class), eq("123"), isNull()));
     }
+
+    @Test
+    @DisplayName("should ignore a non-numeric allergyToArchive instead of throwing")
+    void shouldIgnoreArchiveAttempt_whenAllergyToArchiveIsNotNumeric() throws Exception {
+        mockRequest.setParameter("allergyToArchive", "abc");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        verify(mockRxPatient, never()).deleteAllergy(anyInt());
+        logActionMock.verify(() -> LogAction.addLog(
+                any(String.class), eq(LogConst.ARCHIVE), any(String.class),
+                any(String.class), any(String.class), any(String.class), any()), never());
+    }
 }

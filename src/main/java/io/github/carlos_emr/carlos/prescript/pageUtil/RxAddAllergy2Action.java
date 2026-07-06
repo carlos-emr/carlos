@@ -144,9 +144,13 @@ public final class RxAddAllergy2Action extends ActionSupport {
 
         // Archive old allergy if modifying an existing one
         if (allergyToArchive != null && !allergyToArchive.isEmpty() && !"null".equals(allergyToArchive)) {
-            boolean archived = patient.deleteAllergy(Integer.parseInt(allergyToArchive));
-            if (archived) {
-                LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ARCHIVE, LogConst.CON_ALLERGY, "" + allergyToArchive, ip, "" + patient.getDemographicNo(), null);
+            try {
+                boolean archived = patient.deleteAllergy(Integer.parseInt(allergyToArchive));
+                if (archived) {
+                    LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ARCHIVE, LogConst.CON_ALLERGY, "" + allergyToArchive, ip, "" + patient.getDemographicNo(), null);
+                }
+            } catch (NumberFormatException e) {
+                MiscUtils.getLogger().warn("Ignoring non-numeric allergyToArchive parameter: " + allergyToArchive);
             }
         }
 
