@@ -122,9 +122,7 @@ public class EmailSend2Action extends ActionSupport {
         request.setAttribute("isOpenEForm", request.getParameter("openEFormAfterEmail"));
         request.setAttribute("fdid", request.getParameter("fdid"));
         request.setAttribute("emailLog", emailLog);
-        // Preserve the submitted message so a failed-send re-render keeps the provider's typed
-        // content in the merged Message field (parity with sendDirectEmail / the pre-refactor fallback).
-        request.setAttribute("message", request.getParameter("message"));
+        preserveComposeInputsForReRender();
         return SUCCESS;
     }
 
@@ -148,10 +146,21 @@ public class EmailSend2Action extends ActionSupport {
         boolean isEmailSuccessful = emailLog.getStatus() == EmailStatus.SUCCESS;
         request.setAttribute("isEmailSuccessful", isEmailSuccessful);
         request.setAttribute("emailLog", emailLog);
-        // Preserve the submitted message so a failed-send re-render keeps the provider's typed
-        // content in the merged Message field (parity with the pre-refactor param.bodyEmail fallback).
-        request.setAttribute("message", request.getParameter("message"));
+        preserveComposeInputsForReRender();
         return SUCCESS;
+    }
+
+    /**
+     * Re-seeds the provider's submitted compose inputs into request scope so a failed-send re-render
+     * of emailCompose.jsp preserves both the typed message AND the chosen encryption state. Without
+     * this, the JSP re-initializes the encryption toggle from {@code isEmailEncrypted} (unset after a
+     * send), so a blind retry of a failed encrypted send could silently go out as cleartext — a
+     * PHI-safety regression (issue #3118).
+     */
+    private void preserveComposeInputsForReRender() {
+        request.setAttribute("message", request.getParameter("message"));
+        request.setAttribute("isEmailEncrypted", "true".equals(request.getParameter("isEmailEncrypted")));
+        request.setAttribute("isEmailAttachmentEncrypted", "true".equals(request.getParameter("isEmailAttachmentEncrypted")));
     }
 
     /**

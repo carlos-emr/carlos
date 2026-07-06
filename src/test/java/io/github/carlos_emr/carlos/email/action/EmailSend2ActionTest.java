@@ -152,6 +152,35 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         assertThat(sent.getIsEncrypted()).isTrue();
     }
 
+    @Test
+    @DisplayName("should preserve the encryption state on send re-render")
+    void shouldPreserveEncryptionState_onSendReRender() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("message", "Draft to retry.");
+        request.setParameter("isEmailEncrypted", "true");
+        request.setParameter("isEmailAttachmentEncrypted", "true");
+        request.setParameter("senderConfigId", "1");
+        request.setParameter("demographicId", "42");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+
+        EmailLog emailLog = mock(EmailLog.class);
+        when(emailLog.getStatus()).thenReturn(EmailStatus.SUCCESS);
+        when(emailManager.sendEmail(any(LoggedInInfo.class), any(EmailData.class))).thenReturn(emailLog);
+
+        EmailSend2Action action = spy(new EmailSend2Action());
+        doReturn("SECURE_NOTICE").when(action).getText(eq(ENCRYPTED_BODY_NOTICE_KEY));
+        action.request = request;
+        action.response = new MockHttpServletResponse();
+
+        action.sendDirectEmail();
+
+        // The re-rendered compose form must keep the typed content AND the ON encryption state, so a
+        // retry of a failed send does not silently drop to cleartext.
+        assertThat(request.getAttribute("message")).isEqualTo("Draft to retry.");
+        assertThat(request.getAttribute("isEmailEncrypted")).isEqualTo(true);
+        assertThat(request.getAttribute("isEmailAttachmentEncrypted")).isEqualTo(true);
+    }
+
     /**
      * Drives sendDirectEmail() with the given single "message" field and encryption flag, and
      * returns the EmailData the action handed to EmailManager so routing can be asserted. A null
