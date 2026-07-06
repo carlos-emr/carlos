@@ -66,14 +66,14 @@ public class FrmCustomedPDFServlet extends HttpServlet {
      * Main entry point for prescription PDF generation.
      * Parses request parameters, generates the PDF, and streams it directly to the response.
      *
-     * @param req HttpServletRequest containing prescription form parameters and fax details
-     * @param res HttpServletResponse to write the PDF or fax status HTML to
+     * @param req HttpServletRequest containing prescription form parameters
+     * @param res HttpServletResponse to write the PDF or static error response to
      * @throws jakarta.servlet.ServletException if a servlet error occurs
      * @throws java.io.IOException if an I/O error occurs during PDF generation
      */
     @Override
-    // FindSecBugs XSS_SERVLET: this servlet writes binary PDF content, not HTML.
-    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "servlet writes binary PDF content")
+    // FindSecBugs XSS_SERVLET: normal path writes binary PDF; error branches write fixed static HTML/JS.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "normal path writes binary PDF; error branches write fixed static HTML/JS")
     public void service(HttpServletRequest req, HttpServletResponse res) throws jakarta.servlet.ServletException, java.io.IOException {
 
         boolean responseOutputStreamOpened = false;
@@ -89,14 +89,8 @@ public class FrmCustomedPDFServlet extends HttpServlet {
 
             res.setContentType("application/pdf");
 
-            // The Content-disposition value will be inline
             StringBuilder sbContentDispValue = new StringBuilder();
-            sbContentDispValue.append("inline; filename="); // inline - display
-            // the pdf file
-            // directly rather
-            // than open/save
-            // selection
-            // sbContentDispValue.append("; filename=");
+            sbContentDispValue.append("inline; filename=");
             sbContentDispValue.append(sbFilename);
 
             res.setHeader("Content-disposition", sbContentDispValue.toString());

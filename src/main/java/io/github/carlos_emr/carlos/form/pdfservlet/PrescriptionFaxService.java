@@ -12,6 +12,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.Date;
 import java.util.List;
 
@@ -65,45 +66,42 @@ public class PrescriptionFaxService {
     public PrescriptionFaxViewModel createFaxJob(
             LoggedInInfo loggedInInfo, HttpServletRequest req, ByteArrayOutputStream baosPDF) throws IOException {
 
-        String faxNo = req.getParameter("pharmaFax");
-        if (faxNo != null) {
-            faxNo = faxNo.trim().replaceAll("\\D", "");
-        }
+        String faxNo = normalizeFaxNumber(req.getParameter("pharmaFax"));
         String pharmaName = req.getParameter("pharmaName");
-        String faxNumber = req.getParameter("clinicFax");
-        if (faxNumber != null) {
-            faxNumber = faxNumber.trim().replaceAll("\\D", "");
-        }
+        String faxNumber = normalizeFaxNumber(req.getParameter("clinicFax"));
         String demo = req.getParameter("demographic_no");
 
-        String pdfid = req.getParameter("pdfId");
-        if (pdfid != null) {
-            pdfid = pdfid.replaceAll("[^a-zA-Z0-9_-]", "");
-        }
-        String pdfFile = "prescription_" + pdfid + ".pdf";
+        String pdfId = validatePdfId(req.getParameter("pdfId"));
+        String pdfFile = PathValidationUtils.validateGeneratedFileName("prescription_" + pdfId + ".pdf");
         String documentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
 
         File baseDirFile = new File(documentDir);
+        // nosemgrep: java.lang.security.httpservlet-path-traversal -- generated filename is validated above.
         File validatedPdfFile = PathValidationUtils.validatePath(pdfFile, baseDirFile);
         Path filepath = validatedPdfFile.toPath();
 
-        if (!Files.exists(filepath)) {
-            try (java.io.OutputStream fileOut = Files.newOutputStream(filepath)) {
-                baosPDF.writeTo(fileOut); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- PDF bytes written to file, not HTTP response
-            }
+        try (java.io.OutputStream fileOut = Files.newOutputStream(
+                filepath,
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING,
+                StandardOpenOption.WRITE)) {
+            baosPDF.writeTo(fileOut); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- PDF bytes written to file, not HTTP response
         }
 
         String tempPath = CarlosProperties.getInstance().getProperty(
                 "fax_file_location", System.getProperty("java.io.tmpdir"));
         File tempDirFile = new File(tempPath);
-        File validatedTempPdf = PathValidationUtils.validatePath("prescription_" + pdfid + ".pdf", tempDirFile);
+        // nosemgrep: java.lang.security.httpservlet-path-traversal -- generated filename is validated above.
+        File validatedTempPdf = PathValidationUtils.validatePath(pdfFile, tempDirFile);
         Path tempPdf = validatedTempPdf.toPath();
 
-        if (Files.exists(filepath) && !Files.exists(tempPdf)) {
+        if (Files.exists(filepath)) {
             FileUtils.copyFile(filepath.toFile(), tempPdf.toFile());
         }
 
-        File validatedTxtFile = PathValidationUtils.validatePath("prescription_" + pdfid + ".txt", tempDirFile);
+        String txtFileName = PathValidationUtils.validateGeneratedFileName("prescription_" + pdfId + ".txt");
+        // nosemgrep: java.lang.security.httpservlet-path-traversal -- generated filename is validated above.
+        File validatedTxtFile = PathValidationUtils.validatePath(txtFileName, tempDirFile);
         String txtFile = validatedTxtFile.toString();
         try (FileWriter fstream = new FileWriter(txtFile);
              BufferedWriter out = new BufferedWriter(fstream)) {
@@ -117,7 +115,7 @@ public class PrescriptionFaxService {
         boolean validFaxNumber = false;
 
         for (FaxConfig faxConfig : faxConfigs) {
-            if (faxConfig.getFaxNumber().equals(faxNumber)) {
+            if (normalizeFaxNumber(faxConfig.getFaxNumber()).equals(faxNumber)) {
                 int numPages;
                 try (PdfReader pdfReader = new PdfReader(filepath.toString())) {
                     numPages = pdfReader.getNumberOfPages();
@@ -150,5 +148,19 @@ public class PrescriptionFaxService {
         }
 
         return new PrescriptionFaxViewModel(validFaxNumber, pharmaName, faxNo);
+    }
+
+    private String normalizeFaxNumber(String faxNumber) {
+        if (faxNumber == null) {
+            return "";
+        }
+        return faxNumber.trim().replaceAll("\\D", "");
+    }
+
+    private String validatePdfId(String rawPdfId) {
+        if (rawPdfId == null || rawPdfId.isBlank() || !rawPdfId.matches("[a-zA-Z0-9_-]+")) {
+            throw new IllegalArgumentException("Invalid prescription PDF id");
+        }
+        return PathValidationUtils.validatePathComponent(rawPdfId, "prescription PDF id");
     }
 }

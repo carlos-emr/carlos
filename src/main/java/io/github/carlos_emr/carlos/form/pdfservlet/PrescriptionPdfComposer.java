@@ -147,6 +147,7 @@ public class PrescriptionPdfComposer {
             this.patientChartNo = patientChartNo == null ? "" : patientChartNo;
             this.pracNo = pracNo == null ? "" : pracNo;
             this.locale = locale;
+            this.billingNumber = billingNumber == null ? "" : billingNumber;
 
             if (pharmacyInfo != null && !pharmacyInfo.isEmpty()) {
                 RxPharmacyData pharmacyData = new RxPharmacyData();
