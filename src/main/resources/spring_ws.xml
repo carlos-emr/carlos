@@ -186,6 +186,18 @@
 		    <ref bean="jaxb"/>
 			<ref bean="jsonProvider"/>
 			<bean class="com.fasterxml.jackson.jakarta.rs.json.JacksonJsonProvider"/>
+			<!-- Exception mappers: render uncaught exceptions as uniform JSON ErrorResponse
+			     bodies instead of the container's default HTML error page (issue #242).
+			     This is the /ws/rs/* server, so the mappers must be registered here (not only
+			     in applicationContextREST.xml's /services server). JAX-RS selects the most
+			     specific mapper per thrown type, so the Throwable fallback only handles what
+			     the domain mappers do not. -->
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.GenericExceptionMapper"/>
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.WebApplicationExceptionMapper"/>
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.AccessDeniedExceptionMapper"/>
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.SecurityExceptionMapper"/>
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.IllegalArgumentExceptionMapper"/>
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.OperationNotSupportedExceptionMapper"/>
 		</jaxrs:providers>
 		
 	
