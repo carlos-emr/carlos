@@ -6,7 +6,6 @@ import java.util.Properties;
 
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
-import io.github.carlos_emr.carlos.email.core.EmailConfigSecrets;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -46,10 +45,12 @@ public class LocalSMTPEmailSender extends SMTPEmailSender {
             if (jsonNode.has("username")) {
                 mailSender.setUsername(jsonNode.get("username").asText());
             }
-            if (jsonNode.has("password")) {
-                // Decrypt the at-rest credential only here, at send time. Legacy plaintext passwords
-                // pass through unchanged during the migration window.
-                mailSender.setPassword(EmailConfigSecrets.decryptSecret(jsonNode.get("password").asText()));
+            if (jsonNode.has("password") && !jsonNode.get("password").isNull()) {
+                // LOCAL provider runs with mail.smtp.auth=false, so this optional password is never
+                // used for authentication. It is deliberately NOT decrypted here: doing so would let
+                // a missing/rotated encryption key block a local relay send that does not need the
+                // value. The stored (possibly encrypted) string is harmless when auth is off.
+                mailSender.setPassword(jsonNode.get("password").asText());
             }
 
             Properties properties = new Properties();

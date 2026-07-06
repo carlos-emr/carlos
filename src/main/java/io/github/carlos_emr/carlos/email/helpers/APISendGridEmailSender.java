@@ -278,9 +278,14 @@ public class APISendGridEmailSender {
         try {
             ObjectMapper objectMapper = new ObjectMapper();
             JsonNode jsonNode = objectMapper.readTree(emailConfig.getConfigDetailsJson());
+            JsonNode apiKeyNode = jsonNode.path("api_key");
+            if (apiKeyNode.isMissingNode() || apiKeyNode.isNull() || apiKeyNode.asText().isBlank()) {
+                // Missing/blank api_key must surface as a clean credential error, not an NPE.
+                throw new EmailSendingException("Invalid credentials configured for " + emailConfig.getSenderEmail());
+            }
             // Decrypt the at-rest credential only here, at send time. Legacy plaintext keys pass
             // through unchanged during the migration window.
-            apiKey = EmailConfigSecrets.decryptSecret(jsonNode.get("api_key").asText());
+            apiKey = EmailConfigSecrets.decryptSecret(apiKeyNode.asText());
         } catch (IOException e) {
             throw new EmailSendingException("Invalid credentials configured for " + emailConfig.getSenderEmail());
         }

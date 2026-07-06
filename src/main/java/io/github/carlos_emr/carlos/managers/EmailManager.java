@@ -153,10 +153,11 @@ public class EmailManager {
      * first use (the send path), so hand-inserted plaintext {@code emailConfig.configDetails} rows
      * are migrated the first time they are used to send.
      *
-     * <p>The upgrade is best-effort: if the encryption key is unavailable the row is left as-is and
-     * the send proceeds with the existing (plaintext) value, rather than blocking outbound mail on a
-     * missing key. Already-encrypted rows are detected by {@link EmailConfigSecrets} and produce no
-     * database write. Neither the secret nor the raw {@code configDetails} JSON is ever logged.</p>
+     * <p>The upgrade is best-effort: if the encryption key is unavailable, or the persistence of the
+     * re-encrypted row fails, the row is left as-is and the send proceeds with the existing
+     * (plaintext) value rather than blocking outbound mail. Already-encrypted rows are detected by
+     * {@link EmailConfigSecrets} and produce no database write. Neither the secret nor the raw
+     * {@code configDetails} JSON is ever logged.</p>
      *
      * @param emailConfig the configuration whose secrets should be encrypted at rest, may be null
      */
@@ -171,7 +172,10 @@ public class EmailManager {
                 emailConfig.setConfigDetailsJson(encrypted);
                 emailConfigDao.merge(emailConfig);
             }
-        } catch (EmailSendingException e) {
+        } catch (EmailSendingException | RuntimeException e) {
+            // Best-effort: neither a missing key (EmailSendingException) nor a persistence failure
+            // from merge (RuntimeException, e.g. DataAccessException) may block outbound mail. The
+            // send proceeds with the existing value. Never log the secret or the raw config JSON.
             logger.warn("Unable to encrypt email transport credentials at rest for config id={}",
                     emailConfig.getId());
         }

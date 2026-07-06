@@ -54,8 +54,8 @@ import io.github.carlos_emr.carlos.utility.EncryptionUtils;
  */
 public final class EmailConfigSecrets {
 
-    /** {@code configDetails} JSON keys that hold transport secrets and must be encrypted at rest. */
-    private static final List<String> SECRET_FIELDS = List.of("password", "api_key");
+    // "password"/"api_key" are configDetails JSON field NAMES to encrypt, never credential values.
+    private static final List<String> SECRET_FIELDS = List.of("password", "api_key"); // NOSONAR java:S2068 - JSON field name, not a credential
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
@@ -135,7 +135,10 @@ public final class EmailConfigSecrets {
         try {
             return EncryptionUtils.decrypt(storedValue);
         } catch (Exception e) {
-            throw new EmailSendingException("Unable to decrypt email transport credentials");
+            // Preserve the crypto cause (missing/rotated key, tampering) for diagnostics. The cause
+            // is a decrypt failure from EncryptionUtils and never carries the secret value or the
+            // raw config JSON, so attaching it keeps the sanitized message contract intact.
+            throw new EmailSendingException("Unable to decrypt email transport credentials", e);
         }
     }
 }

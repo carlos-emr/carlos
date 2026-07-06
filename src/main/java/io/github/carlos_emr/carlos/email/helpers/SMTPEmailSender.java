@@ -159,8 +159,12 @@ public class SMTPEmailSender {
             String port = jsonNode.get("port").asText();
             String username = jsonNode.get("username").asText();
             // Decrypt the at-rest credential only here, at send time. Legacy plaintext passwords
-            // pass through unchanged during the migration window.
-            String password = EmailConfigSecrets.decryptSecret(jsonNode.get("password").asText());
+            // pass through unchanged during the migration window. A missing/null password node is
+            // tolerated (null) rather than throwing an NPE before the send is even attempted.
+            JsonNode passwordNode = jsonNode.get("password");
+            String password = (passwordNode != null && !passwordNode.isNull())
+                    ? EmailConfigSecrets.decryptSecret(passwordNode.asText())
+                    : null;
 
             mailSender.setHost(host);
             mailSender.setPort(Integer.parseInt(port));
