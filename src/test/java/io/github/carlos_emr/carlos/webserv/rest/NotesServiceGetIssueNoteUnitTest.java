@@ -142,4 +142,18 @@ class NotesServiceGetIssueNoteUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(() -> service.getIssueNote(NOTE_ID))
                 .isInstanceOf(AccessDeniedException.class);
     }
+
+    @Test
+    @DisplayName("should deny access when the caller has no assigned provider number")
+    void shouldDenyAccess_whenCallerHasNoProviderNo() {
+        // A LoggedInInfo with no provider set means getLoggedInProviderNo() returns
+        // null; this must fail closed rather than reach the domain-membership DAO
+        // calls with a null providerNo.
+        loggedInInfo.setLoggedInProvider(null);
+
+        assertThatThrownBy(() -> service.getIssueNote(NOTE_ID))
+                .isInstanceOf(AccessDeniedException.class);
+        verify(caseManagementMgr, never()).isClientInProgramDomain(any(String.class), any(String.class));
+        verify(caseManagementMgr, never()).isClientReferredInProgramDomain(any(String.class), any(String.class));
+    }
 }
