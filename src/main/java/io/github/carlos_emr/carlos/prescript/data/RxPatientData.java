@@ -192,6 +192,13 @@ public class RxPatientData {
             else return "";
         }
 
+        /**
+         * Finds an allergy only when it belongs to this patient.
+         *
+         * @param id allergy identifier
+         * @return the allergy when found and owned by this patient; {@code null} when the
+         *         allergy does not exist or belongs to a different patient
+         */
         public Allergy getAllergy(int id) {
             Allergy allergy = allergyDao.find(id);
             if (allergy == null) {

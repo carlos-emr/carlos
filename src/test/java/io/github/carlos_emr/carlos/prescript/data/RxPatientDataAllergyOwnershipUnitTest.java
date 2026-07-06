@@ -166,6 +166,7 @@ class RxPatientDataAllergyOwnershipUnitTest extends CarlosUnitTestBase {
     @DisplayName("activateAllergy should reactivate and return true when the allergy belongs to the session patient")
     void shouldActivateAndReturnTrue_whenDemographicNoMatches() {
         Allergy allergy = allergyOwnedBy(SESSION_DEMOGRAPHIC_NO);
+        allergy.setArchived(true);
         when(mockAllergyDao.find(ALLERGY_ID)).thenReturn(allergy);
 
         boolean result = patient.activateAllergy(ALLERGY_ID);

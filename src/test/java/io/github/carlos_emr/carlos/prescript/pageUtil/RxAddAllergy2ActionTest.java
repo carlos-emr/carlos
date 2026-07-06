@@ -36,6 +36,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
@@ -120,6 +121,18 @@ class RxAddAllergy2ActionTest extends CarlosUnitTestBase {
         if (mocks != null) {
             mocks.close();
         }
+    }
+
+    @Test
+    @DisplayName("should throw SecurityException when missing _allergy privilege")
+    void shouldThrowSecurityException_whenPrivilegeMissing() {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_allergy"), eq("w"), isNull()))
+                .thenReturn(false);
+
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("_allergy");
+        verify(mockRxPatient, never()).addAllergy(any(), any());
     }
 
     @Test
