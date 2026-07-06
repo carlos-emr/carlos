@@ -81,7 +81,7 @@ public final class MsgClearMessage2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     
     /**
-     * HTTP response object, maintained for consistency but not used in this action.
+     * HTTP response object used to redirect when the message session bean is unavailable.
      */
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -89,23 +89,21 @@ public final class MsgClearMessage2Action extends ActionSupport {
 
     /**
      * Clears all attachments from the message session bean.
-     * 
+     *
      * <p>This method retrieves the MsgSessionBean from the HTTP session and
      * invokes its nullAttachment() method to remove all stored attachments.
      * The attachments are permanently cleared from the session, requiring
      * users to re-attach any documents they wish to include in their message.</p>
-     * 
-     * <p>Note: This method does not perform null checking on the session bean.
-     * If the bean is not present in the session, a NullPointerException will
-     * be thrown. This is acceptable as the bean should always exist when this
-     * action is invoked from the message composition interface.</p>
-     * 
-     * @return SUCCESS constant indicating successful attachment clearing
+     *
+     * <p>If the session bean is absent (expired session, direct URL hit, or race
+     * condition), the user is redirected to the message inbox.</p>
+     *
+     * @return SUCCESS if the attachments were cleared successfully, or NONE if the
+     *         session bean was absent and the request was redirected to the inbox
      * @throws IOException if there's an I/O error (declared but not typically thrown)
      * @throws ServletException if there's a servlet processing error (declared but not typically thrown)
      */
-    public String execute()
-            throws IOException, ServletException {
+    public String execute() throws IOException, ServletException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", "w", null)) {
             throw new SecurityException("missing required sec object (_msg)");
@@ -114,10 +112,14 @@ public final class MsgClearMessage2Action extends ActionSupport {
         // Retrieve the message session bean from the HTTP session
         MsgSessionBean bean;
         bean = (MsgSessionBean) request.getSession().getAttribute("msgSessionBean");
-        
+        if (bean == null) {
+            response.sendRedirect(response.encodeRedirectURL(
+                    request.getContextPath() + "/messenger/DisplayMessages"));
+            return NONE;
+        }
+
         // Clear all attachments from the bean
         bean.nullAttachment();
-        
         return SUCCESS;
     }
 }

@@ -436,6 +436,84 @@ class RxWebServiceUnitTest {
         }
     }
 
+    /**
+     * Tests for the path-parameter drug listing endpoints
+     * ({@code /rx/drugs/{all,current,longterm,archived}/{demographicNo}}).
+     * These verify the patient-level {@code _rx} read privilege check added to
+     * close the IDOR where any authenticated user could read another patient's
+     * drug history by changing {@code demographicNo} in the URL.
+     */
+    @Nested
+    @DisplayName("Path-parameter drug listing privilege checks")
+    class PathParamDrugListing {
+
+        @Test
+        @DisplayName("should return all drugs when caller is authorized for the demographic")
+        void shouldReturnAllDrugs_whenAuthorized() {
+            DrugSearchResponse resp = service.getAllDrugs(1);
+            assertThat(resp.getContent()).hasSize(2);
+        }
+
+        @Test
+        @DisplayName("should return current drugs when caller is authorized for the demographic")
+        void shouldReturnCurrentDrugs_whenAuthorized() {
+            DrugSearchResponse resp = service.getCurrentDrugs(1);
+            assertThat(resp.getContent()).hasSize(1);
+            assertThat(resp.getContent().get(0).getBrandName()).isEqualTo("Tylenol");
+        }
+
+        @Test
+        @DisplayName("should return archived drugs when caller is authorized for the demographic")
+        void shouldReturnArchivedDrugs_whenAuthorized() {
+            DrugSearchResponse resp = service.getArchivedDrugs(1);
+            assertThat(resp.getContent()).hasSize(1);
+            assertThat(resp.getContent().get(0).getBrandName()).isEqualTo("Aspirin");
+        }
+
+        @Test
+        @DisplayName("should return longterm drugs when caller is authorized for the demographic")
+        void shouldReturnLongtermDrugs_whenAuthorized() {
+            DrugSearchResponse resp = service.getLongtermDrugs(1);
+            assertThat(resp.getContent()).hasSize(1);
+            assertThat(resp.getContent().get(0).getBrandName()).isEqualTo("Tylenol");
+        }
+
+        @Test
+        @DisplayName("should deny access to all drugs for unauthorized demographic")
+        void shouldDenyAllDrugs_forUnauthorizedDemographic() {
+            assertThatThrownBy(() -> service.getAllDrugs(6))
+                    .isInstanceOf(AccessDeniedException.class);
+        }
+
+        @Test
+        @DisplayName("should deny access to current drugs for unauthorized demographic")
+        void shouldDenyCurrentDrugs_forUnauthorizedDemographic() {
+            assertThatThrownBy(() -> service.getCurrentDrugs(6))
+                    .isInstanceOf(AccessDeniedException.class);
+        }
+
+        @Test
+        @DisplayName("should deny access to longterm drugs for unauthorized demographic")
+        void shouldDenyLongtermDrugs_forUnauthorizedDemographic() {
+            assertThatThrownBy(() -> service.getLongtermDrugs(6))
+                    .isInstanceOf(AccessDeniedException.class);
+        }
+
+        @Test
+        @DisplayName("should deny access to archived drugs for unauthorized demographic")
+        void shouldDenyArchivedDrugs_forUnauthorizedDemographic() {
+            assertThatThrownBy(() -> service.getArchivedDrugs(6))
+                    .isInstanceOf(AccessDeniedException.class);
+        }
+
+        @Test
+        @DisplayName("should deny access via status dispatcher for unauthorized demographic")
+        void shouldDenyAccess_whenStatusDispatcherUsedForUnauthorizedDemographic() {
+            assertThatThrownBy(() -> service.drugs("all", 6))
+                    .isInstanceOf(AccessDeniedException.class);
+        }
+    }
+
     // ============ MOCK Testing Sub Classes =========
 
     static class MockRxManager extends RxManagerImpl {
@@ -478,6 +556,19 @@ class RxWebServiceUnitTest {
             else return null;
         }
 
+        @Override
+        public List<Drug> getDrugs(LoggedInInfo info, int demographicNo,
+                io.github.carlos_emr.carlos.webserv.rest.to.model.RxStatus status) {
+            switch (status) {
+                case CURRENT:
+                    return getCurrentDrugs(info, demographicNo);
+                case ARCHIVED:
+                    return getArchivedDrugs(info, demographicNo);
+                default:
+                    return getAllDrugs(info, demographicNo);
+            }
+        }
+
         private List<Drug> getAllDrugs(LoggedInInfo info, int id) {
             return this.drugs;
         }
@@ -488,6 +579,11 @@ class RxWebServiceUnitTest {
                 if (!d.isArchived()) toReturn.add(d);
             }
             return toReturn;
+        }
+
+        @Override
+        public List<Drug> getLongTermDrugs(LoggedInInfo info, int demographicNo) {
+            return getCurrentDrugs(info, demographicNo);
         }
 
         private List<Drug> getArchivedDrugs(LoggedInInfo info, int id) {

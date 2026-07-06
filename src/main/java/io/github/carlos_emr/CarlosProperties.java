@@ -30,6 +30,7 @@
 
 package io.github.carlos_emr;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
@@ -129,8 +130,11 @@ public class CarlosProperties extends Properties {
 
         // If no value, return the default if one is configured
         if (value == null) {
+            // key is caller-supplied and may carry CR/LF; sanitize before logging to
+            // prevent log forging (CodeQL log-injection). Default values come from the
+            // internal PROPERTY_DEFAULTS map and are trusted.
             String warning = new StringBuilder()
-                .append("Property '").append(key)
+                .append("Property '").append(LogSafe.sanitize(key))
                 .append("' is missing or not configured. Using default value: '")
                 .append(getDefaultValue(key)).append("'.")
                 .toString();
@@ -140,9 +144,11 @@ public class CarlosProperties extends Properties {
 
         // Check if the value contains a blacklisted namespace
         if (isValueBlacklisted(value)) {
+            // Both key and value are untrusted (key is caller-supplied; value comes from
+            // a properties file/override). Sanitize before logging to prevent log forging.
             String warning = new StringBuilder()
-                .append("Property '").append(key)
-                .append("' has blacklisted value '").append(value)
+                .append("Property '").append(LogSafe.sanitize(key))
+                .append("' has blacklisted value '").append(LogSafe.sanitize(value))
                 .append("' (deprecated namespace). ")
                 .append("This value has been ignored. Using default value instead.")
                 .toString();

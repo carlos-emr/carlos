@@ -207,6 +207,7 @@ public class RxWebService extends AbstractServiceImpl {
     @Path("/drugs/all/{demographicNo}")
     @Produces(MediaType.APPLICATION_JSON)
     public DrugSearchResponse getAllDrugs(@PathParam("demographicNo") int demographicNo) {
+        requireRxReadPrivilege(demographicNo);
         List<Drug> drugList = rxManager.getDrugs(getLoggedInInfo(), demographicNo, RxStatus.ALL);
         return new DrugSearchResponse(this.drugConverter.getAllAsTransferObjects(getLoggedInInfo(), drugList));
     }
@@ -215,6 +216,7 @@ public class RxWebService extends AbstractServiceImpl {
     @Path("/drugs/current/{demographicNo}")
     @Produces(MediaType.APPLICATION_JSON)
     public DrugSearchResponse getCurrentDrugs(@PathParam("demographicNo") int demographicNo) {
+        requireRxReadPrivilege(demographicNo);
         List<Drug> drugList = rxManager.getDrugs(getLoggedInInfo(), demographicNo, RxStatus.CURRENT);
         return new DrugSearchResponse(this.drugConverter.getAllAsTransferObjects(getLoggedInInfo(), drugList));
     }
@@ -223,6 +225,7 @@ public class RxWebService extends AbstractServiceImpl {
     @Path("/drugs/longterm/{demographicNo}")
     @Produces(MediaType.APPLICATION_JSON)
     public DrugSearchResponse getLongtermDrugs(@PathParam("demographicNo") int demographicNo) {
+        requireRxReadPrivilege(demographicNo);
         List<Drug> drugList = rxManager.getLongTermDrugs(getLoggedInInfo(), demographicNo);
         return new DrugSearchResponse(this.drugConverter.getAllAsTransferObjects(getLoggedInInfo(), drugList));
     }
@@ -231,8 +234,25 @@ public class RxWebService extends AbstractServiceImpl {
     @Path("/drugs/archived/{demographicNo}")
     @Produces(MediaType.APPLICATION_JSON)
     public DrugSearchResponse getArchivedDrugs(@PathParam("demographicNo") int demographicNo) {
+        requireRxReadPrivilege(demographicNo);
         List<Drug> drugList = rxManager.getDrugs(getLoggedInInfo(), demographicNo, RxStatus.ARCHIVED);
         return new DrugSearchResponse(this.drugConverter.getAllAsTransferObjects(getLoggedInInfo(), drugList));
+    }
+
+    /**
+     * Enforces patient-level read access to prescription data for the given demographic.
+     *
+     * <p>Mirrors the guard used by the older {@link #drugs(int, String)} endpoint so the
+     * path-parameter drug listings cannot be used to read another patient's drug history
+     * by altering the {@code demographicNo} in the URL.
+     *
+     * @param demographicNo the demographic whose prescription data is being requested.
+     * @throws AccessDeniedException if the current user lacks {@code _rx} read access to this patient.
+     */
+    private void requireRxReadPrivilege(int demographicNo) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_rx", "r", demographicNo)) {
+            throw new AccessDeniedException("_rx", "r", demographicNo);
+        }
     }
 
     /**
