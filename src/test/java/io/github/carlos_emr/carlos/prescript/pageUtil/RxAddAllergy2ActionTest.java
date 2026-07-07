@@ -13,15 +13,14 @@
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
 import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
-import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -37,6 +36,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
@@ -48,16 +48,17 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for {@link RxDeleteAllergy2Action} ID parameter validation and deletion flow.
- * Covers missing, blank, and invalid IDs returning bad request, plus successful deletion
- * with audit logging verification when the ID is valid.
+ * Unit tests for {@link RxAddAllergy2Action}, focused on the "archive old allergy"
+ * branch that regressed to an IDOR (issue #2467): the audit log must only record
+ * an archive when {@link RxPatientData.Patient#deleteAllergy(int)} actually
+ * archived a record owned by the session patient.
  *
- * @since 2026-05-29
+ * @since 2026-07-06
  */
-@DisplayName("RxDeleteAllergy2Action Unit Tests")
+@DisplayName("RxAddAllergy2Action Unit Tests")
 @Tag("unit")
 @Tag("rx")
-class RxDeleteAllergy2ActionTest extends CarlosUnitTestBase {
+class RxAddAllergy2ActionTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
@@ -72,12 +73,9 @@ class RxDeleteAllergy2ActionTest extends CarlosUnitTestBase {
     @Mock
     private RxPatientData.Patient mockRxPatient;
 
-    @Mock
-    private Allergy mockAllergy;
-
     private MockHttpServletRequest mockRequest;
     private MockHttpServletResponse mockResponse;
-    private RxDeleteAllergy2Action action;
+    private RxAddAllergy2Action action;
 
     @BeforeEach
     void setUp() {
@@ -92,18 +90,24 @@ class RxDeleteAllergy2ActionTest extends CarlosUnitTestBase {
         mockResponse = new MockHttpServletResponse();
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
-        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_allergy"), eq("u"), isNull()))
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_allergy"), eq("w"), isNull()))
                 .thenReturn(true);
 
         loggedInInfoMock = mockStatic(LoggedInInfo.class);
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(mockLoggedInInfo);
+        when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("provider1");
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(mockRequest);
         servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(mockResponse);
 
-        action = new RxDeleteAllergy2Action();
+        mockRequest.setParameter("type", "1");
+        mockRequest.setParameter("startDate", "");
+        mockRequest.getSession().setAttribute("Patient", mockRxPatient);
+        when(mockRxPatient.getDemographicNo()).thenReturn(123);
+
+        action = new RxAddAllergy2Action();
     }
 
     @AfterEach
@@ -120,80 +124,71 @@ class RxDeleteAllergy2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should return bad request when ID parameter is missing")
-    void shouldReturn400BadRequest_whenIdParameterIsMissing() throws Exception {
-        String result = action.execute();
+    @DisplayName("should throw SecurityException when missing _allergy privilege")
+    void shouldThrowSecurityException_whenPrivilegeMissing() {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_allergy"), eq("w"), isNull()))
+                .thenReturn(false);
 
-        assertThat(result).isEqualTo(ActionSupport.NONE);
-        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
-        assertThat(mockResponse.getErrorMessage()).isEqualTo("Missing ID parameter");
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("_allergy");
+        verify(mockRxPatient, never()).addAllergy(any(), any());
     }
 
     @Test
-    @DisplayName("should return bad request when ID parameter is blank")
-    void shouldReturn400BadRequest_whenIdParameterIsBlank() throws Exception {
-        mockRequest.setParameter("ID", " ");
-
+    @DisplayName("should add allergy and log ADD when no prior allergy is archived")
+    void shouldAddAllergyAndLogAdd_whenNoAllergyToArchive() throws Exception {
         String result = action.execute();
 
-        assertThat(result).isEqualTo(ActionSupport.NONE);
-        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
-        assertThat(mockResponse.getErrorMessage()).isEqualTo("Missing ID parameter");
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        verify(mockRxPatient).addAllergy(any(), any());
+        logActionMock.verify(() -> LogAction.addLog(
+                eq("provider1"), eq(LogConst.ADD), eq(LogConst.CON_ALLERGY),
+                any(String.class), any(String.class), eq("123"), any(String.class)));
+        verify(mockRxPatient, never()).deleteAllergy(anyInt());
     }
 
     @Test
-    @DisplayName("should return bad request when ID parameter is invalid")
-    void shouldReturn400BadRequest_whenIdParameterIsInvalid() throws Exception {
-        mockRequest.setParameter("ID", "abc");
-
-        String result = action.execute();
-
-        assertThat(result).isEqualTo(ActionSupport.NONE);
-        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
-        assertThat(mockResponse.getErrorMessage()).isEqualTo("Invalid ID parameter");
-    }
-
-    @Test
-    @DisplayName("should delete allergy when ID parameter is valid")
-    void shouldDeleteAllergy_whenIdParameterIsValid() throws Exception {
-        mockRequest.setParameter("ID", "42");
-        mockRequest.setParameter("demographicNo", "123");
-        mockRequest.getSession().setAttribute("Patient", mockRxPatient);
-        when(mockRxPatient.getAllergy(42)).thenReturn(mockAllergy);
-        when(mockRxPatient.deleteAllergy(42)).thenReturn(true);
-        when(mockRxPatient.getDemographicNo()).thenReturn(123);
-        when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("provider1");
-        when(mockAllergy.getAuditString()).thenReturn("audit");
+    @DisplayName("should not log archive when archived allergy belongs to a different patient")
+    void shouldNotLogArchive_whenAllergyBelongsToDifferentPatient() throws Exception {
+        mockRequest.setParameter("allergyToArchive", "42");
+        when(mockRxPatient.deleteAllergy(42)).thenReturn(false);
 
         String result = action.execute();
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
-        assertThat(mockRequest.getAttribute("demographicNo")).isEqualTo("123");
         verify(mockRxPatient).deleteAllergy(42);
         logActionMock.verify(() -> LogAction.addLog(
-                eq("provider1"),
-                eq("delete"),
-                eq("allergy"),
-                eq("42"),
-                any(String.class),
-                eq("123"),
-                eq("audit")));
+                any(String.class), eq(LogConst.ARCHIVE), any(String.class),
+                any(String.class), any(String.class), any(String.class), any()), never());
     }
 
     @Test
-    @DisplayName("should return forbidden when allergy does not belong to the session patient")
-    void shouldReturn403Forbidden_whenAllergyBelongsToDifferentPatient() throws Exception {
-        mockRequest.setParameter("ID", "42");
-        mockRequest.getSession().setAttribute("Patient", mockRxPatient);
-        when(mockRxPatient.getAllergy(42)).thenReturn(null);
+    @DisplayName("should log archive when archived allergy belongs to the session patient")
+    void shouldLogArchive_whenAllergyBelongsToSessionPatient() throws Exception {
+        mockRequest.setParameter("allergyToArchive", "42");
+        when(mockRxPatient.deleteAllergy(42)).thenReturn(true);
 
         String result = action.execute();
 
-        assertThat(result).isEqualTo(ActionSupport.NONE);
-        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        verify(mockRxPatient).deleteAllergy(42);
+        logActionMock.verify(() -> LogAction.addLog(
+                eq("provider1"), eq(LogConst.ARCHIVE), eq(LogConst.CON_ALLERGY),
+                eq("42"), any(String.class), eq("123"), isNull()));
+    }
+
+    @Test
+    @DisplayName("should ignore a non-numeric allergyToArchive instead of throwing")
+    void shouldIgnoreArchiveAttempt_whenAllergyToArchiveIsNotNumeric() throws Exception {
+        mockRequest.setParameter("allergyToArchive", "abc");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
         verify(mockRxPatient, never()).deleteAllergy(anyInt());
-        verify(mockRxPatient, never()).activateAllergy(anyInt());
-        logActionMock.verifyNoInteractions();
+        logActionMock.verify(() -> LogAction.addLog(
+                any(String.class), eq(LogConst.ARCHIVE), any(String.class),
+                any(String.class), any(String.class), any(String.class), any()), never());
     }
 }

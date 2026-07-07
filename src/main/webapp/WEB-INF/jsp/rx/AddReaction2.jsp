@@ -96,7 +96,7 @@
                     onsetOfReaction = a.getOnsetOfReaction() != null ? a.getOnsetOfReaction() : "";
                     nonDrug = a.isNonDrug();
                 }
-                if (a.getArchived() && nkdaId != null) allergyToArchive = nkdaId;
+                if (a != null && a.getArchived() && nkdaId != null) allergyToArchive = nkdaId;
             } else {
                 if (nkdaId != null) allergyToArchive = nkdaId;
             }
