@@ -33,6 +33,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -210,10 +211,10 @@
                                     </td>
 
                                     <!-- Data Field -->
-                                    <td title="data">${data.dataField}</td>
+                                    <td title="data">${carlos:forHtmlContent(data.dataField)}</td>
 
                                     <!-- Comments -->
-                                    <td title="comments">${data.comments}</td>
+                                    <td title="comments">${carlos:forHtmlContent(data.comments)}</td>
 
                                     <!-- Observation Date -->
                                     <td title="observed date">

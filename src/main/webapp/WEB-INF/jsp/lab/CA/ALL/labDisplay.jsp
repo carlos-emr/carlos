@@ -1128,15 +1128,66 @@ input[id^='acklabel_']{
             body: params.toString(),
             credentials: 'same-origin'
         })
-        .then(function() {
-            if (closeOnSuccess) {
-                window.close();
+        .then(function(response) {
+            if (!response.ok) {
+                throw new Error('Macro execution failed (HTTP ' + response.status + ')');
+            }
+            return response.json();
+        })
+        .then(function(json) {
+            if (json && json.success) {
+                if (closeOnSuccess) {
+                    closeLabAfterMacro(formid);
+                }
+            } else {
+                var message = json && json.error ? json.error : 'Macro execution failed. Please try again.';
+                alert(message);
             }
         })
         .catch(function(error) {
             console.error('Failed to run macro:', error);
             alert('An error occurred while running the macro. Please refresh and try again.');
         });
+    }
+
+    function closeLabAfterMacro(formid) {
+        var formEl = document.getElementById(formid);
+        var segmentId = formEl && formEl.elements && formEl.elements.segmentID ? formEl.elements.segmentID.value : '';
+
+        notifyInboxhubAfterMacro();
+
+        if (window.frameElement) {
+            var card = window.frameElement.closest('.document-card.card');
+            if (card) {
+                card.style.display = 'none';
+            }
+            return;
+        }
+
+        if (typeof _in_window !== 'undefined' && _in_window) {
+            if (self.opener && typeof self.opener.removeReport !== 'undefined' && segmentId.length > 0) {
+                self.opener.removeReport(segmentId);
+            }
+            window.close();
+            return;
+        }
+
+        if (segmentId.length > 0) {
+            var inlineCard = document.getElementById('labdoc_' + segmentId);
+            if (inlineCard) {
+                inlineCard.style.display = 'none';
+            }
+        }
+    }
+
+    function notifyInboxhubAfterMacro() {
+        try {
+            var bc = new BroadcastChannel('inboxhub-refresh');
+            bc.postMessage('refresh');
+            bc.close();
+        } catch (e) {
+            // BroadcastChannel unsupported — the acknowledged item is still hidden locally.
+        }
     }
 
     // Fetch CSRF token from CSRFGuard servlet and populate hidden inputs
@@ -2658,6 +2709,12 @@ input[id^='acklabel_']{
 </div>
 <%} %>
 
+<script type="text/javascript"
+        src="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
+<script type="text/javascript"
+        src="${pageContext.servletContext.contextPath}/js/demographicProviderAutocomplete.js"></script>
+<script type="text/javascript"
+        src="${pageContext.servletContext.contextPath}/js/carlosAutocomplete.js"></script>
 <script type="text/javascript"
         src="${pageContext.servletContext.contextPath}/library/dompurify/purify.min.js"></script>
 <script type="text/javascript"

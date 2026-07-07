@@ -181,7 +181,7 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
                 return NONE;
             }
             try (FileOutputStream fos = new FileOutputStream(safeTarget)) {
-                fos.write(imageData);
+                fos.write(imageData); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- writes decoded image bytes to validated file target, not HTTP response HTML
                 MiscUtils.getLogger().debug("Signature uploaded: {}, size={}", LogSafe.sanitize(filename), imageData.length); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
             } catch (IOException e) {
                 MiscUtils.getLogger().error("Error uploading signature from IPAD: {}", LogSafe.sanitize(filename), e); // NOSONAR javasecurity:S5145 - sanitized with LogSafe

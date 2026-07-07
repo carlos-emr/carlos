@@ -111,6 +111,8 @@
 <%@ page import="io.github.carlos_emr.carlos.managers.ConsultationManager" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.data.EctFormData" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.PathValidationUtils" %>
+<%@ page import="java.io.File" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
@@ -1116,36 +1118,55 @@
             });
         }
 
+        function appendAutoImportedClinicalSection(target, label, note) {
+            if (!note || note.trim().length === 0) return;
+            var section = "**" + label + ":** " + note.trim();
+            var current = jQuery(target).val();
+            if (current && current.trim().length > 0) {
+                jQuery(target).val(current + "\n" + section);
+            } else {
+                jQuery(target).val(section);
+            }
+        }
+
         /**
-         * Auto-pulls Medical, Social, and Family History into the clinical
+         * Auto-pulls configured CPP history sections into the clinical
          * information textarea for new consultations.
          */
         function autoImportClinicalHistory(demographicNo) {
             var target = "#clinicalInformation";
-            var issueTypes = ["MedHistory", "SocHistory", "FamHistory"];
+            var issueTypes = [];
+            <% if ("true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_PAST_MEDICAL_HISTORY", "false"))) { %>
+            issueTypes.push({issueType: "MedHistory", label: "Past Medical History"});
+            <% } %>
+            <% if ("true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_SOCIAL_HISTORY", "false"))) { %>
+            issueTypes.push({issueType: "SocHistory", label: "Social History"});
+            <% } %>
+            <% if ("true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_FAMILY_HISTORY", "false"))) { %>
+            issueTypes.push({issueType: "FamHistory", label: "Family History"});
+            <% } %>
+            <% if ("true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_ONGOING_CONCERNS", "false"))) { %>
+            issueTypes.push({issueType: "Concerns", label: "Ongoing Concerns"});
+            <% } %>
+            <% if ("true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_REMINDERS", "false"))) { %>
+            issueTypes.push({issueType: "Reminders", label: "Reminders"});
+            <% } %>
             var idx = 0;
 
             function fetchNext() {
                 if (idx >= issueTypes.length) return;
-                var issueType = issueTypes[idx];
+                var section = issueTypes[idx];
                 idx++;
                 jQuery.ajax({
                     method: "POST",
                     url: "${ pageContext.request.contextPath }/oscarConsultationRequest/consultationClinicalData",
-                    data: { method: "fetchIssueNote", issueType: issueType, demographicNo: demographicNo },
+                    data: { method: "fetchIssueNote", issueType: section.issueType, demographicNo: demographicNo },
                     dataType: 'JSON',
                     success: function (data) {
-                        if (data.note && data.note.trim().length > 0) {
-                            var current = jQuery(target).val();
-                            if (current && current.trim().length > 0) {
-                                jQuery(target).val(current + "\n" + data.note);
-                            } else {
-                                jQuery(target).val(data.note);
-                            }
-                        }
+                        appendAutoImportedClinicalSection(target, section.label, data.note);
                         fetchNext();
                     },
-                    error: function () { console.warn('Failed to auto-import ' + issueType + ' for consultation'); fetchNext(); }
+                    error: function () { console.warn('Failed to auto-import ' + section.issueType + ' for consultation'); fetchNext(); }
                 });
             }
 
@@ -1209,7 +1230,10 @@
             // Attach event listeners for selects that previously used inline onchange
             var providerNoSelect = document.getElementById('providerNoSelect');
             if (providerNoSelect) {
-                providerNoSelect.addEventListener('change', function() { switchProvider(this.value); });
+                providerNoSelect.addEventListener('change', function() {
+                    switchProvider(this.value);
+                    updateSignatureProvider(this.value);
+                });
             }
             var specialistHctSelect = document.getElementById('specialist');
             if (specialistHctSelect && specialistHctSelect.tagName === 'SELECT') {
@@ -1244,8 +1268,8 @@
                 getClinicalData(data, target)
             });
 
-            // Auto-import Medical and Social History for new consultations
-            <% if (requestId == null && demo != null) { %>
+            // Auto-import configured CPP history sections for new consultations
+            <% if (requestId == null && demo != null && request.getAttribute("validateError") == null) { %>
             var clinical = jQuery("#clinicalInformation").val();
             if (!clinical || clinical.trim().length === 0) {
                 autoImportClinicalHistory(<carlos:encode value='<%= demo %>' context="javaScript"/>);
@@ -1881,17 +1905,82 @@ String storedImgUrl=request.getContextPath()+"/imageRenderingServlet?source="+Im
 
         function refreshImage() {
             counter = counter + 1;
-            document.getElementById('signatureImgTag').src = '<%=imageUrl%>&rand=' + counter;
+            var signatureImgTag = document.getElementById('signatureImgTag');
+            if (signatureImgTag) {
+                signatureImgTag.onload = null;
+                signatureImgTag.onerror = null;
+                signatureImgTag.src = '<%=imageUrl%>&rand=' + counter;
+            }
             document.getElementById('signatureImg').value = '<%=signatureRequestId%>';
         }
 
-        function showSignatureImage() {
-            if (document.getElementById('signatureImg') != null && document.getElementById('signatureImg').value.length > 0) {
+        function isStoredSignatureId(value) {
+            return /^[0-9]{1,9}$/.test((value || '').trim());
+        }
 
-                document.getElementById('signatureImgTag').src = "<%=storedImgUrl %>" + encodeURIComponent(document.getElementById('signatureImg').value);
-                document.getElementById('newSignature').value = "false";
-                document.getElementById("signatureFrame").style.display = "none";
-                document.getElementById('signatureShow').style.display = "block";
+        function hasPendingManualSignature() {
+            var signatureImg = document.getElementById('signatureImg');
+            var newSignature = document.getElementById('newSignature');
+            return signatureImg && newSignature && newSignature.value === 'true'
+                    && signatureImg.value.length > 0 && !isStoredSignatureId(signatureImg.value);
+        }
+
+        function updateSignatureProvider(providerNo) {
+            var signatureProviderNo = document.getElementById('signatureProviderNo');
+            if (signatureProviderNo) {
+                signatureProviderNo.value = providerNo || '';
+            }
+
+            var signatureImg = document.getElementById('signatureImg');
+            if ((signatureImg && isStoredSignatureId(signatureImg.value)) || hasPendingManualSignature()) {
+                return true;
+            }
+
+            var signatureImgTag = document.getElementById('signatureImgTag');
+            var newSignature = document.getElementById('newSignature');
+            var signatureShow = document.getElementById('signatureShow');
+            var signatureFrame = document.getElementById('signatureFrame');
+            if (!signatureImgTag || !newSignature || !signatureShow || !signatureFrame || !providerNo) {
+                return true;
+            }
+
+            signatureImgTag.onload = function() {
+                newSignature.value = 'false';
+                signatureFrame.style.display = 'none';
+                signatureShow.style.display = 'block';
+            };
+            signatureImgTag.onerror = function() {
+                newSignature.value = 'true';
+                signatureShow.style.display = 'none';
+                signatureFrame.style.display = 'block';
+            };
+            counter = counter + 1;
+            signatureImgTag.src = '<%=request.getContextPath()%>' + '/provider/providerSignatureImage?providerNo=' + encodeURIComponent(providerNo) + '&rand=' + counter;
+            return true;
+        }
+
+        function showSignatureImage() {
+            var signatureImg = document.getElementById('signatureImg');
+            if (signatureImg != null && isStoredSignatureId(signatureImg.value)) {
+                var signatureImgTag = document.getElementById('signatureImgTag');
+                signatureImgTag.onload = function() {
+                    document.getElementById('newSignature').value = "false";
+                    document.getElementById("signatureFrame").style.display = "none";
+                    document.getElementById('signatureShow').style.display = "block";
+                };
+                signatureImgTag.onerror = function() {
+                    // Stored signature is unrenderable — fall back to manual signing rather than
+                    // leaving a broken image visible while newSignature=false would silently persist it.
+                    document.getElementById('newSignature').value = "true";
+                    document.getElementById('signatureShow').style.display = "none";
+                    document.getElementById("signatureFrame").style.display = "block";
+                };
+                signatureImgTag.src = "<%=storedImgUrl %>" + encodeURIComponent(signatureImg.value);
+            } else if (!hasPendingManualSignature()) {
+                var signatureProviderNo = document.getElementById('signatureProviderNo');
+                if (signatureProviderNo) {
+                    updateSignatureProvider(signatureProviderNo.value);
+                }
             }
 
             return true;
@@ -3061,13 +3150,28 @@ if (userAgent != null) {
 
                         <%
                             if (props.isConsultationSignatureEnabled()) {
-                                // Check for provider signature stamp
-                                UserProperty consultSigProp = userPropertyDAO.getProp(providerNo, UserProperty.PROVIDER_CONSULT_SIGNATURE);
-                                boolean hasStampSignature = (consultSigProp != null && consultSigProp.getValue() != null && !consultSigProp.getValue().trim().isEmpty());
+                                String signatureProviderNo = providerNo;
+                                if (props.isConsultationFaxEnabled() && CarlosProperties.getInstance().isPropertyActive("consultation_dynamic_labelling_enabled")) {
+                                    if (consultUtil.providerNo != null && !consultUtil.providerNo.trim().isEmpty()) {
+                                        signatureProviderNo = consultUtil.providerNo.trim();
+                                    } else if (referringProviderDefault != null && !referringProviderDefault.trim().isEmpty()) {
+                                        signatureProviderNo = referringProviderDefault.trim();
+                                    }
+                                }
+                                boolean hasStampSignature = false;
+                                try {
+                                    File imageFolder = new File(CarlosProperties.getInstance().getEformImageDirectory());
+                                    File consultSigFile = PathValidationUtils.validatePath(UserProperty.CONSULT_SIGNATURE_PREFIX + signatureProviderNo + ".png", imageFolder);
+                                    hasStampSignature = consultSigFile.isFile();
+                                } catch (SecurityException e) {
+                                    MiscUtils.getLogger().warn("Blocked unexpected consultation signature stamp path for provider {}", signatureProviderNo, e);
+                                }
                         %>
                         <div class="consult-section-heading"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.formSignature"/></div>
                         <div>
                                 <input type="hidden" name="newSignature" id="newSignature" value="<%= hasStampSignature ? "false" : "true" %>"/>
+                                <input type="hidden" name="signatureProviderNo" id="signatureProviderNo"
+                                       value="<%=SafeEncode.forHtmlAttribute(signatureProviderNo)%>"/>
                                 <input type="hidden" name="signatureImg" id="signatureImg"
                                        value="<%=(consultUtil.signatureImg != null ? SafeEncode.forHtmlAttribute(consultUtil.signatureImg) : "") %>"/>
                                 <input type="hidden" name="newSignatureImg" id="newSignatureImg"
@@ -3076,7 +3180,7 @@ if (userAgent != null) {
                                 <% if (hasStampSignature) { %>
                                 <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.altProviderSig" var="providerSigAlt"/>
                                 <div id="signatureShow" style="display: block;">
-                                    <img id="signatureImgTag" src="<%=request.getContextPath()%>/provider/providerSignatureImage"
+                                    <img id="signatureImgTag" src="<%=request.getContextPath()%>/provider/providerSignatureImage?providerNo=<%=SafeEncode.forUriComponent(signatureProviderNo)%>"
                                          alt="${carlos:forHtmlAttribute(providerSigAlt)}" style="max-height:120px;"/>
                                 </div>
                                 <div id="signatureFrame" style="display: none;">

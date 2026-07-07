@@ -5,6 +5,7 @@ Comprehensive UI testing for CARLOS EMR using Playwright MCP (Model Context Prot
 ## 📚 Quick Start
 
 - **New to UI testing?** Start with [UI-TEST-PROCESS.md](UI-TEST-PROCESS.md) - Complete testing procedures
+- **Testing eForm PDF fidelity?** Use [eform-pdf-render-smoke-test.md](eform-pdf-render-smoke-test.md) - Branch-focused smoke test runbook
 - **Running Test 1?** See [test-1/test-1-EXECUTION.md](test-1/test-1-EXECUTION.md) - Step-by-step execution guide
 - **Test results?** Check [test-1/test-1-results.md](test-1/test-1-results.md) - Latest test results with screenshots
 - **Implementation details?** Read [SUMMARY.md](SUMMARY.md) - Technical implementation and troubleshooting

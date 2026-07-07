@@ -79,6 +79,12 @@ public class AddEForm2Action extends ActionSupport {
 
     private static final Logger logger = MiscUtils.getLogger();
     private static final String INVALID_FILENAME_MESSAGE_KEY = "dms.error.invalidFilename";
+    private static final String ERROR_ATTRIBUTE = "error";
+    private static final String PDF_DOWNLOAD_FAILURE_MESSAGE = "This eForm (and attachments, if applicable) could not be downloaded.";
+    private static final String PDF_PREVIEW_WARNING_MESSAGE = "This eForm was saved, but its PDF preview could not be generated.";
+    private static final String ERROR_MESSAGE_ATTRIBUTE = "errorMessage";
+    private static final String WARNING_MESSAGE_ATTRIBUTE = "warningMessage";
+    private static final String PDF_PREVIEW_FALLBACK_SUFFIX = "_eform.pdf";
 
     /**
      * Validates the eform_link parameter format to prevent session attribute injection (CWE-501).
@@ -123,6 +129,12 @@ public class AddEForm2Action extends ActionSupport {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() {
+
+        String method = request.getMethod();
+        if ("GET".equalsIgnoreCase(method) || "HEAD".equalsIgnoreCase(method)) {
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eform", "w", null)) {
             throw new SecurityException("missing required sec object (_eform)");
@@ -202,7 +214,8 @@ public class AddEForm2Action extends ActionSupport {
         try {
             validatedTemplateFileName = validateTemplateFileName(curForm.getFormFileName());
         } catch (FileValidationException e) {
-            request.setAttribute("errorMessage", getInvalidFilenameMessage());
+            request.setAttribute(ERROR_ATTRIBUTE, "true");
+            request.setAttribute(ERROR_MESSAGE_ATTRIBUTE, getInvalidFilenameMessage());
             logger.warn("Rejected invalid eForm template filename");
             return ERROR;
         }
@@ -291,9 +304,7 @@ public class AddEForm2Action extends ActionSupport {
                 try {
                     documentAttachmentManager.saveEFormAsEDoc(request, response);
                 } catch (PDFGenerationException e) {
-                    logger.error(e.getMessage(), e);
-                    String errorMessage = "This eForm (and attachments, if applicable) could not be added to this patient’s documents. \\n\\n" + e.getMessage();
-                    request.setAttribute("errorMessage", errorMessage);
+                    setPdfError("This eForm (and attachments, if applicable) could not be added to this patient’s documents.", e);
                     return "error";
                 }
             }
@@ -313,9 +324,7 @@ public class AddEForm2Action extends ActionSupport {
                     Path eFormPdfPath = documentAttachmentManager.renderEFormWithAttachments(request, response);
                     pdfBase64 = documentAttachmentManager.convertPDFToBase64(eFormPdfPath);
                 } catch (PDFGenerationException e) {
-                    logger.error(e.getMessage(), e);
-                    String errorMessage = "This eForm (and attachments, if applicable) could not be downloaded. \\n\\n" + e.getMessage();
-                    request.setAttribute("errorMessage", errorMessage);
+                    setPdfError(PDF_DOWNLOAD_FAILURE_MESSAGE, e);
                     return "error";
                 }
 
@@ -378,9 +387,7 @@ public class AddEForm2Action extends ActionSupport {
                     Path eFormPdfPath = documentAttachmentManager.renderEFormWithAttachments(request, response);
                     pdfBase64 = documentAttachmentManager.convertPDFToBase64(eFormPdfPath);
                 } catch (PDFGenerationException e) {
-                    logger.error(e.getMessage(), e);
-                    String errorMessage = "This eForm (and attachments, if applicable) could not be downloaded. \\n\\n" + e.getMessage();
-                    request.setAttribute("errorMessage", errorMessage);
+                    setPdfError(PDF_DOWNLOAD_FAILURE_MESSAGE, e);
                     return "error";
                 }
 
@@ -412,9 +419,7 @@ public class AddEForm2Action extends ActionSupport {
                 try {
                     documentAttachmentManager.saveEFormAsEDoc(request, response);
                 } catch (PDFGenerationException e) {
-                    logger.error(e.getMessage(), e);
-                    String errorMessage = "This eForm (and attachments, if applicable) could not be added to this patient’s documents. \\n\\n" + e.getMessage();
-                    request.setAttribute("errorMessage", errorMessage);
+                    setPdfError("This eForm (and attachments, if applicable) could not be added to this patient’s documents.", e);
                     return "error";
                 }
             }
@@ -432,26 +437,7 @@ public class AddEForm2Action extends ActionSupport {
 		}
 
         String fdid = (String) request.getAttribute("fdid");
-
-		String pdfBase64;
-		try {
-			Path eFormPdfPath = documentAttachmentManager.renderEFormWithAttachments(request, response);
-			pdfBase64 = documentAttachmentManager.convertPDFToBase64(eFormPdfPath);
-		} catch (PDFGenerationException e) {
-			logger.error(e.getMessage(), e);
-			String errorMessage = "This eForm (and attachments, if applicable) could not be downloaded. \\n\\n" + e.getMessage();
-			request.setAttribute("errorMessage", errorMessage);
-			return "error";
-		}
-
-		request.setAttribute("eFormPDF", pdfBase64);
-		request.setAttribute("eFormPDFName", generateFileName(loggedInInfo, Integer.parseInt(demographic_no)));
-		request.setAttribute("isSuccess_Autoclose", "true");
-
-        request.setAttribute("fdid", fdid);
-        request.setAttribute("parentAjaxId", "eforms");
-
-        return "close";
+        return closeWithPdfPreview(loggedInInfo, demographic_no, fdid);
 	}
 	
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin fax action path built from the current context path with encoded query parameters.
@@ -499,6 +485,46 @@ public class AddEForm2Action extends ActionSupport {
         String formattedDate = dateFormat.format(currentDate);
 
         return formattedDate + "_" + demographicLastName + ".pdf";
+    }
+
+    String closeWithPdfPreview(LoggedInInfo loggedInInfo, String demographicNo, String fdid) {
+        String pdfBase64 = "";
+        try {
+            Path eFormPdfPath = documentAttachmentManager.renderEFormWithAttachments(request, response);
+            if (eFormPdfPath == null) {
+                throw new PDFGenerationException("eForm PDF preview path was not generated");
+            }
+            pdfBase64 = documentAttachmentManager.convertPDFToBase64(eFormPdfPath);
+        } catch (Exception e) {
+            setPdfWarning(PDF_PREVIEW_WARNING_MESSAGE, e);
+        }
+
+        request.setAttribute("eFormPDF", pdfBase64);
+        request.setAttribute("eFormPDFName", buildPdfPreviewName(loggedInInfo, demographicNo));
+        request.setAttribute("isSuccess_Autoclose", "true");
+        request.setAttribute("fdid", fdid);
+        request.setAttribute("parentAjaxId", "eforms");
+        return "close";
+    }
+
+    private String buildPdfPreviewName(LoggedInInfo loggedInInfo, String demographicNo) {
+        try {
+            return generateFileName(loggedInInfo, Integer.parseInt(demographicNo));
+        } catch (RuntimeException e) {
+            logger.warn("Falling back to a generic PDF preview filename for demographic {}", LogSafe.sanitize(demographicNo), e);
+            return new SimpleDateFormat("yyyy_MM_dd").format(new Date()) + PDF_PREVIEW_FALLBACK_SUFFIX;
+        }
+    }
+
+    private void setPdfError(String message, Exception e) {
+        logger.error(message, e);
+        request.setAttribute(ERROR_ATTRIBUTE, "true");
+        request.setAttribute(ERROR_MESSAGE_ATTRIBUTE, message);
+    }
+
+    private void setPdfWarning(String message, Exception e) {
+        logger.warn(message, e);
+        request.setAttribute(WARNING_MESSAGE_ATTRIBUTE, message);
     }
 
     private String getInvalidFilenameMessage() {
