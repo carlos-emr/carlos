@@ -58,16 +58,6 @@
 
 
     <script language="javascript">
-        function checkFormAndDisable() {
-            if (document.forms[0].formHtml.value == "") {
-                alert("<fmt:message key="eform.uploadhtml.msgFileMissing"/>");
-            } else {
-                document.forms[0].subm.value = "<fmt:message key="eform.uploadimages.processing"/>";
-                document.forms[0].subm.disabled = true;
-                document.forms[0].submit();
-            }
-        }
-
         function newWindow(url, id) {
             Popup = window.open(url, id, 'toolbar=no,location=no,status=yes,menubar=no, scrollbars=yes,resizable=yes,width=900,height=600,left=200,top=0');
         }
