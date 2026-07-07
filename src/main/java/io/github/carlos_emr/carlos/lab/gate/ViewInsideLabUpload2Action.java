@@ -97,12 +97,12 @@ public final class ViewInsideLabUpload2Action extends ActionSupport {
         return SUCCESS;
     }
 
-    private boolean rejectNonDisplayMethod(HttpServletRequest request, HttpServletResponse response) {
+    private boolean rejectNonDisplayMethod(HttpServletRequest request, HttpServletResponse response) throws Exception {
         if (isDisplayMethod(request.getMethod())) {
             return false;
         }
         response.setHeader("Allow", ALLOW_PAGE_DISPLAY_METHODS);
-        response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         return true;
     }
 
