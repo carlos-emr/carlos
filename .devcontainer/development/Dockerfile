@@ -22,6 +22,7 @@ ARG DOCS_PATH='/home/oscar/development/volumes'
 ARG OSCAR_DOCUMENT="${DOCS_PATH}/OscarDocument"
 ARG DB_DOCS="/db-data/documents"
 ARG DOCS_DEST="/var/lib/OscarDocument/oscar/document"
+ARG EFORM_IMAGES_DIR="/var/lib/OscarDocument/oscar/eform/images"
 
 WORKDIR /workspace
 
@@ -97,8 +98,9 @@ RUN npm install -g @github/copilot && \
     echo "✅ GitHub Copilot CLI installed: $(copilot --version)"
 
 # Install OpenAI Codex CLI (standalone coding agent)
-RUN npm install -g @openai/codex && \
-    echo "✅ OpenAI Codex CLI installed: $(codex --version)"
+ARG CODEX_CLI_VERSION=0.142.2
+# Retry the npm fetch because CI occasionally hits transient ECONNRESET errors.
+RUN for attempt in 1 2 3; do         npm install -g "@openai/codex@${CODEX_CLI_VERSION}" && break;         if [ "$attempt" -eq 3 ]; then exit 1; fi;         echo "Retrying @openai/codex install after transient npm failure (attempt $attempt)...";         sleep 5;     done &&     echo "✅ OpenAI Codex CLI installed: $(codex --version)"
 
 ARG PLAYWRIGHT_VERSION=1.60.0
 
@@ -169,7 +171,6 @@ COPY ./openosp_files/tomcat-users.xml $TOMCAT_PATH/conf/tomcat-users.xml
 RUN mkdir -p $OSCAR_DOCUMENT/oscar/document \
     $OSCAR_DOCUMENT/oscar/billing/download \
     $OSCAR_DOCUMENT/oscar/billing/invoices \
-    $OSCAR_DOCUMENT/oscar/eform/images \
     $OSCAR_DOCUMENT/oscar/form/records \
     $OSCAR_DOCUMENT/oscar/onEDTDocs/inbox \
     $OSCAR_DOCUMENT/oscar/onEDTDocs/outbox \
@@ -179,7 +180,9 @@ RUN mkdir -p $OSCAR_DOCUMENT/oscar/document \
     $OSCAR_DOCUMENT/oscar/incomingdocs \
     $OSCAR_DOCUMENT/oscar/export \
     $DB_DOCS \
-    $DOCS_DEST
+    $DOCS_DEST \
+    $EFORM_IMAGES_DIR \
+    && /scripts/bootstrap-property-directories /root/carlos.properties EFORM_IMAGES_DIR
 
 # Set up GPG for PGP encryption (used by demographic export)
 # Create the GNUPGHOME directory and generate a test key for development
