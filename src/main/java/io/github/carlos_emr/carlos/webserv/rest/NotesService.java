@@ -1042,7 +1042,7 @@ public class NotesService extends AbstractServiceImpl {
         Date d = new Date();
         String separator = "\n-----[[" + d + "]]-----\n";
 
-        if (code.equals(ISSUECODE_OTHERMEDS)) {
+        if (code.equals(ISSUECODE_OTHERMEDS) || code.equals(ISSUECODE_FAMHX)) {
             text.append(cpp.getFamilyHistory());
             text.append(separator);
             text.append(note);
@@ -1071,12 +1071,6 @@ public class NotesService extends AbstractServiceImpl {
             text.append(separator);
             text.append(note);
             cpp.setReminders(text.toString());
-
-        } else if (code.equals(ISSUECODE_FAMHX)) {
-            text.append(cpp.getFamilyHistory());
-            text.append(separator);
-            text.append(note);
-            cpp.setFamilyHistory(text.toString());
 
         } else if (code.equals(ISSUECODE_RISKFACTORS)) {
             text.append(cpp.getRiskFactors());
