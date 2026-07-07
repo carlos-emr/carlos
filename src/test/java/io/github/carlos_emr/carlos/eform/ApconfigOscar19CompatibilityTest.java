@@ -19,6 +19,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ApconfigOscar19CompatibilityTest {
 
+    private static final String EFORM_DEMOGRAPHIC_LIKE_PREDICATE =
+            "demographic_no like '${eform_demographic}'";
+
     @Test
     void loadsCarlosAndOscar19ApconfigFixtures() throws Exception {
         EFormApConfig oscar = loadConfig("oscar/eform/oscar19-apconfig.xml");
@@ -46,11 +49,13 @@ class ApconfigOscar19CompatibilityTest {
                 "_eform_values_countname_ref",
                 "_eform_values_count_refname",
                 "_eform_values_countname_refname")) {
-            String oscarSql = findByName(oscar, name).get(0).getApSQL();
-            String carlosSql = findByName(carlos, name).get(0).getApSQL();
+            String oscarSql = normalizeWhitespace(exactlyOneByName(oscar, name).getApSQL());
+            String carlosSql = normalizeWhitespace(exactlyOneByName(carlos, name).getApSQL());
 
-            assertTrue(oscarSql.contains("demographic_no like '${eform_demographic}'"));
-            assertTrue(carlosSql.contains("demographic_no like '${eform_demographic}'"));
+            assertTrue(oscarSql.contains(EFORM_DEMOGRAPHIC_LIKE_PREDICATE),
+                    name + " should preserve the OSCAR19 wildcard predicate");
+            assertTrue(carlosSql.contains(EFORM_DEMOGRAPHIC_LIKE_PREDICATE),
+                    name + " should preserve the OSCAR19 wildcard predicate");
         }
     }
 
@@ -59,12 +64,15 @@ class ApconfigOscar19CompatibilityTest {
         EFormApConfig oscar = loadConfig("oscar/eform/oscar19-apconfig.xml");
         EFormApConfig carlos = loadConfig("oscar/eform/apconfig.xml");
 
-        assertEquals(findByName(oscar, "address").get(0).getApOutput(),
-                findByName(carlos, "address").get(0).getApOutput());
-        assertEquals(findByName(oscar, "addressline").get(0).getApOutput(),
-                findByName(carlos, "addressline").get(0).getApOutput());
-        assertEquals(findByName(oscar, "province").get(0).getApOutput(),
-                findByName(carlos, "province").get(0).getApOutput());
+        assertEquals(exactlyOneByName(oscar, "address").getApOutput(),
+                exactlyOneByName(carlos, "address").getApOutput(),
+                "address should match the OSCAR19 output contract");
+        assertEquals(exactlyOneByName(oscar, "addressline").getApOutput(),
+                exactlyOneByName(carlos, "addressline").getApOutput(),
+                "addressline should match the OSCAR19 output contract");
+        assertEquals(exactlyOneByName(oscar, "province").getApOutput(),
+                exactlyOneByName(carlos, "province").getApOutput(),
+                "province should match the OSCAR19 output contract");
     }
 
     @Test
@@ -74,8 +82,12 @@ class ApconfigOscar19CompatibilityTest {
         Map<String, List<DatabaseAP>> grouped = carlos.getDatabaseAPs().stream()
                 .collect(Collectors.groupingBy(DatabaseAP::getApName, LinkedHashMap::new, Collectors.toList()));
 
-        assertEquals(2, grouped.get("appt_date").size());
-        assertEquals(grouped.get("appt_date").get(0).getApSQL(), grouped.get("appt_date").get(1).getApSQL());
+        assertTrue(grouped.containsKey("appt_date"), "Expected duplicate review coverage for appt_date");
+
+        List<DatabaseAP> apptDateEntries = grouped.get("appt_date");
+        assertEquals(2, apptDateEntries.size(), "appt_date should remain a reviewed duplicate pair");
+        assertEquals(apptDateEntries.get(0).getApSQL(), apptDateEntries.get(1).getApSQL(),
+                "appt_date duplicates should remain identical until intentionally reviewed");
     }
 
     private EFormApConfig loadConfig(String classpathLocation) throws Exception {
@@ -87,9 +99,19 @@ class ApconfigOscar19CompatibilityTest {
         }
     }
 
+    private DatabaseAP exactlyOneByName(EFormApConfig config, String apName) {
+        List<DatabaseAP> matches = findByName(config, apName);
+        assertEquals(1, matches.size(), "Expected exactly one AP named " + apName);
+        return matches.get(0);
+    }
+
     private List<DatabaseAP> findByName(EFormApConfig config, String apName) {
         return config.getDatabaseAPs().stream()
                 .filter(ap -> apName.equalsIgnoreCase(ap.getApName()))
                 .toList();
+    }
+
+    private String normalizeWhitespace(String value) {
+        return value.replaceAll("\\s+", " ").trim();
     }
 }
