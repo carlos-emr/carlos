@@ -89,11 +89,12 @@ public final class ViewInsideLabUpload2Action extends ActionSupport {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
 
+        requireLabUploadAccess(request);
+
         if (rejectNonDisplayMethod(request, response)) {
             return NONE;
         }
 
-        requireLabUploadAccess(request);
         return SUCCESS;
     }
 
