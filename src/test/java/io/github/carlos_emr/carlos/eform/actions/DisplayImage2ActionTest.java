@@ -20,11 +20,14 @@
  */
 package io.github.carlos_emr.carlos.eform.actions;
 
+import java.io.File;
+
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -47,10 +50,13 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -61,8 +67,6 @@ import static org.mockito.Mockito.when;
  * prevention-specific exception that allows {@code vaccine-brands.json} to be
  * served to users with {@code _prevention} read access even when they do not
  * have general {@code _eform} read access.</p>
- *
- * @since 2026-04-21
  */
 @DisplayName("DisplayImage2Action Unit Tests")
 @Tag("unit")
@@ -193,6 +197,102 @@ class DisplayImage2ActionTest extends CarlosUnitTestBase {
             assertThat(mockResponse.getContentAsString()).isEqualTo("{\"ok\":true}");
         }
 
+
+        @Test
+        @DisplayName("should return 404 when requested asset file is missing")
+        void shouldReturn404_whenRequestedAssetFileIsMissing() throws Exception {
+            mockRequest.setParameter("imagefile", "consult_sig_999998.png");
+
+            when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_eform"), eq("r"), isNull()))
+                    .thenReturn(true);
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_NOT_FOUND);
+            assertThat(mockResponse.getContentAsByteArray()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should return 404 when asset disappears after validation but before streaming")
+        void shouldReturn404_whenAssetDisappearsAfterValidation() throws Exception {
+            mockRequest.setParameter("imagefile", "consult_sig_999998.png");
+            Files.write(tempDir.resolve("consult_sig_999998.png"), new byte[] {1, 2, 3});
+
+            when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_eform"), eq("r"), isNull()))
+                    .thenReturn(true);
+
+            DisplayImage2Action spiedAction = spy(action);
+            doThrow(new java.io.FileNotFoundException("vanished"))
+                    .when(spiedAction).process(any(File.class), anyString());
+
+            String result = spiedAction.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_NOT_FOUND);
+            assertThat(mockResponse.getContentAsByteArray()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should write HTML assets through writer when eform read privilege is granted")
+        void shouldWriteHtmlAssetsThroughWriter_whenEformReadPrivilegeGranted() throws Exception {
+            mockRequest.setParameter("imagefile", "custom.html");
+            Files.writeString(tempDir.resolve("custom.html"), "<html><body>form</body></html>", StandardCharsets.UTF_8);
+            MockHttpServletResponse trackingResponse = spy(new MockHttpServletResponse());
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(trackingResponse);
+            action = new DisplayImage2Action();
+
+            when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_eform"), eq("r"), isNull()))
+                    .thenReturn(true);
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(trackingResponse.getContentType()).startsWith("text/html");
+            assertThat(trackingResponse.getCharacterEncoding()).isEqualTo(StandardCharsets.UTF_8.name());
+            assertThat(trackingResponse.getContentAsString()).isEqualTo("<html><body>form</body></html>");
+            verify(trackingResponse).getWriter();
+            verify(trackingResponse, never()).getOutputStream();
+        }
+
+        @Test
+        @DisplayName("should send error when binary stream cannot be opened")
+        void shouldSendError_whenBinaryStreamCannotBeOpened() throws Exception {
+            mockRequest.setParameter("imagefile", "custom.json");
+            Files.writeString(tempDir.resolve("custom.json"), "{\"ok\":true}", StandardCharsets.UTF_8);
+            MockHttpServletResponse trackingResponse = spy(new MockHttpServletResponse());
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(trackingResponse);
+            action = new DisplayImage2Action();
+
+            when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_eform"), eq("r"), isNull()))
+                    .thenReturn(true);
+            doThrow(new java.io.IOException("stream unavailable")).when(trackingResponse).getOutputStream();
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(trackingResponse.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        }
+
+        @Test
+        @DisplayName("should send error when HTML writer cannot be acquired")
+        void shouldSendError_whenHtmlWriterCannotBeAcquired() throws Exception {
+            mockRequest.setParameter("imagefile", "custom.html");
+            Files.writeString(tempDir.resolve("custom.html"), "<html><body>form</body></html>", StandardCharsets.UTF_8);
+            MockHttpServletResponse trackingResponse = spy(new MockHttpServletResponse());
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(trackingResponse);
+            action = new DisplayImage2Action();
+
+            when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_eform"), eq("r"), isNull()))
+                    .thenReturn(true);
+            doThrow(new IllegalStateException("writer unavailable")).when(trackingResponse).getWriter();
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(trackingResponse.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        }
+
         @Test
         @DisplayName("should throw SecurityException when vaccine brands requested without either privilege")
         void shouldThrowSecurityException_whenVaccineBrandsRequestedWithoutEitherPrivilege() {
@@ -209,6 +309,22 @@ class DisplayImage2ActionTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should return bad request when requested asset type is unsupported")
+        void shouldReturnBadRequest_whenRequestedAssetTypeIsUnsupported() throws Exception {
+            mockRequest.setParameter("imagefile", "custom.unsupported");
+            Files.writeString(tempDir.resolve("custom.unsupported"), "data", StandardCharsets.UTF_8);
+
+            when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_eform"), eq("r"), isNull()))
+                    .thenReturn(true);
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            assertThat(mockResponse.getErrorMessage()).isEqualTo("Unsupported eform asset type");
+        }
+
+        @Test
         @DisplayName("should throw SecurityException when requested image path traverses outside allowed directory")
         void shouldThrowSecurityException_whenRequestedImagePathTraversesOutsideAllowedDirectory() {
             mockRequest.setParameter("imagefile", "../custom.json");
@@ -220,4 +336,5 @@ class DisplayImage2ActionTest extends CarlosUnitTestBase {
                     .isInstanceOf(SecurityException.class);
         }
     }
+
 }

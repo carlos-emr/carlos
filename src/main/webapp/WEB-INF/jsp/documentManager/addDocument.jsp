@@ -69,12 +69,7 @@
         moduleid = (String) request.getAttribute("functionid");
     }
 
-    String curUser = "";
-    if (request.getParameter("curUser") != null) {
-        curUser = request.getParameter("curUser");
-    } else if (request.getAttribute("curUser") != null) {
-        curUser = (String) request.getAttribute("curUser");
-    }
+    String curUser = user_no != null ? user_no : "";
 
     CarlosProperties props = CarlosProperties.getInstance();
 
@@ -374,7 +369,7 @@
             <% if (EDocUtil.isProviderModule(module)) {%>
             <div class="form-check mb-2">
                 <input type="checkbox" class="form-check-input" id="docPublic" name="docPublic"
-                       <%=formdata.getDocPublic() + " "%> value="checked">
+                       <%="checked".equals(formdata.getDocPublic()) ? "checked" : ""%> value="checked">
                 <label class="form-check-label" for="docPublic">
                     <fmt:message key="dms.addDocument.labelPublic"/>
                 </label>
@@ -473,7 +468,7 @@
             <% if (EDocUtil.isProviderModule(module)) {%>
             <div class="form-check mb-2">
                 <input type="checkbox" class="form-check-input" id="docPublicLink" name="docPublic"
-                       <%=formdata.getDocPublic() + " "%> value="checked">
+                       <%="checked".equals(formdata.getDocPublic()) ? "checked" : ""%> value="checked">
                 <label class="form-check-label" for="docPublicLink">
                     <fmt:message key="dms.addDocument.labelPublic"/>
                 </label>

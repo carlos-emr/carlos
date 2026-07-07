@@ -53,6 +53,7 @@
 %>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title><fmt:message key="admin.fieldNote.selectEforms"/></title>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css">
         <link rel="stylesheet" href="<%= request.getContextPath() %>/share/css/eformStyle.css">

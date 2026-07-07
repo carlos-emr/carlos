@@ -123,10 +123,10 @@ public class TeleplanUserPassDAO {
         }
 
         if (hasPassword()) {
-            log.debug("has password" + password);
+            log.debug("has password: true");
             updatePassword(password);
         } else {
-            log.debug("not password" + password);
+            log.debug("has password: false");
             setPassword(password);
         }
     }

@@ -14,6 +14,7 @@ src/main/java/io/github/carlos_emr/carlos/ar2005/
 # Test sources (Semgrep Cloud excludes by default, explicit for CLI)
 src/test/
 src/test-modern/
+.claude/hooks/test-sql-safety-fixtures.json
 
 # Non-code assets
 database/

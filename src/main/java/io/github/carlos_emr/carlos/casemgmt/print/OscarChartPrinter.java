@@ -803,8 +803,8 @@ public class OscarChartPrinter implements java.io.Closeable {
         document.add(p);
 
         for (Tickler tickler : ticklers) {
-            String providerName = tickler.getProvider().getFormattedName();
-            String assigneeName = tickler.getAssignee().getFormattedName();
+            String providerName = getProviderName(tickler.getCreator());
+            String assigneeName = getProviderName(tickler.getTaskAssignedTo());
             String serviceDate = tickler.getServiceDateWeb();
             String priority = tickler.getPriority().toString();
             char status = tickler.getStatus().toString().charAt(0);

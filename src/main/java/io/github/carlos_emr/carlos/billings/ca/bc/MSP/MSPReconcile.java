@@ -48,7 +48,7 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillRecipient;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingHistoryDAO;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 
 import java.beans.BeanInfo;
 import java.beans.Introspector;
@@ -58,6 +58,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class MSPReconcile {
     private static Logger log = MiscUtils.getLogger();
@@ -738,6 +739,8 @@ public class MSPReconcile {
      * @param billType         String
      * @return double the amount paid
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public double getAmountPaid(String billingmaster_no, String billType) {
         double retval = 0.0;
         //for msp, icbc, wcb payments
@@ -1130,7 +1133,8 @@ public class MSPReconcile {
         MiscUtils.getLogger().debug("p=" + p);
         try {
 
-            rs = DBHandler.GetPreSQL(p, criteriaParams.toArray());
+            rs = LegacyJdbcQuery.getPreparedResultSet(
+                    LegacyJdbcQuery.trustedReportSelectSql(p), criteriaParams.toArray());
 
             while (rs.next()) {
                 MSPBill b = new MSPBill();
@@ -1200,10 +1204,12 @@ public class MSPReconcile {
                         }
                     }
 
-                    ResultSet rsDemo = DBHandler.GetPreSQL("select phone, phone2 from demographic where demographic_no = ?", b.demoNo);
-                    if (rsDemo.next()) {
-                        b.demoPhone = rsDemo.getString("phone");
-                        b.demoPhone2 = rsDemo.getString("phone2");
+                    try (ResultSet rsDemo = LegacyJdbcQuery.getPreparedResultSet(
+                            "select phone, phone2 from demographic where demographic_no = ?", b.demoNo)) {
+                        if (rsDemo.next()) {
+                            b.demoPhone = rsDemo.getString("phone");
+                            b.demoPhone2 = rsDemo.getString("phone2");
+                        }
                     }
                 } else if (MSPReconcile.REP_INVOICE.equals(type)) {
                     double dblAmtOwing = this.getAmountOwing(b.billMasterNo, b.amount, b.billingtype);
@@ -1260,6 +1266,8 @@ public class MSPReconcile {
      * @param amountBilled    String - The total amount of the bill
      * @return String
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public double getAmountOwing(String billingMasterNo, String amountBilled, String billingType) {
 
         amountBilled = (amountBilled != null && !amountBilled.equals("")) ? amountBilled : "0.0";
@@ -1332,6 +1340,8 @@ public class MSPReconcile {
      * @param exludeICBC
      * @return BillSearch
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public MSPReconcile.BillSearch getPayments(String account, String payeeNo, String providerNo, String startDate, String endDate, boolean excludeWCB, boolean excludeMSP, boolean excludePrivate, boolean exludeICBC) {
         BillSearch billSearch = new BillSearch();
         List<Object> criteriaParams = new ArrayList<>();
@@ -1346,7 +1356,8 @@ public class MSPReconcile {
         ResultSet rs = null;
         try {
 
-            rs = DBHandler.GetPreSQL(p, criteriaParams.toArray());
+            rs = LegacyJdbcQuery.getPreparedResultSet(
+                    LegacyJdbcQuery.trustedReportSelectSql(p), criteriaParams.toArray());
             while (rs.next()) {
                 MSPBill b = new MSPBill();
                 b.billingtype = rs.getString("b.billingtype");
@@ -1427,7 +1438,9 @@ public class MSPReconcile {
             MiscUtils.getLogger().error("Error", e);
         } finally {
             try {
-                rs.close();
+                if (rs != null) {
+                    rs.close();
+                }
             } catch (SQLException ex) {
                 MiscUtils.getLogger().error("Error", ex);
             }
@@ -1470,7 +1483,8 @@ public class MSPReconcile {
         ResultSet rs = null;
         try {
 
-            rs = DBHandler.GetPreSQL(p, criteriaParams.toArray());
+            rs = LegacyJdbcQuery.getPreparedResultSet(
+                    LegacyJdbcQuery.trustedReportSelectSql(p), criteriaParams.toArray());
             while (rs.next()) {
                 MSPBill b = new MSPBill();
                 b.billMasterNo = rs.getString("bm.billingmaster_no");
@@ -1504,7 +1518,9 @@ public class MSPReconcile {
             MiscUtils.getLogger().error("Error", e);
         } finally {
             try {
-                rs.close();
+                if (rs != null) {
+                    rs.close();
+                }
             } catch (SQLException ex) {
                 MiscUtils.getLogger().error("Error", ex);
             }
@@ -1533,7 +1549,8 @@ public class MSPReconcile {
         ResultSet rs = null;
         try {
 
-            rs = DBHandler.GetPreSQL(p, criteriaParams.toArray());
+            rs = LegacyJdbcQuery.getPreparedResultSet(
+                    LegacyJdbcQuery.trustedReportSelectSql(p), criteriaParams.toArray());
             while (rs.next()) {
                 MSPBill b = new MSPBill();
                 b.billMasterNo = rs.getString("bm.billingmaster_no");
@@ -1574,7 +1591,9 @@ public class MSPReconcile {
             MiscUtils.getLogger().error("Error", e);
         } finally {
             try {
-                rs.close();
+                if (rs != null) {
+                    rs.close();
+                }
             } catch (SQLException ex) {
                 MiscUtils.getLogger().error("Error", ex);
             }
@@ -1615,6 +1634,8 @@ public class MSPReconcile {
      * @param dateFieldOption String
      * @return String
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String createCriteriaString(String account, String payeeNo, String providerNo, String startDate, String endDate, boolean excludeWCB, boolean excludeMSP, boolean excludePrivate, boolean exludeICBC, String repType, String dateFieldOption, List<Object> criteriaParams) {
         String criteriaQry = "";
         String dateField = MSPReconcile.REP_PAYREF.equals(repType) ? "t_payment" : "service_date";
@@ -1766,7 +1787,7 @@ public class MSPReconcile {
         ResultSet rs = null;
         try {
 
-            rs = DBHandler.GetPreSQL(qry, s21Id, payeeNo);
+            rs = LegacyJdbcQuery.getPreparedResultSet(qry, s21Id, payeeNo);
         } catch (SQLException ex) {
             MiscUtils.getLogger().error("Error", ex);
         }
@@ -1800,7 +1821,7 @@ public class MSPReconcile {
         ResultSet rs = null;
         try {
 
-            rs = DBHandler.GetPreSQL(qry, s21Id, payeeNo);
+            rs = LegacyJdbcQuery.getPreparedResultSet(qry, s21Id, payeeNo);
         } catch (SQLException ex) {
             MiscUtils.getLogger().error("Error", ex);
         }
@@ -1826,11 +1847,8 @@ public class MSPReconcile {
                 "AND bm.datacenter = ?\n" +
                 "AND ba.sentdate like ?";
 
-        ResultSet rs = null;
         boolean hasResults = false;
-        try {
-
-            rs = DBHandler.GetPreSQL(qry, billingmasterNo, dataCenterNo, receivedDate);
+        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(qry, billingmasterNo, dataCenterNo, receivedDate)) {
             hasResults = rs.next();
         } catch (SQLException ex) {
             MiscUtils.getLogger().error("Error", ex);

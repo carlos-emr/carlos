@@ -30,12 +30,14 @@
 
 package io.github.carlos_emr.carlos.billings.MSP;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.billing.CA.BC.dao.LogTeleplanTxDao;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.LogTeleplanTx;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
@@ -46,11 +48,19 @@ import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 
 public class ExtractBean extends Object implements Serializable {
     private static Logger logger = MiscUtils.getLogger();
+    private static final Pattern DATE_RANGE_CONDITION = Pattern.compile(
+            "(?i)\\band\\s+(billing_date|visitdate)\\s*(=|>=|<=|>|<)\\s*'?(\\d{4}[-/]?\\d{2}[-/]?\\d{2})'?");
+    private static final Pattern SAFE_PARAMETERIZED_DATE_RANGE = Pattern.compile(
+            "(?i)^\\s*(?:and\\s+(?:billing_date|visitdate)\\s*(?:=|>=|<=|>|<)\\s*\\?\\s*)+$");
     private LogTeleplanTxDao logTeleplanTxDao = SpringUtils.getBean(LogTeleplanTxDao.class);
     private BillingDao billingDao = SpringUtils.getBean(BillingDao.class);
     private BillingmasterDAO billingmasterDao = SpringUtils.getBean(BillingmasterDAO.class);
@@ -89,6 +99,7 @@ public class ExtractBean extends Object implements Serializable {
     private BigDecimal BigTotal = new BigDecimal(0).setScale(2, BigDecimal.ROUND_HALF_UP);
     private BigDecimal bdFee = new BigDecimal(0).setScale(2, BigDecimal.ROUND_HALF_UP);
     private String dateRange = "";
+    private String[] dateRangeParams = new String[0];
     private String eFlag = "";
     private String oscar_home;
     private int vsFlag = 0;
@@ -150,15 +161,15 @@ public class ExtractBean extends Object implements Serializable {
             // htmlContentHeader = htmlContentHeader + "<tr><td class='bodytext'>ACCT NO</td><td class='bodytext'>NAME</td><td class='bodytext'>HEALTH #</td><td class='bodytext'>BILLDATE</td><td class='bodytext'>CODE</td><td align='right' class='bodytext'>BILLED</td><td align='right' class='bodytext'>DX</td><td align='right' class='bodytext'>Comment</td></tr>";
             // htmlValue = htmlContentHeader;
             value = batchHeader;
-            dbExtract dbExt = new dbExtract();
-            MiscUtils.getLogger().debug("1st billing query d");
+            try (dbExtract dbExt = new dbExtract()) {
+                MiscUtils.getLogger().debug("1st billing query d");
 
-            dbExt.openConnection();
-            query = "select * from billing where provider_ohip_no='" + providerNo + "' and (status='O' or status='W') " + dateRange;
-            MiscUtils.getLogger().debug("1st billing query " + query);
-            ResultSet rs = dbExt.executeQuery(query);
-            if (rs != null) {
-                while (rs.next()) {
+                dbExt.openConnection();
+                query = "select * from billing where provider_ohip_no=? and (status='O' or status='W') " + dateRange;
+                MiscUtils.getLogger().debug("1st billing query prepared");
+                ResultSet rs = dbExt.executeQuery(query, billingQueryParams());
+                if (rs != null) {
+                    while (rs.next()) {
                     patientCount = patientCount + 1;
                     invNo = rs.getString("billing_no");
                     //  ohipVer = rs.getString("organization_spec_code");
@@ -254,18 +265,13 @@ public class ExtractBean extends Object implements Serializable {
 
 
                     invCount = 0;
-                    // Validate numeric: dbExtract only supports Statement (not PreparedStatement),
-                    // so parameterized queries are not possible. Ensure invNo contains only digits
-                    // before concatenation, while preserving the original value to avoid changing
-                    // invoice semantics such as leading zeros.
-                    // TODO: Refactor dbExtract to support PreparedStatement for full parameterization.
                     if (invNo == null || !invNo.matches("^[0-9]+$")) {
                         logger.warn("Skipping billing record due to invalid invoice number: {}", invNo);
                         continue;
                     }
-                    query2 = "select * from billingmaster where billing_no=" + invNo + " and billingstatus='O'";
+                    query2 = "select * from billingmaster where billing_no=? and billingstatus='O'";
 
-                    ResultSet rs2 = dbExt.executeQuery2(query2);
+                    ResultSet rs2 = dbExt.executeQuery2(query2, invNo);
                     while (rs2.next()) {
                         recordCount = recordCount + 1;
 
@@ -274,7 +280,7 @@ public class ExtractBean extends Object implements Serializable {
                         //String dataLine =     rs2.getString("claimcode") + rs2.getString("datacenter") + forwardZero(logNo,7) + rs2.getString("payee_no") + rs2.getString("practitioner_no") +     forwardZero(rs2.getString("phn"),10)    + rs2.getString("name_verify") + rs2.getString("dependent_num") + forwardZero(rs2.getString("billing_unit"),3) + rs2.getString("clarification_code") + rs2.getString("anatomical_area") + rs2.getString("after_hour") + rs2.getString("new_program") + rs2.getString("billing_code") + moneyFormat(rs2.getString("bill_amount"),7) + rs2.getString("payment_mode") + rs2.getString("service_date") +rs2.getString("service_to_day") + rs2.getString("submission_code") + space(1) + backwardSpace(rs2.getString("dx_code1"), 5) + backwardSpace(rs2.getString("dx_code2"), 5) + backwardSpace(rs2.getString("dx_code3"), 5)+ space(15) + rs2.getString("service_location")+ forwardZero(rs2.getString("referral_flag1"), 1) + forwardZero(rs2.getString("referral_no1"),5)+ forwardZero(rs2.getString("referral_flag2"),1) + forwardZero(rs2.getString("referral_no2"),5) + forwardZero(rs2.getString("time_call"),4) + zero(4) + zero(4)+ forwardZero(rs2.getString("birth_date"),8) + forwardZero(rs2.getString("billingmaster_no"), 7) +rs2.getString("correspondence_code")+ space(20) + rs2.getString("mva_claim_code") + rs2.getString("icbc_claim_no") + rs2.getString("original_claim") + rs2.getString("facility_no")+ rs2.getString("facility_sub_no")+ space(58) + backwardSpace(rs2.getString("oin_insurer_code"),2) + backwardSpace(rs2.getString("oin_registration_no"),12)+ backwardSpace(rs2.getString("oin_birthdate"),8)+backwardSpace(rs2.getString("oin_first_name"),12) +backwardSpace(rs2.getString("oin_second_name"),1) + backwardSpace(rs2.getString("oin_surname"),18)+ backwardSpace(rs2.getString("oin_sex_code"),1) + backwardSpace(rs2.getString("oin_address"),25) + backwardSpace(rs2.getString("oin_address2"),25) + backwardSpace(rs2.getString("oin_address3"),25)+ backwardSpace(rs2.getString("oin_address4"),25)+ backwardSpace(rs2.getString("oin_postalcode"),6);
                         String dataLine = getClaimDetailRecord(rs2, logNo);
                         if (dataLine.length() != 424) {
-                            MiscUtils.getLogger().debug("dataLine2 " + logNo + " Len" + dataLine.length());
+                            MiscUtils.getLogger().debug("dataLine2 {} Len{}", logNo, dataLine.length());
                         }
                         value = value + "\n" + dataLine + "\r";
                         logValue = dataLine;
@@ -302,32 +308,33 @@ public class ExtractBean extends Object implements Serializable {
                     if (eFlag.compareTo("1") == 0) {
                         setAsBilled(invNo);
                     }
+                    }
+                    //      hcCount = hcCount + healthcardCount;
+                    pCount = pCount + patientCount;
+                    rCount = rCount + recordCount;
+                    //      flagOrder = 4 - pCount.length();
+                    //      secondFlag = 5 - rCount.length();
+                    //      thirdFlag= 4 - hcCount.length();
+                    //      percent = new BigDecimal(0.01).setScale(2, BigDecimal.ROUND_HALF_UP);
+                    //      BigTotal = BigTotal.multiply(percent);
+                    //      value = value + "\n" + HE + "E" + zero(flagOrder) + pCount + zero(thirdFlag) +hcCount + zero(secondFlag) + rCount + space(63) + "\r";
+                    // htmlContent = htmlContent + "<tr><td colspan='8' class='bodytext'>&nbsp;</td></tr><tr><td colspan='4' class='bodytext'>Billing No: "+ providerNo+": "+ pCount+" RECORDS PROCESSED</td><td colspan='4' class='bodytext'>TOTAL: " + BigTotal.toString().substring(0,BigTotal.toString().length() -2)  +"</td></tr>";
+                    // totalAmount = BigTotal.toString();
+                    //  writeFile(value);
+                    //      htmlValue = htmlValue + htmlContent + "</table>";
+                    //      htmlHeader = "<html><body><style type='text/css'><!-- .bodytext{  font-family: Arial, Helvetica, sans-serif;  font-size: 12px; font-style: normal;  line-height: normal;  font-weight: normal;  font-variant: normal;  text-transform: none;  color: #003366;  text-decoration: none; --></style>";
+
+                    htmlFooter = "<tr>    <td colspan='11' class='bodytext'>&nbsp;</td>  </tr>  <tr>    <td colspan='5' class='bodytext'>Billing No: " + providerNo + ": " + pCount + " RECORDS PROCESSED</td>    <td colspan='6' class='bodytext'>TOTAL: " + BigTotal + "</td>  </tr></table></body></html>";
+                    htmlCode = htmlContentHeader + htmlContent + htmlFooter;
+
+                    if (eFlag.compareTo("1") == 0) {
+                        writeHtml(htmlCode);
+                    }
+
+                    ohipReciprocal = String.valueOf(hcCount);
+                    ohipRecord = String.valueOf(rCount);
+                    ohipClaim = String.valueOf(pCount);
                 }
-                //      hcCount = hcCount + healthcardCount;
-                pCount = pCount + patientCount;
-                rCount = rCount + recordCount;
-                //      flagOrder = 4 - pCount.length();
-                //      secondFlag = 5 - rCount.length();
-                //      thirdFlag= 4 - hcCount.length();
-                //      percent = new BigDecimal(0.01).setScale(2, BigDecimal.ROUND_HALF_UP);
-                //      BigTotal = BigTotal.multiply(percent);
-                //      value = value + "\n" + HE + "E" + zero(flagOrder) + pCount + zero(thirdFlag) +hcCount + zero(secondFlag) + rCount + space(63) + "\r";
-                // htmlContent = htmlContent + "<tr><td colspan='8' class='bodytext'>&nbsp;</td></tr><tr><td colspan='4' class='bodytext'>Billing No: "+ providerNo+": "+ pCount+" RECORDS PROCESSED</td><td colspan='4' class='bodytext'>TOTAL: " + BigTotal.toString().substring(0,BigTotal.toString().length() -2)  +"</td></tr>";
-                // totalAmount = BigTotal.toString();
-                //  writeFile(value);
-                //      htmlValue = htmlValue + htmlContent + "</table>";
-                //      htmlHeader = "<html><body><style type='text/css'><!-- .bodytext{  font-family: Arial, Helvetica, sans-serif;  font-size: 12px; font-style: normal;  line-height: normal;  font-weight: normal;  font-variant: normal;  text-transform: none;  color: #003366;  text-decoration: none; --></style>";
-
-                htmlFooter = "<tr>    <td colspan='11' class='bodytext'>&nbsp;</td>  </tr>  <tr>    <td colspan='5' class='bodytext'>Billing No: " + providerNo + ": " + pCount + " RECORDS PROCESSED</td>    <td colspan='6' class='bodytext'>TOTAL: " + BigTotal + "</td>  </tr></table></body></html>";
-                htmlCode = htmlContentHeader + htmlContent + htmlFooter;
-
-                if (eFlag.compareTo("1") == 0) {
-                    writeHtml(htmlCode);
-                }
-
-                ohipReciprocal = String.valueOf(hcCount);
-                ohipRecord = String.valueOf(rCount);
-                ohipClaim = String.valueOf(pCount);
             }
 
         } catch (SQLException e) {
@@ -376,56 +383,52 @@ public class ExtractBean extends Object implements Serializable {
     }
 
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void writeFile(String value1) {
         try {
             String home_dir;
             String userHomePath = System.getProperty("user.home", "user.dir");
 
-            File pFile = new File(userHomePath, oscar_home);
-            FileInputStream pStream = new FileInputStream(pFile.getPath());
-
+            File userHomeDir = PathValidationUtils.validateConfiguredDirectory(userHomePath, "user.home");
+            File pFile = PathValidationUtils.validateExistingPath(new File(userHomeDir, oscar_home), userHomeDir);
             Properties ap = new Properties();
-            ap.load(pStream);
+            try (FileInputStream pStream = new FileInputStream(pFile)) {
+                ap.load(pStream);
+            }
 
             home_dir = ap.getProperty("HOME_DIR");
-            pStream.close();
 
-            FileOutputStream out;
-
-            out = new FileOutputStream(home_dir + ohipFilename);
-            PrintStream p;
-            p = new PrintStream(out);
-            p.println(value1);
-
-            p.close();
+            File homeDir = PathValidationUtils.resolveConfiguredDirectory(home_dir, "HOME_DIR");
+            File outputFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(ohipFilename), homeDir);
+            try (PrintStream p = new PrintStream(new FileOutputStream(outputFile))) {
+                p.println(value1);
+            }
         } catch (Exception e) {
             logger.error("Unexpected error", e);
         }
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void writeHtml(String htmlvalue1) {
         try {
             String home_dir1;
             String userHomePath1 = System.getProperty("user.home", "user.dir");
 
-            File pFile1 = new File(userHomePath1, oscar_home);
-            FileInputStream pStream1 = new FileInputStream(pFile1.getPath());
-
+            File userHomeDir1 = PathValidationUtils.validateConfiguredDirectory(userHomePath1, "user.home");
+            File pFile1 = PathValidationUtils.validateExistingPath(new File(userHomeDir1, oscar_home), userHomeDir1);
             Properties ap1 = new Properties();
-            ap1.load(pStream1);
+            try (FileInputStream pStream1 = new FileInputStream(pFile1)) {
+                ap1.load(pStream1);
+            }
             home_dir1 = ap1.getProperty("HOME_DIR");
-            pStream1.close();
 
-
-            FileOutputStream out1;
-            out1 = new FileOutputStream(home_dir1 + htmlFilename);
-            PrintStream p1;
-            p1 = new PrintStream(out1);
-
-
-            p1.println(htmlvalue1);
-
-            p1.close();
+            File homeDir1 = PathValidationUtils.resolveConfiguredDirectory(home_dir1, "HOME_DIR");
+            File outputFile1 = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(htmlFilename), homeDir1);
+            try (PrintStream p1 = new PrintStream(new FileOutputStream(outputFile1))) {
+                p1.println(htmlvalue1);
+            }
         } catch (Exception e) {
             logger.error("Unexpected error", e);
         }
@@ -571,7 +574,36 @@ public class ExtractBean extends Object implements Serializable {
     }
 
     public synchronized void setDateRange(String newDateRange) {
-        dateRange = newDateRange;
+        if (newDateRange == null || newDateRange.trim().isEmpty()) {
+            dateRange = "";
+            dateRangeParams = new String[0];
+            return;
+        }
+
+        Matcher matcher = DATE_RANGE_CONDITION.matcher(newDateRange);
+        StringBuffer parameterized = new StringBuffer();
+        List<String> params = new ArrayList<>();
+        while (matcher.find()) {
+            params.add(matcher.group(3));
+            matcher.appendReplacement(parameterized,
+                    Matcher.quoteReplacement("and " + matcher.group(1) + " " + matcher.group(2) + " ?"));
+        }
+        matcher.appendTail(parameterized);
+
+        String parameterizedDateRange = parameterized.toString();
+        if (params.isEmpty() || !SAFE_PARAMETERIZED_DATE_RANGE.matcher(parameterizedDateRange).matches()) {
+            throw new IllegalArgumentException("Unsupported billing date range filter");
+        }
+
+        dateRange = parameterizedDateRange;
+        dateRangeParams = params.toArray(new String[0]);
+    }
+
+    private Object[] billingQueryParams() {
+        Object[] params = new Object[dateRangeParams.length + 1];
+        params[0] = providerNo;
+        System.arraycopy(dateRangeParams, 0, params, 1, dateRangeParams.length);
+        return params;
     }
 
 

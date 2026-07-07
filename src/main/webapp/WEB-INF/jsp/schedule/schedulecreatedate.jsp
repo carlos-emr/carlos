@@ -61,7 +61,6 @@
         import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*"
         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -75,6 +74,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.RScheduleDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ScheduleHoliday" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleHolidayDao" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%
     ScheduleDateDao scheduleDateDao = SpringUtils.getBean(ScheduleDateDao.class);
@@ -245,6 +245,7 @@
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="schedule.schedulecreatedate.title"/></title>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css"/>

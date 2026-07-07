@@ -34,6 +34,7 @@
 <%@ include file="/taglibs.jsp"%>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi"%>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <script>
     function do_admission() {
@@ -194,7 +195,7 @@ String reason ="";
 		%>	
 		<a href=#
 			onClick="popupPage(710, 1024,'../oscarSurveillance/CheckSurveillance?demographicNo=<%=demographic_no%>&proceed=<%=java.net.URLEncoder.encode(eURL)%>');return false;"
-			title="<bean:message key="global.encounter"/>"> <bean:message
+			title="<fmt:message key="global.encounter"/>"> <fmt:message
 			key="provider.appointmentProviderAdminDay.btnE" /></a> 
 		
 		

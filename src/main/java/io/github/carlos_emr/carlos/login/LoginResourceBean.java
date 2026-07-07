@@ -34,6 +34,7 @@ import java.util.Properties;
 
 import io.github.carlos_emr.carlos.commn.service.AcceptableUseAgreementManager;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 
@@ -146,11 +147,11 @@ public class LoginResourceBean {
         // Construct path to login customization file
         String oscarDocuments = oscarProperties.getProperty("BASE_DOCUMENT_DIR") + File.separator + "login";
         Properties loginProperties = new Properties();
-        File propertiesFile = new File(oscarDocuments, ".env");
+        File propertiesFile = PathValidationUtils.validateGeneratedChildPath(".env", PathValidationUtils.resolveConfiguredDirectory(oscarDocuments, "oscar documents"));
 
         // Load custom properties from .env file if it exists
         if (propertiesFile.exists()) {
-            try (FileInputStream fileInputStream = new FileInputStream(propertiesFile)) {
+            try (FileInputStream fileInputStream = new FileInputStream(PathValidationUtils.resolveTrustedPath(propertiesFile))) {
                 loginProperties.load(fileInputStream);
             } catch (Exception e) {
                 MiscUtils.getLogger().warn("Problem with fetching login resources " + e);

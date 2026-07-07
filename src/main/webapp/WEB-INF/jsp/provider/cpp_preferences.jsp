@@ -48,6 +48,7 @@
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <title><fmt:message key="provider.cppPrefs"/></title>

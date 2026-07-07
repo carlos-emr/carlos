@@ -46,7 +46,7 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 /**
  * Builds and persists Ontario billing claim headers ({@link BillingONCHeader1})
@@ -274,7 +274,7 @@ public class BillingOnHeaderCreationService {
         if (billingService == null) {
             throw new BillingValidationException(
                     "Cannot create batch bill: service code not found for code="
-                            + LogSanitizer.sanitizeForDisplay(code));
+                            + LogSafe.sanitizeForDisplay(code));
         }
         return billingService;
     }

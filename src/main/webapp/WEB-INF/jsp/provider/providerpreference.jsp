@@ -54,6 +54,7 @@
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <%@ page import="java.util.*" %>
+<%@ page import="java.io.File" %>
 
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao" %>
@@ -65,9 +66,11 @@
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.PathValidationUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.web.PrescriptionQrCodeUIBean" %>
 <%@ page import="io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.dto.UniqueServiceTypeRow" %>
 <%!
     // DAOs declared at class level -- thread-safe Spring singletons shared across all requests
     CtlBillingServiceDao ctlBillingServiceDao = SpringUtils.getBean(CtlBillingServiceDao.class);
@@ -171,6 +174,12 @@
     String encWinHeight = props.getOrDefault("encounterWindowHeight", "");
     boolean encWinMax = "yes".equalsIgnoreCase(props.getOrDefault("encounterWindowMaximize", "no"));
     boolean encOpenInTab = "yes".equalsIgnoreCase(props.getOrDefault(UserProperty.ENCOUNTER_OPEN_IN_TAB, "no"));
+    String scheduleNavigationMode = UserProperty.resolveScheduleNavigationMode(
+            props.get(UserProperty.SCHEDULE_NAVIGATION_MODE), encOpenInTab);
+    if (!UserProperty.SCHEDULE_NAVIGATION_MODE_TAB.equals(scheduleNavigationMode)
+            && !UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED.equals(scheduleNavigationMode)) {
+        scheduleNavigationMode = UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP;
+    }
     String quickChartSize = props.getOrDefault("quickChartSize", "");
 
     // Contact info (used on prescriptions and consult letters)
@@ -191,8 +200,17 @@
     String apptCardFax = props.getOrDefault("appointmentCardFax", "");
 
     // Signature stamp
-    String consultSigValue = props.getOrDefault(UserProperty.PROVIDER_CONSULT_SIGNATURE, "");
-    boolean hasConsultSignature = !consultSigValue.isEmpty();
+    boolean hasConsultSignature = false;
+    if (providerNo != null && !providerNo.trim().isEmpty()) {
+        String expectedSignatureName = UserProperty.CONSULT_SIGNATURE_PREFIX + providerNo + ".png";
+        try {
+            File imageFolder = new File(CarlosProperties.getInstance().getEformImageDirectory());
+            File consultSigFile = PathValidationUtils.validatePath(expectedSignatureName, imageFolder);
+            hasConsultSignature = consultSigFile.isFile();
+        } catch (SecurityException e) {
+            MiscUtils.getLogger().warn("Blocked suspicious consult signature path for provider {}", providerNo, e);
+        }
+    }
 
     // Prevention warning preferences (use "true"/"false" unlike most prefs)
     boolean prevSSO = "true".equalsIgnoreCase(
@@ -214,8 +232,9 @@
 
 %>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="${carlos:forHtmlAttribute(pageContext.request.locale.language)}">
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <meta charset="utf-8">
     <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
     <c:set var="ctx" value="${pageContext.request.contextPath}"/>
@@ -996,10 +1015,21 @@
                 </div>
             </div>
             <div class="pref-row">
-                <div class="pref-label"><fmt:message key="provider.providerpreference.label.openInTabs"/></div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.scheduleNavigationMode"/></div>
                 <div class="pref-value">
-                    <input type="checkbox" class="form-check-input" role="switch"
-                           name="encounter_open_in_tab" value="yes" <%=encOpenInTab ? "checked" : ""%>>
+                    <%-- This is a single mode selector so the focused schedule shell
+                         cannot accidentally enable the broader encounter-in-tabs behavior. --%>
+                    <select name="<%= UserProperty.SCHEDULE_NAVIGATION_MODE %>" class="pref-input">
+                        <option value="<%= UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP %>" <%=UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP.equals(scheduleNavigationMode) ? "selected" : ""%>>
+                            <fmt:message key="provider.providerpreference.scheduleNavigationMode.popup"/>
+                        </option>
+                        <option value="<%= UserProperty.SCHEDULE_NAVIGATION_MODE_TAB %>" <%=UserProperty.SCHEDULE_NAVIGATION_MODE_TAB.equals(scheduleNavigationMode) ? "selected" : ""%>>
+                            <fmt:message key="provider.providerpreference.scheduleNavigationMode.tab"/>
+                        </option>
+                        <option value="<%= UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED %>" <%=UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED.equals(scheduleNavigationMode) ? "selected" : ""%>>
+                            <fmt:message key="provider.providerpreference.scheduleNavigationMode.focused"/>
+                        </option>
+                    </select>
                 </div>
             </div>
             <div class="pref-row">
@@ -1201,9 +1231,9 @@
                     <select name="default_servicetype" class="pref-input input-md">
                         <option value="no"><fmt:message key="provider.providerpreference.billing.noneOption"/></option><%
                         String def = providerPreference.getDefaultServiceType();
-                        for (Object[] result : ctlBillingServiceDao.getUniqueServiceTypes("A")) {
-                    %><option value="<carlos:encode value='<%= (String)result[0] %>' context="htmlAttribute"/>"
-                              <%=((String)result[0]).equals(def)?"selected":""%>><carlos:encode value='<%= (String)result[1] %>' context="html"/></option><%
+                        for (UniqueServiceTypeRow result : ctlBillingServiceDao.getUniqueServiceTypes("A")) {
+                    %><option value="<carlos:encode value='<%= result.serviceType() %>' context="htmlAttribute"/>"
+                              <%=result.serviceType().equals(def)?"selected":""%>><carlos:encode value='<%= result.serviceTypeName() %>' context="html"/></option><%
                         }
                     %></select>
                 </div>

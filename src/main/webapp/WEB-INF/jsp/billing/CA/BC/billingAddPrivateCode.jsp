@@ -31,6 +31,7 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -52,6 +53,7 @@
 
 
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title>Add Private Billing Code</title>
         <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
         <script type="text/javascript">

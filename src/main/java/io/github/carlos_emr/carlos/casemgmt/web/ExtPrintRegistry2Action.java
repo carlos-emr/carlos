@@ -39,7 +39,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -68,7 +68,7 @@ public class ExtPrintRegistry2Action extends ActionSupport {
 
         ExtPrintRegistry.addEntry(name, bean);
 
-        logger.info("ext print registry added {}:{}", LogSanitizer.sanitize(name), LogSanitizer.sanitize(bean)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+        logger.info("ext print registry added {}:{}", LogSafe.sanitize(name), LogSafe.sanitize(bean)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         return null;
     }
 

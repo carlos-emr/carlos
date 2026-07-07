@@ -55,6 +55,7 @@ import org.apache.struts2.ServletActionContext;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action that processes a new patient demographic record creation.
@@ -129,7 +130,7 @@ public class DemographicAddRecord2Action extends ActionSupport {
         Demographic demographic = new Demographic();
         demographic.setLastName(StringUtils.trimToEmpty(request.getParameter("last_name")));
         demographic.setFirstName(StringUtils.trimToEmpty(request.getParameter("first_name")));
-        demographic.setMiddleNames(StringUtils.trimToEmpty(request.getParameter("middleNames")));
+        demographic.setMiddleNames(normalizeOptionalMiddleNames(request.getParameter("middleNames")));
         demographic.setAlias(request.getParameter("nameUsed"));
         demographic.setPrefName(request.getParameter("nameUsed"));
         demographic.setAddress(request.getParameter("address"));
@@ -439,5 +440,12 @@ public class DemographicAddRecord2Action extends ActionSupport {
         request.setAttribute("remarks", request.getParameter("remarks"));
 
         return SUCCESS;
+    }
+
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    static String normalizeOptionalMiddleNames(String rawMiddleNames) {
+        String middleNames = StringUtils.trimToEmpty(rawMiddleNames);
+        return "null".equalsIgnoreCase(middleNames) ? "" : middleNames;
     }
 }

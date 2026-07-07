@@ -84,6 +84,7 @@
 <!DOCTYPE html>
 <html lang="${requestLanguageTag}">
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>
         <fmt:message key="oscarReport.RptByExample.MsgQueryByExamples"/> -
         <fmt:message key="oscarReport.RptByExample.MsgMyFavorites"/>

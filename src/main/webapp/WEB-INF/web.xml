@@ -105,9 +105,10 @@
 		<url-pattern>/*</url-pattern>
 	</filter-mapping>
 
-    <!-- Redirect bare context-root requests to the canonical Struts login action.
-         This replaces the old public index welcome files and must run before
-         Struts so "/" never falls through to container welcome-file resolution. -->
+    <!-- Forward bare context-root and /index requests directly to the internal login JSP.
+         This replaces the old public index welcome files and must run before Struts so
+         "/" never falls through to container welcome-file resolution. The same filter
+         only guards /forcepasswordreset method routing; the Struts action owns token checks. -->
     <filter>
         <filter-name>RootEntryRedirectFilter</filter-name>
         <filter-class>io.github.carlos_emr.carlos.login.RootEntryRedirectFilter</filter-class>
@@ -121,14 +122,18 @@
     <!-- CSRFGuard, CsrfGuardScriptInjectionFilter, and LogoutBroadcastFilter MUST be ordered
          before Struts execution. Once Struts executes an action, later filters in the chain do
          not run for that request. Placing these filters here ensures:
-           1. CSRFGuard validates tokens on all Struts action POST requests
-           2. CsrfGuardScriptInjectionFilter skips direct REQUEST dispatch (Tomcat 11 unwraps
-              wrappers during forward), but runs on the FORWARD dispatch to the JSP where
-              it wraps the response and injects csrfguard.js. The FORWARD dispatcher also
-              prevents the default 8KB response buffer from truncating large JSP pages.
-           3. LogoutBroadcastFilter wraps the response BEFORE Struts renders,
-              so the logout broadcast script is injected into Struts-rendered HTML pages
-              (e.g. Inboxhub, DisplayMessages)
+          1. CSRFGuard validates tokens on all Struts action POST requests. This mapping
+             intentionally omits dispatcher elements, so Jakarta/Tomcat applies the default
+             REQUEST dispatcher only; JSP FORWARD script injection is handled by the next filter.
+           2. CsrfGuardScriptInjectionFilter is mapped for FORWARD dispatches to JSPs so
+              csrfguard.js is injected at the JSP render layer without double-wrapping
+              Struts REQUEST responses. Re-adding REQUEST dispatch here can cause Struts/JSP
+              responses to be captured by two wrappers and has previously produced blank
+              schedule pages even though the action completed successfully.
+           3. LogoutBroadcastFilter remains before Struts so it can inject into
+              Struts-rendered HTML pages (e.g. Inboxhub, DisplayMessages), but it
+              only wraps authenticated/session-establishing requests and configures
+              its large buffer lazily for HTML responses.
          Filter declarations remain in their respective sections below;
          only filter-mapping order determines chain position. -->
     <filter-mapping>
@@ -138,12 +143,13 @@
     <filter-mapping>
         <filter-name>CsrfGuardScriptInjectionFilter</filter-name>
         <url-pattern>/*</url-pattern>
-        <dispatcher>REQUEST</dispatcher>
         <dispatcher>FORWARD</dispatcher>
     </filter-mapping>
     <filter-mapping>
         <filter-name>LogoutBroadcastFilter</filter-name>
         <url-pattern>/*</url-pattern>
+        <dispatcher>REQUEST</dispatcher>
+        <dispatcher>FORWARD</dispatcher>
     </filter-mapping>
 
     <!-- HttpMethodGuardFilter: blocks GET requests on mutator actions and JSPs.
@@ -166,6 +172,15 @@
     </filter>
     <filter-mapping>
         <filter-name>HttpMethodGuardFilter</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+
+    <!-- LoginFilter is the canonical authenticated-session gate for Struts and servlet routes.
+         It must run before Struts prepare/execute so unauthenticated protected requests cannot
+         fall through to action execution or Struts 404 handling first. Action-level session
+         checks remain as defence-in-depth for direct unit tests and future filter-order changes. -->
+    <filter-mapping>
+        <filter-name>LoginFilter</filter-name>
         <url-pattern>/*</url-pattern>
     </filter-mapping>
 
@@ -227,7 +242,8 @@
 		<filter-class>io.github.carlos_emr.carlos.app.CsrfGuardScriptInjectionFilter</filter-class>
 	</filter>
     <!-- filter-mapping for CsrfGuardScriptInjectionFilter is declared earlier in the file,
-         before struts2, so csrfguard.js is injected into Struts-rendered HTML responses. -->
+         before struts2, so csrfguard.js is injected into JSP FORWARD responses without
+         wrapping the top-level Struts REQUEST. -->
 
 	<filter>
 		<filter-name>LogoutBroadcastFilter</filter-name>
@@ -284,12 +300,9 @@
     <filter-name>ResponseOverrideFilter</filter-name>
     <url-pattern>/*</url-pattern>
   </filter-mapping>
-  <filter-mapping>
-    <filter-name>LoginFilter</filter-name>
-    <url-pattern>/*</url-pattern>
-  </filter-mapping>
-  <!-- Restores allowlisted clean section-home URLs, such as /administration/,
-       after LoginFilter has enforced the normal authenticated-session behavior. -->
+  <!-- Restores allowlisted clean section-home URLs, such as /administration.
+       This mapping intentionally runs later in the chain; LoginFilter remains the
+       canonical authenticated-session gate for protected routes before Struts runs. -->
   <filter-mapping>
     <filter-name>SectionRootCompatibilityFilter</filter-name>
     <url-pattern>/*</url-pattern>

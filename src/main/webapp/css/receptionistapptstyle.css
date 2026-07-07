@@ -1,25 +1,25 @@
 /*
- * 
+ *
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved. *
- * This software is published under the GPL GNU General Public License. 
- * This program is free software; you can redistribute it and/or 
- * modify it under the terms of the GNU General Public License 
- * as published by the Free Software Foundation; either version 2 
- * of the License, or (at your option) any later version. * 
- * This program is distributed in the hope that it will be useful, 
- * but WITHOUT ANY WARRANTY; without even the implied warranty of 
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the 
- * GNU General Public License for more details. * * You should have received a copy of the GNU General Public License 
- * along with this program; if not, write to the Free Software 
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. * 
- * 
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version. *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details. * * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. *
+ *
  * <OSCAR TEAM>
- * 
- * This software was written for the 
- * Department of Family Medicine 
- * McMaster University 
- * Hamilton 
- * Ontario, Canada 
+ *
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
  */
 
 table#firstTable tr {
@@ -325,6 +325,14 @@ table#firstTable a:focus-visible {
     background-color: #486ebd;
 }
 
+table#firstTable td#firstMenu ul#navlist li.nav-active,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:visited,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:active {
+    color: #00283c;
+    background-color: #d9d9d9;
+}
+
 input, select, textarea {
     background-color: #F4EaD7;
     border: 1px solid #0097cf;
@@ -423,16 +431,18 @@ table#firstTable .tabalert {
 }
 
 .tabalert:hover,
-a:hover .tabalert {
+a:hover .tabalert,
+a:focus .tabalert,
+a:focus-visible .tabalert {
     color: white !important;
 }
 
-table#firstTable td#firstMenu ul#navlist li:not(.dashboardDropdown) {
+table#firstTable td#firstMenu ul#navlist > li:not(.dashboardDropdown) {
     line-height: 1;
     display: inline-block;
 }
 
-table#firstTable td#firstMenu ul#navlist li a:not(.dashboardDropdown) {
+table#firstTable td#firstMenu ul#navlist > li:not(.dashboardDropdown) > a {
     display: inline-block;
     padding: 5px;
 }
@@ -445,6 +455,35 @@ table#firstTable td#firstMenu #navlist li:hover {
 table#firstTable td#firstMenu #navlist li a:hover {
     color: #fff;
     background-color: #486ebd;
+}
+
+table#firstTable td#firstMenu ul#navlist li.nav-active > a.tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a .tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a span {
+    color: #00283c !important;
+}
+
+table#firstTable td#firstMenu ul#navlist li.nav-active:hover,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:hover,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus-visible {
+    color: #fff;
+    background-color: #486ebd;
+}
+
+table#firstTable td#firstMenu ul#navlist li.nav-active:hover > a.tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active:hover > a .tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active:hover > a span,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:hover.tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:hover .tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:hover span,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus.tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus .tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus span,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus-visible.tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus-visible .tabalert,
+table#firstTable td#firstMenu ul#navlist li.nav-active > a:focus-visible span {
+    color: #fff !important;
 }
 
 table#firstTable td#firstMenu #navlist #logoutMobile {

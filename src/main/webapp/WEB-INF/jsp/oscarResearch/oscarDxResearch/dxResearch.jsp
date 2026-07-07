@@ -107,6 +107,7 @@
 <!DOCTYPE html>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title><fmt:message key="oscarResearch.oscarDxResearch.dxResearch.title"/></title>
 
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>

@@ -52,6 +52,7 @@ import org.springframework.stereotype.Repository;
 
 import io.github.carlos_emr.carlos.dxresearch.bean.dxCodeSearchBean;
 import io.github.carlos_emr.carlos.dxresearch.bean.dxQuickListItemsHandler;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * @author toby
@@ -65,6 +66,8 @@ public class DxresearchDAOImpl extends AbstractDaoImpl<Dxresearch> implements Dx
         super(Dxresearch.class);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public List<DxRegistedPTInfo> getPatientRegisted(List<Dxresearch> dList, List<String> doctorList) {
 
         List<DxRegistedPTInfo> rList = new ArrayList<DxRegistedPTInfo>();
@@ -362,7 +365,7 @@ public class DxresearchDAOImpl extends AbstractDaoImpl<Dxresearch> implements Dx
     }
 
     public List<Object[]> getDataForInrReport(Date fromDate, Date toDate) {
-        String sql = "SELECT d, m, dx FROM Demographic d, Measurement m, Dxresearch dx WHERE m.demographicId = dx.demographicNo AND dx.status != 'D' AND dx.codingSystem = 'icd9' AND (dx.dxresearchCode = '42731' OR dx.dxresearchCode = 'V5861' OR dx.dxresearchCode = 'V1251') AND m.demographicId = d.DemographicNo AND m.type = 'INR' AND m.dateObserved >= ?1 AND m.dateObserved <= ?2 ORDER BY d.LastName, d.FirstName, m.dateObserved";
+        String sql = "SELECT d, m, dx FROM Demographic d, Measurement m, Dxresearch dx WHERE m.demographicId = dx.demographicNo AND dx.status != 'D' AND dx.codingSystem = 'icd9' AND (dx.dxresearchCode = '42731' OR dx.dxresearchCode = 'V5861' OR dx.dxresearchCode = 'V1251') AND m.demographicId = d.demographicNo AND m.type = 'INR' AND m.dateObserved >= ?1 AND m.dateObserved <= ?2 ORDER BY d.lastName, d.firstName, m.dateObserved";
         Query q = entityManager.createQuery(sql);
         q.setParameter(1, fromDate);
         q.setParameter(2, toDate);

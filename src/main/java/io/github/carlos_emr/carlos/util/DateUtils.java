@@ -32,7 +32,6 @@ package io.github.carlos_emr.carlos.util;
 
 import java.text.DateFormat;
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
@@ -40,6 +39,7 @@ import java.util.Locale;
 
 import org.apache.commons.lang3.time.DateFormatUtils;
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.CachedDateFormats;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -85,12 +85,9 @@ public final class DateUtils {
             return null;
         }
 
-        SimpleDateFormat dateFormatter = null;
-
-        if (locale == null) dateFormatter = new SimpleDateFormat(dateFormatString);
-        else dateFormatter = new SimpleDateFormat(dateFormatString, locale);
-
-        return (dateFormatter.parse(s));
+        return (locale == null)
+                ? CachedDateFormats.parse(s, dateFormatString)
+                : CachedDateFormats.parse(s, dateFormatString, locale);
     }
 
     /**
@@ -101,12 +98,10 @@ public final class DateUtils {
     public static Date parseDateTime(String s, Locale locale) throws ParseException {
         if (s == null) return (null);
 
-        SimpleDateFormat dateTimeFormatter = null;
-
-        if (locale == null) dateTimeFormatter = new SimpleDateFormat(dateFormatString + " " + timeFormatString);
-        else dateTimeFormatter = new SimpleDateFormat(dateFormatString + " " + timeFormatString, locale);
-
-        return (dateTimeFormatter.parse(s));
+        String dateTimePattern = dateFormatString + " " + timeFormatString;
+        return (locale == null)
+                ? CachedDateFormats.parse(s, dateTimePattern)
+                : CachedDateFormats.parse(s, dateTimePattern, locale);
     }
 
     /**
@@ -174,50 +169,13 @@ public final class DateUtils {
     public static String format(String format, Date date, Locale locale) {
         if (date == null) return ("");
 
-        SimpleDateFormat dateFormatter = null;
-
-        if (locale == null) dateFormatter = new SimpleDateFormat(format);
-        else dateFormatter = new SimpleDateFormat(format, locale);
-
-        return (dateFormatter.format(date));
+        return (locale == null)
+                ? CachedDateFormats.format(date, format)
+                : CachedDateFormats.format(date, format, locale);
     }
-
-    /**
-     * @deprecated use formatDate() parseDate() instead
-     */
-    @Deprecated
-    private static SimpleDateFormat sdf;
-
-    /**
-     * @deprecated use formatDate() parseDate() instead
-     */
-    @Deprecated
-    private static String formatDate = "dd/MM/yyyy";
 
     public static String getISODateTimeFormatNoT(Calendar cal) {
         return (DateFormatUtils.ISO_DATETIME_FORMAT.format(cal).replace('T', ' '));
-    }
-
-    /**
-     * @deprecated use formatDate() parseDate() instead
-     */
-    @Deprecated
-    public static SimpleDateFormat getDateFormatter() {
-
-        if (sdf == null) {
-
-            sdf = new SimpleDateFormat(formatDate);
-
-        }
-
-        return sdf;
-
-    }
-
-    public static void setDateFormatter(String pattern) {
-
-        sdf = new SimpleDateFormat(pattern);
-
     }
 
     public static String getDate() {
@@ -230,24 +188,20 @@ public final class DateUtils {
 
     public static String getDate(Date date) {
 
-        SimpleDateFormat sdf = new SimpleDateFormat();
-
-        return sdf.format(date);
+        return CachedDateFormats.formatDefault(date);
 
     }
 
     public static String getDate(Date date, String format, Locale locale) {
         if (date == null) return "";
 
-        SimpleDateFormat sdf = new SimpleDateFormat(format, locale);
-
-        return sdf.format(date);
+        return (locale == null)
+                ? CachedDateFormats.format(date, format)
+                : CachedDateFormats.format(date, format, locale);
     }
 
     public static String getDate(Date date, String format) {
-        SimpleDateFormat sdf = new SimpleDateFormat(format);
-
-        return sdf.format(date);
+        return CachedDateFormats.format(date, format);
     }
 
     public static String getDateTime() {
@@ -268,17 +222,14 @@ public final class DateUtils {
 
         try {
 
-            setDateFormatter(formatAtual);
+            Date data = CachedDateFormats.parse(date, formatAtual);
 
-            Date data = getDateFormatter().parse(date);
+            // PHI: do not log the rendered date (may be a DOB); log only the format pattern.
+            if (logger.isDebugEnabled()) {
+                logger.debug("[DateUtils] - formatDate: formatted with pattern={}", formatAtual);
+            }
 
-            logger.debug("[DateUtils] - formatDate: data formatada: " +
-
-                    getDateFormatter().format(data));
-
-            setDateFormatter(format);
-
-            return getDateFormatter().format(data);
+            return CachedDateFormats.format(data, format);
 
         } catch (ParseException e) {
 
@@ -298,17 +249,15 @@ public final class DateUtils {
 
         try {
 
-            SimpleDateFormat sdf = new SimpleDateFormat();
+            // Legacy behaviour: parse with the no-arg SimpleDateFormat (SHORT date/time, default locale).
+            Date data = CachedDateFormats.parseDefault(date);
 
-            Date data = sdf.parse(date);
+            // PHI: do not log the rendered date (may be a DOB); log only that the default pattern was used.
+            if (logger.isDebugEnabled()) {
+                logger.debug("[DateUtils] - formatDate: formatted with default pattern");
+            }
 
-            logger.debug("[DateUtils] - formatDate: data formatada: " +
-
-                    sdf.format(data));
-
-            setDateFormatter(format);
-
-            return getDateFormatter().format(data);
+            return CachedDateFormats.format(data, format);
 
         } catch (ParseException e) {
 
@@ -336,7 +285,7 @@ public final class DateUtils {
 
         int iSum = Integer.valueOf(pSum).intValue();
 
-        logger.debug("[DateUtils] - sumDate: iSum = " + iSum);
+        logger.debug("[DateUtils] - sumDate: iSum = {}", iSum);
 
         Calendar calendar = new GregorianCalendar();
 
@@ -348,9 +297,7 @@ public final class DateUtils {
 
         Date data = calendar.getTime();
 
-        setDateFormatter(format);
-
-        return getDateFormatter().format(data);
+        return CachedDateFormats.format(data, format);
 
     }
 
@@ -643,12 +590,11 @@ public final class DateUtils {
      * @return String - The formatted date String
      */
     public static String convertDate8Char(String oldDateString) {
-        SimpleDateFormat fmt = new SimpleDateFormat("yyyy-MM-dd");
         String sdate = "00000000";
         try {
             if (oldDateString != null) {
-                Date tempDate = fmt.parse(oldDateString);
-                sdate = new SimpleDateFormat("yyyyMMdd").format(tempDate);
+                Date tempDate = CachedDateFormats.parse(oldDateString, "yyyy-MM-dd");
+                sdate = CachedDateFormats.format(tempDate, "yyyyMMdd");
             }
         } catch (ParseException ex) {
             MiscUtils.getLogger().error("Error", ex);

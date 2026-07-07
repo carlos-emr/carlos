@@ -47,7 +47,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Desaprisk" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DesapriskDao" %>
-<%@ page import="io.github.carlos_emr.carlos.db.DBHandler" %>
+<%@ page import="io.github.carlos_emr.carlos.db.LegacyJdbcQuery" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
@@ -57,6 +57,7 @@
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <title>Antenatal Planner</title>
     <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
@@ -70,24 +71,23 @@
     String finalEDB = null, wt = null, ht = null;
     String patientName = null;
 
-    ResultSet rsdemo = null;
     int formId = 0;
     try { formId = Integer.parseInt(form_no); } catch (NumberFormatException ignored) { }
     if (formId > 0) {
-        rsdemo = DBHandler.GetPreSQL("select * from formAR where ID = ?", formId);
-
-        ResultSetMetaData resultsetmetadata = rsdemo.getMetaData();
-        while (rsdemo.next()) {
-            finalEDB = rsdemo.getString("c_finalEDB");
-            patientName = rsdemo.getString("c_pName");
-            wt = rsdemo.getString("pg1_wt");
-            ht = rsdemo.getString("pg1_ht");
-            for (int k = 1; k <= resultsetmetadata.getColumnCount(); k++) {
-                //String name = resultsetmetadata.getColumnName(k);
-                //String value = null;
-                if (resultsetmetadata.getColumnTypeName(k).equalsIgnoreCase("TINY")) {
-                    if (rsdemo.getInt(k) == 1)
-                        riskDataBean.setProperty(resultsetmetadata.getColumnName(k), "checked"); //"55", "risk_cinca"
+        try (ResultSet rsdemo = LegacyJdbcQuery.queryResults("select * from formAR where ID = ?", formId)) {
+            ResultSetMetaData resultsetmetadata = rsdemo.getMetaData();
+            while (rsdemo.next()) {
+                finalEDB = rsdemo.getString("c_finalEDB");
+                patientName = rsdemo.getString("c_pName");
+                wt = rsdemo.getString("pg1_wt");
+                ht = rsdemo.getString("pg1_ht");
+                for (int k = 1; k <= resultsetmetadata.getColumnCount(); k++) {
+                    //String name = resultsetmetadata.getColumnName(k);
+                    //String value = null;
+                    if (resultsetmetadata.getColumnTypeName(k).equalsIgnoreCase("TINY")) {
+                        if (rsdemo.getInt(k) == 1)
+                            riskDataBean.setProperty(resultsetmetadata.getColumnName(k), "checked"); //"55", "risk_cinca"
+                    }
                 }
             }
         }

@@ -22,6 +22,7 @@
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
 
     <title><fmt:message key="admin.manageEmails.title"/></title>
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
@@ -258,7 +259,7 @@
     </script>
 
 <body>
-<jsp:include page="/images/spinner.jsp" flush="true"/>
+<jsp:include page="/WEB-INF/jsp/includes/spinner.jspf" flush="true"/>
 
 <div id="bodyrow" class="container-fluid">
     <div id="bodycolumn" class="col-sm-12">

@@ -86,6 +86,7 @@
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/decision/annualreview/annualreviewplanner.js"></script>
     <title>ANNUAL HEALTH REVIEW PLANNER</title>

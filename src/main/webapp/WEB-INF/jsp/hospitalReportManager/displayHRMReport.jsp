@@ -64,6 +64,7 @@
 <%@ page import="io.github.carlos_emr.carlos.hospitalReportManager.dao.*" %>
 <%@ page import="io.github.carlos_emr.carlos.hospitalReportManager.model.HRMReportCriteria" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <!DOCTYPE html>
 
 <%
@@ -215,6 +216,7 @@
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>HRM Report</title>
 
     <script type="text/javascript"
@@ -987,10 +989,10 @@
                 </td>
                                     <c:set var="__enc_1"><carlos:encode value='<%= tempId %>' context="uriComponent"/></c:set>
                            <c:set var="__enc_2"><carlos:encode value='<%= tempId %>' context="uriComponent"/></c:set>
-                           <c:set var="__enc_3"><carlos:encode value='<%= request.getParameter("providerNo") != null ? request.getParameter("providerNo") : "" %>' context="uriComponent"/></c:set>
-                           <c:set var="__enc_4"><carlos:encode value='<%= request.getParameter("searchProviderNo") != null ? request.getParameter("searchProviderNo") : "" %>' context="uriComponent"/></c:set>
-                           <c:set var="__enc_5"><carlos:encode value='<%= request.getParameter("status") != null ? request.getParameter("status") : "" %>' context="uriComponent"/></c:set>
-                           <c:set var="__enc_6"><carlos:encode value='<%= request.getParameter("demoName") != null ? request.getParameter("demoName") : "" %>' context="uriComponent"/></c:set>
+                           <c:set var="__enc_3"><carlos:encode value='<%= request.getParameter("providerNo") != null ? request.getParameter("providerNo") : "" %>' context="uriComponent"/></c:set><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
+                           <c:set var="__enc_4"><carlos:encode value='<%= request.getParameter("searchProviderNo") != null ? request.getParameter("searchProviderNo") : "" %>' context="uriComponent"/></c:set><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
+                           <c:set var="__enc_5"><carlos:encode value='<%= request.getParameter("status") != null ? request.getParameter("status") : "" %>' context="uriComponent"/></c:set><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
+                           <c:set var="__enc_6"><carlos:encode value='<%= request.getParameter("demoName") != null ? request.getParameter("demoName") : "" %>' context="uriComponent"/></c:set><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
        <td><%=formatter.format(dupReportDates.get(parsedId)) %>
                 </td>
                 <td><%=formatter.format(dupTimeReceived.get(parsedId)) %>

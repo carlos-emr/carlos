@@ -57,6 +57,7 @@
 %>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <title>Case Management</title>
     <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
@@ -198,7 +199,7 @@
                 XMLHttpRequestObject.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
 
                 var demographicNo = '${carlos:forJavaScript(param.demographicNo)}';
-                var noteId = '<carlos:encode value='<%= request.getParameter("noteId") != null ? request.getParameter("noteId") : request.getAttribute("noteId") != null ? (String) request.getAttribute("noteId") : "" %>' context="javaScriptBlock"/>';
+                var noteId = '<carlos:encode value='<%= request.getParameter("noteId") != null ? request.getParameter("noteId") : request.getAttribute("noteId") != null ? (String) request.getAttribute("noteId") : "" %>' context="javaScriptBlock"/>';<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                 var programId = '${carlos:forJavaScript(case_program_id)}';
                 XMLHttpRequestObject.send("method=autosave&demographicNo=" + demographicNo + "&programId=" + programId + "&note_id=" + noteId + "&note=" + escape(obj.value));
             }
@@ -377,7 +378,7 @@
         } else {
         %>
         <input id="showResolved" type="button" value="Show Resolved Issues"
-               onclick="document.location='CaseManagementEntry?method=edit&note_edit=new&from=casemgmt&demographicNo=<carlos:encode value='<%= request.getParameter("demographicNo") != null ? request.getParameter("demographicNo") : "" %>' context="uriComponent"/>&providerNo=<carlos:encode value='<%= request.getParameter("providerNo") != null ? request.getParameter("providerNo") : "" %>' context="uriComponent"/>&showResolved=true'"/>
+               onclick="document.location='CaseManagementEntry?method=edit&note_edit=new&from=casemgmt&demographicNo=<carlos:encode value='<%= request.getParameter("demographicNo") != null ? request.getParameter("demographicNo") : "" %>' context="uriComponent"/>&providerNo=<carlos:encode value='<%= request.getParameter("providerNo") != null ? request.getParameter("providerNo") : "" %>' context="uriComponent"/>&showResolved=true'"/><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
         <%
             }
         %>

@@ -35,8 +35,9 @@ is hosted in an IFrame and that the IFrame's parent window implements signatureH
     }
 %>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="${pageContext.request.locale.language}">
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
     <title>Signature Pad</title>
     <meta name="viewport" content="width=device-width; initial-scale=1.0; maximum-scale=1.0; user-scalable=0;"/>
@@ -89,9 +90,9 @@ is hosted in an IFrame and that the IFrame's parent window implements signatureH
     <input type="hidden" id="signatureImage" name="signatureImage" value=""/>
     <input type="hidden" name="source" value="IPAD"/>
     <input type="hidden" name="<%=DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY %>" value="<carlos:encode value='<%= requestIdKey %>' context="htmlAttribute"/>"/>
-    <input type="hidden" name="demographicNo" value="<carlos:encode value='<%= request.getParameter("demographicNo") != null ? request.getParameter("demographicNo") : "" %>' context="htmlAttribute"/>"/>
+    <input type="hidden" name="demographicNo" value="<carlos:encode value='<%= request.getParameter("demographicNo") != null ? request.getParameter("demographicNo") : "" %>' context="htmlAttribute"/>"/><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
 	<input type="hidden" name="<%= ModuleType.class.getSimpleName()%>"
-			value="<carlos:encode value='<%= request.getParameter(ModuleType.class.getSimpleName()) != null ? request.getParameter(ModuleType.class.getSimpleName()) : "" %>' context="htmlAttribute"/>" />
+			value="<carlos:encode value='<%= request.getParameter(ModuleType.class.getSimpleName()) != null ? request.getParameter(ModuleType.class.getSimpleName()) : "" %>' context="htmlAttribute"/>" /><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
     <input type="hidden" name="saveToDB" value="<%=saveToDB%>"/>
 </form>
 

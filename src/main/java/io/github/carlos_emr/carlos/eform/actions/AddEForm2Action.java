@@ -43,10 +43,13 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.match.IMatchManager;
 import io.github.carlos_emr.carlos.match.MatchManager;
 import io.github.carlos_emr.carlos.match.MatchManagerException;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.eform.data.EForm;
@@ -68,13 +71,20 @@ import java.util.regex.Pattern;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import org.owasp.encoder.Encode;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class AddEForm2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static final Logger logger = MiscUtils.getLogger();
+    private static final String INVALID_FILENAME_MESSAGE_KEY = "dms.error.invalidFilename";
+    private static final String ERROR_ATTRIBUTE = "error";
+    private static final String PDF_DOWNLOAD_FAILURE_MESSAGE = "This eForm (and attachments, if applicable) could not be downloaded.";
+    private static final String PDF_PREVIEW_WARNING_MESSAGE = "This eForm was saved, but its PDF preview could not be generated.";
+    private static final String ERROR_MESSAGE_ATTRIBUTE = "errorMessage";
+    private static final String WARNING_MESSAGE_ATTRIBUTE = "warningMessage";
+    private static final String PDF_PREVIEW_FALLBACK_SUFFIX = "_eform.pdf";
 
     /**
      * Validates the eform_link parameter format to prevent session attribute injection (CWE-501).
@@ -98,10 +108,17 @@ public class AddEForm2Action extends ActionSupport {
      */
     static String validateEformLink(String eformLink) {
         if (eformLink != null && !EFORM_LINK_PATTERN.matcher(eformLink).matches()) {
-            logger.warn("Invalid eform_link parameter rejected: {}", LogSanitizer.sanitize(eformLink));
+            logger.warn("Invalid eform_link parameter rejected: {}", LogSafe.sanitize(eformLink));
             return null;
         }
         return eformLink;
+    }
+
+    static String validateTemplateFileName(String rawFileName) {
+        if (rawFileName == null || rawFileName.isEmpty()) {
+            return rawFileName;
+        }
+        return PathValidationUtils.validateFileName(rawFileName);
     }
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -109,7 +126,15 @@ public class AddEForm2Action extends ActionSupport {
     private DocumentAttachmentManager documentAttachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
     private EmailManager emailManager = SpringUtils.getBean(EmailManager.class);
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() {
+
+        String method = request.getMethod();
+        if ("GET".equalsIgnoreCase(method) || "HEAD".equalsIgnoreCase(method)) {
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eform", "w", null)) {
             throw new SecurityException("missing required sec object (_eform)");
@@ -185,6 +210,18 @@ public class AddEForm2Action extends ActionSupport {
         curForm.setContextPath(request.getContextPath());
 		curForm.setRealPath(request.getServletContext().getRealPath(File.separator));
 		curForm.setImagePath(request.getContextPath());
+        String validatedTemplateFileName;
+        try {
+            validatedTemplateFileName = validateTemplateFileName(curForm.getFormFileName());
+        } catch (FileValidationException e) {
+            request.setAttribute(ERROR_ATTRIBUTE, "true");
+            request.setAttribute(ERROR_MESSAGE_ATTRIBUTE, getInvalidFilenameMessage());
+            logger.warn("Rejected invalid eForm template filename");
+            return ERROR;
+        }
+        if (validatedTemplateFileName != null && !validatedTemplateFileName.isEmpty()) {
+            curForm.setFormFileName(validatedTemplateFileName);
+        }
 
         //add eform_link value from session attribute
         ArrayList<String> openerNames = curForm.getOpenerNames();
@@ -256,7 +293,7 @@ public class AddEForm2Action extends ActionSupport {
                 if (eform_link.startsWith(expectedPrefix) && eform_link.length() <= 100) {
                     se.setAttribute(eform_link, fdid); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): fdid is Integer.parseInt-validated queue document ID; key validated by validateEformLink()
                 } else {
-                    logger.warn("Invalid eform_link rejected: {}", LogSanitizer.sanitize(eform_link)); // nosemgrep: crlf-injection-logs-deepsemgrep -- sanitized via LogSanitizer (OWASP Encode.forJava) // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                    logger.warn("Invalid eform_link rejected: {}", LogSafe.sanitize(eform_link)); // nosemgrep: crlf-injection-logs-deepsemgrep -- sanitized via LogSafe (OWASP Encode.forJava) // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 }
             }
 
@@ -267,38 +304,13 @@ public class AddEForm2Action extends ActionSupport {
                 try {
                     documentAttachmentManager.saveEFormAsEDoc(request, response);
                 } catch (PDFGenerationException e) {
-                    logger.error(e.getMessage(), e);
-                    String errorMessage = "This eForm (and attachments, if applicable) could not be added to this patient’s documents. \\n\\n" + e.getMessage();
-                    request.setAttribute("errorMessage", errorMessage);
+                    setPdfError("This eForm (and attachments, if applicable) could not be added to this patient’s documents.", e);
                     return "error";
                 }
             }
 
             if (fax) {
-                StringBuilder faxForward = new StringBuilder(request.getContextPath()).append("/fax/faxAction");
-                faxForward.append("?method=").append("prepareFax");
-                faxForward.append("&transactionId=").append(URLEncoder.encode(fdid, StandardCharsets.UTF_8));
-                faxForward.append("&transactionType=").append(URLEncoder.encode(TransactionType.EFORM.name(), StandardCharsets.UTF_8));
-                faxForward.append("&demographicNo=").append(URLEncoder.encode(demographic_no, StandardCharsets.UTF_8));
-
-                /*
-                 * Added incase the eForm developer adds these elements to the
-                 * eform.
-                 */
-                if (recipient != null && !recipient.isEmpty()) {
-                    faxForward.append("&recipient=").append(URLEncoder.encode(recipient, StandardCharsets.UTF_8));
-                }
-                if (recipientFaxNumber != null && !recipientFaxNumber.isEmpty()) {
-                    faxForward.append("&recipientFaxNumber=").append(URLEncoder.encode(recipientFaxNumber, StandardCharsets.UTF_8));
-                }
-                if (letterheadFax != null && !letterheadFax.isEmpty()) {
-                    faxForward.append("&letterheadFax=").append(URLEncoder.encode(letterheadFax, StandardCharsets.UTF_8));
-                }
-                try {
-                    response.sendRedirect(faxForward.toString());
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
+                redirectToPreparedFax(fdid, demographic_no, recipient, recipientFaxNumber, letterheadFax);
                 return NONE;
             } else if (print) {
                 return "print";
@@ -312,9 +324,7 @@ public class AddEForm2Action extends ActionSupport {
                     Path eFormPdfPath = documentAttachmentManager.renderEFormWithAttachments(request, response);
                     pdfBase64 = documentAttachmentManager.convertPDFToBase64(eFormPdfPath);
                 } catch (PDFGenerationException e) {
-                    logger.error(e.getMessage(), e);
-                    String errorMessage = "This eForm (and attachments, if applicable) could not be downloaded. \\n\\n" + e.getMessage();
-                    request.setAttribute("errorMessage", errorMessage);
+                    setPdfError(PDF_DOWNLOAD_FAILURE_MESSAGE, e);
                     return "error";
                 }
 
@@ -327,7 +337,6 @@ public class AddEForm2Action extends ActionSupport {
 
                 return "download";
             } else if (isEmailEForm) {
-                String path = request.getContextPath() + "/email/emailComposeAction?method=prepareComposeEFormMailer&fid=" + Encode.forUriComponent(fid);
                 EmailAttachmentSettings settings = EmailAttachmentSettings.of(
                     request,
                     fdid,
@@ -339,11 +348,7 @@ public class AddEForm2Action extends ActionSupport {
                     attachedForms
                 );
                 addEmailAttachmentsToSession(request, settings);
-                try {
-                    response.sendRedirect(path);
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
+                redirectToEmailCompose(fid);
                 return NONE;
             } else {
                 //write template message to echart
@@ -353,14 +358,6 @@ public class AddEForm2Action extends ActionSupport {
                 path = path.substring(0, path.indexOf(uri));
                 path += request.getContextPath();
 
-                String rawFileName = curForm.getFormFileName();
-                if (rawFileName != null && !rawFileName.isEmpty()) {
-                    String sanitized = MiscUtils.sanitizeFileName(rawFileName);
-                    if (sanitized.isEmpty() || ".".equals(sanitized) || "..".equals(sanitized)) {
-                        throw new IllegalArgumentException("eForm filename sanitization resulted in unusable filename");
-                    }
-                    curForm.setFormFileName(sanitized);
-                }
                 EFormUtil.writeEformTemplate(LoggedInInfo.getLoggedInInfoFromSession(request), paramNames, paramValues, curForm, fdid, program_no, path);
             }
 
@@ -376,31 +373,7 @@ public class AddEForm2Action extends ActionSupport {
                  * This form id is sent to the fax action to render it as a faxable PDF.
                  * A preview is returned to the user once the form is rendered.
                  */
-                StringBuilder faxForward = new StringBuilder(request.getContextPath()).append("/fax/faxAction");
-                faxForward.append("?method=").append(URLEncoder.encode("prepareFax", StandardCharsets.UTF_8));
-                faxForward.append("&transactionId=").append(URLEncoder.encode(prev_fdid, StandardCharsets.UTF_8));
-                faxForward.append("&transactionType=").append(URLEncoder.encode(TransactionType.EFORM.name(), StandardCharsets.UTF_8));
-                faxForward.append("&demographicNo=").append(URLEncoder.encode(demographic_no, StandardCharsets.UTF_8));
-
-
-                /*
-                 * Added incase the eForm developer adds these elements to the
-                 * eform.
-                 */
-                if (recipient != null) {
-                    faxForward.append("&recipient=").append(recipient);
-                }
-                if (recipientFaxNumber != null) {
-                    faxForward.append("&recipientFaxNumber=").append(recipientFaxNumber);
-                }
-                if (letterheadFax != null) {
-                    faxForward.append("&letterheadFax=").append(letterheadFax);
-                }
-                try {
-                    response.sendRedirect(faxForward.toString());
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
+                redirectToPreparedFax(prev_fdid, demographic_no, recipient, recipientFaxNumber, letterheadFax);
                 return NONE;
             } else if (print) {
                 return "print";
@@ -414,9 +387,7 @@ public class AddEForm2Action extends ActionSupport {
                     Path eFormPdfPath = documentAttachmentManager.renderEFormWithAttachments(request, response);
                     pdfBase64 = documentAttachmentManager.convertPDFToBase64(eFormPdfPath);
                 } catch (PDFGenerationException e) {
-                    logger.error(e.getMessage(), e);
-                    String errorMessage = "This eForm (and attachments, if applicable) could not be downloaded. \\n\\n" + e.getMessage();
-                    request.setAttribute("errorMessage", errorMessage);
+                    setPdfError(PDF_DOWNLOAD_FAILURE_MESSAGE, e);
                     return "error";
                 }
 
@@ -429,7 +400,6 @@ public class AddEForm2Action extends ActionSupport {
 
                 return "download";
             } else if (isEmailEForm) {
-                String path = request.getContextPath() + "/email/emailComposeAction?method=prepareComposeEFormMailer&fid=" + Encode.forUriComponent(fid);
                 EmailAttachmentSettings settings = EmailAttachmentSettings.of(
                     request,
                     prev_fdid,
@@ -441,11 +411,7 @@ public class AddEForm2Action extends ActionSupport {
                     attachedForms
                 );
                 addEmailAttachmentsToSession(request, settings);
-                try {
-                    response.sendRedirect(path);
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
+                redirectToEmailCompose(fid);
                 return NONE;
             }
 
@@ -453,9 +419,7 @@ public class AddEForm2Action extends ActionSupport {
                 try {
                     documentAttachmentManager.saveEFormAsEDoc(request, response);
                 } catch (PDFGenerationException e) {
-                    logger.error(e.getMessage(), e);
-                    String errorMessage = "This eForm (and attachments, if applicable) could not be added to this patient’s documents. \\n\\n" + e.getMessage();
-                    request.setAttribute("errorMessage", errorMessage);
+                    setPdfError("This eForm (and attachments, if applicable) could not be added to this patient’s documents.", e);
                     return "error";
                 }
             }
@@ -473,28 +437,45 @@ public class AddEForm2Action extends ActionSupport {
 		}
 
         String fdid = (String) request.getAttribute("fdid");
-
-		String pdfBase64;
-		try {
-			Path eFormPdfPath = documentAttachmentManager.renderEFormWithAttachments(request, response);
-			pdfBase64 = documentAttachmentManager.convertPDFToBase64(eFormPdfPath);
-		} catch (PDFGenerationException e) {
-			logger.error(e.getMessage(), e);
-			String errorMessage = "This eForm (and attachments, if applicable) could not be downloaded. \\n\\n" + e.getMessage();
-			request.setAttribute("errorMessage", errorMessage);
-			return "error";
-		}
-
-		request.setAttribute("eFormPDF", pdfBase64);
-		request.setAttribute("eFormPDFName", generateFileName(loggedInInfo, Integer.parseInt(demographic_no)));
-		request.setAttribute("isSuccess_Autoclose", "true");
-
-        request.setAttribute("fdid", fdid);
-        request.setAttribute("parentAjaxId", "eforms");
-
-        return "close";
+        return closeWithPdfPreview(loggedInInfo, demographic_no, fdid);
 	}
 	
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin fax action path built from the current context path with encoded query parameters.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin fax action path built from the current context path with encoded query parameters")
+    private void redirectToPreparedFax(String fdid, String demographicNo, String recipient, String recipientFaxNumber, String letterheadFax) {
+        StringBuilder faxForward = new StringBuilder(request.getContextPath()).append("/fax/faxAction");
+        faxForward.append("?method=").append("prepareFax");
+        faxForward.append("&transactionId=").append(URLEncoder.encode(fdid, StandardCharsets.UTF_8));
+        faxForward.append("&transactionType=").append(URLEncoder.encode(TransactionType.EFORM.name(), StandardCharsets.UTF_8));
+        faxForward.append("&demographicNo=").append(URLEncoder.encode(demographicNo, StandardCharsets.UTF_8));
+
+        if (recipient != null && !recipient.isEmpty()) {
+            faxForward.append("&recipient=").append(URLEncoder.encode(recipient, StandardCharsets.UTF_8));
+        }
+        if (recipientFaxNumber != null && !recipientFaxNumber.isEmpty()) {
+            faxForward.append("&recipientFaxNumber=").append(URLEncoder.encode(recipientFaxNumber, StandardCharsets.UTF_8));
+        }
+        if (letterheadFax != null && !letterheadFax.isEmpty()) {
+            faxForward.append("&letterheadFax=").append(URLEncoder.encode(letterheadFax, StandardCharsets.UTF_8));
+        }
+        try {
+            response.sendRedirect(faxForward.toString());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin email compose path built from the current context path with an encoded eForm id.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin email compose path built from the current context path with an encoded eForm id")
+    private void redirectToEmailCompose(String fid) {
+        String path = request.getContextPath() + "/email/emailComposeAction?method=prepareComposeEFormMailer&fid=" + SafeEncode.forUriComponent(fid);
+        try {
+            response.sendRedirect(path);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
 	private String generateFileName(LoggedInInfo loggedInInfo, int demographicNo) {
 		DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
 		String demographicLastName = demographicManager.getDemographicFormattedName(loggedInInfo, demographicNo).split(", ")[0];
@@ -504,6 +485,55 @@ public class AddEForm2Action extends ActionSupport {
         String formattedDate = dateFormat.format(currentDate);
 
         return formattedDate + "_" + demographicLastName + ".pdf";
+    }
+
+    String closeWithPdfPreview(LoggedInInfo loggedInInfo, String demographicNo, String fdid) {
+        String pdfBase64 = "";
+        try {
+            Path eFormPdfPath = documentAttachmentManager.renderEFormWithAttachments(request, response);
+            if (eFormPdfPath == null) {
+                throw new PDFGenerationException("eForm PDF preview path was not generated");
+            }
+            pdfBase64 = documentAttachmentManager.convertPDFToBase64(eFormPdfPath);
+        } catch (Exception e) {
+            setPdfWarning(PDF_PREVIEW_WARNING_MESSAGE, e);
+        }
+
+        request.setAttribute("eFormPDF", pdfBase64);
+        request.setAttribute("eFormPDFName", buildPdfPreviewName(loggedInInfo, demographicNo));
+        request.setAttribute("isSuccess_Autoclose", "true");
+        request.setAttribute("fdid", fdid);
+        request.setAttribute("parentAjaxId", "eforms");
+        return "close";
+    }
+
+    private String buildPdfPreviewName(LoggedInInfo loggedInInfo, String demographicNo) {
+        try {
+            return generateFileName(loggedInInfo, Integer.parseInt(demographicNo));
+        } catch (RuntimeException e) {
+            logger.warn("Falling back to a generic PDF preview filename for demographic {}", LogSafe.sanitize(demographicNo), e);
+            return new SimpleDateFormat("yyyy_MM_dd").format(new Date()) + PDF_PREVIEW_FALLBACK_SUFFIX;
+        }
+    }
+
+    private void setPdfError(String message, Exception e) {
+        logger.error(message, e);
+        request.setAttribute(ERROR_ATTRIBUTE, "true");
+        request.setAttribute(ERROR_MESSAGE_ATTRIBUTE, message);
+    }
+
+    private void setPdfWarning(String message, Exception e) {
+        logger.warn(message, e);
+        request.setAttribute(WARNING_MESSAGE_ATTRIBUTE, message);
+    }
+
+    private String getInvalidFilenameMessage() {
+        try {
+            return ResourceBundle.getBundle("oscarResources", request.getLocale())
+                    .getString(INVALID_FILENAME_MESSAGE_KEY);
+        } catch (MissingResourceException e) {
+            return "Invalid filename";
+        }
     }
 
     /**

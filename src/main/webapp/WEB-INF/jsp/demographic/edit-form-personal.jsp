@@ -941,7 +941,7 @@
                                                         </td>
                                                         <td align="left">
                                                             <input type="text" name="phone"
-                                                                   onblur="formatPhoneNum();" <%=getDisabled("phone")%>
+                                                                   onblur="formatPhoneNum(this);" <%=getDisabled("phone")%>
                                                                    style="display: inline; width: auto;"
                                                                    value="<%=StringUtils.trimToEmpty(StringUtils.trimToEmpty(demographic.getPhone()))%>">
                                                             <label for="hPhoneExt"><fmt:message key="demographic.demographiceditdemographic.msgExt"/>:</label>
@@ -957,7 +957,7 @@
                                                         </td>
                                                         <td align="left"><input type="text"
                                                                                 name="phone2" <%=getDisabled("phone2")%>
-                                                                                onblur="formatPhoneNum();"
+                                                                                onblur="formatPhoneNum(this);"
                                                                                 style="display: inline; width: auto;"
                                                                                 value="<%=StringUtils.trimToEmpty(demographic.getPhone2())%>">
                                                             <label for="wPhoneExt"><fmt:message key="demographic.demographiceditdemographic.msgExt"/>:</label>
@@ -975,7 +975,7 @@
                                                         </td>
                                                         <td align="left">
                                                             <input type="text" name="demo_cell"
-                                                                   onblur="formatPhoneNum();"
+                                                                   onblur="formatPhoneNum(this);"
                                                                    style="display: inline; width: auto;" <%=getDisabled("demo_cell")%>
                                                                    value="<%=StringUtils.trimToEmpty(demoExt.get("demo_cell"))%>">
                                                             <input type="hidden" name="demo_cellOrig"
@@ -1039,7 +1039,7 @@
                                                         </td>
                                                         <td align="left"><input type="text" name="email"
                                                                                 size="30" <%=getDisabled("email")%>
-                                                                                value="<%=demographic.getEmail() !=null ? SafeEncode.forHtmlContent(demographic.getEmail()) : ""%>">
+                                                                                value="<%=demographic.getEmail() !=null ? SafeEncode.forHtmlAttribute(demographic.getEmail()) : ""%>">
                                                         </td>
                                                         <td style="text-align: right;">
                                                             <strong><fmt:message key="demographic.demographicaddrecordhtm.formGender"/></strong>

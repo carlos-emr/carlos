@@ -55,6 +55,7 @@
 <!DOCTYPE html>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <title><fmt:message key="encounter.oscarConsultationRequest.ConfirmConsultationRequest.title"/></title>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -76,6 +77,16 @@
                     <fmt:message key="encounter.oscarConsultationRequest.ConfirmConsultationRequest.msgCreated"/>
                 <% } %>
             </h5>
+
+            <%-- The signal is set as a request attribute on the same-request paths and re-encoded as a
+                 query parameter when the save path redirects here (request attributes do not survive a 302). --%>
+            <% if (Boolean.TRUE.equals(request.getAttribute("signatureNotApplied"))
+                   || "1".equals(request.getParameter("signatureNotApplied"))) { %>
+                <div class="alert alert-warning py-2 px-3 mb-3" role="alert" style="font-size:0.85rem;">
+                    <i class="fa-solid fa-triangle-exclamation me-1"></i>
+                    <fmt:message key="encounter.oscarConsultationRequest.ConfirmConsultationRequest.signatureNotApplied"/>
+                </div>
+            <% } %>
 
             <%=WebUtils.popInfoMessagesAsHtml(session)%>
 

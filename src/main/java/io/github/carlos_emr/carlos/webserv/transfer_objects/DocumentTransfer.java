@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.managers.DocumentManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.beans.BeanUtils;
 
 public final class DocumentTransfer {
@@ -278,6 +279,11 @@ public final class DocumentTransfer {
     /**
      * ctlDocument can be null
      */
+    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
+    // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
+    @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
+            justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
+                    "known CARLOS types; no user-controlled property name reaches the sink")
     public static DocumentTransfer toTransfer(Document document, CtlDocument ctlDocument) throws IOException {
         if (document == null) return (null);
 

@@ -58,6 +58,7 @@ public class TicklerDaoFindIntegrationTest extends TicklerDaoBaseIntegrationTest
         @DisplayName("should return tickler when valid ID is provided")
         void shouldReturnTickler_whenValidIdProvided() {
             // Given: Create and persist a new tickler
+            ensureDemographicExists(2001);
             Tickler newTickler = new Tickler();
             newTickler.setDemographicNo(2001);
             newTickler.setMessage("Find by ID test");

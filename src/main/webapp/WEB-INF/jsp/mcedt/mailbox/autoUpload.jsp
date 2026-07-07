@@ -52,6 +52,7 @@
 %>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <title>Uploading Claims from CARLOS to MCEDT</title>
     <script src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>

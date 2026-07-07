@@ -71,14 +71,13 @@
 <html>
 
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%=request.getContextPath()%>/js/global.js"></script>
         <title>HRM Document List</title>
 
         <link href="${ pageContext.request.contextPath }/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <!-- Bootstrap 2.3.1 -->
         <link href="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
-        <link href="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.11/css/jquery.dataTables.min.css"
-              rel="stylesheet">
         <script src="${ pageContext.request.contextPath }/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="${ pageContext.request.contextPath }/js/global.js"></script>
         <script src="${ pageContext.request.contextPath }/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
@@ -120,9 +119,9 @@
                         <td><h4><fmt:message key="hrm.displayHRMDocList.displaydocs"/></h4></td>
                         <td>&nbsp;</td>
                         <td style="text-align: right"><a
-                                href="javascript:popupStart(300,400,'Help.jsp')"><fmt:message key="global.help"/></a> | <a
-                                href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400,'License.jsp')"><fmt:message key="global.license"/></a></td>
+                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewHelp')"><fmt:message key="global.help"/></a> | <a
+                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')"><fmt:message key="global.about"/></a> | <a
+                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')"><fmt:message key="global.license"/></a></td>
                     </tr>
                 </table>
             </td>

@@ -26,6 +26,7 @@ import io.github.carlos_emr.carlos.commn.model.EFormDocs;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Repository
 public class HRMDocumentToDemographicDao extends AbstractDaoImpl<HRMDocumentToDemographic> {
@@ -73,6 +74,8 @@ public class HRMDocumentToDemographicDao extends AbstractDaoImpl<HRMDocumentToDe
      * @param consultationId
      * @return A list of HRMDocumentToDemographic objects, the list is empty if an error occurs or no results
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @SuppressWarnings("unchecked")
     public List<HRMDocumentToDemographic> findHRMDocumentsAttachedToConsultation(String consultationId) {
         //Creates a new empty list, it remains empty if an error occurs
@@ -110,6 +113,8 @@ public class HRMDocumentToDemographicDao extends AbstractDaoImpl<HRMDocumentToDe
     }
 
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @SuppressWarnings("unchecked")
     public List<HRMDocumentToDemographic> findHRMDocumentsAttachedToEForm(String fdid) {
         //Creates a new empty list, it remains empty if an error occurs

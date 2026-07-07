@@ -26,6 +26,8 @@
   for dynamic output rendered by the page.
 --%>
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%-- ViewOnGenRaSettle2Action enforces _billing w + POST and runs the settle
      mutation via OnRaSettlementService — the 3 inline DAO lookups
      (RaHeaderDao, BillingDao, RaDetailDao) the JSP body used to perform

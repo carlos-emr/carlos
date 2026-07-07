@@ -71,6 +71,7 @@
 
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <script LANGUAGE="JavaScript">
             <!--
@@ -99,7 +100,7 @@
             // Security check - require write access to _pref security object
             SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
             if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pref", "w", null)) {
-                throw new SecurityException("missing required sec object: _pref (write access required)");
+                throw new SecurityException("missing required sec object (_pref w)");
             }
 
             String programId_forCME = request.getParameter("case_program_id");
@@ -115,6 +116,7 @@
             boolean saveSuccess = false;
             String errorDetails = null;
             ProviderPreference providerPreference = null;
+            String savedScheduleNavigationMode = null;
 
             String curUser_providerno = loggedInInfo.getLoggedInProviderNo();
 
@@ -140,6 +142,12 @@
                     // Save all preferences atomically - if any fail, all fail
                     providerPreference = ProviderPreferencesUIBean.updateOrCreateProviderPreferences(request);
                     ProviderPropertyAction.updateOrCreateProviderProperties(request);
+
+                    String submittedScheduleNavigationMode = request.getParameter(UserProperty.SCHEDULE_NAVIGATION_MODE);
+                    if (submittedScheduleNavigationMode != null) {
+                        savedScheduleNavigationMode = UserProperty.resolveScheduleNavigationMode(
+                                submittedScheduleNavigationMode, false);
+                    }
 
                     // Save tickler provider number after other preferences succeed
                     if (ticklerforproviderno != null && !ticklerforproviderno.trim().isEmpty()
@@ -180,6 +188,26 @@
         %>
         <% if (saveSuccess) { %>
         <script LANGUAGE="JavaScript">
+            <% if (savedScheduleNavigationMode != null) { %>
+            var scheduleNavigationPreferencePayload = {
+                mode: '<%= SafeEncode.forJavaScript(savedScheduleNavigationMode) %>',
+                source: 'provider-preference',
+                timestamp: Date.now()
+            };
+            try {
+                if (self.opener && typeof self.opener.applyScheduleNavigationPreference === 'function') {
+                    self.opener.applyScheduleNavigationPreference(scheduleNavigationPreferencePayload.mode);
+                }
+            } catch (e) {}
+            try {
+                var scheduleNavigationPreferenceChannel = new BroadcastChannel('carlos_schedule_navigation_mode');
+                scheduleNavigationPreferenceChannel.postMessage(scheduleNavigationPreferencePayload);
+                scheduleNavigationPreferenceChannel.close();
+            } catch (e) {}
+            try {
+                localStorage.setItem('carlos_schedule_navigation_mode', JSON.stringify(scheduleNavigationPreferencePayload));
+            } catch (e) {}
+            <% } %>
             if (self.opener && typeof self.opener.refresh1 === 'function') {
                 self.opener.refresh1();
             }

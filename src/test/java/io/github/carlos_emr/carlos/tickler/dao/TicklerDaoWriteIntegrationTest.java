@@ -65,6 +65,7 @@ public class TicklerDaoWriteIntegrationTest extends TicklerDaoBaseIntegrationTes
         @DisplayName("should persist new tickler and successfully merge updates")
         void shouldPersistNewTicklerAndMergeUpdates_whenValidDataProvided() {
             // Given
+            ensureDemographicExists(5001);
             Tickler tickler = new Tickler();
             tickler.setDemographicNo(5001);
             tickler.setMessage("Persist test");

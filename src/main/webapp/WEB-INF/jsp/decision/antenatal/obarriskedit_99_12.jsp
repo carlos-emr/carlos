@@ -36,10 +36,12 @@
 <%@ page import="java.util.*, java.sql.*, java.io.*, io.github.carlos_emr.*" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <title>ANTENATAL CHECK LIST</title>
     <link rel="stylesheet" href="antenatalrecord.css">
@@ -83,7 +85,7 @@
                                                                            name='submit' value=' Save '> <input
                         type="button"
                         name="Button"
-                        value="&nbsp;<%=request.getParameter("submit")!=null?" Exit ":"Cancel"%>&nbsp;"
+                        value="&nbsp;<%=request.getParameter("submit")!=null?" Exit ":"Cancel"%>&nbsp;"<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                         onClick="onExit();">&nbsp;
                 </div>
             </th>
@@ -108,7 +110,7 @@
         while (true) {
             aline = raf.readLine();
             if (aline != null) {
-                out.println(aline);
+                out.println(SafeEncode.forHtml(aline));
             } else {
                 break;
             }

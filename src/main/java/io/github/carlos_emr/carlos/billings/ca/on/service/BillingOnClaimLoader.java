@@ -34,7 +34,7 @@ import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingPercLimitDao;
 import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingPercLimit;
 import io.github.carlos_emr.carlos.utility.DateRange;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
@@ -147,10 +147,10 @@ public class BillingOnClaimLoader {
             // operator can't distinguish "code is unknown" from "DAO
             // threw" or "date string was unparseable".
             _logger.error("Failed to load fee for service code {} on date {}",
-                    LogSanitizer.sanitize(val),
-                    LogSanitizer.sanitize(billReferalDate),
+                    LogSafe.sanitize(val),
+                    LogSafe.sanitize(billReferalDate),
                     e);
-            return FeeLookupResult.partial("Fee lookup failed for service code " + LogSanitizer.sanitizeForDisplay(val));
+            return FeeLookupResult.partial("Fee lookup failed for service code " + LogSafe.sanitizeForDisplay(val));
         }
     }
 
@@ -172,10 +172,10 @@ public class BillingOnClaimLoader {
             return FeeLookupResult.found(retval);
         } catch (Exception e) {
             _logger.error("Failed to load percentage for service code {} on date {}",
-                    LogSanitizer.sanitize(val),
-                    LogSanitizer.sanitize(billReferalDate),
+                    LogSafe.sanitize(val),
+                    LogSafe.sanitize(billReferalDate),
                     e);
-            return FeeLookupResult.partial("Percentage lookup failed for service code " + LogSanitizer.sanitizeForDisplay(val));
+            return FeeLookupResult.partial("Percentage lookup failed for service code " + LogSafe.sanitizeForDisplay(val));
         }
     }
 
@@ -200,10 +200,10 @@ public class BillingOnClaimLoader {
             return FeeRangeLookupResult.found(retval[0], retval[1]);
         } catch (Exception e) {
             _logger.error("Failed to load percent min/max for service code {} on date {}",
-                    LogSanitizer.sanitize(val),
-                    LogSanitizer.sanitize(billReferalDate),
+                    LogSafe.sanitize(val),
+                    LogSafe.sanitize(billReferalDate),
                     e);
-            return FeeRangeLookupResult.partial("Percentage min/max lookup failed for service code " + LogSanitizer.sanitizeForDisplay(val));
+            return FeeRangeLookupResult.partial("Percentage min/max lookup failed for service code " + LogSafe.sanitizeForDisplay(val));
         }
     }
 
@@ -365,7 +365,7 @@ public class BillingOnClaimLoader {
             return new SimpleDateFormat("yyyy-MM-dd").parse(s);
         } catch (ParseException | NullPointerException e) {
             _logger.debug("comparator: malformed billing_date {}; sorting to epoch sentinel",
-                    LogSanitizer.sanitize(s));
+                    LogSafe.sanitize(s));
             return COMPARATOR_DATE_SENTINEL;
         }
     }
@@ -379,7 +379,7 @@ public class BillingOnClaimLoader {
             return Integer.parseInt(s);
         } catch (NumberFormatException | NullPointerException e) {
             _logger.debug("comparator: malformed demographic_no {}; sorting to MIN sentinel",
-                    LogSanitizer.sanitize(s));
+                    LogSafe.sanitize(s));
             return Integer.MIN_VALUE;
         }
     }

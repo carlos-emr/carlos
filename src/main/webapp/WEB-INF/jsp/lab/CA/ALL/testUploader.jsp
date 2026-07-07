@@ -60,6 +60,7 @@
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
 
     <title><fmt:message key="lab.ca.all.testUploader.labUploadUtility"/></title>
 

@@ -30,6 +30,8 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%-- Data assembly + RaHeader audit merge run in ViewOnGenRaSummary2Action via
      OnRaSummaryViewModelAssembler. The view model is stashed on the request as
      ${model}; this JSP only renders. The "no rano" early return in the legacy
@@ -37,6 +39,7 @@
 <c:if test="${not empty model.raNo}">
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="<carlos:encode value='${pageContext.request.contextPath}' context='htmlAttribute'/>/js/global.js"></script>
     <script type="text/javascript" src="<carlos:encode value='${pageContext.request.contextPath}' context='htmlAttribute'/>/library/jquery/jquery-3.7.1.min.js"></script>
     <script type="text/javascript" src="<carlos:encode value='${pageContext.request.contextPath}' context='htmlAttribute'/>/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>

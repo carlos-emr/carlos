@@ -44,7 +44,7 @@ import static org.mockito.Mockito.*;
  * <p>Matrix covered:
  * <ul>
  *   <li>{GET, POST} × {no submit, submit=Save, submit=Print, submit=SAVE mixed case}
- *       × {_forms r only, _forms r+w, neither}</li>
+ *       × {_form r only, _form r+w, neither}</li>
  * </ul>
  *
  * @since 2026-04-14
@@ -85,8 +85,8 @@ class ViewDecision2ActionTest extends CarlosUnitTestBase {
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
 
-        // Default: _forms r granted
-        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_forms"), eq("r"), isNull()))
+        // Default: _form r granted
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_form"), eq("r"), isNull()))
                 .thenReturn(true);
 
         action = new ViewDecision2Action();
@@ -107,7 +107,7 @@ class ViewDecision2ActionTest extends CarlosUnitTestBase {
     class ReadGate {
 
         @Test
-        @DisplayName("should succeed on GET with _forms r and no submit param")
+        @DisplayName("should succeed on GET with _form r and no submit param")
         void shouldSucceed_onGetWithReadAndNoSubmit() throws Exception {
             mockRequest.setMethod("GET");
 
@@ -125,19 +125,19 @@ class ViewDecision2ActionTest extends CarlosUnitTestBase {
 
             assertThatThrownBy(() -> action.execute())
                     .isInstanceOf(SecurityException.class)
-                    .hasMessageContaining("_forms r");
+                    .hasMessageContaining("_form r");
         }
 
         @Test
-        @DisplayName("should throw SecurityException when _forms r is denied")
+        @DisplayName("should throw SecurityException when _form r is denied")
         void shouldThrow_whenReadPrivilegeDenied() {
             mockRequest.setMethod("GET");
-            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_forms"), eq("r"), isNull()))
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_form"), eq("r"), isNull()))
                     .thenReturn(false);
 
             assertThatThrownBy(() -> action.execute())
                     .isInstanceOf(SecurityException.class)
-                    .hasMessageContaining("_forms r");
+                    .hasMessageContaining("_form r");
         }
     }
 
@@ -156,7 +156,7 @@ class ViewDecision2ActionTest extends CarlosUnitTestBase {
             assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             verify(mockSecurityInfoManager, never())
-                    .hasPrivilege(any(LoggedInInfo.class), eq("_forms"), eq("w"), isNull());
+                    .hasPrivilege(any(LoggedInInfo.class), eq("_form"), eq("w"), isNull());
         }
 
         @Test
@@ -184,24 +184,24 @@ class ViewDecision2ActionTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should throw SecurityException on POST with Save when _forms w denied")
+        @DisplayName("should throw SecurityException on POST with Save when _form w denied")
         void shouldThrow_onPostSaveWithoutWritePrivilege() {
             mockRequest.setMethod("POST");
             mockRequest.setParameter("submit", " Save ");
-            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_forms"), eq("w"), isNull()))
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_form"), eq("w"), isNull()))
                     .thenReturn(false);
 
             assertThatThrownBy(() -> action.execute())
                     .isInstanceOf(SecurityException.class)
-                    .hasMessageContaining("_forms w");
+                    .hasMessageContaining("_form w");
         }
 
         @Test
-        @DisplayName("should succeed on POST with Save when _forms r and _forms w granted")
+        @DisplayName("should succeed on POST with Save when _form r and _form w granted")
         void shouldSucceed_onPostSaveWithReadAndWrite() throws Exception {
             mockRequest.setMethod("POST");
             mockRequest.setParameter("submit", " Save ");
-            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_forms"), eq("w"), isNull()))
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_form"), eq("w"), isNull()))
                     .thenReturn(true);
 
             String result = action.execute();
@@ -248,7 +248,7 @@ class ViewDecision2ActionTest extends CarlosUnitTestBase {
 
             assertThat(result).isEqualTo(ActionSupport.SUCCESS);
             verify(mockSecurityInfoManager, never())
-                    .hasPrivilege(any(LoggedInInfo.class), eq("_forms"), eq("w"), isNull());
+                    .hasPrivilege(any(LoggedInInfo.class), eq("_form"), eq("w"), isNull());
         }
 
         @Test
@@ -260,7 +260,7 @@ class ViewDecision2ActionTest extends CarlosUnitTestBase {
 
             assertThat(result).isEqualTo(ActionSupport.SUCCESS);
             verify(mockSecurityInfoManager, never())
-                    .hasPrivilege(any(LoggedInInfo.class), eq("_forms"), eq("w"), isNull());
+                    .hasPrivilege(any(LoggedInInfo.class), eq("_form"), eq("w"), isNull());
         }
 
         @Test
@@ -273,7 +273,7 @@ class ViewDecision2ActionTest extends CarlosUnitTestBase {
 
             assertThat(result).isEqualTo(ActionSupport.SUCCESS);
             verify(mockSecurityInfoManager, never())
-                    .hasPrivilege(any(LoggedInInfo.class), eq("_forms"), eq("w"), isNull());
+                    .hasPrivilege(any(LoggedInInfo.class), eq("_form"), eq("w"), isNull());
         }
     }
 }

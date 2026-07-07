@@ -120,9 +120,8 @@ public class SecurityDaoImpl extends AbstractDaoImpl<Security> implements Securi
 
     @Override
     public List<Object[]> findProviders() {
-        // Provider.hbm.xml uses PascalCase HBM property names
-        // (ProviderNo, LastName); HQL must use the exact names from the mapping.
-        String sql = "SELECT s, p FROM Security s, Provider p WHERE p.ProviderNo = s.providerNo ORDER BY p.LastName";
+        // Provider is annotation-mapped with JavaBean property names; HQL uses providerNo and lastName.
+        String sql = "SELECT s, p FROM Security s, Provider p WHERE p.providerNo = s.providerNo ORDER BY p.lastName";
         Query query = entityManager.createQuery(sql);
         return query.getResultList();
     }

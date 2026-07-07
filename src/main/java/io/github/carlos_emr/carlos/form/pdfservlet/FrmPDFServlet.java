@@ -49,8 +49,9 @@ import org.apache.logging.log4j.Logger;
 import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import io.github.carlos_emr.carlos.form.FrmRecord;
 import io.github.carlos_emr.carlos.form.FrmRecordFactory;
@@ -483,11 +484,11 @@ public class FrmPDFServlet extends HttpServlet {
             int n;
             try {
                 reader = new PdfReader(propFilename);
-                log.info("Found template at {}", LogSanitizer.sanitize(propFilename));
+                log.info("Found template at {}", LogSafe.sanitize(propFilename));
             } catch (Exception dex) {
-                log.debug("change path to inside oscar from: {}", LogSanitizer.sanitize(propFilename));
+                log.debug("change path to inside oscar from: {}", LogSafe.sanitize(propFilename));
                 reader = new PdfReader("/oscar/form/prop/" + template);
-                log.debug("Found template at /oscar/form/prop/{}", LogSanitizer.sanitize(template));
+                log.debug("Found template at /oscar/form/prop/{}", LogSafe.sanitize(template));
             }
 
             // retrieve the total number of pages
@@ -882,7 +883,7 @@ public class FrmPDFServlet extends HttpServlet {
         // Step 1: Extract just the filename, removing any directory paths
         String baseFilename = org.apache.commons.io.FilenameUtils.getName(cfgFilename);
         if (baseFilename == null || baseFilename.isEmpty()) {
-            log.warn("Invalid config filename after sanitization: {}", LogSanitizer.sanitize(cfgFilename));
+            log.warn("Invalid config filename after sanitization: {}", LogSafe.sanitize(cfgFilename));
             return ret;
         }
         
@@ -917,6 +918,8 @@ public class FrmPDFServlet extends HttpServlet {
         return ret;
     }
     
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private Properties loadFromFileSystem(String baseDir, String safeFilename) {
         try {
             // Build and validate the full path using PathValidationUtils

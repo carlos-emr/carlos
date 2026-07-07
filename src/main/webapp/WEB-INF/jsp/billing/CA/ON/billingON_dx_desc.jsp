@@ -29,6 +29,8 @@
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnDiagDescriptionViewModel" %>
 <%@page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingDiagCodeViewModelAssembler" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     // ViewBillingOnDiagDesc2Action enforces _billing r and assembles the
     // truncated description via BillingDiagCodeViewModelAssembler.assembleDescription.

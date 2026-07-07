@@ -22,13 +22,19 @@
  */
 package io.github.carlos_emr.carlos.webserv.rest.conversion;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao;
+import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.commn.model.Tickler.STATUS;
 import io.github.carlos_emr.carlos.commn.model.TicklerComment;
@@ -113,6 +119,8 @@ public class TicklerConverter extends AbstractConverter<Tickler, TicklerTo1> {
             d.setStatusName("Deleted");
         }
 
+        Map<String, String> expandedProviderNames = getExpandedProviderNames(providerDao, t);
+
         if (includeLinks) {
             List<TicklerLink> links = ticklerLinkDao.getLinkByTickler(d.getId());
             TicklerLinkConverter tlc = new TicklerLinkConverter();
@@ -125,7 +133,7 @@ public class TicklerConverter extends AbstractConverter<Tickler, TicklerTo1> {
                 tct.setMessage(tc.getMessage());
                 tct.setProviderNo(tc.getProviderNo());
                 tct.setUpdateDate(tc.getUpdateDate());
-                tct.setProviderName(tc.getProvider() != null ? tc.getProvider().getFormattedName() : "N/A");
+                tct.setProviderName(providerNameOrNotApplicable(expandedProviderNames, tc.getProviderNo()));
                 d.getTicklerComments().add(tct);
             }
         }
@@ -134,7 +142,7 @@ public class TicklerConverter extends AbstractConverter<Tickler, TicklerTo1> {
             for (TicklerUpdate tu : t.getUpdates()) {
                 TicklerUpdateTo1 tut = new TicklerUpdateTo1();
                 BeanUtils.copyProperties(tu, tut, new String[]{"id", "provider"});
-                tut.setProviderName(tu.getProvider() != null ? tu.getProvider().getFormattedName() : "N/A");
+                tut.setProviderName(providerNameOrNotApplicable(expandedProviderNames, tu.getProviderNo()));
 
                 d.getTicklerUpdates().add(tut);
             }
@@ -149,6 +157,49 @@ public class TicklerConverter extends AbstractConverter<Tickler, TicklerTo1> {
         }
 
         return d;
+    }
+
+    /**
+     * Batch-loads provider display names needed by optional comment/update expansion.
+     *
+     * <p>This supports REST callers that set {@code includeComments} or {@code includeUpdates}
+     * without forcing conversion code to dereference lazy provider associations on each expanded
+     * row.</p>
+     */
+    private Map<String, String> getExpandedProviderNames(ProviderDao providerDao, Tickler tickler) {
+        Set<String> providerNos = new HashSet<>();
+        if (includeComments) {
+            tickler.getComments().forEach(comment -> addProviderNo(providerNos, comment.getProviderNo()));
+        }
+        if (includeUpdates) {
+            tickler.getUpdates().forEach(update -> addProviderNo(providerNos, update.getProviderNo()));
+        }
+        if (providerNos.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, String> providerNames = new HashMap<>();
+        List<Provider> providers = providerDao.getProvidersByIds(new ArrayList<>(providerNos));
+        for (Provider provider : providers) {
+            providerNames.put(provider.getProviderNo(), provider.getFormattedName());
+        }
+        return providerNames;
+    }
+
+    /**
+     * Adds a provider number to the batch lookup set when present.
+     */
+    private void addProviderNo(Set<String> providerNos, String providerNo) {
+        if (providerNo != null) {
+            providerNos.add(providerNo);
+        }
+    }
+
+    /**
+     * Returns the batch-loaded provider display name, or {@code N/A} for null or missing entries.
+     */
+    private String providerNameOrNotApplicable(Map<String, String> providerNames, String providerNo) {
+        String providerName = providerNo != null ? providerNames.get(providerNo) : null;
+        return providerName != null ? providerName : "N/A";
     }
 
     public boolean isIncludeLinks() {

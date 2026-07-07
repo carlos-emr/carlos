@@ -40,7 +40,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 /**
@@ -54,7 +54,7 @@ public class EctPatientData {
         ResultSet rs = null;
         try {
 
-            rs = DBHandler.GetPreSQL("SELECT provider_no FROM demographic WHERE demographic_no = ?",
+            rs = LegacyJdbcQuery.getPreparedResultSet("SELECT provider_no FROM demographic WHERE demographic_no = ?",
                     demographicNo);
             if (rs.next())
                 ret = Misc.getString(rs, "provider_no");
@@ -81,7 +81,7 @@ public class EctPatientData {
         Patient p = null;
         ResultSet rs = null;
         try {
-            rs = DBHandler.GetPreSQL("SELECT demographic_no, last_name, first_name, sex, year_of_birth, month_of_birth, date_of_birth, address, city, postal, phone, roster_status FROM demographic WHERE demographic_no = ?",
+            rs = LegacyJdbcQuery.getPreparedResultSet("SELECT demographic_no, last_name, first_name, sex, year_of_birth, month_of_birth, date_of_birth, address, city, postal, phone, roster_status FROM demographic WHERE demographic_no = ?",
                     demographicNo);
             if (rs.next())
                 p = new Patient(rs.getInt("demographic_no"), Misc.getString(rs, "last_name"), Misc.getString(rs, "first_name"),
@@ -205,7 +205,7 @@ public class EctPatientData {
                     try {
 
                         //                            + " ORDER BY eChartId DESC limit 1";
-                        rs = DBHandler.GetPreSQL("select * from eChart where demographicNo=? ORDER BY eChartId DESC", demographicNo);
+                        rs = LegacyJdbcQuery.getPreparedResultSet("select * from eChart where demographicNo=? ORDER BY eChartId DESC", demographicNo);
                         if (rs.next()) {
                             this.eChartTimeStamp = rs.getTimestamp("timeStamp");
                             this.socialHistory = Misc.getString(rs, "socialHistory");

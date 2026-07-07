@@ -66,6 +66,7 @@ import io.github.carlos_emr.carlos.messenger.data.MessengerSystemMessage;
 import io.github.carlos_emr.carlos.messenger.data.MsgDisplayMessage;
 import io.github.carlos_emr.carlos.messenger.data.MsgMessageData;
 import io.github.carlos_emr.carlos.messenger.data.MsgProviderData;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 
 @Service
@@ -295,6 +296,8 @@ public class MessagingManagerImpl implements MessagingManager {
      * @param messageId
      * @param providerNo
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public void setMessageRead(LoggedInInfo loggedInInfo, Long messageId, String providerNo) {
         List<MessageList> messageList = messageListDao.findByProviderNoAndMessageNo(providerNo, messageId);
         for (MessageList message : messageList) {

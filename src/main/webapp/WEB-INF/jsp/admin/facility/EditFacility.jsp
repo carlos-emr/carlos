@@ -53,6 +53,7 @@
 %>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title><fmt:message key="admin.facility.edit.title"/></title>
         <link rel="stylesheet" type="text/css" href='${request.contextPath}/css/tigris.css'/>
         <link rel="stylesheet" type="text/css" href='${request.contextPath}/css/displaytag.css'/>
