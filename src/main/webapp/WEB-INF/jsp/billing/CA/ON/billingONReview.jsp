@@ -21,7 +21,8 @@
     https://github.com/carlos-emr/carlos
 --%>
 <%--
-  Purpose: Supports billingONReview in the Ontario billing workflow.
+  Purpose: This page provides an opportunity to review
+  and potentially print bills specified in billingON.jsp
   Expected request model data includes: reviewModel.
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.
@@ -38,7 +39,21 @@
 <c:set var="reviewModel" value="${reviewModel}" scope="page"/>
 <c:set var="demographicNo" value="${reviewModel.requestParamEchoes['demographic_no']}" scope="request"/>
 
+<%-- i18n message variables for JavaScript alerts and submit button values --%>
+<fmt:message var="msgEnterNumbers" key="oscar.billing.ca.on.billingON.review.alertEnterNumbers"/>
+<fmt:message var="msgEnterValidFee" key="oscar.billing.ca.on.billingON.review.alertEnterValidFee"/>
+<fmt:message var="msgSelectPaymentMethod" key="oscar.billing.ca.on.billingON.review.alertSelectPaymentMethod"/>
+<fmt:message var="msgNothingSelected" key="oscar.billing.ca.on.billingON.review.alertNothingSelected"/>
+<fmt:message var="msgConfirmAddDxRegistry" key="oscar.billing.ca.on.billingON.review.confirmAddDxRegistry"/>
+<fmt:message var="msgBtnBackToEdit" key="oscar.billing.ca.on.billingON.review.btnBackToEdit"/>
+<fmt:message var="msgBtnSave" key="global.btnSave"/>
+<fmt:message var="msgBtnSaveAndAdd" key="oscar.billing.ca.on.billingON.review.btnSaveAndAdd"/>
+<fmt:message var="msgBtnSavePrint" key="oscar.billing.ca.on.billingON.review.btnSavePrint"/>
+<fmt:message var="msgBtnSettlePrint" key="oscar.billing.ca.on.billingON.review.btnSettlePrint"/>
+<fmt:message var="msgBtnAddDxRegistry" key="oscar.billing.ca.on.billingON.review.btnAddDxRegistry"/>
+
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>CARLOS Billing</title>
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -105,7 +120,7 @@
             var regexNumberic = /^([1-9]\d{0,9}|0)(\.\d{1,2})?$/;
             if (!regexNumberic.test(val)) {
                 document.getElementById("paid_" + idx).value = oldVal;
-                alert("Please enter digital numbers !");
+                alert("${carlos:forJavaScript(msgEnterNumbers)}");
                 return;
             }
             oldVal = val;
@@ -122,7 +137,7 @@
             var regexNumberic = /^([1-9]\d{0,9}|0)(\.\d{1,2})?$/;
             if (!regexNumberic.test(val)) {
                 document.getElementById("discount_" + idx).value = oldVal;
-                alert("Please enter digital numbers !");
+                alert("${carlos:forJavaScript(msgEnterNumbers)}");
                 return;
             }
             oldVal = val;
@@ -139,7 +154,7 @@
             var regexNumberic = /^([1-9]\d{0,9}|0)(\.\d{1,2})?$/;
             if (!regexNumberic.test(val)) {
                 document.getElementById("percCodeSubtotal_" + idx).value = oldVal;
-                alert("Please enter digital numbers !");
+                alert("${carlos:forJavaScript(msgEnterNumbers)}");
                 return;
             }
             oldVal = val;
@@ -152,7 +167,7 @@
         function checkTotal() {
             var totValue = document.getElementById("total").value;
             if (isNaN(totValue)) {
-                alert("Please enter a valid fee");
+                alert("${carlos:forJavaScript(msgEnterValidFee)}");
                 return false;
             }
             return true;
@@ -161,7 +176,7 @@
         function updateTotal(e) {
             var editedValue = e.value;
             if (isNaN(editedValue)) {
-                alert("Please enter a valid fee");
+                alert("${carlos:forJavaScript(msgEnterValidFee)}");
                 e.focus();
             } else {
                 var codeFees;
@@ -214,7 +229,7 @@
             }
 
             if (!checkedMethod) {
-                alert("Please select a payment method");
+                alert("${carlos:forJavaScript(msgSelectPaymentMethod)}");
             } else if (settle == "Settle") {
                 document.forms['titlesearch'].btnPressed.value = 'Settle';
                 document.forms['titlesearch'].submit();
@@ -304,12 +319,13 @@
     <input type="hidden" name="billStatus_old" id="billStatus_old" value="<carlos:encode value='${reviewModel.requestParamEchoes[\"billStatus_old\"]}' context='htmlAttribute'/>"/>
     <input type="hidden" name="billForm" id="billForm" value="<carlos:encode value='${reviewModel.requestParamEchoes[\"billForm\"]}' context='htmlAttribute'/>"/>
     <input type="hidden" name="payeename" id="payeename" value=""/>
+    <input type="hidden" name="billingAction" id="billingAction" value="SAVE"/>
     <table style="width:100%" class="myIvory">
         <tr>
             <td>
                 <table style="width:100%" class="myDarkGreen">
                     <tr style="background-color:silver;">
-                        <td><H4>&nbsp;Billing Confirmation</H4></td>
+                        <td><H4>&nbsp;<fmt:message key="oscar.billing.ca.on.billingON.review.heading"/></H4></td>
                         <td style="text-align:right"><input type="hidden" name="addition" value="Confirm"/></td>
                     </tr>
                 </table>
@@ -320,7 +336,14 @@
                 <table style="width:100%" class="myYellow">
                     <tr>
                         <td style="white-space:nowrap; width:10%; text-align:center"><carlos:encode value="${reviewModel.demoName}" context="html"/>
-                            &nbsp;&nbsp; <carlos:encode value="${reviewModel.demoSexLabel}" context="html"/> &nbsp;&nbsp;
+                            &nbsp;&nbsp; <c:choose>
+                                <c:when test="${reviewModel.demoSexLabel eq 'Female'}"><fmt:message key="global.gender.female"/></c:when>
+                                <c:when test="${reviewModel.demoSexLabel eq 'Male'}"><fmt:message key="global.gender.male"/></c:when>
+                                <c:when test="${reviewModel.demoSexLabel eq 'Intersex'}"><fmt:message key="global.gender.intersex"/></c:when>
+                                <c:when test="${reviewModel.demoSexLabel eq 'Other'}"><fmt:message key="global.gender.other"/></c:when>
+                                <c:when test="${reviewModel.demoSexLabel eq 'Undisclosed'}"><fmt:message key="global.gender.undisclosed"/></c:when>
+                                <c:otherwise><carlos:encode value="${reviewModel.demoSexLabel}" context="html"/></c:otherwise>
+                            </c:choose> &nbsp;&nbsp;
                             <carlos:encode value="${reviewModel.demoHeaderLine}" context="html"/>
                         </td>
                         <td style="text-align:center">
@@ -339,19 +362,19 @@
 
                             <table style="width:100%">
                                 <tr>
-                                    <td style="white-space:nowrap; width:30%; text-align:center"><b>Service Date</b><br>
+                                    <td style="white-space:nowrap; width:30%; text-align:center"><b><fmt:message key="global.serviceDate"/></b><br>
                                         <c:forEach var="line" items="${reviewModel.serviceDateLines}" varStatus="lst">
                                             <c:if test="${not lst.first}"><br></c:if>
                                             <carlos:encode value="${line}" context="html"/>
                                         </c:forEach>
                                     </td>
-                                    <td style="text-align:center; width:33%"><b>Diagnostic Code</b><br>
+                                    <td style="text-align:center; width:33%"><b><fmt:message key="global.diagnosticCode"/></b><br>
                                         ${carlos:forHtmlContent(reviewModel.dxCode)}<br>
                                         ${carlos:forHtmlContent(reviewModel.dxDesc)}
                                     </td>
-                                    <td style="vertical-align:top"><b>Refer. Doctor</b><br>
+                                    <td style="vertical-align:top"><b><fmt:message key="oscar.billing.ca.on.billingON.review.referralDoctor"/></b><br>
                                         <carlos:encode value="${reviewModel.requestParamEchoes['referralDocName']}" context="html"/><br>
-                                        <b>Refer. Doctor #</b><br>
+                                        <b><fmt:message key="oscar.billing.ca.on.billingON.review.referralDoctor"/>&nbsp;#</b><br>
                                         <carlos:encode value="${reviewModel.requestParamEchoes['referralCode']}" context="html"/>
                                     </td>
                                 </tr>
@@ -363,39 +386,39 @@
                             <table style="width:100%"
                                    class="myGreen">
                                 <tr>
-                                    <td style="white-space:nowrap;width:30%"><b>Billing Physician</b></td>
+                                    <td style="white-space:nowrap;width:30%"><b><fmt:message key="oscar.billing.ca.on.billingON.billingPhysician"/></b></td>
                                     <td style="width:20%"><carlos:encode value="${reviewModel.billingPhysicianLabel}" context="html"/>
                                     </td>
-                                    <td style="white-space:nowrap; width:30%"><b>MRP</b></td>
+                                    <td style="white-space:nowrap; width:30%"><b><fmt:message key="encounter.Index.msgMRP"/></b></td>
                                     <td style="width:20%"><carlos:encode value="${reviewModel.mrpLabel}" context="html"/>
                                     </td>
                                 </tr>
                                 <tr>
 
-                                    <td style="width:30%"><b>Visit Type</b></td>
+                                    <td style="width:30%"><b><fmt:message key="billing.billingCorrection.formVisitType"/></b></td>
                                     <td style="width:20%"><carlos:encode value="${reviewModel.visitTypeLabel}" context="html"/>
                                     </td>
 
-                                    <td style="width:30%"><b>Billing Type</b></td>
+                                    <td style="width:30%"><b><fmt:message key="oscar.billing.ca.on.billingON.billingType"/></b></td>
                                     <td style="width:20%"><carlos:encode value="${reviewModel.billTypeLabel}" context="html"/>
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td><b>Visit Location</b></td>
+                                    <td><b><fmt:message key="oscar.billing.ca.on.billingON.visitLocation"/></b></td>
                                     <td><carlos:encode value="${reviewModel.locationLabel}" context="html"/> &nbsp;
                                         <c:if test="${reviewModel.MReview}">
-                                            <b>Manual: Y</b>
+                                            <b><fmt:message key="oscar.billing.ca.on.billingON.review.manualY"/></b>
                                         </c:if>
                                     </td>
 
                                     <c:if test="${reviewModel.multisitesEnabled}">
-                                        <td style="width:30%"><b>Billing Clinic</b></td>
+                                        <td style="width:30%"><b><fmt:message key="oscar.billing.ca.on.billingON.review.billingClinic"/></b></td>
                                         <td style="width:20%; white-space:nowrap;"><carlos:encode value="${reviewModel.siteName}" context="html"/>
                                         </td>
                                     </c:if>
                                 </tr>
                                 <tr>
-                                    <td><b>SLI Code</b></td>
+                                    <td><b><fmt:message key="oscar.billing.CA.ON.billingON.OB.SLIcode"/></b></td>
                                     <td><carlos:encode value="${reviewModel.sliCodeLabel}" context="html"/>
                                         &nbsp;
                                     </td>
@@ -405,7 +428,7 @@
                                     </c:if>
                                 </tr>
                                 <tr>
-                                    <td><b>Admission Date</b></td>
+                                    <td><b><fmt:message key="oscar.billing.ca.on.billingON.admissionDate"/></b></td>
                                     <td><carlos:encode value="${reviewModel.admissionDate}" context="html"/>
                                     </td>
                                     <td colspan="2"></td>
@@ -453,15 +476,15 @@
                     </c:forEach>
                     <c:if test="${reviewModel.codeValid}">
                     <tr class="myYellow">
-                        <td colspan='3'>Calculation</td>
+                        <td colspan='3'><fmt:message key="oscar.billing.ca.on.billingON.review.calculation"/></td>
                         <c:choose>
                             <c:when test="${reviewModel.billType ne 'PAT'}">
-                                <td>Description</td>
+                                <td><fmt:message key="global.description"/></td>
                             </c:when>
                             <c:otherwise>
-                                <td style="width:14%">Description</td>
-                                <td style="width:3%">Payment</td>
-                                <td style="width:3%">Discount</td>
+                                <td style="width:14%"><fmt:message key="global.description"/></td>
+                                <td style="width:3%"><fmt:message key="oscar.billing.ca.on.billingON.review.colPayment"/></td>
+                                <td style="width:3%"><fmt:message key="oscar.billing.ca.on.billingON.review.colDiscount"/></td>
                             </c:otherwise>
                         </c:choose>
                     </tr>
@@ -540,7 +563,7 @@
                             </td>
                             <td style="text-align:right;" colspan='1' class="myGreen">
 
-                                Total: <input type="text" id="total" name="total" value="0.00"
+                                <fmt:message key="global.total"/>: <input type="text" id="total" name="total" value="0.00"
                                               onchange="onTotalChanged();"/>
                                 <input type="hidden" name="totalItem" value="${reviewModel.totalItem}"/></td>
 
@@ -614,11 +637,8 @@
                         <tr>
                             <td colspan="4" style="text-align:center;">
                                 <div class='alert alert-danger' role='alert' style='margin: 8px 0;'>
-                                    <strong>Totals could not be parsed.</strong>
-                                    One or more code totals or the GST percent on this review
-                                    failed to parse and were treated as zero. Submission is
-                                    blocked until the values are corrected — go back to edit
-                                    and verify each code's total.
+                                    <strong><fmt:message key="oscar.billing.ca.on.billingON.review.totalsParseFailed"/></strong>
+                                    <fmt:message key="oscar.billing.ca.on.billingON.review.totalsParseFailedDetail"/>
                                 </div>
                             </td>
                         </tr>
@@ -626,17 +646,18 @@
                     <tr>
 
                         <td colspan="4" style="text-align:center; background-color:silver">
-                            <input type="submit" name="button" value="Back to Edit" class="btn btn-secondary" style="width: 120px;"/>
+                            <input type="submit" value="<carlos:encode value='${msgBtnBackToEdit}' context='htmlAttribute'/>" class="btn btn-secondary"
+                                   onclick="document.getElementById('billingAction').value='BACK_TO_EDIT';"/>
                             <c:choose>
                                 <c:when test="${reviewModel.codeValid and not reviewModel.dupServiceCode and not reviewModel.totalsParseFailed}">
-                                    <input type="submit" name="submit" value="Save" class="btn btn-primary"
-                                           style="width: 120px;" onClick="onClickSave();"/>
-                                    <input type="submit" name="submit" value="Save &amp; Add Another Bill" class="btn btn-secondary"
-                                           onClick="onClickSave();"/>
+                                    <input type="submit" value="<carlos:encode value='${msgBtnSave}' context='htmlAttribute'/>" class="btn btn-primary"
+                                           onclick="document.getElementById('billingAction').value='SAVE'; onClickSave();"/>
+                                    <input type="submit" value="<carlos:encode value='${msgBtnSaveAndAdd}' context='htmlAttribute'/>" class="btn btn-secondary"
+                                           onclick="document.getElementById('billingAction').value='SAVE_ADD_ANOTHER'; onClickSave();"/>
                                 </c:when>
                                 <c:when test="${reviewModel.dupServiceCode}">
                         <td>
-                            <div class='alert alert-danger'>Warning: Duplicate service codes entered</div>
+                            <div class='alert alert-danger'><fmt:message key="oscar.billing.ca.on.billingON.review.dupServiceCodes"/></div>
                         </td>
                                 </c:when>
                             </c:choose>
@@ -648,14 +669,14 @@
     </tr>
 
     <c:if test="${reviewModel.percRendered}">
-        <tr><td style='text-align:center'><br><span class='alert alert-info' >* Click the code you want the % code to apply to [1 or 2 ...].</span></td></tr>
+        <tr><td style='text-align:center'><br><span class='alert alert-info'><fmt:message key="oscar.billing.ca.on.billingON.review.percCodeHint"/></span></td></tr>
     </c:if>
 
     <c:if test="${reviewModel.codeValid and reviewModel.publicPayer}">
     <tr>
         <td>
             <br>
-            Billing Notes:<br>
+            <fmt:message key="billing.billingCorrection.msgNotes"/>:<br>
             <textarea name="comment" style="width:600px;"><carlos:encode value="${reviewModel.billingNotes}" context="html"/></textarea>
         </td>
     </tr>
@@ -670,23 +691,23 @@
         <td>
             <table class="border1" style="width:100%">
                 <tr class="myYellow">
-                    <td colspan='2'>Private Billing</td>
+                    <td colspan='2'><fmt:message key="oscar.billing.ca.on.billingON.review.privateBilling"/></td>
                 </tr>
                 <tr>
                     <td style="width:80%">
 
                         <table id="privateBillInfo" style="width:100%">
                             <tr>
-                                <td>Bill To [<a href="#" onclick="scriptAttach('billTo'); return false;">Search</a>]<br>
+                                <td><fmt:message key="billing.billingCorrection.msgPayer"/> [<a href="#" onclick="scriptAttach('billTo'); return false;"><fmt:message key="global.btnSearch"/></a>]<br>
                                     <textarea name="billto" id="billTo" cols="30" rows="6">${carlos:forHtmlContent(reviewModel.patientAddress)}</textarea>
                                 </td>
-                                <td>Remit To [<a href="#" onclick="scriptAttach('remitTo'); return false;">Search</a>]<br>
+                                <td><fmt:message key="oscar.billing.ca.on.billingON.review.remitTo"/> [<a href="#" onclick="scriptAttach('remitTo'); return false;"><fmt:message key="global.btnSearch"/></a>]<br>
                                     <c:if test="${reviewModel.clinicAddressUnavailable}">
-                                        <div class="alert alert-danger" role="alert">Clinic address is temporarily unavailable. Verify the remit-to address before printing or saving.</div>
+                                        <div class="alert alert-danger" role="alert"><fmt:message key="oscar.billing.ca.on.billingON.review.clinicAddressUnavailable"/></div>
                                     </c:if>
                                     <textarea name="remitto" id="remitTo" value="" cols="30"
                                               rows="6">${carlos:forHtmlContent(reviewModel.clinicAddress)}</textarea></td>
-                                <td>Payee<br>
+                                <td><fmt:message key="oscar.billing.ca.on.billingON.review.payee"/><br>
                                     <c:choose>
                                         <c:when test="${reviewModel.payeeFromConfigSet}">
                                             <textarea id="payee" name="payee" value="" cols="20" rows="6"><carlos:encode value="${reviewModel.payeeFromConfig}" context="html"/></textarea></td>
@@ -702,27 +723,27 @@
             <table style="width:100%">
                 <tr>
                     <td>
-                        Billing Notes:<br>
+                        <fmt:message key="billing.billingCorrection.msgNotes"/>:<br>
                         <textarea name="comment" cols="100" rows="6"><carlos:encode value="${reviewModel.billingNotes}" context="html"/></textarea>
                     </td>
                     <td style="text-align:right">
                         <input type="hidden" name="provider_no"
                                value="<carlos:encode value='${reviewModel.payeeProviderNo}' context='htmlAttribute'/>"/>
-                        GST Billed:<input type="text" id="gst" name="gst" value="<carlos:encode value='${reviewModel.gstTotal}' context='htmlAttribute'/>"><br>
+                        <fmt:message key="admin.gstReport.table.gstBilled"/>:<input type="text" id="gst" name="gst" value="<carlos:encode value='${reviewModel.gstTotal}' context='htmlAttribute'/>"><br>
                         <input type="hidden" id="gstBilledTotal" name="gstBilledTotal" value="<carlos:encode value='${reviewModel.gstBilledTotal}' context='htmlAttribute'/>">
-                        Total:<input type="text" id="stotal" disabled name="stotal" value="0.00"><br>
-                        Payments:<input type="text" disabled name="payment1" id="payment" value="0.00"
+                        <fmt:message key="global.total"/>:<input type="text" id="stotal" disabled name="stotal" value="0.00"><br>
+                        <fmt:message key="oscar.billing.ca.on.billingON.review.payments"/>:<input type="text" disabled name="payment1" id="payment" value="0.00"
                                         onDblClick="settlePayment();"/><br/>
-                        Discount:<input type="text" disabled name="discount2" id="discount" value="0.00">
+                        <fmt:message key="oscar.billing.ca.on.billingON.review.discount"/>:<input type="text" disabled name="discount2" id="discount" value="0.00">
                     </td>
                 </tr>
             </table>
 
         <td class="myGreen">
-            Payment Method:<br/>
+            <fmt:message key="oscar.billing.ca.on.billingON.review.paymentMethod"/>:<br/>
             <c:if test="${reviewModel.paymentTypeLookupFailed}">
                 <div class="alert alert-danger" role="alert">
-                    Payment types are temporarily unavailable. Contact an administrator before saving this private invoice.
+                    <fmt:message key="oscar.billing.ca.on.billingON.review.paymentTypesUnavailable"/>
                 </div>
             </c:if>
             <c:forEach var="pt" items="${reviewModel.paymentTypes}" varStatus="pst">
@@ -733,13 +754,13 @@
     </tr>
     <tr>
         <td colspan='2' align='center' bgcolor="silver">
-            <input type="submit" name="submit" value="Save &amp; Print Invoice" class="btn btn-secondary"
-                   style="width: 150px;"/>
-            <input type="submit" name="submit" id="settlePrintBtn" class="btn btn-primary"
-                   value="Settle &amp; Print Invoice"
-                   onClick="document.forms['titlesearch'].btnPressed.value='Settle'; document.forms['titlesearch'].submit();javascript:popupPage(700,720,'${pageContext.request.contextPath}/billing/CA/ON/ViewBillingON3rdInv');"
-                   style="width: 160px;"/>
-            <input type="hidden" name="btnPressed" value="">
+            <input type="submit" value="<carlos:encode value='${msgBtnSavePrint}' context='htmlAttribute'/>" class="btn btn-secondary"
+                   style="width: 150px;"
+                   onclick="document.getElementById('billingAction').value='SAVE_PRINT';"/>
+            <input type="button" id="settlePrintBtn" class="btn btn-primary"
+                   value="<carlos:encode value='${msgBtnSettlePrint}' context='htmlAttribute'/>"
+                   style="width: 160px;"
+                   onclick="document.getElementById('billingAction').value='SETTLE_PRINT'; document.forms['titlesearch'].submit(); popupPage(700,720,'${pageContext.request.contextPath}/billing/CA/ON/ViewBillingON3rdInv');"/>
             <input type="hidden" name="total_payment" id="total_payment" value="0.00"/>
             <input type="hidden" name="total_discount" id="total_discount" value="0.00"/>
             <input type="hidden" name="refund" id="refund" value="0.00"/>
@@ -809,7 +830,7 @@
         var regexNumberic = /^([1-9]\d{0,9}|0)(\.\d{1,2})?$/;
         if (!regexNumberic.test(val)) {
             calculateTotal();
-            alert("Please enter digital numbers !");
+            alert("${carlos:forJavaScript(msgEnterNumbers)}");
             return;
         }
 
@@ -840,8 +861,8 @@
                 break;
             }
         }
-        if (!ret) alert("Error: Nothing was selected");
-        else ret = confirm("Are you sure to add to the patient's disease registry?");
+        if (!ret) alert("${carlos:forJavaScript(msgNothingSelected)}");
+        else ret = confirm("${carlos:forJavaScript(msgConfirmAddDxRegistry)}");
         return ret;
     }
 
@@ -868,8 +889,8 @@
 <oscar:oscarPropertiesCheck property="DX_QUICK_LIST_BILLING_REVIEW" value="yes">
 
     <div class="dxBox">
-        <h3>&nbsp;Current Patient Dx List &nbsp;<a href="#" onclick="toggle('dxFullListing'); return false;"
-                                                   style="font-size:small;">show/hide</a></h3>
+        <h3>&nbsp;<fmt:message key="oscar.billing.ca.on.billingON.review.currentPatientDxList"/> &nbsp;<a href="#" onclick="toggle('dxFullListing'); return false;"
+                                                   style="font-size:small;"><fmt:message key="oscar.billing.ca.on.billingON.review.showHide"/></a></h3>
         <div class="wrapper" id="dxFullListing">
             <jsp:include page="/oscarResearch/oscarDxResearch/ViewCurrentCodeList">
                 <jsp:param name="demographicNo" value="${reviewModel.requestParamEchoes['demographic_no']}"/>
@@ -879,8 +900,8 @@
 
     <div class="dxBox">
 
-        <h3>&nbsp;Dx Quick Pick Add Lists &nbsp;<a href="#" onclick="toggle('dxForm'); return false;"
-                                                   style="font-size:small;">show/hide</a></h3>
+        <h3>&nbsp;<fmt:message key="oscar.billing.ca.on.billingON.review.dxQuickPick"/> &nbsp;<a href="#" onclick="toggle('dxForm'); return false;"
+                                                   style="font-size:small;"><fmt:message key="oscar.billing.ca.on.billingON.review.showHide"/></a></h3>
         <form id="dxForm">
             <input type="hidden" name="demographicNo" value="<carlos:encode value='${reviewModel.requestParamEchoes[\"demographic_no\"]}' context='htmlAttribute'/>"/>
             <input type="hidden" name="providerNo" value="<carlos:encode value='${reviewModel.loggedInUserNo}' context='htmlAttribute'/>"/>
@@ -891,7 +912,7 @@
                     <jsp:param name="demographicNo" value="${reviewModel.requestParamEchoes['demographic_no']}"/>
                 </jsp:include>
             </div>
-            <input type="button" value="Add To Disease Registry" class="btn btn-secondary" onclick="addToDiseaseRegistry()"/>
+            <input type="button" value="<carlos:encode value='${msgBtnAddDxRegistry}' context='htmlAttribute'/>" class="btn btn-secondary" onclick="addToDiseaseRegistry()"/>
         </form>
     </div>
 

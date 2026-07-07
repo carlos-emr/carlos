@@ -29,6 +29,16 @@
 
 --%>
 
+<%--
+ * Purpose: Handles DHIR secure submissions for the prevention module.
+ * Features: Formats outbound request payloads and redacts response logs to prevent PHI leakage.
+ * Parameters: 
+ * - uuid (request): Patient unique identifier.
+ * - bundles (session): Clinical dataset for transmission.
+ * - oneid_token (session): Authentication token.
+ * @since 1.0
+--%>
+
 <%@page import="org.apache.hc.client5.http.impl.classic.HttpClients" %>
 <%@page import="org.apache.hc.client5.http.impl.classic.CloseableHttpClient" %>
 <%@page import="org.apache.hc.client5.http.config.RequestConfig" %>
@@ -143,6 +153,7 @@
 <html>
 
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title>CARLOS Prevention Review Screen</title><!--I18n-->
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css">
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
@@ -320,8 +331,8 @@
                         </td>
                         <td style="text-align:right">
                             <a
-                                href="javascript:popupStart(300,400,'About.jsp')"><fmt:message key="global.about"/></a>
-                            | <a href="javascript:popupStart(300,400,'License.jsp')"><fmt:message key="global.license"/></a>
+                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')"><fmt:message key="global.about"/></a>
+                            | <a href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')"><fmt:message key="global.license"/></a>
                         </td>
                     </tr>
                 </table>
@@ -345,7 +356,7 @@
                         HttpPost httpPost = new HttpPost(url);
 
                         String oneIdToken = (String) session.getAttribute("oneid_token");
-                        logger.debug("oneid_token is " + oneIdToken);
+                       
 
                         httpPost.addHeader("x-oneid-email", providerEmail);
                         httpPost.addHeader("x-access-token", oneIdToken);
@@ -366,9 +377,9 @@
                                 resp -> EntityUtils.toString(resp.getEntity()));
 
                         JsonNode object = dhirMapper.readTree(entity);
-                        logger.info("object=" + object.toString());
-
-                        int code = object.get("code").asInt();
+                        
+                        int code = (object != null && object.has("code")) ? object.get("code").asInt() : -1;
+                        logger.info("DHIR response received with response code: {} (body redacted for PHI protection)", code);
 
                         if (code >= 200 && code < 300) {
                             String val = null;
@@ -459,7 +470,7 @@
                 <%
                         }
                     } catch (IOException e) {
-                        logger.error("Failed to retrieve eConsults for the OneID account " + providerEmail, e);
+                        logger.error("Failed to submit DHIR request", e);
                     } catch (NoSuchAlgorithmException e) {
                         logger.error("Failed to create an HttpClient that allows all SSL", e);
                     } catch (KeyManagementException e) {

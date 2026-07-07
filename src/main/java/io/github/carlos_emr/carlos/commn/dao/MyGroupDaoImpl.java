@@ -128,7 +128,7 @@ public class MyGroupDaoImpl extends AbstractDaoImpl<MyGroup> implements MyGroupD
     @Override
     public List<Provider> search_groupprovider(String groupNo) {
 
-        Query query = entityManager.createQuery("SELECT p  FROM MyGroup g, Provider p WHERE g.id.myGroupNo=?1 and p.ProviderNo = g.id.providerNo order by p.LastName");
+        Query query = entityManager.createQuery("SELECT p  FROM MyGroup g, Provider p WHERE g.id.myGroupNo=?1 and p.providerNo = g.id.providerNo order by p.lastName");
         query.setParameter(1, groupNo);
 
         @SuppressWarnings("unchecked")

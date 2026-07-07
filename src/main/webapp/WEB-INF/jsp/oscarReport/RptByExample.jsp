@@ -82,6 +82,7 @@
 <!DOCTYPE html>
 <html lang="${pageContext.request.locale.language}">
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <meta charset="UTF-8">
     <title><fmt:message key="oscarReport.RptByExample.MsgQueryByExamples"/></title>
 

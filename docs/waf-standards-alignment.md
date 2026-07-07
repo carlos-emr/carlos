@@ -70,6 +70,11 @@ than 50 MB before upload handlers execute.
 
 All configuration via `carlos.properties`. See also `src/main/webapp/WEB-INF/waf-rules.properties`.
 
+The shipped defaults are intentionally non-blocking: rate limiting is disabled, and enabling it
+without changing `WAF_RATE_LIMIT_MODE` runs in detect-only mode. Production deployments that rely
+on this control for brute-force or DoS protection must set both `WAF_RATE_LIMIT_ENABLED=true` and
+`WAF_RATE_LIMIT_MODE=enforce`.
+
 | Property | Default | Description |
 |----------|---------|-------------|
 | `WAF_RATE_LIMIT_ENABLED` | `false` | Master toggle. Set to `true`, `yes`, or `on` to enable. |

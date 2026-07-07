@@ -28,20 +28,26 @@
 --%>
 
 <%
-    //Make sure user has logged in first and username is in the session
-    if (session.getAttribute("userName") == null) {
+    // The MFA page is shown before a user is fully authenticated. Require the
+    // pending-MFA marker instead of the normal "user" session attribute, which
+    // LoginFilter treats as an authenticated session. Return immediately after
+    // redirect so the MFA form is never written to a committed response.
+    if (session.getAttribute("pendingMfaAuthentication") == null) {
         response.sendRedirect(request.getContextPath() + "/logoutPage");
+        return;
     }
 %>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
 <!DOCTYPE html>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><fmt:message key="loginApplication.title"/></title>
 
@@ -69,7 +75,7 @@
                     <c:choose>
                         <c:when test="${not empty requestScope.errMsg}">
                             <div class="alert alert-danger" role="alert">
-                                <strong>${requestScope.errMsg}</strong>
+                                <strong><carlos:encode value="${requestScope.errMsg}" context="html"/></strong>
                             </div>
                         </c:when>
                         <c:when test="${requestScope.mfaRegistrationRequired eq true}">

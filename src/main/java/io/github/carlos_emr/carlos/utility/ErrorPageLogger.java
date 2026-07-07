@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.utility;
 
+import io.github.carlos_emr.CarlosProperties;
 import jakarta.servlet.ServletRequest;
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -43,12 +44,22 @@ public final class ErrorPageLogger {
     }
 
     /**
-     * Logs the captured exception (if present) at ERROR with URI and status
-     * context. Safe to call when no exception is present (no-op).
+     * Logs a diagnostic entry for the error page invocation.
+     *
+     * <ul>
+     *   <li>If an exception is available (via {@code explicitException} or the
+     *       {@code jakarta.servlet.error.exception} request attribute), logs at ERROR
+     *       level with the full stack trace, HTTP method, sanitized URI, and status code.</li>
+     *   <li>If no exception is available but Tomcat error-dispatch attributes are present
+     *       (the common {@code sendError()} path where the exception was not propagated),
+     *       logs at WARN level with the available status, URI, and message — providing at
+     *       least a minimal trace in the absence of a stack trace.</li>
+     *   <li>If neither an exception nor any error attributes are present, this method is a
+     *       no-op — safe to call in any context.</li>
+     * </ul>
      *
      * @param explicitException the exception bound to the JSP page-context
-     *                          (i.e., {@code pageContext.exception}); may be
-     *                          {@code null}
+     *                          (i.e., {@code pageContext.exception}); may be {@code null}
      * @param request           the request from which to read the
      *                          {@code jakarta.servlet.error.*} attributes
      */
@@ -58,10 +69,9 @@ public final class ErrorPageLogger {
         // hierarchy is supposed to produce, and a stack-trace log loop is
         // possible if errorpage.jsp is itself the next page Tomcat tries to
         // render. Wrap the entire body in a defensive try/catch and swallow
-        // anything that escapes the log call (corrupted servlet attribute
-        // bound to a non-Throwable, log4j2 ConfigurationException at runtime,
-        // ClassCastException on a buggy filter that stashed a String under
-        // jakarta.servlet.error.exception, etc.).
+        // anything that escapes the log call (for example, a logging backend
+        // failure while formatting a throwable, or an unexpected servlet
+        // container attribute state during error-page dispatch).
         try {
             Throwable t = explicitException;
             if (t == null && request != null) {
@@ -70,9 +80,7 @@ public final class ErrorPageLogger {
                     t = (Throwable) attr;
                 }
             }
-            if (t == null) {
-                return;
-            }
+
             // Strip the query string AND any path parameters (`;jsessionid=...`,
             // etc.) off the captured request_uri before logging:
             //  - billing flows pass mixed identifiers in the query; some are
@@ -82,43 +90,81 @@ public final class ErrorPageLogger {
             //    cookieless requests, which is sensitive and would let an
             //    operator with log access hijack the session.
             // Path-only is enough to diagnose the failure site.
-            Object rawUri = request != null
+            Object uri = sanitizeUri(request != null
                     ? request.getAttribute("jakarta.servlet.error.request_uri")
-                    : null;
-            Object uri = rawUri;
-            if (rawUri instanceof String) {
-                String s = (String) rawUri;
-                int q = s.indexOf('?');
-                if (q >= 0) {
-                    s = s.substring(0, q);
-                }
-                int sc = s.indexOf(';');
-                if (sc >= 0) {
-                    s = s.substring(0, sc);
-                }
-                uri = s;
-            }
-            Object status = request != null
+                    : null);
+            Object status = sanitizeForLog(request != null
                     ? request.getAttribute("jakarta.servlet.error.status_code")
-                    : null;
+                    : null);
             // For HttpServletRequest, also attempt to log the original request
             // method when available — useful for distinguishing GET vs POST
             // failures on the same URI.
-            Object method = (request instanceof HttpServletRequest)
+            Object method = sanitizeForLog((request instanceof HttpServletRequest)
                     ? ((HttpServletRequest) request).getMethod()
-                    : null;
+                    : null);
+
+            if (t == null) {
+                // No exception is available. This happens when sendError() is called
+                // without propagating the exception object — the most common case is
+                // Struts intercepting an unmapped exception and calling sendError(500)
+                // rather than rethrowing. Tomcat does not set
+                // jakarta.servlet.error.exception in this code path.
+                //
+                // Log a WARN using whatever error attributes Tomcat DID set so that
+                // the failed request leaves at least a minimal trace in the log.
+                // When no attributes are present at all (non-error invocation of this
+                // helper) the no-op path remains quiet.
+                Object message = request != null
+                        ? request.getAttribute("jakarta.servlet.error.message")
+                        : null;
+                Object safeMessage = sanitizeForLog(message);
+                if (status != null || uri != null || message != null) {
+                    String sanitizationProp = CarlosProperties.getInstance().getProperty(ResponseSanitizationFilter.ENABLED_PROPERTY, "").trim();
+                    boolean sanitizationEnabled = sanitizationProp.isEmpty() || Boolean.parseBoolean(sanitizationProp);
+                    boolean displayError = !sanitizationEnabled && CarlosProperties.getInstance().isPropertyActive(ResponseSanitizationFilter.DISPLAY_ERROR_PROPERTY);
+                    MiscUtils.getLogger().warn(
+                            "errorpage.jsp triggered without exception "
+                            + "(method={}, uri={}, status={}, message={}) "
+                            + "— sendError() was called without propagating the exception",
+                            method, uri, status,
+                            displayError ? safeMessage : (message != null ? "[present — set DISPLAY_ERROR=true, response.sanitization.enabled=false to log]" : null));
+                }
+                return;
+            }
+
             MiscUtils.getLogger().error(
                     "errorpage.jsp captured exception (method={}, uri={}, status={})",
                     method, uri, status, t);
         } catch (Throwable suppressed) { // NOSONAR — error page must never throw
-            // Last-ditch: best-effort write to System.err so a logging-config
-            // failure doesn't leave operations entirely blind.
+            // Last-ditch: this is the exception raised while trying to log the original error.
+            // Log only its class; calling toString() can expose PHI from exception messages when
+            // the normal logging pipeline has already failed.
             try {
-                String suppressedType = suppressed == null ? "unknown" : suppressed.getClass().getName();
-                System.err.println("ErrorPageLogger: suppressed exception during error logging (" + suppressedType + ")");
+                String suppressedSummary = suppressed.getClass().getName();
+                System.err.println("ErrorPageLogger: suppressed exception during error logging (" + suppressedSummary + ")");
             } catch (Throwable ignored) {
-                // truly nothing more we can do
+                // Last-ditch logging must never make the error page fail.
             }
         }
+    }
+
+    /**
+     * Strips the query string and any path parameters (e.g. {@code ;jsessionid=...}) from
+     * a raw {@code jakarta.servlet.error.request_uri} value before it is written to logs.
+     */
+    private static Object sanitizeUri(Object rawUri) {
+        if (!(rawUri instanceof String)) {
+            return sanitizeForLog(rawUri);
+        }
+        String s = (String) rawUri;
+        int q = s.indexOf('?');
+        if (q >= 0) {
+            s = s.substring(0, q);
+        }
+        return LogSafe.sanitizeUri(s);
+    }
+
+    private static Object sanitizeForLog(Object raw) {
+        return raw == null ? null : LogSafe.sanitize(String.valueOf(raw));
     }
 }

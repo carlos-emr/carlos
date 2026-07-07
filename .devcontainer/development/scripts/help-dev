@@ -57,7 +57,7 @@ DEBUGGING:
   debug-off               Return to INFO logging level
 
 CONTAINER PORTS:
-  Main app:  http://localhost:8080
+  Main app:  http://localhost:8080/carlos
   Debug:     http://localhost:8000
   Database:  localhost:3306
   Docs:      http://localhost:3000

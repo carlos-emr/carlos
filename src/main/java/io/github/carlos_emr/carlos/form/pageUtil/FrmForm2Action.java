@@ -69,6 +69,7 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class FrmForm2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -93,6 +94,8 @@ public class FrmForm2Action extends ActionSupport {
 
     private String _dateFormat = "yyyy/MM/dd";
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute()
             throws ServletException, IOException {
 
@@ -115,8 +118,8 @@ public class FrmForm2Action extends ActionSupport {
         String formName = (String) this.getValue("formName");
         logger.debug("formNme Top " + formName);
 
-        // Validate formName to prevent SQL injection and path traversal attacks
-        if (formName == null || !isValidFormName(formName)) {
+        String trustedFormName = validateSetupFormName(formName);
+        if (trustedFormName == null) {
             logger.warn("Invalid form name attempted: {}", formName != null ? formName.replaceAll("[\\r\\n\\t]", "_") : "null");
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid form name");
             return NONE;
@@ -269,10 +272,10 @@ public class FrmForm2Action extends ActionSupport {
             // Store the the form table for keeping the current record
             logger.debug("current mem 8 " + currentMem());
             try {
-                String sql = "SELECT * FROM form" + formName + " WHERE demographic_no='" + demographicNo + "' AND ID=0";
+                String sql = setupFormSaveSql(trustedFormName);
                 FrmRecordHelp frh = new FrmRecordHelp();
                 frh.setDateFormat(_dateFormat);
-                (frh).saveFormRecord(props, sql);
+                (frh).saveFormRecord(props, sql, demographicNo);
             } catch (SQLException e) {
                 logger.error("Error", e);
             }
@@ -280,7 +283,7 @@ public class FrmForm2Action extends ActionSupport {
             logger.debug("current mem 9 " + currentMem());
         } else {
             // return to the orignal form
-            return "/form/SetupForm?formName=" + formName + "&formId=0";
+            return "/form/SetupForm?formName=" + trustedFormName + "&formId=0";
         }
 
         // return SUCCESS;
@@ -294,7 +297,11 @@ public class FrmForm2Action extends ActionSupport {
         logger.debug("formName from Frm ForamAction" + formName);
         EncounterFormDao encounterFormDao = (EncounterFormDao) SpringUtils.getBean(EncounterFormDao.class);
         EncounterForm encounterForm = encounterFormDao
-                .find("../form/SetupForm?formName=" + formName + "&demographic_no=");
+                .find("../form/SetupForm?formName=" + trustedFormName + "&demographic_no=");
+        if (encounterForm == null) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid form configuration");
+            return NONE;
+        }
         String formNameByFormTable = encounterForm.getFormName();
         logger.debug("formNameByFormTable" + formNameByFormTable);
         String[] formPath = {"", "0"};
@@ -303,9 +310,11 @@ public class FrmForm2Action extends ActionSupport {
         } catch (SQLException e) {
             logger.error("Error", e);
         }
-        return "/form/SetupForm?formName=" + formName + "&formId=" + formPath[1];
+        return "/form/SetupForm?formName=" + trustedFormName + "&formId=" + formPath[1];
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private boolean validate(String inputValue, String observationDate, EctMeasurementTypesBean mt,
                              EctValidationsBean validation, HttpServletRequest request) {
         EctValidation ectValidation = new EctValidation();
@@ -394,6 +403,8 @@ public class FrmForm2Action extends ActionSupport {
         return newDataAdded;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String parseCheckBoxValue(String inputValue, String validationName) {
 
         if (validationName.equalsIgnoreCase("Yes/No")) {
@@ -448,6 +459,64 @@ public class FrmForm2Action extends ActionSupport {
 
         // Only allow alphanumeric characters and underscores
         return VALID_FORM_NAME_PATTERN.matcher(formName).matches();
+    }
+
+    private String validateSetupFormName(String formName) {
+        if (!isValidFormName(formName)) {
+            return null;
+        }
+
+        String expectedTable = "form" + formName;
+        EncounterFormDao encounterFormDao = (EncounterFormDao) SpringUtils.getBean(EncounterFormDao.class);
+        List<EncounterForm> configuredForms = encounterFormDao.findByFormTable(expectedTable);
+        for (EncounterForm configuredForm : configuredForms) {
+            String formValue = configuredForm.getFormValue();
+            if (isSetupFormEndpoint(formValue) && containsFormNameParameter(formValue, formName)) {
+                return formName;
+            }
+        }
+        return null;
+    }
+
+    private boolean isSetupFormEndpoint(String formValue) {
+        if (formValue == null) {
+            return false;
+        }
+
+        int index = formValue.indexOf("SetupForm");
+        while (index >= 0) {
+            boolean hasRoutePrefix = index == 0 || formValue.charAt(index - 1) == '/';
+            int next = index + "SetupForm".length();
+            boolean hasRouteSuffix = next == formValue.length()
+                    || formValue.charAt(next) == '?'
+                    || formValue.charAt(next) == '&'
+                    || formValue.charAt(next) == '#';
+            if (hasRoutePrefix && hasRouteSuffix) {
+                return true;
+            }
+            index = formValue.indexOf("SetupForm", next);
+        }
+        return false;
+    }
+
+    private boolean containsFormNameParameter(String formValue, String formName) {
+        String marker = "formName=" + formName;
+        int index = formValue.indexOf(marker);
+        if (index < 0) {
+            return false;
+        }
+        if (index > 0 && formValue.charAt(index - 1) != '?' && formValue.charAt(index - 1) != '&') {
+            return false;
+        }
+        int endIndex = index + marker.length();
+        return endIndex == formValue.length() || formValue.charAt(endIndex) == '&' || formValue.charAt(endIndex) == '#';
+    }
+
+    private String setupFormSaveSql(String trustedFormName) {
+        // Table identifiers cannot be JDBC-bound. trustedFormName is the bare
+        // suffix for a registered SetupForm table; values remain JDBC bind parameters.
+        // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string
+        return "SELECT * FROM form" + trustedFormName + " WHERE demographic_no=? AND ID=0"; // NOSONAR javasecurity:S2077 -- validated form table suffix; values are bound
     }
 
 }

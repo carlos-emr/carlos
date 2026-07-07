@@ -37,6 +37,7 @@ import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.DigitalSignatureManager;
 import io.github.carlos_emr.CarlosProperties;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
@@ -45,7 +46,7 @@ import jakarta.servlet.http.HttpSession;
 import java.io.*;
 import java.net.SocketException;
 import java.net.URL;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 /**
  * This servlet requires a parameter called "source" which should signify where to get the image from. Examples include source=local_client. Depending on the source, you may optionally need more parameters, as an example a local_client
@@ -90,7 +91,7 @@ public final class ImageRenderingServlet extends HttpServlet {
             if (e.getCause() instanceof SocketException) {
                 logger.warn("An error we can't handle that's expected infrequently. " + e.getMessage());
             } else {
-                logger.error("Unexpected error. qs=" + LogSanitizer.sanitize(request.getQueryString()), e);
+                logger.error("Unexpected error. qs=" + LogSafe.sanitize(request.getQueryString()), e);
                 if (!response.isCommitted()) {
                     response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
                 }
@@ -192,6 +193,8 @@ public final class ImageRenderingServlet extends HttpServlet {
         return null;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private void renderSignaturePreview(HttpServletRequest request, HttpServletResponse response) throws IOException {
         // this expects signatureRequestId as a parameter
 
@@ -217,7 +220,7 @@ public final class ImageRenderingServlet extends HttpServlet {
                 // Reject any path traversal attempts
                 if (signatureRequestId.contains("..") || signatureRequestId.contains("/") || 
                     signatureRequestId.contains("\\") || signatureRequestId.contains(File.separator)) {
-                    logger.warn("SECURITY WARNING: Path traversal attempt detected in signature request ID: {}", LogSanitizer.sanitize(signatureRequestId));
+                    logger.warn("SECURITY WARNING: Path traversal attempt detected in signature request ID: {}", LogSafe.sanitize(signatureRequestId));
                     throw new IllegalArgumentException("Invalid signature request ID");
                 }
                 
@@ -226,7 +229,7 @@ public final class ImageRenderingServlet extends HttpServlet {
                 // Use PathValidationUtils to validate the temp file path
                 File targetFile = new File(tempFilePath);
                 if (!PathValidationUtils.isInAllowedTempDirectory(targetFile)) {
-                    logger.warn("SECURITY WARNING: Attempt to access file outside temp directory: {}", LogSanitizer.sanitize(tempFilePath));
+                    logger.warn("SECURITY WARNING: Attempt to access file outside temp directory: {}", LogSafe.sanitize(tempFilePath));
                     throw new IllegalArgumentException("Invalid file path");
                 }
 
@@ -241,7 +244,7 @@ public final class ImageRenderingServlet extends HttpServlet {
                 // no image, render a blank gif, yes this breaks the concept
                 // of the image already exists, but it's difficult to implement the preview otherwise
                 String tempFilePath = getServletContext().getRealPath("/images/1x1.gif");
-                fileInputStream = new FileInputStream(tempFilePath);
+                fileInputStream = new FileInputStream(PathValidationUtils.validateConfiguredFile(tempFilePath, "default preview image"));
                 byte[] imageBytes = new byte[1024 * 32];
                 fileInputStream.read(imageBytes);
                 renderImage(response, imageBytes, "gif");
@@ -307,15 +310,10 @@ public final class ImageRenderingServlet extends HttpServlet {
             }
 
             if (filename != null) {
-                File f = new File(filename);
-                if (f != null && f.exists()) {
-                    byte[] data = FileUtils.readFileToByteArray(f);
-
-                    if (data != null) {
-                        renderImage(response, data, "jpeg");
-                        return;
-                    }
-                }
+                File f = PathValidationUtils.validateConfiguredFile(filename, "clinic logo file");
+                byte[] data = FileUtils.readFileToByteArray(f);
+                renderImage(response, data, "jpeg");
+                return;
             }
         } catch (Exception e) {
             logger.error("Unexpected error.", e);

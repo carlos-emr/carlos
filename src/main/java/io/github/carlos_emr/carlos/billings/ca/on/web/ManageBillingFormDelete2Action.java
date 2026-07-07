@@ -28,7 +28,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingFormConfigurationService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -85,7 +85,7 @@ public class ManageBillingFormDelete2Action extends ActionSupport {
         try {
             billingFormConfigurationService.deleteServiceTypeAndCascade(typeid);
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Failed to delete billing form for servicetype={} — transaction rolled back", LogSanitizer.sanitize(typeid), e);
+            MiscUtils.getLogger().error("Failed to delete billing form for servicetype={} — transaction rolled back", LogSafe.sanitize(typeid), e);
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Failed to delete billing form");
             return NONE;
         }

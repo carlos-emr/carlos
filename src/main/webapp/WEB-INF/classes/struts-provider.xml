@@ -26,7 +26,7 @@
     Contains action mappings for provider preferences, inbox, email, fax, printing, scratch pads, and signature management.
 -->
 <struts>
-    <package name="provider" namespace="/" extends="struts-default">
+    <package name="provider" namespace="/" extends="struts-default" strict-method-invocation="true">
 
         <action name="web/inboxhub/Inboxhub" class="io.github.carlos_emr.carlos.inboxhub.display.ManageInboxhub2Action" method="execute">
             <result name="success">/WEB-INF/jsp/web/inboxhub/Inboxhub.jsp</result>
@@ -113,6 +113,9 @@
         <action name="DocumentDescriptionTemplate" class="io.github.carlos_emr.carlos.provider.web.DocumentDescriptionTemplate2Action"/>
         <action name="PrinterList" class="io.github.carlos_emr.carlos.printer.PrinterList2Action"/>
         <action name="saveWorkView" class="io.github.carlos_emr.carlos.provider.web.ProviderView2Action" method="execute"/>
+        <!-- Toggles the showPersonal session flag and returns the reserved "none" result
+             (ActionSupport.NONE), so Struts renders no result body. No <result> mapping is
+             intentional: any mapping here would emit unwanted markup after the no-op response. -->
         <action name="Provider/showPersonal" class="io.github.carlos_emr.carlos.provider.web.DisplayPersonalInfoAppointment2Action"/>
 
 
@@ -215,6 +218,12 @@
         </action>
         <action name="provider/ViewAppointmentAdminMonth" class="io.github.carlos_emr.carlos.providers.gate.ViewAppointmentAdminMonth2Action">
             <result name="success">/WEB-INF/jsp/provider/appointmentprovideradminmonth.jsp</result>
+        </action>
+        <action name="provider/ViewProviderColourErr" class="io.github.carlos_emr.carlos.providers.gate.ViewProviderColourErr2Action">
+            <result name="success">/WEB-INF/jsp/provider/providerColourErr.jsp</result>
+        </action>
+        <action name="provider/ViewProviderFaxErr" class="io.github.carlos_emr.carlos.providers.gate.ViewProviderFaxErr2Action">
+            <result name="success">/WEB-INF/jsp/provider/providerFaxErr.jsp</result>
         </action>
     </package>
 </struts>

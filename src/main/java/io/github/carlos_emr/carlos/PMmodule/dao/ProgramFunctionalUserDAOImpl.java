@@ -108,7 +108,7 @@ public class ProgramFunctionalUserDAOImpl extends AbstractJpaDao implements Prog
             throw new IllegalArgumentException();
         }
 
-        String sSQL = "from ProgramFunctionalUser pfu where pfu.ProgramId = ?1";
+        String sSQL = "from ProgramFunctionalUser pfu where pfu.programId = ?1";
         @SuppressWarnings("unchecked")
         List<ProgramFunctionalUser> results = (List<ProgramFunctionalUser>) JpqlQueryHelper.find(entityManager(), sSQL, programId);
 
@@ -185,7 +185,7 @@ public class ProgramFunctionalUserDAOImpl extends AbstractJpaDao implements Prog
 
         Long result = null;
 
-        String sSQL = "select pfu.Id from ProgramFunctionalUser pfu where pfu.ProgramId = ?1 and pfu.UserTypeId = ?2";
+        String sSQL = "select pfu.id from ProgramFunctionalUser pfu where pfu.programId = ?1 and pfu.userTypeId = ?2";
         @SuppressWarnings("unchecked")
         List<Long> results = (List<Long>) JpqlQueryHelper.find(entityManager(), sSQL, programId, userTypeId);
 

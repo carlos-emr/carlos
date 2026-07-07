@@ -30,6 +30,7 @@
 
 package io.github.carlos_emr.carlos.report.ClinicalReports;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -43,9 +44,11 @@ import org.jdom2.Document;
 import org.jdom2.Element;
 import org.jdom2.input.SAXBuilder;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
 
 import io.github.carlos_emr.CarlosProperties;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * @author jay
@@ -185,6 +188,8 @@ public class ClinicalReportManager {
     }
 
     @SuppressWarnings("unchecked")
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     private void loadReportsFromFile() {
 
         if (!loaded) {
@@ -207,7 +212,7 @@ public class ClinicalReportManager {
 
                 if (userConfigFilePath != null && !userConfigLoaded) {
                     try {
-                        is = new FileInputStream(userConfigFilePath);
+                        is = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(userConfigFilePath)));
                         userConfigLoaded = true;
                     } catch (FileNotFoundException ex) {
                         MiscUtils.getLogger().error("Error", ex);

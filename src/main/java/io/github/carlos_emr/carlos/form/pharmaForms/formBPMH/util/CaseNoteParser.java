@@ -32,6 +32,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.StringUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /*
  * Author: Dennis Warren
@@ -89,6 +90,8 @@ public class CaseNoteParser {
      * @param key  relationship to value desired.
      * @return
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static String getValue(String note, final String key) {
 
         String value = "";

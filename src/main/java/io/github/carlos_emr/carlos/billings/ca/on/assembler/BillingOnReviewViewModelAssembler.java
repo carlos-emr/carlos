@@ -57,7 +57,7 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Site;
 import io.github.carlos_emr.carlos.prescript.data.RxProviderData;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnRequestParameters;
@@ -655,7 +655,7 @@ public class BillingOnReviewViewModelAssembler {
                 // would mask a DB outage during provider-name lookup, leaving
                 // the operator with a blank name and no signal in the log.
                 MiscUtils.getLogger().warn("BillingOnReviewViewModelAssembler: providerDao lookup failed for providerNo {}",
-                        LogSanitizer.sanitize(providerNo), e);
+                        LogSafe.sanitize(providerNo), e);
             }
         }
         return nullToEmpty(name);
@@ -688,7 +688,7 @@ public class BillingOnReviewViewModelAssembler {
             parseFailed[0] = true;
             MiscUtils.getLogger().error(
                     "BillingOnReviewViewModel: malformed numeric input on Review screen — field={}, value=\"{}\". GST/totals will read 0; submission must be gated.",
-                    fieldName, io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(trimmed), e);
+                    fieldName, io.github.carlos_emr.carlos.utility.LogSafe.sanitize(trimmed), e);
             return BigDecimal.ZERO;
         }
     }
@@ -709,7 +709,7 @@ public class BillingOnReviewViewModelAssembler {
             parseFailed[0] = true;
             MiscUtils.getLogger().warn(
                     "BillingOnReviewViewModel: malformed integer input on Review screen — field={}, value=\"{}\". Percentage totals will read 0; submission must be gated.",
-                    fieldName, io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(trimmed), e);
+                    fieldName, io.github.carlos_emr.carlos.utility.LogSafe.sanitize(trimmed), e);
             return 0;
         }
     }

@@ -27,6 +27,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.*;
 import org.mockito.*;
@@ -153,7 +154,7 @@ class RtlPreventions2ActionTest extends CarlosUnitTestBase {
 
             String result = action.execute();
 
-            assertThat(result).isNull();
+            assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(mockResponse.getStatus()).isEqualTo(400);
         }
 
@@ -164,7 +165,7 @@ class RtlPreventions2ActionTest extends CarlosUnitTestBase {
 
             String result = action.execute();
 
-            assertThat(result).isNull();
+            assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(mockResponse.getStatus()).isEqualTo(400);
         }
 
@@ -175,7 +176,7 @@ class RtlPreventions2ActionTest extends CarlosUnitTestBase {
 
             String result = action.execute();
 
-            assertThat(result).isNull();
+            assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(mockResponse.getStatus()).isEqualTo(400);
         }
 
@@ -186,7 +187,7 @@ class RtlPreventions2ActionTest extends CarlosUnitTestBase {
 
             String result = action.execute();
 
-            assertThat(result).isNull();
+            assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(mockResponse.getStatus()).isEqualTo(400);
         }
 
@@ -197,7 +198,7 @@ class RtlPreventions2ActionTest extends CarlosUnitTestBase {
 
             String result = action.execute();
 
-            assertThat(result).isNull();
+            assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(mockResponse.getStatus()).isEqualTo(400);
         }
     }
@@ -379,15 +380,15 @@ class RtlPreventions2ActionTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("Should return null result (writes directly to response)")
-        void shouldReturnNull_asStrutsResult() throws Exception {
+        @DisplayName("Should return NONE result (writes directly to response)")
+        void shouldReturnNone_asStrutsResult() throws Exception {
             mockRequest.setParameter("demographic_no", "123");
             when(mockPreventionManager.getPreventionsByDemographicNo(any(), eq(123)))
                 .thenReturn(new ArrayList<>());
 
             String result = action.execute();
 
-            assertThat(result).isNull();
+            assertThat(result).isEqualTo(ActionSupport.NONE);
         }
     }
 

@@ -74,6 +74,7 @@
 <!DOCTYPE html>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title>
             Encounter
         </title>
@@ -310,7 +311,7 @@
             // Listen for tickler refresh broadcasts from ticklerAdd/ticklerEdit popup windows
             var ticklerChannel = null;
             try {
-                ticklerChannel = new BroadcastChannel('carlos_tickler_refresh_<carlos:encode value='<%= request.getParameter("demographicNo") != null ? request.getParameter("demographicNo") : "0" %>' context="javaScript"/>');
+                ticklerChannel = new BroadcastChannel('carlos_tickler_refresh_<carlos:encode value='<%= request.getParameter("demographicNo") != null ? request.getParameter("demographicNo") : "0" %>' context="javaScript"/>');<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                 ticklerChannel.onmessage = function(event) {
                     var data = event.data;
                     if (data === 'refresh' || (data && data.action === 'refresh')) {
@@ -593,7 +594,7 @@
         </script>
     </head>
     <body id="body" class="encounter-layout">
-    <jsp:include page="/images/spinner.jsp" flush="true"/>
+    <jsp:include page="/WEB-INF/jsp/includes/spinner.jspf" flush="true"/>
     <div id="header">
         <jsp:include page="/WEB-INF/jsp/casemgmt/newEncounterHeader.jsp"/>
     </div>
@@ -609,6 +610,9 @@
 
         <div id="content">
             <jsp:include page="/WEB-INF/jsp/casemgmt/newCaseManagementView.jsp"/>
+            <%-- Clinical notes are part of the first eChart render; CPP AJAX fragments only fill the summary boxes above. --%>
+            <c:set var="eChartLayoutIncludesDependencies" value="true" scope="request"/>
+            <jsp:include page="/WEB-INF/jsp/casemgmt/ChartNotes.jsp"/>
         </div>
     </div>
     <!-- hovering divs -->

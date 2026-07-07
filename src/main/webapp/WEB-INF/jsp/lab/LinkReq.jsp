@@ -211,6 +211,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>Link to Lab Requisition</title>
     <script>
         function closeItUp() {

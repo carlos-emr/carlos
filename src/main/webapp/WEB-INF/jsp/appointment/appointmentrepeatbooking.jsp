@@ -56,7 +56,6 @@
 <%@ page import="org.owasp.csrfguard.CsrfGuard" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@page import="io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao" %>
@@ -251,6 +250,7 @@
 %>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <title><fmt:message key="appointment.appointmentgrouprecords.title"/></title>
         <fmt:message key="appointment.appointmentgrouprecords.msgExitConfirmation" var="msgExitConfirmation"/>
@@ -354,7 +354,7 @@
                     <label class="col-sm-3 col-form-label"><fmt:message key="appointment.appointmenteditrepeatbooking.endon"/></label>
                     <div class="col-sm-9">
                         <input type="date" id="endDate" name="endDate" class="form-control form-control-sm" style="width: 170px;"
-                               value="<%=request.getParameter("appointment_date") != null ? SafeEncode.forHtmlAttribute(request.getParameter("appointment_date")) : UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd")%>">
+                               value="<%=request.getParameter("appointment_date") != null ? SafeEncode.forHtmlAttribute(request.getParameter("appointment_date")) : UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd")%>"><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                     </div>
                 </div>
             </div>

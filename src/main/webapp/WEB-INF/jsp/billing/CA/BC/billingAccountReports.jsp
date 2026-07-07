@@ -25,10 +25,12 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ReportProviderDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ReportProvider" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.projection.ReporterRow" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile" %>
 <%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
 <%
     ReportProviderDao reportProviderDao = SpringUtils.getBean(ReportProviderDao.class);
+    List<ReporterRow> billingReportProviders = reportProviderDao.search_reportprovider("billingreport");
 %>
 
 <%
@@ -59,6 +61,7 @@
 %>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
     <title>Billing Report</title>
@@ -196,15 +199,13 @@
                                     String specialty_code;
                                     String billinggroup_no;
                                     int Count = 0;
-                                    for (Object[] result : reportProviderDao.search_reportprovider("billingreport")) {
-                                        ReportProvider rp = (ReportProvider) result[0];
-                                        Provider p = (Provider) result[1];
-                                        proFirst = p.getFirstName();
-                                        proLast = p.getLastName();
-                                        proOHIP = p.getProviderNo();
+                                    for (ReporterRow result : billingReportProviders) {
+                                        proFirst = result.firstName();
+                                        proLast = result.lastName();
+                                        proOHIP = result.providerNo();
 
                             %>
-                            <option value="<%=proOHIP%>"><%=proLast%> , <%=proFirst%>
+                            <option value="<carlos:encode value='<%= proOHIP %>' context='htmlAttribute'/>"><carlos:encode value="<%= proLast %>" context="html"/> , <carlos:encode value="<%= proFirst %>" context="html"/>
                             </option>
                             <%
                                     }
@@ -225,14 +226,12 @@
                                     String specialty_code;
                                     String billinggroup_no;
                                     int Count = 0;
-                                    for (Object[] result : reportProviderDao.search_reportprovider("billingreport")) {
-                                        ReportProvider rp = (ReportProvider) result[0];
-                                        Provider p = (Provider) result[1];
-                                        proFirst = p.getFirstName();
-                                        proLast = p.getLastName();
-                                        proOHIP = p.getProviderNo();
+                                    for (ReporterRow result : billingReportProviders) {
+                                        proFirst = result.firstName();
+                                        proLast = result.lastName();
+                                        proOHIP = result.providerNo();
                             %>
-                            <option value="<%=proOHIP%>"><%=proLast%> , <%=proFirst%>
+                            <option value="<carlos:encode value='<%= proOHIP %>' context='htmlAttribute'/>"><carlos:encode value="<%= proLast %>" context="html"/> , <carlos:encode value="<%= proFirst %>" context="html"/>
                             </option>
                             <%
                                     }
@@ -253,14 +252,12 @@
                                 String specialty_code;
                                 String billinggroup_no;
                                 int Count = 0;
-                                for (Object[] result : reportProviderDao.search_reportprovider("billingreport")) {
-                                    ReportProvider rp = (ReportProvider) result[0];
-                                    Provider p = (Provider) result[1];
-                                    proFirst = p.getFirstName();
-                                    proLast = p.getLastName();
-                                    proOHIP = p.getProviderNo();
+                                for (ReporterRow result : billingReportProviders) {
+                                    proFirst = result.firstName();
+                                    proLast = result.lastName();
+                                    proOHIP = result.providerNo();
                             %>
-                            <option value="<%=proOHIP%>"><%=proLast%> , <%=proFirst%>
+                            <option value="<carlos:encode value='<%= proOHIP %>' context='htmlAttribute'/>"><carlos:encode value="<%= proLast %>" context="html"/> , <carlos:encode value="<%= proFirst %>" context="html"/>
                             </option>
                             <%} %>
                         </select></td>

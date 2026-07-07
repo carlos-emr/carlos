@@ -46,7 +46,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.openpdf.text.*;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 /**
  * Print extension that renders ophthalmology and clinical measurements into the
@@ -85,9 +85,9 @@ public class MeasurementPrint implements ExtPrint {
         String endDate = request.getParameter("pEndDate");
         String demographicNo = request.getParameter("demographicNo");
 
-        logger.info("startDate = {}", LogSanitizer.sanitize(startDate)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
-        logger.info("endDate = {}", LogSanitizer.sanitize(endDate)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
-        logger.info("demographicNo = {}", LogSanitizer.sanitize(demographicNo)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+        logger.info("startDate = {}", LogSafe.sanitize(startDate)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+        logger.info("endDate = {}", LogSafe.sanitize(endDate)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+        logger.info("demographicNo = {}", LogSafe.sanitize(demographicNo)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
 
         List<Measurement> measurements = null;
 

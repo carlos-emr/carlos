@@ -39,6 +39,7 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.appt.ApptData;
@@ -178,21 +179,26 @@ public class HL7A04Data {
         if (this.message == null)
             this.generateA04MessageGuelph();
 
-        logger.info("Creating HL7 A04 file with contents: " + this.message);
+        logger.info("Creating HL7 A04 file");
 
         String saveDir = oscarProperties.getHL7A04BuildDirectory();
 
         // create HL7 A04 file
         try {
-            File directory = new File(saveDir);
+            File directory = PathValidationUtils.resolveConfiguredDirectory(saveDir, "HL7 A04 build directory");
             if (!directory.exists())
                 directory.mkdir();
 
-            FileWriter fw = new FileWriter(saveDir + this.fileName, true);
-            BufferedWriter out = new BufferedWriter(fw);
-            out.write(this.message);
-            out.close();
-        } catch (IOException e) {
+            // this.fileName is a trusted, system-generated A04 name ("yyyyMMddkkmmss.SSSZ" + ".txt").
+            // Validate it as a single child component only — do NOT run it through validateGeneratedFileName,
+            // which strips the '+'/timezone and silently diverges the saved filename from the MSH Message
+            // Control ID that is built from the same timestamp.
+            File outputFile = PathValidationUtils.validateGeneratedChildPath(this.fileName, directory);
+            try (FileWriter fw = new FileWriter(outputFile, true);
+                 BufferedWriter out = new BufferedWriter(fw)) {
+                out.write(this.message);
+            }
+        } catch (IOException | SecurityException e) {
             logger.error("ERROR while saving HL7 A04 file: " + e.toString());
             return false;
         }

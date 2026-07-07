@@ -69,6 +69,7 @@
 <%@ page import="io.github.carlos_emr.carlos.dxresearch.bean.dxResearchBeanHandler" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
 <%
 	if(session.getAttribute("user") == null) response.sendRedirect("${ pageContext.request.contextPath }/logoutPage");
@@ -176,6 +177,7 @@
 <html>
 
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
 <title><carlos:encode value='<%= flowSheet %>' context="html"/> - <oscar:nameage demographicNo="<%= safeDemoNoHtml %>"/></title><!--I18n-->
 
 <script type="text/javascript" src="${ pageContext.request.contextPath }/share/javascript/Oscar.js"></script>

@@ -32,6 +32,7 @@
 <%@ page import="java.util.*, io.github.carlos_emr.carlos.report.reportByTemplate.*" %>
 <%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.ReportManager" %>
 <%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.ReportObject" %>
+<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
 
     if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");

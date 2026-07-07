@@ -29,6 +29,8 @@
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     // Defensive top-of-page model resolver. The canonical entrypoint is
     // billing/CA/ON/ViewOnGenRAError; any direct forward gets the privilege
@@ -37,6 +39,7 @@
 <c:if test="${onGenRAErrorModel.valid}">
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
     <link rel="stylesheet" type="text/css" href="billingON.css"/>
     <title>Billing Reconcilliation</title>

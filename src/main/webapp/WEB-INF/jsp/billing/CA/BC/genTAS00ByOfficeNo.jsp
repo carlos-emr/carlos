@@ -55,6 +55,9 @@
 <%@ page import="io.github.carlos_emr.carlos.billing.CA.BC.dao.TeleplanS00Dao" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%
     TeleplanS00Dao teleplanS00Dao = SpringUtils.getBean(TeleplanS00Dao.class);
@@ -62,6 +65,7 @@
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <link rel="stylesheet" href="billing.css">
     <title>Teleplan Reconcilliation</title>

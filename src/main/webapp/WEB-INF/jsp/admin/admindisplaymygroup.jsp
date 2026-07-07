@@ -58,26 +58,9 @@
 <!DOCTYPE html>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
 
         <title><fmt:message key="admin.admindisplaymygroup.title"/></title>
-
-        <script>
-            <!--
-            start
-            javascript--
-            --check
-            to
-            see
-            if it is
-            really
-            empty in database
-
-            //function upCaseCtrl(ctrl) {
-            //	ctrl.value = ctrl.value.toUpperCase();
-            //}
-
-            // stop javascript -->
-        </script>
 
         <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
     </head>
@@ -168,8 +151,9 @@
 
 
         $(document).ready(function () {
-            parent.parent.resizeIframe($('html').height());
-
+            if (parent && parent.parent && typeof parent.parent.resizeIframe === 'function') {
+                parent.parent.resizeIframe($('html').height());
+            }
         });
 
     </script>

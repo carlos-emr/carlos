@@ -33,6 +33,7 @@
     KAIInnovations.com
 --%>
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <!DOCTYPE html>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
@@ -44,6 +45,7 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <style type="text/css">
         .web_dialog_overlay {
@@ -136,7 +138,7 @@
         }
 
         function displayInfo() {
-            var info = '<%= session.getAttribute("info") %>';
+            var info = '<%= SafeEncode.forJavaScript(session.getAttribute("info") == null ? null : session.getAttribute("info").toString()) %>';
             if (info == 'true') {
                 ShowDialog(true);
             }

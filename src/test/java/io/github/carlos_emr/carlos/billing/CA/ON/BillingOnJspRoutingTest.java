@@ -63,7 +63,9 @@ class BillingOnJspRoutingTest {
                 assertThat(content)
                         .as("billing ON direct client redirects should stay context-aware in %s", jspFile)
                         .doesNotContain("location.href = \"/billing/")
+                        .doesNotContain("location.href = \"/billing\"")
                         .doesNotContain("location.href=\"/billing/")
+                        .doesNotContain("location.href=\"/billing\"")
                         .doesNotContain("window.open(\"/billing/")
                         .doesNotContain("openBrWindow(\"/billing/")
                         .doesNotContain("response.sendRedirect(\"/billing/");
@@ -76,6 +78,11 @@ class BillingOnJspRoutingTest {
         assertThat(billingOn).contains("/billing/CA/ON/ViewBillingCodeSearchAjax");
         assertThat(billingOn).doesNotContain("ctx + \"/billing/CA/ON/ViewBillingDigSearchAjax\"");
         assertThat(billingOn).doesNotContain("ctx + \"/billing/CA/ON/ViewBillingCodeSearchAjax\"");
+
+        String billingShortcutPg1 = readJspContent(BILLING_ON_JSP_DIR.resolve("billingShortcutPg1.jsp"));
+        assertThat(billingShortcutPg1)
+                .contains("var billingContextPath =")
+                .contains("self.location.href = billingContextPath + \"/billing\" + a;");
 
         // reportINR.jsp was refactored from a scriptlet-built `inrBillingAction`
         // to a ViewModel-supplied `reportInrModel.inrBillingActionUrl` rendered

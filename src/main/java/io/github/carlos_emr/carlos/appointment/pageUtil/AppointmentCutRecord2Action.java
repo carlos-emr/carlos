@@ -45,6 +45,7 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts 2 action that handles appointment cut/move (migrated from appointmentcutrecord.jsp).
@@ -60,6 +61,8 @@ public final class AppointmentCutRecord2Action extends ActionSupport {
     private final OscarAppointmentDao appointmentDao = SpringUtils.getBean(OscarAppointmentDao.class);
     private final AppointmentArchiveDao appointmentArchiveDao = SpringUtils.getBean(AppointmentArchiveDao.class);
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String execute() throws IOException {
         HttpServletRequest request = ServletActionContext.getRequest();

@@ -34,6 +34,9 @@ import java.io.Serializable;
 /**
  * This is the object class that relates to the default_role_access table. Any customizations belong here.
  */
+@jakarta.persistence.Entity
+@jakarta.persistence.Table(name = "default_role_access")
+@jakarta.persistence.Access(jakarta.persistence.AccessType.PROPERTY)
 public class DefaultRoleAccess implements Serializable {
 
     private int hashCode = Integer.MIN_VALUE; // primary key
@@ -68,6 +71,9 @@ public class DefaultRoleAccess implements Serializable {
      * generator-class="native"
      * column="id"
      */
+    @jakarta.persistence.Id
+    @jakarta.persistence.GeneratedValue(strategy = jakarta.persistence.GenerationType.IDENTITY)
+    @jakarta.persistence.Column(name = "id")
     public Long getId() {
         return _id;
     }
@@ -85,6 +91,7 @@ public class DefaultRoleAccess implements Serializable {
     /**
      * Return the value associated with the column: role_id
      */
+    @jakarta.persistence.Column(name = "role_id")
     public long getRoleId() {
         return _roleId;
     }
@@ -101,6 +108,7 @@ public class DefaultRoleAccess implements Serializable {
     /**
      * Return the value associated with the column: access_id
      */
+    @jakarta.persistence.Column(name = "access_id")
     public long getAccessTypeId() {
         return _accessTypeId;
     }
@@ -117,6 +125,8 @@ public class DefaultRoleAccess implements Serializable {
     /**
      * column=role_id
      */
+    @jakarta.persistence.ManyToOne(fetch = jakarta.persistence.FetchType.EAGER)
+    @jakarta.persistence.JoinColumn(name = "role_id", insertable = false, updatable = false)
     public Secrole getCaisi_role() {
         return this._caisi_role;
     }
@@ -133,6 +143,8 @@ public class DefaultRoleAccess implements Serializable {
     /**
      * column=access_id
      */
+    @jakarta.persistence.ManyToOne(fetch = jakarta.persistence.FetchType.EAGER)
+    @jakarta.persistence.JoinColumn(name = "access_id", insertable = false, updatable = false)
     public AccessType getAccess_type() {
         return this._access_type;
     }

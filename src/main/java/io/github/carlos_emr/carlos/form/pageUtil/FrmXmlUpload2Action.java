@@ -34,8 +34,8 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
-import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -52,6 +52,10 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesAware {
+    private static final String ADMIN_SECURITY_OBJECT = "_admin";
+    private static final String ADMIN_EFORM_SECURITY_OBJECT = "_admin.eform";
+    private static final String WRITE_PRIVILEGE = "w";
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -60,8 +64,20 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
 
     public String execute()
             throws ServletException, IOException {
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_form", "r", null)) {
-            throw new SecurityException("missing required sec object (_form)");
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
+
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, ADMIN_EFORM_SECURITY_OBJECT, WRITE_PRIVILEGE, null)
+                && !securityInfoManager.hasPrivilege(loggedInInfo, ADMIN_SECURITY_OBJECT, WRITE_PRIVILEGE, null)) {
+            throw new SecurityException("missing required sec object (_admin.eform or _admin)");
+        }
+        if (uploadValidationError != null) {
+            addActionError(uploadValidationError);
+            return ERROR;
         }
 
         int BUFFER = 2048;
@@ -115,15 +131,21 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
     private File file1; // Uploaded file
     private String file1FileName; // Name of the uploaded file
     private String file1ContentType; // Content type of the uploaded file
+    private String uploadValidationError;
 
 
     @Override
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
             UploadedFile uploaded = uploadedFiles.get(0);
-            this.file1 = new File(uploaded.getAbsolutePath());
+            this.file1 = PathValidationUtils.validateUploadContent(uploaded.getContent());
             this.file1ContentType = uploaded.getContentType();
-            this.file1FileName = uploaded.getOriginalName();
+            try {
+                this.file1FileName = PathValidationUtils.validateStrictFileName(uploaded.getOriginalName());
+            } catch (FileValidationException e) {
+                this.uploadValidationError = PathValidationUtils.INVALID_FILENAME_MESSAGE;
+                this.file1FileName = null;
+            }
         }
     }
 
@@ -132,7 +154,6 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
         return file1;
     }
 
-    @StrutsParameter
     public void setFile1(File file1) {
         this.file1 = file1;
     }
@@ -141,7 +162,6 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
         return file1FileName;
     }
 
-    @StrutsParameter
     public void setFile1FileName(String file1FileName) {
         this.file1FileName = file1FileName;
     }
@@ -150,7 +170,6 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
         return file1ContentType;
     }
 
-    @StrutsParameter
     public void setFile1ContentType(String file1ContentType) {
         this.file1ContentType = file1ContentType;
     }

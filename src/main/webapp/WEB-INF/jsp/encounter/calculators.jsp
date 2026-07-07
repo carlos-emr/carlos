@@ -80,6 +80,7 @@
 
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="${ctx}/js/global.js"></script>
         <link rel="stylesheet" type="text/css" href="${ctx}/encounter/encounterStyles.css">
         <script type="text/javascript" language=javascript>

@@ -60,6 +60,7 @@
 <!DOCTYPE html >
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key="encounter.oscarConsultationRequest.AttachDocPopup.title"/></title>
 
     <style>
@@ -265,7 +266,7 @@
         }
 
         function getPdf(attachmentName, attachmentId, parameters) {
-            // Please include "<%=request.getContextPath()%>/images/spinner.jsp" into the parent page to control the visibility of the spinner (show/hide).
+            // Please include "<%=request.getContextPath()%>/WEB-INF/jsp/includes/spinner.jspf" into the parent page to control the visibility of the spinner (show/hide).
             ShowSpin(true);
             const base64Data = getPdfAttachment(attachmentName, attachmentId);
             if (base64Data !== null) {

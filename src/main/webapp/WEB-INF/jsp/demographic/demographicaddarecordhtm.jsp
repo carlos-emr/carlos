@@ -1,3 +1,5 @@
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%--
     Redirect stub — the add patient form is now behind WEB-INF/jsp/demographic/DemographicAdd
     served by DemographicAdd2Action. This stub preserves the old URL for all callers.

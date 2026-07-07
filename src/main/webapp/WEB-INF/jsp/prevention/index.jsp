@@ -200,6 +200,7 @@
 <html>
 
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="oscarprevention.index.oscarpreventiontitre"/></title>
         <!--I18n-->
@@ -776,7 +777,7 @@
                 </oscar:oscarPropertiesCheck></td>
 
             <form name="printFrm" method="post" onsubmit="return onPrint();"
-                  action="<rewrite:reWrite jspPage="printPrevention"/>">
+                  action="<rewrite:reWrite jspPage="printPrevention" context="htmlAttribute"/>">
                 <input type="hidden" name="immunizationOnly" value="false"/>
                 <td valign="top" class="MainTableRightColumn">
 

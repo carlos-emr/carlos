@@ -46,7 +46,7 @@ public class ProviderDAOImpl extends AbstractJpaDao implements ProviderDAO {
 
     @SuppressWarnings("unchecked")
     public List<Provider> getProviders() {
-        return (List<Provider>) JpqlQueryHelper.find(entityManager(), "from Provider p order by p.LastName");
+        return (List<Provider>) JpqlQueryHelper.find(entityManager(), "from Provider p order by p.lastName");
     }
 
     public Provider getProvider(String provider_no) {
@@ -55,7 +55,7 @@ public class ProviderDAOImpl extends AbstractJpaDao implements ProviderDAO {
 
     @SuppressWarnings("unchecked")
     public Provider getProviderByName(String lastName, String firstName) {
-        List<Provider> results = (List<Provider>) JpqlQueryHelper.find(entityManager(), "from Provider p where p.FirstName = ?1 and p.LastName = ?2", firstName, lastName);
+        List<Provider> results = (List<Provider>) JpqlQueryHelper.find(entityManager(), "from Provider p where p.firstName = ?1 and p.lastName = ?2", firstName, lastName);
         return results.isEmpty() ? null : results.get(0);
     }
 

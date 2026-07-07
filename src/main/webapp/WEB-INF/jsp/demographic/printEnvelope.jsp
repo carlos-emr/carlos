@@ -56,6 +56,7 @@
 %>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title><fmt:message key="report.printLabel.title"/></title>
     </head>
     <body>
@@ -65,7 +66,7 @@
     <%} else {%>
     <fmt:message key="report.printLabel.DefaultPrinter"/>
     <%}%>
-    <%=defaultPrinterName%>
+    <carlos:encode value='<%= defaultPrinterName %>' context="html"/>
     <%}%>
     <br>
 
@@ -81,4 +82,3 @@
     </object>
     </body>
 </html>
-

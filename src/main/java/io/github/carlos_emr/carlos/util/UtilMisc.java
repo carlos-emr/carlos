@@ -39,6 +39,7 @@ import java.util.ArrayList;
 import io.github.carlos_emr.Misc;
 import org.apache.commons.codec.binary.Base64;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class UtilMisc {
     /**
@@ -76,6 +77,8 @@ public class UtilMisc {
      * This method is used to generate html symbols,
      * e.g., change HTML entities to their character equivalents.
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static String rhtmlEscape(String S) {
         if (null == S) return S;
 

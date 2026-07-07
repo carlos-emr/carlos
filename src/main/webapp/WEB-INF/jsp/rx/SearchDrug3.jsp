@@ -199,8 +199,9 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
 %>
 
 <!DOCTYPE html>
-    <html lang="en">
+    <html lang="${pageContext.request.locale.language}">
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
 
 
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">

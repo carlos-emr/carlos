@@ -9,6 +9,7 @@ document.addEventListener("DOMContentLoaded", function(){
     addNavElement();
     disableTextareaResize();
     moveSubjectReverse();
+    hideAdminPreviewSaveButton();
 
     // Add eForm attachments
     addEFormAttachments();
@@ -38,7 +39,10 @@ document.addEventListener("DOMContentLoaded", function(){
 
 	const isSuccessAndAutoclose = document.getElementById("isSuccess_Autoclose") &&
 		document.getElementById("isSuccess_Autoclose").value === 'true';
-	if (isSuccessAndAutoclose) {
+    const warningMessage = document.getElementById("warningMessage") ? document.getElementById("warningMessage").value : "";
+    if (warningMessage) {
+        showWarningAlert(warningMessage.replaceAll(String.raw`\n`, "\n"), isSuccessAndAutoclose ? remoteClose : undefined);
+    } else if (isSuccessAndAutoclose) {
 		showSuccessAlert(remoteClose);
 	}
 	});
@@ -53,6 +57,18 @@ window.onerror = function uncaughtExceptionHandler(message, source, lineNumber, 
     eform.error = message;
     let context = document.getElementById("context").value;
     jQuery.post(context + "/eform/logEformError", eform);
+}
+
+function hideAdminPreviewSaveButton() {
+    const demographicNo = document.getElementById("demographicNo");
+    if (demographicNo?.value !== "-1") {
+        return;
+    }
+
+    const remoteSubmitButton = document.getElementById("remoteSubmitButton");
+    if (remoteSubmitButton) {
+        remoteSubmitButton.style.display = "none";
+    }
 }
 
 function getEForm() {
