@@ -87,7 +87,6 @@
 <script type="text/javascript">
 function copyToClip(text, el) {
     function showFeedback() {
-        el.title = 'Copied!';
         el.style.opacity = '0.5';
         setTimeout(function() { el.style.opacity = '1'; }, 600);
     }
