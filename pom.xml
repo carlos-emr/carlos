@@ -102,7 +102,7 @@
         <!-- Struts -->
         <struts.version>7.1.1</struts.version>
         <!-- Jackson -->
-        <jackson.version>2.21.2</jackson.version>
+        <jackson.version>2.22.0</jackson.version>
         <!-- Apache HttpClient 5 -->
         <httpclient5.version>5.6.1</httpclient5.version>
         <!-- Bouncy Castle -->
@@ -277,16 +277,17 @@
                  Fixes: CVE-2024-45294, CVE-2024-51132, CVE-2024-52007 (all patched in 6.4.0),
                  CVE-2026-33180 HTTP auth credential leak in redirects (patched in 6.9.0),
                  CVE-2026-34359 credential leak via URL prefix matching on redirect (patched in 6.9.4),
-                 CVE-2026-42236 FHIRPath ReDoS in matches()/replaceMatches() (patched in 6.9.7). -->
+                 CVE-2026-42236 FHIRPath ReDoS in matches()/replaceMatches() (patched in 6.9.7),
+                 and XSLT transform hardening fixes patched in 6.9.10. -->
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.utilities</artifactId>
-                <version>6.9.7</version>
+                <version>6.9.10</version>
             </dependency>
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.dstu3</artifactId>
-                <version>6.9.7</version>
+                <version>6.9.10</version>
             </dependency>
             <!-- Override Apache Neethi 3.2.1 from CXF WSN policy dependencies.
                  Fixes GHSA-reported denial-of-service issues in policy normalization:
