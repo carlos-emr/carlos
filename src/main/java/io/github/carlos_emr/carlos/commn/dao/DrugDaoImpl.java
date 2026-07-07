@@ -490,8 +490,8 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
         if (!FIND_BY_PARAMETER_ALLOWED_COLUMNS.contains(parameter)) {
             throw new IllegalArgumentException("Invalid column name: " + parameter);
         }
-        // Value is bound as a named parameter to prevent SQL injection and to handle
-        // drug names that contain apostrophes (which broke the old string-concatenation query).
+        // The column name is selected from the allowlist, and the value stays bound
+        // as a named parameter so apostrophes in drug names are handled safely.
         String sql = "select special,special_instruction from drugs where "
                 + parameter + " = :value order by drugid desc";
         Query query = entityManager.createNativeQuery(sql);

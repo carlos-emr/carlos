@@ -33,7 +33,6 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
-import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -131,37 +130,49 @@ class RxWriteScript2ActionListPreviousInstructionsTest extends CarlosUnitTestBas
     }
 
     @Test
-    @DisplayName("should return NONE and send bad request when randomId contains non-digits")
-    void shouldReturnNone_whenRandomIdContainsNonDigits() throws Exception {
+    @DisplayName("should clear history without sending an error when randomId contains non-digits")
+    void shouldClearHistory_whenRandomIdContainsNonDigits() throws Exception {
         when(mockRequest.getParameter("randomId")).thenReturn("12\r\ninvalid");
 
         String result = action.listPreviousInstructions();
 
-        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(result).isNull();
         assertThat(bean.getListMedHistory()).isEmpty();
-        verify(mockResponse).sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid randomId: digits only");
+        verify(mockResponse, never()).sendError(anyInt(), any(String.class));
     }
 
     @Test
-    @DisplayName("should return NONE and send not found when stash item is missing")
-    void shouldReturnNone_whenStashItemIsMissing() throws Exception {
+    @DisplayName("should clear history without sending an error when randomId is out of range")
+    void shouldClearHistory_whenRandomIdIsOutOfRange() throws Exception {
+        when(mockRequest.getParameter("randomId")).thenReturn("999999999999999999999");
+
+        String result = action.listPreviousInstructions();
+
+        assertThat(result).isNull();
+        assertThat(bean.getListMedHistory()).isEmpty();
+        verify(mockResponse, never()).sendError(anyInt(), any(String.class));
+    }
+
+    @Test
+    @DisplayName("should clear history without sending an error when stash item is missing")
+    void shouldClearHistory_whenStashItemIsMissing() throws Exception {
         when(mockRequest.getParameter("randomId")).thenReturn("42");
 
         String result = action.listPreviousInstructions();
 
-        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(result).isNull();
         assertThat(bean.getListMedHistory()).isEmpty();
-        verify(mockResponse).sendError(HttpServletResponse.SC_NOT_FOUND, "Prescription not found for randomId: 42");
+        verify(mockResponse, never()).sendError(anyInt(), any(String.class));
     }
 
     @Test
-    @DisplayName("should populate previous instructions when randomId matches a stash item")
-    void shouldPopulatePreviousInstructions_whenRandomIdMatchesStashItem() throws Exception {
+    @DisplayName("should populate previous instructions when randomId has surrounding whitespace")
+    void shouldPopulatePreviousInstructions_whenRandomIdHasWhitespace() throws Exception {
         RxPrescriptionData.Prescription prescription = new RxPrescriptionData.Prescription(0, "999998", 123);
         prescription.setRandomId(42);
         bean.getStashList().add(prescription);
         List<HashMap<String, String>> history = new ArrayList<>(List.of(historyEntry("take twice daily")));
-        when(mockRequest.getParameter("randomId")).thenReturn("42");
+        when(mockRequest.getParameter("randomId")).thenReturn(" 42 ");
 
         try (MockedStatic<RxUtil> rxUtilMock = mockStatic(RxUtil.class)) {
             rxUtilMock.when(() -> RxUtil.getPreviousInstructions(prescription)).thenReturn(history);

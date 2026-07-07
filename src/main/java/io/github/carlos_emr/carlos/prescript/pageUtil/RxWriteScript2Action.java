@@ -415,8 +415,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             logger.warn("listPreviousInstructions: invalid randomId={}",
                     io.github.carlos_emr.carlos.utility.LogSafe.sanitize(randomId));
             bean.setListMedHistory(new ArrayList<>());
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid randomId: digits only");
-            return NONE;
+            return null;
         }
 
         final int randomIdInt;
@@ -426,8 +425,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             logger.warn("listPreviousInstructions: invalid randomId (out of range)={}",
                     io.github.carlos_emr.carlos.utility.LogSafe.sanitize(randomId));
             bean.setListMedHistory(new ArrayList<>());
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid randomId: digits only");
-            return NONE;
+            return null;
         }
 
         // create Prescription
@@ -436,8 +434,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             logger.warn("listPreviousInstructions: no stash item found for randomId={}",
                     io.github.carlos_emr.carlos.utility.LogSafe.sanitize(randomId));
             bean.setListMedHistory(new ArrayList<>());
-            response.sendError(HttpServletResponse.SC_NOT_FOUND, "Prescription not found for randomId: " + randomId);
-            return NONE;
+            return null;
         }
         List<HashMap<String, String>> retList = new ArrayList();
         retList = RxUtil.getPreviousInstructions(rx);
