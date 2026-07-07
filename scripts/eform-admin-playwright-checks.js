@@ -105,6 +105,7 @@ function appPathFromHref(href) {
     // nosemgrep: javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag
     // navHtml is derived from reading a local JSP file via fs.readFileSync and regex-stripping JSP tags
     await page.locator('#fixture-root').evaluate((root, html) => {
+      // nosemgrep: javascript.browser.security.insecure-document-method, javascript.browser.security.insecure-innerhtml -- navHtml is a repo-local JSP fragment read via fs.readFileSync (see navJspPath) and JSP-stripped; not user-controlled, rendered only in a throwaway local Chromium fixture in this developer-only regression script
       root.innerHTML = html;
     }, navHtml);
 
