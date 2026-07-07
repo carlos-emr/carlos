@@ -27,7 +27,12 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-
+<%--
+  newEncounterHeader.jsp is a fragment 
+  loaded from newEncounterLayout.jsp
+  the new is misleading as the code is circa
+  @since 2008
+--%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -61,7 +66,7 @@
     String demoNo = bean.demographicNo;
     DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
     Demographic demographic = demographicManager.getDemographicWithExt(loggedInInfo, Integer.parseInt(demoNo));
-    
+
     if (demographic == null ){
         response.sendRedirect(request.getContextPath() + "/casemgmt/ViewError");
         return;
@@ -81,11 +86,10 @@
 
 <script type="text/javascript">
 function copyToClip(text, el) {
-    var orig = el.title;
     function showFeedback() {
         el.title = 'Copied!';
         el.style.opacity = '0.5';
-        setTimeout(function() { el.style.opacity = '1'; el.title = orig; }, 600);
+        setTimeout(function() { el.style.opacity = '1'; }, 600);
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(text).then(showFeedback).catch(function() {
@@ -112,14 +116,13 @@ function fallbackCopy(text) {
    <div id="left-column">
       <div id="branding-logo">
          <img alt="CARLOS EMR" src="${ctx}/images/oscar_logo_small.png" width="19px">
-      </div>
+      </div>    
       <div id="patient-label">
          <div id="patient-full-name">
             <h1><a href="${ctx}/demographic/DemographicEdit?demographic_no=<%=demoNo%>" target="_blank">
             <carlos:encode value='<%=(demographic.getTitle() != null && demographic.getTitle().length() > 0) ? demographic.getTitle() + " " : ""%>' context="html"/>
             <carlos:encode value='<%=demographic.getFormattedName()%>' context="html"/></a></h1>
          </div>
-      </div>
       <c:if test="<%=(demographic.getPronoun() != null && !demographic.getPronoun().isEmpty())%>">
          <div id="patient-pronouns">
             <div class="label">
@@ -154,8 +157,7 @@ function fallbackCopy(text) {
             </div>
             <carlos:encode value='<%=demographic.getAgeAsOf(new Date(), request.getLocale())%>' context="html"/>
          </div>
-
-        <c:if test="<%=(demographic.getHin() != null && !demographic.getHin().isEmpty())%>">
+      <c:if test="<%=(demographic.getHin() != null && !demographic.getHin().isEmpty())%>">
          <div id="patient-hin" class="copyable" onclick="copyToClip('<carlos:encode value='<%= demographic.getHin() %>' context="javaScriptAttribute"/>',this)">
             <div class="label">
               <fmt:message key="demographic.patient.context.hin"/>
@@ -190,7 +192,7 @@ function fallbackCopy(text) {
          </div>
       </c:if>
          <div id="patient-next-appointment">
-            <div class="label"><a href="${ctx}/demographic/DemographicApptHistory?demographic_no=<%=demoNo%>&amp;orderby=appointment_date&amp;dboperation=appt_history&amp;limit1=0&amp;limit2=25" title="${carlos:forHtmlAttribute(appointmentHistoryTitle)}" target="_blank">
+            <div class="label"><a href="${ctx}/demographic/DemographicApptHistory?demographic_no=<%=demoNo%>&amp;orderby=appointment_date&amp;dboperation=appt_history&amp;limit1=0&amp;limit2=25" title="<fmt:message key="eform.groups.page.viewAll"/>" target="_blank">
               <fmt:message key="global.nextAppointment"/></a></div>
               <c:choose>
                 <c:when test="<%=(demographic.getNextAppointment() != null && !demographic.getNextAppointment().isEmpty())%>">
@@ -205,8 +207,15 @@ function fallbackCopy(text) {
          <div id="patient-mrp">
             <div class="label">
               <fmt:message key="demographic.demographiceditdemographic.formMRP"/>
-            </div>
-            Hutten-Czapski, Peter
+            </div>    
+              <c:choose>
+                <c:when test="<%=(demographic.getMrp() != null)%>">
+                  <carlos:encode value='<%= demographic.getMrp().getFormattedName() %>' context="html"/>
+                </c:when>
+                <c:otherwise>
+                  <fmt:message key="demographic.demographicaddrecordhtm.formNewsLetter.optUnknown"/>
+                </c:otherwise>
+              </c:choose>
          </div>
       </div>
    </div>
