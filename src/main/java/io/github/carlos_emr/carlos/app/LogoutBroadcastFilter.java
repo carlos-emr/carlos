@@ -35,6 +35,7 @@ import java.util.Set;
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.FilterConfig;
+import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.ServletRequest;
@@ -348,6 +349,14 @@ public class LogoutBroadcastFilter implements Filter {
     /**
      * Returns a context-relative request path for filter matching.
      *
+     * <p>During a {@code RequestDispatcher.forward()} — e.g. a Struts action forwarding its route to
+     * an internal {@code /WEB-INF/jsp} view — {@code getServletPath()}/{@code getRequestURI()} reflect
+     * the forward <em>target</em> (the JSP), not the route the client requested. The exclusion list is
+     * configured with client-facing routes, and the heartbeat script is appended on the FORWARD
+     * dispatch, so matching against the forward target would silently miss excluded routes on the very
+     * dispatch where injection happens. When the original request URI is available via the standard
+     * {@link RequestDispatcher#FORWARD_REQUEST_URI} attribute, match against it instead (issue #3099).</p>
+     *
      * <p>Some servlet containers or tests leave {@code servletPath} empty for extensionless routes,
      * so this method falls back to {@code requestURI} and removes the context path before
      * normalizing.</p>
@@ -356,22 +365,56 @@ public class LogoutBroadcastFilter implements Filter {
      * @return normalized path beginning with {@code /}, or null when no path is available
      */
     private String getNormalizedRequestPath(HttpServletRequest request) {
-        String servletPath = request.getServletPath();
-        if (servletPath == null || servletPath.trim().isEmpty()) {
-            servletPath = request.getRequestURI();
-            String contextPath = request.getContextPath();
-            if (servletPath != null && contextPath != null && !contextPath.isEmpty()
-                    && servletPath.startsWith(contextPath)) {
-                servletPath = servletPath.substring(contextPath.length());
+        String path = (String) request.getAttribute(RequestDispatcher.FORWARD_REQUEST_URI);
+        if (path != null && !path.trim().isEmpty()) {
+            path = stripContextPath(path, request.getContextPath());
+        } else {
+            path = request.getServletPath();
+            if (path == null || path.trim().isEmpty()) {
+                path = stripContextPath(request.getRequestURI(), request.getContextPath());
             }
         }
 
-        if (servletPath == null || servletPath.trim().isEmpty()) {
+        if (path == null || path.trim().isEmpty()) {
             return null;
         }
 
-        servletPath = normalizeServletPath(servletPath);
-        return servletPath.startsWith("/") ? servletPath : "/" + servletPath;
+        path = stripPathParameters(path);
+        path = normalizeServletPath(path);
+        return path.startsWith("/") ? path : "/" + path;
+    }
+
+    /**
+     * Removes the leading context path from an absolute request URI so it can be matched against the
+     * context-relative routes configured in the exclusion list.
+     *
+     * @param uri absolute request URI (may be null)
+     * @param contextPath servlet context path (may be null or empty for the root context)
+     * @return the context-relative path, or the original URI when no context path prefix applies
+     */
+    private String stripContextPath(String uri, String contextPath) {
+        if (uri != null && contextPath != null && !contextPath.isEmpty()
+                && uri.startsWith(contextPath)) {
+            return uri.substring(contextPath.length());
+        }
+        return uri;
+    }
+
+    /**
+     * Removes path/matrix parameters (e.g. {@code ;jsessionid=...}) from each path segment so a route
+     * matches the exclusion list regardless of URL-rewritten session ids. This mirrors the container's
+     * {@code getServletPath()}, which strips them on its own; the {@code requestURI} and
+     * {@code FORWARD_REQUEST_URI} fallbacks used above do not, so an excluded route carrying a rewritten
+     * {@code ;jsessionid} would otherwise fail to match.
+     *
+     * @param path context-relative path that may carry path parameters
+     * @return the path with any {@code ;param} suffix stripped from every segment
+     */
+    private String stripPathParameters(String path) {
+        if (path.indexOf(';') < 0) {
+            return path;
+        }
+        return path.replaceAll(";[^/]*", "");
     }
 
     /**
