@@ -173,11 +173,11 @@ public class DefaultHandler implements MessageHandler {
         try {
             file = PathValidationUtils.validateExistingDocumentPath(fullPathFilename);
         } catch (SecurityException e) {
-            throw new IOException("Path traversal attempt detected: " + fullPathFilename, e);
+            throw new IOException("Path traversal attempt detected", e);
         }
 
         if (!file.exists() || !file.isFile()) {
-            throw new IOException("File does not exist or is not a regular file: " + fullPathFilename);
+            throw new IOException("File does not exist or is not a regular file");
         }
 
         // Validate the file is within the expected document directory

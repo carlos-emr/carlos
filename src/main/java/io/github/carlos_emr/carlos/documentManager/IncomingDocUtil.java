@@ -673,7 +673,7 @@ public final class IncomingDocUtil {
             File validatedExtractFile = PathValidationUtils.validatePath(extractFileName, extractBaseDir);
             extractPath = validatedExtractFile.getPath();
 
-            extractList = buildExtractList(myPdfName, pageNumbersToExtract, reader.getNumberOfPages());
+            extractList = buildExtractList(pageNumbersToExtract, reader.getNumberOfPages());
 
             document = new Document(reader.getPageSizeWithRotation(1));
             copyFos = new FileOutputStream(validatedTempFile);
@@ -703,7 +703,7 @@ public final class IncomingDocUtil {
         }
     }
 
-    private static ArrayList<String> buildExtractList(String pdfName, String pageNumbersToExtract, int pageCount) {
+    private static ArrayList<String> buildExtractList(String pageNumbersToExtract, int pageCount) {
         String sanitizedPageNumbersToExtract = LogSafe.sanitize(pageNumbersToExtract);
         if (pageNumbersToExtract == null || pageNumbersToExtract.trim().isEmpty()) {
             throw new IllegalArgumentException("Invalid Pages to Extract " + sanitizedPageNumbersToExtract);

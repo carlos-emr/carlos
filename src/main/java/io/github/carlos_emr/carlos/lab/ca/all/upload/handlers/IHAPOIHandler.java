@@ -267,11 +267,11 @@ public class IHAPOIHandler implements MessageHandler {
         
         // Ensure the file exists and is readable
         if (!file.exists()) {
-            throw new IOException("File not found: " + fileName);
+            throw new IOException("File not found");
         }
         
         if (!file.canRead()) {
-            throw new IOException("File cannot be read: " + fileName);
+            throw new IOException("File cannot be read");
         }
         
         return file;

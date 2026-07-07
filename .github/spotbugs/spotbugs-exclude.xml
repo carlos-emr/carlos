@@ -749,11 +749,6 @@
         <Class name="io.github.carlos_emr.carlos.lab.FileUploadCheck"/>
         <Method name="addFile"/>
     </Match>
-    <Match>
-        <Bug pattern="WEAK_MESSAGE_DIGEST_MD5"/>
-        <Class name="io.github.carlos_emr.carlos.lab.FileUploadCheck"/>
-        <Method name="hasFileBeenUploadedByFileLocation"/>
-    </Match>
 
     <!-- Request content type values are used for multipart negotiation only,
          not authorization or raw output. -->

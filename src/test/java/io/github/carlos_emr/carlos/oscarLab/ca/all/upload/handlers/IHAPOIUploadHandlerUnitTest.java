@@ -50,8 +50,8 @@ import java.util.zip.ZipFile;
 
 import org.apache.commons.io.IOUtils;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -59,15 +59,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.IHAPOIHandler;
 
-/**
- * Unit tests for {@link IHAPOIHandler} upload parse functionality.
- *
- * <p>Parameterized tests verifying that each IHAPOI HL7 message from the
- * test archive can be successfully parsed by the upload handler.
- * Migrated from legacy JUnit 4 IHAPOIHandlerTest (upload).
- *
- * @since 2026-03-07
- */
 @Tag("unit")
 @Tag("lab")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -151,6 +142,32 @@ class IHAPOIUploadHandlerUnitTest {
         } finally {
             restoreDocumentDir(previousDocumentDir);
             Files.deleteIfExists(uploadFile);
+        }
+    }
+
+    @Test
+    @DisplayName("should not expose upload file path in file state errors")
+    void shouldNotExposeUploadFilePathInFileStateErrors() throws Exception {
+        Path documentDir = Files.createTempDirectory("ihapoi-document-dir");
+        Path uploadFile = documentDir.resolve("missing-ihapoi-upload.txt");
+        String previousDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+
+        try {
+            CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir.toString());
+
+            IHAPOIHandler handler = new IHAPOIHandler();
+            Method method = IHAPOIHandler.class.getDeclaredMethod("validateAndGetFile", String.class);
+            method.setAccessible(true);
+
+            assertThatThrownBy(() -> method.invoke(handler, uploadFile.toString()))
+                    .isInstanceOf(InvocationTargetException.class)
+                    .extracting(Throwable::getCause)
+                    .extracting(Throwable::getMessage)
+                    .asString()
+                    .doesNotContain(uploadFile.toString());
+        } finally {
+            restoreDocumentDir(previousDocumentDir);
+            Files.deleteIfExists(documentDir);
         }
     }
 

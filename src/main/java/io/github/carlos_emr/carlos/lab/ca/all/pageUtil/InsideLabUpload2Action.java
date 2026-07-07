@@ -194,7 +194,7 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
                 return FileStatus.EXISTS;
             }
         } catch (IOException e) {
-            MiscUtils.getLogger().error("Error occurred while processing " + fileName + " file", e);
+            MiscUtils.getLogger().error("Error occurred while processing uploaded lab file", e);
             return FileStatus.FAILED;
         }
 
