@@ -420,7 +420,7 @@ if (randomId == null || !randomId.matches("\\d+")) {
         // create Prescription
         RxPrescriptionData.Prescription rx = bean.getStashItem2(Integer.parseInt(randomId));
         if (rx == null) {
-            logger.warn("listPreviousInstructions: no stash item found for randomId={}", Encode.forJava(randomId));
+            logger.warn("listPreviousInstructions: no stash item found for randomId={}", io.github.carlos_emr.carlos.utility.LogSafe.sanitize(randomId));
             bean.setListMedHistory(new ArrayList<>());
             response.sendError(HttpServletResponse.SC_NOT_FOUND, "Prescription not found for randomId: " + randomId);
             return NONE;
