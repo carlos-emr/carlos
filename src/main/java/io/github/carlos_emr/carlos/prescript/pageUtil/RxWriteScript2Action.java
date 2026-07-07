@@ -410,12 +410,13 @@ public final class RxWriteScript2Action extends ActionSupport {
             response.sendRedirect("error.html");
             return null;
         }
-        if (randomId == null || !randomId.matches("\\d+")) {
-            logger.warn("listPreviousInstructions: invalid randomId={}", Encode.forJava(randomId));
-            bean.setListMedHistory(new ArrayList<>());
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid randomId: digits only");
-            return NONE;
-        }
+randomId = randomId != null ? randomId.trim() : null;
+if (randomId == null || !randomId.matches("\\d+")) {
+    logger.warn("listPreviousInstructions: invalid randomId={}", Encode.forJava(randomId));
+    bean.setListMedHistory(new ArrayList<>());
+    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid randomId: digits only");
+    return NONE;
+}
         // create Prescription
         RxPrescriptionData.Prescription rx = bean.getStashItem2(Integer.parseInt(randomId));
         if (rx == null) {
