@@ -410,17 +410,31 @@ public final class RxWriteScript2Action extends ActionSupport {
             response.sendRedirect("error.html");
             return null;
         }
-randomId = randomId != null ? randomId.trim() : null;
-if (randomId == null || !randomId.matches("\\d+")) {
-    logger.warn("listPreviousInstructions: invalid randomId={}", Encode.forJava(randomId));
-    bean.setListMedHistory(new ArrayList<>());
-    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid randomId: digits only");
-    return NONE;
-}
+        randomId = randomId != null ? randomId.trim() : null;
+        if (randomId == null || !randomId.matches("\\d+")) {
+            logger.warn("listPreviousInstructions: invalid randomId={}",
+                    io.github.carlos_emr.carlos.utility.LogSafe.sanitize(randomId));
+            bean.setListMedHistory(new ArrayList<>());
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid randomId: digits only");
+            return NONE;
+        }
+
+        final int randomIdInt;
+        try {
+            randomIdInt = Integer.parseInt(randomId);
+        } catch (NumberFormatException e) {
+            logger.warn("listPreviousInstructions: invalid randomId (out of range)={}",
+                    io.github.carlos_emr.carlos.utility.LogSafe.sanitize(randomId));
+            bean.setListMedHistory(new ArrayList<>());
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid randomId: digits only");
+            return NONE;
+        }
+
         // create Prescription
-        RxPrescriptionData.Prescription rx = bean.getStashItem2(Integer.parseInt(randomId));
+        RxPrescriptionData.Prescription rx = bean.getStashItem2(randomIdInt);
         if (rx == null) {
-            logger.warn("listPreviousInstructions: no stash item found for randomId={}", io.github.carlos_emr.carlos.utility.LogSafe.sanitize(randomId));
+            logger.warn("listPreviousInstructions: no stash item found for randomId={}",
+                    io.github.carlos_emr.carlos.utility.LogSafe.sanitize(randomId));
             bean.setListMedHistory(new ArrayList<>());
             response.sendError(HttpServletResponse.SC_NOT_FOUND, "Prescription not found for randomId: " + randomId);
             return NONE;
