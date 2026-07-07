@@ -154,6 +154,37 @@ class PrescriptionFaxServiceTest {
         verifyNoInteractions(mockFaxConfigDao, mockFaxJobDao, mockFaxManager);
     }
 
+    @Test
+    @DisplayName("should skip file writes when clinic fax configuration is missing")
+    void shouldSkipFileWrites_whenClinicFaxConfigurationIsMissing() throws Exception {
+        MockHttpServletRequest request = createFaxRequest("rx_123");
+        FaxConfig faxConfig = new FaxConfig();
+        faxConfig.setFaxNumber("905-555-0199");
+        when(mockFaxConfigDao.findAll(null, null)).thenReturn(List.of(faxConfig));
+
+        PrescriptionFaxViewModel result = service.createFaxJob(mockLoggedInInfo, request, createPdf("fresh rx"));
+
+        assertThat(result.validFaxNumber()).isFalse();
+        assertThat(documentDir).isEmptyDirectory();
+        assertThat(faxDir).isEmptyDirectory();
+        verifyNoInteractions(mockFaxJobDao, mockFaxManager);
+    }
+
+    @Test
+    @DisplayName("should reject invalid demographic number before creating fax artifacts")
+    void shouldRejectInvalidDemographicNumber_beforeCreatingFaxArtifacts() {
+        MockHttpServletRequest request = createFaxRequest("rx_123");
+        request.setParameter("demographic_no", "not-a-number");
+
+        assertThatThrownBy(() -> service.createFaxJob(mockLoggedInInfo, request, createPdf("fresh rx")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid demographic number");
+
+        assertThat(documentDir).isEmptyDirectory();
+        assertThat(faxDir).isEmptyDirectory();
+        verifyNoInteractions(mockFaxConfigDao, mockFaxJobDao, mockFaxManager);
+    }
+
     private MockHttpServletRequest createFaxRequest(String pdfId) {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setParameter("pharmaFax", "416-555-0123");

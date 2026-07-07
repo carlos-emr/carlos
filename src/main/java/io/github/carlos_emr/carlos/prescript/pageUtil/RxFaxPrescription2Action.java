@@ -63,6 +63,7 @@ public class RxFaxPrescription2Action extends ActionSupport {
         HttpServletResponse response = ServletActionContext.getResponse();
 
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }

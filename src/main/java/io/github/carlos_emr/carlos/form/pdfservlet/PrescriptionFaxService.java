@@ -70,9 +70,17 @@ public class PrescriptionFaxService {
         String pharmaName = req.getParameter("pharmaName");
         String faxNumber = normalizeFaxNumber(req.getParameter("clinicFax"));
         String demo = req.getParameter("demographic_no");
+        int demographicNo = validateDemographicNo(demo);
 
         String pdfId = validatePdfId(req.getParameter("pdfId"));
         String pdfFile = PathValidationUtils.validateGeneratedFileName("prescription_" + pdfId + ".pdf");
+        List<FaxConfig> faxConfigs = faxConfigDao.findAll(null, null);
+        FaxConfig matchedFaxConfig = findMatchingFaxConfig(faxConfigs, faxNumber);
+        if (matchedFaxConfig == null) {
+            return new PrescriptionFaxViewModel(false, pharmaName, faxNo);
+        }
+
+        String providerNo = LoggedInInfo.getLoggedInInfoFromSession(req).getLoggedInProviderNo();
         String documentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
 
         File baseDirFile = new File(documentDir);
@@ -110,44 +118,31 @@ public class PrescriptionFaxService {
             }
         }
 
-        List<FaxConfig> faxConfigs = faxConfigDao.findAll(null, null);
-        String providerNo = LoggedInInfo.getLoggedInInfoFromSession(req).getLoggedInProviderNo();
-        boolean validFaxNumber = false;
-
-        for (FaxConfig faxConfig : faxConfigs) {
-            if (normalizeFaxNumber(faxConfig.getFaxNumber()).equals(faxNumber)) {
-                int numPages;
-                try (PdfReader pdfReader = new PdfReader(filepath.toString())) {
-                    numPages = pdfReader.getNumberOfPages();
-                }
-
-                FaxJob faxJob = new FaxJob();
-                faxJob.setDestination(faxNo);
-                faxJob.setFax_line(faxNumber);
-                faxJob.setFile_name(pdfFile);
-                faxJob.setUser(faxConfig.getFaxUser());
-                faxJob.setRecipient(pharmaName);
-                faxJob.setNumPages(numPages);
-                faxJob.setStamp(new Date());
-                faxJob.setStatus(FaxJob.STATUS.WAITING);
-                faxJob.setOscarUser(providerNo);
-                faxJob.setDemographicNo(Integer.parseInt(demo));
-
-                faxJob.setSenderEmail(faxConfig.getSenderEmail());
-                faxJob.setDirection(Direction.OUT);
-
-                faxJobDao.persist(faxJob);
-                faxManager.logFaxJob(loggedInInfo, faxJob, TransactionType.RX, -1);
-                validFaxNumber = true;
-                break;
-            }
+        int numPages;
+        try (PdfReader pdfReader = new PdfReader(filepath.toString())) {
+            numPages = pdfReader.getNumberOfPages();
         }
 
-        if (validFaxNumber) {
-            LogAction.addLog(providerNo, LogConst.SENT, LogConst.CON_FAX, "PRESCRIPTION " + pdfFile);
-        }
+        FaxJob faxJob = new FaxJob();
+        faxJob.setDestination(faxNo);
+        faxJob.setFax_line(faxNumber);
+        faxJob.setFile_name(pdfFile);
+        faxJob.setUser(matchedFaxConfig.getFaxUser());
+        faxJob.setRecipient(pharmaName);
+        faxJob.setNumPages(numPages);
+        faxJob.setStamp(new Date());
+        faxJob.setStatus(FaxJob.STATUS.WAITING);
+        faxJob.setOscarUser(providerNo);
+        faxJob.setDemographicNo(demographicNo);
 
-        return new PrescriptionFaxViewModel(validFaxNumber, pharmaName, faxNo);
+        faxJob.setSenderEmail(matchedFaxConfig.getSenderEmail());
+        faxJob.setDirection(Direction.OUT);
+
+        faxJobDao.persist(faxJob);
+        faxManager.logFaxJob(loggedInInfo, faxJob, TransactionType.RX, -1);
+        LogAction.addLog(providerNo, LogConst.SENT, LogConst.CON_FAX, "PRESCRIPTION " + pdfFile);
+
+        return new PrescriptionFaxViewModel(true, pharmaName, faxNo);
     }
 
     private String normalizeFaxNumber(String faxNumber) {
@@ -157,10 +152,26 @@ public class PrescriptionFaxService {
         return faxNumber.trim().replaceAll("\\D", "");
     }
 
+    private FaxConfig findMatchingFaxConfig(List<FaxConfig> faxConfigs, String faxNumber) {
+        for (FaxConfig faxConfig : faxConfigs) {
+            if (normalizeFaxNumber(faxConfig.getFaxNumber()).equals(faxNumber)) {
+                return faxConfig;
+            }
+        }
+        return null;
+    }
+
     private String validatePdfId(String rawPdfId) {
         if (rawPdfId == null || rawPdfId.isBlank() || !rawPdfId.matches("[a-zA-Z0-9_-]+")) {
             throw new IllegalArgumentException("Invalid prescription PDF id");
         }
         return PathValidationUtils.validatePathComponent(rawPdfId, "prescription PDF id");
+    }
+
+    private int validateDemographicNo(String rawDemographicNo) {
+        if (rawDemographicNo == null || !rawDemographicNo.matches("\\d+")) {
+            throw new IllegalArgumentException("Invalid demographic number");
+        }
+        return Integer.parseInt(rawDemographicNo);
     }
 }

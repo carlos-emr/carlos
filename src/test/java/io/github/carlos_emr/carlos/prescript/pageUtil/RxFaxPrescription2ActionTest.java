@@ -116,6 +116,7 @@ class RxFaxPrescription2ActionTest {
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
 
         assertThat(mockResponse.getStatus()).isEqualTo(MockHttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
         verifyNoInteractions(mockSecurityInfoManager, mockPrescriptionPdfComposer, mockPrescriptionFaxService);
     }
 
@@ -127,6 +128,7 @@ class RxFaxPrescription2ActionTest {
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
 
         assertThat(mockResponse.getStatus()).isEqualTo(MockHttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
         verifyNoInteractions(mockSecurityInfoManager, mockPrescriptionPdfComposer, mockPrescriptionFaxService);
     }
 
