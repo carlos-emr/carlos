@@ -53,6 +53,11 @@ class SignatureStampJspRegressionTest {
                 .contains("signatureProviderNo = consultUtil.providerNo.trim();")
                 .contains("signatureProviderNo = referringProviderDefault.trim();")
                 .contains("consultSigFile.isFile()")
+                .contains("name=\"signatureProviderNo\" id=\"signatureProviderNo\"")
+                .contains("updateSignatureProvider(this.value)")
+                .contains("function isStoredSignatureId(value)")
+                .contains("function hasPendingManualSignature()")
+                .contains("signatureImgTag.onerror = function()")
                 .contains("/provider/providerSignatureImage?providerNo=<%=SafeEncode.forUriComponent(signatureProviderNo)%>")
                 .doesNotContain("UserProperty consultSigProp = userPropertyDAO.getProp(providerNo, UserProperty.PROVIDER_CONSULT_SIGNATURE);");
     }

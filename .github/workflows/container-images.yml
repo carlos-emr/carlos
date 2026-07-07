@@ -229,6 +229,9 @@ jobs:
 
       - name: Save tested tomcat-dev image
         run: |
+          echo "Reclaiming Docker Buildx cache before exporting tested image..."
+          docker buildx prune -af || true
+          docker system df || true
           mkdir -p "$RUNNER_TEMP/container-images"
           docker save carlos-tomcat-dev:test -o "$RUNNER_TEMP/container-images/carlos-tomcat-dev.tar"
 
