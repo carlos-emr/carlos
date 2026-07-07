@@ -68,13 +68,13 @@ This JSP is a fragment that is pulled in via <jsp:include> from mfa_handler.jsp 
       background-size: var(--_otp-bgsz) 100%;
       caret-color: var(--otp-cc, #222);
       caret-shape: block;
-      clip-path: inset(0% calc(var(--otp-ls) / 2) 0% 0%);
+      clip-path: inset(0% calc(var(--otp-ls) * 0.5) 0% 0%);
       font-family: ui-monospace, monospace !important;
       font-size: var(--otp-fz, 2.5em);
       inline-size: calc(var(--otp-digits) * var(--_otp-bgsz));
       letter-spacing: var(--otp-ls);
       padding-block: var(--otp-pb, 1ch);
-      padding-inline-start: calc(((var(--otp-ls) - 1ch) / 2) * var(--otp-gap));
+      padding-inline-start: calc(((var(--otp-ls) - 1ch) * 0.5) * var(--otp-gap));
       padding-left: 0.9ch !important;
     }
 
