@@ -15,11 +15,16 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Helper class for sending emails using a local SMTP server configuration.
+ */
 public class LocalSMTPEmailSender extends SMTPEmailSender {
 
     public LocalSMTPEmailSender(LoggedInInfo loggedInInfo, EmailConfig emailConfig, 
                                 String[] recipients, String subject, String body, 
                                 List<EmailAttachment> attachments) {
+        // Initialize execution context for LocalSMTPEmailSender
+
         super(loggedInInfo, emailConfig, recipients, subject, body, attachments);
     }
 

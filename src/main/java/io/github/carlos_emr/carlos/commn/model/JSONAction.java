@@ -14,6 +14,9 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
 
+/**
+ * Action class handling generic JSON-based requests and responses for the application frontend.
+ */
 public class JSONAction extends ActionSupport {
 
     private final String ENCODING = "UTF-8";
@@ -26,6 +29,8 @@ public class JSONAction extends ActionSupport {
     protected HttpServletResponse response;
 
     protected JSONAction() {
+        // Initialize execution context for JSONAction
+
         if (ActionContext.getContext() != null) {
             request = ServletActionContext.getRequest();
             response = ServletActionContext.getResponse();

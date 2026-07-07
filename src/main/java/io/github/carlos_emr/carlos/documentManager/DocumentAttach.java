@@ -13,6 +13,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+/**
+ * Model class representing a document attachment within the document manager module.
+ */
 public class DocumentAttach {
     private final ConsultDocsDao consultDocsDao = SpringUtils.getBean(ConsultDocsDao.class);
     private final EFormDocsDao eFormDocsDao = SpringUtils.getBean(EFormDocsDao.class);
@@ -30,6 +33,8 @@ public class DocumentAttach {
     private Integer demographicNo;
 
     public DocumentAttach() {
+        // Initialize execution context for DocumentAttach
+
     }
 
     public DocumentAttach(Integer demographicNo, Boolean editOnOcean) {

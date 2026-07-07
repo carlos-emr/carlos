@@ -7,6 +7,9 @@ import jakarta.servlet.ServletContext;
 
 import org.springframework.web.context.ServletContextAware;
 
+/**
+ * Configuration class for the ServletContext, managing application-wide settings and initialization parameters.
+ */
 @Configuration
 public class ServletContextConfig implements ServletContextAware {
 
@@ -14,6 +17,8 @@ public class ServletContextConfig implements ServletContextAware {
 
     @Override
     public void setServletContext(ServletContext servletContext) {
+        // Initialize execution context for ServletContextConfig
+
         this.servletContext = servletContext;
     }
 

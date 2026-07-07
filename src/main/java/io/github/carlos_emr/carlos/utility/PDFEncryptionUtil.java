@@ -9,6 +9,9 @@ import org.apache.pdfbox.pdmodel.encryption.AccessPermission;
 import org.apache.pdfbox.pdmodel.encryption.StandardProtectionPolicy;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Utility class for handling PDF encryption and decryption operations, providing secure access to PDF documents.
+ */
 public class PDFEncryptionUtil {
     // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")

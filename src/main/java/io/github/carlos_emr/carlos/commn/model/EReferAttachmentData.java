@@ -8,6 +8,9 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
+/**
+ * Entity model representing the binary data payload of an eReferral attachment.
+ */
 @Entity
 @IdClass(EReferAttachmentDataCompositeKey.class)
 @Table(name = "erefer_attachment_data")
@@ -26,6 +29,8 @@ public class EReferAttachmentData extends AbstractModel<EReferAttachmentDataComp
     private String labType;
 
     public EReferAttachmentData() {
+        // Initialize execution context for EReferAttachmentData
+
     }
 
     public EReferAttachmentData(EReferAttachment eReferAttachment, Integer labId, String labType) {

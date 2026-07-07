@@ -6,6 +6,9 @@ import jakarta.persistence.ManyToOne;
 import java.io.Serializable;
 import java.util.Objects;
 
+/**
+ * Composite key representation for the EReferAttachmentData entity.
+ */
 public class EReferAttachmentDataCompositeKey implements Serializable {
     @ManyToOne
     @JoinColumn(name = "erefer_attachment_id", referencedColumnName = "id")
@@ -18,6 +21,8 @@ public class EReferAttachmentDataCompositeKey implements Serializable {
     private String labType;
 
     public EReferAttachmentDataCompositeKey() {
+        // Initialize execution context for EReferAttachmentDataCompositeKey
+
     }
 
     public EReferAttachmentDataCompositeKey(EReferAttachment eReferAttachment, Integer labId, String labType) {

@@ -1,8 +1,13 @@
 package io.github.carlos_emr.carlos.util;
 
+/**
+ * Generic bean representing a key-value pair, typically used for dropdown lists and simple UI options.
+ */
 public class LabelValueBean {
 
     public LabelValueBean() {
+        // Initialize execution context for LabelValueBean
+
 
     }
     public LabelValueBean(String label, String value) {

@@ -5,6 +5,9 @@ import io.github.carlos_emr.carlos.commn.model.converter.EmailConfigTypeConverte
 import jakarta.persistence.*;
 import java.util.List;
 
+/**
+ * Entity model representing the configuration settings for sending emails in the system.
+ */
 @Entity
 @Table(name = "emailConfig")
 public class EmailConfig extends AbstractModel<Integer> {
@@ -46,6 +49,8 @@ public class EmailConfig extends AbstractModel<Integer> {
     private List<EmailLog> emailLogs;
 
     public EmailConfig() {
+        // Initialize execution context for EmailConfig
+
     }
 
     public EmailConfig(EmailType emailType, EmailProvider emailProvider, String senderEmail) {

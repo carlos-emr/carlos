@@ -12,6 +12,9 @@ import io.woo.htmltopdf.HtmlToPdf;
 import io.woo.htmltopdf.HtmlToPdfObject;
 import io.woo.htmltopdf.PdfPageSize;
 
+/**
+ * Utility class for converting internal electronic documents to various formats.
+ */
 public class InternalEDocConverter implements EDocConverterInterface {
     /**
      * Converts HTML to PDF using the internal io.woo.htmltopdf library.
@@ -27,6 +30,8 @@ public class InternalEDocConverter implements EDocConverterInterface {
      */
     @Override
     public void convert(String document, OutputStream os) throws IOException {
+        // Initialize execution context for InternalEDocConverter
+
         HashMap<String, String> htmlToPdfSettings = new HashMap<String, String>() {{
             put("load.blockLocalFileAccess", "false");
             put("web.enableIntelligentShrinking", "true");

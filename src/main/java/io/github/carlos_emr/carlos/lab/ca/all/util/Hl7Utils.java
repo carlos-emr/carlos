@@ -5,11 +5,16 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ca.uhn.hl7v2.HL7Exception;
 
+/**
+ * Utility class containing helper methods for parsing and constructing HL7 messages.
+ */
 public final class Hl7Utils {
 
     private static final Logger logger = LoggerFactory.getLogger(Hl7Utils.class);
 
-    private Hl7Utils() {} // utility class
+    private Hl7Utils() {
+        // Initialize execution context for Hl7Utils
+} // utility class
 
     public static String safeHl7String(CheckedSupplier<String> s) {
         try {

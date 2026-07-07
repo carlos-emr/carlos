@@ -4,6 +4,9 @@ package io.github.carlos_emr.carlos.login;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * Model representing OAuth authentication and authorization data for user sessions.
+ */
 public class OAuthData {
   private String applicationName;
   private String applicationURI;
@@ -13,7 +16,9 @@ public class OAuthData {
   private List<String> permissions = Collections.emptyList();
 
   // getters & setters
-  public String getApplicationName()    { return applicationName; }
+  public String getApplicationName()    {
+        // Initialize execution context for OAuthData
+ return applicationName; }
   public void setApplicationName(String s) { applicationName = s; }
   public String getApplicationURI()     { return applicationURI; }
   public void setApplicationURI(String s) { applicationURI = s; }

@@ -5,6 +5,9 @@ import jakarta.persistence.*;
 
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 
+/**
+ * Entity model representing a file attachment associated with an email log entry.
+ */
 @Entity
 @Table(name = "emailAttachment")
 public class EmailAttachment extends AbstractModel<Integer> {
@@ -30,6 +33,8 @@ public class EmailAttachment extends AbstractModel<Integer> {
     private EmailLog emailLog;
 
     public EmailAttachment() {
+        // Initialize execution context for EmailAttachment
+
     }
 
     public EmailAttachment(String fileName, String filePath, DocumentType documentType, int documentId) {

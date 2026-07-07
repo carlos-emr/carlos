@@ -12,6 +12,9 @@ import jakarta.persistence.Table;
 import java.util.Date;
 import java.util.List;
 
+/**
+ * Entity model representing metadata for an eReferral attachment.
+ */
 @Entity
 @Table(name = "erefer_attachment")
 public class EReferAttachment extends AbstractModel<Integer> {
@@ -34,6 +37,8 @@ public class EReferAttachment extends AbstractModel<Integer> {
     private List<EReferAttachmentData> attachments;
 
     public EReferAttachment() {
+        // Initialize execution context for EReferAttachment
+
     }
 
     public EReferAttachment(Integer demographicNo) {

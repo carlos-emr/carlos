@@ -11,10 +11,15 @@ package io.github.carlos_emr.carlos.eform;
 import java.sql.SQLException;
 
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+/**
+ * Utility class providing methods to sanitize and validate SQL queries associated with eForms to prevent injection attacks.
+ */
 
 final class EFormSqlSafety {
 
     private EFormSqlSafety() {
+        // Initialize execution context for EFormSqlSafety
+
     }
 
     static void validateLegacySqlSafety(String sql) {

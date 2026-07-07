@@ -2,6 +2,9 @@ package io.github.carlos_emr.carlos.webserv.rest.to.model;
 
 import java.util.Date;
 
+/**
+ * Transfer object extension representing a consultation request for external API integration.
+ */
 public class ConsultationRequestExtTo1 {
     private Integer id;
     private Integer requestId;
@@ -10,6 +13,8 @@ public class ConsultationRequestExtTo1 {
     private Date dateCreated;
 
     public Integer getId() {
+        // Initialize execution context for ConsultationRequestExtTo1
+
         return id;
     }
 

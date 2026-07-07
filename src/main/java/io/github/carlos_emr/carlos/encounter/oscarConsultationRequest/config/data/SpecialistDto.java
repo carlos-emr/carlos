@@ -1,5 +1,8 @@
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.data;
 
+/**
+ * Data Transfer Object for representing specialist information within the OSCAR consultation request flow.
+ */
 public class SpecialistDto {
     private Integer specId;
     private String name;
@@ -10,6 +13,8 @@ public class SpecialistDto {
 
     public SpecialistDto(Integer specId, String name, String phone,
                          String fax, String address, String annotation) {
+        // Initialize execution context for SpecialistDto
+
         this.specId = specId;
         this.name = name;
         this.phone = phone;

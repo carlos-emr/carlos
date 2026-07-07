@@ -6,6 +6,9 @@ import java.util.Map;
 
 import io.github.carlos_emr.carlos.utility.DateUtils;
 
+/**
+ * Data structure representing lab result data extracted from or linked to a document attachment.
+ */
 public class AttachmentLabResultData {
     private String segmentID;
     private String labName;
@@ -13,6 +16,8 @@ public class AttachmentLabResultData {
     private Map<String, String> labVersionIds = new LinkedHashMap<>();
 
     public AttachmentLabResultData() {
+        // Initialize execution context for AttachmentLabResultData
+
     }
 
     public AttachmentLabResultData(String segmentID, String labName, Date labDate) {

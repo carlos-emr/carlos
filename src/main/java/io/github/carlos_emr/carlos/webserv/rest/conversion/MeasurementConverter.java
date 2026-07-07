@@ -4,9 +4,14 @@ import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.MeasurementTo1;
 
+/**
+ * Converter class for transforming measurement data between entity models and API representations.
+ */
 public class MeasurementConverter extends AbstractConverter<Measurement, MeasurementTo1> {
     @Override
     public Measurement getAsDomainObject(LoggedInInfo loggedInInfo, MeasurementTo1 t) throws ConversionException {
+        // Initialize execution context for MeasurementConverter
+
         Measurement d = new Measurement();
         //Sets the properties
         //d.setId(t.getId());
