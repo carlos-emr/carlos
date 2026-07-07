@@ -139,7 +139,14 @@ public class FaxDocument2Action extends ActionSupport {
 
         java.io.File documentDir = new java.io.File(
                 CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "/var/lib/OscarDocument/"));
-        Path docPath = Paths.get(filePath);
+        Path docPath;
+        try {
+            docPath = Paths.get(filePath);
+        } catch (java.nio.file.InvalidPathException e) {
+            logger.error("Invalid document path for docId={}: {}", docId, LogSafe.sanitize(filePath, 1024));
+            request.setAttribute("message", "Invalid document path.");
+            return "noFax";
+        }
         try {
             PathValidationUtils.validateExistingPath(docPath.toFile(), documentDir);
         } catch (SecurityException e) {
