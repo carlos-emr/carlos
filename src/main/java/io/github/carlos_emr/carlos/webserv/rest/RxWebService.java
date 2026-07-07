@@ -573,8 +573,8 @@ public class RxWebService extends AbstractServiceImpl {
             throw new WebApplicationException(Response.Status.NOT_FOUND);
         }
         int demographicNo = existing.getDemographicNo();
-        if (!securityInfoManager.hasPrivilege(info, "_rx", "r", demographicNo)) {
-            throw new AccessDeniedException("_rx", "r", demographicNo);
+        if (!securityInfoManager.hasPrivilege(info, "_rx", "w", demographicNo)) {
+            throw new AccessDeniedException("_rx", "w", demographicNo);
         }
 
 
@@ -653,6 +653,10 @@ public class RxWebService extends AbstractServiceImpl {
     public StreamingOutput watermark(@PathParam("demographicNo") Integer demographicNo, @PathParam("rxNo") Integer rxNo, @Context HttpServletRequest request, @Context HttpServletResponse response) {
         requireRxReadPrivilege(demographicNo);
         LoggedInInfo loggedInInfo = getLoggedInInfo();
+        Prescription prescription = prescriptionManager.getPrescription(loggedInInfo, rxNo);
+        if (prescription == null || !demographicNo.equals(prescription.getDemographicNo())) {
+            throw new WebApplicationException(Response.Status.NOT_FOUND);
+        }
         response.setContentType("image/png");
         List<Drug> list = prescriptionManager.getDrugsByScriptNo(loggedInInfo, rxNo, null);
         StringBuilder sb = new StringBuilder();
@@ -687,6 +691,10 @@ public class RxWebService extends AbstractServiceImpl {
     public StreamingOutput print(@PathParam("demographicNo") Integer demographicNo, @PathParam("rxNo") Integer rxNo, @Context HttpServletRequest request, PrintRxTo1 transferObject) {
         requireRxReadPrivilege(demographicNo);
         LoggedInInfo loggedInInfo = getLoggedInInfo();
+        Prescription prescription = prescriptionManager.getPrescription(loggedInInfo, rxNo);
+        if (prescription == null || !demographicNo.equals(prescription.getDemographicNo())) {
+            throw new WebApplicationException(Response.Status.NOT_FOUND);
+        }
         Demographic demographic = demographicManager.getDemographic(getLoggedInInfo(), demographicNo);
 
         LogAction.addLog(loggedInInfo, "PRINT", "drug", "" + transferObject.getDrugId(), "" + demographicNo, transferObject.toString());
