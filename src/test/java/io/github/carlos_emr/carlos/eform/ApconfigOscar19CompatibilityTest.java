@@ -2,6 +2,7 @@ package io.github.carlos_emr.carlos.eform;
 
 import io.github.carlos_emr.carlos.eform.data.DatabaseAP;
 import io.github.carlos_emr.carlos.eform.data.EFormApConfig;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 import jakarta.xml.bind.JAXBContext;
 import jakarta.xml.bind.Unmarshaller;
 import java.io.InputStream;
@@ -29,7 +30,7 @@ class ApconfigOscar19CompatibilityTest {
             assertNotNull(input, "Missing classpath resource: " + classpathLocation);
             JAXBContext context = JAXBContext.newInstance(EFormApConfig.class);
             Unmarshaller unmarshaller = context.createUnmarshaller();
-            return (EFormApConfig) unmarshaller.unmarshal(input);
+            return (EFormApConfig) unmarshaller.unmarshal(XmlUtils.createSecureJaxbSource(input));
         }
     }
 
