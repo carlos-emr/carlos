@@ -107,7 +107,10 @@ public final class ViewInsideLabUpload2Action extends ActionSupport {
     }
 
     private boolean isDisplayMethod(String method) {
-        return HTTP_GET.equalsIgnoreCase(method) || HTTP_HEAD.equalsIgnoreCase(method);
+        // HTTP method names are case-sensitive (RFC 9110 §9.1) and arrive
+        // canonicalized from the container, so a case-sensitive comparison is
+        // correct and avoids a FindSecBugs IMPROPER_UNICODE finding.
+        return HTTP_GET.equals(method) || HTTP_HEAD.equals(method);
     }
 
     private void requireLabUploadAccess(HttpServletRequest request) {
