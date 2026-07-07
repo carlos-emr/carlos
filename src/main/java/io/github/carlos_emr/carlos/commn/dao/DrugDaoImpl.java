@@ -475,10 +475,6 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
         return getSingleResultOrNull(query);
     }
 
-    // Allowed column names for findByParameter – intentionally package-private to allow unit testing.
-    static final Set<String> FIND_BY_PARAMETER_ALLOWED_COLUMNS =
-            Set.of("BN", "regional_identifier", "customName");
-
     /**
      * Selects special and special_instruction fields from drugs table ordered by
      * grugid.
