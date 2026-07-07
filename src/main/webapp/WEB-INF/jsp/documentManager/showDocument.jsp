@@ -293,8 +293,9 @@
 
 <c:if test="${param.inWindow eq 'true'}">
 <!DOCTYPE html>
-<html lang="en">
+<html lang="${pageContext.request.locale.language}">
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key="global.Document"/></title>
     <script type="text/javascript">
         const ctx = "${pageContext.servletContext.contextPath}";
@@ -315,8 +316,6 @@
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all"
               href="${pageContext.servletContext.contextPath}/share/calendar/calendar.css" title="win2k-cold-1">
-        <script type="text/javascript"
-                src="${pageContext.servletContext.contextPath}/share/javascript/Oscar.js"></script>
         <script type="text/javascript"
                 src="${pageContext.servletContext.contextPath}/js/demographicProviderAutocomplete.js"></script>
         <script type="text/javascript"
@@ -1169,7 +1168,7 @@
     fetchCsrfToken('<carlos:encode value='<%= request.getContextPath() %>' context="javaScriptBlock"/>');
 
 </script>
-<jsp:include page="/images/spinner.jsp"/>
+<jsp:include page="/WEB-INF/jsp/includes/spinner.jspf"/>
 <c:if test="${param.inWindow eq 'true'}">
     </body>
     </html>

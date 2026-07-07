@@ -30,7 +30,7 @@
 
 package io.github.carlos_emr.carlos.form.graphic;
 
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import java.util.Set;
@@ -57,7 +57,7 @@ public class FrmGraphicFactory {
     public static FrmPdfGraphic create(String name) {
         if (name == null || !ALLOWED_GRAPHIC_CLASSES.contains(name)) {
             MiscUtils.getLogger().warn("Rejected disallowed graphic class name: {}",
-                    LogSanitizer.sanitize(name));
+                    LogSafe.sanitize(name));
             return null;
         }
         FrmPdfGraphic pdfGraph = null;

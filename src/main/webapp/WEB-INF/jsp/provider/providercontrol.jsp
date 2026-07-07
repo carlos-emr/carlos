@@ -29,13 +29,24 @@
 
 --%>
 
+<%--
+    Provider schedule landing view.
+
+    Direct requests must arrive through ViewProviderControl2Action so the shared provider gate can
+    verify an authenticated session and _appointment read privilege before this legacy JSP executes.
+    Do not expose this file through a public filter or container welcome mapping.
+--%>
+
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.web.utils.UserRoleUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
+<%@ page import="io.github.carlos_emr.carlos.providers.gate.ProviderAppointmentReadGate" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="java.util.*,java.net.*, io.github.carlos_emr.carlos.util.*"
          errorPage="/WEB-INF/jsp/error/errorpage.jsp" buffer="64kb" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
@@ -65,6 +76,14 @@
 
     if (roleName$.indexOf("Vaccine Provider") != -1) {
         response.sendRedirect(request.getContextPath() + "/provider/ViewVaccineProvider");
+        return;
+    }
+
+    SecurityInfoManager providerControlSecurityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    LoggedInInfo providerControlLoggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+    if (!ProviderAppointmentReadGate.hasAccess(providerControlSecurityInfoManager, providerControlLoggedInInfo)) {
+        MiscUtils.getLogger().error("missing appointment read privilege? logging user out");
+        response.sendRedirect(request.getContextPath() + "/logoutPage");
         return;
     }
 %>
@@ -144,8 +163,8 @@
     // RequestDispatcher.include() below takes paths relative to the servlet
     // context root — do NOT prepend request.getContextPath() here.
     String[][] opToFile = new String[][]{
-            {"day", "/provider/ViewAppointmentAdminDay"},
-            {"month", "/provider/ViewAppointmentAdminMonth"},
+            {"day", "/WEB-INF/jsp/provider/appointmentprovideradminday.jsp"},
+            {"month", "/WEB-INF/jsp/provider/appointmentprovideradminmonth.jsp"},
             {"addstatus", "/provider/AddStatus"},
             {"updatepreference", "/provider/ViewProviderUpdatePreference"},
             {"displaymygroup", "/provider/ViewProviderDisplayMyGroup"},
@@ -175,14 +194,8 @@
     // get operation name from request
     String operation = requestParamDict.getDef("displaymode", "");
 
-    // Include the target (Struts action or relative JSP). Struts filters are mapped
-    // to REQUEST, FORWARD, and INCLUDE dispatchers in web.xml so Struts action paths
-    // (like /provider/ViewAppointmentAdminDay) route through Struts on the include,
-    // and JSP file paths are resolved by the JSP servlet (`.jsp` is in
-    // struts.action.excludePattern). This keeps the browser URL as the section-root
-    // /provider/providercontrol router so bookmarks and back-stack behavior are
-    // preserved across display modes.
-    out.clearBuffer();
+    // Day/month stay as WEB-INF JSP includes because Struts action includes render empty
+    // under the response-buffering filter chain; keep the shared appointment gate above.
     String includeTarget = opToFileDict.getDef(operation, "");
     request.getRequestDispatcher(includeTarget).include(request, response);
 %>

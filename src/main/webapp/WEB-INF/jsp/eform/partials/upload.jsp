@@ -41,6 +41,7 @@
 <html>
 
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script src="${pageContext.request.contextPath}/js/global.js"></script>
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
@@ -72,7 +73,7 @@
         </div>
 
         <script>
-            window.top.location.href = "<%=request.getContextPath()%>/administration/?show=Forms";
+            window.top.location.href = "<%=request.getContextPath()%>/administration?show=Forms";
         </script>
     </c:if>
 
@@ -140,9 +141,22 @@
 
     </form>
 
+    <fmt:message key="eform.uploadhtml.msgFileMissing" var="fileMissingMsg"/>
+    <fmt:message key="eform.uploadimages.processing" var="processingMsg"/>
     <div style="font-size:0; line-height:0">&nbsp;</div>
 
     <script>
+        function checkFormAndDisable() {
+            if (document.forms[0].formHtml.value === "") {
+                alert("${carlos:forJavaScript(fileMissingMsg)}");
+                return false;
+            }
+
+            document.forms[0].subm.value = "${carlos:forJavaScript(processingMsg)}";
+            document.forms[0].subm.disabled = true;
+            return true;
+        }
+
         $(document).ready(function () {
             $(".check").on("change", validate).keyup(validate);
         });

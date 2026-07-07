@@ -28,7 +28,6 @@ import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementSearchBean;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -1555,16 +1554,12 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
 
     /**
      * Tests for getNotesByDemographicDateRange(String, Date, Date).
-     *
-     * <p><b>NOTE: Disabled — the named query uses MySQL-specific HIGH_PRIORITY keyword
-     * which is incompatible with H2 in-memory database used by integration tests.</b></p>
      */
     @Nested
     @DisplayName("getNotesByDemographicDateRange (3 params: demographic_no, startDate, endDate)")
     class GetNotesByDemographicDateRange {
 
         @Test
-        @Disabled("Named query uses MySQL-specific HIGH_PRIORITY keyword incompatible with H2")
         @Tag("query")
         @DisplayName("should return notes within date range for demographic")
         void shouldReturnNotes_withinDateRangeForDemographic() {
@@ -1588,18 +1583,12 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
 
     /**
      * Tests for getNotesByDemographicLimit(String, Integer, Integer).
-     *
-     * <p><b>NOTE: Disabled — the SQL query uses MySQL-specific {@code HIGH_PRIORITY}
-     * keyword not supported by H2.</b> The query also references the {@code secRole} and
-     * {@code program} tables via correlated subqueries. Enable after migrating to
-     * standard SQL compatible with both H2 and MySQL.</p>
      */
     @Nested
     @DisplayName("getNotesByDemographicLimit (3 params: demographic_no, offset, numToReturn)")
     class GetNotesByDemographicLimit {
 
         @Test
-        @Disabled("Uses MySQL-specific HIGH_PRIORITY keyword incompatible with H2 — requires SQL migration")
         @Tag("query")
         @DisplayName("should return paginated notes for demographic")
         void shouldReturnPaginatedNotes_forDemographic() {

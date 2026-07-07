@@ -49,6 +49,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.MeasurementTypes;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class EctMeasurementsDataBeanHandler {
 
@@ -77,6 +78,8 @@ public class EctMeasurementsDataBeanHandler {
         return true;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public boolean init(Integer demo, String type) {
         MeasurementTypes mt = MeasurementTypes.getInstance();
         EctMeasurementTypesBean mBean = mt.getByType(type);

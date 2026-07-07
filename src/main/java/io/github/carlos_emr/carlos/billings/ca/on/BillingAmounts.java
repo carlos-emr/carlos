@@ -25,7 +25,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
@@ -65,7 +65,7 @@ public final class BillingAmounts {
         } catch (NumberFormatException e) {
             MiscUtils.getLogger().error(
                     "BillingAmounts.amountOrZero: malformed amount=\"{}\", returning ZERO",
-                    LogSanitizer.sanitize(raw), e);
+                    LogSafe.sanitize(raw), e);
             return BigDecimal.ZERO.setScale(scale);
         }
     }

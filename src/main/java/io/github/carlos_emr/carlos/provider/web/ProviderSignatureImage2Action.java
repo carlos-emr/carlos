@@ -35,6 +35,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.commons.io.IOUtils;
 import org.apache.struts2.ServletActionContext;
 
@@ -43,17 +44,17 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.InputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 
 /**
- * Serves the logged-in provider's own signature image with per-provider authorization.
+ * Serves provider signature stamp images with per-provider authorization.
  *
- * <p>Unlike {@code DisplayImage2Action} (which serves any eForm image to any authenticated user),
- * this endpoint derives the provider number from the session — no {@code providerNo} parameter
- * is accepted. This prevents cross-provider signature access when only the requester's own
- * signature is needed.</p>
+ * <p>Preference pages can request the logged-in provider's own stamp without a
+ * {@code providerNo} parameter. Clinical callers may request a specific provider's
+ * stamp by supplying {@code providerNo}, but only when they have the relevant
+ * clinical privileges.</p>
  *
  * <p>Returns HTTP 401 if not authenticated, 404 if the signature file does not exist,
  * or 500 on internal error. On success, streams the PNG image inline.</p>
@@ -65,7 +66,11 @@ import java.io.OutputStream;
 public class ProviderSignatureImage2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private static final String READ = "r";
+    private static final String WRITE = "w";
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     @Override
     public String execute() {
         HttpServletRequest request = ServletActionContext.getRequest();
@@ -77,21 +82,83 @@ public class ProviderSignatureImage2Action extends ActionSupport {
             return NONE;
         }
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pref", "r", null)) {
-            throw new SecurityException("missing required sec object (_pref)");
-        }
-
-        String providerNo = loggedInInfo.getLoggedInProviderNo();
-        if (providerNo == null || !providerNo.matches("[0-9]+")) {
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        String loggedInProviderNo = getNumericProviderNo(loggedInInfo.getLoggedInProviderNo(), response);
+        if (loggedInProviderNo == null) {
             return NONE;
         }
-        String signatureName = UserProperty.CONSULT_SIGNATURE_PREFIX + providerNo + ".png";
 
+        String providerNo = getRequestedProviderNo(request, loggedInProviderNo, response);
+        if (providerNo == null) {
+            return NONE;
+        }
+
+        if (!canAccessRequestedProvider(loggedInInfo, request, loggedInProviderNo, providerNo, response)) {
+            return NONE;
+        }
+
+        String signatureName = PathValidationUtils.validatePathComponent(
+                UserProperty.CONSULT_SIGNATURE_PREFIX + providerNo + ".png", "signatureName");
+        File sigFile = getValidatedSignatureFile(signatureName, response);
+        if (sigFile == null) {
+            return NONE;
+        }
+
+        streamSignature(response, sigFile, signatureName);
+        return NONE;
+    }
+
+    private String getNumericProviderNo(String providerNo, HttpServletResponse response) {
+        if (providerNo == null || !providerNo.matches("\\d+")) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return null;
+        }
+        return providerNo;
+    }
+
+    private String getRequestedProviderNo(HttpServletRequest request, String loggedInProviderNo, HttpServletResponse response) {
+        String requestedProviderNo = request.getParameter("providerNo");
+        String providerNo = (requestedProviderNo == null || requestedProviderNo.isBlank())
+                ? loggedInProviderNo
+                : requestedProviderNo.trim();
+        return getNumericProviderNo(providerNo, response);
+    }
+
+    private boolean canAccessRequestedProvider(LoggedInInfo loggedInInfo, HttpServletRequest request, String loggedInProviderNo,
+                                               String providerNo, HttpServletResponse response) {
+        boolean hasExplicitProviderRequest = hasExplicitProviderRequest(request);
+        boolean hasClinicalStampAccess = hasExplicitProviderRequest && canViewProviderStampFromClinicalFlow(loggedInInfo);
+        if (!providerNo.equals(loggedInProviderNo) && !hasClinicalStampAccess) {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            return false;
+        }
+        if (providerNo.equals(loggedInProviderNo)
+                && !hasPreferenceAccess(loggedInInfo)
+                && !hasClinicalStampAccess
+                && !hasVisualEditorAccess(loggedInInfo)) {
+            throw new SecurityException("missing required sec object (_pref, _rx, _con, or _eform)");
+        }
+        return true;
+    }
+
+    private boolean hasExplicitProviderRequest(HttpServletRequest request) {
+        String requestedProviderNo = request.getParameter("providerNo");
+        return requestedProviderNo != null && !requestedProviderNo.isBlank();
+    }
+
+    private boolean hasPreferenceAccess(LoggedInInfo loggedInInfo) {
+        return securityInfoManager.hasPrivilege(loggedInInfo, "_pref", READ, null);
+    }
+
+    private boolean hasVisualEditorAccess(LoggedInInfo loggedInInfo) {
+        return securityInfoManager.hasPrivilege(loggedInInfo, "_admin.eform", READ, null)
+                || securityInfoManager.hasPrivilege(loggedInInfo, "_admin.eform", WRITE, null);
+    }
+
+    private File getValidatedSignatureFile(String signatureName, HttpServletResponse response) {
         File imageFolder = new File(CarlosProperties.getInstance().getEformImageDirectory());
         if (!imageFolder.exists()) {
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);
-            return NONE;
+            return null;
         }
 
         File sigFile;
@@ -100,14 +167,17 @@ public class ProviderSignatureImage2Action extends ActionSupport {
         } catch (SecurityException e) {
             MiscUtils.getLogger().warn("Blocked path traversal attempt for signature image", e);
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-            return NONE;
+            return null;
         }
 
         if (!sigFile.exists()) {
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);
-            return NONE;
+            return null;
         }
+        return sigFile;
+    }
 
+    private void streamSignature(HttpServletResponse response, File sigFile, String signatureName) {
         response.setContentType("image/png");
         response.setHeader("X-Content-Type-Options", "nosniff");
         response.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
@@ -125,6 +195,12 @@ public class ProviderSignatureImage2Action extends ActionSupport {
             MiscUtils.getLogger().error("Error serving provider signature image", e);
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
-        return NONE;
+    }
+
+    private boolean canViewProviderStampFromClinicalFlow(LoggedInInfo loggedInInfo) {
+        return securityInfoManager.hasPrivilege(loggedInInfo, "_rx", READ, null)
+                || securityInfoManager.hasPrivilege(loggedInInfo, "_con", READ, null)
+                || securityInfoManager.hasPrivilege(loggedInInfo, "_con", WRITE, null)
+                || securityInfoManager.hasPrivilege(loggedInInfo, "_eform", READ, null);
     }
 }

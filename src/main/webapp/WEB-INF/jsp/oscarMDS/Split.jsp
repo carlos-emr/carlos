@@ -40,6 +40,7 @@
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>PDF Sorter</title>
 
     <link rel="stylesheet"

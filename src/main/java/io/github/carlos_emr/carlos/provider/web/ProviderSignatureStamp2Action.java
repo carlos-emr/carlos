@@ -32,6 +32,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -39,7 +40,6 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
-import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 import org.owasp.encoder.Encode;
 
@@ -60,6 +60,7 @@ import java.util.Iterator;
 import java.util.List;
 
 import org.springframework.dao.DataAccessException;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Manages provider signature stamp images for consultations, prescriptions, and eForms.
@@ -84,6 +85,8 @@ public class ProviderSignatureStamp2Action extends ActionSupport implements Uplo
     private static final int MAX_SIGNATURE_WIDTH = 1000;
     private static final int MAX_SIGNATURE_HEIGHT = 400;
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String execute() {
         HttpServletRequest request = ServletActionContext.getRequest();
@@ -134,6 +137,10 @@ public class ProviderSignatureStamp2Action extends ActionSupport implements Uplo
     }
 
     private String handleUpload(HttpServletRequest request, HttpServletResponse response, String providerNo) {
+        if (uploadValidationError != null) {
+            writeJson(response, "{\"success\":false,\"error\":\"Invalid filename\"}");
+            return NONE;
+        }
         if (image == null || imageFileName == null || imageFileName.isEmpty()) {
             writeJson(response, "{\"success\":false,\"error\":\"No file selected\"}");
             return NONE;
@@ -245,6 +252,8 @@ public class ProviderSignatureStamp2Action extends ActionSupport implements Uplo
         return NONE;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private String handleDelete(HttpServletResponse response, String providerNo) {
         UserProperty prop;
         try {
@@ -287,6 +296,8 @@ public class ProviderSignatureStamp2Action extends ActionSupport implements Uplo
         return NONE;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private String handleCheck(HttpServletRequest request, HttpServletResponse response, String providerNo) {
         UserProperty prop;
         try {
@@ -330,6 +341,8 @@ public class ProviderSignatureStamp2Action extends ActionSupport implements Uplo
         return "{\"success\":true,\"imageUrl\":\"" + Encode.forJavaScript(imageUrl) + "\"}";
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     private static File getImageFolder() throws IOException {
         File imageFolder = new File(CarlosProperties.getInstance().getEformImageDirectory() + "/");
         if (!imageFolder.exists() && !imageFolder.mkdirs()) {
@@ -376,6 +389,8 @@ public class ProviderSignatureStamp2Action extends ActionSupport implements Uplo
         }
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     private void writeJson(HttpServletResponse resp, String json) {
         resp.setContentType("application/json");
         resp.setCharacterEncoding("UTF-8");
@@ -393,14 +408,20 @@ public class ProviderSignatureStamp2Action extends ActionSupport implements Uplo
     private File image;
     private String imageFileName;
     private String imageFileContentType;
+    private String uploadValidationError;
 
     @Override
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
             UploadedFile uploaded = uploadedFiles.get(0);
-            this.image = new File(uploaded.getAbsolutePath());
+            this.image = PathValidationUtils.validateUploadContent(uploaded.getContent());
             this.imageFileContentType = uploaded.getContentType();
-            this.imageFileName = uploaded.getOriginalName();
+            try {
+                this.imageFileName = PathValidationUtils.validateStrictFileName(uploaded.getOriginalName());
+            } catch (FileValidationException e) {
+                this.uploadValidationError = PathValidationUtils.INVALID_FILENAME_MESSAGE;
+                this.imageFileName = null;
+            }
         }
     }
 
@@ -410,12 +431,9 @@ public class ProviderSignatureStamp2Action extends ActionSupport implements Uplo
 
     public String getImageFileContentType() { return imageFileContentType; }
 
-    @StrutsParameter
     public void setImage(File image) { this.image = image; }
 
-    @StrutsParameter
     public void setImageFileName(String imageFileName) { this.imageFileName = imageFileName; }
 
-    @StrutsParameter
     public void setImageFileContentType(String imageFileContentType) { this.imageFileContentType = imageFileContentType; }
 }

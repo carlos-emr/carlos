@@ -30,9 +30,11 @@
 
 package io.github.carlos_emr.carlos.documentManager.actions;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -42,6 +44,7 @@ import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -53,6 +56,7 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class CombinePDF2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -61,6 +65,8 @@ public class CombinePDF2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public String execute() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
@@ -73,11 +79,11 @@ public class CombinePDF2Action extends ActionSupport {
         if (files != null) {
             MiscUtils.getLogger().debug("size = " + files.length);
             EDocUtil docData = new EDocUtil();
-            String path = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+            File documentDir = PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
             Path filePath;
             for (int i = 0; i < files.length; i++) {
                 String filename = docData.getDocumentName(files[i]);
-                filePath = Paths.get(path, filename);
+                filePath = PathValidationUtils.validateExistingPath(new File(documentDir, filename), documentDir).toPath();
                 alist.add(filePath.toAbsolutePath().toString());
             }
             if (alist.size() > 0) {
@@ -91,10 +97,44 @@ public class CombinePDF2Action extends ActionSupport {
 
                     response.setHeader("Content-Disposition", "attachment; filename=\"combinedPDF-" + UtilDateUtilities.getToday("yyyy-MM-dd.hh.mm.ss") + ".pdf\"");
                 }
+                File tempPdf = null;
                 try {
-                    ConcatPDF.concat(alist, response.getOutputStream());
-                } catch (IOException ex) {
-                    MiscUtils.getLogger().error("Error", ex);
+                    // Merge to a secure temp file (not an in-memory buffer): the skipped count is known
+                    // before streaming, so we can refuse to serve a silently-truncated PDF, without
+                    // risking high memory / OOM on large or large-count combined documents.
+                    tempPdf = PathValidationUtils.createSecureTempFile("combinedPDF" + System.currentTimeMillis(), ".pdf");
+                    int skipped;
+                    try (FileOutputStream tmpOut = new FileOutputStream(tempPdf)) {
+                        skipped = ConcatPDF.concat(alist, tmpOut);
+                    }
+                    if (skipped > 0) {
+                        // Some documents could not be included: refuse to serve a truncated PDF.
+                        MiscUtils.getLogger().error("Combine PDF: {} of {} document(s) could not be included",
+                                skipped, alist.size());
+                        if (!response.isCommitted()) {
+                            response.reset();
+                            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                                    skipped + " of " + alist.size() + " document(s) could not be included; combined PDF not produced");
+                        }
+                    } else {
+                        Files.copy(tempPdf.toPath(), response.getOutputStream());
+                    }
+                } catch (IOException | RuntimeException ex) {
+                    // RuntimeException covers ConcatPDF's merge failure; own the error rather than letting
+                    // Struts write an HTML error page into the application/pdf download.
+                    MiscUtils.getLogger().error("Combine PDF failed", ex);
+                    if (!response.isCommitted()) {
+                        try {
+                            response.reset();
+                            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to generate the combined PDF");
+                        } catch (IOException sendErr) {
+                            MiscUtils.getLogger().error("Failed to send combine-PDF error response", sendErr);
+                        }
+                    }
+                } finally {
+                    if (tempPdf != null && !tempPdf.delete()) {
+                        MiscUtils.getLogger().warn("Failed to delete temporary combined-PDF file; leaving for OS temp sweep");
+                    }
                 }
                 // This branch streams the PDF directly; returning NONE prevents Struts from
                 // resolving the success result and appending a JSP/error page to the PDF.

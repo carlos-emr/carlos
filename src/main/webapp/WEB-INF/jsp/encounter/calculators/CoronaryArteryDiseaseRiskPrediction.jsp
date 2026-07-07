@@ -29,10 +29,11 @@
 
 --%>
 
-<html lang="en">
+<html lang="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(request.getLocale().getLanguage()) %>">
 
 
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <title>Coronary Artery Disease Risk Prediction</title>
     <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/encounterStyles.css">
@@ -827,8 +828,8 @@
         </td>
         <td style="text-align: right"><a
                 href="javascript:
-                    popupStart(300,400,'About.jsp')">About</a>
-            | <a href="javascript:popupStart(300,400,'License.jsp')">License</a>
+                    popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')">About</a>
+            | <a href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')">License</a>
         </td>
     </tr>
     <tr>

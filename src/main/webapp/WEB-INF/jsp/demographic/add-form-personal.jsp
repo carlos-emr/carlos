@@ -84,6 +84,10 @@
     String prefillYearOfBirth   = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("prefill_year_of_birth"));
     String prefillMonthOfBirth  = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("prefill_month_of_birth"));
     String prefillDateOfBirth   = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("prefill_date_of_birth"));
+    String prefillDOB           = (!prefillYearOfBirth.equals("") && !prefillMonthOfBirth.equals("") && !prefillDateOfBirth.equals(""))
+            ? prefillYearOfBirth + "-" + org.apache.commons.lang3.StringUtils.leftPad(prefillMonthOfBirth, 2, '0')
+            + "-" + org.apache.commons.lang3.StringUtils.leftPad(prefillDateOfBirth, 2, '0')
+            : "";
     String prefillHin           = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("prefill_hin"));
     String prefillVer           = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("prefill_ver"));
     String prefillHcType        = io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("prefill_hc_type"));
@@ -681,7 +685,7 @@
                             <div class="col-sm-4" id="phoneCell">
                                 <div class="d-flex gap-1 align-items-center">
                                     <input type="text" id="phone" name="phone" class="form-control"
-                                           onBlur="formatPhoneNum()"
+                                           onBlur="formatPhoneNum(this)"
                                            value="<carlos:encode value='<%= prefillPhone.isEmpty() ? props.getProperty("phoneprefix", "905-") : prefillPhone %>' context="htmlAttribute"/>">
                                     <span class="text-nowrap"><fmt:message key="demographic.demographicaddrecordhtm.Ext"/>:</span>
                                     <input type="text" id="hPhoneExt" name="hPhoneExt" value="" class="form-control" style="width:4em"/>
@@ -692,7 +696,7 @@
                             </div>
                             <div class="col-sm-4" id="phoneWorkCell">
                                 <div class="d-flex gap-1 align-items-center">
-                                    <input type="text" name="phone2" class="form-control" onBlur="formatPhoneNum()" value="">
+                                    <input type="text" name="phone2" class="form-control" onBlur="formatPhoneNum(this)" value="">
                                     <span class="text-nowrap"><fmt:message key="demographic.demographicaddrecordhtm.Ext"/>:</span>
                                     <input type="text" name="wPhoneExt" value="" class="form-control" style="width:4em"/>
                                 </div>
@@ -704,7 +708,7 @@
                                 <label class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formPhoneCell"/>:</label>
                             </div>
                             <div class="col-sm-4" id="phoneCellCell">
-                                <input type="text" name="demo_cell" class="form-control" onBlur="formatPhoneNum()">
+                                <input type="text" name="demo_cell" class="form-control" onBlur="formatPhoneNum(this)">
                             </div>
                             <div class="col-sm-2 text-end">
                                 <label class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formPhoneComment"/>:</label>
@@ -757,14 +761,14 @@
                                            name="inputDOB" id="inputDOB"
                                            class="form-control"
                                            size="12" required
-                                           onchange="parsedob_date();" value="<carlos:encode value='<%= prefillYearOfBirth %>' context="htmlAttribute"/>-<carlos:encode value='<%= prefillMonthOfBirth %>' context="htmlAttribute"/>-<carlos:encode value='<%= prefillDateOfBirth %>' context="htmlAttribute"/>">
+                                           onchange="syncInputDobParts();" value="<carlos:encode value='<%= prefillDOB %>' context="htmlAttribute"/>">
                                     <img src="<%= request.getContextPath() %>/images/cal.gif" id="inputDOB_cal">
                                     <div class="invalid-feedback">
                                            <fmt:message key="demographic.add.msgInvalidDOB"/>
                                     </div>
-                                    <input type="hidden" name="year_of_birth" value="<carlos:encode value='<%= prefillYearOfBirth %>' context="htmlAttribute"/>">
-                                    <input type="hidden" name="month_of_birth" value="<carlos:encode value='<%= prefillMonthOfBirth %>' context="htmlAttribute"/>">
-                                    <input type="hidden" name="date_of_birth" value="<carlos:encode value='<%= prefillDateOfBirth %>' context="htmlAttribute"/>">
+                                    <input type="hidden" name="year_of_birth" id="year_of_birth" value="<carlos:encode value='<%= prefillYearOfBirth %>' context="htmlAttribute"/>">
+                                    <input type="hidden" name="month_of_birth" id="month_of_birth" value="<carlos:encode value='<%= prefillMonthOfBirth %>' context="htmlAttribute"/>">
+                                    <input type="hidden" name="date_of_birth" id="date_of_birth" value="<carlos:encode value='<%= prefillDateOfBirth %>' context="htmlAttribute"/>">
                                 </div>
                             </div>
                             <div class="col-sm-2 text-end">
@@ -818,7 +822,7 @@
                             </div>
                             <div class="col-sm-4" id="hinVer">
                                 <div class="d-flex gap-1 align-items-center">
-                                    <input type="text" name="hin" id="hin" class="form-control" onfocus="autoFillHin()" value="<carlos:encode value='<%= prefillHin %>' context="htmlAttribute"/>">
+                                    <input type="text" name="hin" id="hin" class="form-control" onfocus="autoFillHin()" onBlur="parseHINforVC()" value="<carlos:encode value='<%= prefillHin %>' context="htmlAttribute"/>">
                                     <span class="text-nowrap"><fmt:message key="demographic.demographicaddrecordhtm.formVer"/>:</span>
                                     <input type="text" id="ver" name="ver" class="form-control" style="width:4em" onBlur="upCaseCtrl(this)" value="<carlos:encode value='<%= prefillVer %>' context="htmlAttribute"/>">
                                 </div>

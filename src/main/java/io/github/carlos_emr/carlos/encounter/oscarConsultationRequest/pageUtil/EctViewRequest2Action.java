@@ -64,7 +64,7 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import org.owasp.encoder.Encode;
 
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 public class EctViewRequest2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -80,8 +80,8 @@ public class EctViewRequest2Action extends ActionSupport {
 
         request.setAttribute("id", this.getRequestId());
 
-        logger.debug("Id:{}", LogSanitizer.sanitize(this.getRequestId()));
-        logger.debug("SegmentId:{}", LogSanitizer.sanitize(request.getParameter("segmentId")));
+        logger.debug("Id:{}", LogSafe.sanitize(this.getRequestId()));
+        logger.debug("SegmentId:{}", LogSafe.sanitize(request.getParameter("segmentId")));
 
         return SUCCESS;
     }

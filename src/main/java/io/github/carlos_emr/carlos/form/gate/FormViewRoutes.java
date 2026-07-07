@@ -249,9 +249,6 @@ public final class FormViewRoutes {
         if ("/form/forwardname.jsp".equals(pathOnly)) {
             return "/form/forwardname" + query;
         }
-        if ("/form/eCARES/formeCARES.jsp".equals(pathOnly)) {
-            return "/formeCARES" + query;
-        }
         if ("/form/pharmaForms/formBPMH.jsp".equals(pathOnly)) {
             return "/formBPMH" + query;
         }

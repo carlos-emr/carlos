@@ -68,6 +68,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.form.JSONUtil;
 import io.github.carlos_emr.carlos.fax.action.Fax2Action;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class ManageFaxes2Action extends Fax2Action {
     private static final ObjectMapper objectMapper = new ObjectMapper();
@@ -213,6 +214,8 @@ public class ManageFaxes2Action extends Fax2Action {
         getPreview();
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @SuppressWarnings("unused")
     public String fetchFaxStatus() {
 

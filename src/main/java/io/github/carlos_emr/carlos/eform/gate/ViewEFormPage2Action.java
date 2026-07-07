@@ -28,10 +28,43 @@ import org.apache.struts2.ActionContext;
 public class ViewEFormPage2Action extends BaseEFormView2Action {
 
     @Override
+    protected boolean isMethodAllowed(HttpServletRequest request) {
+        if (super.isMethodAllowed(request)) {
+            return true;
+        }
+
+        if (!"POST".equals(request.getMethod())) {
+            return false;
+        }
+
+        ActionContext ctx = ActionContext.getContext();
+        if (ctx == null) {
+            return false;
+        }
+        String actionName = ctx.getActionName();
+        return "eform/efmformmanageredit".equals(actionName)
+                && request.getParameter("formHtmlG") != null;
+    }
+
+    @Override
+    protected String allowedMethods() {
+        ActionContext ctx = ActionContext.getContext();
+        if (ctx != null && "eform/efmformmanageredit".equals(ctx.getActionName())) {
+            return "GET, HEAD, POST";
+        }
+        return super.allowedMethods();
+    }
+
+    @Override
     protected String executeView(
             HttpServletRequest request,
             HttpServletResponse response) throws ServletException, IOException {
-        String actionName = ActionContext.getContext().getActionName();
+        ActionContext ctx = ActionContext.getContext();
+        if (ctx == null) {
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return NONE;
+        }
+        String actionName = ctx.getActionName();
         EFormViewRoutes.Route route = EFormViewRoutes.resolve(actionName);
         if (route == null) {
             response.sendError(HttpServletResponse.SC_NOT_FOUND);

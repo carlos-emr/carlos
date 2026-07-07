@@ -48,7 +48,7 @@ import javax.xml.parsers.ParserConfigurationException;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
@@ -60,6 +60,7 @@ import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
 import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class IHAPOIHandler implements MessageHandler {
 
@@ -105,10 +106,10 @@ public class IHAPOIHandler implements MessageHandler {
 
         } catch (ExceptionInInitializerError e) {
             result = new StringBuilder(FAILED + messageId + ",");
-            logger.error("There was an unknown internal error with file {} message id {}", LogSanitizer.sanitize(fileName), LogSanitizer.sanitize(messageId), e); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            logger.error("There was an unknown internal error with file {} message id {}", LogSafe.sanitize(fileName), LogSafe.sanitize(messageId), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         } catch (Exception e) {
             result = new StringBuilder(FAILED + messageId + ",");
-            logger.error("Could not upload IHAPOI message {} due to an error with message id {}", LogSanitizer.sanitize(fileName), LogSanitizer.sanitize(messageId), e); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            logger.error("Could not upload IHAPOI message {} due to an error with message id {}", LogSafe.sanitize(fileName), LogSafe.sanitize(messageId), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         } finally {
             if (FAILED.equals(result.toString().split(":")[0] + ":")) {
                 logger.error("Cleaning up MessageUploader file.");
@@ -217,6 +218,8 @@ public class IHAPOIHandler implements MessageHandler {
         return hl7BodyMap;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String getMessageId(Element element) {
 
         NamedNodeMap nodeAttributes = element.getAttributes();
@@ -243,6 +246,8 @@ public class IHAPOIHandler implements MessageHandler {
      * @return a validated File object
      * @throws IOException if the file path is invalid or attempts path traversal
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private File validateAndGetFile(String fileName) throws IOException {
         if (fileName == null || fileName.isEmpty()) {
             throw new IllegalArgumentException("File name cannot be null or empty");
@@ -271,7 +276,7 @@ public class IHAPOIHandler implements MessageHandler {
             isValidPath = PathValidationUtils.isInAllowedTempDirectory(file);
         }
         if (!isValidPath) {
-            logger.error("Path traversal attempt detected: {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            logger.error("Path traversal attempt detected: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             throw new IllegalArgumentException("Invalid file path - access denied");
         }
         

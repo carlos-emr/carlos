@@ -28,6 +28,9 @@
 <!DOCTYPE html>
 <%@ page import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -41,6 +44,7 @@
 %>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>E-Form Manager</title>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css">
         <link rel="stylesheet" href="<%= request.getContextPath() %>/css/fontawesome-all.min.css">
@@ -54,16 +58,6 @@
 
 
     <script language="javascript">
-        function checkFormAndDisable() {
-            if (document.forms[0].formHtml.value == "") {
-                alert("<fmt:message key="eform.uploadhtml.msgFileMissing"/>");
-            } else {
-                document.forms[0].subm.value = "<fmt:message key="eform.uploadimages.processing"/>";
-                document.forms[0].subm.disabled = true;
-                document.forms[0].submit();
-            }
-        }
-
         function newWindow(url, id) {
             Popup = window.open(url, id, 'toolbar=no,location=no,status=yes,menubar=no, scrollbars=yes,resizable=yes,width=900,height=600,left=200,top=0');
         }
@@ -194,9 +188,14 @@
 
             <tbody>
             <%
+                LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+                SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+                boolean isEFormAdmin = securityInfoManager.hasPrivilege(loggedInInfo, "_admin.eform", SecurityInfoManager.WRITE, null);
+
                 ArrayList<HashMap<String, ? extends Object>> eForms = EFormUtil.listEForms(orderBy, EFormUtil.CURRENT);
                 for (int i = 0; i < eForms.size(); i++) {
                     HashMap<String, ? extends Object> curForm = eForms.get(i);
+                    boolean canDelete = isEFormAdmin;
             %>
             <tr>
                 <td><%if (curForm.get("formFileName") != null && curForm.get("formFileName").toString().length() != 0) {%><i
@@ -229,10 +228,12 @@
                                 class="fa-solid fa-download" title="<fmt:message key="eform.uploadhtml.btnExport"/>"></i></a>
 
 
+                        <% if (canDelete) { %>
                         <a class="btn btn-link contentLink"
                            href='javascript:void(0);' onclick='confirmNDelete("<%=curForm.get("fid")%>")'
                            title='<fmt:message key="eform.uploadhtml.btnDelete"/> <%=curForm.get("formName")%>'><i
                                 class="fa-solid fa-trash" title="<fmt:message key="eform.uploadhtml.btnDelete"/>"></i></a>
+                        <% } %>
                     </div>
                 </td>
 

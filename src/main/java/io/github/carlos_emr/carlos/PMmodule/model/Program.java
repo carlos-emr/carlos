@@ -27,9 +27,7 @@
 
 package io.github.carlos_emr.carlos.PMmodule.model;
 
-import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 import java.util.Date;
@@ -37,6 +35,7 @@ import java.util.Date;
 import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.model.LookupCodeValue;
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * This is the object class that relates to the program table. Any customizations belong here.
@@ -46,6 +45,7 @@ import io.github.carlos_emr.carlos.commn.model.AbstractModel;
  */
 @Entity
 @Table(name = "program")
+@jakarta.persistence.Access(jakarta.persistence.AccessType.PROPERTY)
 public class Program extends AbstractModel<Integer> {
     public static final Integer DEFAULT_COMMUNITY_PROGRAM_ID = Integer.valueOf(10010);
 
@@ -62,8 +62,6 @@ public class Program extends AbstractModel<Integer> {
 
     private int hashCode = Integer.MIN_VALUE; // primary key
 
-    @Id
-    @Column(name = "id")
     private Integer id;
 
     private boolean userDefined = true;
@@ -158,6 +156,7 @@ public class Program extends AbstractModel<Integer> {
         setProgramStatus(programStatus);
 
     }
+    @jakarta.persistence.Column(name = "siteSpecificField")
 
     public String getSiteSpecificField() {
         return siteSpecificField;
@@ -166,6 +165,7 @@ public class Program extends AbstractModel<Integer> {
     public void setSiteSpecificField(String siteSpecificField) {
         this.siteSpecificField = siteSpecificField;
     }
+    @jakarta.persistence.Column(name = "lastupdatedate")
 
     public Date getLastUpdateDate() {
         return lastUpdateDate;
@@ -174,10 +174,12 @@ public class Program extends AbstractModel<Integer> {
     public void setLastUpdateDate(Date lastUpdateDate) {
         this.lastUpdateDate = lastUpdateDate;
     }
+    @jakarta.persistence.Column(name = "lastupdateuser")
 
     public String getLastUpdateUser() {
         return lastUpdateUser;
     }
+    @jakarta.persistence.Column(name = "functionalCentreId")
 
     public String getFunctionalCentreId() {
         return functionalCentreId;
@@ -190,6 +192,7 @@ public class Program extends AbstractModel<Integer> {
     public void setLastUpdateUser(String lastUpdateUser) {
         this.lastUpdateUser = lastUpdateUser;
     }
+    @jakarta.persistence.Transient
 
     public Integer getCapacity_actual() {
         return capacity_actual;
@@ -198,6 +201,7 @@ public class Program extends AbstractModel<Integer> {
     public void setCapacity_actual(Integer capacity_actual) {
         this.capacity_actual = capacity_actual;
     }
+    @jakarta.persistence.Column(name = "capacity_funding")
 
     public Integer getCapacity_funding() {
         return capacity_funding;
@@ -206,6 +210,7 @@ public class Program extends AbstractModel<Integer> {
     public void setCapacity_funding(Integer capacity_funding) {
         this.capacity_funding = capacity_funding;
     }
+    @jakarta.persistence.Column(name = "capacity_space")
 
     public Integer getCapacity_space() {
         return capacity_space;
@@ -222,6 +227,7 @@ public class Program extends AbstractModel<Integer> {
     public Program() {
         // no arg constructor for JPA
     }
+    @jakarta.persistence.Column(name = "shelter_id")
 
     public Integer getShelterId() {
         return shelterId;
@@ -234,6 +240,7 @@ public class Program extends AbstractModel<Integer> {
     /**
      * Returns the facility ID.
      */
+    @jakarta.persistence.Column(name = "facilityId")
     public Integer getFacilityId() {
         return facilityId;
     }
@@ -244,6 +251,7 @@ public class Program extends AbstractModel<Integer> {
     public void setFacilityId(Integer facilityId) {
         this.facilityId = facilityId;
     }
+    @jakarta.persistence.Transient
 
     public String getOrgCd() {
         return orgCd;
@@ -267,6 +275,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return true if user defined, false otherwise
      */
+    @jakarta.persistence.Column(name = "userDefined")
     public boolean isUserDefined() {
         return userDefined;
     }
@@ -285,6 +294,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return true if the program status is active, false otherwise
      */
+    @jakarta.persistence.Transient
     public boolean isActive() {
         return PROGRAM_STATUS_ACTIVE.equals(programStatus);
     }
@@ -294,6 +304,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return true if the program is full, false otherwise
      */
+    @jakarta.persistence.Transient
     public boolean isFull() {
         return getNumOfMembers().intValue() >= getMaxAllowed().intValue();
     }
@@ -303,6 +314,9 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return true if the program type is "external", false otherwise
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    @jakarta.persistence.Transient
     public boolean isExternal() {
         return EXTERNAL_TYPE.equalsIgnoreCase(getType());
     }
@@ -313,6 +327,9 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return true if the program type is "community", false otherwise
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    @jakarta.persistence.Transient
     public boolean isCommunity() {
         return COMMUNITY_TYPE.equalsIgnoreCase(getType());
     }
@@ -322,17 +339,11 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return true if the program type is "Service", false otherwise
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    @jakarta.persistence.Transient
     public boolean isService() {
         return SERVICE_TYPE.equalsIgnoreCase(getType());
-    }
-
-    /**
-     * Checks if this is a holding tank program.
-     * 
-     * @return true if this is a holding tank program, false otherwise
-     */
-    public boolean getHoldingTank() {
-        return isHoldingTank();
     }
 
     /**
@@ -340,6 +351,9 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return the program ID
      */
+    @jakarta.persistence.Id
+    @jakarta.persistence.GeneratedValue(strategy = jakarta.persistence.GenerationType.IDENTITY)
+    @jakarta.persistence.Column(name = "id")
     public Integer getId() {
         return id;
     }
@@ -359,6 +373,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return the number of members
      */
+    @org.hibernate.annotations.Formula("(select count(*) from admission a where a.program_id = id and a.admission_status = 'current')")
     public Integer getNumOfMembers() {
         return numOfMembers;
     }
@@ -377,6 +392,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return the queue size
      */
+    @org.hibernate.annotations.Formula("(select count(*) from program_queue a where a.program_id = id and a.status = 'active')")
     public Integer getQueueSize() {
         return queueSize;
     }
@@ -395,6 +411,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return the maximum allowed
      */
+    @jakarta.persistence.Column(name = "maxAllowed")
     public Integer getMaxAllowed() {
         return maxAllowed;
     }
@@ -413,6 +430,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return the program type
      */
+    @jakarta.persistence.Column(name = "type")
     public String getType() {
         return type;
     }
@@ -431,6 +449,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return the program description
      */
+    @jakarta.persistence.Column(name = "description")
     public String getDescription() {
         return description;
     }
@@ -449,6 +468,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return the program address
      */
+    @jakarta.persistence.Column(name = "address")
     public String getAddress() {
         return address;
     }
@@ -467,6 +487,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return the program phone number
      */
+    @jakarta.persistence.Column(name = "phone")
     public String getPhone() {
         return phone;
     }
@@ -485,6 +506,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return the program fax number
      */
+    @jakarta.persistence.Column(name = "fax")
     public String getFax() {
         return fax;
     }
@@ -503,6 +525,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return the program URL
      */
+    @jakarta.persistence.Column(name = "url")
     public String getUrl() {
         return url;
     }
@@ -521,6 +544,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return the program email address
      */
+    @jakarta.persistence.Column(name = "email")
     public String getEmail() {
         return email;
     }
@@ -539,6 +563,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return the program emergency contact number
      */
+    @jakarta.persistence.Column(name = "emergencyNumber")
     public String getEmergencyNumber() {
         return emergencyNumber;
     }
@@ -557,6 +582,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return the program location
      */
+    @jakarta.persistence.Column(name = "location")
     public String getLocation() {
         return location;
     }
@@ -575,6 +601,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return the program name
      */
+    @jakarta.persistence.Column(name = "name")
     public String getName() {
         return name;
     }
@@ -584,6 +611,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return the JavaScript-escaped program name
      */
+    @jakarta.persistence.Transient
     public String getNameJs() {
         return Misc.getStringJs(name);
     }
@@ -602,6 +630,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return true if this is a holding tank program, false otherwise
      */
+    @jakarta.persistence.Column(name = "holdingTank")
     public boolean isHoldingTank() {
         return holdingTank;
     }
@@ -620,6 +649,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return true if batch admission is allowed, false otherwise
      */
+    @jakarta.persistence.Column(name = "allowBatchAdmission")
     public boolean isAllowBatchAdmission() {
         return allowBatchAdmission;
     }
@@ -638,6 +668,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return true if batch discharge is allowed, false otherwise
      */
+    @jakarta.persistence.Column(name = "allowBatchDischarge")
     public boolean isAllowBatchDischarge() {
         return allowBatchDischarge;
     }
@@ -656,6 +687,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return true if a HIC is required, false otherwise
      */
+    @jakarta.persistence.Column(name = "hic")
     public boolean isHic() {
         return hic;
     }
@@ -674,6 +706,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return the program status
      */
+    @jakarta.persistence.Column(name = "programStatus")
     public String getProgramStatus() {
         return programStatus;
     }
@@ -692,6 +725,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return the intake program ID
      */
+    @jakarta.persistence.Column(name = "intakeProgram")
     public Integer getIntakeProgram() {
         return intakeProgram;
     }
@@ -711,6 +745,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return the abstinence support description
      */
+    @jakarta.persistence.Column(name = "abstinenceSupport")
     public String getAbstinenceSupport() {
         return abstinenceSupport;
     }
@@ -729,6 +764,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return true if the program addresses alcohol addiction, false otherwise
      */
+    @jakarta.persistence.Column(name = "alcohol")
     public boolean isAlcohol() {
         return alcohol;
     }
@@ -748,6 +784,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return true if the program serves First Nations, false otherwise
      */
+    @jakarta.persistence.Column(name = "firstNation")
     public boolean isFirstNation() {
         return firstNation;
     }
@@ -760,6 +797,7 @@ public class Program extends AbstractModel<Integer> {
     public void setFirstNation(boolean firstNation) {
         this.firstNation = firstNation;
     }
+    @jakarta.persistence.Transient
 
     public int getHashCode() {
         return hashCode;
@@ -774,6 +812,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return true if the program provides housing support, false otherwise
      */
+    @jakarta.persistence.Column(name = "housing")
     public boolean isHousing() {
         return housing;
     }
@@ -792,6 +831,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return the gender served by the program
      */
+    @jakarta.persistence.Column(name = "manOrWoman")
     public String getManOrWoman() {
         return manOrWoman;
     }
@@ -810,6 +850,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return true if the program addresses mental health, false otherwise
      */
+    @jakarta.persistence.Column(name = "mentalHealth")
     public boolean isMentalHealth() {
         return mentalHealth;
     }
@@ -828,6 +869,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return true if the program addresses physical health, false otherwise
      */
+    @jakarta.persistence.Column(name = "physicalHealth")
     public boolean isPhysicalHealth() {
         return physicalHealth;
     }
@@ -846,6 +888,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return true if the program serves transgender individuals, false otherwise
      */
+    @jakarta.persistence.Column(name = "transgender")
     public boolean isTransgender() {
         return transgender;
     }
@@ -864,6 +907,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return the exclusive view setting
      */
+    @jakarta.persistence.Column(name = "exclusiveView")
     public String getExclusiveView() {
         return exclusiveView;
     }
@@ -882,6 +926,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return the minimum age, or the default minimum age if not set
      */
+    @jakarta.persistence.Column(name = "ageMin")
     public Integer getAgeMin() {
         if (this.ageMin != null) {
             return ageMin;
@@ -904,6 +949,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return the maximum age, or the default maximum age if not set
      */
+    @jakarta.persistence.Column(name = "ageMax")
     public Integer getAgeMax() {
         if (this.ageMax != null) {
             return ageMax;
@@ -925,6 +971,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return the maximum service restriction days
      */
+    @jakarta.persistence.Column(name = "maximumServiceRestrictionDays")
     public Integer getMaximumServiceRestrictionDays() {
         return maximumServiceRestrictionDays;
     }
@@ -943,6 +990,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return the default service restriction days, or the program default if not set or invalid
      */
+    @jakarta.persistence.Column(name = "defaultServiceRestrictionDays")
     public Integer getDefaultServiceRestrictionDays() {
         if ((this.defaultServiceRestrictionDays != null) && (this.defaultServiceRestrictionDays > 0)) {
             return defaultServiceRestrictionDays;
@@ -992,6 +1040,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return the facility description
      */
+    @org.hibernate.annotations.Formula("(select fac.name from Facility fac where fac.id=facilityId)")
     public String getFacilityDesc() {
         return facilityDesc;
     }
@@ -1011,6 +1060,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return the number of intakes
      */
+    @jakarta.persistence.Transient
     public Integer getNumOfIntakes() {
         return numOfIntakes;
     }
@@ -1029,6 +1079,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return the gender description
      */
+    @jakarta.persistence.Transient
     public String getGenderDesc() {
         return genderDesc;
     }
@@ -1047,6 +1098,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return the shelter
      */
+    @jakarta.persistence.Transient
     public LookupCodeValue getShelter() {
         return shelter;
     }
@@ -1061,19 +1113,11 @@ public class Program extends AbstractModel<Integer> {
     }
 
     /**
-     * Checks if encounter time tracking is enabled for this program.
-     * 
-     * @return true if encounter time tracking is enabled, false otherwise
-     */
-    public Boolean isEnableEncounterTime() {
-        return enableEncounterTime;
-    }
-
-    /**
      * Gets the flag indicating if encounter time tracking is enabled for this program.
      * 
      * @return the enableEncounterTime flag
      */
+    @jakarta.persistence.Column(name = "enableEncounterTime")
     public Boolean getEnableEncounterTime() {
         return enableEncounterTime;
     }
@@ -1088,19 +1132,11 @@ public class Program extends AbstractModel<Integer> {
     }
     
     /**
-     * Checks if encounter transportation time tracking is enabled for this program.
-     * 
-     * @return true if encounter transportation time tracking is enabled, false otherwise
-     */
-    public Boolean isEnableEncounterTransportationTime() {
-        return enableEncounterTransportationTime;
-    }
-
-    /**
      * Gets the flag indicating if encounter transportation time tracking is enabled for this program.
      * 
      * @return the enableEncounterTransportationTime flag
      */
+    @jakarta.persistence.Column(name = "enableEncounterTransportationTime")
     public Boolean getEnableEncounterTransportationTime() {
         return enableEncounterTransportationTime;
     }
@@ -1119,6 +1155,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return the email notification addresses CSV
      */
+    @jakarta.persistence.Column(name = "emailNotificationAddressesCsv")
     public String getEmailNotificationAddressesCsv() {
         return emailNotificationAddressesCsv;
     }
@@ -1137,6 +1174,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return the last referral notification date
      */
+    @jakarta.persistence.Column(name = "lastReferralNotification")
     public Date getLastReferralNotification() {
         return lastReferralNotification;
     }
@@ -1155,6 +1193,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return the number of vacancies
      */
+    @jakarta.persistence.Transient
     public Integer getNoOfVacancy() {
         return noOfVacancy;
     }
@@ -1173,6 +1212,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return the vacancy name
      */
+    @jakarta.persistence.Transient
     public String getVacancyName() {
         return vacancyName;
     }
@@ -1191,6 +1231,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return the date created
      */
+    @jakarta.persistence.Transient
     public String getDateCreated() {
         return dateCreated;
     }
@@ -1209,6 +1250,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return the number of matches
      */
+    @jakarta.persistence.Transient
     public double getMatches() {
         return matches;
     }
@@ -1227,6 +1269,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return the vacancy ID
      */
+    @jakarta.persistence.Transient
     public Integer getVacancyId() {
         return vacancyId;
     }
@@ -1245,6 +1288,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return the vacancy template name
      */
+    @jakarta.persistence.Transient
     public String getVacancyTemplateName() {
         return vacancyTemplateName;
     }

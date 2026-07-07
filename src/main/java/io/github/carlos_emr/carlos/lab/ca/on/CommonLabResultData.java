@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.lab.ca.on;
 
+import java.sql.Connection;
+
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
 import io.github.carlos_emr.carlos.utility.*;
@@ -44,6 +46,7 @@ import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.db.ArchiveDeletedRecords;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.ProviderLabRouting;
 import io.github.carlos_emr.carlos.lab.ca.bc.PathNet.PathnetResultsData;
@@ -54,6 +57,7 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class CommonLabResultData {
 
@@ -387,6 +391,8 @@ public class CommonLabResultData {
         return updateReportStatus(labNo, providerNo, status, comment, labType, false);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static boolean updateReportStatus(int labNo, String providerNo, char status, String comment, String labType, boolean skipCommentOnUpdate) {
 
         if (comment == null) {
@@ -557,29 +563,31 @@ public class CommonLabResultData {
         try {
             CommonLabResultData data = new CommonLabResultData();
             ProviderLabRouting plr = new ProviderLabRouting();
-            // MiscUtils.getLogger().info(flaggedLabs.size()+"--");
-            for (int i = 0; i < flaggedLabs.size(); i++) {
-                String[] strarr = flaggedLabs.get(i);
-                String lab = strarr[0];
-                String labType = strarr[1];
+            try (Connection connection = LegacyJdbcQuery.getConnection()) {
+                // MiscUtils.getLogger().info(flaggedLabs.size()+"--");
+                for (int i = 0; i < flaggedLabs.size(); i++) {
+                    String[] strarr = flaggedLabs.get(i);
+                    String lab = strarr[0];
+                    String labType = strarr[1];
 
-                // Forward all versions of the lab
-                String matchingLabs = data.getMatchingLabs(lab, labType);
-                String[] labIds = matchingLabs.split(",");
-                // MiscUtils.getLogger().info(labIds.length+"labIds --");
-                for (int k = 0; k < labIds.length; k++) {
+                    // Forward all versions of the lab
+                    String matchingLabs = data.getMatchingLabs(lab, labType);
+                    String[] labIds = matchingLabs.split(",");
+                    // MiscUtils.getLogger().info(labIds.length+"labIds --");
+                    for (int k = 0; k < labIds.length; k++) {
 
-                    for (int j = 0; j < providersArray.length; j++) {
-                        plr.route(labIds[k], providersArray[j], DbConnectionFilter.getThreadLocalDbConnection(), labType);
-                    }
+                        for (int j = 0; j < providersArray.length; j++) {
+                            plr.route(labIds[k], providersArray[j], connection, labType);
+                        }
 
-                    // delete old entries
-                    for (ProviderLabRoutingModel p : providerLabRoutingDao.findByLabNoAndLabTypeAndProviderNo(Integer.parseInt(labIds[k]), labType, "0")) {
-                        providerLabRoutingDao.remove(p.getId());
+                        // delete old entries
+                        for (ProviderLabRoutingModel p : providerLabRoutingDao.findByLabNoAndLabTypeAndProviderNo(Integer.parseInt(labIds[k]), labType, "0")) {
+                            providerLabRoutingDao.remove(p.getId());
+                        }
+
                     }
 
                 }
-
             }
 
             return true;

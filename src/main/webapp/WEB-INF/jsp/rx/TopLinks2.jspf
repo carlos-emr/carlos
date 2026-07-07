@@ -32,7 +32,7 @@
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 
-<jsp:include page="/images/spinner.jsp" flush="true"/>
+<jsp:include page="/WEB-INF/jsp/includes/spinner.jspf" flush="true"/>
 <fmt:setBundle basename="oscarResources"/>
 <script type="text/javascript">
 const msgDrugrefUnavailable = '<fmt:message key="oscarRx.drugrefUnavailable"/>';

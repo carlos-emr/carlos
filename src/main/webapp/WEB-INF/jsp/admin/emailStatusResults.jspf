@@ -2,6 +2,9 @@
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<c:if test="${not empty emailValidationError}">
+<div class="alert alert-danger mt-1" role="alert">${carlos:forHtml(emailValidationError)}</div>
+</c:if>
 <c:forEach items="${ emailStatusResults }" var="emailStatusResult" varStatus="loop">
 <!-- Email Card -->
 <div class="card email-status-card mt-1">

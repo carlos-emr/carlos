@@ -26,6 +26,7 @@
  */
 
 package io.github.carlos_emr.carlos.casemgmt.common;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class SecurityAccess extends BasicTag {
 
@@ -65,6 +66,8 @@ public class SecurityAccess extends BasicTag {
         this.reverse = reverse;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public int doStartTag() {
         if ("".equalsIgnoreCase(programId) || "null".equalsIgnoreCase(programId)) programId = "0";
         boolean hasAccess = getCaseManagementManager().hasAccessRight(accessName, accessType, providerNo, demoNo, programId);

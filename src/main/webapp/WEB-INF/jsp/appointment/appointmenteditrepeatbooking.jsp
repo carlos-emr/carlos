@@ -79,11 +79,9 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <fmt:setBundle basename="oscarResources"/>
@@ -342,6 +340,7 @@
 <!DOCTYPE html>
 <html lang="${pageContext.request.locale.language}">
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <meta charset="UTF-8">
         <title><fmt:message key="appointment.appointmentgrouprecords.title"/></title>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>

@@ -43,6 +43,7 @@
 
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title><fmt:message key="billing.billingCorrection.title"/></title>
 
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>

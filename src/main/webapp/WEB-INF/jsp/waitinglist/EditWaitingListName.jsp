@@ -42,6 +42,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script src="${pageContext.request.contextPath}/js/global.js"></script>
         <!-- Bootstrap -->
         <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">

@@ -37,6 +37,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
     <title><fmt:message key="billing.billingCorrectionSubmit.title"/></title>
 </head>
@@ -46,7 +47,7 @@
         <th align="CENTER" nowrap><font face="Helvetica" color="#FFFFFF">
             <c:choose>
                 <c:when test="${not empty correctionError}">
-                    Billing Correction Failed
+                    <fmt:message key="billing.billingCorrectionSubmit.msgFailed"/>
                 </c:when>
                 <c:otherwise>
                     <fmt:message key="billing.billingCorrectionSubmit.msgSuccessfull"/>
@@ -57,7 +58,7 @@
     <c:if test="${not empty correctionErrorMessage}">
         <tr>
             <td align="CENTER">
-                <p style="color:#bd4848"><strong>Reason:</strong>
+                <p style="color:#bd4848"><strong><fmt:message key="billing.billingCorrectionSubmit.lblReason"/></strong>
                     <carlos:encode value="${correctionErrorMessage}"/></p>
             </td>
         </tr>

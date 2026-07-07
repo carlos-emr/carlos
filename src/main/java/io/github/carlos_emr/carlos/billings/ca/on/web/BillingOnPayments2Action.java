@@ -22,6 +22,7 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.math.BigDecimal;
 import java.text.NumberFormat;
 import java.text.ParseException;
@@ -50,7 +51,7 @@ import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 import io.github.carlos_emr.carlos.commn.model.BillingONPayment;
 import io.github.carlos_emr.carlos.commn.model.BillingOnItemPayment;
 import io.github.carlos_emr.carlos.commn.model.BillingPaymentType;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -68,7 +69,8 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
  * Multi-method third-party payment manager: routes by {@code method=}
  * request parameter to {@code listPayments}, {@code savePayment},
  * {@code deletePayment}, {@code viewPayment}, or {@code viewPayment_ext}.
- * Strict-parses each item amount through {@link BillingMoney} and rejects
+ * Strict-parses each item amount through
+ * {@code BillingMoney} and rejects
  * the request as a JSON {@code {"ret":1,"reason":...}} body if any value
  * is malformed. Requires {@code _billing w}.
  *
@@ -399,9 +401,9 @@ public class BillingOnPayments2Action extends ActionSupport {
         try {
             return new ParsedAmount(new BigDecimal(s), false);
         } catch (NumberFormatException e) {
-            MiscUtils.getLogger().warn(
+            MiscUtils.getLogger().warn( // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     "BillingOnPayments view: rendering 0.00 for unparseable amount [{}] (length={}); amountUnreadable=true",
-                    LogSanitizer.sanitize(s), s.length(), e);
+                    LogSafe.sanitize(s), s.length(), e);
             return new ParsedAmount(BigDecimal.ZERO, true);
         }
     }
@@ -569,6 +571,8 @@ public class BillingOnPayments2Action extends ActionSupport {
         return writeJsonResponse(ret, "savePayment success JSON response");
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     private String writeJsonResponse(ObjectNode body, String label) {
         response.setCharacterEncoding("utf-8");
         response.setContentType("application/json");
@@ -600,20 +604,20 @@ public class BillingOnPayments2Action extends ActionSupport {
             int paymentId = Integer.parseInt(request.getParameter("id"));
             billingPaymentDeletionService.deletePayment(paymentId);
         } catch (NumberFormatException nfe) {
-            logger.warn("deletePayment: invalid id parameter: {}",
-                    io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(request.getParameter("id")), nfe);
+            logger.warn("deletePayment: invalid id parameter: {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
+                    io.github.carlos_emr.carlos.utility.LogSafe.sanitize(request.getParameter("id")), nfe);
             return "failure";
         } catch (io.github.carlos_emr.carlos.billings.ca.on.service.BillingPaymentDeletionService.PaymentNotFoundException notFound) {
             // Distinct outcome — operator hit "delete" on a row that's
             // already gone (concurrent edit, or stale page). Render the
             // current payment list rather than the generic failure page so
             // they see the up-to-date state.
-            logger.warn("deletePayment: paymentId not found: {}",
-                    io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(request.getParameter("id")), notFound);
+            logger.warn("deletePayment: paymentId not found: {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
+                    io.github.carlos_emr.carlos.utility.LogSafe.sanitize(request.getParameter("id")), notFound);
             return listPayments();
         } catch (Exception ex) {
-            logger.error("Failed to delete payment: {}",
-                    io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(request.getParameter("id")), ex);
+            logger.error("Failed to delete payment: {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
+                    io.github.carlos_emr.carlos.utility.LogSafe.sanitize(request.getParameter("id")), ex);
             return "failure";
         }
 
@@ -621,6 +625,8 @@ public class BillingOnPayments2Action extends ActionSupport {
 
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String viewPayment() {
         requireBillingWritePrivilege();
         String id = request.getParameter("paymentId");
@@ -631,7 +637,7 @@ public class BillingOnPayments2Action extends ActionSupport {
                 return "failure";
             }
         } catch (NumberFormatException e) {
-            logger.error("Invalid paymentId parameter {}", LogSanitizer.sanitize(id), e);
+            logger.error("Invalid paymentId parameter {}", LogSafe.sanitize(id), e); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
             return "failure";
         }
         BillingONPayment billPayment = billingONPaymentDao.find(paymentId);
@@ -693,13 +699,13 @@ public class BillingOnPayments2Action extends ActionSupport {
             // Forward to the failure result so the user sees an error
             // instead of a silent empty render. Returning null here would
             // produce a blank page with no operator feedback.
-            logger.error("Invalid billPaymentId parameter {}", LogSanitizer.sanitize(billPaymentIdRaw), e);
+            logger.error("Invalid billPaymentId parameter {}", LogSafe.sanitize(billPaymentIdRaw), e); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
             return "failure";
         }
         BillingONPayment billPayment = billingONPaymentDao.find(billPaymentId);
         if (billPayment == null) {
-            logger.warn("viewPayment_ext: billPaymentId not found: {}",
-                    LogSanitizer.sanitize(billPaymentIdRaw));
+            logger.warn("viewPayment_ext: billPaymentId not found: {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
+                    LogSafe.sanitize(billPaymentIdRaw));
             return "failure";
         }
         request.setAttribute("billPayment", billPayment);
@@ -804,6 +810,8 @@ public class BillingOnPayments2Action extends ActionSupport {
      * and return the appropriate Struts result string. Mirrors the existing
      * "all zeros" rejection at the top of {@link #savePayment()}.
      */
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     private String writeRejectionJson(String reason) {
         ObjectNode ret = objectMapper.createObjectNode();
         ret.put("ret", 1);

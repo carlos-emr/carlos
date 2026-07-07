@@ -4,14 +4,14 @@
 
     This file is deployed from WEB-INF/eform-assets/ to the eForm images directory
     by EFormAssetDeployer at Tomcat startup. It is loaded by the RTL eForm's form_html
-    via: <script src="../eform/displayImage.do?imagefile=editControl2.js"></script>
+    via: <script src="../eform/displayImage?imagefile=editControl2.js"></script>
 
     Key architecture notes:
     - This script builds a WYSIWYG toolbar and editor iframe using document.designMode
     - Content insertion uses the Selection/Range API (execCommand('insertHtml') is deprecated)
     - The RTL eForm's sidebar buttons (Patient Name, Allergies, etc.) call printKey()
       which uses APCache.js to fetch patient data via AJAX, then calls doHtml() to insert it
-    - Template management loads .rtl files via efmformrtl_templates.jsp
+    - Template management loads .rtl files via efmformrtl_templates
     - The Start() function is called from <body onload="Start()"> in the DB-stored form_html
 
     Version 1.6 now about 600 lines of code
@@ -119,10 +119,30 @@ var cfg_width = 720;				// editor control width in pixels
 var cfg_height = 500;				// editor control height in pixels
 var cfg_editorname ="edit";		// handle for the editor control itself
 var cfg_bstyle = 'width:24px;height:24px;border: solid 2px #ccccff; background-color: #ccccff;'; 	//the CSS of the button elements
+window.formIsRTL = false;			// efmshowform_data reads this global to detect RTL eForms
 var cfg_boutstyle = 'solid 2px #ccccff'; 	//the CSS of the button elements om mouse out
 var cfg_sstyle = 'vertical-align: top; height:24px;';//the CSS of the option select box.  Selects will take font and background but not border.
 var cfg_sepstyle = 'width:6px;height:24px;border: solid 2px #ccccff; background-color: #ccccff;';	//the CSS of the seperator icon
 
+
+/**
+ * Sanitizes HTML using DOMPurify when available. Returns null when DOMPurify
+ * is not loaded, signaling the caller to use a safe fallback (e.g., textContent).
+ * Centralizes the sanitization policy so every innerHTML sink goes through one gate.
+ *
+ * @param {string} html - Raw HTML string to sanitize
+ * @param {Object} [config] - Optional DOMPurify configuration (e.g., ALLOWED_TAGS)
+ * @returns {string|null} Sanitized HTML string, or null if DOMPurify is unavailable
+ */
+function sanitizeHtml(html, config) {
+	if (typeof DOMPurify !== 'undefined') {
+		return DOMPurify.sanitize(html, config);
+	}
+	if (typeof console !== 'undefined' && typeof console.warn === 'function') {
+		console.warn('editControl2: DOMPurify not loaded — caller should use safe fallback to prevent XSS.');
+	}
+	return null;
+}
 
 function insertEditControl() {
 	// The main initialising function which writes the edit control as per passed variables
@@ -297,15 +317,26 @@ function seteditControlContents(editorname, value){
 
 	// Converting image paths with template style tag to URL format using 'cfg_isrc' using imageControl library.
 	value = jQuery().convertImagePaths(value, cfg_isrc);
-	
-    if (document.designMode) {
-		if (isIE()){
-		    window[editorname].document.body.innerHTML = value; //if browser supports M$ conventions
-		    return
+
+	// Sanitize HTML via centralized helper; null means DOMPurify unavailable → fail closed with textContent.
+	var sanitized = sanitizeHtml(value);
+
+	// Get the editor iframe's document — designMode is set on the iframe, not the top-level document
+	var editorDoc;
+	if (isIE()) {
+		editorDoc = window[editorname] ? window[editorname].document : null;
+	} else {
+		var editorIframe = document.getElementById(editorname);
+		editorDoc = editorIframe && editorIframe.contentWindow ? editorIframe.contentWindow.document : null;
+	}
+
+	if (editorDoc && editorDoc.designMode === 'on') {
+		if (sanitized !== null) {
+		    editorDoc.body.innerHTML = sanitized; // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
 		} else {
-		    document.getElementById(editorname).contentWindow.document.body.innerHTML = value;
-		    return
+		    editorDoc.body.textContent = value;
 		}
+		return
 	} else {
 		// play nice and at least set the value to the <textarea> if document.designMode does not exist
 		document.getElementById(cfg_editorname).value = value;
@@ -455,22 +486,36 @@ function parseText(obs) {
  */
 function doHtml(value) {
 	var editorDoc = document.getElementById(cfg_editorname).contentWindow.document;
+	// Sidebar/APCache HTML is untrusted and must be sanitized before DOM insertion.
+	var safeValue = sanitizeHtml(value);
 
 	// Insert at cursor using the Selection/Range API
 	var sel = editorDoc.getSelection ? editorDoc.getSelection() : null;
 	if (sel && sel.rangeCount > 0) {
 		var range = sel.getRangeAt(0);
 		range.deleteContents();
-		// createContextualFragment parses the HTML string into DOM nodes
-		var frag = range.createContextualFragment(value);
-		range.insertNode(frag);
+		if (safeValue !== null) {
+			// createContextualFragment parses the sanitized HTML string into DOM nodes
+			var frag = range.createContextualFragment(safeValue);
+			range.insertNode(frag);
+		} else {
+			range.insertNode(editorDoc.createTextNode(value));
+		}
 		// Move cursor to end of inserted content so subsequent inserts append
 		range.collapse(false);
 		sel.removeAllRanges();
 		sel.addRange(range);
 	} else {
-		// No selection/cursor — append to end of document body
-		editorDoc.body.innerHTML += value;
+		// No selection/cursor — append to end of document body.
+		// Sanitize via centralized helper; null means DOMPurify unavailable → fail closed with textContent.
+		if (safeValue !== null) {
+			var appendRange = editorDoc.createRange();
+			appendRange.selectNodeContents(editorDoc.body);
+			var appendFrag = appendRange.createContextualFragment(safeValue);
+			editorDoc.body.appendChild(appendFrag);
+		} else {
+			editorDoc.body.appendChild(editorDoc.createTextNode(value));
+		}
 	}
 	// Return focus to the editor iframe so the user can continue typing
 	// immediately after a sidebar button inserts content
@@ -527,10 +572,8 @@ void [
 	// analysis cannot see. These are NOT dead code — removing them would
 	// break the RTL eForm at runtime.
 	isGenderLookup, Start, htmlLine,
-	// formIsRTL: read by efmshowform_data.jsp to detect RTL eForm type.
-	// formPath: currently unused (commented-out graph link feature) but
-	//   kept for potential future use. See TODO at its declaration.
-	formIsRTL, formPath, getMeasures,
+	// formIsRTL: read by efmshowform_data to detect RTL eForm type.
+	formIsRTL, getMeasures,
 	// collapseFooter, consultantSearch, populateInputField: called from
 	// inline onclick/onKeyup handlers in the DB-stored form_html.
 	// tempBinHover (not in this list): called from onmouseover in form_html.
@@ -595,9 +638,25 @@ function viewsource(source) {
 		document.getElementById("control3").style.visibility="hidden";
 		document.getElementById("control4").style.visibility="hidden";
 	} else {
-		html = document.getElementById(cfg_editorname).contentWindow.document.body.ownerDocument.createRange();
-		html.selectNodeContents(document.getElementById(cfg_editorname).contentWindow.document.body);
-		document.getElementById(cfg_editorname).contentWindow.document.body.innerHTML = jQuery().convertImagePaths(html.toString());
+		// Read the raw HTML source text that was being edited in source view
+		var sourceText = document.getElementById(cfg_editorname).contentWindow.document.body.textContent;
+		var convertedHtml = jQuery().convertImagePaths(sourceText);
+		var safeConvertedHtml = sanitizeHtml(convertedHtml);
+		// Use DOMParser to reconstruct the DOM from the source view HTML, preventing
+		// DOM text from being reinterpreted as HTML without going through a parser context
+		var editorBody = document.getElementById(cfg_editorname).contentWindow.document.body;
+		editorBody.textContent = '';
+		if (safeConvertedHtml !== null) {
+			var parser = new DOMParser();
+			var parsedDoc = parser.parseFromString('<!DOCTYPE html><html><body>' + safeConvertedHtml + '</body></html>', 'text/html');
+			var fragment = document.getElementById(cfg_editorname).contentWindow.document.createDocumentFragment();
+			Array.prototype.forEach.call(parsedDoc.body.childNodes, function (node) {
+				fragment.appendChild(editorBody.ownerDocument.importNode(node, true));
+			});
+			editorBody.appendChild(fragment);
+		} else {
+			editorBody.textContent = convertedHtml;
+		}
 		document.getElementById("control1").style.visibility="visible";
 		document.getElementById("control2").style.visibility="visible";
 		document.getElementById("control3").style.visibility="visible";
@@ -658,7 +717,7 @@ jQuery(document).ready(function(){
 	if (demographicNo == "") { demographicNo = gup("efmdemographic_no", jQuery("form").attr('action')); }
 	if (typeof signatureControl != "undefined") {
 		signatureControl.initialize({
-			sigHTML:"../signature_pad/tabletSignature.jsp?inWindow=true&saveToDB=true&demographicNo=",
+			sigHTML:"../signature_pad/tabletSignature?inWindow=true&saveToDB=true&demographicNo=",
 			demographicNo:demographicNo,
 			refreshImage: function (e) {
 				var html = "<img src='"+e.storedImageUrl+"&r="+ Math.floor(Math.random()*1001) +"'></img>";
@@ -937,7 +996,7 @@ function submitFaxButton() {
 	 * Called from <body onload="Start()"> in the DB-stored form_html.
 	 *
 	 * Performs three setup tasks:
-	 * 1. Loads available letter templates via AJAX from efmformrtl_templates.jsp
+	 * 1. Loads available letter templates via AJAX from efmformrtl_templates
 	 * 2. Populates the AP cache from hidden .cacheInit fields injected by the JSP
 	 * 3. Initializes gender pronouns from the cached sex field
 	 * 4. Loads existing letter content into the editor (for saved forms)
@@ -949,9 +1008,24 @@ function submitFaxButton() {
 
 			// Load template <option> elements into the template dropdown
 			$.ajax({
-				url : "efmformrtl_templates.jsp",
+				url : "efmformrtl_templates",
 				success : function(data) {
-					$("#template").html(data);
+					var cleanData = sanitizeHtml(data, {ALLOWED_TAGS: ['option'], ALLOWED_ATTR: ['value', 'selected']});
+					if (cleanData !== null) {
+						$("#template").html(cleanData);
+					} else {
+						// DOMPurify not available — fallback safely constructs <option> elements
+						var parser = new DOMParser();
+						var doc = parser.parseFromString(data, 'text/html');
+						var templateSelect = $("#template").empty();
+						doc.querySelectorAll('option').forEach(function(opt) {
+							var safeOpt = document.createElement('option');
+							safeOpt.value = opt.value;
+							safeOpt.textContent = opt.textContent;
+							if (opt.selected) safeOpt.selected = true;
+							templateSelect.append(safeOpt);
+						});
+					}
 					loadDefaultTemplate();
 				},
 				error : function(xhr, status, error) {
@@ -1066,14 +1140,14 @@ function submitFaxButton() {
 		//	"doctor|SignatureFile.png",
 		//	];
 
-		var mystamp ='<img src="../eform/displayImage.do?imagefile=stamp.png" width="200" height="100">';
+		var mystamp ='<img src="../eform/displayImage?imagefile=stamp.png" width="200" height="100">';
 		if (cache.contains("doctor")) {
 			for (i=0; i<ImgArray.length;i++){
 		        var ListItemArr =  ImgArray[i].split("|");
 		        var UserName = ListItemArr[0];
 		        var FileName = ListItemArr[1];
 		        if (cache.get('doctor').indexOf(UserName)>=0){
-		            mystamp = '<img src="../eform/displayImage.do?imagefile='+FileName+'" width="200" height="100" />';
+		            mystamp = '<img src="../eform/displayImage?imagefile='+FileName+'" width="200" height="100" />';
 			        }
 				}
 		}
@@ -1085,16 +1159,16 @@ function submitFaxButton() {
 		        var FileName = ListItemArr[1];
 		        if (cache.get('current_user').indexOf(UserName)>=0){
 					console.log('current user has a signature so use it');					
-		            mystamp = '<img src="../eform/displayImage.do?imagefile='+FileName+'" width="200" height="100" />';
+		            mystamp = '<img src="../eform/displayImage?imagefile='+FileName+'" width="200" height="100" />';
 			        }
 				}
 		}
 		return mystamp;
 	}
-	// Flag read by efmshowform_data.jsp and the eForm framework to identify this
+	// Flag read by efmshowform_data and the eForm framework to identify this
 	// as a Rich Text Letter eForm (vs. a regular eForm). Static analysis may flag
 	// this as "unused" because the read happens in JSP/server-side code, not JS.
-	var formIsRTL = true;
+	window.formIsRTL = true;
 
 
 // lab_grid2.js //
@@ -1116,12 +1190,10 @@ if (location.search) {
 }
 
 
-// TODO: formPath is currently unused — its only two references (graph link URLs)
-// are commented out below in getMeasures(). The hardcoded fid=74 is a legacy
-// upstream value that would be wrong for most installations. If the graph link
-// feature is ever re-enabled, formPath should derive the fid from the URL
-// parameter (gup("fid")) instead of hardcoding it.
-var formPath = vPath + "/eform/efmshowform_data.jsp?fid=74&LabName="
+// The graph link URLs are commented out below in getMeasures(). The old
+// hardcoded fid=74 path would be wrong for most installations. If the graph
+// link feature is re-enabled, derive the fid from the URL parameter
+// (gup("fid")) instead of hardcoding it.
 var measureArray = [];
 var measureDateArray = [];
 
@@ -1130,7 +1202,7 @@ var measureDateArray = [];
  * a formatted summary into the editor. Called by labgrid() and labgrid2()
  * (the "Lab Grid" and "Vitals" sidebar buttons).
  *
- * Makes a synchronous XHR to efmshowform_data.jsp to fetch measurement data
+ * Makes a synchronous XHR to efmshowform_data to fetch measurement data
  * for the current patient, then formats it as "TYPE: value (date), value (date), ..."
  *
  * @param {string} measure - Measurement type code (e.g., "HB", "BP", "A1C")
@@ -1140,7 +1212,7 @@ function getMeasures(measure, max) {
     var xmlhttp = new XMLHttpRequest();
     // pathArray was originally used to build newURL; kept for potential future use by callers.
     var pathArray = window.location.pathname.split('/'); void pathArray;
-    var newURL = "..//encounter/oscarMeasurements/SetupDisplayHistory.do?type=" + measure;
+    var newURL = "..//encounter/oscarMeasurements/SetupDisplayHistory?type=" + measure;
     xmlhttp.onreadystatechange = function() {
         if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
             var str = xmlhttp.responseText; //local variable
@@ -1218,7 +1290,7 @@ function collapseFooter() {
          */
         function consultantSearch(term) {
             if (term.length < 2) {
-                document.getElementById('tempBin').innerHTML = "You must enter at least 2 characters of a patients name!";
+                document.getElementById('tempBin').textContent = "You must enter at least 2 characters of a patient's name!";
                 return false;
             }
 
@@ -1283,7 +1355,7 @@ function collapseFooter() {
                     tempBin.textContent = 'Search failed. Please try again.';
                 }
 
-            } // end onload
+            }; // end onload
 
             // Handle network-level failures (DNS, connection refused, timeout)
             request.onerror = function() {
@@ -1319,7 +1391,7 @@ function collapseFooter() {
                 document.getElementById("tempBin").style.display = 'block';
             } else if (a === 0 && searchDropDownFlag === false) {
                 document.getElementById("tempBin").style.display = 'none';
-                document.getElementById("tempBin").innerHTML = "You must enter at least 2 characters of a patients name!";
+                document.getElementById("tempBin").textContent = "You must enter at least 2 characters of a patient's name!";
             }
         }
 
@@ -1537,5 +1609,3 @@ _global.saveAs = saveAs.saveAs = saveAs
 if (typeof module !== 'undefined') {
   module.exports = saveAs;
 }
-
-

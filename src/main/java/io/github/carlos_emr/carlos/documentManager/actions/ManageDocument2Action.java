@@ -52,8 +52,10 @@ import io.github.carlos_emr.carlos.documentManager.IncomingDocUtil;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.HtmlResponse;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.RequestNegotiation;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
@@ -75,15 +77,16 @@ import java.awt.image.BufferedImage;
 import java.io.*;
 
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.*;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action for document viewing, updating, routing, and incoming document processing
@@ -129,35 +132,39 @@ public class ManageDocument2Action extends ActionSupport {
     private static final String DOCUMENT_DIR = CarlosProperties.getInstance().getDocumentDirectory();
     private static final String DOCUMENT_CACHE_DIR = CarlosProperties.getInstance().getDocumentCacheDirectory();
 
+    // Canonical incoming-document queue subdirectories. Kept in sync with the allowlist
+    // enforced by IncomingDocUtil.getIncomingDocumentFilePath.
+    private static final Set<String> ALLOWED_INCOMING_QUEUE_DIRS = Set.of("Fax", "Mail", "File", "Refile");
+    private static final int MAX_INCOMING_DOCUMENT_MOVE_ATTEMPTS = 1000;
+
     private static final Map<String, ActionHandler> ACTIONS = new HashMap<>();
 
     // Method-based dispatch consolidates all document operations (view, update, refile,
-    // add, etc.) under a single action class, keeping struts.xml minimal. Most handlers
-    // return null because they write directly to the response stream (images, PDFs, JSON).
+    // add, etc.) under a single action class, keeping struts.xml minimal.
     static {
         ACTIONS.put("refileDocumentAjax", ctx -> ctx.refileDocumentAjax());
-        ACTIONS.put("viewDocPage", ctx -> { ctx.viewDocPage(); return null; });
-        ACTIONS.put("display", ctx -> { ctx.display(); return null; });
-        ACTIONS.put("viewAnnotationAcknowledgementTickler", ctx -> { ctx.viewAnnotationAcknowledgementTickler(); return null; });
-        ACTIONS.put("viewDocumentDescription", ctx -> { ctx.viewDocumentDescription(); return null; });
-        ACTIONS.put("viewIncomingDocPageAsPdf", ctx -> { ctx.viewIncomingDocPageAsPdf(); return null; });
-        ACTIONS.put("viewIncomingDocPageAsImage", ctx -> { ctx.viewIncomingDocPageAsImage(); return null; });
-        ACTIONS.put("displayIncomingDocs", ctx -> { ctx.displayIncomingDocs(); return null; });
-        ACTIONS.put("documentUpdate", ctx -> { ctx.documentUpdate(); return null; });
-        ACTIONS.put("documentUpdateAjax", ctx -> { ctx.documentUpdateAjax(); return null; });
-        ACTIONS.put("getDemoNameAjax", ctx -> { ctx.getDemoNameAjax(); return null; });
-        ACTIONS.put("showPage", ctx -> { ctx.showPage(); return null; });
-        ACTIONS.put("view", ctx -> { ctx.view(); return null; });
+        ACTIONS.put("viewDocPage", ctx -> ctx.directResponse("viewDocPage", ctx::viewDocPage));
+        ACTIONS.put("display", ctx -> ctx.directResponse("display", ctx::display));
+        ACTIONS.put("viewAnnotationAcknowledgementTickler", ctx -> ctx.directResponse("viewAnnotationAcknowledgementTickler", ctx::viewAnnotationAcknowledgementTickler));
+        ACTIONS.put("viewDocumentDescription", ctx -> ctx.directResponse("viewDocumentDescription", ctx::viewDocumentDescription));
+        ACTIONS.put("viewIncomingDocPageAsPdf", ctx -> ctx.directResponse("viewIncomingDocPageAsPdf", ctx::viewIncomingDocPageAsPdf));
+        ACTIONS.put("viewIncomingDocPageAsImage", ctx -> ctx.directResponse("viewIncomingDocPageAsImage", ctx::viewIncomingDocPageAsImage));
+        ACTIONS.put("displayIncomingDocs", ctx -> ctx.directResponse("displayIncomingDocs", ctx::displayIncomingDocs));
+        ACTIONS.put("documentUpdate", ctx -> ctx.documentUpdate());
+        ACTIONS.put("documentUpdateAjax", ctx -> ctx.directResponse("documentUpdateAjax", ctx::documentUpdateAjax));
+        ACTIONS.put("getDemoNameAjax", ctx -> ctx.directResponse("getDemoNameAjax", ctx::getDemoNameAjax));
+        ACTIONS.put("showPage", ctx -> ctx.directResponse("showPage", ctx::showPage));
+        ACTIONS.put("view", ctx -> ctx.directResponse("view", ctx::view));
         ACTIONS.put("addIncomingDocument", ctx -> ctx.addIncomingDocument());
         //  Enable calling the method to remove providers
         ACTIONS.put("removeLinkFromDocument", new ActionHandler() {
             public String handle(ManageDocument2Action action) {
                 action.removeLinkFromDocument();
-                return null;
+                return NONE;
             }
         });
-        ACTIONS.put("viewDocumentInfo", ctx -> { ctx.viewDocumentInfo(); return null; });
-        ACTIONS.put("searchDocumentDescriptions", ctx -> { ctx.searchDocumentDescriptions(); return null; });
+        ACTIONS.put("viewDocumentInfo", ctx -> ctx.directResponse("viewDocumentInfo", ctx::viewDocumentInfo));
+        ACTIONS.put("searchDocumentDescriptions", ctx -> ctx.directResponse("searchDocumentDescriptions", ctx::searchDocumentDescriptions));
     }
 
     /**
@@ -174,8 +181,23 @@ public class ManageDocument2Action extends ActionSupport {
         if (handler != null) {
             try {
                 return handler.handle(this);
+            } catch (SecurityException e) {
+                log.warn("Authorization denied in {}(): {}",
+                        LogSafe.sanitize(method), LogSafe.sanitize(e.getMessage()));
+                if (response.isCommitted()) {
+                    return NONE;
+                }
+                try {
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                } catch (IOException ioe) {
+                    log.error("Unable to send authorization failure for {}():", LogSafe.sanitize(method), ioe);
+                }
+                return NONE;
             } catch (Exception e) {
-                log.error("Error in {}():", LogSanitizer.sanitize(method), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                log.error("Error in {}():", LogSafe.sanitize(method), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                if (response.isCommitted()) {
+                    return NONE;
+                }
                 addActionError("An error occurred while processing the document. Please try again or contact your system administrator.");
                 return "error";
             }
@@ -192,7 +214,7 @@ public class ManageDocument2Action extends ActionSupport {
             }
         }
 
-        log.error("No valid method found and insufficient parameters for documentUpdate. Method: {}", LogSanitizer.sanitize(method)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+        log.error("No valid method found and insufficient parameters for documentUpdate. Method: {}", LogSafe.sanitize(method)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         addActionError("Invalid request. The requested operation could not be performed.");
         return "error";
     }
@@ -201,6 +223,29 @@ public class ManageDocument2Action extends ActionSupport {
     @FunctionalInterface
     private interface ActionHandler {
         String handle(ManageDocument2Action ctx) throws Exception;
+    }
+
+    @FunctionalInterface
+    private interface DirectResponseHandler {
+        void handle() throws Exception;
+    }
+
+    private String directResponse(String method, DirectResponseHandler handler) throws Exception {
+        try {
+            handler.handle();
+        } catch (SecurityException e) {
+            log.warn("Authorization denied in direct response handler {}(): {}",
+                    LogSafe.sanitize(method), LogSafe.sanitize(e.getMessage()));
+            if (!response.isCommitted()) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            }
+        } catch (Exception e) {
+            log.error("Error in direct response handler {}():", LogSafe.sanitize(method), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+            if (!response.isCommitted()) {
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            }
+        }
+        return NONE;
     }
 
     /**
@@ -246,16 +291,16 @@ public class ManageDocument2Action extends ActionSupport {
                     if (proNo != null && proNo.matches("^[a-zA-Z0-9_-]+$")) {
                         providerInboxRoutingDAO.addToProviderInbox(proNo, Integer.parseInt(documentId), LabResultData.DOCUMENT);
                     } else {
-                        log.warn("Invalid provider number format: {}", LogSanitizer.sanitize(proNo)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                        log.warn("Invalid provider number format: {}", LogSafe.sanitize(proNo)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                     }
                 }
 
                 // Removes the link to the "0" providers so that the document no longer shows up as "unclaimed"
                 providerInboxRoutingDAO.removeLinkFromDocument("DOC", Integer.parseInt(documentId), "0");
             } catch (NumberFormatException e) {
-                log.error("Invalid document ID format during provider routing: {}", LogSanitizer.sanitize(documentId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                log.error("Invalid document ID format during provider routing: {}", LogSafe.sanitize(documentId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
             } catch (Exception e) {
-                log.error("Failed to route document {} to providers", LogSanitizer.sanitize(documentId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                log.error("Failed to route document {} to providers", LogSafe.sanitize(documentId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
             }
         }
 
@@ -310,9 +355,9 @@ public class ManageDocument2Action extends ActionSupport {
                 }
             }
         } catch (NumberFormatException e) {
-            log.error("Invalid number format during CTL document update for documentId: {}", LogSanitizer.sanitize(documentId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+            log.error("Invalid number format during CTL document update for documentId: {}", LogSafe.sanitize(documentId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
         } catch (Exception e) {
-            log.error("Failed to update CTL document for documentId: {}", LogSanitizer.sanitize(documentId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+            log.error("Failed to update CTL document for documentId: {}", LogSafe.sanitize(documentId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
         }
 
         HashMap hm = new HashMap();
@@ -412,9 +457,9 @@ public class ManageDocument2Action extends ActionSupport {
         try {
             EDocUtil.refileDocument(documentId, queueId);
         } catch (Exception e) {
-            log.error("Failed to refile document {} to queue {}", LogSanitizer.sanitize(documentId), LogSanitizer.sanitize(queueId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+            log.error("Failed to refile document {} to queue {}", LogSafe.sanitize(documentId), LogSafe.sanitize(queueId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
         }
-        return null;
+        return NONE;
     }
 
     /**
@@ -462,15 +507,15 @@ public class ManageDocument2Action extends ActionSupport {
                     if (proNo != null && proNo.matches("^[a-zA-Z0-9_-]+$")) {
                         providerInboxRoutingDAO.addToProviderInbox(proNo, Integer.parseInt(documentId), LabResultData.DOCUMENT);
                     } else {
-                        log.warn("Invalid provider number format: {}", LogSanitizer.sanitize(proNo)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                        log.warn("Invalid provider number format: {}", LogSafe.sanitize(proNo)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                     }
                 }
             } catch (NumberFormatException e) {
-                log.error("Invalid document ID format: {}", LogSanitizer.sanitize(documentId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                log.error("Invalid document ID format: {}", LogSafe.sanitize(documentId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
                 addActionError("Invalid document ID format. Please check the document ID and try again.");
                 return "error";
             } catch (Exception e) {
-                log.error("Failed to route document {} to providers", LogSanitizer.sanitize(documentId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                log.error("Failed to route document {} to providers", LogSafe.sanitize(documentId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
             }
         }
         Document d = documentDao.getDocument(documentId);
@@ -504,9 +549,9 @@ public class ManageDocument2Action extends ActionSupport {
                     }
                 }
             } catch (NumberFormatException e) {
-                log.error("Invalid number format for documentId: {} or demog: {}", LogSanitizer.sanitize(documentId), LogSanitizer.sanitize(demog), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                log.error("Invalid number format for documentId: {} or demog: {}", LogSafe.sanitize(documentId), LogSafe.sanitize(demog), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
             } catch (Exception e) {
-                log.error("Failed to update CTL document for documentId: {}", LogSanitizer.sanitize(documentId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                log.error("Failed to update CTL document for documentId: {}", LogSafe.sanitize(documentId), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
             }
         } else {
             log.warn("Document ID is null or empty, skipping ctlDocument operations");
@@ -624,15 +669,11 @@ public class ManageDocument2Action extends ActionSupport {
      * @return File the cache directory
      */
     private static File getDocumentCacheDir(String docdownload) {
-        File docDir = new File(docdownload);
+        File docDir = PathValidationUtils.resolveConfiguredDirectory(docdownload, "DOCUMENT_DIR");
         String documentDirName = docDir.getName();
         File parentDir = docDir.getParentFile();
 
-        // Sanitize the cache directory name to prevent path traversal
-        String safeCacheDirName = MiscUtils.sanitizeFileName(documentDirName + "_cache");
-
-        // Use validatePath to create a validated cache directory path
-        File cacheDir = PathValidationUtils.validatePath(safeCacheDirName, parentDir);
+        File cacheDir = PathValidationUtils.validateUserFilePath(documentDirName + "_cache", parentDir);
 
         if (!cacheDir.exists()) {
             cacheDir.mkdir();
@@ -648,7 +689,8 @@ public class ManageDocument2Action extends ActionSupport {
      * @return File the cached PNG file if it exists, or null
      */
     private File hasCacheVersion2(Document d, Integer pageNum) {
-        Path outFile = Paths.get(getDocumentCacheDir(), d.getDocfilename() + "_" + pageNum + ".png");
+        File cacheDir = PathValidationUtils.resolveConfiguredDirectory(getDocumentCacheDir(), "DOCUMENT_CACHE_DIR");
+        Path outFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(d.getDocfilename() + "_" + pageNum + ".png"), cacheDir).toPath();
         if (!Files.exists(outFile)) {
             return null;
         }
@@ -662,12 +704,13 @@ public class ManageDocument2Action extends ActionSupport {
      * @param pageNum int the 1-based page number of the cache entry to delete
      */
     public static void deleteCacheVersion(Document d, int pageNum) {
-        Path documentCacheDir = Paths.get(getDocumentCacheDir(), d.getDocfilename() + "_" + pageNum + ".png");
+        File cacheDir = PathValidationUtils.resolveConfiguredDirectory(getDocumentCacheDir(), "DOCUMENT_CACHE_DIR");
+        Path documentCacheDir = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(d.getDocfilename() + "_" + pageNum + ".png"), cacheDir).toPath();
         if (Files.exists(documentCacheDir)) {
             try {
                 Files.delete(documentCacheDir);
             } catch (IOException e) {
-                MiscUtils.getLogger().error("Failed to delete cache file: {}", LogSanitizer.sanitizeObject(documentCacheDir.getFileName()), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                MiscUtils.getLogger().error("Failed to delete cache file: {}", LogSafe.sanitizeObject(documentCacheDir.getFileName()), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
             }
         }
     }
@@ -692,22 +735,26 @@ public class ManageDocument2Action extends ActionSupport {
      * @param pageNum Integer the 1-based page number to render
      * @return byte[] the PNG image bytes, or null if rendering fails or page number is invalid
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public byte[] createCacheVersion2(Document d, Integer pageNum) {
-        Path pdfPath = Paths.get(DOCUMENT_DIR, d.getDocfilename());
-        Path pngFile = Paths.get(getDocumentCacheDir(), d.getDocfilename() + "_" + pageNum + ".png");
+        File documentDir = PathValidationUtils.resolveConfiguredDirectory(DOCUMENT_DIR, "DOCUMENT_DIR");
+        Path pdfPath = PathValidationUtils.validateExistingPath(new File(documentDir, d.getDocfilename()), documentDir).toPath();
+        File cacheDir = PathValidationUtils.resolveConfiguredDirectory(getDocumentCacheDir(), "DOCUMENT_CACHE_DIR");
+        Path pngFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validateGeneratedFileName(d.getDocfilename() + "_" + pageNum + ".png"), cacheDir).toPath();
 
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
             try (PDDocument pdf = Loader.loadPDF(pdfPath.toFile(), IOUtils.createTempFileOnlyStreamCache())) {
                 // Validate page number is within bounds
                 if (pageNum == null) {
-                    log.error("Page number is null for document {}", LogSanitizer.sanitize(d.getDocfilename())); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                    log.error("Page number is null for document {}", LogSafe.sanitize(d.getDocfilename())); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
                     return null;
                 }
 
                 int pageIndex = pageNum - 1;
                 int totalPages = pdf.getNumberOfPages();
                 if (pageIndex < 0 || pageIndex >= totalPages) {
-                    log.error("Invalid page number {} for document {} with {} pages", pageNum, LogSanitizer.sanitize(d.getDocfilename()), totalPages); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                    log.error("Invalid page number {} for document {} with {} pages", pageNum, LogSafe.sanitize(d.getDocfilename()), totalPages); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
                     return null;
                 }
 
@@ -722,7 +769,7 @@ public class ManageDocument2Action extends ActionSupport {
 
             return baos.toByteArray();
         } catch (Exception e) {
-            log.error("Error decoding pdf file {}", LogSanitizer.sanitize(d.getDocfilename()), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+            log.error("Error decoding pdf file {}", LogSafe.sanitize(d.getDocfilename()), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
             return null;
         }
     }
@@ -750,14 +797,17 @@ public class ManageDocument2Action extends ActionSupport {
      * @param pageNum int the 1-based page number to render
      */
     public void getPage(int pageNum) {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "r", null)) {
+            throw new SecurityException("missing required sec object (_edoc)");
+        }
 
         String doc_no = request.getParameter("doc_no");
-        log.debug("Document No :{}", LogSanitizer.sanitize(doc_no));
+        log.debug("Document No :{}", LogSafe.sanitize(doc_no));
         LoggedInInfo liPage = LoggedInInfo.getLoggedInInfoFromSession(request);
         LogAction.addLog(liPage != null ? liPage.getLoggedInProviderNo() : null, LogConst.READ, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
         Document d = documentDao.getDocument(doc_no);
 
-        log.debug("Document Name :{}", LogSanitizer.sanitize(d.getDocfilename())); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+        log.debug("Document Name :{}", LogSafe.sanitize(d.getDocfilename())); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
 
         File outfile = hasCacheVersion(d, pageNum);
 
@@ -791,12 +841,12 @@ public class ManageDocument2Action extends ActionSupport {
             pageNum = "1";
         }
         Integer pn = Integer.parseInt(pageNum);
-        log.debug("Document No :{}", LogSanitizer.sanitize(doc_no));
+        log.debug("Document No :{}", LogSafe.sanitize(doc_no));
         LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.READ, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
 
         Document d = documentDao.getDocument(doc_no);
         if (d == null) {
-            log.error("Document not found for ID: {}", LogSanitizer.sanitize(doc_no)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+            log.error("Document not found for ID: {}", LogSafe.sanitize(doc_no)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
             try {
                 response.sendError(HttpServletResponse.SC_NOT_FOUND, "Document not found");
             } catch (IOException e) {
@@ -805,7 +855,7 @@ public class ManageDocument2Action extends ActionSupport {
             return;
         }
 
-        log.debug("Document Name :{}", LogSanitizer.sanitize(d.getDocfilename())); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+        log.debug("Document Name :{}", LogSafe.sanitize(d.getDocfilename())); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
         //if the file is not a pdf, use display function
         if (!(d.getContenttype().equals("application/pdf") || d.getDocfilename().endsWith(".pdf"))) {
             try {
@@ -817,7 +867,7 @@ public class ManageDocument2Action extends ActionSupport {
         }
 
         String name = d.getDocfilename() + "_" + pn + ".png";
-        log.debug("name {}", LogSanitizer.sanitize(name)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+        log.debug("name {}", LogSafe.sanitize(name)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
 
         File outfile = hasCacheVersion2(d, pn);
         response.setContentType("image/png");
@@ -860,7 +910,7 @@ public class ManageDocument2Action extends ActionSupport {
             response.setContentType("application/json;charset=UTF-8");
             response.getOutputStream().write(jsonObject.toString().getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
-            MiscUtils.getLogger().error("IOException reading PDF page count for doc_no: " + LogSanitizer.sanitize(doc_no), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+            MiscUtils.getLogger().error("IOException reading PDF page count for doc_no: " + LogSafe.sanitize(doc_no), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
             if (!response.isCommitted()) {
                 response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             }
@@ -875,6 +925,8 @@ public class ManageDocument2Action extends ActionSupport {
      * @throws Exception if the document file does not exist and no docxml fallback is available
      * @throws SecurityException if the user lacks _edoc read privilege
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void display() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
@@ -883,7 +935,7 @@ public class ManageDocument2Action extends ActionSupport {
         }
 
         String doc_no = request.getParameter("doc_no");
-        log.debug("Document No :{}", LogSanitizer.sanitize(doc_no)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+        log.debug("Document No :{}", LogSafe.sanitize(doc_no)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
         String demoNo = request.getParameter("demoNo");
 
         String docxml = null;
@@ -900,26 +952,34 @@ public class ManageDocument2Action extends ActionSupport {
 
         Document d = documentDao.getDocument(doc_no);
 
-        log.debug("Document Name :{}", LogSanitizer.sanitize(d.getDocfilename())); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+        log.debug("Document Name :{}", LogSafe.sanitize(d.getDocfilename())); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
 
         docxml = d.getDocxml();
         contentType = d.getContenttype();
         filename = d.getDocfilename();
 
-        Path file = Paths.get(DOCUMENT_DIR, filename);
+        Path file = PathValidationUtils.validateExistingPath(new File(DOCUMENT_DIR, filename), PathValidationUtils.resolveConfiguredDirectory(DOCUMENT_DIR, "DOCUMENT_DIR")).toPath();
 
         if (Files.exists(file)) {
             contentBytes = Files.readAllBytes(file);
         } else {
             if (docxml == null || docxml.trim().equals("")) {
-                // Only throw exception if the file does not exist and the docxml is null/empty to serve HTML files that were uploaded in OSCAR 12,
-                // where HTML file uploads contents were stored in the docxml field of the document table, and the file was never saved.
-                throw new IllegalStateException("Local document doesn't exist for eDoc (ID " + d.getId() + "): " + file.getFileName());
+                // No stored HTML fallback is available, so fail before any response bytes are written.
+                log.warn("Local document file is missing for eDoc. documentId={}, fileName={}",
+                        LogSafe.sanitizeObject(d.getId()), LogSafe.sanitizeObject(file.getFileName()));
+                throw new IllegalStateException("Local document file is missing");
             }
         }
 
         if (docxml != null && !docxml.trim().equals("")) {
-            setResponse(response, docxml.getBytes());
+            // Legacy OSCAR 12 stored HTML document body. Rendering it as HTML is the documented
+            // behaviour for this _edoc-gated display route; encoding would defeat the feature.
+            // Writer (not OutputStream) is required so LogoutBroadcastFilter can append the
+            // cross-window logout listener.
+            String renderContentType = RequestNegotiation.isHtmlContentType(contentType)
+                    ? contentType
+                    : HtmlResponse.DEFAULT_HTML_CONTENT_TYPE_WITH_CHARSET;
+            HtmlResponse.writeStoredHtml(response, renderContentType, docxml);
             return;
         }
 
@@ -931,9 +991,22 @@ public class ManageDocument2Action extends ActionSupport {
         String data = "doc_no=" + doc_no;
         LogAction.addLog(loggedInInfo, LogConst.READ, "Document", null, demoNo, data);
 
+        // Preserve the inline filename for both uploaded HTML and binary document display paths.
+        response.setHeader("Content-Disposition", "inline; filename=\"" + sanitizeHeaderValue(filename) + "\"");
+        if (contentBytes == null) {
+            response.setContentLength(0);
+            return;
+        }
+        if (RequestNegotiation.isHtmlContentType(contentType)) {
+            // Stored HTML document file (text/html content-type). Rendering the file contents as
+            // HTML is the documented behaviour for this _edoc-gated display route; encoding would
+            // defeat the feature. LogoutBroadcastFilter can only append the cross-window logout
+            // listener to writer-backed HTML, which is why this path uses the writer.
+            HtmlResponse.writeStoredHtml(response, contentType, contentBytes);
+            return;
+        }
         response.setContentType(contentType);
         response.setContentLength(contentBytes.length);
-        response.setHeader("Content-Disposition", "inline; filename=\"" + sanitizeHeaderValue(filename) + "\"");
         log.debug("about to Print to stream");
         try (ServletOutputStream outs = response.getOutputStream()) {
             outs.write(contentBytes); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary document download with validated content-type
@@ -985,6 +1058,8 @@ public class ManageDocument2Action extends ActionSupport {
      * @param viewDocumentDescriptionFlag boolean whether to include document description metadata
      * @throws SecurityException if the user lacks _edoc read privilege
      */
+    // FindSecBugs XSS_SERVLET: renders helper-generated HTML fragments whose dynamic values are HTML-encoded.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "renders helper-generated HTML fragments whose dynamic values are HTML-encoded")
     public void doViewDocumentInfo(HttpServletRequest request, PrintWriter out, boolean viewAnnotationAcknowledgementTicklerFlag, boolean viewDocumentDescriptionFlag) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
@@ -1052,6 +1127,12 @@ public class ManageDocument2Action extends ActionSupport {
      */
     public String addIncomingDocument() throws Exception {
 
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
+
         String pdfDir = request.getParameter("pdfDir");
         String pdfName = request.getParameter("pdfName");
         String demographic_no = request.getParameter("demog");
@@ -1062,8 +1143,6 @@ public class ManageDocument2Action extends ActionSupport {
         String docSubClass = request.getParameter("docSubClass");
         String[] flagproviders = request.getParameterValues("flagproviders");
         String queueId1 = request.getParameter("queueId");
-        String sourceFilePath = IncomingDocUtil.getIncomingDocumentFilePathName(queueId1, pdfDir, pdfName);
-        String destFilePath;
         
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
@@ -1077,19 +1156,37 @@ public class ManageDocument2Action extends ActionSupport {
         // Validate queueId and pdfDir to prevent directory traversal
         if (queueId1.contains("..") || queueId1.contains("/") || queueId1.contains("\\") ||
             pdfDir.contains("..") || pdfDir.contains("/") || pdfDir.contains("\\")) {
+            log.warn("Invalid incoming document directory parameters rejected");
             throw new SecurityException("Invalid directory parameters");
         }
-        
-        // Sanitize filename to prevent path traversal
-        String sanitizedPdfName = FilenameUtils.getName(pdfName);
-        if (!sanitizedPdfName.equals(pdfName)) {
-            throw new SecurityException("Invalid filename");
+
+        // Restrict pdfDir to the canonical incoming queue subdirectories. Canonical-path
+        // containment alone only bounds the move to the incoming root; without this
+        // allowlist an _edoc writer could file documents out of any other single-segment
+        // subdirectory under the queue (e.g. *_deleted/archive dirs). This mirrors the
+        // restriction enforced by IncomingDocUtil.getIncomingDocumentFilePath.
+        if (!ALLOWED_INCOMING_QUEUE_DIRS.contains(pdfDir)) {
+            log.warn("Invalid incoming document directory parameters rejected");
+            throw new SecurityException("Invalid directory parameters");
+        }
+
+        String incomingDocDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
+        File incomingDir = validateConfiguredDocumentDirectory(incomingDocDir, "INCOMINGDOCUMENT_DIR");
+
+        String sourcePdfName = validateIncomingDocumentSourceFileName(pdfName);
+        File requestedSourceFile = incomingDir.toPath()
+                .resolve(queueId1)
+                .resolve(pdfDir)
+                .resolve(sourcePdfName)
+                .toFile();
+        File sourceFile = PathValidationUtils.validateExistingPath(requestedSourceFile, incomingDir);
+        if (!sourceFile.isFile()) {
+            log.warn("Incoming document source is not a regular file");
+            throw new SecurityException("Incoming document source must be a regular file");
         }
 
         String savePath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-        if (!savePath.endsWith(File.separator)) {
-            savePath += File.separator;
-        }
+        File saveDir = validateConfiguredDocumentDirectory(savePath, "DOCUMENT_DIR");
 
         Date obDate = UtilDateUtilities.StringToDate(observationDate);
         String formattedDate = UtilDateUtilities.DateToString(obDate, EDocUtil.DMS_DATE_FORMAT);
@@ -1097,7 +1194,7 @@ public class ManageDocument2Action extends ActionSupport {
 
 
         int numberOfPages = 0;
-        String fileName = sanitizedPdfName;
+        String fileName = sourcePdfName;
         String user = (String) request.getSession().getAttribute("user");
         EDoc newDoc = new EDoc(documentDescription, docType, fileName, "", user, user, source, 'A', formattedDate, "", "", "demographic", demographic_no, 0);
 
@@ -1113,93 +1210,52 @@ public class ManageDocument2Action extends ActionSupport {
         newDoc.setDocSubClass(docSubClass);
         newDoc.setDocPublic("0");
         fileName = newDoc.getFileName();
-        // Sanitize the filename to match what the file system will actually create
-        String sanitizedFileName = fileName.replaceAll("[^a-zA-Z0-9._-]", "");
+        String originalSanitized = sanitizeIncomingDocumentDestinationFileName(fileName);
 
-        // Ensure sanitized filename is not empty and has a minimum length
-        if (sanitizedFileName.trim().isEmpty() || sanitizedFileName.length() < 1) {
-            // Generate a fallback filename with timestamp
-            String timestamp = String.valueOf(System.currentTimeMillis());
-            sanitizedFileName = "document_" + timestamp + ".dat";
-        }
-
-        // Ensure filename uniqueness. The generated filename includes a timestamp, but
-        // collisions can still occur when multiple documents are uploaded in quick succession.
-        // The counter-based suffix (_1, _2, ...) guarantees a unique filename on disk.
-        File destFile = new File(savePath + sanitizedFileName);
-        String originalSanitized = sanitizedFileName;
-        int counter = 1;
-        while (destFile.exists()) {
-            String nameWithoutExt = originalSanitized;
-            String extension = "";
-            int lastDot = originalSanitized.lastIndexOf(".");
-            if (lastDot > 0) {
-                nameWithoutExt = originalSanitized.substring(0, lastDot);
-                extension = originalSanitized.substring(lastDot);
-            }
-            sanitizedFileName = nameWithoutExt + "_" + counter + extension;
-            destFile = new File(savePath + sanitizedFileName);
-            counter++;
-        }
-
-        newDoc.setFileName(sanitizedFileName);
-        destFilePath = savePath + sanitizedFileName;
         String doc_no = "";
+        String storedFileName = null;
+        File destFile = null;
+        boolean success = false;
 
-        // Validate destination path is within allowed directory using PathValidationUtils
-        File saveDir = new File(savePath);
-        File finalDestFile = PathValidationUtils.validatePath(sanitizedFileName, saveDir);
-        destFilePath = finalDestFile.getPath();
-
-        newDoc.setContentType(docType);
-        File f1 = new File(sourceFilePath);
-
-        // Validate source file is within INCOMINGDOCUMENT_DIR to prevent path traversal
-        String incomingDocDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
-        if (incomingDocDir != null && !incomingDocDir.isEmpty()) {
-            File incomingDir = new File(incomingDocDir);
-            f1 = PathValidationUtils.validateExistingPath(f1, incomingDir);
+        for (int counter = 0; counter < MAX_INCOMING_DOCUMENT_MOVE_ATTEMPTS; counter++) {
+            String candidateFileName = incomingDestinationCandidate(originalSanitized, counter);
+            destFile = PathValidationUtils.validatePath(candidateFileName, saveDir);
+            try {
+                success = moveIncomingDocument(sourceFile, destFile);
+            } catch (FileAlreadyExistsException e) {
+                continue;
+            }
+            if (success) {
+                storedFileName = destFile.getName();
+                newDoc.setFileName(storedFileName);
+            }
+            break;
         }
 
-        boolean success = f1.renameTo(new File(destFilePath));
         if (!success) {
-            log.error("Not able to move {} to {}", LogSanitizer.sanitize(f1.getName()), LogSanitizer.sanitize(destFilePath)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+            log.error("Not able to move incoming document into document store");
             // File was not successfully moved - attempt to delete temp file to prevent orphaned files
-            boolean deleted = f1.delete();
-            if (!deleted) {
-                log.warn("Failed to delete temporary file: {}", LogSanitizer.sanitize(f1.getAbsolutePath())); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+            try {
+                Files.delete(sourceFile.toPath());
+            } catch (IOException e) {
+                log.warn("Failed to delete incoming document source after move failure", e);
             }
-            String documentId = request.getParameter("documentId");
-            log.error("Failed to save document file for document ID: {}", LogSanitizer.sanitize(documentId)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+            log.error("Failed to save incoming document");
             addActionError("Failed to save document file. Please try again or contact your system administrator.");
             return "error";
         } else {
 
             newDoc.setContentType("application/pdf");
-            if (fileName.endsWith(".PDF") || fileName.endsWith(".pdf")) {
+            if (storedFileName.endsWith(".PDF") || storedFileName.endsWith(".pdf")) {
                 newDoc.setContentType("application/pdf");
-                numberOfPages = countNumOfPages(fileName);
+                numberOfPages = countNumOfPages(storedFileName);
             }
             newDoc.setNumberOfPages(numberOfPages);
             doc_no = EDocUtil.addDocumentSQL(newDoc);
             LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
 
 
-            if (flagproviders != null && flagproviders.length > 0) {
-                try {
-                    for (String proNo : flagproviders) {
-                        // Sanitize provider number to prevent any potential header injection
-                        // Provider numbers should only contain alphanumeric characters
-                        if (proNo != null && proNo.matches("^[a-zA-Z0-9_-]+$")) {
-                            providerInboxRoutingDAO.addToProviderInbox(proNo, Integer.parseInt(doc_no), LabResultData.DOCUMENT);
-                        } else {
-                            log.warn("Invalid provider number format: {}", LogSanitizer.sanitize(proNo)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
-                        }
-                    }
-                } catch (Exception e) {
-                    MiscUtils.getLogger().error("Error", e);
-                }
-            }
+            routeDocumentToProviders(flagproviders, doc_no, demographic_no);
 
             //Check to see if we have to route document to patient
             PatientLabRoutingDao patientLabRoutingDao = SpringUtils.getBean(PatientLabRoutingDao.class);
@@ -1232,6 +1288,136 @@ public class ManageDocument2Action extends ActionSupport {
     }
 
     /**
+     * Validates a queued incoming filename without changing it. The source lookup must
+     * use the exact queue filename while still rejecting path components and prefixes.
+     */
+    private String validateIncomingDocumentSourceFileName(String fileName) {
+        if (fileName == null || fileName.trim().isEmpty()) {
+            log.warn("Invalid incoming document filename: null or empty");
+            throw new SecurityException("Invalid filename");
+        }
+        rejectIncomingDocumentPathComponents(fileName);
+        return fileName;
+    }
+
+    /**
+     * Sanitizes the generated destination filename. Missing generated metadata keeps
+     * the legacy timestamp fallback, but unsafe provided names are rejected.
+     */
+    private String sanitizeIncomingDocumentDestinationFileName(String fileName) {
+        if (fileName == null || fileName.trim().isEmpty()) {
+            return fallbackIncomingDocumentFileName();
+        }
+        rejectIncomingDocumentPathComponents(fileName);
+
+        String sanitizedFileName = fileName.replaceAll("[^a-zA-Z0-9._-]", "");
+        if (sanitizedFileName.trim().isEmpty()) {
+            log.warn("Incoming document destination filename became empty after sanitization");
+            throw new SecurityException("Invalid filename");
+        }
+        if (sanitizedFileName.startsWith(".")) {
+            log.warn("Incoming document destination filename cannot be hidden");
+            throw new SecurityException("Invalid filename");
+        }
+
+        return sanitizedFileName;
+    }
+
+    private void rejectIncomingDocumentPathComponents(String fileName) {
+        try {
+            PathValidationUtils.validatePathComponent(fileName, "incoming document filename");
+        } catch (SecurityException e) {
+            log.warn("Incoming document filename contains path components: {}", LogSafe.sanitize(fileName, 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            throw new SecurityException("Invalid filename", e);
+        }
+    }
+
+    private String fallbackIncomingDocumentFileName() {
+        return "document_" + System.currentTimeMillis() + ".dat";
+    }
+
+    /**
+     * Resolves a configured document directory to its canonical directory.
+     * Misconfiguration is reported as IllegalStateException so startup and
+     * operator errors are distinguishable from request path violations.
+     */
+    private File validateConfiguredDocumentDirectory(String directoryPath, String propertyName) throws IOException {
+        if (directoryPath == null || directoryPath.trim().isEmpty()) {
+            if (log.isErrorEnabled()) {
+                log.error("{} is not configured", LogSafe.sanitize(propertyName));
+            }
+            throw new IllegalStateException(propertyName + " not configured");
+        }
+
+        File directory = new File(directoryPath).getCanonicalFile();
+        if (!directory.isDirectory()) {
+            log.error("{} is not an approved document directory", LogSafe.sanitize(propertyName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            throw new IllegalStateException(propertyName + " is not a directory");
+        }
+
+        return directory;
+    }
+
+    /**
+     * Moves a validated incoming source file into the document store. Uses
+     * {@link Files#move} rather than {@link File#renameTo} so the move succeeds across
+     * filesystem/volume boundaries (incoming-fax storage and the document store are
+     * commonly separate mounts in production). {@code renameTo} silently returns
+     * {@code false} across volumes, and the caller deletes the source on failure — that
+     * combination would permanently lose the incoming document. Protected for tests so
+     * move failure can be exercised without filesystem-specific setup.
+     */
+    private String incomingDestinationCandidate(String originalFileName, int counter) {
+        if (counter == 0) {
+            return originalFileName;
+        }
+
+        String nameWithoutExt = originalFileName;
+        String extension = "";
+        int lastDot = originalFileName.lastIndexOf(".");
+        if (lastDot > 0) {
+            nameWithoutExt = originalFileName.substring(0, lastDot);
+            extension = originalFileName.substring(lastDot);
+        }
+        return nameWithoutExt + "_" + counter + extension;
+    }
+
+    protected boolean moveIncomingDocument(File sourceFile, File destFile) throws FileAlreadyExistsException {
+        try {
+            Files.move(sourceFile.toPath(), destFile.toPath());
+            return true;
+        } catch (FileAlreadyExistsException e) {
+            throw e;
+        } catch (IOException e) {
+            log.error("Failed to move incoming document into document store", e);
+            return false;
+        }
+    }
+
+    private void routeDocumentToProviders(String[] flagproviders, String docNo, String demographicNo) {
+        if (flagproviders == null || flagproviders.length == 0) {
+            return;
+        }
+
+        try {
+            for (String proNo : flagproviders) {
+                // Sanitize provider number to prevent any potential header injection.
+                if (proNo != null && proNo.matches("^[a-zA-Z0-9_-]+$")) {
+                    providerInboxRoutingDAO.addToProviderInbox(proNo, Integer.parseInt(docNo), LabResultData.DOCUMENT);
+                } else {
+                    log.warn("Invalid provider number format: {}", LogSafe.sanitize(proNo)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                }
+            }
+        } catch (SecurityException e) {
+            log.warn("Provider routing denied for document {} and demographic {}: {}",
+                    LogSafe.sanitize(docNo), LogSafe.sanitize(demographicNo), LogSafe.sanitize(e.getMessage())); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+        } catch (Exception e) {
+            log.error("Provider routing failed for document {} and demographic {}",
+                    LogSafe.sanitize(docNo), LogSafe.sanitize(demographicNo), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+        }
+    }
+
+    /**
      * Serves a single page of an incoming PDF document as a standalone PDF using
      * Apache PDFBox. Validates file paths against the INCOMINGDOCUMENT_DIR using
      * {@link PathValidationUtils}.
@@ -1239,6 +1425,9 @@ public class ManageDocument2Action extends ActionSupport {
      * @throws Exception if path validation or PDF extraction fails
      * @throws SecurityException if the user lacks _edoc read privilege or path traversal is detected
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    // FindSecBugs XSS_SERVLET: serves PDF bytes; error HTML uses resource strings and an encoded filename.
+    @SuppressFBWarnings(value = {"XSS_SERVLET", "PATH_TRAVERSAL_IN"}, justification = "XSS_SERVLET: serves PDF bytes; error HTML uses resource strings and an encoded filename. PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use")
     public void viewIncomingDocPageAsPdf() throws Exception {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "r", null)) {
@@ -1297,7 +1486,7 @@ public class ManageDocument2Action extends ActionSupport {
             int pageIndex = pageNumber - 1;
             int totalPages = reader.getNumberOfPages();
             if (pageIndex < 0 || pageIndex >= totalPages) {
-                log.error("Invalid page number {} for PDF {} with {} pages", pageNumber, LogSanitizer.sanitize(sanitizedPdfName), totalPages); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                log.error("Invalid page number {} for PDF {} with {} pages", pageNumber, LogSafe.sanitize(sanitizedPdfName), totalPages); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
                 response.setContentType("text/html;charset=UTF-8");
                 response.getWriter().print(props.getString("dms.incomingDocs.errorInOpening") + Encode.forHtml(sanitizedPdfName));
                 response.getWriter().print("<br>Invalid page number");
@@ -1334,9 +1523,10 @@ public class ManageDocument2Action extends ActionSupport {
             docdownload += File.separator;
         }
 
-        String filePath = docdownload + fileName;
+        File documentDir = PathValidationUtils.resolveConfiguredDirectory(docdownload, "DOCUMENT_DIR");
+        File filePath = PathValidationUtils.validatePath(fileName, documentDir);
 
-        try (PDDocument reader = Loader.loadPDF(new File(filePath))) {
+        try (PDDocument reader = Loader.loadPDF(filePath)) {
             numOfPage = reader.getNumberOfPages();
         } catch (IOException e) {
             MiscUtils.getLogger().error("Failed to count pages for document: {}", fileName, e);
@@ -1351,6 +1541,8 @@ public class ManageDocument2Action extends ActionSupport {
      * @throws Exception if path validation or file I/O fails
      * @throws SecurityException if the user lacks _edoc read privilege or path traversal is detected
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void displayIncomingDocs() throws Exception {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "r", null)) {
@@ -1477,7 +1669,7 @@ public class ManageDocument2Action extends ActionSupport {
                 outs.flush();
 
             } else {
-                log.info("Unable to retrieve content for {}/{}/{}", LogSanitizer.sanitize(queueId), LogSanitizer.sanitize(pdfDir), LogSanitizer.sanitize(pdfName)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                log.info("Unable to retrieve content for {}/{}/{}", LogSafe.sanitize(queueId), LogSafe.sanitize(pdfDir), LogSafe.sanitize(pdfName)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
@@ -1502,6 +1694,9 @@ public class ManageDocument2Action extends ActionSupport {
      * @throws Exception if parameter validation fails
      * @throws SecurityException if path traversal is detected or file type is not PDF
      */
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-fold in a trust path (locale-safe hardening tracked in #2496); path validated for directory containment via PathValidationUtils before use")
     public File createIncomingCacheVersion(String queueId, String pdfDir, String pdfName, Integer pageNum) throws Exception {
         
         // Validate input parameters to prevent path traversal
@@ -1549,14 +1744,14 @@ public class ManageDocument2Action extends ActionSupport {
 
             // Validate page number is within bounds
             if (pageNum == null) {
-                log.error("Page number is null for PDF {}{}{}", LogSanitizer.sanitize(pdfDir), File.separator, LogSanitizer.sanitize(sanitizedPdfName)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                log.error("Page number is null for PDF {}{}{}", LogSafe.sanitize(pdfDir), File.separator, LogSafe.sanitize(sanitizedPdfName)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
                 return null;
             }
 
             int pageIndex = pageNum - 1;
             int totalPages = document.getNumberOfPages();
             if (pageIndex < 0 || pageIndex >= totalPages) {
-                log.error("Invalid page number {} for PDF {}{}{} with {} pages", pageNum, LogSanitizer.sanitize(pdfDir), File.separator, LogSanitizer.sanitize(sanitizedPdfName), totalPages); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+                log.error("Invalid page number {} for PDF {}{}{} with {} pages", pageNum, LogSafe.sanitize(pdfDir), File.separator, LogSafe.sanitize(sanitizedPdfName), totalPages); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
                 return null;
             }
 
@@ -1574,7 +1769,7 @@ public class ManageDocument2Action extends ActionSupport {
 
             return cacheFile;
         } catch (Exception e) {
-            log.error("Error decoding pdf file {}{}{}", LogSanitizer.sanitize(pdfDir), File.separator, LogSanitizer.sanitize(sanitizedPdfName), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+            log.error("Error decoding pdf file {}{}{}", LogSafe.sanitize(pdfDir), File.separator, LogSafe.sanitize(sanitizedPdfName), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
             return null;
         }
     }
@@ -1609,7 +1804,7 @@ public class ManageDocument2Action extends ActionSupport {
         ) {
             org.apache.commons.io.IOUtils.copy(fileInputStream, outs);
         } catch (Exception e) {
-            log.error("Error retrieving document: {}", LogSanitizer.sanitize(output.getPath()), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+            log.error("Error retrieving document: {}", LogSafe.sanitize(output.getPath()), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
         }
         return response;
     }
@@ -1622,6 +1817,8 @@ public class ManageDocument2Action extends ActionSupport {
      * @param file The file to validate
      * @throws SecurityException if the file path is invalid or potentially malicious
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private void validateFilePath(File file) throws SecurityException {
         if (file == null) {
             throw new SecurityException("File is null");
@@ -1691,6 +1888,8 @@ public class ManageDocument2Action extends ActionSupport {
      * @throws IOException if writing the JSON response fails
      * @since 2026-02-28
      */
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public void searchDocumentDescriptions() throws IOException {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
             throw new SecurityException("missing required security object (_edoc)");

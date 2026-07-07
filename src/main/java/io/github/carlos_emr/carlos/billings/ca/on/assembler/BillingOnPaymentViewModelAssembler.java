@@ -56,7 +56,7 @@ import io.github.carlos_emr.carlos.commn.model.RaDetail;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.web.BillingOnPayment2Action;
 
@@ -110,7 +110,7 @@ public class BillingOnPaymentViewModelAssembler {
      * Build the payment-report view model for the given request.
      *
      * @param request in-flight request (provides locale + filter params)
-     * @param curProviderNo logged-in provider's ID (from session)
+     * @param loggedInInfo logged-in provider context (contains provider ID)
      * @param isThisProviderOnly true when {@code _admin.invoices} grants
      *                           but {@code _admin}/{@code _admin.billing} don't
      *                           — restricts the dropdown to just the user
@@ -152,7 +152,7 @@ public class BillingOnPaymentViewModelAssembler {
         } catch (ParseException e) {
             dateParseFailed = true;
             MiscUtils.getLogger().warn("Invalid billing payment start date [{}]",
-                    LogSanitizer.sanitize(startDateStr), e);
+                    LogSafe.sanitize(startDateStr), e);
             errorMsg = LocaleUtils.getMessage(locale, "oscar.billing.paymentReceived.errorOnDate");
         }
         try {
@@ -160,7 +160,7 @@ public class BillingOnPaymentViewModelAssembler {
         } catch (ParseException e) {
             dateParseFailed = true;
             MiscUtils.getLogger().warn("Invalid billing payment end date [{}]",
-                    LogSanitizer.sanitize(endDateStr), e);
+                    LogSafe.sanitize(endDateStr), e);
             errorMsg = LocaleUtils.getMessage(locale, "oscar.billing.paymentReceived.errorOnDate");
         }
         if (!dateParseFailed && DateUtils.calculateDayDifference(startDate, endDate) < 0) {

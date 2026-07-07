@@ -54,10 +54,11 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingStatusLoader;
 import io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingOnStatus2Action;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Assembles {@link BillingOnStatusViewModel} for {@code billingONStatus.jsp}.
@@ -383,8 +384,8 @@ public class BillingOnStatusViewModelAssembler {
                 } catch (RuntimeException nfe) {
                     feeUnreadable = true;
                     MiscUtils.getLogger().warn("Rejected-bill fee is not numeric for billingNo={} fee={}",
-                            LogSanitizer.sanitize(bObj.getBilling_no()),
-                            LogSanitizer.sanitize(bObj.getFee()), nfe);
+                            LogSafe.sanitize(bObj.getBilling_no()),
+                            LogSafe.sanitize(bObj.getFee()), nfe);
                     formattedFee = "N/A";
                 }
                 String stdCurr = formattedFee;
@@ -425,6 +426,8 @@ public class BillingOnStatusViewModelAssembler {
             String totalDebit,
             int unreadableTotalRowCount) { }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private BillRowAggregate buildBillRows(
             List<BillingClaimHeaderDto> bList, boolean multisitesEnabled, String selectedSite,
             boolean siteAccessPrivacy, String raCode, String serviceCode,

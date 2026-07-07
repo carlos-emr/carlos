@@ -68,6 +68,7 @@
 
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title><fmt:message key="oscarprevention.index.oscarpreventiontitre"/> - <fmt:message key="admin.admin.preventionNotification.title"/></title>
 
         <style type="text/css">

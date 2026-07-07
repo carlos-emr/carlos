@@ -49,7 +49,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 @Transactional
 public class CaseManagementIssueDAOImpl extends AbstractJpaDao implements CaseManagementIssueDAO {
@@ -123,7 +123,7 @@ public class CaseManagementIssueDAOImpl extends AbstractJpaDao implements CaseMa
                 issueCode, Integer.valueOf(demo));
 
         if (list.size() > 1) {
-            log.error("Expected 1 result got more : {} ({},{})", list.size(), LogSanitizer.sanitize(demo), LogSanitizer.sanitize(issueCode)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            log.error("Expected 1 result got more : {} ({},{})", list.size(), LogSafe.sanitize(demo), LogSafe.sanitize(issueCode)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         }
 
         if (list.size() == 1 || list.size() > 1)
@@ -220,7 +220,7 @@ public class CaseManagementIssueDAOImpl extends AbstractJpaDao implements CaseMa
         try {
             demoNoInt = Integer.valueOf(demographicNo);
         } catch (NumberFormatException e) {
-            log.warn("findIssueDTOsByDemographicNo: invalid demographicNo '{}'", LogSanitizer.sanitize(demographicNo));
+            log.warn("findIssueDTOsByDemographicNo: invalid demographicNo '{}'", LogSafe.sanitize(demographicNo));
             return new ArrayList<>();
         }
         TypedQuery<CaseManagementIssueListDTO> query = entityManager().createQuery("""

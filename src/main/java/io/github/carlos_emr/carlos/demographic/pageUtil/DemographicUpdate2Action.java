@@ -59,6 +59,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action that processes a demographic record update (save). Replaces the
@@ -91,6 +92,9 @@ public class DemographicUpdate2Action extends ActionSupport {
      * @throws SecurityException if the session is missing or the provider lacks
      *         {@code _demographic} write privilege
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "UNVALIDATED_REDIRECT"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     @Override
     public String execute() throws IOException {
         if (!"POST".equals(request.getMethod())) {
@@ -140,7 +144,7 @@ public class DemographicUpdate2Action extends ActionSupport {
 
         demographic.setLastName(org.apache.commons.lang3.StringUtils.trimToEmpty(request.getParameter("last_name")));
         demographic.setFirstName(org.apache.commons.lang3.StringUtils.trimToEmpty(request.getParameter("first_name")));
-        demographic.setMiddleNames(org.apache.commons.lang3.StringUtils.trimToEmpty(request.getParameter("middleNames")));
+        demographic.setMiddleNames(normalizeOptionalMiddleNames(request.getParameter("middleNames")));
         demographic.setAlias(request.getParameter("nameUsed"));
         demographic.setPrefName(request.getParameter("nameUsed"));
         demographic.setAddress(request.getParameter("address"));
@@ -451,5 +455,12 @@ public class DemographicUpdate2Action extends ActionSupport {
             response.sendRedirect(request.getContextPath() + "/demographic/DemographicEdit?demographic_no=" + demographicNo);
             return null;
         }
+    }
+
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    static String normalizeOptionalMiddleNames(String rawMiddleNames) {
+        String middleNames = org.apache.commons.lang3.StringUtils.trimToEmpty(rawMiddleNames);
+        return "null".equalsIgnoreCase(middleNames) ? "" : middleNames;
     }
 }

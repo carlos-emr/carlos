@@ -31,6 +31,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.CacheManager;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -41,7 +42,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -61,6 +62,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("dao")
 @Tag("cache")
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
+@Isolated
 class ProviderDaoCacheIntegrationTest extends CarlosTestBase {
 
     @Autowired
@@ -76,12 +78,16 @@ class ProviderDaoCacheIntegrationTest extends CarlosTestBase {
     private PlatformTransactionManager transactionManager;
 
     private final List<String> providerNosToCleanUp = new ArrayList<>();
+    private final AtomicInteger providerNoSequence = new AtomicInteger();
     private TransactionTemplate transactionTemplate;
+    private String uniquePrefix;
 
     @BeforeEach
     void setUpTransactionsAndCaches() {
         transactionTemplate = new TransactionTemplate(transactionManager);
         transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        uniquePrefix = "C" + Long.toString(System.nanoTime(), 36);
+        uniquePrefix = uniquePrefix.substring(Math.max(0, uniquePrefix.length() - 4));
         clearProviderCaches();
     }
 
@@ -220,6 +226,6 @@ class ProviderDaoCacheIntegrationTest extends CarlosTestBase {
     }
 
     private String newProviderNo() {
-        return String.format("C%05d", ThreadLocalRandom.current().nextInt(10000, 100000));
+        return String.format("%s%02d", uniquePrefix, providerNoSequence.incrementAndGet());
     }
 }

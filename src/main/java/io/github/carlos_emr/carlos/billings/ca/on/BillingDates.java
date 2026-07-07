@@ -34,6 +34,7 @@ import java.time.format.ResolverStyle;
 import java.time.format.SignStyle;
 import java.time.temporal.ChronoField;
 import java.util.Date;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Central date parsing and formatting for Ontario billing.
@@ -84,6 +85,8 @@ public final class BillingDates {
     private BillingDates() {
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static String ohipEffectiveDate(String raw, LocalDate fallbackDate) {
         if (raw == null || raw.trim().isEmpty() || "null".equalsIgnoreCase(raw.trim())) {
             return fallbackDate.format(SERVICE_DATE);

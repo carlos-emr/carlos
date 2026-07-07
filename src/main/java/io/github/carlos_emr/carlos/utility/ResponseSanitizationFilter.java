@@ -35,13 +35,16 @@ import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpServletResponseWrapper;
+import java.io.ByteArrayOutputStream;
 import java.io.CharArrayWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
-import java.util.regex.Pattern;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Servlet filter that sanitizes error responses to prevent Java stack traces and internal
@@ -49,19 +52,27 @@ import java.util.regex.Pattern;
  *
  * <p>When an error response (HTTP 4xx or 5xx) is detected that contains stack trace markers,
  * the body is replaced with a generic error page that includes only the HTTP status code and
- * a correlation ID. A sanitized excerpt (up to 200 characters) is logged server-side with the
- * same correlation ID so operators can diagnose issues without exposing sensitive information
- * to clients.</p>
+ * a correlation ID. Logs include status, route, and correlation ID, but never response-body
+ * excerpts because error pages can contain PHI even after control-character sanitization.</p>
+ *
+ * <p>For web-service routes ({@code /ws/*}, the CXF servlet), the body of any {@code 5xx}
+ * response is replaced regardless of stack-trace content. A mid-stream Jackson/JAXB
+ * serialization failure leaves a clean, well-formed JSON/XML prefix (e.g. patient demographics)
+ * already written; that prefix does not match the stack-trace heuristic but still leaks PHI.
+ * A web-service {@code 5xx} carries no client-meaningful entity body, so suppressing it closes
+ * the exposure without breaking an API contract. See issue #2953.</p>
  *
  * <h3>Detection</h3>
- * <p>Stack trace detection uses a {@link Pattern} that matches common Java stack trace markers:
- * {@code at pkg.Class.method(File.java:nn)}, {@code Caused by:}, {@code java.lang.},
- * {@code jakarta.servlet.}, and class name prefixes for Tomcat, Spring, Hibernate, and
- * the CARLOS application itself.</p>
+ * <p>Stack trace detection uses literal marker checks and deterministic line parsing for common
+ * Java stack trace markers: {@code at pkg.Class.method(File.java:nn)}, {@code Caused by:},
+ * {@code java.lang.}, {@code jakarta.servlet.}, and class name prefixes for Tomcat, Spring,
+ * Hibernate, and the CARLOS application itself. Stack-frame lines are detected at the beginning
+ * of the captured body as well as after line breaks so first-line stack traces are sanitized.</p>
  *
  * <h3>Scope</h3>
- * <p>Captures responses written via {@link PrintWriter} (text content). Binary responses
- * written via {@link ServletOutputStream} pass through unmodified. Responses committed
+ * <p>Captures responses written via {@link PrintWriter} (text content). Output-stream error
+ * responses are buffered up to the same cap because some legacy actions write text errors through
+ * {@link ServletOutputStream}; clearly binary successful responses still pass through. Responses committed
  * by {@code sendError()} or {@code sendRedirect()} before the chain returns also pass through —
  * those trigger Tomcat's error-page mechanism which forwards to
  * {@code /WEB-INF/jsp/error/errorpage.jsp}.</p>
@@ -101,41 +112,52 @@ public class ResponseSanitizationFilter implements Filter {
     static final String ENABLED_PROPERTY = "response.sanitization.enabled";
 
     /**
-     * Maximum number of characters to buffer per response before switching to pass-through mode.
-     * Responses larger than this cannot contain a stack trace header; skipping inspection
-     * avoids unbounded heap growth for large encounter notes, lab reports, etc.
+     * Property name that activates developer error display mode. This property is intentionally
+     * advisory for this filter: raw exception details reach the browser only when
+     * {@code response.sanitization.enabled=false} is also set.
+     *
+     * <p><strong>SECURITY RISK:</strong> Stack traces expose internal class names,
+     * library versions, code paths, and data structures that significantly aid attackers.
+     * Only enable in isolated devcontainer environments with synthetic test data.
+     * Never enable in any environment with real patient data or external network access.</p>
+     *
+     * @see <a href="https://owasp.org/www-project-top-ten/">OWASP A05 Security Misconfiguration</a>
+     */
+    static final String DISPLAY_ERROR_PROPERTY = "DISPLAY_ERROR";
+
+    private static final Set<String> ENTITY_HEADERS_TO_DROP = Set.of(
+            "Accept-Ranges",
+            "Content-Disposition",
+            "Content-Encoding",
+            "Content-Language",
+            "Content-Location",
+            "Content-MD5",
+            "Content-Range",
+            "ETag",
+            "Last-Modified",
+            "Transfer-Encoding"
+    );
+
+    /**
+     * Maximum number of characters/bytes to buffer per response before switching to pass-through mode.
+     * The buffered prefix is still inspected before passthrough so oversized error pages cannot
+     * leak a stack trace before normal page content.
      */
     static final int MAX_CAPTURE_CHARS = 512 * 1024;
 
     /**
-     * Regex that matches Java stack trace markers commonly found in unhandled error responses.
-     *
-     * <p>Patterns matched:
-     * <ul>
-     *   <li>{@code \n   at pkg.Class.method(File.java:nn)} — standard stack frame line</li>
-     *   <li>{@code Caused by:} — chained exception marker</li>
-     *   <li>{@code java.lang.} — JDK core exception class names (e.g. NullPointerException)</li>
-     *   <li>{@code io.github.carlos_emr.} — CARLOS application class names</li>
-     *   <li>{@code jakarta.servlet.} — Jakarta Servlet API exception class names</li>
-     *   <li>{@code org.apache.} — Apache Tomcat / Struts / Commons class names</li>
-     *   <li>{@code org.springframework.} — Spring Framework class names</li>
-     *   <li>{@code org.hibernate.} — Hibernate ORM class names</li>
-     * </ul>
-     *
-     * <p>The {@code at} frame pattern uses a preceding newline anchor so it does not match
-     * the word "at" in normal English text (e.g. "error at line"). Class name patterns use
-     * a word boundary {@code \b} for the same reason.</p>
+     * Class-name markers commonly found in Java error responses. Callers check these with a
+     * word-boundary equivalent so normal prose containing a marker-like suffix does not match.
      */
-    static final Pattern STACK_TRACE_PATTERN = Pattern.compile(
-            "(?:[\r\n]\\s*at\\s+[\\w.$]+\\.[\\w$<>]+\\([^)]*\\))" // stack frame: \n   at pkg.Class.method(File.java:nn)
-            + "|(?:\\bCaused by:)"                                   // chained exception
-            + "|(?:\\bjava\\.lang\\.)"                               // JDK exception class names
-            + "|(?:\\bio\\.github\\.carlos_emr\\.)"                  // CARLOS class names
-            + "|(?:\\bjakarta\\.servlet\\.)"                         // Servlet API exceptions
-            + "|(?:\\borg\\.apache\\.)"                              // Tomcat / Struts / Commons
-            + "|(?:\\borg\\.springframework\\.)"                     // Spring Framework
-            + "|(?:\\borg\\.hibernate\\.)"                           // Hibernate ORM
-    );
+    private static final String[] STACK_TRACE_MARKERS = {
+            "Caused by:",
+            "java.lang.",
+            "io.github.carlos_emr.",
+            "jakarta.servlet.",
+            "org.apache.",
+            "org.springframework.",
+            "org.hibernate."
+    };
 
     private boolean enabled;
 
@@ -143,13 +165,48 @@ public class ResponseSanitizationFilter implements Filter {
      * Reads the {@code response.sanitization.enabled} property from {@code carlos.properties}.
      * Defaults to {@code true} (enabled) when the property is absent or blank.
      *
+     * <p>When {@code response.sanitization.enabled=false} AND {@code DISPLAY_ERROR=true} are
+     * both set, this filter is disabled and a security WARN is emitted — that combination is
+     * the intended full developer error-display mode. {@code DISPLAY_ERROR=true} alone does
+     * not bypass sanitization; {@code response.sanitization.enabled} is the gating control.</p>
+     *
      * @param filterConfig FilterConfig the servlet container filter configuration
      */
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {
-        String propValue = CarlosProperties.getInstance().getProperty(ENABLED_PROPERTY, "").trim();
-        enabled = propValue.isEmpty() || Boolean.parseBoolean(propValue);
+        String propValue = CarlosProperties.getInstance().getProperty(ENABLED_PROPERTY, "");
+        enabled = parseEnabledProperty(propValue);
+        if (!enabled && CarlosProperties.getInstance().isPropertyActive(DISPLAY_ERROR_PROPERTY)) {
+            // Sanitization is already disabled via response.sanitization.enabled=false.
+            // When DISPLAY_ERROR is also active the developer has opted into full error
+            // display — emit a prominent security warning so this state is never missed in logs.
+            // (enabled is already false; this block only adds the WARN.)
+            LOGGER.warn("DISPLAY_ERROR is active with sanitization disabled — "
+                    + "stack traces WILL be sent to clients. "
+                    + "This is a SECURITY RISK — do not enable in production environments "
+                    + "or any system with real patient data.");
+        }
         LOGGER.info("ResponseSanitizationFilter initialized: enabled={}", enabled);
+    }
+
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    static boolean parseEnabledProperty(String propValue) {
+        if (propValue == null || propValue.isBlank()) {
+            return true;
+        }
+        String normalized = propValue.trim().toLowerCase(Locale.ROOT);
+        if ("true".equals(normalized) || "yes".equals(normalized) || "on".equals(normalized)
+                || "1".equals(normalized)) {
+            return true;
+        }
+        if ("false".equals(normalized) || "no".equals(normalized) || "off".equals(normalized)
+                || "0".equals(normalized)) {
+            return false;
+        }
+        LOGGER.warn("Unrecognized {} value '{}'; keeping response sanitization enabled",
+                ENABLED_PROPERTY, LogSafe.sanitize(propValue));
+        return true;
     }
 
     /** {@inheritDoc} */
@@ -183,6 +240,7 @@ public class ResponseSanitizationFilter implements Filter {
         }
 
         HttpServletResponse httpResponse = (HttpServletResponse) response;
+        boolean webServiceRequest = isWebServiceRequest((HttpServletRequest) request);
         CapturingResponseWrapper wrapper = new CapturingResponseWrapper(httpResponse);
 
         try {
@@ -192,7 +250,7 @@ public class ResponseSanitizationFilter implements Filter {
             // Always log for operational visibility and auditability, even when the response
             // is already committed, so failures are never silently swallowed.
             String correlationId = generateCorrelationId();
-            String requestUri = ((HttpServletRequest) request).getRequestURI();
+            String requestUri = LogSafe.sanitizeUri(((HttpServletRequest) request).getRequestURI());
             boolean committed = httpResponse.isCommitted();
             LOGGER.error(
                     "Uncaught exception escaped filter chain [uri={} correlationId={} committed={}]",
@@ -220,8 +278,42 @@ public class ResponseSanitizationFilter implements Filter {
             return;
         }
 
-        // Binary content (getOutputStream) — stack traces do not appear in binary responses.
         if (wrapper.isUsingOutputStream()) {
+            if (wrapper.isOutputStreamPassthrough()) {
+                int status = wrapper.getStatus();
+                if (status >= 400) {
+                    String correlationId = generateCorrelationId();
+                    LOGGER.error("Late output-stream error response bypassed capture; "
+                                    + "replacing buffered body [status={} uri={} correlationId={} committed={}]",
+                            status,
+                            LogSafe.sanitizeUri(((HttpServletRequest) request).getRequestURI()),
+                            correlationId,
+                            httpResponse.isCommitted());
+                    if (!httpResponse.isCommitted()) {
+                        sendSanitizedError(httpResponse, status, correlationId);
+                    }
+                }
+                return;
+            }
+            if (wrapper.isOutputCaptureLimitExceeded()) {
+                return;
+            }
+            int status = wrapper.getStatus();
+            byte[] capturedBytes = wrapper.getCapturedOutput();
+            String capturedBody = new String(capturedBytes, StandardCharsets.UTF_8);
+            String reason = sanitizationReason(status, capturedBody, webServiceRequest);
+            if (reason != null) {
+                String correlationId = generateCorrelationId();
+                LOGGER.error("Sanitizing output-stream error response body "
+                                + "[status={} uri={} correlationId={} reason={}]",
+                        status,
+                        LogSafe.sanitizeUri(((HttpServletRequest) request).getRequestURI()),
+                        correlationId,
+                        reason);
+                sendSanitizedError(httpResponse, status, correlationId);
+            } else {
+                writeBytesToResponse(httpResponse, capturedBytes);
+            }
             return;
         }
 
@@ -230,9 +322,10 @@ public class ResponseSanitizationFilter implements Filter {
             return;
         }
 
-        // Response exceeded the capture limit — content already written directly to the real
-        // response by CapturingSwitchingWriter. Large responses cannot contain stack traces;
-        // skip inspection.
+        // Response exceeded the capture limit after CapturingSwitchingWriter made a terminal
+        // decision about the buffered prefix. Safe large responses have already been flushed
+        // through; tainted error prefixes are converted to sanitized error pages before any raw
+        // stack trace reaches the client.
         if (wrapper.isCaptureLimitExceeded()) {
             return;
         }
@@ -240,16 +333,17 @@ public class ResponseSanitizationFilter implements Filter {
         int status = wrapper.getStatus();
         String capturedBody = wrapper.getCapturedContent();
 
-        if (status >= 400 && containsStackTrace(capturedBody)) {
-            // Stack trace detected: log only a sanitized excerpt and send a sanitized replacement.
+        String reason = sanitizationReason(status, capturedBody, webServiceRequest);
+        if (reason != null) {
+            // Tainted (stack trace) or web-service 5xx partial body: log correlation details
+            // only and send a sanitized replacement.
             String correlationId = generateCorrelationId();
-            String sanitizedExcerpt = LogSanitizer.sanitize(capturedBody, 200);
-            LOGGER.error("Stack trace detected in error response "
-                    + "[status={} uri={} correlationId={} excerpt={}]",
+            LOGGER.error("Sanitizing error response body "
+                    + "[status={} uri={} correlationId={} reason={}]",
                     status,
-                    ((HttpServletRequest) request).getRequestURI(),
+                    LogSafe.sanitizeUri(((HttpServletRequest) request).getRequestURI()),
                     correlationId,
-                    sanitizedExcerpt);
+                    reason);
             sendSanitizedError(httpResponse, status, correlationId);
         } else {
             // Safe response — write captured content through to the real response.
@@ -262,13 +356,241 @@ public class ResponseSanitizationFilter implements Filter {
      * Package-private to allow direct unit testing without a servlet container.
      *
      * @param body String the response body to inspect; may be {@code null} or empty
-     * @return {@code true} if the body matches one or more stack trace patterns
+     * @return {@code true} if the body contains one or more stack trace markers
      */
     static boolean containsStackTrace(String body) {
         if (body == null || body.isEmpty()) {
             return false;
         }
-        return STACK_TRACE_PATTERN.matcher(body).find();
+        for (String marker : STACK_TRACE_MARKERS) {
+            if (containsWithWordBoundary(body, marker)) {
+                return true;
+            }
+        }
+        return containsJavaStackFrame(body);
+    }
+
+    private static boolean containsWithWordBoundary(String body, String marker) {
+        int searchFrom = 0;
+        while (searchFrom < body.length()) {
+            int markerIndex = body.indexOf(marker, searchFrom);
+            if (markerIndex < 0) {
+                return false;
+            }
+            if (hasWordBoundaries(body, markerIndex, marker.length())) {
+                return true;
+            }
+            searchFrom = markerIndex + 1;
+        }
+        return false;
+    }
+
+    private static boolean hasWordBoundaries(String body, int markerIndex, int markerLength) {
+        int markerEnd = markerIndex + markerLength;
+        boolean hasLeftBoundary = markerIndex == 0 || !isWordCharacter(body.charAt(markerIndex - 1));
+        boolean hasRightBoundary = !isWordCharacter(body.charAt(markerEnd - 1))
+                || markerEnd == body.length()
+                || !isWordCharacter(body.charAt(markerEnd));
+        return hasLeftBoundary && hasRightBoundary;
+    }
+
+    private static boolean containsJavaStackFrame(String body) {
+        int lineStart = 0;
+        while (lineStart < body.length()) {
+            int lineEnd = lineStart;
+            while (lineEnd < body.length()
+                    && body.charAt(lineEnd) != '\r'
+                    && body.charAt(lineEnd) != '\n') {
+                lineEnd++;
+            }
+            if (isJavaStackFrameLine(body, lineStart, lineEnd)) {
+                return true;
+            }
+            if (lineEnd < body.length()
+                    && body.charAt(lineEnd) == '\r'
+                    && lineEnd + 1 < body.length()
+                    && body.charAt(lineEnd + 1) == '\n') {
+                lineEnd++;
+            }
+            lineStart = lineEnd + 1;
+        }
+        return false;
+    }
+
+    private static boolean isJavaStackFrameLine(String body, int lineStart, int lineEnd) {
+        int prefixStart = skipWhitespace(body, lineStart, lineEnd);
+        if (!hasStackFramePrefix(body, prefixStart, lineEnd)) {
+            return false;
+        }
+
+        int symbolStart = skipWhitespace(body, prefixStart + 2, lineEnd);
+        int openParen = indexOf(body, '(', symbolStart, lineEnd);
+        if (openParen < 0) {
+            return false;
+        }
+        int closeParen = indexOf(body, ')', openParen + 1, lineEnd);
+        return closeParen >= 0 && isJavaStackFrameSymbol(body, symbolStart, openParen);
+    }
+
+    private static int skipWhitespace(String body, int fromIndex, int toIndexExclusive) {
+        int index = fromIndex;
+        while (index < toIndexExclusive && Character.isWhitespace(body.charAt(index))) {
+            index++;
+        }
+        return index;
+    }
+
+    private static boolean hasStackFramePrefix(String body, int index, int lineEnd) {
+        return index + 2 < lineEnd
+                && body.charAt(index) == 'a'
+                && body.charAt(index + 1) == 't'
+                && Character.isWhitespace(body.charAt(index + 2));
+    }
+
+    private static boolean isJavaStackFrameSymbol(String body, int symbolStart, int openParen) {
+        int lastDot = lastIndexOf(body, '.', symbolStart, openParen);
+        return lastDot > symbolStart
+                && lastDot < openParen - 1
+                && containsOnlyJavaClassNameCharacters(body, symbolStart, lastDot)
+                && containsOnlyJavaMethodNameCharacters(body, lastDot + 1, openParen);
+    }
+
+    private static int lastIndexOf(String body, char target, int fromIndex, int toIndexExclusive) {
+        for (int i = toIndexExclusive - 1; i >= fromIndex; i--) {
+            if (body.charAt(i) == target) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private static boolean containsOnlyJavaClassNameCharacters(
+            String body, int fromIndex, int toIndexExclusive) {
+        for (int i = fromIndex; i < toIndexExclusive; i++) {
+            if (!isJavaClassNameCharacter(body.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean containsOnlyJavaMethodNameCharacters(
+            String body, int fromIndex, int toIndexExclusive) {
+        for (int i = fromIndex; i < toIndexExclusive; i++) {
+            if (!isJavaMethodNameCharacter(body.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static int indexOf(String body, char target, int fromIndex, int toIndexExclusive) {
+        for (int i = fromIndex; i < toIndexExclusive; i++) {
+            if (body.charAt(i) == target) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private static boolean isWordCharacter(char c) {
+        return c == '_' || Character.isLetterOrDigit(c);
+    }
+
+    private static boolean isJavaClassNameCharacter(char c) {
+        return c == '.' || c == '$' || isWordCharacter(c);
+    }
+
+    private static boolean isJavaMethodNameCharacter(char c) {
+        return c == '$' || c == '<' || c == '>' || isWordCharacter(c);
+    }
+
+    /** Reason code logged when an error body is replaced because it carries a stack trace. */
+    static final String REASON_STACK_TRACE = "stack-trace-marker";
+
+    /** Reason code logged when a web-service 5xx partial entity body is replaced. */
+    static final String REASON_WEB_SERVICE_5XX = "web-service-5xx-partial-body";
+
+    /**
+     * Determines whether a captured error-response body must be replaced with a generic page and,
+     * if so, why. Returns a short, log-safe reason code, or {@code null} when the body may pass
+     * through unchanged. The reason never includes any portion of the response body itself (which
+     * can carry PHI even after the decision).
+     *
+     * <p>Two independent triggers, both scoped to error status codes ({@code >= 400}):
+     * <ul>
+     *   <li>{@link #REASON_STACK_TRACE} — the body contains Java stack trace markers (any error
+     *       route); the original CWE-209 protection.</li>
+     *   <li>{@link #REASON_WEB_SERVICE_5XX} — the request targets a web-service route
+     *       ({@code /ws/*}) and the status is a server error ({@code >= 500}). A mid-stream
+     *       Jackson/JAXB serialization failure commonly leaves a clean, well-formed JSON/XML prefix
+     *       already written — patient demographics, names, phone numbers — that the stack-trace
+     *       heuristic does not match. Web-service 5xx responses carry no client-meaningful entity
+     *       body, so suppressing it removes the PHI exposure without breaking an API contract. See
+     *       issue #2953.</li>
+     * </ul>
+     *
+     * <p>Client errors ({@code 4xx}) on web-service routes are intentionally left to the
+     * stack-trace check alone, because REST endpoints legitimately return structured JSON error
+     * payloads (validation messages, {@code 401}/{@code 403}/{@code 404} envelopes) that callers
+     * depend on.</p>
+     *
+     * @param status             int the response status code
+     * @param body               String the captured response body; may be {@code null}/empty
+     * @param webServiceRequest  boolean {@code true} if the request targeted a {@code /ws/*} route
+     * @return a log-safe reason code, or {@code null} if the body must not be sanitized
+     */
+    static String sanitizationReason(int status, String body, boolean webServiceRequest) {
+        if (status < 400) {
+            return null;
+        }
+        if (body != null && containsStackTrace(body)) {
+            return REASON_STACK_TRACE;
+        }
+        if (webServiceRequest && status >= 500) {
+            return REASON_WEB_SERVICE_5XX;
+        }
+        return null;
+    }
+
+    /**
+     * Convenience predicate over {@link #sanitizationReason(int, String, boolean)}.
+     *
+     * @param status             int the response status code
+     * @param body               String the captured response body; may be {@code null}/empty
+     * @param webServiceRequest  boolean {@code true} if the request targeted a {@code /ws/*} route
+     * @return {@code true} if the body must be replaced with a sanitized error page
+     */
+    static boolean shouldSanitizeErrorBody(int status, String body, boolean webServiceRequest) {
+        return sanitizationReason(status, body, webServiceRequest) != null;
+    }
+
+    /**
+     * Determines whether the request targets a CXF web-service route. The CXF servlet is mapped at
+     * {@code /ws/*} (see {@code web.xml}); {@link HttpServletRequest#getServletPath()} therefore
+     * returns {@code /ws} for these requests. As a fallback for forwarded/wrapped requests where the
+     * servlet path may not be populated, the <em>context-relative</em> request URI is matched with
+     * an exact/prefix check ({@code /ws} or {@code /ws/...}). A substring match is deliberately
+     * avoided so unrelated paths that merely contain {@code /ws/} (e.g. {@code /proxy/ws/foo}) are
+     * not misclassified as web-service requests.
+     *
+     * @param request HttpServletRequest the incoming request
+     * @return boolean {@code true} if the request path is under {@code /ws/}
+     */
+    static boolean isWebServiceRequest(HttpServletRequest request) {
+        String servletPath = request.getServletPath();
+        if (servletPath != null && (servletPath.equals("/ws") || servletPath.startsWith("/ws/"))) {
+            return true;
+        }
+        String uri = request.getRequestURI();
+        if (uri == null) {
+            return false;
+        }
+        String contextPath = request.getContextPath();
+        String path = (contextPath != null && !contextPath.isEmpty() && uri.startsWith(contextPath))
+                ? uri.substring(contextPath.length())
+                : uri;
+        return path.equals("/ws") || path.startsWith("/ws/");
     }
 
     /**
@@ -285,13 +607,10 @@ public class ResponseSanitizationFilter implements Filter {
      * Clears the response body buffer and writes a generic HTML error page containing only the
      * HTTP status code and the correlation ID.
      *
-     * <p>Uses {@link HttpServletResponse#resetBuffer()} rather than
-     * {@link HttpServletResponse#reset()} deliberately: {@code resetBuffer()} clears only
-     * the body buffer, leaving previously-set response headers intact. This preserves security
-     * headers ({@code X-Frame-Options}, {@code X-Content-Type-Options}, etc.) set by
-     * downstream filters such as {@code ResponseDefaultsFilter}, as well as session cookies.
-     * Calling {@code reset()} would wipe all headers, undermining the security posture of the
-     * rest of the filter chain.</p>
+     * <p>Uses {@link HttpServletResponse#resetBuffer()} deliberately so security/session headers
+     * survive, then removes entity headers that describe the original representation. Without that
+     * cleanup, a sanitized HTML page could inherit {@code Content-Disposition} or
+     * {@code Content-Encoding} from a failed PDF/download response.</p>
      *
      * @param response      HttpServletResponse the real (unwrapped) response
      * @param status        int the HTTP error status code (4xx or 5xx)
@@ -301,36 +620,33 @@ public class ResponseSanitizationFilter implements Filter {
     private static void sendSanitizedError(HttpServletResponse response, int status,
             String correlationId) throws IOException {
         if (response.isCommitted()) {
-            LOGGER.debug("Cannot send sanitized error — response already committed "
+            LOGGER.warn("Cannot send sanitized error — response already committed "
                     + "[status={} correlationId={}]", status, correlationId);
-            return;
+            throw new IOException("Cannot send sanitized error after response commit");
         }
         try {
             response.resetBuffer();
         } catch (IllegalStateException e) {
-            LOGGER.debug("Cannot reset buffer for sanitized error [correlationId={}]: {}",
-                    correlationId, e.getMessage());
-            return;
+            LOGGER.error("Cannot reset buffer for sanitized error [correlationId={}]",
+                    correlationId, e);
+            throw new IOException("Cannot reset buffer for sanitized error", e);
         }
+        dropEntityHeaders(response);
         response.setStatus(status);
         response.setContentType("text/html;charset=UTF-8");
         String body = buildSanitizedErrorPage(status, correlationId);
-        // Content-Length is intentionally not set — the container handles chunked encoding.
-        // Setting it risks byte-count mismatches if the response charset is not UTF-8,
-        // consistent with CsrfGuardScriptInjectionFilter which avoids setContentLength
-        // for writer-based responses for the same reason.
-        try {
-            PrintWriter writer = response.getWriter();
-            writer.write(body);
-            writer.flush();
-        } catch (IllegalStateException ex) {
-            // Response is in output-stream mode (e.g. a binary download threw mid-write).
-            // Fall back to byte stream so the sanitized error page still reaches the client.
-            LOGGER.debug("sendSanitizedError: getWriter() failed (stream mode active)"
-                    + " [correlationId={}]: {}", correlationId, ex.getMessage());
-            byte[] bodyBytes = body.getBytes(StandardCharsets.UTF_8);
-            response.getOutputStream().write(bodyBytes);
-            response.getOutputStream().flush();
+        byte[] bodyBytes = body.getBytes(StandardCharsets.UTF_8);
+        response.setContentLength(bodyBytes.length);
+        response.getOutputStream().write(bodyBytes);
+        response.getOutputStream().flush();
+    }
+
+    private static void dropEntityHeaders(HttpServletResponse response) {
+        for (String header : ENTITY_HEADERS_TO_DROP) {
+            // Tomcat 11 removes a response header when setHeader(name, null) is used. Servlet
+            // does not expose a portable removeHeader API, and Tomcat 11 is the supported runtime
+            // for this deployment.
+            response.setHeader(header, null);
         }
     }
 
@@ -363,6 +679,8 @@ public class ResponseSanitizationFilter implements Filter {
      * @param content  String the captured response body to write; no-op if null or empty
      * @throws IOException if an I/O error occurs
      */
+    // FindSecBugs XSS_SERVLET: replays captured response content after sanitization; content originates from downstream response pipeline.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "replays captured response content after sanitization; content originates from downstream response pipeline")
     private static void writeToResponse(HttpServletResponse response, String content)
             throws IOException {
         if (content == null || content.isEmpty()) {
@@ -371,35 +689,54 @@ public class ResponseSanitizationFilter implements Filter {
         try {
             response.resetBuffer();
         } catch (IllegalStateException e) {
-            LOGGER.debug("writeToResponse: cannot resetBuffer — response already committed: {}",
-                    e.getMessage());
+            LOGGER.warn("writeToResponse: cannot resetBuffer before replaying captured response",
+                    e);
+            throw new IOException("Cannot reset buffer before replaying captured response", e);
         }
+        String encoding = response.getCharacterEncoding();
+        if (encoding == null || encoding.isEmpty()) {
+            encoding = StandardCharsets.UTF_8.name();
+        }
+        byte[] bytes = content.getBytes(encoding);
+        response.setContentLength(bytes.length);
         try {
+            response.getOutputStream().write(bytes);
+            response.getOutputStream().flush();
+        } catch (IllegalStateException e) {
+            // A downstream wrapper may have opened the real writer; keep the byte-accurate length
+            // and fall back to the matching character path.
             PrintWriter out = response.getWriter();
             out.write(content);
             out.flush();
-        } catch (IllegalStateException e) {
-            // getWriter() failed because getOutputStream() was already called on the real response.
-            // Fall back to byte-stream output.
-            String encoding = response.getCharacterEncoding();
-            if (encoding == null || encoding.isEmpty()) {
-                encoding = StandardCharsets.UTF_8.name();
-            }
-            byte[] bytes = content.getBytes(encoding);
-            response.setContentLength(bytes.length);
-            response.getOutputStream().write(bytes);
-            response.getOutputStream().flush();
         }
+    }
+
+    private static void writeBytesToResponse(HttpServletResponse response, byte[] content)
+            throws IOException {
+        if (content == null || content.length == 0) {
+            return;
+        }
+        try {
+            response.resetBuffer();
+        } catch (IllegalStateException e) {
+            LOGGER.warn("writeBytesToResponse: cannot resetBuffer before replaying captured response",
+                    e);
+            throw new IOException("Cannot reset buffer before replaying captured response", e);
+        }
+        response.setContentLength(content.length);
+        response.getOutputStream().write(content);
+        response.getOutputStream().flush();
     }
 
     /**
      * Response wrapper that captures {@link PrintWriter} output into a {@link CharArrayWriter}
-     * while passing {@link ServletOutputStream} calls through to the real response unchanged.
+     * while keeping successful {@link ServletOutputStream} responses on the real response.
      *
      * <p>This dual-mode design ensures:
      * <ul>
-     *   <li>Binary responses (PDFs, images, downloads) are never buffered or corrupted.</li>
-     *   <li>Text responses (HTML error pages) are fully captured for inspection.</li>
+     *   <li>Successful binary and HTML output-stream responses are never buffered or replayed.</li>
+     *   <li>Error responses written through a writer, and error output streams opened after a
+     *       4xx/5xx status, are captured for inspection.</li>
      *   <li>Buffer flushing is suppressed during capture to prevent the response being committed
      *       before the outer filter can replace the body.</li>
      * </ul>
@@ -412,9 +749,11 @@ public class ResponseSanitizationFilter implements Filter {
     private static class CapturingResponseWrapper extends HttpServletResponseWrapper {
 
         private CapturingSwitchingWriter switchingWriter;
+        private CapturingSwitchingServletOutputStream switchingOutputStream;
         private PrintWriter writer;
         private boolean usingWriter;
         private boolean usingOutputStream;
+        private boolean outputStreamPassthrough;
         private boolean committed;
 
         /**
@@ -451,9 +790,11 @@ public class ResponseSanitizationFilter implements Filter {
         }
 
         /**
-         * Passes the output stream through to the real response (binary passthrough path).
+         * Returns a capturing output stream only after the response has entered an error status.
+         * Successful output-stream responses stay pass-through so JSPs and streamed content cannot
+         * be replayed after Tomcat has already committed their headers.
          *
-         * @return ServletOutputStream the real response output stream
+         * @return ServletOutputStream the capturing or real response output stream
          * @throws IllegalStateException if {@link #getWriter()} was already called
          * @throws IOException           if an I/O error occurs
          */
@@ -461,10 +802,18 @@ public class ResponseSanitizationFilter implements Filter {
         public ServletOutputStream getOutputStream() throws IOException {
             if (usingWriter) {
                 throw new IllegalStateException(
-                        "getWriter() has already been called on this response");
+                    "getWriter() has already been called on this response");
             }
             usingOutputStream = true;
-            return super.getOutputStream();
+            if (outputStreamPassthrough || getStatus() < 400) {
+                outputStreamPassthrough = true;
+                return super.getOutputStream();
+            }
+            if (switchingOutputStream == null) {
+                switchingOutputStream = new CapturingSwitchingServletOutputStream(
+                        (HttpServletResponse) getResponse(), MAX_CAPTURE_CHARS);
+            }
+            return switchingOutputStream;
         }
 
         /**
@@ -516,8 +865,11 @@ public class ResponseSanitizationFilter implements Filter {
         @Override
         public void flushBuffer() throws IOException {
             if (usingOutputStream) {
-                // Binary passthrough — flush as normal to support streaming downloads.
-                super.flushBuffer();
+                if (outputStreamPassthrough) {
+                    super.flushBuffer();
+                } else if (switchingOutputStream != null) {
+                    switchingOutputStream.flush();
+                }
                 return;
             }
             // Writer capture path — suppress to prevent premature commitment.
@@ -532,7 +884,7 @@ public class ResponseSanitizationFilter implements Filter {
          */
         @Override
         public boolean isCommitted() {
-            if (usingWriter && !committed) {
+            if ((usingWriter || (usingOutputStream && !outputStreamPassthrough)) && !committed) {
                 return false;
             }
             return committed || super.isCommitted();
@@ -561,7 +913,7 @@ public class ResponseSanitizationFilter implements Filter {
         /**
          * Returns {@code true} if the response was written via {@link #getOutputStream()}.
          *
-         * @return boolean {@code true} if output-stream passthrough mode is active
+         * @return boolean {@code true} if output-stream mode is active
          */
         public boolean isUsingOutputStream() {
             return usingOutputStream;
@@ -579,6 +931,22 @@ public class ResponseSanitizationFilter implements Filter {
             return switchingWriter != null && switchingWriter.isLimitExceeded();
         }
 
+        public boolean isOutputCaptureLimitExceeded() {
+            return switchingOutputStream != null && switchingOutputStream.isLimitExceeded();
+        }
+
+        public boolean isOutputStreamPassthrough() {
+            return outputStreamPassthrough;
+        }
+
+        public byte[] getCapturedOutput() throws IOException {
+            if (switchingOutputStream != null) {
+                switchingOutputStream.flush();
+                return switchingOutputStream.getCaptured();
+            }
+            return new byte[0];
+        }
+
         /**
          * Returns the content captured so far from the in-memory writer.
          * Flushes the writer before returning to ensure all buffered content is included.
@@ -592,6 +960,120 @@ public class ResponseSanitizationFilter implements Filter {
             }
             return switchingWriter != null ? switchingWriter.getCaptured() : "";
         }
+
+    }
+
+    /**
+     * Captures output-stream bodies until the response proves it needs passthrough or sanitization.
+     */
+    private static class CapturingSwitchingServletOutputStream extends ServletOutputStream {
+
+        private final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        private final HttpServletResponse realResponse;
+        private final int maxBytes;
+        private ServletOutputStream passthroughStream;
+        private boolean limitExceeded;
+        private boolean discardingTaintedOutput;
+        private long discardedByteCount;
+        private boolean discardLogged;
+
+        CapturingSwitchingServletOutputStream(HttpServletResponse realResponse, int maxBytes) {
+            this.realResponse = realResponse;
+            this.maxBytes = maxBytes;
+        }
+
+        @Override
+        public void write(int b) throws IOException {
+            if (!limitExceeded && buffer.size() + 1 > maxBytes) {
+                switchToPassthrough();
+            }
+            if (limitExceeded) {
+                if (discardingTaintedOutput) {
+                    discardedByteCount++;
+                } else {
+                    passthroughStream.write(b);
+                }
+            } else {
+                buffer.write(b);
+            }
+        }
+
+        @Override
+        public void write(byte[] b, int off, int len) throws IOException {
+            if (!limitExceeded && buffer.size() + len > maxBytes) {
+                switchToPassthrough();
+            }
+            if (limitExceeded) {
+                if (discardingTaintedOutput) {
+                    discardedByteCount += len;
+                } else {
+                    passthroughStream.write(b, off, len);
+                }
+            } else {
+                buffer.write(b, off, len);
+            }
+        }
+
+        @Override
+        public void flush() throws IOException {
+            if (limitExceeded && !discardingTaintedOutput && passthroughStream != null) {
+                passthroughStream.flush();
+            }
+            logDiscardedBytesIfNeeded();
+        }
+
+        @Override
+        public boolean isReady() {
+            return passthroughStream == null || passthroughStream.isReady();
+        }
+
+        @Override
+        public void setWriteListener(jakarta.servlet.WriteListener writeListener) {
+            if (passthroughStream != null) {
+                passthroughStream.setWriteListener(writeListener);
+            }
+        }
+
+        boolean isLimitExceeded() {
+            return limitExceeded;
+        }
+
+        byte[] getCaptured() {
+            return limitExceeded ? new byte[0] : buffer.toByteArray();
+        }
+
+        private void switchToPassthrough() throws IOException {
+            if (limitExceeded) {
+                return;
+            }
+            int status = realResponse.getStatus();
+            if (status >= 400) {
+                String correlationId = generateCorrelationId();
+                LOGGER.error("Large output-stream error response exceeded sanitization capture limit; "
+                                + "replacing body to avoid leaking stack traces [status={} correlationId={}]",
+                        status, correlationId);
+                sendSanitizedError(realResponse, status, correlationId);
+                buffer.reset();
+                limitExceeded = true;
+                discardingTaintedOutput = true;
+                return;
+            }
+            limitExceeded = true;
+            passthroughStream = realResponse.getOutputStream();
+            byte[] captured = buffer.toByteArray();
+            if (captured.length > 0) {
+                passthroughStream.write(captured);
+            }
+            buffer.reset();
+        }
+
+        private void logDiscardedBytesIfNeeded() {
+            if (discardingTaintedOutput && discardedByteCount > 0 && !discardLogged) {
+                LOGGER.debug("ResponseSanitizationFilter: discarded {} bytes after sanitized "
+                        + "large output-stream error response", discardedByteCount);
+                discardLogged = true;
+            }
+        }
     }
 
     /**
@@ -599,10 +1081,11 @@ public class ResponseSanitizationFilter implements Filter {
      * {@code maxChars} characters, then switches to direct pass-through via the real
      * response {@link PrintWriter} to prevent unbounded heap growth for large responses.
      *
-     * <p>When the limit is exceeded the buffered content is flushed to the real writer
-     * before subsequent writes go directly there. Callers can test
-     * {@link #isLimitExceeded()} to determine whether content was captured in the buffer
-     * or written directly to the real response (in which case no write-back is needed).</p>
+     * <p>When the limit is exceeded, the buffered prefix and triggering write are inspected if
+     * the response is an error. Tainted error output is replaced with a sanitized page before any
+     * raw stack trace is flushed; otherwise the buffered content is flushed to the real writer and
+     * subsequent writes go directly there. Callers can test {@link #isLimitExceeded()} to
+     * determine whether no write-back is needed.</p>
      */
     private static class CapturingSwitchingWriter extends Writer {
 
@@ -611,6 +1094,9 @@ public class ResponseSanitizationFilter implements Filter {
         private final int maxChars;
         private PrintWriter passthroughWriter;
         private boolean limitExceeded;
+        private boolean discardingTaintedOutput;
+        private long discardedByteCount;
+        private boolean discardLogged;
 
         /**
          * Constructs a new writer that buffers into {@code buffer} up to {@code maxChars}
@@ -627,12 +1113,15 @@ public class ResponseSanitizationFilter implements Filter {
             this.maxChars = maxChars;
         }
 
+        // FindSecBugs XSS_SERVLET: buffers or passes through downstream response body for sanitization size-limit handling.
+        @SuppressFBWarnings(value = "XSS_SERVLET", justification = "buffers or passes through downstream response body for sanitization size-limit handling")
         @Override
         public void write(char[] cbuf, int off, int len) throws IOException {
             if (!limitExceeded && buffer.size() + len > maxChars) {
-                switchToPassthrough();
+                switchToPassthrough(new String(cbuf, off, len));
             }
             if (limitExceeded) {
+                recordDiscardedBytes(cbuf, off, len);
                 passthroughWriter.write(cbuf, off, len);
             } else {
                 buffer.write(cbuf, off, len);
@@ -642,21 +1131,25 @@ public class ResponseSanitizationFilter implements Filter {
         @Override
         public void write(int c) throws IOException {
             if (!limitExceeded && buffer.size() + 1 > maxChars) {
-                switchToPassthrough();
+                switchToPassthrough(String.valueOf((char) c));
             }
             if (limitExceeded) {
+                recordDiscardedBytes(c);
                 passthroughWriter.write(c);
             } else {
                 buffer.write(c);
             }
         }
 
+        // FindSecBugs XSS_SERVLET: buffers or passes through downstream response body for sanitization size-limit handling.
+        @SuppressFBWarnings(value = "XSS_SERVLET", justification = "buffers or passes through downstream response body for sanitization size-limit handling")
         @Override
         public void write(String str, int off, int len) throws IOException {
             if (!limitExceeded && buffer.size() + len > maxChars) {
-                switchToPassthrough();
+                switchToPassthrough(str.substring(off, off + len));
             }
             if (limitExceeded) {
+                recordDiscardedBytes(str, off, len);
                 passthroughWriter.write(str, off, len);
             } else {
                 buffer.write(str, off, len);
@@ -668,6 +1161,7 @@ public class ResponseSanitizationFilter implements Filter {
             if (limitExceeded && passthroughWriter != null) {
                 passthroughWriter.flush();
             }
+            logDiscardedBytesIfNeeded();
         }
 
         @Override
@@ -702,21 +1196,68 @@ public class ResponseSanitizationFilter implements Filter {
          * Flushes the in-memory buffer to the real response writer and switches to
          * direct pass-through mode for all subsequent writes.
          *
+         * @param pendingWrite String the write that triggered the limit check, used to catch
+         *                     stack traces when the first write itself exceeds the limit
          * @throws IOException if the real response writer cannot be obtained or written to
          */
-        private void switchToPassthrough() throws IOException {
+        // FindSecBugs XSS_SERVLET: switches captured downstream response body to passthrough after sanitization size limit is exceeded.
+        @SuppressFBWarnings(value = "XSS_SERVLET", justification = "switches captured downstream response body to passthrough after sanitization size limit is exceeded")
+        private void switchToPassthrough(String pendingWrite) throws IOException {
             if (limitExceeded) {
+                return;
+            }
+            int status = realResponse.getStatus();
+            String capturedPrefix = buffer.toString();
+            if (status >= 400) {
+                String correlationId = generateCorrelationId();
+                LOGGER.error("Large error response exceeded sanitization capture limit; replacing body "
+                                + "to avoid leaking late stack traces [status={} correlationId={}]",
+                        status, correlationId);
+                sendSanitizedError(realResponse, status, correlationId);
+                buffer.reset();
+                limitExceeded = true;
+                discardingTaintedOutput = true;
+                passthroughWriter = new PrintWriter(Writer.nullWriter());
                 return;
             }
             limitExceeded = true;
             LOGGER.debug("ResponseSanitizationFilter: capture limit exceeded ({} chars)"
-                    + " — switching to passthrough mode", maxChars);
+                    + " — switching to passthrough mode [status={}]", maxChars, status);
             passthroughWriter = realResponse.getWriter();
-            char[] captured = buffer.toCharArray();
+            char[] captured = capturedPrefix.toCharArray();
             if (captured.length > 0) {
                 passthroughWriter.write(captured);
             }
             buffer.reset();
+        }
+
+        private void recordDiscardedBytes(char[] discardedContent, int off, int len) {
+            if (discardingTaintedOutput && len > 0) {
+                discardedByteCount += new String(discardedContent, off, len)
+                        .getBytes(StandardCharsets.UTF_8).length;
+            }
+        }
+
+        private void recordDiscardedBytes(int discardedContent) {
+            if (discardingTaintedOutput) {
+                discardedByteCount += String.valueOf((char) discardedContent)
+                        .getBytes(StandardCharsets.UTF_8).length;
+            }
+        }
+
+        private void recordDiscardedBytes(String discardedContent, int off, int len) {
+            if (discardingTaintedOutput && discardedContent != null && len > 0) {
+                discardedByteCount += discardedContent.substring(off, off + len)
+                        .getBytes(StandardCharsets.UTF_8).length;
+            }
+        }
+
+        private void logDiscardedBytesIfNeeded() {
+            if (discardingTaintedOutput && discardedByteCount > 0 && !discardLogged) {
+                LOGGER.debug("ResponseSanitizationFilter: discarded {} bytes after sanitized "
+                        + "large-error response", discardedByteCount);
+                discardLogged = true;
+            }
         }
     }
 }

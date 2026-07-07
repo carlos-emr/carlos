@@ -22,12 +22,37 @@ ARG DOCS_PATH='/home/oscar/development/volumes'
 ARG OSCAR_DOCUMENT="${DOCS_PATH}/OscarDocument"
 ARG DB_DOCS="/db-data/documents"
 ARG DOCS_DEST="/var/lib/OscarDocument/oscar/document"
+ARG EFORM_IMAGES_DIR="/var/lib/OscarDocument/oscar/eform/images"
 
 WORKDIR /workspace
 
+# Retry wrapper for flaky package index mirrors in CI.
+RUN cat <<'EOF' > /usr/local/bin/apt-install && chmod +x /usr/local/bin/apt-install
+#!/usr/bin/env bash
+set -eu
+set -o pipefail
+
+for attempt in 1 2 3; do
+  if apt-get update -o Acquire::Retries=3 -o Acquire::http::Timeout=20 && \
+     DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y --fix-missing "$@"; then
+    apt-get clean
+    rm -rf /var/lib/apt/lists/*
+    exit 0
+  fi
+
+  echo "apt install failed (attempt ${attempt}/3), retrying..."
+  apt-get clean || true
+  rm -rf /var/lib/apt/lists/*
+  if [ "$attempt" -eq 3 ]; then
+    exit 1
+  fi
+  sleep 5
+done
+EOF
+
 # Install required packages including Playwright browser dependencies and clean up apt lists
 # Note: Ubuntu 24.04 uses t64 packages (time_t 64-bit migration)
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN /usr/local/bin/apt-install \
     dos2unix curl git wget apt-transport-https ca-certificates gnupg jq lsb-release \
     libjpeg-turbo8 \
     locales iputils-ping gettext fontconfig libc6 libfreetype6 \
@@ -36,23 +61,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     nano openssh-client vim-tiny \
     python3 python3-pip \
     inotify-tools \
-    fonts-roboto fonts-liberation fonts-noto-color-emoji \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+    fonts-roboto fonts-liberation fonts-noto-color-emoji
 
 # Install Node.js (latest LTS)
 RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
-    && apt-get install -y nodejs \
+    && /usr/local/bin/apt-install nodejs \
     && node --version && npm --version
 
 # Install GitHub CLI
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
     && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
-    && apt-get update \
-    && apt-get install -y gh
+    && /usr/local/bin/apt-install gh
 
 # Install Go
-RUN apt-get update && apt-get install -y golang-go
+RUN /usr/local/bin/apt-install golang-go
 
 # Install javadoc2md utility for converting Javadoc to Markdown
 RUN go install github.com/dburkart/javadoc2md/cmd/javadoc2md@latest
@@ -63,8 +86,10 @@ RUN curl -fsSL https://claude.ai/install.sh | bash \
     && which npm && npm install -g @docusaurus/core @docusaurus/preset-classic
 
 # Install Gemini CLI.
-# The gemini-browser script intercepts xdg-open so OAuth URLs display cleanly
-# in the terminal for copy-paste (containers can't open desktop browsers).
+# The gemini-browser script intercepts xdg-open so OAuth URLs from any CLI
+# (Gemini, Claude Code, etc.) display cleanly in the terminal for copy-paste
+# (containers can't open desktop browsers). See the script header for
+# details on OAuth handling and callback port forwarding.
 RUN npm install -g @google/gemini-cli \
     && ln -sf /scripts/gemini-browser /usr/local/bin/xdg-open
 
@@ -73,27 +98,30 @@ RUN npm install -g @github/copilot && \
     echo "✅ GitHub Copilot CLI installed: $(copilot --version)"
 
 # Install OpenAI Codex CLI (standalone coding agent)
-RUN npm install -g @openai/codex && \
-    echo "✅ OpenAI Codex CLI installed: $(codex --version)"
+ARG CODEX_CLI_VERSION=0.142.2
+# Retry the npm fetch because CI occasionally hits transient ECONNRESET errors.
+RUN for attempt in 1 2 3; do         npm install -g "@openai/codex@${CODEX_CLI_VERSION}" && break;         if [ "$attempt" -eq 3 ]; then exit 1; fi;         echo "Retrying @openai/codex install after transient npm failure (attempt $attempt)...";         sleep 5;     done &&     echo "✅ OpenAI Codex CLI installed: $(codex --version)"
 
-# Install Playwright globally first to ensure it's available
-# Version 1.56.0 has correct Ubuntu 24.04 t64 package names in its dependency list
-RUN npm install -g playwright@1.56.0 && \
-    echo "✅ Playwright CLI installed: $(npx playwright --version)"
+ARG PLAYWRIGHT_VERSION=1.60.0
+
+# Install Playwright globally first to ensure it's available.
+# Keep this in sync with package.json, .mcp.json, and .devcontainer/PLAYWRIGHT_SETUP.md.
+RUN npm install -g "playwright@${PLAYWRIGHT_VERSION}" && \
+    echo "✅ Playwright CLI installed: $(playwright --version)"
 
 # Install Playwright browsers (Chromium, Firefox) with system dependencies
 # Note: Chrome excluded - no ARM64 Linux builds (breaks Apple Silicon). Chromium is equivalent.
-# Version 1.56.0+ correctly uses t64 package names (e.g., libasound2t64) for Ubuntu 24.04
-RUN npx playwright install --with-deps chromium firefox && \
+# Version 1.60.0 uses the current Playwright browser bundles and Ubuntu 24.04 t64 package names.
+RUN playwright install --with-deps chromium firefox && \
     echo "✅ Playwright browsers installed (Chromium, Firefox)"
 
 # Install pipx and Aider AI coding assistant
-RUN apt-get update && apt-get install -y pipx && \
+RUN /usr/local/bin/apt-install pipx && \
     pipx install aider-chat && \
     pipx ensurepath
 
 # Install Postfix for mail testing with default values
-RUN DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y postfix
+RUN /usr/local/bin/apt-install postfix
 
 # Configure Postfix for simple localhost operation
 RUN postconf -e 'myhostname=openo-dev.local' && \
@@ -143,7 +171,6 @@ COPY ./openosp_files/tomcat-users.xml $TOMCAT_PATH/conf/tomcat-users.xml
 RUN mkdir -p $OSCAR_DOCUMENT/oscar/document \
     $OSCAR_DOCUMENT/oscar/billing/download \
     $OSCAR_DOCUMENT/oscar/billing/invoices \
-    $OSCAR_DOCUMENT/oscar/eform/images \
     $OSCAR_DOCUMENT/oscar/form/records \
     $OSCAR_DOCUMENT/oscar/onEDTDocs/inbox \
     $OSCAR_DOCUMENT/oscar/onEDTDocs/outbox \
@@ -153,7 +180,9 @@ RUN mkdir -p $OSCAR_DOCUMENT/oscar/document \
     $OSCAR_DOCUMENT/oscar/incomingdocs \
     $OSCAR_DOCUMENT/oscar/export \
     $DB_DOCS \
-    $DOCS_DEST
+    $DOCS_DEST \
+    $EFORM_IMAGES_DIR \
+    && /scripts/bootstrap-property-directories /root/carlos.properties EFORM_IMAGES_DIR
 
 # Set up GPG for PGP encryption (used by demographic export)
 # Create the GNUPGHOME directory and generate a test key for development

@@ -28,6 +28,7 @@
 <!DOCTYPE html>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <meta charset="utf-8">
         <title><fmt:message key="admin.admin.PrivateBillingStatement"/></title>
         <link rel="stylesheet" type="text/css" media="all" href="${ctx}/library/bootstrap/5.3.8/css/bootstrap.min.css">

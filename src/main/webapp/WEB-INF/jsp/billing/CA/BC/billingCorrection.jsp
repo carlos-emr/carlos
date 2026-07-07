@@ -100,6 +100,8 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Billing" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingDao" %>
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);
     ClinicLocationDao clinicLocationDao = (ClinicLocationDao) SpringUtils.getBean(ClinicLocationDao.class);
@@ -116,6 +118,7 @@
 %>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <title>oscarBilling Correction</title>
     <script language="JavaScript">

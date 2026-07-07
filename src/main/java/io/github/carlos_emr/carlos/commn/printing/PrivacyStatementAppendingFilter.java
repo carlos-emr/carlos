@@ -48,6 +48,7 @@ import jakarta.servlet.http.HttpServletResponseWrapper;
 import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.CarlosProperties;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Filter class for handling confidentiality note printing. This class works by appending a confidentiality note
@@ -113,6 +114,8 @@ public class PrivacyStatementAppendingFilter implements Filter {
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
         boolean isConfidentialityNotePrinted = false;
@@ -131,22 +134,30 @@ public class PrivacyStatementAppendingFilter implements Filter {
             DelegatingServletResponse delegatingServletResponse = new DelegatingServletResponse(httpResponse);
             chain.doFilter(request, delegatingServletResponse);
 
-            if (isConfidentialityNotePrinted)
+            if (isConfidentialityNotePrinted) {
+                delegatingServletResponse.completeWithoutStatement();
                 return;
+            }
 
             // ignore this stuff for non-html responses and AJAX queries
             String contentType = delegatingServletResponse.getContentType();
-            if (contentType == null)
+            if (contentType == null) {
+                delegatingServletResponse.completeWithoutStatement();
                 return;
+            }
             boolean isHtmlResponse = contentType.toLowerCase().startsWith("text/html");
-            if (!isHtmlResponse)
+            if (!isHtmlResponse) {
+                delegatingServletResponse.completeWithoutStatement();
                 return;
+            }
 
             // don't append for AJAX queries as well
             String requestedWithHeader = httpRequest.getHeader(HTTP_HEADER_NAME_AJAX_REQUESTED_WITH);
             boolean isAjaxRequest = requestedWithHeader != null && HTTP_HEADER_VALUE_AJAX_REQUESTED_WITH.equalsIgnoreCase(requestedWithHeader);
-            if (isAjaxRequest)
+            if (isAjaxRequest) {
+                delegatingServletResponse.completeWithoutStatement();
                 return;
+            }
 
             printConfidentialityStatement(response, delegatingServletResponse);
         } finally {
@@ -156,7 +167,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
     }
 
     private boolean isExcluded(HttpServletRequest request) {
-        String servletPath = request.getServletPath();
+        String servletPath = getContextRelativePath(request);
         if (servletPath == null) {
             return false;
         }
@@ -175,6 +186,19 @@ public class PrivacyStatementAppendingFilter implements Filter {
         return servletPath.toLowerCase().trim();
     }
 
+    private String getContextRelativePath(HttpServletRequest request) {
+        String servletPath = request.getServletPath();
+        if (servletPath == null || servletPath.trim().isEmpty()) {
+            servletPath = request.getRequestURI();
+            String contextPath = request.getContextPath();
+            if (servletPath != null && contextPath != null && !contextPath.isEmpty()
+                    && servletPath.startsWith(contextPath)) {
+                servletPath = servletPath.substring(contextPath.length());
+            }
+        }
+        return servletPath;
+    }
+
     private boolean matchesExcludedPath(String servletPath, String exclusion) {
         if (servletPath.equals(exclusion)) {
             return true;
@@ -185,6 +209,8 @@ public class PrivacyStatementAppendingFilter implements Filter {
         return servletPath.startsWith(exclusion + "/");
     }
 
+    // FindSecBugs XSS_SERVLET: writes fixed print-only privacy HTML from trusted system configuration.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "writes fixed print-only privacy HTML from trusted system configuration")
     private void printConfidentialityStatement(ServletResponse response, DelegatingServletResponse delegatingServletResponse) throws IOException {
         if (delegatingServletResponse.isResponseOutputStreamObtained()) {
             response.getOutputStream().write(getPrivacyStatement().getBytes());
@@ -241,6 +267,10 @@ public class PrivacyStatementAppendingFilter implements Filter {
             // avoid
         }
 
+        private void flushDelegate() {
+            super.flush();
+        }
+
         @Override
         public void close() {
             // avoid
@@ -289,6 +319,12 @@ public class PrivacyStatementAppendingFilter implements Filter {
 
         public boolean isResponseOutputStreamObtained() {
             return responseOutputStreamObtained;
+        }
+
+        public void completeWithoutStatement() {
+            if (writer != null) {
+                writer.flushDelegate();
+            }
         }
 
         @Override

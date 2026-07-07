@@ -52,6 +52,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import io.github.carlos_emr.CarlosProperties;
 
@@ -132,6 +133,8 @@ public class DrugPriceLookup {
 	 * @throws IOException if the file-system source cannot be opened
 	 * @since 2026-03-22
 	 */
+	// FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+	@SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
 	private static InputStream resolveOdbInputStream(ResourceStorageDao resourceStorageDao) throws IOException {
 		String fileName = CarlosProperties.getInstance().getProperty("odb_formulary_file");
 		if (fileName != null && !fileName.isEmpty()) {

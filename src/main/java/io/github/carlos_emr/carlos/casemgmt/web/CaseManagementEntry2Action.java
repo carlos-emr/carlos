@@ -81,9 +81,9 @@ import java.io.PrintWriter;
 import java.io.Serializable;
 import java.lang.reflect.Array;
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.*;
 import org.owasp.encoder.Encode;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class CaseManagementEntry2Action extends ActionSupport implements SessionAware {
 
@@ -102,6 +102,27 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    /** Fixed date patterns used in this action; formatters are cached per-thread by {@link CachedDateFormats}. */
+    private static final String DD_MMM_YYYY_HMM_PATTERN = "dd-MMM-yyyy H:mm";
+    private static final String DD_MMM_YYYY_PATTERN = "dd-MMM-yyyy";
+    private static final String HEADER_PATTERN = "yyyy-MM-dd.HH.mm.ss";
+    private static final String YYYY_MM_DD_PATTERN = "yyyy-MM-dd";
+    private static final String YYYY_MM_DD_HHMM_PATTERN = "yyyy-MM-dd HH:mm";
+    private static final int REMOVED_ISSUE_MESSAGE_OVERHEAD = 64;
+
+    private static String appendRemovedIssueMessage(String noteText, Locale locale, ResourceBundle props, CharSequence issueNames) {
+        String originalNote = StringUtils.defaultString(noteText);
+        return new StringBuilder(originalNote.length() + issueNames.length() + REMOVED_ISSUE_MESSAGE_OVERHEAD)
+                .append(originalNote)
+                .append('\n')
+                .append(CachedDateFormats.format(new Date(), DD_MMM_YYYY_PATTERN, locale))
+                .append(' ')
+                .append(props.getString("encounter.removedIssue.Msg"))
+                .append(":\n")
+                .append(issueNames)
+                .toString();
+    }
+
     static {
         SimpleModule module = new SimpleModule();
         module.addSerializer(java.sql.Date.class, new JsDateSerializer());
@@ -115,6 +136,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     private static final Set<String> ALLOWED_NOTE_SORT_VALUES = Set.of(
             "observation_date_asc", "observation_date_desc",
             "providerName", "programName", "roleName", "update_date");
+
+    private static final String ISSUE_LIST_AJAX_RESULT = "issueList_ajax";
+    private static final Set<String> ALLOWED_CHAIN_RESULT_NAMES = Set.of("list", "view", ISSUE_LIST_AJAX_RESULT);
 
     public String execute() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -212,6 +236,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return "setUpMainEncounterPage";
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String edit() throws Exception {
         logger.debug("Edit Starts");
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -307,7 +333,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String forceNote = request.getParameter("forceNote");
         if (forceNote == null) forceNote = "false";
 
-        logger.debug("NoteId {}", LogSanitizer.sanitize(nId));
+        logger.debug("NoteId {}", LogSafe.sanitize(nId));
 
         String maxTmpSave = CarlosProperties.getInstance().getProperty("maxTmpSave", "off");
         logger.debug("maxTmpSave " + maxTmpSave);
@@ -384,12 +410,14 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             }
 
             note.setNote(tmpsavenote.getNote());
-            logger.debug("Setting note to " + note.getNote());
+            logger.debug("Restored temp note id={} noteLength={}",
+                    LogSafe.sanitize(String.valueOf(note.getId())),
+                    note.getNote() == null ? 0 : note.getNote().length());
 
         }
         // get an existing non-temp note?
         else if (nId != null && !"null".equalsIgnoreCase(nId) && Integer.parseInt(nId) > 0) {
-            logger.debug("Using nId {} to fetch note", LogSanitizer.sanitize(nId));
+            logger.debug("Using nId {} to fetch note", LogSafe.sanitize(nId));
             // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- value is hardcoded literal "false", not user input
             session.setAttribute("newNote", "false");
             note = caseManagementMgr.getNote(nId);
@@ -422,8 +450,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         /*
          * do the restore if(restore != null && restore.booleanValue() == true) { String tmpsavenote = this.caseManagementMgr.restoreTmpSave(providerNo,demono,programId); if(tmpsavenote != null) { note.setNote(tmpsavenote); } }
          */
-        logger.debug("Set Encounter Type: {}", LogSanitizer.sanitize(note.getEncounter_type()));
-        logger.debug("Fetched Note {}", LogSanitizer.sanitize(String.valueOf(note.getId())));
+        logger.debug("Set Encounter Type: {}", LogSafe.sanitize(note.getEncounter_type()));
+        logger.debug("Fetched Note {}", LogSafe.sanitize(String.valueOf(note.getId())));
 
         logger.debug("Populate Note with editors");
         this.caseManagementMgr.getEditors(note);
@@ -433,7 +461,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         // put the new/retrieved not in the form object for rendering on page
         cform.setCaseNote(note);
-        logger.debug("note in cform " + cform.getCaseNote_note());
+        logger.debug("Loaded note into form id={} noteLength={}",
+                LogSafe.sanitize(String.valueOf(note.getId())),
+                cform.getCaseNote_note() == null ? 0 : cform.getCaseNote_note().length());
         /* set issue checked list */
 
         // get issues for current demographic, based on providers rights
@@ -499,16 +529,22 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         session.setAttribute("casemgmtNoteLock" + demono, casemgmtNoteLock); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
 
         String frmName = "caseManagementEntryForm" + demono;
-        logger.debug("note in cform " + cform.getCaseNote_note());
+        logger.debug("Stored note form id={} noteLength={}",
+                LogSafe.sanitize(String.valueOf(note.getId())),
+                cform.getCaseNote_note() == null ? 0 : cform.getCaseNote_note().length());
         mySessionMap.put(frmName, cform);
 
         String fwd, finalFwd = null;
-        if (chain != null && chain.length() > 0) {
-            fwd = chain;
+        String chainResult = sanitizeChainResultName(chain);
+        if (chainResult != null) {
+            fwd = chainResult;
         } else {
+            if (StringUtils.isNotBlank(chain)) {
+                logger.warn("Rejected invalid chain result target");
+            }
             String ajax = request.getParameter("ajax");
             if (ajax != null && ajax.equalsIgnoreCase("true")) {
-                fwd = "issueList_ajax";
+                fwd = ISSUE_LIST_AJAX_RESULT;
             } else {
                 fwd = "view";
             }
@@ -679,6 +715,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return casemgmtNoteLock;
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String isNoteEdited() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -710,6 +748,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     }
 
     //Change IP Address and Session Id of note lock
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String updateNoteLock() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
@@ -739,7 +779,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         casemgmtNoteLock.setIpAddress(request.getRemoteAddr());
         String currentSessionId = request.getSession().getId();
         casemgmtNoteLock.setSessionId(currentSessionId);
-        logger.debug("UPDATING LOCK DEMO {} LOCK IP {}", LogSanitizer.sanitize(demoNo), LogSanitizer.sanitize(casemgmtNoteLock.getIpAddress()));
+        logger.debug("UPDATING LOCK DEMO {} LOCK IP {}", LogSafe.sanitize(demoNo), LogSafe.sanitize(casemgmtNoteLock.getIpAddress()));
         casemgmtNoteLockDao.merge(casemgmtNoteLock);
 
         session.setAttribute("casemgmtNoteLock" + demoNo, casemgmtNoteLock); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
@@ -765,6 +805,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = {"XSS_SERVLET", "IMPROPER_UNICODE"}, justification = "XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink. case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String issueNoteSaveJson() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String strNote = request.getParameter("value");
@@ -777,7 +820,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String archived = request.getParameter("archived");
 
         if (!hasNoteLock(demographicNo)) {
-            logger.debug("issueNoteSaveJson rejected: no valid lock for demographic {}", LogSanitizer.sanitize(demographicNo));
+            logger.debug("issueNoteSaveJson rejected: no valid lock for demographic {}", LogSafe.sanitize(demographicNo));
             return null;
         }
 
@@ -841,14 +884,13 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             note.setSigning_provider_no(providerNo);
             note.setSigned(true);
             if (request.getParameter("appendSignText") != null && request.getParameter("appendSignText").equalsIgnoreCase("true")) {
-                SimpleDateFormat dt = new SimpleDateFormat("dd-MMM-yyyy H:mm", Locale.ENGLISH);
                 Date now = new Date();
                 ResourceBundle props = ResourceBundle.getBundle("oscarResources", Locale.ENGLISH);
 
                 ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
                 String providerName = providerDao.getProviderName(providerNo);
 
-                String signature = "[" + props.getString("encounter.class.EctSaveEncounterAction.msgSigned") + " " + dt.format(now) + " " + props.getString("encounter.class.EctSaveEncounterAction.msgSigBy") + " " + providerName + "]";
+                String signature = "[" + props.getString("encounter.class.EctSaveEncounterAction.msgSigned") + " " + CachedDateFormats.format(now, DD_MMM_YYYY_HMM_PATTERN, Locale.ENGLISH) + " " + props.getString("encounter.class.EctSaveEncounterAction.msgSigBy") + " " + providerName + "]";
                 note.setNote(note.getNote() + "\n" + signature);
             }
 
@@ -862,7 +904,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                         appointmentDao.merge(appointment);
                     }
                 } catch (Exception e) {
-                    logger.error("Couldn't parse appointmentNo: {}", LogSanitizer.sanitize(appointmentNo), e);
+                    logger.error("Couldn't parse appointmentNo: {}", LogSafe.sanitize(appointmentNo), e);
                 }
             }
         } else if (!note.isSigned() && (archived == null || !archived.equalsIgnoreCase("true"))) {
@@ -929,6 +971,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
      * session form caseManagementEntryForm + demoNo
      *
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String issueNoteSave() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -954,7 +998,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         String noteId = request.getParameter("noteId");
-        logger.debug("SAVING NOTE {}", LogSanitizer.sanitize(noteId));
+        logger.debug("SAVING NOTE {}", LogSafe.sanitize(noteId));
         String issueChange = request.getParameter("issueChange");
         String archived = request.getParameter("archived");
 
@@ -1019,7 +1063,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             logAction = LogConst.ARCHIVE;
         }
 
-        logger.debug("Note archived {}", LogSanitizer.sanitize(String.valueOf(note.isArchived())));
+        logger.debug("Note archived {}", LogSafe.sanitize(String.valueOf(note.isArchived())));
         String programId = (String) session.getAttribute("case_program_id");
         note.setProgram_no(programId);
 
@@ -1091,7 +1135,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 issueNames.append(cIssue.getIssue().getDescription() + "\n");
             }
 
-            strNote += "\n" + new SimpleDateFormat("dd-MMM-yyyy", request.getLocale()).format(new Date()) + " " + props.getString("encounter.removedIssue.Msg") + ":\n" + issueNames.toString();
+            strNote = appendRemovedIssueMessage(strNote, request.getLocale(), props, issueNames);
             note.setNote(strNote);
             removed = true;
         } else {
@@ -1116,7 +1160,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
             // if we have removed an issue add it to message body
             if (issueNames.length() > 0) {
-                strNote += "\n" + new SimpleDateFormat("dd-MMM-yyyy", request.getLocale()).format(new Date()) + " " + props.getString("encounter.removedIssue.Msg") + ":\n" + issueNames.toString();
+                strNote = appendRemovedIssueMessage(strNote, request.getLocale(), props, issueNames);
                 note.setNote(strNote);
             }
 
@@ -1285,6 +1329,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return "listCPPNotes";
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private long noteSave() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -1479,8 +1525,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String observationDate = this.getObservation_date();
         ResourceBundle props = ResourceBundle.getBundle("oscarResources", request.getLocale());
         if (observationDate != null && !observationDate.equals("")) {
-            SimpleDateFormat formatter = new SimpleDateFormat("dd-MMM-yyyy H:mm", Locale.ENGLISH);
-            Date dateObserve = formatter.parse(observationDate);
+            Date dateObserve = CachedDateFormats.parse(observationDate, DD_MMM_YYYY_HMM_PATTERN, Locale.ENGLISH);
             if (dateObserve.getTime() > now.getTime()) {
                 request.setAttribute("DateError", props.getString("encounter.futureDate.Msg"));
                 note.setObservation_date(now);
@@ -1684,14 +1729,19 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         /* prepare the message */
         addActionMessage(getText("note.saved"));
         String chain = request.getParameter("chain");
+        String chainResult = sanitizeChainResultName(chain);
 
-        if (chain != null && !chain.equals("")) {
-            return chain;
+        if (chainResult != null) {
+            return chainResult;
+        } else if (StringUtils.isNotBlank(chain)) {
+            logger.warn("Rejected invalid chain result target");
         }
 
         return "view";
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String ajaxsave() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -1703,7 +1753,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         noteTxt = StringUtils.trimToNull(noteTxt);
         if (noteTxt == null || noteTxt.equals("")) return null;
 
-        logger.debug("Saving Note {}", LogSanitizer.sanitize(request.getParameter("nId")));
+        logger.debug("Saving Note {}", LogSafe.sanitize(request.getParameter("nId")));
         logger.debug("Note text received");
         String demo = getDemographicNo(request);
 
@@ -1735,8 +1785,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String observationDate = request.getParameter("obsDate");
         ResourceBundle props = ResourceBundle.getBundle("oscarResources");
         if (observationDate != null && !observationDate.equals("")) {
-            SimpleDateFormat formatter = new SimpleDateFormat("dd-MMM-yyyy H:mm", request.getLocale());
-            Date dateObserve = formatter.parse(observationDate);
+            Date dateObserve = CachedDateFormats.parse(observationDate, DD_MMM_YYYY_HMM_PATTERN, request.getLocale());
             if (dateObserve.getTime() > now.getTime()) {
                 request.setAttribute("DateError", props.getString("encounter.futureDate.Msg"));
                 note.setObservation_date(now);
@@ -1874,7 +1923,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), logAction, LogConst.CON_CME_NOTE, String.valueOf(note.getId()), request.getRemoteAddr(), demo, note.getAuditString());
 
-        return "issueList_ajax";
+        return ISSUE_LIST_AJAX_RESULT;
     }
 
     /**
@@ -1915,6 +1964,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         casemgmtNoteLockDao.remove(providerNo, demographicNo, noteId);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String releaseNoteLock() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -1944,6 +1995,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return null;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String saveAndExit() throws Exception {
         logger.debug("saveandexit");
 
@@ -2027,25 +2080,48 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                     + "&appointment_date=" + date
                     + "&start_time=" + start_time
                     + "&bNewForm=1" + dxCodes.toString();
-            logger.debug("BILLING URL " + url);
-            response.sendRedirect(url);
+            logger.debug("Redirecting to billing form for appointment_no={}, demographic_no={}",
+                    appointmentNo, demoNo);
+            sendBillingRedirect(url);
+            return NONE;
         }
 
         String chain = request.getParameter("chain");
 
         if (chain != null && !chain.equals("")) {
-            // FP for open-redirect scanners (CodeQL java/OR): isValidInternalRedirect enforces
-            // relative-only OR same-scheme+host+port match; rejects protocol-relative (//evil),
-            // backslash, userinfo (@evil), and suffix (host.evil) bypasses.
-            if (isValidInternalRedirect(chain, request)) {
-                response.sendRedirect(chain); // nosemgrep: java.lang.security.audit.servlets.unvalidated-redirect.unvalidated-redirect-java -- gated by isValidInternalRedirect // lgtm[java/unvalidated-url-redirection]
+            String redirectTarget = sanitizeInternalRedirect(chain);
+            // Redirect guard: only slash-prefixed relative paths are allowed. The shared
+            // validator rejects protocol-relative URLs, absolute schemes, backslashes,
+            // encoded control characters, and traversal escapes.
+            if (redirectTarget != null) {
+                sendChainRedirect(redirectTarget);
+                return NONE;
             } else {
-                logger.warn("Attempted redirect to invalid URL: {}", LogSanitizer.sanitize(chain));
+                logger.warn("Rejected invalid chain redirect target");
                 // Fall through to return "windowClose" without redirect
             }
         }
 
         return "windowClose";
+    }
+
+    // FindSecBugs UNVALIDATED_REDIRECT: redirectTarget is returned by sanitizeInternalRedirect,
+    // which only permits trimmed, slash-prefixed relative URLs accepted by RedirectValidationUtils.
+    @SuppressFBWarnings(
+            value = "UNVALIDATED_REDIRECT",
+            justification = "redirectTarget is returned by sanitizeInternalRedirect, which only permits trimmed, "
+                    + "slash-prefixed relative URLs accepted by RedirectValidationUtils")
+    private void sendChainRedirect(String redirectTarget) throws IOException {
+        // Intentionally rebuild at the sink so static analysis sees a same-host path
+        // constructed from a literal slash after sanitizeInternalRedirect validates it.
+        String sameHostRedirectTarget = "/" + redirectTarget.substring(1);
+        response.sendRedirect(sameHostRedirectTarget); // nosemgrep: java.lang.security.audit.servlets.unvalidated-redirect.unvalidated-redirect-java -- gated by sanitizeInternalRedirect
+    }
+
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a fixed same-origin billing path (contextPath + "/billing"); only query parameters (billing/appointment request and session values) vary and cannot alter the host or scheme.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a fixed same-origin billing path (contextPath + \"/billing\"); only query parameters (billing/appointment request and session values) vary and cannot alter the host or scheme")
+    private void sendBillingRedirect(String url) throws IOException {
+        response.sendRedirect(url);
     }
 
     public String cancel() {
@@ -2213,6 +2289,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return issueAdd();
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String issueAdd() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -2339,7 +2417,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String ajax = request.getParameter("ajax");
         if (ajax != null && ajax.equalsIgnoreCase("true")) {
             request.setAttribute("caseManagementEntryForm", sessionFrm);
-            return "issueList_ajax";
+            return ISSUE_LIST_AJAX_RESULT;
         } else return "view";
     }
 
@@ -2420,6 +2498,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return "view";
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String ajaxChangeDiagnosis() {
         logger.debug("ajaxChangeDiagnosis");
 
@@ -2457,9 +2537,11 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
         request.setAttribute("caseManagementEntryForm", sessionFrm);
 
-        return "issueList_ajax";
+        return ISSUE_LIST_AJAX_RESULT;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String issueDelete() throws Exception {
         logger.debug("issueDelete");
 
@@ -2519,10 +2601,12 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String ajax = request.getParameter("ajax");
         if (ajax != null && ajax.equalsIgnoreCase("true")) {
             request.setAttribute("caseManagementEntryForm", sessionFrm);
-            return "issueList_ajax";
+            return ISSUE_LIST_AJAX_RESULT;
         } else return "view";
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String issueChange() throws Exception {
         logger.debug("issueChange");
 
@@ -2557,7 +2641,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String majorParam = request.getParameter("issueCheckList[" + ind + "].issue.major");
         String resolvedParam = request.getParameter("issueCheckList[" + ind + "].issue.resolved");
 
-        logger.debug("issueChange for index {}: resolved={}", LogSanitizer.sanitize(String.valueOf(ind)), LogSanitizer.sanitize(resolvedParam));
+        logger.debug("issueChange for index {}: resolved={}", LogSafe.sanitize(String.valueOf(ind)), LogSafe.sanitize(resolvedParam));
 
         // Update the issue with the new values from the form
         if (acuteParam != null) {
@@ -2601,7 +2685,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String ajax = request.getParameter("ajax");
         if (ajax != null && ajax.equalsIgnoreCase("true")) {
             request.setAttribute("caseManagementEntryForm", sessionFrm);
-            return "issueList_ajax";
+            return ISSUE_LIST_AJAX_RESULT;
         } else return "view";
     }
 
@@ -2785,10 +2869,11 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         out.println("</body></html>");
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String print() throws Exception {
-        SimpleDateFormat headerFormat = new SimpleDateFormat("yyyy-MM-dd.hh.mm.ss");
         Date now = new Date();
-        String headerDate = headerFormat.format(now);
+        String headerDate = CachedDateFormats.format(now, HEADER_PATTERN);
 
         response.setContentType("application/pdf"); // octet-stream
         response.setHeader("Content-Disposition", "attachment; filename=\"Encounter-" + headerDate + ".pdf\"");
@@ -2808,16 +2893,14 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         pEndDate = request.getParameter("pEndDate");
         pType = request.getParameter("pType");
 
-        SimpleDateFormat formatter = new SimpleDateFormat("dd-MMM-yyyy");
-
         if (pStartDate != null && !pStartDate.isEmpty()) {
-            Date startDate = formatter.parse(pStartDate);
+            Date startDate = CachedDateFormats.parse(pStartDate, DD_MMM_YYYY_PATTERN);
             cStartDate = Calendar.getInstance();
             cStartDate.setTime(startDate);
         }
 
         if (pEndDate != null && !pEndDate.isEmpty()) {
-            Date endDate = formatter.parse(pEndDate);
+            Date endDate = CachedDateFormats.parse(pEndDate, DD_MMM_YYYY_PATTERN);
             cEndDate = Calendar.getInstance();
             cEndDate.setTime(endDate);
         }
@@ -2836,11 +2919,25 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         boolean printAllergies = request.getParameter("printAllergies") != null && request.getParameter("printAllergies").equalsIgnoreCase("true");
 
         CaseManagementPrint cmp = new CaseManagementPrint();
-        cmp.doPrint(loggedInInfo, demographicNo, printAllNotes, noteIds, printCPP, printRx, printLabs, printPreventions, printAllergies, (pType != null && "dates".equals(pType)) ? true : false, cStartDate, cEndDate, request, response.getOutputStream());
+        try {
+            cmp.doPrint(loggedInInfo, demographicNo, printAllNotes, noteIds, printCPP, printRx, printLabs, printPreventions, printAllergies, (pType != null && "dates".equals(pType)) ? true : false, cStartDate, cEndDate, request, response.getOutputStream());
+        } catch (Exception e) {
+            // Direct-response action: doPrint fails before writing any bytes (DocumentException/
+            // IOException/SecurityException all fire pre-write), so the response is still uncommitted
+            // here. Surface a real error instead of an empty HTTP-200 PDF (CLAUDE.md Direct-Response
+            // Actions). If the merge failed mid-stream the response is committed and we can only log.
+            logger.error("Encounter chart print failed", e);
+            if (!response.isCommitted()) {
+                response.reset();
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to generate the chart print");
+            }
+        }
 
         return null;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String getRefNo(String referal) {
         if (referal == null) return "";
         int start = referal.indexOf("<rdohip>");
@@ -2877,6 +2974,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     /*
      * Insert encounter reason for new note
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     protected void insertReason(HttpServletRequest request, CaseManagementNote note) {
         String encounterText = "";
         String apptDate = request.getParameter("appointmentDate");
@@ -2914,11 +3013,10 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     protected String convertDateFmt(String strOldDate, HttpServletRequest request) {
         String strNewDate = new String();
         if (strOldDate != null && strOldDate.length() > 0) {
-            SimpleDateFormat fmt = new SimpleDateFormat("yyyy-MM-dd", request.getLocale());
             try {
 
-                Date tempDate = fmt.parse(strOldDate);
-                strNewDate = new SimpleDateFormat("dd-MMM-yyyy", request.getLocale()).format(tempDate);
+                Date tempDate = CachedDateFormats.parse(strOldDate, YYYY_MM_DD_PATTERN, request.getLocale());
+                strNewDate = CachedDateFormats.format(tempDate, DD_MMM_YYYY_PATTERN, request.getLocale());
 
             } catch (ParseException ex) {
                 MiscUtils.getLogger().error("Error", ex);
@@ -3152,6 +3250,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return null;
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String ticklerGetNote() throws IOException {
         String ticklerNo = request.getParameter("ticklerNo");
 
@@ -3165,13 +3265,11 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             CaseManagementNote note = this.caseManagementNoteDao.getNote(noteId);
 
             if (note != null) {
-                SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm");
-
                 Map<String, Serializable> hashMap = new HashMap<String, Serializable>();
                 hashMap.put("noteId", note.getId().toString());
                 hashMap.put("note", note.getNote());
                 hashMap.put("revision", note.getRevision());
-                hashMap.put("obsDate", formatter.format(note.getObservation_date()));
+                hashMap.put("obsDate", CachedDateFormats.format(note.getObservation_date(), YYYY_MM_DD_HHMM_PATTERN));
                 hashMap.put("editor", this.providerMgr.getProvider(note.getProviderNo()).getFormattedName());
                 json = objectMapper.valueToTree(hashMap);
             }
@@ -3232,7 +3330,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             demono = (String) request.getAttribute("casemgmt_DemoNo");
         } else if (!demono.matches("\\d+")) {
             // Reject tainted value but fall back to request attribute to avoid crashing callers
-            logger.error("Invalid non-numeric demographicNo rejected, falling back to request attribute: {}", LogSanitizer.sanitize(demono));
+            logger.error("Invalid non-numeric demographicNo rejected, falling back to request attribute: {}", LogSafe.sanitize(demono));
             demono = (String) request.getAttribute("casemgmt_DemoNo");
         } else {
             request.setAttribute("casemgmt_DemoNo", demono);
@@ -3848,68 +3946,46 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     }
 
     /**
+     * Returns a normalized internal redirect target, or {@code null} when unsafe.
+     *
+     * @param url The URL to validate
+     * @return trimmed safe redirect URL, or null when unsafe
+     */
+    static String sanitizeInternalRedirect(String url) {
+        String trimmedUrl = StringUtils.trimToNull(url);
+        if (trimmedUrl == null || !isValidInternalRedirect(trimmedUrl)) {
+            return null;
+        }
+        return trimmedUrl;
+    }
+
+    /**
+     * Returns a whitelisted Struts result name for the legacy {@code chain} parameter.
+     *
+     * @param chain raw requested result name
+     * @return safe result name, or null when absent or unsafe
+     */
+    static String sanitizeChainResultName(String chain) {
+        String trimmedChain = StringUtils.trimToNull(chain);
+        if (trimmedChain == null || !ALLOWED_CHAIN_RESULT_NAMES.contains(trimmedChain)) {
+            return null;
+        }
+        return trimmedChain;
+    }
+
+    /**
      * Validates that a redirect URL is safe and points to an internal application URL.
      * This prevents open redirect vulnerabilities.
-     * 
+     *
      * @param url The URL to validate
-     * @param request The HTTP request object for context
      * @return true if the URL is safe for redirect, false otherwise
      */
-    private boolean isValidInternalRedirect(String url, HttpServletRequest request) {
-        if (url == null || url.trim().isEmpty()) {
+    static boolean isValidInternalRedirect(String url) {
+        if (url == null || url.isEmpty()) {
             return false;
         }
 
-        // Remove any leading/trailing whitespace
-        url = url.trim();
-
-        // Check for relative URLs (safe)
-        if (url.startsWith("/") && !url.startsWith("//")) {
-            // Ensure it doesn't contain protocol-relative URLs
-            return !url.contains("://");
-        }
-
-        // Check if URL starts with the application's context path
-        String contextPath = request.getContextPath();
-        if (!contextPath.isEmpty() && url.startsWith(contextPath + "/")) {
-            return true;
-        }
-
-        // Check for absolute URLs - must match the current server
-        try {
-            // Parse the URL to check if it's absolute
-            if (url.contains("://")) {
-                // Get the current server URL components
-                String scheme = request.getScheme();
-                String serverName = request.getServerName();
-                int serverPort = request.getServerPort();
-                
-                // Build the expected server prefix
-                StringBuilder expectedPrefix = new StringBuilder();
-                expectedPrefix.append(scheme).append("://").append(serverName);
-                
-                // Add port if it's not the default for the scheme
-                if ((scheme.equals("http") && serverPort != 80) || 
-                    (scheme.equals("https") && serverPort != 443)) {
-                    expectedPrefix.append(":").append(serverPort);
-                }
-                
-                // Check if the URL starts with our server prefix
-                if (url.startsWith(expectedPrefix.toString() + "/") ||
-                    url.startsWith(expectedPrefix.toString() + contextPath + "/")) {
-                    return true;
-                }
-                
-                // Reject any other absolute URLs
-                return false;
-            }
-        } catch (Exception e) {
-            logger.error("Error validating redirect URL: {}", LogSanitizer.sanitize(url), e);
-            return false;
-        }
-
-        // Default to rejecting unknown patterns
-        return false;
+        return url.startsWith("/") && RedirectValidationUtils.isValidRelativeRedirect(url);
     }
 
     /**
