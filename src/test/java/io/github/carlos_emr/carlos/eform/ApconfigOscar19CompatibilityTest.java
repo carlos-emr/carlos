@@ -49,8 +49,8 @@ class ApconfigOscar19CompatibilityTest {
             String oscarSql = findByName(oscar, name).get(0).getApSQL();
             String carlosSql = findByName(carlos, name).get(0).getApSQL();
 
-            assertTrue(oscarSql.contains("demographic_no like ''"));
-            assertTrue(carlosSql.contains("demographic_no like ''"));
+            assertTrue(oscarSql.contains("demographic_no like '${eform_demographic}'"));
+            assertTrue(carlosSql.contains("demographic_no like '${eform_demographic}'"));
         }
     }
 
