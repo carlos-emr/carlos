@@ -124,6 +124,15 @@ public class NotesService extends AbstractServiceImpl {
 
     private static final String SEC_OBJECT_ECHART = "_eChart";
 
+    /** Note summary/issue codes shared between {@link #translateCppSummaryCode} and {@link #copyNote2cpp}. */
+    private static final String ISSUECODE_ONGOINGCONCERNS = "ongoingconcerns";
+    private static final String ISSUECODE_MEDHX = "medhx";
+    private static final String ISSUECODE_REMINDERS = "reminders";
+    private static final String ISSUECODE_OTHERMEDS = "othermeds";
+    private static final String ISSUECODE_SOCHX = "sochx";
+    private static final String ISSUECODE_FAMHX = "famhx";
+    private static final String ISSUECODE_RISKFACTORS = "riskfactors";
+
     /**
      * In-memory concurrent editing tracker for clinical notes.
      *
@@ -869,52 +878,62 @@ public class NotesService extends AbstractServiceImpl {
         Collections.sort(curCPPNotes, CaseManagementNote.getPositionComparator());
 
         if (note.isArchived()) {
-            //this one will basically assign 1, 2, 3, .., n to the group and ignore the one to be archived..setting it's position to 0
-            int positionToAssign = 1;
-            for (int x = 0; x < curCPPNotes.size(); x++) {
-                if (curCPPNotes.get(x).getUuid().equals(note.getUuid())) {
-                    curCPPNotes.get(x).setPosition(0);
-                    caseManagementMgr.updateNote(curCPPNotes.get(x));
-                    continue;
-                }
-                curCPPNotes.get(x).setPosition(positionToAssign);
-                caseManagementMgr.updateNote(curCPPNotes.get(x));
-                positionToAssign++;
-            }
-
+            assignArchivedNotePositions(curCPPNotes, note);
         } else {
-            List<CaseManagementNote> curCPPNotes2 = new ArrayList<CaseManagementNote>();
-            for (CaseManagementNote cn : curCPPNotes) {
-                if (!cn.getUuid().equals(note.getUuid())) {
-                    curCPPNotes2.add(cn);
-                } else {
-                    cn.setPosition(0);
-                    caseManagementMgr.updateNote(cn);
-                }
+            assignActiveNotePositions(curCPPNotes, note);
+            caseMangementNote.setPosition(note.getPosition());
+        }
+    }
+
+    /** Assigns positions 1..n to every note in the group except the one being archived, which is set to 0. */
+    private void assignArchivedNotePositions(List<CaseManagementNote> curCPPNotes, NoteTo1 note) {
+        int positionToAssign = 1;
+        for (int x = 0; x < curCPPNotes.size(); x++) {
+            if (curCPPNotes.get(x).getUuid().equals(note.getUuid())) {
+                curCPPNotes.get(x).setPosition(0);
+                caseManagementMgr.updateNote(curCPPNotes.get(x));
+                continue;
             }
-            //we make a fake CaseManagementNoteEntry into curCPPNotes, and insert it into desired location.
-            //we then just set the positions to 1, 2, ..., n ignoring the fake one, but still incrementing the positionToAssign variable
-            //when the new note is saved.it will have the missing position.
-            int positionToAssign = 1;
-            CaseManagementNote xn = new CaseManagementNote();
-            xn.setId(-1L);
-            curCPPNotes2.add(note.getPosition() - 1, xn);
-            for (int x = 0; x < curCPPNotes2.size(); x++) {
-                if (curCPPNotes2.get(x).getId() != -1L) {
-                    //update the note
-                    curCPPNotes2.get(x).setPosition(positionToAssign);
-                    caseManagementMgr.updateNote(curCPPNotes2.get(x));
-                }
-                if (curCPPNotes2.get(x).getId() != -1L && curCPPNotes2.get(x).getUuid().equals(note.getUuid())) {
-                    curCPPNotes2.get(x).setPosition(0);
-                    caseManagementMgr.updateNote(curCPPNotes2.get(x));
-                    positionToAssign--;
-                }
-                positionToAssign++;
+            curCPPNotes.get(x).setPosition(positionToAssign);
+            caseManagementMgr.updateNote(curCPPNotes.get(x));
+            positionToAssign++;
+        }
+    }
+
+    /**
+     * Assigns positions 1..n across the group, inserting a placeholder for the note being
+     * added/edited at its desired position so the rest of the group shifts around it, and
+     * sets that note's own position to 0 (the caller re-assigns its real position afterward).
+     */
+    private void assignActiveNotePositions(List<CaseManagementNote> curCPPNotes, NoteTo1 note) {
+        List<CaseManagementNote> curCPPNotes2 = new ArrayList<CaseManagementNote>();
+        for (CaseManagementNote cn : curCPPNotes) {
+            if (!cn.getUuid().equals(note.getUuid())) {
+                curCPPNotes2.add(cn);
+            } else {
+                cn.setPosition(0);
+                caseManagementMgr.updateNote(cn);
             }
         }
-        if (!note.isArchived()) {
-            caseMangementNote.setPosition(note.getPosition());
+        //we make a fake CaseManagementNoteEntry into curCPPNotes, and insert it into desired location.
+        //we then just set the positions to 1, 2, ..., n ignoring the fake one, but still incrementing the positionToAssign variable
+        //when the new note is saved.it will have the missing position.
+        int positionToAssign = 1;
+        CaseManagementNote xn = new CaseManagementNote();
+        xn.setId(-1L);
+        curCPPNotes2.add(note.getPosition() - 1, xn);
+        for (int x = 0; x < curCPPNotes2.size(); x++) {
+            if (curCPPNotes2.get(x).getId() != -1L) {
+                //update the note
+                curCPPNotes2.get(x).setPosition(positionToAssign);
+                caseManagementMgr.updateNote(curCPPNotes2.get(x));
+            }
+            if (curCPPNotes2.get(x).getId() != -1L && curCPPNotes2.get(x).getUuid().equals(note.getUuid())) {
+                curCPPNotes2.get(x).setPosition(0);
+                caseManagementMgr.updateNote(curCPPNotes2.get(x));
+                positionToAssign--;
+            }
+            positionToAssign++;
         }
     }
 
@@ -1023,43 +1042,43 @@ public class NotesService extends AbstractServiceImpl {
         Date d = new Date();
         String separator = "\n-----[[" + d + "]]-----\n";
 
-        if (code.equals("othermeds")) {
+        if (code.equals(ISSUECODE_OTHERMEDS)) {
             text.append(cpp.getFamilyHistory());
             text.append(separator);
             text.append(note);
             cpp.setFamilyHistory(text.toString());
 
-        } else if (code.equals("sochx")) {
+        } else if (code.equals(ISSUECODE_SOCHX)) {
             text.append(cpp.getSocialHistory());
             text.append(separator);
             text.append(note);
             cpp.setSocialHistory(text.toString());
 
-        } else if (code.equals("medhx")) {
+        } else if (code.equals(ISSUECODE_MEDHX)) {
             text.append(cpp.getMedicalHistory());
             text.append(separator);
             text.append(note);
             cpp.setMedicalHistory(text.toString());
 
-        } else if (code.equals("ongoingconcerns")) {
+        } else if (code.equals(ISSUECODE_ONGOINGCONCERNS)) {
             text.append(cpp.getOngoingConcerns());
             text.append(separator);
             text.append(note);
             cpp.setOngoingConcerns(text.toString());
 
-        } else if (code.equals("reminders")) {
+        } else if (code.equals(ISSUECODE_REMINDERS)) {
             text.append(cpp.getReminders());
             text.append(separator);
             text.append(note);
             cpp.setReminders(text.toString());
 
-        } else if (code.equals("famhx")) {
+        } else if (code.equals(ISSUECODE_FAMHX)) {
             text.append(cpp.getFamilyHistory());
             text.append(separator);
             text.append(note);
             cpp.setFamilyHistory(text.toString());
 
-        } else if (code.equals("riskfactors")) {
+        } else if (code.equals(ISSUECODE_RISKFACTORS)) {
             text.append(cpp.getRiskFactors());
             text.append(separator);
             text.append(note);
@@ -1632,19 +1651,19 @@ public class NotesService extends AbstractServiceImpl {
 
     /** Translates a note's UI summary code (e.g. "ongoingconcerns") to its CPP issue code (e.g. "Concerns"). */
     private String translateCppSummaryCode(String issueCode) {
-        if ("ongoingconcerns".equals(issueCode)) {
+        if (ISSUECODE_ONGOINGCONCERNS.equals(issueCode)) {
             return "Concerns";
-        } else if ("medhx".equals(issueCode)) {
+        } else if (ISSUECODE_MEDHX.equals(issueCode)) {
             return "MedHistory";
-        } else if ("reminders".equals(issueCode)) {
+        } else if (ISSUECODE_REMINDERS.equals(issueCode)) {
             return "Reminders";
-        } else if ("othermeds".equals(issueCode)) {
+        } else if (ISSUECODE_OTHERMEDS.equals(issueCode)) {
             return "OMeds";
-        } else if ("sochx".equals(issueCode)) {
+        } else if (ISSUECODE_SOCHX.equals(issueCode)) {
             return "SocHistory";
-        } else if ("famhx".equals(issueCode)) {
+        } else if (ISSUECODE_FAMHX.equals(issueCode)) {
             return "FamHistory";
-        } else if ("riskfactors".equals(issueCode)) {
+        } else if (ISSUECODE_RISKFACTORS.equals(issueCode)) {
             return "RiskFactors";
         }
         return issueCode;
@@ -1728,24 +1747,7 @@ public class NotesService extends AbstractServiceImpl {
     @Produces("application/json")
     public IssueTo1 getIssueId(@PathParam("issueCode") String issueCode) {
 
-        //translate summary codes
-        if ("ongoingconcerns".equals(issueCode)) {
-            issueCode = "Concerns";
-        } else if ("medhx".equals(issueCode)) {
-            issueCode = "MedHistory";
-        } else if ("reminders".equals(issueCode)) {
-            issueCode = "Reminders";
-        } else if ("othermeds".equals(issueCode)) {
-            issueCode = "OMeds";
-        } else if ("sochx".equals(issueCode)) {
-            issueCode = "SocHistory";
-        } else if ("famhx".equals(issueCode)) {
-            issueCode = "FamHistory";
-        } else if ("riskfactors".equals(issueCode)) {
-            issueCode = "RiskFactors";
-        }
-
-        Issue issues = caseManagementMgr.getIssueInfoByCode(issueCode);
+        Issue issues = caseManagementMgr.getIssueInfoByCode(translateCppSummaryCode(issueCode));
 
         IssueTo1 issueId = new IssueTo1();
         issueId.setId(issues.getId());
