@@ -274,7 +274,7 @@ public class TicklerWebService extends AbstractServiceImpl {
         }
 
 
-        MiscUtils.getLogger().debug("completeTicklers called, count={}", json.has("ticklers") ? json.get("ticklers").size() : 0);
+        MiscUtils.getLogger().debug("completeTicklers called, count={}", json != null && json.has("ticklers") ? json.get("ticklers").size() : 0);
 
         List<Integer> ticklerIds;
         try {
@@ -300,7 +300,7 @@ public class TicklerWebService extends AbstractServiceImpl {
             throw new RuntimeException("Access Denied");
         }
 
-        MiscUtils.getLogger().debug("deleteTicklers called, count={}", json.has("ticklers") ? json.get("ticklers").size() : 0);
+        MiscUtils.getLogger().debug("deleteTicklers called, count={}", json != null && json.has("ticklers") ? json.get("ticklers").size() : 0);
 
         List<Integer> ticklerIds;
         try {
@@ -357,7 +357,7 @@ public class TicklerWebService extends AbstractServiceImpl {
             throw new RuntimeException("Access Denied");
         }
 
-        MiscUtils.getLogger().debug("updateTickler called, id={}", LogSafe.sanitize(json.has("id") ? json.get("id").asText() : "null"));
+        MiscUtils.getLogger().debug("updateTickler called, id={}", LogSafe.sanitize(json != null && json.has("id") ? json.get("id").asText() : "null"));
 
         Tickler tickler = ticklerManager.getTickler(getLoggedInInfo(), json.get("id") != null ? json.get("id").asInt() : null);
 
