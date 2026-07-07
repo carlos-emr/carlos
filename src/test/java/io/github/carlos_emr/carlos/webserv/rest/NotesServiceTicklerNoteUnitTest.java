@@ -41,7 +41,6 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.webserv.rest.to.RestResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.TicklerNoteResponse;
 
 /**
@@ -162,8 +161,9 @@ class NotesServiceTicklerNoteUnitTest extends CarlosUnitTestBase {
     void ticklerSaveNote_shouldDenyAccess_whenDemographicNoNotInCallerProgramDomain() {
         when(caseManagementMgr.isClientInProgramDomain(any(List.class), any(List.class))).thenReturn(false);
         when(caseManagementMgr.isClientReferredInProgramDomain(any(List.class), eq(OWNING_DEMOGRAPHIC_NO))).thenReturn(false);
+        ObjectNode json = ticklerSaveNoteJson();
 
-        assertThatThrownBy(() -> service.ticklerSaveNote(ticklerSaveNoteJson()))
+        assertThatThrownBy(() -> service.ticklerSaveNote(json))
                 .isInstanceOf(AccessDeniedException.class);
     }
 
@@ -171,8 +171,9 @@ class NotesServiceTicklerNoteUnitTest extends CarlosUnitTestBase {
     @DisplayName("ticklerSaveNote should deny access when caller lacks _eChart write privilege")
     void ticklerSaveNote_shouldDenyAccess_whenCallerLacksEChartPrivilege() {
         when(securityInfoManager.hasPrivilege(any(), eq("_eChart"), any(), any())).thenReturn(false);
+        ObjectNode json = ticklerSaveNoteJson();
 
-        assertThatThrownBy(() -> service.ticklerSaveNote(ticklerSaveNoteJson()))
+        assertThatThrownBy(() -> service.ticklerSaveNote(json))
                 .isInstanceOf(RuntimeException.class);
     }
 }

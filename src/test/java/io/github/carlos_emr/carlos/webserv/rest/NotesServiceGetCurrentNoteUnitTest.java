@@ -99,7 +99,9 @@ class NotesServiceGetCurrentNoteUnitTest extends CarlosUnitTestBase {
     void shouldDenyAccess_whenCallerLacksEChartPrivilege() {
         when(securityInfoManager.hasPrivilege(any(), eq("_eChart"), eq("r"), any())).thenReturn(false);
 
-        assertThatThrownBy(() -> service.getCurrentNote(DEMOGRAPHIC_NO, emptyJson()))
+        ObjectNode json = emptyJson();
+
+        assertThatThrownBy(() -> service.getCurrentNote(DEMOGRAPHIC_NO, json))
                 .isInstanceOf(AccessDeniedException.class);
     }
 
@@ -110,7 +112,9 @@ class NotesServiceGetCurrentNoteUnitTest extends CarlosUnitTestBase {
         when(caseManagementMgr.isClientReferredInProgramDomain(any(List.class), eq(String.valueOf(DEMOGRAPHIC_NO))))
                 .thenReturn(false);
 
-        assertThatThrownBy(() -> service.getCurrentNote(DEMOGRAPHIC_NO, emptyJson()))
+        ObjectNode json = emptyJson();
+
+        assertThatThrownBy(() -> service.getCurrentNote(DEMOGRAPHIC_NO, json))
                 .isInstanceOf(AccessDeniedException.class);
     }
 
@@ -119,7 +123,9 @@ class NotesServiceGetCurrentNoteUnitTest extends CarlosUnitTestBase {
     void shouldDenyAccess_whenPatientHasOptOutOverride() {
         when(securityInfoManager.isAllowedAccessToPatientRecord(any(), any())).thenReturn(false);
 
-        assertThatThrownBy(() -> service.getCurrentNote(DEMOGRAPHIC_NO, emptyJson()))
+        ObjectNode json = emptyJson();
+
+        assertThatThrownBy(() -> service.getCurrentNote(DEMOGRAPHIC_NO, json))
                 .isInstanceOf(AccessDeniedException.class);
     }
 }

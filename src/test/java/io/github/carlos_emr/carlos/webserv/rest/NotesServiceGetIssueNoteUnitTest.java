@@ -186,6 +186,18 @@ class NotesServiceGetIssueNoteUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should deny access when the note's demographic_no is not numeric")
+    void shouldDenyAccess_whenDemographicNoIsNotNumeric() {
+        // A non-numeric demographic_no shouldn't be reachable in practice (the column
+        // is an int), but isNoteAccessAllowed must fail closed rather than let
+        // Integer.valueOf's NumberFormatException propagate unmapped.
+        when(casemgmtNote.getDemographic_no()).thenReturn("not-a-number");
+
+        assertThatThrownBy(() -> service.getIssueNote(NOTE_ID))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
     @DisplayName("should deny access when the caller has no assigned provider number")
     void shouldDenyAccess_whenCallerHasNoProviderNo() {
         // A LoggedInInfo with no provider set means getLoggedInProviderNo() returns

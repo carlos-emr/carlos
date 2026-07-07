@@ -100,7 +100,9 @@ class NotesServiceSaveIssueNoteUnitTest extends CarlosUnitTestBase {
     void shouldDenyAccess_whenCallerLacksEChartPrivilege() {
         when(securityInfoManager.hasPrivilege(any(), eq("_eChart"), eq("w"), any())).thenReturn(false);
 
-        assertThatThrownBy(() -> service.saveIssueNote(DEMOGRAPHIC_NO, minimalNoteIssue()))
+        NoteIssueTo1 noteIssue = minimalNoteIssue();
+
+        assertThatThrownBy(() -> service.saveIssueNote(DEMOGRAPHIC_NO, noteIssue))
                 .isInstanceOf(AccessDeniedException.class);
     }
 
@@ -111,7 +113,9 @@ class NotesServiceSaveIssueNoteUnitTest extends CarlosUnitTestBase {
         when(caseManagementMgr.isClientReferredInProgramDomain(any(List.class), eq(String.valueOf(DEMOGRAPHIC_NO))))
                 .thenReturn(false);
 
-        assertThatThrownBy(() -> service.saveIssueNote(DEMOGRAPHIC_NO, minimalNoteIssue()))
+        NoteIssueTo1 noteIssue = minimalNoteIssue();
+
+        assertThatThrownBy(() -> service.saveIssueNote(DEMOGRAPHIC_NO, noteIssue))
                 .isInstanceOf(AccessDeniedException.class);
     }
 
@@ -120,7 +124,9 @@ class NotesServiceSaveIssueNoteUnitTest extends CarlosUnitTestBase {
     void shouldDenyAccess_whenPatientHasOptOutOverride() {
         when(securityInfoManager.isAllowedAccessToPatientRecord(any(), any())).thenReturn(false);
 
-        assertThatThrownBy(() -> service.saveIssueNote(DEMOGRAPHIC_NO, minimalNoteIssue()))
+        NoteIssueTo1 noteIssue = minimalNoteIssue();
+
+        assertThatThrownBy(() -> service.saveIssueNote(DEMOGRAPHIC_NO, noteIssue))
                 .isInstanceOf(AccessDeniedException.class);
     }
 }

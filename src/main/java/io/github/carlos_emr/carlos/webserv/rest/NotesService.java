@@ -1317,14 +1317,7 @@ public class NotesService extends AbstractServiceImpl {
         else if (nId != null && Integer.parseInt(nId) > 0) {
             logger.debug("Using nId {} to fetch note", nId);
 //			session.setAttribute("newNote", "false");
-            note = caseManagementMgr.getNote(nId);
-
-            // The caller only proved access to demographicNo above; nId is a separate,
-            // caller-supplied value that must itself resolve to a note owned by that
-            // same patient before it's used (IDOR hardening, issue #2839 class).
-            if (note == null || !demoNo.equals(note.getDemographic_no())) {
-                throw new AccessDeniedException(SEC_OBJECT_ECHART, "r");
-            }
+            note = requireOwnedNote(nId, demoNo, "r");
 
             if (note.getHistory() == null || note.getHistory().equals("")) {
                 // old note - we need to save the original in here
@@ -1615,7 +1608,12 @@ public class NotesService extends AbstractServiceImpl {
             return false;
         }
 
-        Integer demographicNo = Integer.valueOf(demoNo);
+        Integer demographicNo;
+        try {
+            demographicNo = Integer.valueOf(demoNo);
+        } catch (NumberFormatException e) {
+            return false;
+        }
         List<ProgramProvider> providerPrograms = caseManagementMgr.getProgramProviders(providerNo);
         List<Admission> admissions = caseManagementMgr.getAdmission(demographicNo);
 
@@ -1623,6 +1621,27 @@ public class NotesService extends AbstractServiceImpl {
                 || caseManagementMgr.isClientReferredInProgramDomain(providerPrograms, demoNo);
 
         return inDomain && securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo);
+    }
+
+    /**
+     * Fetches a note by id and verifies it belongs to the already-authorized
+     * {@code demoNo} (IDOR hardening, issue #2839 class): a caller-supplied noteId
+     * is a separate value from the demographicNo the caller already proved access
+     * to, and must itself resolve to a note owned by that same patient.
+     *
+     * @param noteId note identifier
+     * @param demoNo  the already-authorized patient's demographic number
+     * @param action  privilege action to report on denial ("r" or "w")
+     * @return the note, if found and owned by {@code demoNo}
+     * @throws AccessDeniedException if the note does not exist or belongs to a
+     *         different patient
+     */
+    private CaseManagementNote requireOwnedNote(String noteId, String demoNo, String action) {
+        CaseManagementNote note = caseManagementMgr.getNote(noteId);
+        if (note == null || !demoNo.equals(note.getDemographic_no())) {
+            throw new AccessDeniedException(SEC_OBJECT_ECHART, action);
+        }
+        return note;
     }
 
     @POST
@@ -1821,14 +1840,7 @@ public class NotesService extends AbstractServiceImpl {
         String uuid = null;
 
         if (noteId != null && noteId.intValue() > 0) {
-            CaseManagementNote existingNote = caseManagementMgr.getNote(String.valueOf(noteId));
-
-            // The caller only proved access to demographicNo above; noteId is a
-            // separate, caller-supplied value that must itself resolve to a note
-            // owned by that same patient before its revision/history is reused.
-            if (existingNote == null || !demoNo.equals(existingNote.getDemographic_no())) {
-                throw new AccessDeniedException(SEC_OBJECT_ECHART, "w");
-            }
+            CaseManagementNote existingNote = requireOwnedNote(String.valueOf(noteId), demoNo, "w");
 
             revision = String.valueOf(Integer.valueOf(existingNote.getRevision()).intValue() + 1);
             history = strNote + "\n" + existingNote.getHistory();
