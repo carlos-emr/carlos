@@ -706,7 +706,7 @@ public final class IncomingDocUtil {
     private static ArrayList<String> buildExtractList(String pdfName, String pageNumbersToExtract, int pageCount) {
         String sanitizedPageNumbersToExtract = LogSafe.sanitize(pageNumbersToExtract);
         if (pageNumbersToExtract == null || pageNumbersToExtract.trim().isEmpty()) {
-            throw new IllegalArgumentException(pdfName + " : Invalid Pages to Extract " + sanitizedPageNumbersToExtract);
+            throw new IllegalArgumentException("Invalid Pages to Extract " + sanitizedPageNumbersToExtract);
         }
 
         ArrayList<String> extractList = initializeExtractList(pageCount);
@@ -722,7 +722,7 @@ public final class IncomingDocUtil {
         }
 
         if (!hasPageSpec || !validPages || !hasPageRemaining(extractList, pageCount)) {
-            throw new IllegalArgumentException(pdfName + " : Invalid Pages to Extract " + sanitizedPageNumbersToExtract);
+            throw new IllegalArgumentException("Invalid Pages to Extract " + sanitizedPageNumbersToExtract);
         }
 
         return extractList;

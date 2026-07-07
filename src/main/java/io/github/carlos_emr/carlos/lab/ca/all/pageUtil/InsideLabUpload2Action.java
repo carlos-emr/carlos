@@ -56,7 +56,6 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
-import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -149,13 +148,15 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
         try (InputStream inputStream = PathValidationUtils.openValidatedUploadInputStream(file)) {
             String filePath = Utilities.saveFile(inputStream, fileName);
             if (filePath == null) {
-                MiscUtils.getLogger().error("Unable to save uploaded lab file: {}", fileName);
+                MiscUtils.getLogger().error("Unable to save uploaded lab file");
                 return FileStatus.FAILED;
             }
             // Continue with your existing processing logic
             return processFile(loggedInInfo, ServletActionContext.getRequest(), filePath, getFileType(ServletActionContext.getRequest()));
         } catch (IOException | SecurityException e) {
-            MiscUtils.getLogger().error("Error processing file: {}", LogSafe.sanitize(fileName), e); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
+            // SecurityException covers PathValidationUtils rejecting a misconfigured DOCUMENT_DIR or a
+            // bad saved path; fail just this file (like an IOException) instead of aborting the batch.
+            MiscUtils.getLogger().error("Error processing uploaded lab file", e);
             return FileStatus.FAILED;
         }
     }
