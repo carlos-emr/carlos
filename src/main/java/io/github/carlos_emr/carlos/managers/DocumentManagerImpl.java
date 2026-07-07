@@ -192,6 +192,7 @@ public class DocumentManagerImpl implements DocumentManager {
             fileName = dateTimeFormat.format(today) + "_" + normalizedFileName;
             file = PathValidationUtils.validateUserFilePath(fileName, new File(documentPath));
             fileName = file.getName();
+            document.setDocfilename(fileName);
         } catch (SecurityException e) {
             logger.error("Document filename failed path validation: {}", Encode.forJava(fileName));
             throw new IOException("Document filename failed path validation", e);
@@ -211,7 +212,6 @@ public class DocumentManagerImpl implements DocumentManager {
         }
         document.setNumberofpages(numberOfPages);
         document.setDoccreator(loggedInInfo.getLoggedInProviderNo());
-        document.setDocfilename(fileName);
 		if (document.getDocdesc() == null || document.getDocdesc().isEmpty()) { document.setDocdesc(fileName); }
 
         // Creates and saves the document
