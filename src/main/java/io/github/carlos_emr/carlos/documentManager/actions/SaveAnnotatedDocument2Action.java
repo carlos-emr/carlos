@@ -168,7 +168,14 @@ public class SaveAnnotatedDocument2Action extends ActionSupport {
             return NONE;
         }
 
-        Path targetPath = Paths.get(doc.getFilePath());
+        Path targetPath;
+        try {
+            targetPath = Paths.get(doc.getFilePath());
+        } catch (java.nio.file.InvalidPathException e) {
+            logger.error("Invalid document path for docId={}", docId, e);
+            sendJsonError(response, "Invalid document path");
+            return NONE;
+        }
         try {
             // Validate against the configured document root, not just the file's own parent.
             // Using the parent as the trust boundary would allow a corrupted DB row with an
@@ -183,11 +190,18 @@ public class SaveAnnotatedDocument2Action extends ActionSupport {
             return NONE;
         }
 
+        Path targetDir = targetPath.getParent();
+        if (targetDir == null) {
+            logger.error("SaveAnnotatedDocument: no parent directory for docId={}", docId);
+            sendJsonError(response, "Invalid document path");
+            return NONE;
+        }
+
         // Overwrite the document file with the annotated version atomically.
         // Write to a temporary file first, then move atomically to avoid corruption on failure.
         Path tempFile = null;
         try (InputStream is = filePart.getInputStream()) {
-            tempFile = Files.createTempFile(targetPath.getParent(), ".annotated-", ".pdf.tmp");
+            tempFile = Files.createTempFile(targetDir, ".annotated-", ".pdf.tmp");
             Files.copy(is, tempFile, StandardCopyOption.REPLACE_EXISTING);
 
             // Atomic move with fallback if ATOMIC_MOVE is not supported on this filesystem
