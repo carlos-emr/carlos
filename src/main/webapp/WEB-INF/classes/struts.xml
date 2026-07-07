@@ -45,8 +45,9 @@
             Examples: /styles/app.css => excluded, /eform/other.jsp => excluded,
             /eform/efmformrtl_templates.jsp => allowed through to Struts.
          2. Exclude internal WEB-INF resources.
-         3. Exclude non-Struts servlet and CSRFGuard endpoints handled elsewhere. -->
-    <constant name="struts.action.excludePattern" value="^(?!(/[^/]+)?/eform/efmformrtl_templates\.jsp$).*\.(css|js|json|png|jpg|gif|svg|ico|map|woff|woff2|ttf|eot|html|htm|jsp|jspf)$|^(/[^/]+)?/WEB-INF/.*|^/ws/.*|^/servlet/.*|^/csrfguard$" />
+         3. Exclude non-Struts servlet and CSRFGuard endpoints handled elsewhere,
+            including rendering servlets that must reach their web.xml mappings. -->
+    <constant name="struts.action.excludePattern" value="^(?!(/[^/]+)?/eform/efmformrtl_templates\.jsp$).*\.(css|js|json|png|jpg|gif|svg|ico|map|woff|woff2|ttf|eot|html|htm|jsp|jspf)$|^(/[^/]+)?/WEB-INF/.*|^/ws/.*|^/servlet/.*|^(/[^/]+)?/(imageRenderingServlet|contentRenderingServlet(?:/.*)?|EFormSignatureViewForPdfGenerationServlet|EFormImageViewForPdfGenerationServlet|EFormViewForPdfGenerationServlet|eformViewForPdfGenerationServlet)$|^/csrfguard$" />
     <constant name="struts.custom.i18n.resources" value="oscarResources,MessageResources_mcedt"/>
     <constant name="struts.multipart.maxSize" value="52428800" />
     <!-- Use stream-based multipart parser (reads from getInputStream()) instead of the default

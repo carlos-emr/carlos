@@ -46,6 +46,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import org.xhtmlrenderer.layout.SharedContext;
 import org.xhtmlrenderer.pdf.ITextRenderer;
 import io.github.carlos_emr.CarlosProperties;
@@ -61,8 +62,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
@@ -108,10 +107,8 @@ public final class ConvertToEdoc {
     private static final String SYSTEM_ID = "-1";
     private static final String DEFAULT_WKHTMLTOPDF_COMMAND = "/usr/bin/wkhtmltopdf";
     private static final String DEFAULT_WKHTMLTOPDF_ARGS = "--enable-local-file-access --minimum-font-size 10 --print-media-type --encoding utf-8 -T 10mm -L 8mm -R 8mm --disable-javascript";
-    private static final String STYLE_ATTRIBUTE = "style";
     private static final String BACKGROUND_ATTRIBUTE = "background";
-    private static final Pattern CSS_URL_PATTERN = Pattern.compile("url\\((['\"]?)([^\"')]+)\\1\\)", Pattern.CASE_INSENSITIVE);
-    
+    private static final String STYLE_ATTRIBUTE = "style";
     private static String realPath;
     private static final NioFileManager nioFileManager = SpringUtils.getBean(NioFileManager.class);
 
@@ -664,23 +661,117 @@ public final class ConvertToEdoc {
             return cssText;
         }
 
-        Matcher matcher = CSS_URL_PATTERN.matcher(cssText);
         StringBuilder rewrittenCss = new StringBuilder();
-        while (matcher.find()) {
-            String originalPath = matcher.group(2).trim();
-            String translatedPath = translateSingleResourcePath(originalPath);
-            String replacement;
-            if (translatedPath != null) {
-                replacement = Matcher.quoteReplacement("url('" + translatedPath + "')");
-            } else if (isEmbeddedDataResourcePath(originalPath)) {
-                replacement = Matcher.quoteReplacement(matcher.group(0));
+        int cursor = 0;
+        CssUrlMatch match = findNextCssUrlMatch(cssText, cursor);
+        while (match != null) {
+            rewrittenCss.append(cssText, cursor, match.urlStart());
+            if (match.complete()) {
+                appendRewrittenCssUrl(rewrittenCss, cssText, match);
+                cursor = match.urlEnd() + 1;
+                match = findNextCssUrlMatch(cssText, cursor);
             } else {
-                replacement = "url('')";
+                rewrittenCss.append(cssText, match.urlStart(), cssText.length());
+                cursor = cssText.length();
+                match = null;
             }
-            matcher.appendReplacement(rewrittenCss, replacement);
         }
-        matcher.appendTail(rewrittenCss);
+
+        rewrittenCss.append(cssText, cursor, cssText.length());
         return rewrittenCss.toString();
+    }
+
+    private static void appendRewrittenCssUrl(StringBuilder rewrittenCss, String cssText, CssUrlMatch match) {
+        String originalPath = extractCssUrlPath(cssText, match.contentStart(), match.urlEnd());
+        String translatedPath = translateSingleResourcePath(originalPath);
+        if (translatedPath != null) {
+            // translateSingleResourcePath returns data: URIs unchanged, so this branch
+            // also handles embedded data resources (they arrive here with translatedPath == originalPath).
+            rewrittenCss.append("url('").append(SafeEncode.forCssString(translatedPath)).append("')");
+        } else {
+            rewrittenCss.append("url('')");
+        }
+    }
+
+    private static CssUrlMatch findNextCssUrlMatch(String cssText, int cursor) {
+        int urlStart = StringUtils.indexOfIgnoreCase(cssText, "url(", cursor);
+        if (urlStart < 0) {
+            return null;
+        }
+
+        int contentStart = urlStart + 4;
+        while (contentStart < cssText.length() && Character.isWhitespace(cssText.charAt(contentStart))) {
+            contentStart++;
+        }
+
+        int urlEnd = findCssUrlEnd(cssText, contentStart);
+        if (urlEnd < 0) {
+            return CssUrlMatch.incomplete(urlStart, contentStart);
+        }
+
+        return CssUrlMatch.complete(urlStart, contentStart, urlEnd);
+    }
+
+    private static int findCssUrlEnd(String cssText, int contentStart) {
+        char quote = 0;
+        boolean escaped = false;
+        int nestedParens = 0;
+        for (int i = contentStart; i < cssText.length(); i++) {
+            char current = cssText.charAt(i);
+            if (quote != 0) {
+                if (escaped) {
+                    escaped = false;
+                } else if (current == '\\' && i + 1 < cssText.length()) {
+                    escaped = true;
+                } else {
+                    quote = closeQuoteIfNeeded(quote, current);
+                }
+            } else if (isCssQuote(current)) {
+                quote = current;
+            } else if (current == '(') {
+                nestedParens++;
+            } else if (current == ')') {
+                if (nestedParens == 0) {
+                    return i;
+                }
+                nestedParens--;
+            }
+        }
+        return -1;
+    }
+
+    private static char closeQuoteIfNeeded(char quote, char current) {
+        return current == quote ? (char) 0 : quote;
+    }
+
+    private static boolean isCssQuote(char current) {
+        return current == '\'' || current == '"';
+    }
+
+    private static String extractCssUrlPath(String cssText, int contentStart, int urlEnd) {
+        String rawPath = cssText.substring(contentStart, urlEnd).trim();
+        if (rawPath.length() >= 2) {
+            char first = rawPath.charAt(0);
+            char last = rawPath.charAt(rawPath.length() - 1);
+            if (isMatchingQuote(first, last)) {
+                rawPath = rawPath.substring(1, rawPath.length() - 1).trim();
+            }
+        }
+        return rawPath;
+    }
+
+    private static boolean isMatchingQuote(char first, char last) {
+        return isCssQuote(first) && first == last;
+    }
+
+    private record CssUrlMatch(int urlStart, int contentStart, int urlEnd, boolean complete) {
+        private static CssUrlMatch complete(int urlStart, int contentStart, int urlEnd) {
+            return new CssUrlMatch(urlStart, contentStart, urlEnd, true);
+        }
+
+        private static CssUrlMatch incomplete(int urlStart, int contentStart) {
+            return new CssUrlMatch(urlStart, contentStart, -1, false);
+        }
     }
 
     private static String translateSingleResourcePath(String path) {
@@ -825,33 +916,31 @@ public final class ConvertToEdoc {
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private static String getRealPath(String uri) {
-        if (ConvertToEdoc.realPath == null) {
-            return "";
+        String contextRealPath = "";
+
+        // Try to resolve relative paths
+        if (ConvertToEdoc.realPath != null) {
+            try {
+				Path basePath = PathValidationUtils.resolveConfiguredDirectory(ConvertToEdoc.realPath, "real path").toPath();
+				String fileNameToFind = PathValidationUtils.validatePathComponent(Paths.get(uri).getFileName().toString(), "resource file name");
+
+				try (Stream<Path> paths = Files.walk(basePath)) {
+					Path found = paths
+						.filter(Files::isRegularFile)
+						.filter(path -> path.getFileName().toString().equals(fileNameToFind))
+						.findFirst()
+						.orElse(null);
+
+					if (found != null) {
+						contextRealPath = PathValidationUtils.validateExistingPath(found.toFile(), basePath.toFile()).getAbsolutePath();
+					}
+				}
+			} catch (Exception e) {
+				logger.error("Error while searching file in directory: " + ConvertToEdoc.realPath, e);
+			}
         }
 
-        try {
-            File realPathDirectory = PathValidationUtils.resolveConfiguredDirectory(ConvertToEdoc.realPath, "real path");
-            Path basePath = realPathDirectory.toPath();
-            String fileNameToFind = PathValidationUtils.validatePathComponent(Paths.get(uri).getFileName().toString(), "resource file name");
-
-            try (Stream<Path> paths = Files.walk(basePath)) {
-                Path found = paths
-                        .filter(Files::isRegularFile)
-                        .filter(path -> path.getFileName().toString().equals(fileNameToFind))
-                        .findFirst()
-                        .orElse(null);
-
-                if (found == null) {
-                    return "";
-                }
-
-                File validatedFile = PathValidationUtils.validateExistingPath(found.toFile(), realPathDirectory);
-                return validatedFile.getAbsolutePath();
-            }
-        } catch (Exception e) {
-            logger.error("Error while searching file in directory: " + ConvertToEdoc.realPath, e);
-            return "";
-        }
+        return contextRealPath;
     }
 
     /**
