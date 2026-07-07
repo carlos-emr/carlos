@@ -138,7 +138,7 @@
 </table>
     <%
             } // end if (rx != null)
-        } // end if (bean != null && randomId != null)
+        } // end if (bean != null && randomId != null && randomId.matches("\\d+"))
 
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
