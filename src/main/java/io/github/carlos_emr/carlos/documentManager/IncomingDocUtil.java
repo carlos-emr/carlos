@@ -725,7 +725,7 @@ public final class IncomingDocUtil {
             }
             if (cancelExtract == true) {
                 reader.close();
-                throw new Exception(myPdfName + " : Invalid Pages to Extract " + pageNumbersToExtract);
+                throw new Exception("Invalid Pages to Extract " + LogSafe.sanitize(pageNumbersToExtract));
             }
 
             document = new Document(reader.getPageSizeWithRotation(1));

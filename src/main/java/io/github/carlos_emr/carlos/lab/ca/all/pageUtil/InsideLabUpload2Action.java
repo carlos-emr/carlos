@@ -154,7 +154,7 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
         } catch (IOException | SecurityException e) {
             // SecurityException covers PathValidationUtils rejecting a misconfigured DOCUMENT_DIR or a
             // bad saved path; fail just this file (like an IOException) instead of aborting the batch.
-            MiscUtils.getLogger().error("Error processing file: " + fileName, e);
+            MiscUtils.getLogger().error("Error processing uploaded lab file", e);
             return FileStatus.FAILED;
         }
     }
