@@ -30,6 +30,12 @@ import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.FileAttribute;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -158,21 +164,73 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
      * @return {@code true} if the directory is ready for asset deployment
      */
     private boolean createDirectory(File targetDir, String imageDir) {
-        boolean created = targetDir.mkdirs();
-        if (!created && !targetDir.isDirectory()) {
-            logger.warn("eForm image directory does not exist and could not be created: {}; skipping asset deployment", imageDir);
+        Path targetPath = targetDir.toPath();
+        List<Path> createdDirectories = collectMissingDirectories(targetPath);
+        try {
+            createDirectoriesWithOwnerOnlyPermissions(targetPath);
+        } catch (IOException e) {
+            logger.warn("eForm image directory does not exist and could not be created: {}; skipping asset deployment", imageDir, e);
             return false;
         }
-        boolean readable = targetDir.setReadable(true, true);
-        boolean writable = targetDir.setWritable(true, true);
-        boolean executable = targetDir.setExecutable(true, true);
-        if (!readable || !writable || !executable) {
-            logger.warn("Could not restrict permissions on eForm image directory: {}; directory may be world-accessible", imageDir);
+
+        if (createdDirectories.isEmpty()) {
+            applyOwnerOnlyPermissions(targetPath, imageDir);
+            return true;
         }
-        if (created) {
-            logger.info("Created eForm image directory with restricted permissions: {}", imageDir);
+
+        boolean targetVerified = true;
+        for (Path createdDirectory : createdDirectories) {
+            String directoryLabel = createdDirectory.equals(targetPath) ? imageDir : createdDirectory.toString();
+            boolean verified = applyOwnerOnlyPermissions(createdDirectory, directoryLabel);
+            if (createdDirectory.equals(targetPath)) {
+                targetVerified = verified;
+            }
+        }
+        if (targetVerified) {
+            logger.info("Created eForm image directory with verified owner-only permissions: {}", imageDir);
         }
         return true;
+    }
+
+    List<Path> collectMissingDirectories(Path targetPath) {
+        List<Path> missingDirectories = new ArrayList<>();
+        Path current = targetPath;
+        while (current != null && !Files.exists(current)) {
+            missingDirectories.add(0, current);
+            current = current.getParent();
+        }
+        return missingDirectories;
+    }
+
+    void createDirectoriesWithOwnerOnlyPermissions(Path targetPath) throws IOException {
+        try {
+            FileAttribute<Set<PosixFilePermission>> ownerOnlyAttributes =
+                    PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------"));
+            Files.createDirectories(targetPath, ownerOnlyAttributes);
+        } catch (UnsupportedOperationException e) {
+            Files.createDirectories(targetPath);
+        }
+    }
+
+    boolean applyOwnerOnlyPermissions(Path targetPath, String imageDir) {
+        Set<PosixFilePermission> ownerOnlyPermissions = PosixFilePermissions.fromString("rwx------");
+        try {
+            Files.setPosixFilePermissions(targetPath, ownerOnlyPermissions);
+            Set<PosixFilePermission> actualPermissions = Files.getPosixFilePermissions(targetPath);
+            if (!actualPermissions.equals(ownerOnlyPermissions)) {
+                if (logger.isWarnEnabled()) {
+                    logger.warn("Could not verify owner-only permissions on eForm image directory: {}; actual permissions={}",
+                            imageDir, PosixFilePermissions.toString(actualPermissions));
+                }
+                return false;
+            }
+            return true;
+        } catch (UnsupportedOperationException e) {
+            logger.warn("Could not restrict permissions on eForm image directory: {}; POSIX permissions are unsupported on this filesystem", imageDir);
+        } catch (IOException e) {
+            logger.warn("Could not restrict permissions on eForm image directory: {}; directory may be world-accessible", imageDir, e);
+        }
+        return false;
     }
 
     /**

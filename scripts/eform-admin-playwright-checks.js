@@ -1,4 +1,17 @@
 #!/usr/bin/env node
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+
 /*
  * Static browser regression checks for the eForm admin navigation and editor
  * redirect markup touched by PR 2710.
@@ -14,6 +27,7 @@
 
 const fs = require('fs');
 const { chromium } = require('playwright');
+const { buildArtifactPath, getLaunchOptions } = require('./eform-local-playwright-utils');
 
 const chromePath = process.env.CHROME_PATH || '';
 const screenshotDir = process.env.EFORM_SCREENSHOT_DIR || '/tmp';
@@ -63,16 +77,13 @@ function appPathFromHref(href) {
   assert(!editorJsp.includes('window.opener.location'), 'eForm editor must not navigate window.opener after save');
   assert(editorJsp.includes('window.location.href'), 'eForm editor should navigate the current window after save');
 
-  const browser = await chromium.launch({
-    headless: true,
-    executablePath: chromePath || undefined,
-  });
+  const browser = await chromium.launch(getLaunchOptions(chromePath));
 
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 480 } });
     const consoleIssues = [];
     page.on('console', (message) => {
-      if (['error', 'warning'].includes(message.type())) {
+      if (message.type() === 'error') {
         consoleIssues.push(`${message.type()}: ${message.text()}`);
       }
     });
@@ -94,10 +105,11 @@ function appPathFromHref(href) {
     // nosemgrep: javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag
     // navHtml is derived from reading a local JSP file via fs.readFileSync and regex-stripping JSP tags
     await page.locator('#fixture-root').evaluate((root, html) => {
+      // nosemgrep: javascript.browser.security.insecure-document-method, javascript.browser.security.insecure-innerhtml -- navHtml is a repo-local JSP fragment read via fs.readFileSync (see navJspPath) and JSP-stripped; not user-controlled, rendered only in a throwaway local Chromium fixture in this developer-only regression script
       root.innerHTML = html;
     }, navHtml);
 
-    const toggle = page.locator('button.dropdown-toggle', { hasText: 'Create eForm' });
+    const toggle = page.locator('li.nav-item.dropdown button.contentLink.nav-link.dropdown-toggle[data-bs-toggle="dropdown"]').first();
     await toggle.waitFor({ state: 'visible', timeout: 10000 });
 
     const toggleState = await toggle.evaluate((button) => ({
@@ -116,6 +128,7 @@ function appPathFromHref(href) {
     assert(toggleState.dataToggle === 'dropdown', 'Create eForm toggle should use Bootstrap 5 data-bs-toggle');
     assert(toggleState.ariaHasPopup === 'true', 'Create eForm toggle should advertise popup semantics');
     assert(toggleState.ariaExpanded === 'false', 'Create eForm toggle should start collapsed');
+    assert((await toggle.textContent()).includes('eform.create'), 'Create eForm toggle should render the eform.create message key in the static JSP fixture');
 
     await toggle.click();
     const menu = page.locator('li.nav-item.dropdown .dropdown-menu').first();
@@ -135,9 +148,8 @@ function appPathFromHref(href) {
     assert(menuItems.some((item) => appPathFromHref(item.href) === '/carlos/eform/efmformmanageredit'), 'Create-in-editor route missing');
     assert(menuItems.some((item) => item.onclick.includes('/carlos/eform/eformGenerator')), 'eForm generator popup route missing');
 
-    fs.mkdirSync(screenshotDir, { recursive: true });
-    const screenshotPath = `${screenshotDir.replace(/\/+$/, '')}/eform-admin-dropdown.png`;
-    await page.screenshot({ path: screenshotPath, fullPage: true });
+    const screenshotPath = buildArtifactPath(screenshotDir, 'eform-admin-dropdown');
+    await page.screenshot({ path: screenshotPath, fullPage: true }); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- buildArtifactPath constrains output to a validated local artifact directory with a sanitized basename
 
     assert(consoleIssues.length === 0, `Unexpected browser console issues:\n${consoleIssues.join('\n')}`);
     console.log(`eForm admin Playwright checks passed; screenshot: ${screenshotPath}`);

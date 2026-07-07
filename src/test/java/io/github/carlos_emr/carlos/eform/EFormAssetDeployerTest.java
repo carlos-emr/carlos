@@ -37,6 +37,10 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermission;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -238,6 +242,49 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("Should apply owner-only permissions when POSIX permissions are supported")
+        void shouldApplyOwnerOnlyPermissions_whenPosixPermissionsSupported() throws Exception {
+            Assumptions.assumeTrue(Files.getFileStore(tempDir).supportsFileAttributeView("posix"));
+            Path missingDir = tempDir.resolve("posix-eform-images");
+
+            when(mockProperties.getEformImageDirectory()).thenReturn(missingDir.toString());
+            stubAllAssets();
+
+            deployer.afterPropertiesSet();
+
+            Set<PosixFilePermission> actualPermissions = Files.getPosixFilePermissions(missingDir);
+            assertThat(actualPermissions).containsExactlyInAnyOrder(
+                    PosixFilePermission.OWNER_READ,
+                    PosixFilePermission.OWNER_WRITE,
+                    PosixFilePermission.OWNER_EXECUTE);
+        }
+
+        @Test
+        @DisplayName("Should restrict every created directory in nested paths")
+        void shouldRestrictEveryCreatedDirectory_inNestedPaths() {
+            Path nestedRoot = tempDir.resolve("nested-root");
+            Path nestedChild = nestedRoot.resolve("nested-child");
+            Path missingDir = nestedChild.resolve("posix-eform-images");
+            List<Path> restrictedPaths = new ArrayList<>();
+
+            EFormAssetDeployer recordingDeployer = new EFormAssetDeployer() {
+                @Override
+                boolean applyOwnerOnlyPermissions(Path targetPath, String imageDir) {
+                    restrictedPaths.add(targetPath);
+                    return true;
+                }
+            };
+            recordingDeployer.setServletContext(mockServletContext);
+
+            when(mockProperties.getEformImageDirectory()).thenReturn(missingDir.toString());
+            stubAllAssets();
+
+            recordingDeployer.afterPropertiesSet();
+
+            assertThat(restrictedPaths).containsExactly(nestedRoot, nestedChild, missingDir);
+        }
+
+        @Test
         @DisplayName("Should skip deployment when image directory cannot be created")
         void shouldSkipDeployment_whenImageDirectoryCannotBeCreated() throws Exception {
             // Block mkdirs by placing a regular file where a directory component must be
@@ -249,7 +296,11 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
 
             deployer.afterPropertiesSet();
 
-            assertThat(blockedDir).doesNotExist();
+            assertThat(blocker).isRegularFile();
+            assertThat(Files.isDirectory(blockedDir)).isFalse();
+            assertThat(tempDir.resolve("editControl2.js")).doesNotExist();
+            assertThat(tempDir.resolve("blank.rtl")).doesNotExist();
+            assertThat(tempDir.resolve("editor_help.html")).doesNotExist();
             verifyNoInteractions(mockServletContext);
         }
 

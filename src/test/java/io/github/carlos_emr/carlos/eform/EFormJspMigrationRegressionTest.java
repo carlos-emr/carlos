@@ -62,6 +62,8 @@ class EFormJspMigrationRegressionTest {
             Path.of("src/main/webapp/WEB-INF/classes/struts-form.xml");
     private static final Path STRUTS_XML =
             Path.of("src/main/webapp/WEB-INF/classes/struts.xml");
+    private static final Path RTL_ATTACHMENT_ROUTE_FIX_SQL =
+            Path.of("database/mysql/updates/update-2026-06-29-rtl-attachment-route-fix.sql");
     private static final Pattern STRUTS_ACTION_EXCLUDE_PATTERN = Pattern.compile(
             "<constant name=\"struts\\.action\\.excludePattern\" value=\"([^\"]+)\"\\s*/>");
 
@@ -208,6 +210,79 @@ class EFormJspMigrationRegressionTest {
         assertThat(struts).doesNotContainPattern("/WEB-INF/jsp/form/[^<\"]+\\.do");
         assertThat(struts).contains("<action name=\"form/xmlUpload\"");
         assertThat(struts).contains("<action name=\"form/formname\"");
+    }
+
+    @Test
+    @DisplayName("Rich Text Letter attachment migration should use gated routes and saved hidden inputs")
+    void shouldUseGatedAttachmentRoutesAndSavedHiddenInputs_whenUpdatingRichTextLetterTemplate()
+            throws IOException {
+        String sql = Files.readString(RTL_ATTACHMENT_ROUTE_FIX_SQL, StandardCharsets.UTF_8);
+
+        assertThat(sql)
+                .contains("../eform/attachEform.jsp")
+                .contains("../eform/attachEform")
+                .contains("../eform/displayAttachedFiles.jsp")
+                .contains("../eform/displayAttachedFiles")
+                .contains("document.getElementById(\"fdid\")")
+                .contains("document.getElementById(\"demographicNo\")")
+                .contains("gup(\"fid\")")
+                .contains("gup(\"demographic_no\")");
+    }
+
+    @Test
+    @DisplayName("attachment popup checkboxes should expose accessible names through aria-labelledby")
+    void shouldExposeAccessibleAttachmentCheckboxNames_whenRenderingAttachPopup() throws IOException {
+        String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/eform/attachEform.jsp"), StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("SafeEncode.forHtmlAttribute(labLabelId + \" \" + labDateId)")
+                .contains("SafeEncode.forHtmlAttribute(labVersionLabelId + \" \" + labVersionDateId)")
+                .contains("SafeEncode.forHtmlAttribute(hrmLabelId + \" \" + hrmDateId)")
+                .contains("SafeEncode.forHtmlAttribute(eformLabelId)")
+                .contains("SafeEncode.forHtmlAttribute(formLabelId + \" \" + formDateId)");
+    }
+
+    @Test
+    @DisplayName("attachment popup should preserve already-attached older encounter form revisions")
+    void shouldPreserveAlreadyAttachedOlderEncounterForms_whenRenderingAttachPopup() throws IOException {
+        String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/eform/attachEform.jsp"), StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("getEncounterFormsbyDemographicNumber(loggedInInfo, demographicNo, false, true)")
+                .contains("getEncounterFormsbyDemographicNumber(loggedInInfo, demographicNo, true, true)")
+                .contains("List<EctFormData.PatientForm> attachedOlderForms = new ArrayList<>()")
+                .contains("!currentFormIds.contains(attachedFormId)")
+                .contains("allForms.isEmpty() && attachedOlderForms.isEmpty()")
+                .contains("Earlier version");
+    }
+
+    @Test
+    @DisplayName("attachment popup should HTML-attribute encode generated ids and values")
+    void shouldEncodeAttachmentCheckboxAttributes_whenRenderingAttachPopup() throws IOException {
+        String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/eform/attachEform.jsp"), StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("SafeEncode.forHtmlAttribute(documentCheckboxId)")
+                .contains("SafeEncode.forHtmlAttribute(documentId)")
+                .contains("SafeEncode.forHtmlAttribute(labCheckboxId)")
+                .contains("SafeEncode.forHtmlAttribute(labVersionCheckboxId)")
+                .contains("SafeEncode.forHtmlAttribute(hrmCheckboxId)")
+                .contains("SafeEncode.forHtmlAttribute(eformCheckboxId)")
+                .contains("SafeEncode.forHtmlAttribute(formCheckboxId)");
+    }
+
+    @Test
+    @DisplayName("attached file sidebar should gate category lookups by category privileges")
+    void shouldGateAttachedSidebarLookupsByCategoryPrivilege_whenRenderingDisplayAttachedFiles() throws IOException {
+        String jsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/eform/displayAttachedFiles.jsp"), StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("hasPrivilege(loggedInInfo, \"_edoc\", \"r\", null)")
+                .contains("hasPrivilege(loggedInInfo, \"_lab\", \"r\", null)")
+                .contains("hasPrivilege(loggedInInfo, \"_hrm\", \"r\", null)")
+                .contains("hasPrivilege(loggedInInfo, \"_eform\", \"r\", null)")
+                .contains("hasPrivilege(loggedInInfo, \"_form\", \"r\", null)")
+                .contains("Collections.emptyList()");
     }
 
     @Test
