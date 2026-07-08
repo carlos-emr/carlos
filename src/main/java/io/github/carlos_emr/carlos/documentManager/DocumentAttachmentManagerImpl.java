@@ -71,6 +71,7 @@ import java.util.*;
 @Service
 public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager {
     private static final Logger logger = MiscUtils.getLogger();
+    private static final String ATTR_DEMOGRAPHIC_ID = "demographicId";
     private static final String MISSING_ATTACHMENT_METADATA = "missing attachment metadata";
     private static final String UNREADABLE_TEMPORARY_PDF = "unreadable temporary PDF";
 
@@ -89,12 +90,16 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
     private EformDataManager eformDataManager;
     @Autowired
     private FormsManager formsManager;
-    @Autowired
-    private LabManager labManager;
+    private final LabManager labManager;
     @Autowired
     private NioFileManager nioFileManager;
     @Autowired
     private SecurityInfoManager securityInfoManager;
+
+    @Autowired
+    public DocumentAttachmentManagerImpl(LabManager labManager) {
+        this.labManager = labManager;
+    }
 
     // @Autowired
     // public void setEformDataManager(EformDataManager eformDataManager) {
@@ -482,8 +487,8 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
     public Path renderConsultationFormWithAttachments(HttpServletRequest request, HttpServletResponse response) throws PDFGenerationException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String requestId = (String) request.getAttribute("reqId");
-        String demographicId = resolveConsultationDemographicId(requestId, (String) request.getAttribute("demographicId"));
-        request.setAttribute("demographicId", demographicId);
+        String demographicId = resolveConsultationDemographicId(requestId, (String) request.getAttribute(ATTR_DEMOGRAPHIC_ID));
+        request.setAttribute(ATTR_DEMOGRAPHIC_ID, demographicId);
         Path consultationFormPDFPath = consultationManager.renderConsultationForm(request);
         List<String> attachmentWarnings = initializeAttachmentWarnings(request);
 
@@ -525,7 +530,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
     public Path renderEFormWithAttachments(HttpServletRequest request, HttpServletResponse response) throws PDFGenerationException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String fdid = (String) request.getAttribute("fdid");
-        String demographicId = (String) request.getAttribute("demographicId");
+        String demographicId = (String) request.getAttribute(ATTR_DEMOGRAPHIC_ID);
         Path eFormPath = eformDataManager.createEformPDF(loggedInInfo, Integer.parseInt(fdid));
         List<String> attachmentWarnings = initializeAttachmentWarnings(request);
 
@@ -563,7 +568,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
     public Integer saveEFormAsEDoc(HttpServletRequest request, HttpServletResponse response) throws PDFGenerationException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String fdid = (String) request.getAttribute("fdid");
-        String demographicId = (String) request.getAttribute("demographicId");
+        String demographicId = (String) request.getAttribute(ATTR_DEMOGRAPHIC_ID);
         Path eFormPath = renderEFormWithAttachments(request, response);
         return eformDataManager.saveEFormWithAttachmentsAsEDoc(loggedInInfo, fdid, demographicId, eFormPath);
     }
@@ -719,8 +724,10 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
 
         String consultationDemographicId = String.valueOf(consultationRequest.getDemographicId());
         if (!StringUtils.isNullOrEmpty(requestDemographicId) && !consultationDemographicId.equals(requestDemographicId)) {
-            logger.warn("Ignoring mismatched consultation PDF demographic requestId={} requestDemographic={} consultationDemographic={}",
-                    LogSafe.sanitize(requestId), LogSafe.sanitize(requestDemographicId), LogSafe.sanitize(consultationDemographicId));
+            if (logger.isWarnEnabled()) {
+                logger.warn("Ignoring mismatched consultation PDF demographic requestId={} requestDemographic={} consultationDemographic={}",
+                        LogSafe.sanitize(requestId), LogSafe.sanitize(requestDemographicId), LogSafe.sanitize(consultationDemographicId));
+            }
         }
         return consultationDemographicId;
     }

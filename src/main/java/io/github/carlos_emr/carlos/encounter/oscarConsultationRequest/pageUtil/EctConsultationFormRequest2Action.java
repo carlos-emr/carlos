@@ -112,6 +112,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
     private static final ObjectMapper objectMapper = new ObjectMapper();
     private static final String ATTR_SIGNATURE_NOT_APPLIED = "signatureNotApplied";
     private static final String ATTR_ERROR_MESSAGE = "errorMessage";
+    private static final String PRINT_PREVIEW_ERROR_MESSAGE = "A print preview of this consultation could not be generated. Please try again or contact support.";
 
     private Integer parseUpdateInteger(String rawValue, String logMessage, String actionErrorMessage) {
         try {
@@ -565,7 +566,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 // Log the full exception server-side only; do not surface e.getMessage() to the
                 // browser (it can carry internal/identifier detail and renders "null" when absent).
                 logger.error("Error generating consultation print preview for requestId={}", LogSafe.sanitize(requestId), e);
-                request.setAttribute(ATTR_ERROR_MESSAGE, "A print preview of this consultation could not be generated. Please try again or contact support.");
+                request.setAttribute(ATTR_ERROR_MESSAGE, PRINT_PREVIEW_ERROR_MESSAGE);
             }
             generatePDFResponse(request, response);
             return NONE;
@@ -707,7 +708,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String consultationDemographicNo = resolveConsultationDemographicNo(consultationRequestDao, requestId, demographicNo);
         if (StringUtils.isBlank(consultationDemographicNo)) {
-            request.setAttribute(ATTR_ERROR_MESSAGE, "A print preview of this consultation could not be generated. Please try again or contact support.");
+            request.setAttribute(ATTR_ERROR_MESSAGE, PRINT_PREVIEW_ERROR_MESSAGE);
             return false;
         }
 
@@ -721,8 +722,8 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         } catch (PDFGenerationException e) {
             // Log the full exception server-side only; the browser-facing message must not echo
             // e.getMessage() (internal/identifier leakage, and renders "null" when absent).
-            logger.error(e.getMessage(), e);
-            request.setAttribute(ATTR_ERROR_MESSAGE, "A print preview of this consultation could not be generated. Please try again or contact support.");
+            logger.error("Error generating consultation print preview PDF", e);
+            request.setAttribute(ATTR_ERROR_MESSAGE, PRINT_PREVIEW_ERROR_MESSAGE);
             return false;
         }
 

@@ -26,6 +26,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -92,6 +93,8 @@ import org.apache.struts2.ServletActionContext;
  * @since 2012-04-09
  */
 public class EctConsultationFormRequestPrintAction22Action extends ActionSupport {
+    private static final long serialVersionUID = 1L;
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -105,10 +108,10 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
     private static final String MISSING_ATTACHMENT_METADATA = "missing attachment metadata";
     private static final String UNREADABLE_ATTACHMENT_FILE = "unreadable attachment file";
     private static final String UNREADABLE_TEMPORARY_PDF = "unreadable temporary PDF";
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
-    private ConsultationManager consultationManager = SpringUtils.getBean(ConsultationManager.class);
-    private ConsultationRequestDao consultationRequestDao = SpringUtils.getBean(ConsultationRequestDao.class);
+    private transient ConsultationManager consultationManager = SpringUtils.getBean(ConsultationManager.class);
+    private transient ConsultationRequestDao consultationRequestDao = SpringUtils.getBean(ConsultationRequestDao.class);
 
     private static FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
 
@@ -273,8 +276,10 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
         } else if (doc.isPDF()) {
             addDocumentPathAttachment(alist, documentDirectory, doc);
         } else {
-            logger.error("EctConsultationFormRequestPrintAction: {} is marked as printable but no means have been established to print it.",
-                    LogSafe.sanitize(doc.getType()));
+            if (logger.isErrorEnabled()) {
+                logger.error("EctConsultationFormRequestPrintAction: {} is marked as printable but no means have been established to print it.",
+                        LogSafe.sanitize(doc.getType()));
+            }
         }
     }
 
@@ -301,11 +306,11 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
     private void appendLabAttachment(ArrayList<Object> alist, ArrayList<InputStream> streams, LabResultData lab) {
         File tempLabPDF = null;
         try {
-            tempLabPDF = File.createTempFile("lab" + lab.segmentID, "pdf");
+            tempLabPDF = PathValidationUtils.createSecureTempFile("lab-", ".pdf");
 
             // Defense-in-depth: verify temp file is in an allowed temp directory.
             if (!PathValidationUtils.isInAllowedTempDirectory(tempLabPDF)) {
-                logger.error("Temp file not in allowed temp directory: {}", tempLabPDF.getAbsolutePath());
+                logger.error("Temp file not in allowed temp directory");
                 throw new SecurityException("Temp file created outside allowed temp directory");
             }
 
@@ -324,8 +329,23 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
         } catch (IOException | RuntimeException e) {
             logSkippedAttachment(ATTACHMENT_TYPE_LAB, lab.segmentID, e.getClass().getName());
         } finally {
-            if (tempLabPDF != null && !tempLabPDF.delete()) {
-                logger.debug("Temporary lab PDF was already removed: {}", LogSafe.sanitize(tempLabPDF.getName()));
+            deleteTemporaryLabPDF(tempLabPDF);
+        }
+    }
+
+    private void deleteTemporaryLabPDF(File tempLabPDF) {
+        if (tempLabPDF == null) {
+            return;
+        }
+        try {
+            Files.delete(tempLabPDF.toPath());
+        } catch (NoSuchFileException e) {
+            if (logger.isDebugEnabled()) {
+                logger.debug("Temporary lab PDF was already removed");
+            }
+        } catch (IOException e) {
+            if (logger.isWarnEnabled()) {
+                logger.warn("Could not remove temporary lab PDF", e);
             }
         }
     }
@@ -407,21 +427,30 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
     }
 
     private String resolveConsultationDemographicNo(String requestId, String submittedDemographicNo) {
-        try {
-            ConsultationRequest consultationRequest = consultationRequestDao.find(Integer.parseInt(requestId));
-            if (consultationRequest == null || consultationRequest.getDemographicId() == null) {
-                logger.warn("Unable to resolve consultation print demographic for requestId={}", LogSafe.sanitize(requestId));
-                return null;
-            }
+        Integer parsedRequestId = parseConsultationRequestId(requestId);
+        if (parsedRequestId == null) {
+            return null;
+        }
 
-            String consultationDemographicNo = String.valueOf(consultationRequest.getDemographicId());
-            if (submittedDemographicNo != null && !submittedDemographicNo.trim().isEmpty() && !consultationDemographicNo.equals(submittedDemographicNo)) {
-                logger.warn("Ignoring mismatched consultation print demographic requestId={} submittedDemographic={} consultationDemographic={}",
-                        LogSafe.sanitize(requestId), LogSafe.sanitize(submittedDemographicNo), LogSafe.sanitize(consultationDemographicNo));
-            }
-            return consultationDemographicNo;
+        ConsultationRequest consultationRequest = consultationRequestDao.find(parsedRequestId);
+        if (consultationRequest == null || consultationRequest.getDemographicId() == null) {
+            logger.warn("Unable to resolve consultation print demographic for requestId={}", parsedRequestId);
+            return null;
+        }
+
+        String consultationDemographicNo = String.valueOf(consultationRequest.getDemographicId());
+        if (submittedDemographicNo != null && !submittedDemographicNo.trim().isEmpty() && !consultationDemographicNo.equals(submittedDemographicNo)) {
+            logger.warn("Ignoring mismatched consultation print demographic for requestId={} consultationDemographic={}",
+                    parsedRequestId, consultationDemographicNo);
+        }
+        return consultationDemographicNo;
+    }
+
+    private Integer parseConsultationRequestId(String requestId) {
+        try {
+            return Integer.valueOf(requestId);
         } catch (NumberFormatException e) {
-            logger.warn("Invalid consultation request id while resolving print demographic requestId={}", LogSafe.sanitize(requestId));
+            logger.warn("Invalid consultation request id while resolving print demographic");
             return null;
         }
     }
