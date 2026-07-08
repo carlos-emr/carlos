@@ -97,9 +97,20 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
 
     @Override
     public List<Object[]> findDocsAndConsultDocsByConsultId(Integer consultationId) {
-        Query query = entityManager.createQuery("SELECT d, cd FROM Document d, ConsultDocs cd WHERE d.documentNo = cd.documentNo AND cd.requestId = ?1 AND cd.docType = ?2 AND cd.deleted IS NULL");
+        Query query = entityManager.createQuery("SELECT d, cd FROM Document d, ConsultDocs cd, ConsultationRequest cr, CtlDocument c "
+                + "WHERE d.documentNo = cd.documentNo "
+                + "AND cr.id = cd.requestId "
+                + "AND c.id.documentNo = d.documentNo "
+                + "AND c.id.module = ?3 "
+                + "AND c.id.moduleId = cr.demographicId "
+                + "AND d.status = c.status "
+                + "AND d.status != 'D' "
+                + "AND cd.requestId = ?1 "
+                + "AND cd.docType = ?2 "
+                + "AND cd.deleted IS NULL");
         query.setParameter(1, consultationId);
         query.setParameter(2, ConsultDocs.DOCTYPE_DOC);
+        query.setParameter(3, Module.DEMOGRAPHIC.getName());
         return query.getResultList();
     }
 

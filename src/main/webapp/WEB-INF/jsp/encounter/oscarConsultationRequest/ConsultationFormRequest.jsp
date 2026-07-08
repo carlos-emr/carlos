@@ -2103,6 +2103,9 @@ if (userAgent != null) {
                         return;
                     }
                     showPreview(data.consultPDF, data.consultPDFName);
+                    if (data.attachmentWarnings && data.attachmentWarnings.length > 0) {
+                        alert("The preview was generated, but some attachments were unavailable and were not included:\n\n" + data.attachmentWarnings.join("\n"));
+                    }
                 },
                 error: function (xhr, status, error) {
                     HideSpin();

@@ -312,7 +312,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         PdfPTable datelineborder = new PdfPTable(1);
         datelineborder.setWidthPercentage(100f);
         PdfPCell datecell = new PdfPCell();
-        datecell.setPhrase(new Phrase(String.format("%s %s", getResource("msgDate"), reqFrm.pwb.equals("1") ? getResource("pwb") : reqFrm.referalDate)));
+        datecell.setPhrase(new Phrase(String.format("%s %s", getResource("msgDate"), "1".equals(reqFrm.pwb) ? getResource("pwb") : reqFrm.referalDate)));
         datecell.setBorder(0);
         datecell.setColspan(1);
         datecell.setPaddingTop(5f);
@@ -490,7 +490,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
             Integer programNo = Integer.parseInt(reqFrm.letterheadName.substring(5));
             letterheadName = programDao.getProgramName(programNo);
 
-        } else if (!"-1".equals(reqFrm.letterheadName) && !reqFrm.letterheadName.equals(clinic.getClinicName())) {
+        } else if (!"-1".equals(reqFrm.letterheadName) && !safe(reqFrm.letterheadName).equals(clinic.getClinicName())) {
 
             Provider letterheadNameProvider = null;
 
@@ -582,9 +582,9 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         }
 
         infoTable.addCell(setInfoCell(cell, getResource("msgUrgency")));
-        infoTable.addCell(setDataCell(cell, (reqFrm.urgency.equals("1") ? getResource("msgUrgent") :
-                (reqFrm.urgency.equals("2") ? getResource("msgNUrgent") :
-                        (reqFrm.urgency.equals("3")) ? getResource("msgReturn")
+        infoTable.addCell(setDataCell(cell, ("1".equals(reqFrm.urgency) ? getResource("msgUrgent") :
+                ("2".equals(reqFrm.urgency) ? getResource("msgNUrgent") :
+                        ("3".equals(reqFrm.urgency)) ? getResource("msgReturn")
                                 : "  "))));
 
         infoTable.addCell(setInfoCell(cell, getResource("msgService")));
@@ -675,12 +675,12 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
                 reqFrm.patientHealthNum,
                 reqFrm.patientHealthCardVersionCode)));
 
-        if (!reqFrm.pwb.equals("1")) {
+        if (!"1".equals(reqFrm.pwb)) {
             infoTable.addCell(setInfoCell(cell, getResource("msgappDate")));
-            infoTable.addCell(setDataCell(cell, reqFrm.pwb.equals("1") ? getResource("pwb") : reqFrm.appointmentDate));
+            infoTable.addCell(setDataCell(cell, "1".equals(reqFrm.pwb) ? getResource("pwb") : reqFrm.appointmentDate));
             infoTable.addCell(setInfoCell(cell, getResource("msgTime")));
             infoTable.addCell(setDataCell(cell, String.format("%s%s%s %s", reqFrm.appointmentHour,
-                    !reqFrm.appointmentMinute.equals("") ? ":" : "",
+                    !"".equals(reqFrm.appointmentMinute) ? ":" : "",
                     reqFrm.appointmentMinute,
                     reqFrm.appointmentPm)));
         }
@@ -941,6 +941,10 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
             return 0;
         }
         return str.length();
+    }
+
+    private String safe(String str) {
+        return str == null ? "" : str;
     }
 
     /**

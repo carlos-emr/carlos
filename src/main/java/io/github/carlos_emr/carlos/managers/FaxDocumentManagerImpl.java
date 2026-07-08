@@ -38,7 +38,6 @@ import io.github.carlos_emr.carlos.fax.core.FaxAccount;
 import io.github.carlos_emr.carlos.fax.core.FaxRecipient;
 import io.github.carlos_emr.carlos.fax.util.PdfCoverPageCreator;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -80,14 +79,11 @@ public class FaxDocumentManagerImpl implements FaxDocumentManager {
          * For future code refactoring, the 'getEformFaxDocument' method is unnecessary.
          * Instead, developers should directly use 'EformDataManager.createEformPDF()'.
          */
-        Path path = null;
         try {
-            eformDataManager.createEformPDF(loggedInInfo, eformId);
+            return eformDataManager.createEformPDF(loggedInInfo, eformId);
         } catch (PDFGenerationException e) {
-            MiscUtils.getLogger().error("An error occurred while creating the pdf of the eForm.", e);
+            throw new IllegalStateException("Unable to render eForm fax document.", e);
         }
-
-        return path;
     }
 
     public Path getFormFaxDocument(LoggedInInfo loggedInInfo, FormTransportContainer formTransportContainer) {

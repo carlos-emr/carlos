@@ -44,6 +44,8 @@ import java.util.*;
  */
 public interface DocumentAttachmentManager {
 
+    String ATTACHMENT_WARNINGS_ATTRIBUTE = "attachmentWarnings";
+
     /**
      * Retrieves all attachments associated with a specific consultation request.
      *
