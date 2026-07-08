@@ -314,7 +314,7 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
                 addRenderedFaxAttachment(alist, streams, attachedForm, ATTACHMENT_TYPE_FORM, formItem.getFormId());
             } catch (SecurityException e) {
                 throw e;
-            } catch (IOException | RuntimeException e) {
+            } catch (IOException | ServletException | RuntimeException e) {
                 logSkippedAttachment(ATTACHMENT_TYPE_FORM, formItem.getFormId(), e.getClass().getName());
             }
         }

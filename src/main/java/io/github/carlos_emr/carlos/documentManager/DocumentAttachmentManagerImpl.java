@@ -704,7 +704,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
     }
 
     private void recordSkippedAttachment(List<String> attachmentWarnings, DocumentType documentType, Object documentId, String reason) {
-        String safeAttachmentId = String.valueOf(documentId);
+        String safeAttachmentId = documentId == null ? "unknown" : String.valueOf(documentId);
         attachmentWarnings.add(getAttachmentDisplayType(documentType) + " attachment " + safeAttachmentId + " is unavailable and was not included.");
         if (logger.isWarnEnabled()) {
             logger.warn("Skipped consultation attachment type={} id={} while rendering PDF package: {}",
