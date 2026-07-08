@@ -2102,7 +2102,21 @@ if (userAgent != null) {
                         alert(data.errorMessage.replace(/\\n/g, '\n'));
                         return;
                     }
+                    if (data.signatureImg) {
+                        var signatureImg = document.getElementById('signatureImg');
+                        var newSignature = document.getElementById('newSignature');
+                        if (signatureImg) {
+                            signatureImg.value = data.signatureImg;
+                        }
+                        if (newSignature) {
+                            newSignature.value = 'false';
+                        }
+                        isSignatureSaved = true;
+                    }
                     showPreview(data.consultPDF, data.consultPDFName);
+                    if (data.warningMessage) {
+                        alert(data.warningMessage.replace(/\\n/g, '\n'));
+                    }
                 },
                 error: function (xhr, status, error) {
                     HideSpin();

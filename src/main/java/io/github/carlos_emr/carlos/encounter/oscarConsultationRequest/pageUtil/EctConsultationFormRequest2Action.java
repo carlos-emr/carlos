@@ -111,6 +111,9 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
     private static final ObjectMapper objectMapper = new ObjectMapper();
     private static final String ATTR_SIGNATURE_NOT_APPLIED = "signatureNotApplied";
     private static final String ATTR_ERROR_MESSAGE = "errorMessage";
+    private static final String ATTR_WARNING_MESSAGE = "warningMessage";
+    private static final String ATTR_SIGNATURE_IMG = "signatureImg";
+    private static final String SIGNATURE_NOT_APPLIED_WARNING = "The captured signature could not be saved and will not appear on the PDF.";
 
     private Integer parseUpdateInteger(String rawValue, String logMessage, String actionErrorMessage) {
         try {
@@ -552,11 +555,15 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
             try {
                 if (StringUtils.isBlank(requestId)) {
                     request.setAttribute(ATTR_ERROR_MESSAGE, "A print preview of this consultation could not be generated. \n\nMissing consultation request id.");
-                } else {
-                    byte[] signatureImageOverride = consultationSignatureService.resolvePreviewSignatureImage(
-                            loggedInInfo, newSignature, trimmedSignatureImg, newSignatureImg, signatureProviderNo);
-                    if (signatureImageOverride != null && signatureImageOverride.length > 0) {
-                        request.setAttribute(ConsultationSignatureService.SIGNATURE_IMAGE_OVERRIDE_ATTRIBUTE, signatureImageOverride);
+                } else if (persistManualSignatureForRendering(loggedInInfo, requestId, demographicNo,
+                            newSignature, trimmedSignatureImg, manualSignatureRequestId,
+                            signatureProviderNo, consultationRequestDao)) {
+                    if (!newSignature) {
+                        byte[] signatureImageOverride = consultationSignatureService.resolvePreviewSignatureImage(
+                                loggedInInfo, false, trimmedSignatureImg, newSignatureImg, signatureProviderNo);
+                        if (signatureImageOverride != null && signatureImageOverride.length > 0) {
+                            request.setAttribute(ConsultationSignatureService.SIGNATURE_IMAGE_OVERRIDE_ATTRIBUTE, signatureImageOverride);
+                        }
                     }
                     renderConsultationFormWithAttachments(request, response, requestId, demographicNo);
                 }
@@ -669,6 +676,74 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return NONE;
     }
 
+    private boolean persistManualSignatureForRendering(LoggedInInfo loggedInInfo, String requestId, String demographicNo,
+                                                       boolean newSignature, String submittedSignatureImg,
+                                                       String manualSignatureRequestId, String signatureProviderNo,
+                                                       ConsultationRequestDao consultationRequestDao) {
+        if (!newSignature) {
+            return true;
+        }
+
+        Integer demographicId = parseUpdateInteger(demographicNo,
+                "Invalid demographic number for consultation print preview signature: {}",
+                "Invalid demographic number");
+        if (demographicId == null) {
+            request.setAttribute(ATTR_ERROR_MESSAGE, "A print preview of this consultation could not be generated. \n\nInvalid demographic number.");
+            return false;
+        }
+
+        Integer parsedConsultationRequestId = parseUpdateInteger(requestId,
+                "Invalid consultation request id for print preview signature update: {}",
+                "Invalid consultation request id");
+        if (parsedConsultationRequestId == null) {
+            request.setAttribute(ATTR_ERROR_MESSAGE, "A print preview of this consultation could not be generated. \n\nInvalid consultation request id.");
+            return false;
+        }
+        int consultationRequestId = parsedConsultationRequestId;
+
+        boolean manualCaptured = consultationSignatureService.wasManualSignatureCaptured(manualSignatureRequestId);
+        boolean manualSignatureSubmitted = StringUtils.isNotBlank(submittedSignatureImg)
+                && !SignatureReference.isStoredId(submittedSignatureImg);
+        DigitalSignature signature = digitalSignatureManager.processAndSaveDigitalSignature(
+                loggedInInfo, manualSignatureRequestId, demographicId, ModuleType.CONSULTATION);
+
+        if (signature == null) {
+            if (manualCaptured || manualSignatureSubmitted) {
+                logger.error("Captured manual signature could not be persisted for provider {} on consultation print preview (requestId={})",
+                        LogSafe.sanitize(signatureProviderNo), LogSafe.sanitize(requestId));
+                warnSignatureNotApplied();
+            } else {
+                logger.debug("No manual signature captured for consultation print preview (requestId={}); rendering unsigned", requestId);
+            }
+            return true;
+        }
+
+        String signatureId = String.valueOf(signature.getId());
+        ConsultationRequest consult = consultationRequestDao.find(consultationRequestId);
+        if (consult == null) {
+            logger.error("Consultation request not found while applying print preview signature: {}", consultationRequestId);
+            request.setAttribute(ATTR_WARNING_MESSAGE, "The captured signature was saved but could not be applied to this PDF.");
+            return true;
+        }
+        if (consult.getDemographicId() != null && !demographicId.equals(consult.getDemographicId())) {
+            logger.error("Rejected print preview signature update for requestId={} due to demographic mismatch",
+                    LogSafe.sanitize(requestId));
+            request.setAttribute(ATTR_WARNING_MESSAGE, "The captured signature was saved but could not be applied to this PDF.");
+            return true;
+        }
+
+        consult.setSignatureImg(signatureId);
+        consultationRequestDao.merge(consult);
+        this.setSignatureImg(signatureId);
+        request.setAttribute(ATTR_SIGNATURE_IMG, signatureId);
+        return true;
+    }
+
+    private void warnSignatureNotApplied() {
+        request.setAttribute(ATTR_SIGNATURE_NOT_APPLIED, Boolean.TRUE);
+        request.setAttribute(ATTR_WARNING_MESSAGE, SIGNATURE_NOT_APPLIED_WARNING);
+    }
+
     /**
      * Creates a consultation request extension entry for storing custom form fields.
      *
@@ -739,6 +814,8 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         json.put("consultPDF", (String) request.getAttribute("consultPDF"));
         json.put("consultPDFName", (String) request.getAttribute("consultPDFName"));
         json.put(ATTR_ERROR_MESSAGE, (String) request.getAttribute(ATTR_ERROR_MESSAGE));
+        json.put(ATTR_WARNING_MESSAGE, (String) request.getAttribute(ATTR_WARNING_MESSAGE));
+        json.put(ATTR_SIGNATURE_IMG, (String) request.getAttribute(ATTR_SIGNATURE_IMG));
         try {
             if (!response.isCommitted()) {
                 response.resetBuffer();

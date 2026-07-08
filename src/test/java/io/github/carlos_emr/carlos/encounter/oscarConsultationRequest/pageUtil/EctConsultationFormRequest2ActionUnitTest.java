@@ -73,7 +73,6 @@ import org.springframework.test.util.ReflectionTestUtils;
 @Tag("unit")
 class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
 
-    private static final byte[] SIGNATURE_BYTES = new byte[]{1, 2, 3};
     private static final String PDF_BASE64 = "JVBERi0xLjQK";
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
@@ -133,8 +132,6 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
                 .thenReturn("sig-request");
         when(consultationSignatureService.resolveSignatureProviderNo("999998", "999998", "999998"))
                 .thenReturn("999998");
-        when(consultationSignatureService.resolvePreviewSignatureImage(loggedInInfo, false, "", "sig-request", "999998"))
-                .thenReturn(SIGNATURE_BYTES);
         when(demographicManager.getDemographicFormattedName(loggedInInfo, 1)).thenReturn("Patient, Test");
 
         pdfPath = Files.createTempFile("consult-preview", ".pdf");
@@ -172,16 +169,76 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("returns the base64 PDF JSON and sets the signature override for a direct print preview")
-    void shouldReturnJsonPdfWithSignatureOverride_forDirectPrintPreview() throws Exception {
+    @DisplayName("persists a captured manual signature before direct print preview")
+    void shouldPersistManualSignature_beforeDirectPrintPreview() throws Exception {
+        ConsultationRequest existing = new ConsultationRequest();
+        existing.setDemographicId(1);
+        when(consultationRequestDao.find(9)).thenReturn(existing);
+
+        DigitalSignature savedSignature = mock(DigitalSignature.class);
+        when(savedSignature.getId()).thenReturn(77);
+
+        action.setSignatureImg("9999981000");
+        request.setParameter("newSignature", "true");
+        request.setParameter("newSignatureImg", "9999981000");
+        when(consultationSignatureService.resolveManualSignatureRequestId("9999981000", "9999981000"))
+                .thenReturn("9999981000");
+        when(consultationSignatureService.wasManualSignatureCaptured("9999981000")).thenReturn(true);
+        when(digitalSignatureManager.processAndSaveDigitalSignature(
+                loggedInInfo, "9999981000", 1, ModuleType.CONSULTATION))
+                .thenReturn(savedSignature);
+
         String result = action.execute();
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getContentType()).isEqualTo("application/json;charset=UTF-8");
         assertThat(response.getContentAsString()).contains("\"consultPDF\":\"" + PDF_BASE64 + "\"");
         assertThat(response.getContentAsString()).contains("\"errorMessage\":null");
-        assertThat(request.getAttribute(ConsultationSignatureService.SIGNATURE_IMAGE_OVERRIDE_ATTRIBUTE))
-                .isEqualTo(SIGNATURE_BYTES);
+        assertThat(response.getContentAsString()).contains("\"warningMessage\":null");
+        assertThat(response.getContentAsString()).contains("\"signatureImg\":\"77\"");
+        assertThat(existing.getSignatureImg()).isEqualTo("77");
+        verify(consultationRequestDao).merge(existing);
+        verify(documentAttachmentManager).renderConsultationFormWithAttachments(request, response);
+    }
+
+    @Test
+    @DisplayName("returns the base64 PDF JSON without creating a duplicate signature for direct print preview")
+    void shouldReturnJsonPdfWithoutDuplicateSignature_forDirectPrintPreview() throws Exception {
+        action.setSignatureImg("123");
+        request.setParameter("newSignature", "false");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentType()).isEqualTo("application/json;charset=UTF-8");
+        assertThat(response.getContentAsString()).contains("\"consultPDF\":\"" + PDF_BASE64 + "\"");
+        assertThat(response.getContentAsString()).contains("\"errorMessage\":null");
+        assertThat(response.getContentAsString()).contains("\"warningMessage\":null");
+        assertThat(response.getContentAsString()).contains("\"signatureImg\":null");
+        verify(digitalSignatureManager, never()).processAndSaveDigitalSignature(any(), any(), any(), any());
+        verify(consultationRequestDao, never()).merge(any());
+    }
+
+    @Test
+    @DisplayName("warns but still returns unsigned PDF JSON when a submitted manual signature cannot be persisted")
+    void shouldWarnButReturnPdf_whenManualSignatureCannotBePersistedForDirectPrintPreview() throws Exception {
+        action.setSignatureImg("9999981000");
+        request.setParameter("newSignature", "true");
+        request.setParameter("newSignatureImg", "9999981000");
+        when(consultationSignatureService.resolveManualSignatureRequestId("9999981000", "9999981000"))
+                .thenReturn("9999981000");
+        when(consultationSignatureService.wasManualSignatureCaptured("9999981000")).thenReturn(false);
+        when(digitalSignatureManager.processAndSaveDigitalSignature(
+                loggedInInfo, "9999981000", 1, ModuleType.CONSULTATION))
+                .thenReturn(null);
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentAsString()).contains("\"consultPDF\":\"" + PDF_BASE64 + "\"");
+        assertThat(response.getContentAsString()).contains("The captured signature could not be saved and will not appear on the PDF.");
+        assertThat(response.getContentAsString()).contains("\"signatureImg\":null");
+        verify(consultationRequestDao, never()).merge(any());
         verify(documentAttachmentManager).renderConsultationFormWithAttachments(request, response);
     }
 
