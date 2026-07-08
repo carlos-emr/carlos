@@ -24,20 +24,6 @@ jobs:
       fail-fast: false
       matrix:
         province: [on, bc]
-    services:
-      mariadb:
-        # 11.8.8 matches the devcontainer/CI runtime and production (carlos-podman). The V1 baseline
-        # DDL is fully explicit about every timestamp column's nullability/default, so 11.8's
-        # explicit_defaults_for_timestamp=ON (vs 10.5's OFF) produces identical columns; the 3
-        # zero-date timestamp defaults still load because sql_mode omits NO_ZERO_DATE.
-        image: mariadb:11.8.8
-        env:
-          MARIADB_ROOT_PASSWORD: password
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mariadb-admin ping -ppassword"
-          --health-interval=10s --health-timeout=5s --health-retries=10
 
     steps:
       - uses: actions/checkout@v4
@@ -50,6 +36,28 @@ jobs:
           curl -fsSL "https://download.red-gate.com/maven/release/com/redgate/flyway/flyway-commandline/${FLYWAY_VERSION}/flyway-commandline-${FLYWAY_VERSION}-linux-x64.tar.gz" \
             | tar xz
           echo "$PWD/flyway-${FLYWAY_VERSION}" >> "$GITHUB_PATH"
+
+      - name: Start MariaDB 11.8.8 with the CARLOS server config
+        run: |
+          set -euo pipefail
+          # Run MariaDB with the SAME my.cnf the devcontainer/production use (not a stock service
+          # container) so the datadir initializes with innodb_page_size=32K. CARLOS requires 32K
+          # pages (a documented invariant): several wide legacy form tables — e.g. formBCAR (500+
+          # varchar columns) — exceed InnoDB's ~8126-byte leaf-row limit under the default 16K page
+          # size but fit under 32K. 11.8.8 matches the devcontainer/CI runtime and carlos-podman.
+          docker run -d --name carlos-db -p 3306:3306 \
+            -e MARIADB_ROOT_PASSWORD=password \
+            -v "$GITHUB_WORKSPACE/.devcontainer/development/config/shared/my.cnf:/etc/mysql/my.cnf:ro" \
+            mariadb:11.8.8
+          echo "Waiting for MariaDB to accept connections..."
+          for i in $(seq 1 60); do
+            if mariadb -h 127.0.0.1 -uroot -ppassword -e "SELECT 1" >/dev/null 2>&1; then
+              echo "MariaDB ready (innodb_page_size=$(mariadb -N -h 127.0.0.1 -uroot -ppassword -e 'SELECT @@innodb_page_size'))"
+              break
+            fi
+            [ "$i" = 60 ] && { echo "::error::MariaDB did not start"; docker logs carlos-db; exit 1; }
+            sleep 2
+          done
 
       - name: Migrate the V1 baseline and smoke-check the result
         env:
