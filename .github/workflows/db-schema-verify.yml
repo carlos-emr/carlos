@@ -56,8 +56,8 @@ jobs:
       - name: Skip if baseline not yet generated
         id: guard
         run: |
-          if [ ! -f database/mysql/migration/common/V1__baseline_core_schema.sql ]; then
-            echo "::notice::No V1 baseline committed yet — run database/mysql/build-baseline.sh and commit the V1* files to activate schema verification."
+          if [ ! -f "database/mysql/migration/${{ matrix.province }}/V1__baseline_schema.sql" ]; then
+            echo "::notice::No V1 baseline for ${{ matrix.province }} yet — run database/mysql/build-baseline.sh and commit the V1 files to activate schema verification."
             echo "active=false" >> "$GITHUB_OUTPUT"
           else
             echo "active=true" >> "$GITHUB_OUTPUT"
@@ -87,7 +87,10 @@ jobs:
             -locations="filesystem:migration/common,filesystem:migration/${PROV}" \
             -baselineOnMigrate=true migrate
 
-          norm() { mysqldump -h 127.0.0.1 -uroot -ppassword --no-data --skip-comments --skip-dump-date "$1" \
+          # Exclude Flyway's own bookkeeping table: the Flyway-built DB has flyway_schema_history,
+          # the legacy-script DB does not — that is the only expected difference.
+          norm() { mysqldump -h 127.0.0.1 -uroot -ppassword --no-data --skip-comments --skip-dump-date \
+                    --ignore-table="$1.flyway_schema_history" "$1" \
                     | sed -E 's/ AUTO_INCREMENT=[0-9]+//g' | sort; }
           norm legacy_${PROV} > /tmp/a.sql
           norm flyway_${PROV} > /tmp/b.sql

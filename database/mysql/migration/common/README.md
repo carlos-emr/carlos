@@ -1,8 +1,10 @@
-# `common/` — province-neutral migrations
+# `common/` — shared migrations (reserved)
 
-Generated baseline files land here (`V1__baseline_core_schema.sql`, `V1.1__baseline_core_seed.sql`,
-`V1.2__reference_icd.sql`) when you run `database/mysql/build-baseline.sh` in a devcontainer.
+Currently **empty**. The initial `V1` baseline is province-complete (it lives in `on/` and `bc/`),
+so there is no shared baseline file here yet.
 
-**New province-neutral schema changes** go here as `VYYYY.MM.DD[.N]__short_description.sql`.
+This location is applied together with the selected province (`common` + `on`, or `common` + `bc`).
+Put **genuinely shared future schema changes** here as `VYYYY.MM.DD[.N]__short_description.sql` so a
+single migration covers both provinces.
 
 Flyway ignores this README (only `V*`/`R*` `.sql` files are migrations).

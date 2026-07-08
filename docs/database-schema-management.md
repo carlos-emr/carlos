@@ -61,9 +61,10 @@ Run in a devcontainer (which has MariaDB):
 database/mysql/build-baseline.sh
 ```
 
-It builds a throwaway database from `createdatabase_on.sh` / `createdatabase_bc.sh` + the required
-recent updates, dumps normalized schema and seed, and writes `migration/_generated_*.sql`. Split
-those into the committed `V1*` files (province-neutral vs province-specific), then verify and commit.
+It builds a throwaway database per province from `createdatabase_generic.sh <prov> 9` + the required
+recent updates, dumps the normalized **structure only** (`mysqldump --no-data`), and writes
+`migration/on/V1__baseline_schema.sql` and `migration/bc/V1__baseline_schema.sql`. Commit the
+regenerated files. The baseline is structure only — seed/reference data is intentionally excluded.
 
 ## Verification
 
@@ -84,8 +85,12 @@ The guarantee is **schema identity**: a Flyway-built database equals a legacy-sc
 This is staged so each step leaves the tree buildable:
 
 - **Landed:** Flyway dependencies + Maven plugin, the boot-time validate gate (default `off`), the
-  migration directory + config, `build-baseline.sh`, the CI schema-verify workflow (dormant until
-  `V1` lands), the frozen-`updates/` policy, and the `carlos-ctl db migrate|baseline|info` verbs.
-- **Next (needs a devcontainer DB):** run `build-baseline.sh`, commit the `V1*` files (activates CI),
-  then cut `populate_db.sh` over to `flyway migrate` + a clearly separated dev-only seed block, and
-  switch production to `carlos.flyway.onBoot=validate`.
+  migration directory + config, `build-baseline.sh`, the CI schema-verify workflow, the
+  frozen-`updates/` policy, and the `carlos-ctl db migrate|baseline|info` verbs.
+- **Landed + verified:** the province `V1__baseline_schema.sql` files (Ontario 535 tables, BC 516).
+  Confirmed with MariaDB 10.11 that `flyway migrate` reproduces the script-built schema **exactly**
+  for both provinces — the only difference from the legacy build is Flyway's own
+  `flyway_schema_history` table (which the CI diff and the check below both exclude).
+- **Next:** decide the seed/reference strategy (versioned `V1.x` vs a separate dev-only load), then
+  cut `populate_db.sh` over to `flyway migrate` + a dev-only seed block and switch production to
+  `carlos.flyway.onBoot=validate`.

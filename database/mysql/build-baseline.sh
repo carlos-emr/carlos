@@ -1,37 +1,36 @@
 #!/usr/bin/env bash
 #
-# build-baseline.sh — regenerate the consolidated Flyway V1 baseline for CARLOS.
+# build-baseline.sh — regenerate the CARLOS Flyway schema baseline (V1) for each province.
 #
 # WHY: fresh CARLOS installs should not replay 20 years of dated update-*.sql patches. This tool
-# builds a known-good database the legacy way (createdatabase_<prov>.sh + the currently-required
-# recent updates), then captures it as a clean, checksummed Flyway baseline:
+# captures the *authoritative schema* — what the devcontainer build scripts produce — as a clean,
+# checksummed Flyway baseline:
 #
-#   common/V1__baseline_core_schema.sql   province-neutral DDL
-#   common/V1.1__baseline_core_seed.sql   app-REQUIRED seed (reference/lookup rows the app needs)
-#   common/V1.2__reference_icd.sql        large static ICD reference
-#   on/V1.0.1__on_schema.sql              Ontario DDL
-#   on/V1.1.1__on_seed.sql                Ontario seed (incl. OLIS)
-#   bc/V1.0.1__bc_schema.sql              British Columbia DDL
-#   bc/V1.1.1__bc_seed.sql                British Columbia seed (billing codes, specialists, pharmacies)
+#   migration/on/V1__baseline_schema.sql   Ontario schema (structure only)
+#   migration/bc/V1__baseline_schema.sql   British Columbia schema (structure only)
+#
+# It captures STRUCTURE ONLY (mysqldump --no-data). Seed / reference / demo data is deliberately
+# excluded (the authoritative "schema" is the table structure, not the default rows; demo data is
+# dev-only and loaded separately). Seed/reference migrations, if adopted later, are added as
+# separate V1.x files — see docs/database-schema-management.md.
+#
+# The baseline is province-complete (each province dir carries its full schema); migration/common/
+# is reserved for genuinely shared FUTURE migrations. Because a given database only ever applies
+# common + ONE province location, the two V1 files never collide.
 #
 # It is a MAINTAINER tool. Run it in the devcontainer (which has MariaDB) whenever the baseline
-# needs to be regenerated (e.g. after folding a batch of deltas into a new baseline). Commit the
-# regenerated V1* files. It never runs as part of the normal build.
+# needs regenerating, then commit the regenerated V1 files. It never runs during the normal build.
 #
 # Usage:
 #   database/mysql/build-baseline.sh [--host HOST] [--user USER] [--password PW]
 #   MYSQL_HOST / MYSQL_USER / MYSQL_ROOT_PASSWORD env vars are honoured as defaults.
-#
-# The dumps are normalized (no dump date, no AUTO_INCREMENT counters, no wrapping comments) so that
-# a byte-for-byte diff against the legacy-built schema is meaningful — see
-# docs/database-schema-management.md, "Verification".
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
-HOST="${MYSQL_HOST:-db}"
+HOST="${MYSQL_HOST:-127.0.0.1}"
 USER="${MYSQL_USER:-root}"
 PASSWORD="${MYSQL_ROOT_PASSWORD:-password}"
 
@@ -44,8 +43,10 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
-# The recent updates that populate_db.sh replays on top of the init scripts today. Keep this list
-# in sync with .devcontainer/db/scripts/populate_db.sh until the cutover retires that block.
+export MYSQL_PWD="$PASSWORD"
+
+# The recent updates populate_db.sh replays on top of the init scripts today. Keep this list in
+# sync with .devcontainer/db/scripts/populate_db.sh until the cutover retires that block.
 REQUIRED_UPDATES="
 update-2025-01-29.sql
 update-2025-02-27.sql
@@ -60,60 +61,51 @@ update-2026-03-25-security-mfa-default.sql
 update-2026-04-30-sec-obj-missing-privileges.sql
 "
 
-mysql_cmd() { mysql -h "$HOST" -u "$USER" -p"$PASSWORD" "$@"; }
-
-# Normalize a mysqldump stream so diffs are stable across runs and across the legacy vs Flyway path.
+# Normalize a mysqldump --no-data stream so the committed file is stable across runs/hosts:
+# drop AUTO_INCREMENT counters, DEFINER clauses, the mariadb-dump sandbox-mode directive, and the
+# dump-date / server-version lines.
 normalize() {
   sed -E \
     -e 's/ AUTO_INCREMENT=[0-9]+//g' \
+    -e 's/DEFINER=`[^`]+`@`[^`]+` //g' \
+    -e '/^\/\*M!999999/d' \
     -e '/^-- Dump completed/d' \
-    -e '/^-- Server version/d' \
-    -e '/^\/\*![0-9]+ SET /d'
+    -e '/^-- Server version/d'
 }
 
-build_and_dump() {
-  province="$1"   # on | bc
-  icd="$2"        # 9 | 10
+build_province() {
+  province="$1"   # on | bc  (LOCATION qualifier for oscarinit_$LOCATION / oscardata_$LOCATION)
+  icd="$2"        # 9 | 10   (icd$ICD.sql). Both provinces currently ship ICD-9.
+  label="$3"      # human-readable name for the file header
   tmp_db="carlos_baseline_${province}"
 
-  echo ">> building throwaway ${tmp_db} from createdatabase_${province}.sh + required updates"
-  mysql_cmd -e "DROP DATABASE IF EXISTS ${tmp_db};"
-  "./createdatabase_${province}.sh" "$USER" "$PASSWORD" "$tmp_db" suppressPwdGen >/dev/null
+  # Call createdatabase_generic.sh directly rather than the province wrappers: the bc wrapper caps
+  # at 3 args and cannot pass suppressPwdGen. generic = (user password db LOCATION ICD suppress).
+  echo ">> building throwaway ${tmp_db} (LOCATION=${province}, ICD=${icd}) + required updates"
+  mysql -h "$HOST" -u "$USER" -e "DROP DATABASE IF EXISTS ${tmp_db};"
+  ./createdatabase_generic.sh "$USER" "$PASSWORD" "$tmp_db" "$province" "$icd" suppressPwdGen >/dev/null
 
   for u in $REQUIRED_UPDATES; do
-    if [ -f "updates/$u" ]; then
-      mysql_cmd "$tmp_db" < "updates/$u"
-    fi
+    [ -f "updates/$u" ] && mysql -h "$HOST" -u "$USER" "$tmp_db" < "updates/$u"
   done
 
-  echo ">> dumping ${province} schema + seed"
-  # Schema only (province-neutral + province tables together; we split by province by building two
-  # DBs and diffing table sets in the verification step, not here).
-  mysqldump -h "$HOST" -u "$USER" -p"$PASSWORD" \
-    --no-data --skip-comments --skip-dump-date --single-transaction \
-    "$tmp_db" | normalize > "migration/_generated_${province}_schema.sql"
+  out="migration/${province}/V1__baseline_schema.sql"
+  echo ">> writing ${out}"
+  {
+    printf -- '-- CARLOS consolidated schema baseline (%s) — GENERATED by build-baseline.sh, do not edit by hand.\n' "$label"
+    printf -- '-- Structure only (no seed/demo data). Captured from the devcontainer script build:\n'
+    printf -- '-- createdatabase_generic.sh %s %s + the required updates/*.sql. Regenerate with build-baseline.sh.\n\n' "$province" "$icd"
+    mysqldump -h "$HOST" -u "$USER" --no-data --skip-comments --skip-dump-date \
+      --single-transaction --routines --events "$tmp_db" | normalize
+  } > "$out"
 
-  # Required seed + reference (data). --hex-blob keeps encrypted/binary columns intact.
-  mysqldump -h "$HOST" -u "$USER" -p"$PASSWORD" \
-    --no-create-info --skip-comments --skip-dump-date --hex-blob --single-transaction \
-    "$tmp_db" | normalize > "migration/_generated_${province}_data.sql"
-
-  mysql_cmd -e "DROP DATABASE IF EXISTS ${tmp_db};"
+  mysql -h "$HOST" -u "$USER" -e "DROP DATABASE IF EXISTS ${tmp_db};"
 }
 
-echo "== CARLOS baseline generator =="
-echo "This produces migration/_generated_*.sql. Review, then split into the V1* files per"
-echo "docs/database-schema-management.md before committing. Existing V1* files are NOT overwritten"
-echo "automatically — this guards against clobbering a reviewed baseline."
+echo "== CARLOS schema baseline generator =="
+build_province on 9 "Ontario"
+build_province bc 9 "British Columbia"
 echo
-
-build_and_dump on 9
-build_and_dump bc 10
-
-echo
-echo ">> raw generated dumps written to migration/_generated_*.sql"
-echo ">> Next: split province-neutral vs province-specific tables into:"
-echo "     common/V1__baseline_core_schema.sql, common/V1.1__baseline_core_seed.sql,"
-echo "     common/V1.2__reference_icd.sql, on/V1.0.1__on_schema.sql, on/V1.1.1__on_seed.sql,"
-echo "     bc/V1.0.1__bc_schema.sql, bc/V1.1.1__bc_seed.sql"
-echo ">> Then run the verification diff (docs/database-schema-management.md) and commit."
+echo ">> wrote migration/on/V1__baseline_schema.sql and migration/bc/V1__baseline_schema.sql"
+echo ">> Verify (docs/database-schema-management.md): flyway migrate into a fresh DB and diff its"
+echo "   schema (excluding flyway_schema_history) against the script-built DB — expect no diff."
