@@ -6,8 +6,10 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.interactive.form.PDAcroForm;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.ConsultDocsDao;
+import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
 import io.github.carlos_emr.carlos.commn.dao.EFormDocsDao;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
+import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.EFormDocs;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMUtil;
@@ -74,6 +76,8 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
 
     @Autowired
     private ConsultDocsDao consultDocsDao;
+    @Autowired
+    private ConsultationRequestDao consultationRequestDao;
     @Autowired
     private EFormDocsDao eFormDocsDao;
 
@@ -386,9 +390,16 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      * @throws PDFGenerationException if an error occurs during PDF concatenation or form field flattening
      */
     public Path concatPDF(ArrayList<Object> pdfDocumentList) throws PDFGenerationException {
+        return concatPDF(pdfDocumentList, null);
+    }
+
+    private Path concatPDF(ArrayList<Object> pdfDocumentList, List<String> attachmentWarnings) throws PDFGenerationException {
         Path path = null;
         try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
-            ConcatPDF.concat(pdfDocumentList, outputStream);
+            int skippedFiles = ConcatPDF.concat(pdfDocumentList, outputStream);
+            if (skippedFiles > 0 && attachmentWarnings != null) {
+                attachmentWarnings.add(skippedFiles + " attachment PDF" + (skippedFiles == 1 ? "" : "s") + " could not be included in the merged preview.");
+            }
             path = nioFileManager.saveTempFile("combinedPDF_" + new Date().getTime(), outputStream);
             flattenPDFFormFields(path);
         } catch (IOException e) {
@@ -471,7 +482,8 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
     public Path renderConsultationFormWithAttachments(HttpServletRequest request, HttpServletResponse response) throws PDFGenerationException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String requestId = (String) request.getAttribute("reqId");
-        String demographicId = (String) request.getAttribute("demographicId");
+        String demographicId = resolveConsultationDemographicId(requestId, (String) request.getAttribute("demographicId"));
+        request.setAttribute("demographicId", demographicId);
         Path consultationFormPDFPath = consultationManager.renderConsultationForm(request);
         List<String> attachmentWarnings = initializeAttachmentWarnings(request);
 
@@ -490,7 +502,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         attachHRMPDFs(loggedInInfo, attachedHRMs, pdfDocumentList, attachmentWarnings);
         attachFormPDFs(request, response, attachedForms, pdfDocumentList, attachmentWarnings);
 
-        return concatPDF(pdfDocumentList);
+        return concatPDF(pdfDocumentList, attachmentWarnings);
     }
 
     /**
@@ -532,7 +544,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         attachHRMPDFs(loggedInInfo, attachedHRMs, pdfDocumentList, attachmentWarnings);
         attachFormPDFs(request, response, attachedForms, pdfDocumentList, attachmentWarnings);
 
-        return concatPDF(pdfDocumentList);
+        return concatPDF(pdfDocumentList, attachmentWarnings);
     }
 
     /**
@@ -686,6 +698,31 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         List<String> attachmentWarnings = new ArrayList<>();
         request.setAttribute(ATTACHMENT_WARNINGS_ATTRIBUTE, attachmentWarnings);
         return attachmentWarnings;
+    }
+
+    private String resolveConsultationDemographicId(String requestId, String requestDemographicId) throws PDFGenerationException {
+        if (StringUtils.isNullOrEmpty(requestId)) {
+            throw new PDFGenerationException("Consultation request id is required for PDF generation.");
+        }
+
+        Integer parsedRequestId;
+        try {
+            parsedRequestId = Integer.valueOf(requestId);
+        } catch (NumberFormatException e) {
+            throw new PDFGenerationException("Consultation request id is invalid for PDF generation.", e);
+        }
+
+        ConsultationRequest consultationRequest = consultationRequestDao.find(parsedRequestId);
+        if (consultationRequest == null || consultationRequest.getDemographicId() == null) {
+            throw new PDFGenerationException("Consultation request could not be loaded for PDF generation.");
+        }
+
+        String consultationDemographicId = String.valueOf(consultationRequest.getDemographicId());
+        if (!StringUtils.isNullOrEmpty(requestDemographicId) && !consultationDemographicId.equals(requestDemographicId)) {
+            logger.warn("Ignoring mismatched consultation PDF demographic requestId={} requestDemographic={} consultationDemographic={}",
+                    LogSafe.sanitize(requestId), LogSafe.sanitize(requestDemographicId), LogSafe.sanitize(consultationDemographicId));
+        }
+        return consultationDemographicId;
     }
 
     private void addRenderedAttachmentPDF(ArrayList<Object> pdfDocumentList, List<String> attachmentWarnings, DocumentType documentType, Object documentId, AttachmentRenderer renderer) throws PDFGenerationException {

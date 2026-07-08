@@ -113,8 +113,16 @@ public class ConsultDocsDaoImpl extends AbstractDaoImpl<ConsultDocs> implements 
         return results;
     }
 
+    @Override
     public List<Object[]> findLabs(Integer consultationId) {
-        Query q = entityManager.createQuery("SELECT cd, plr FROM ConsultDocs cd, PatientLabRouting plr WHERE plr.labNo = cd.documentNo AND cd.requestId = :consultationId AND cd.docType = :docType AND cd.deleted IS NULL ORDER BY cd.documentNo");
+        Query q = entityManager.createQuery("SELECT cd, plr FROM ConsultDocs cd, PatientLabRouting plr, ConsultationRequest cr "
+                + "WHERE plr.labNo = cd.documentNo "
+                + "AND plr.demographicNo = cr.demographicId "
+                + "AND cr.id = cd.requestId "
+                + "AND cd.requestId = :consultationId "
+                + "AND cd.docType = :docType "
+                + "AND cd.deleted IS NULL "
+                + "ORDER BY cd.documentNo");
         q.setParameter("consultationId", consultationId);
         q.setParameter("docType", ConsultDocs.DOCTYPE_LAB);
         return q.getResultList();
