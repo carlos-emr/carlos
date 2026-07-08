@@ -45,6 +45,12 @@ done
 
 export MYSQL_PWD="$PASSWORD"
 
+# The devcontainer/CI engine is MariaDB 10.5, where explicit_defaults_for_timestamp defaults to OFF
+# (a bare `timestamp` column becomes NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()).
+# MariaDB 10.10+ flips that default to ON (bare timestamp -> NULL DEFAULT NULL), which would capture a
+# DIFFERENT schema. Force OFF so the baseline matches the 10.5 build regardless of the host engine.
+mysql -h "$HOST" -u "$USER" -e "SET GLOBAL explicit_defaults_for_timestamp=0;" 2>/dev/null || true
+
 # The recent updates populate_db.sh replays on top of the init scripts today. Keep this list in
 # sync with .devcontainer/db/scripts/populate_db.sh until the cutover retires that block.
 REQUIRED_UPDATES="

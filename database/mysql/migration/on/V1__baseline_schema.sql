@@ -55,7 +55,7 @@ DROP TABLE IF EXISTS `BornTransmissionLog`;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `BornTransmissionLog` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
-  `submitDateTime` timestamp NOT NULL,
+  `submitDateTime` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `success` tinyint(1) DEFAULT 0,
   `filename` varchar(100) DEFAULT NULL,
   `demographicNo` int(11) DEFAULT NULL,
@@ -256,7 +256,7 @@ CREATE TABLE `Contact` (
   `cpso` varchar(10) DEFAULT NULL,
   `systemId` varchar(30) DEFAULT NULL,
   `deleted` tinyint(4) DEFAULT NULL,
-  `updateDate` timestamp NOT NULL,
+  `updateDate` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`),
   KEY `type` (`type`),
   KEY `cpso` (`cpso`),
@@ -311,8 +311,8 @@ CREATE TABLE `DemographicContact` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `facilityId` int(11) NOT NULL,
   `creator` varchar(20) NOT NULL,
-  `created` timestamp NOT NULL,
-  `updateDate` timestamp NOT NULL,
+  `created` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `updateDate` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
   `deleted` tinyint(4) DEFAULT NULL,
   `demographicNo` int(11) DEFAULT NULL,
   `contactId` varchar(100) DEFAULT NULL,
@@ -367,7 +367,7 @@ CREATE TABLE `DocumentExtraReviewer` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `documentNo` int(11) DEFAULT NULL,
   `reviewerProviderNo` varchar(40) DEFAULT NULL,
-  `reviewDateTime` timestamp NULL DEFAULT NULL,
+  `reviewDateTime` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -458,7 +458,7 @@ CREATE TABLE `EFormReportTool` (
   `tableName` varchar(255) NOT NULL,
   `eformId` int(11) NOT NULL,
   `expiryDate` datetime DEFAULT NULL,
-  `dateCreated` timestamp NULL DEFAULT NULL,
+  `dateCreated` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `providerNo` varchar(6) DEFAULT NULL,
   `name` varchar(255) DEFAULT NULL,
   `dateLastPopulated` timestamp NULL DEFAULT NULL,
@@ -479,7 +479,7 @@ CREATE TABLE `Episode` (
   `description` varchar(255) DEFAULT NULL,
   `status` varchar(25) DEFAULT NULL,
   `lastUpdateUser` varchar(25) NOT NULL,
-  `lastUpdateTime` timestamp NOT NULL,
+  `lastUpdateTime` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `notes` text DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
@@ -493,7 +493,7 @@ CREATE TABLE `Eyeform` (
   `discharge` varchar(20) DEFAULT NULL,
   `stat` varchar(20) DEFAULT NULL,
   `opt` varchar(20) DEFAULT NULL,
-  `date` timestamp NULL DEFAULT NULL,
+  `date` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -538,7 +538,7 @@ CREATE TABLE `EyeformFollowUp` (
   `timespan` int(11) DEFAULT NULL,
   `timeframe` varchar(25) DEFAULT NULL,
   `followup_provider` varchar(100) DEFAULT NULL,
-  `date` timestamp NULL DEFAULT NULL,
+  `date` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `type` varchar(25) DEFAULT NULL,
   `urgency` varchar(50) DEFAULT NULL,
   `comment` text DEFAULT NULL,
@@ -1098,7 +1098,7 @@ CREATE TABLE `IntegratorFileLog` (
   `lastDateUpdated` datetime DEFAULT NULL,
   `currentDate` datetime DEFAULT NULL,
   `integratorStatus` varchar(100) DEFAULT NULL,
-  `dateCreated` timestamp NULL DEFAULT NULL,
+  `dateCreated` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -1107,7 +1107,7 @@ DROP TABLE IF EXISTS `IntegratorProgress`;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `IntegratorProgress` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
-  `dateCreated` timestamp NULL DEFAULT NULL,
+  `dateCreated` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `status` varchar(50) DEFAULT NULL,
   `errorMessage` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`),
@@ -1121,7 +1121,7 @@ CREATE TABLE `IntegratorProgressItem` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `demographicNo` int(11) NOT NULL,
   `integratorProgressId` int(11) NOT NULL,
-  `dateUpdated` timestamp NULL DEFAULT NULL,
+  `dateUpdated` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `status` varchar(50) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_id` (`integratorProgressId`),
@@ -1174,7 +1174,7 @@ CREATE TABLE `LookupList` (
   `categoryId` int(11) DEFAULT NULL,
   `active` tinyint(1) NOT NULL,
   `createdBy` varchar(8) NOT NULL,
-  `dateCreated` timestamp NOT NULL,
+  `dateCreated` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -1189,7 +1189,7 @@ CREATE TABLE `LookupListItem` (
   `displayOrder` int(11) NOT NULL,
   `active` tinyint(1) NOT NULL,
   `createdBy` varchar(8) NOT NULL,
-  `dateCreated` timestamp NOT NULL,
+  `dateCreated` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -1278,7 +1278,7 @@ CREATE TABLE `OLISSystemPreferences` (
   `startTime` varchar(20) DEFAULT NULL,
   `endTime` varchar(20) DEFAULT NULL,
   `pollFrequency` int(11) DEFAULT NULL,
-  `lastRun` timestamp NULL DEFAULT NULL,
+  `lastRun` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `filterPatients` tinyint(1) DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
@@ -1407,7 +1407,7 @@ DROP TABLE IF EXISTS `OcanSubmissionLog`;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `OcanSubmissionLog` (
   `submissionId` int(11) NOT NULL AUTO_INCREMENT,
-  `submitDateTime` timestamp NULL DEFAULT NULL,
+  `submitDateTime` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `result` varchar(255) DEFAULT NULL,
   `transactionId` varchar(100) DEFAULT NULL,
   `resultMessage` text DEFAULT NULL,
@@ -1486,7 +1486,7 @@ CREATE TABLE `PageMonitor` (
   `session` varchar(100) DEFAULT NULL,
   `remoteAddr` varchar(20) DEFAULT NULL,
   `locked` tinyint(1) DEFAULT NULL,
-  `updateDate` timestamp NOT NULL,
+  `updateDate` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `timeout` int(10) DEFAULT NULL,
   `providerNo` varchar(10) DEFAULT NULL,
   `providerName` varchar(100) DEFAULT NULL,
@@ -1530,7 +1530,7 @@ CREATE TABLE `PrintResourceLog` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `resourceName` varchar(100) NOT NULL,
   `resourceId` varchar(50) NOT NULL,
-  `dateTime` timestamp NOT NULL,
+  `dateTime` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `providerNo` varchar(10) DEFAULT NULL,
   `externalLocation` varchar(200) DEFAULT NULL,
   `externalMethod` varchar(100) DEFAULT NULL,
@@ -1682,7 +1682,7 @@ CREATE TABLE `SecurityArchive` (
   `passwordUpdateDate` datetime DEFAULT NULL,
   `pinUpdateDate` datetime DEFAULT NULL,
   `lastUpdateUser` varchar(20) DEFAULT NULL,
-  `lastUpdateDate` timestamp NULL DEFAULT NULL,
+  `lastUpdateDate` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -1692,7 +1692,7 @@ DROP TABLE IF EXISTS `SecurityToken`;
 CREATE TABLE `SecurityToken` (
   `id` int(10) NOT NULL AUTO_INCREMENT,
   `token` varchar(100) NOT NULL,
-  `created` timestamp NOT NULL,
+  `created` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `expiry` datetime NOT NULL,
   `data` varchar(255) DEFAULT NULL,
   `providerNo` varchar(10) DEFAULT NULL,
@@ -2062,7 +2062,7 @@ CREATE TABLE `batch_billing` (
   `dxcode` varchar(5) DEFAULT NULL,
   `billing_amount` varchar(10) DEFAULT NULL,
   `lastbilled_date` date DEFAULT NULL,
-  `create_date` timestamp NULL DEFAULT NULL,
+  `create_date` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `creator` varchar(6) DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
@@ -2265,7 +2265,7 @@ CREATE TABLE `billing_on_cheader1` (
   `apptProvider_no` varchar(6) DEFAULT NULL,
   `asstProvider_no` varchar(6) DEFAULT NULL,
   `creator` varchar(6) DEFAULT NULL,
-  `timestamp1` timestamp NULL DEFAULT NULL,
+  `timestamp1` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `clinic` varchar(30) DEFAULT NULL,
   `programNo` int(10) DEFAULT NULL,
   PRIMARY KEY (`id`),
@@ -2294,7 +2294,7 @@ CREATE TABLE `billing_on_cheader2` (
   `first_name` char(5) DEFAULT NULL,
   `sex` char(1) DEFAULT '1',
   `province` char(2) DEFAULT 'AB',
-  `timestamp` timestamp NULL DEFAULT NULL,
+  `timestamp` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`),
   KEY `ch1_id` (`ch1_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
@@ -2313,7 +2313,7 @@ CREATE TABLE `billing_on_diskname` (
   `createdatetime` datetime DEFAULT NULL,
   `status` char(1) DEFAULT NULL,
   `total` varchar(20) DEFAULT NULL,
-  `timestamp` timestamp NULL DEFAULT NULL,
+  `timestamp` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -2384,7 +2384,7 @@ CREATE TABLE `billing_on_favourite` (
   `name` varchar(60) DEFAULT '',
   `service_dx` varchar(255) DEFAULT '',
   `provider_no` varchar(6) DEFAULT NULL,
-  `timestamp` timestamp NULL DEFAULT NULL,
+  `timestamp` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `deleted` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
@@ -2401,7 +2401,7 @@ CREATE TABLE `billing_on_filename` (
   `claimrecord` varchar(10) DEFAULT NULL,
   `status` char(1) DEFAULT NULL,
   `total` varchar(20) DEFAULT NULL,
-  `timestamp` timestamp NULL DEFAULT NULL,
+  `timestamp` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -2448,7 +2448,7 @@ CREATE TABLE `billing_on_item` (
   `dx1` char(4) DEFAULT '',
   `dx2` char(4) DEFAULT '',
   `status` char(1) DEFAULT NULL,
-  `timestamp` timestamp NULL DEFAULT NULL,
+  `timestamp` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`),
   KEY `ch1_id` (`ch1_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
@@ -2461,7 +2461,7 @@ CREATE TABLE `billing_on_item_payment` (
   `ch1_id` int(12) NOT NULL,
   `billing_on_payment_id` int(12) NOT NULL,
   `billing_on_item_id` int(12) NOT NULL,
-  `payment_timestamp` timestamp NULL DEFAULT NULL,
+  `payment_timestamp` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `paid` decimal(10,2) NOT NULL,
   `refund` decimal(10,2) NOT NULL,
   `discount` decimal(10,2) NOT NULL,
@@ -2478,7 +2478,7 @@ DROP TABLE IF EXISTS `billing_on_payment`;
 CREATE TABLE `billing_on_payment` (
   `payment_id` int(10) NOT NULL AUTO_INCREMENT,
   `billing_no` int(6) NOT NULL,
-  `pay_date` timestamp NOT NULL,
+  `pay_date` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `paymentTypeId` int(10) DEFAULT NULL,
   `creator` varchar(30) DEFAULT NULL,
   `total_payment` decimal(10,2) NOT NULL,
@@ -2499,7 +2499,7 @@ CREATE TABLE `billing_on_premium` (
   `pay_date` date NOT NULL,
   `amount_pay` varchar(10) NOT NULL,
   `status` tinyint(1) NOT NULL,
-  `create_date` timestamp NOT NULL,
+  `create_date` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `creator` varchar(6) NOT NULL,
   PRIMARY KEY (`premium_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
@@ -2539,7 +2539,7 @@ CREATE TABLE `billing_on_transaction` (
   `billing_on_item_payment_id` int(12) NOT NULL,
   `demographic_no` int(10) NOT NULL,
   `update_provider_no` varchar(6) NOT NULL,
-  `update_datetime` timestamp NOT NULL,
+  `update_datetime` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `payment_date` date DEFAULT NULL,
   `ref_num` varchar(6) DEFAULT NULL,
   `province` char(2) DEFAULT NULL,
@@ -3540,7 +3540,7 @@ DROP TABLE IF EXISTS `dataExport`;
 CREATE TABLE `dataExport` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `file` varchar(255) DEFAULT NULL,
-  `daterun` timestamp NULL DEFAULT NULL,
+  `daterun` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `user` varchar(255) DEFAULT NULL,
   `type` varchar(255) DEFAULT NULL,
   `contactLName` varchar(255) DEFAULT NULL,
@@ -3750,7 +3750,7 @@ CREATE TABLE `demographicPharmacy` (
   `pharmacyID` int(10) DEFAULT NULL,
   `demographic_no` int(10) DEFAULT NULL,
   `status` char(1) DEFAULT '1',
-  `addDate` timestamp NULL DEFAULT NULL,
+  `addDate` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `preferredOrder` int(10) DEFAULT NULL,
   `consentToContact` tinyint(1) DEFAULT NULL,
   PRIMARY KEY (`id`)
@@ -4142,7 +4142,7 @@ CREATE TABLE `dx_associations` (
   `dx_code` varchar(50) NOT NULL,
   `codetype` varchar(50) NOT NULL,
   `code` varchar(50) NOT NULL,
-  `update_date` timestamp NOT NULL,
+  `update_date` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -4169,7 +4169,7 @@ DROP TABLE IF EXISTS `eChart`;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `eChart` (
   `eChartId` int(15) NOT NULL AUTO_INCREMENT,
-  `timeStamp` timestamp NOT NULL,
+  `timeStamp` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `demographicNo` int(10) NOT NULL DEFAULT 0,
   `providerNo` varchar(6) NOT NULL DEFAULT '',
   `subject` varchar(128) DEFAULT NULL,
@@ -4601,7 +4601,7 @@ CREATE TABLE `form2MinWalk` (
   `demographic_no` int(10) NOT NULL,
   `provider_no` int(10) DEFAULT NULL,
   `formCreated` date DEFAULT NULL,
-  `formEdited` timestamp NOT NULL,
+  `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `studyID` varchar(20) NOT NULL DEFAULT 'N/A',
   `distance` varchar(255) DEFAULT NULL,
   `Q1tried` tinyint(1) DEFAULT NULL,
@@ -4630,7 +4630,7 @@ CREATE TABLE `formAdfV2` (
   `demographic_no` int(10) NOT NULL DEFAULT 0,
   `provider_no` int(10) DEFAULT NULL,
   `formCreated` date DEFAULT NULL,
-  `formEdited` timestamp NULL DEFAULT NULL,
+  `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `c_patientname` varchar(60) DEFAULT NULL,
   `sendFacility` varchar(80) DEFAULT NULL,
   `poaSdm` varchar(80) DEFAULT NULL,
@@ -4705,7 +4705,7 @@ CREATE TABLE `formAlpha` (
   `demographic_no` int(10) NOT NULL DEFAULT 0,
   `provider_no` int(10) DEFAULT NULL,
   `formCreated` date DEFAULT NULL,
-  `formEdited` timestamp NOT NULL,
+  `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `pName` varchar(60) DEFAULT NULL,
   `socialSupport` text DEFAULT NULL,
   `lifeEvents` text DEFAULT NULL,
@@ -4760,7 +4760,7 @@ CREATE TABLE `formAnnual` (
   `demographic_no` int(10) DEFAULT NULL,
   `provider_no` int(10) DEFAULT NULL,
   `formCreated` date DEFAULT NULL,
-  `formEdited` timestamp NOT NULL,
+  `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `pName` varchar(60) DEFAULT NULL,
   `age` char(3) DEFAULT NULL,
   `formDate` date DEFAULT NULL,
@@ -4886,7 +4886,7 @@ CREATE TABLE `formAnnualV2` (
   `demographic_no` int(10) DEFAULT NULL,
   `provider_no` int(10) DEFAULT NULL,
   `formCreated` date DEFAULT NULL,
-  `formEdited` timestamp NOT NULL,
+  `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `pName` varchar(60) DEFAULT NULL,
   `age` char(3) DEFAULT NULL,
   `formDate` date DEFAULT NULL,
@@ -5091,7 +5091,7 @@ CREATE TABLE `formBCHP` (
   `demographic_no` int(10) DEFAULT NULL,
   `provider_no` int(10) DEFAULT NULL,
   `formCreated` date DEFAULT NULL,
-  `formEdited` timestamp NULL DEFAULT NULL ON UPDATE current_timestamp(),
+  `formEdited` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00' ON UPDATE current_timestamp(),
   `c_lastVisited` char(3) DEFAULT NULL,
   `pg1_formDate` date DEFAULT NULL,
   `pg1_patientName` varchar(40) DEFAULT NULL,
@@ -5381,7 +5381,7 @@ CREATE TABLE `formCESD` (
   `demographic_no` int(10) NOT NULL,
   `provider_no` int(10) DEFAULT NULL,
   `formCreated` date DEFAULT NULL,
-  `formEdited` timestamp NOT NULL,
+  `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `studyID` varchar(20) NOT NULL DEFAULT 'N/A',
   `Q1Rare` tinyint(1) DEFAULT NULL,
   `Q1Some` tinyint(1) DEFAULT NULL,
@@ -5476,7 +5476,7 @@ CREATE TABLE `formCaregiver` (
   `provider_no` int(10) DEFAULT NULL,
   `studyID` varchar(20) NOT NULL DEFAULT 'N/A',
   `formCreated` date DEFAULT NULL,
-  `formEdited` timestamp NOT NULL,
+  `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `sexM` tinyint(1) DEFAULT NULL,
   `sexF` tinyint(1) DEFAULT NULL,
   `dobYear` varchar(4) DEFAULT NULL,
@@ -5568,7 +5568,7 @@ CREATE TABLE `formCostQuestionnaire` (
   `demographic_no` int(10) NOT NULL,
   `provider_no` int(10) DEFAULT NULL,
   `formCreated` date DEFAULT NULL,
-  `formEdited` timestamp NOT NULL,
+  `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `studyID` varchar(20) NOT NULL DEFAULT 'N/A',
   `seenDoctorY` tinyint(1) DEFAULT NULL,
   `seenDoctorN` tinyint(1) DEFAULT NULL,
@@ -5660,7 +5660,7 @@ CREATE TABLE `formCounseling` (
   `p_healthcard` varchar(20) DEFAULT NULL,
   `comments` text DEFAULT NULL,
   `formCreated` date DEFAULT NULL,
-  `formEdited` timestamp NULL DEFAULT NULL,
+  `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `consultTime` date DEFAULT NULL,
   PRIMARY KEY (`ID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
@@ -5737,7 +5737,7 @@ CREATE TABLE `formFalls` (
   `demographic_no` int(10) NOT NULL,
   `provider_no` int(10) DEFAULT NULL,
   `formCreated` date DEFAULT NULL,
-  `formEdited` timestamp NOT NULL,
+  `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `studyID` varchar(20) NOT NULL DEFAULT 'N/A',
   `fallenLast12MY` tinyint(1) DEFAULT NULL,
   `fallenLast12MN` tinyint(1) DEFAULT NULL,
@@ -5761,7 +5761,7 @@ CREATE TABLE `formGripStrength` (
   `demographic_no` int(10) NOT NULL,
   `provider_no` int(10) DEFAULT NULL,
   `formCreated` date DEFAULT NULL,
-  `formEdited` timestamp NOT NULL,
+  `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `studyID` varchar(20) NOT NULL DEFAULT 'N/A',
   `dom1` varchar(5) DEFAULT NULL,
   `nonDom1` varchar(5) DEFAULT NULL,
@@ -5782,7 +5782,7 @@ CREATE TABLE `formGrowth0_36` (
   `demographic_no` int(10) NOT NULL DEFAULT 0,
   `provider_no` int(10) DEFAULT NULL,
   `formCreated` date DEFAULT NULL,
-  `formEdited` timestamp NULL DEFAULT NULL,
+  `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `patientName` varchar(80) DEFAULT NULL,
   `recordNo` varchar(10) DEFAULT NULL,
   `motherStature` varchar(80) DEFAULT NULL,
@@ -6189,7 +6189,7 @@ CREATE TABLE `formHomeFalls` (
   `demographic_no` int(10) NOT NULL,
   `provider_no` int(10) DEFAULT NULL,
   `formCreated` date DEFAULT NULL,
-  `formEdited` timestamp NOT NULL,
+  `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `studyID` varchar(20) NOT NULL DEFAULT 'N/A',
   `floor1Y` tinyint(1) DEFAULT NULL,
   `floor1N` tinyint(1) DEFAULT NULL,
@@ -6265,7 +6265,7 @@ CREATE TABLE `formImmunAllergy` (
   `demographic_no` int(10) NOT NULL DEFAULT 0,
   `provider_no` int(10) DEFAULT NULL,
   `formCreated` date DEFAULT NULL,
-  `formEdited` timestamp NOT NULL,
+  `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `c_surname` varchar(30) DEFAULT NULL,
   `c_givenName` varchar(30) DEFAULT NULL,
   `dateAdmin` date DEFAULT NULL,
@@ -6297,7 +6297,7 @@ CREATE TABLE `formIntakeInfo` (
   `demographic_no` int(10) NOT NULL,
   `provider_no` int(10) DEFAULT NULL,
   `formCreated` date DEFAULT NULL,
-  `formEdited` timestamp NOT NULL,
+  `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `studyID` varchar(20) NOT NULL DEFAULT 'N/A',
   `sex` varchar(1) DEFAULT NULL,
   `dob` date DEFAULT NULL,
@@ -6460,7 +6460,7 @@ CREATE TABLE `formInternetAccess` (
   `demographic_no` int(10) NOT NULL,
   `provider_no` int(10) DEFAULT NULL,
   `formCreated` date DEFAULT NULL,
-  `formEdited` timestamp NOT NULL,
+  `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `studyID` varchar(20) NOT NULL DEFAULT 'N/A',
   `computerY` tinyint(1) DEFAULT NULL,
   `computerN` tinyint(1) DEFAULT NULL,
@@ -6485,7 +6485,7 @@ CREATE TABLE `formLabReq` (
   `demographic_no` int(10) DEFAULT NULL,
   `provider_no` int(10) DEFAULT NULL,
   `formCreated` date DEFAULT NULL,
-  `formEdited` timestamp NOT NULL,
+  `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `provName` varchar(60) DEFAULT NULL,
   `reqProvName` varchar(60) DEFAULT NULL,
   `clinicAddress` varchar(30) DEFAULT NULL,
@@ -6688,7 +6688,7 @@ DROP TABLE IF EXISTS `formLabReq10`;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `formLabReq10` (
   `ID` int(10) NOT NULL AUTO_INCREMENT,
-  `formEdited` timestamp NOT NULL,
+  `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `b_glucose` tinyint(1) DEFAULT NULL,
   `b_glucose_random` tinyint(1) DEFAULT NULL,
   `b_glucose_fasting` tinyint(1) DEFAULT NULL,
@@ -6835,7 +6835,7 @@ CREATE TABLE `formLateLifeFDIDisability` (
   `demographic_no` int(10) NOT NULL,
   `provider_no` int(10) DEFAULT NULL,
   `formCreated` date DEFAULT NULL,
-  `formEdited` timestamp NOT NULL,
+  `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `studyID` varchar(20) NOT NULL DEFAULT 'N/A',
   `D1VeryOften` tinyint(1) DEFAULT NULL,
   `D1Often` tinyint(1) DEFAULT NULL,
@@ -7008,7 +7008,7 @@ CREATE TABLE `formLateLifeFDIFunction` (
   `demographic_no` int(10) NOT NULL,
   `provider_no` int(10) DEFAULT NULL,
   `formCreated` date DEFAULT NULL,
-  `formEdited` timestamp NOT NULL,
+  `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `studyID` varchar(20) NOT NULL DEFAULT 'N/A',
   `F1None` tinyint(1) DEFAULT NULL,
   `F1ALittle` tinyint(1) DEFAULT NULL,
@@ -7221,7 +7221,7 @@ CREATE TABLE `formMMSE` (
   `demographic_no` int(10) DEFAULT NULL,
   `provider_no` int(10) DEFAULT NULL,
   `formCreated` date DEFAULT NULL,
-  `formEdited` timestamp NOT NULL,
+  `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `pName` varchar(50) DEFAULT NULL,
   `age` char(3) DEFAULT NULL,
   `sex` char(1) DEFAULT NULL,
@@ -7258,7 +7258,7 @@ CREATE TABLE `formMentalHealth` (
   `demographic_no` int(10) NOT NULL DEFAULT 0,
   `provider_no` int(10) DEFAULT NULL,
   `formCreated` date DEFAULT NULL,
-  `formEdited` timestamp NOT NULL,
+  `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `c_lastVisited` varchar(15) DEFAULT NULL,
   `c_pName` varchar(60) DEFAULT NULL,
   `c_address` varchar(80) DEFAULT NULL,
@@ -7445,7 +7445,7 @@ CREATE TABLE `formNoShowPolicy` (
   `provider_no` int(10) DEFAULT NULL,
   `demographic_no` int(10) NOT NULL,
   `formCreated` date DEFAULT NULL,
-  `formEdited` timestamp NULL DEFAULT NULL,
+  `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `formVersion` varchar(10) DEFAULT NULL,
   PRIMARY KEY (`ID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
@@ -7458,7 +7458,7 @@ CREATE TABLE `formPalliativeCare` (
   `demographic_no` int(10) DEFAULT NULL,
   `provider_no` int(10) DEFAULT NULL,
   `formCreated` date DEFAULT NULL,
-  `formEdited` timestamp NOT NULL,
+  `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `pName` varchar(60) DEFAULT NULL,
   `diagnosis` varchar(60) DEFAULT NULL,
   `date1` date DEFAULT NULL,
@@ -7560,7 +7560,7 @@ CREATE TABLE `formPeriMenopausal` (
   `demographic_no` int(10) NOT NULL DEFAULT 0,
   `provider_no` int(10) DEFAULT NULL,
   `formCreated` date DEFAULT NULL,
-  `formEdited` timestamp NOT NULL,
+  `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `lastVisited` char(1) DEFAULT NULL,
   `pName` varchar(60) DEFAULT NULL,
   `ageMenopause` char(2) DEFAULT NULL,
@@ -7782,7 +7782,7 @@ CREATE TABLE `formPositionHazard` (
   `ID` int(10) NOT NULL AUTO_INCREMENT,
   `demographic_no` int(11) DEFAULT NULL,
   `formCreated` date DEFAULT NULL,
-  `formEdited` timestamp NOT NULL,
+  `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `supervisor` varchar(100) DEFAULT NULL,
   `formCreatedBy` varchar(6) DEFAULT NULL,
   `Acrylonitrile` varchar(1) DEFAULT NULL,
@@ -7975,7 +7975,7 @@ CREATE TABLE `formRourke` (
   `demographic_no` int(10) DEFAULT NULL,
   `provider_no` int(10) DEFAULT NULL,
   `formCreated` date DEFAULT NULL,
-  `formEdited` timestamp NOT NULL,
+  `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `c_lastVisited` char(3) DEFAULT NULL,
   `c_birthRemarks` text DEFAULT NULL,
   `c_riskFactors` text DEFAULT NULL,
@@ -8407,7 +8407,7 @@ CREATE TABLE `formRourke2006` (
   `demographic_no` int(10) DEFAULT NULL,
   `provider_no` int(10) DEFAULT NULL,
   `formCreated` date DEFAULT NULL,
-  `formEdited` timestamp NOT NULL,
+  `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `c_lastVisited` char(3) DEFAULT NULL,
   `c_birthRemarks` text DEFAULT NULL,
   `c_riskFactors` text DEFAULT NULL,
@@ -9041,7 +9041,7 @@ CREATE TABLE `formRourke2009` (
   `demographic_no` int(10) DEFAULT NULL,
   `provider_no` varchar(6) DEFAULT NULL,
   `formCreated` date DEFAULT NULL,
-  `formEdited` timestamp NULL DEFAULT NULL,
+  `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `c_lastVisited` char(3) DEFAULT NULL,
   `c_birthRemarks` text DEFAULT NULL,
   `c_riskFactors` text DEFAULT NULL,
@@ -10799,7 +10799,7 @@ CREATE TABLE `formSF36` (
   `demographic_no` int(10) NOT NULL,
   `provider_no` int(10) DEFAULT NULL,
   `formCreated` date DEFAULT NULL,
-  `formEdited` timestamp NOT NULL,
+  `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `studyID` varchar(20) NOT NULL DEFAULT 'N/A',
   `Q1Ex` tinyint(1) DEFAULT NULL,
   `Q1VG` tinyint(1) DEFAULT NULL,
@@ -11016,7 +11016,7 @@ CREATE TABLE `formSF36Caregiver` (
   `demographic_no` int(10) NOT NULL,
   `provider_no` int(10) DEFAULT NULL,
   `formCreated` date DEFAULT NULL,
-  `formEdited` timestamp NOT NULL,
+  `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `studyID` varchar(20) NOT NULL DEFAULT 'N/A',
   `Q1Ex` tinyint(1) DEFAULT NULL,
   `Q1VG` tinyint(1) DEFAULT NULL,
@@ -11233,7 +11233,7 @@ CREATE TABLE `formSatisfactionScale` (
   `demographic_no` int(10) NOT NULL DEFAULT 0,
   `provider_no` int(10) DEFAULT NULL,
   `formCreated` date DEFAULT NULL,
-  `formEdited` timestamp NOT NULL,
+  `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `studyID` varchar(20) NOT NULL DEFAULT 'N/A',
   `believe1Y` tinyint(1) DEFAULT NULL,
   `believe1N` tinyint(1) DEFAULT NULL,
@@ -11273,7 +11273,7 @@ CREATE TABLE `formSelfAdministered` (
   `demographic_no` int(10) NOT NULL,
   `provider_no` int(10) DEFAULT NULL,
   `formCreated` date DEFAULT NULL,
-  `formEdited` timestamp NOT NULL,
+  `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `studyID` varchar(20) NOT NULL DEFAULT 'N/A',
   `sex` varchar(1) DEFAULT NULL,
   `dob` date DEFAULT NULL,
@@ -11313,7 +11313,7 @@ CREATE TABLE `formSelfAssessment` (
   `demographic_no` int(10) DEFAULT NULL,
   `provider_no` int(10) DEFAULT NULL,
   `formCreated` date DEFAULT NULL,
-  `formEdited` timestamp NULL DEFAULT NULL,
+  `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `name` varchar(255) DEFAULT NULL,
   `p_birthdate` varchar(255) DEFAULT NULL,
   `sex` varchar(255) DEFAULT NULL,
@@ -11418,7 +11418,7 @@ CREATE TABLE `formSelfEfficacy` (
   `demographic_no` int(10) NOT NULL,
   `provider_no` int(10) DEFAULT NULL,
   `formCreated` date DEFAULT NULL,
-  `formEdited` timestamp NOT NULL,
+  `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `studyID` varchar(20) NOT NULL DEFAULT 'N/A',
   `ex1` varchar(2) DEFAULT NULL,
   `ex2` varchar(2) DEFAULT NULL,
@@ -11474,7 +11474,7 @@ CREATE TABLE `formSelfManagement` (
   `demographic_no` int(10) NOT NULL,
   `provider_no` int(10) DEFAULT NULL,
   `formCreated` date DEFAULT NULL,
-  `formEdited` timestamp NOT NULL,
+  `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `studyID` varchar(20) NOT NULL DEFAULT 'N/A',
   `ex1` int(1) DEFAULT NULL,
   `ex2` int(1) DEFAULT NULL,
@@ -11536,7 +11536,7 @@ CREATE TABLE `formTreatmentPref` (
   `demographic_no` int(10) NOT NULL,
   `provider_no` int(10) DEFAULT NULL,
   `formCreated` date DEFAULT NULL,
-  `formEdited` timestamp NOT NULL,
+  `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `studyID` varchar(20) NOT NULL DEFAULT 'N/A',
   `treatmentGr` tinyint(1) DEFAULT NULL,
   `controlGr` tinyint(1) DEFAULT NULL,
@@ -11552,7 +11552,7 @@ CREATE TABLE `formVTForm` (
   `demographic_no` int(10) NOT NULL,
   `provider_no` int(10) DEFAULT NULL,
   `formCreated` date DEFAULT NULL,
-  `formEdited` timestamp NOT NULL,
+  `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `visitCod` varchar(10) DEFAULT NULL,
   `HTValue` varchar(10) DEFAULT NULL,
   `HTDate` varchar(10) DEFAULT NULL,
@@ -14093,7 +14093,7 @@ CREATE TABLE `providerLabRouting` (
   `lab_no` int(10) NOT NULL DEFAULT 0,
   `status` char(1) DEFAULT '',
   `comment` varchar(255) DEFAULT '',
-  `timestamp` timestamp NOT NULL,
+  `timestamp` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `lab_type` char(3) DEFAULT 'MDS',
   `id` int(10) NOT NULL AUTO_INCREMENT,
   PRIMARY KEY (`id`),
@@ -14717,8 +14717,8 @@ CREATE TABLE `resident_oscarMsg` (
   `appointment_no` int(11) DEFAULT NULL,
   `note_id` int(10) DEFAULT NULL,
   `complete` int(1) DEFAULT NULL,
-  `create_time` timestamp NULL DEFAULT NULL,
-  `complete_time` timestamp NULL DEFAULT NULL,
+  `create_time` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `complete_time` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
   PRIMARY KEY (`id`),
   KEY `note_id_idx` (`note_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
@@ -14946,7 +14946,7 @@ CREATE TABLE `security` (
   `passwordUpdateDate` datetime DEFAULT NULL,
   `pinUpdateDate` datetime DEFAULT NULL,
   `lastUpdateUser` varchar(20) DEFAULT NULL,
-  `lastUpdateDate` timestamp NULL DEFAULT NULL,
+  `lastUpdateDate` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `oneIdKey` varchar(255) DEFAULT NULL,
   `oneIdEmail` varchar(255) DEFAULT NULL,
   `delegateOneIdEmail` varchar(255) DEFAULT NULL,
@@ -15441,7 +15441,7 @@ CREATE TABLE `tickler` (
   `priority` varchar(6) DEFAULT 'Normal',
   `task_assigned_to` varchar(255) DEFAULT NULL,
   `category_id` int(11) DEFAULT NULL,
-  `creation_date` timestamp NOT NULL,
+  `creation_date` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`tickler_no`),
   KEY `statusIndex` (`status`),
   KEY `demo_status_date_Index` (`demographic_no`,`status`,`service_date`),
@@ -15493,7 +15493,7 @@ CREATE TABLE `tickler_text_suggest` (
   `id` int(10) NOT NULL AUTO_INCREMENT,
   `creator` varchar(6) NOT NULL,
   `suggested_text` varchar(255) NOT NULL,
-  `create_date` timestamp NOT NULL,
+  `create_date` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `active` tinyint(1) DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
