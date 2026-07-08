@@ -120,11 +120,13 @@ public class ConsultDocsDaoImpl extends AbstractDaoImpl<ConsultDocs> implements 
         return q.getResultList();
     }
 
+    @Override
     public List<ConsultDocs> findStaleActiveConsultAttachments() {
         Query query = createStaleActiveConsultAttachmentsQuery();
         return query.getResultList();
     }
 
+    @Override
     public int countStaleActiveConsultAttachments() {
         Query query = createStaleActiveConsultAttachmentsCountQuery();
         Number count = (Number) query.getSingleResult();

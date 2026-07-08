@@ -62,7 +62,9 @@ public class ConsultDocsDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private ConsultDocsDao consultDocsDao;
 
-    @PersistenceContext(unitName = "entityManagerFactory")
+    // CarlosTestBase loads a single test EntityManagerFactory, so the default
+    // context binds to the test datasource.
+    @PersistenceContext
     private EntityManager entityManager;
 
     private static final String PROVIDER_NO = "999001";
@@ -257,7 +259,7 @@ public class ConsultDocsDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @DisplayName("should soft-delete only invalid active eForm and document attachments")
-        void shouldSoftDeleteOnlyInvalidActiveEFormAndDocumentAttachments() {
+        void shouldSoftDeleteOnlyInvalidActiveEFormAndDocumentAttachments_forCleanup() {
             CleanupFixture fixture = createCleanupFixture();
 
             int updated = consultDocsDao.markStaleActiveConsultAttachmentsDeleted();
