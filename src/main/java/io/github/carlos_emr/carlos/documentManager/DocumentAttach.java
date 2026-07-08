@@ -12,6 +12,9 @@ import io.github.carlos_emr.carlos.encounter.oceanEReferal.pageUtil.OceanEReferr
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+/**
+ * Utility wrapper representing a physical file attachment linked to a patient document.
+ */
 
 public class DocumentAttach {
     private final ConsultDocsDao consultDocsDao = SpringUtils.getBean(ConsultDocsDao.class);

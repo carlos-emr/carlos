@@ -2,6 +2,9 @@ package io.github.carlos_emr.carlos.commn.model.converter;
 
 import io.github.carlos_emr.carlos.commn.model.Tickler.STATUS;
 import jakarta.persistence.Converter;
+/**
+ * JPA AttributeConverter to map TicklerStatus enumerations to their legacy database string codes.
+ */
 
 @Converter
 public class TicklerStatusConverter extends NullSafeEnumConverter<STATUS> {

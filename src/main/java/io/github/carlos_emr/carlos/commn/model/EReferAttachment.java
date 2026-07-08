@@ -11,6 +11,9 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.util.Date;
 import java.util.List;
+/**
+ * JPA entity representing the metadata and relationship structure for an eReferral attachment.
+ */
 
 @Entity
 @Table(name = "erefer_attachment")
@@ -70,6 +73,7 @@ public class EReferAttachment extends AbstractModel<Integer> {
     }
 
     public List<EReferAttachmentData> getAttachments() {
+    // Returns the list of associated attachment binary data chunks or variations.
         return attachments;
     }
 

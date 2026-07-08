@@ -5,6 +5,9 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import io.github.carlos_emr.carlos.utility.DateUtils;
+/**
+ * Data transfer object linking a document attachment directly to a specific lab result entry.
+ */
 
 public class AttachmentLabResultData {
     private String segmentID;

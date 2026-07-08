@@ -14,6 +14,9 @@ import org.springframework.mail.javamail.JavaMailSenderImpl;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+/**
+ * Helper service that handles dispatching outbound emails via a locally configured SMTP relay.
+ */
 
 public class LocalSMTPEmailSender extends SMTPEmailSender {
 

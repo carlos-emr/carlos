@@ -1,4 +1,7 @@
 package io.github.carlos_emr.carlos.login;
+/**
+ * Encapsulates the response data returned during an Out-Of-Band (OOB) authorization sequence.
+ */
 
 public class OOBAuthorizationResponse {
   private String requestToken;

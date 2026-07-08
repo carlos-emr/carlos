@@ -4,6 +4,9 @@ import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ca.uhn.hl7v2.HL7Exception;
+/**
+ * Utility class providing parsing and formatting helpers for processing raw HL7 lab messages.
+ */
 
 public final class Hl7Utils {
 

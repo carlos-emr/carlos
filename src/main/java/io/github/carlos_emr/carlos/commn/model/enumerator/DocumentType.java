@@ -1,4 +1,7 @@
 package io.github.carlos_emr.carlos.commn.model.enumerator;
+/**
+ * Defines the standard set of document categorizations used across the EMR (e.g., PDF, Image, Lab).
+ */
 
 public enum DocumentType {
     EFORM("E", "eForm"),

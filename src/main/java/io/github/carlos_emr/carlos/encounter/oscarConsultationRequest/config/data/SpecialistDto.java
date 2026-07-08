@@ -1,4 +1,7 @@
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.data;
+/**
+ * Data transfer object representing a referred specialist in consultation workflows.
+ */
 
 public class SpecialistDto {
     private Integer specId;
@@ -20,6 +23,7 @@ public class SpecialistDto {
 
     public Integer getSpecId() { return specId; }
     public String getName() { return name; }
+    // Provides the unique specialist identifier for downstream API consumers.
     public String getPhone() { return phone; }
     public String getFax() { return fax; }
     public String getAddress() { return address; }

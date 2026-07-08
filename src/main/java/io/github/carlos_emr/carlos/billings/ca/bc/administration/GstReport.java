@@ -17,10 +17,14 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import java.util.Properties;
 import java.util.Vector;
+/**
+ * Generates data structures and summary logic for BC provincial GST reporting.
+ */
 
 public class GstReport {
 
     public Vector<Properties> getGST(LoggedInInfo loggedInInfo, String[] providerNos, String startDate, String endDate) {
+    // Initializes core GST report tracking vectors and baseline properties.
         Properties props;
         Vector<Properties> list = new Vector<Properties>();
         BillingDao dao = SpringUtils.getBean(BillingDao.class);

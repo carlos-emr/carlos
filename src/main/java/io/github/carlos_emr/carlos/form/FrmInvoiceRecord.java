@@ -14,6 +14,9 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+/**
+ * Entity representation for tracking invoice records linked to custom electronic forms.
+ */
 
 public class FrmInvoiceRecord extends FrmRecord {
     private String _dateFormat = "yyyy/MM/dd";

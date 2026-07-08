@@ -5,6 +5,9 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import java.io.Serializable;
 import java.util.Objects;
+/**
+ * Composite key class for the EReferAttachmentData entity, uniquely identifying attachment segments.
+ */
 
 public class EReferAttachmentDataCompositeKey implements Serializable {
     @ManyToOne
@@ -62,6 +65,7 @@ public class EReferAttachmentDataCompositeKey implements Serializable {
 
     @Override
     public int hashCode() {
+    // Generates a hash code based on the composite key fields for reliable collection storage.
         return Objects.hash(eReferAttachment, labId, labType);
     }
 }

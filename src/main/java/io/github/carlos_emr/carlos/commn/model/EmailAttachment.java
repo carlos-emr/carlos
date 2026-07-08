@@ -4,6 +4,9 @@ import io.github.carlos_emr.carlos.commn.model.converter.EmailAttachmentDocument
 import jakarta.persistence.*;
 
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+/**
+ * JPA entity tracking attachments linked to a specific outbound or inbound email message.
+ */
 
 @Entity
 @Table(name = "emailAttachment")

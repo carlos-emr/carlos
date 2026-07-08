@@ -5,11 +5,15 @@ import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import java.io.IOException;
 import java.util.Calendar;
+/**
+ * Custom Jackson serializer for formatting Java Date objects into JavaScript-friendly timestamp strings.
+ */
 
 public class JsDateSerializer extends JsonSerializer<java.sql.Date> {
     @Override
     public void serialize(java.sql.Date value, JsonGenerator gen, SerializerProvider serializers) 
             throws IOException {
+    // Writes the Date value formatted according to the application's standard JS date format.
         if (value == null) {
             gen.writeNull();
             return;

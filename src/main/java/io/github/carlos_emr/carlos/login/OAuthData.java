@@ -3,6 +3,9 @@ package io.github.carlos_emr.carlos.login;
 
 import java.util.Collections;
 import java.util.List;
+/**
+ * Data model representing the temporary state and token payloads during an OAuth authentication flow.
+ */
 
 public class OAuthData {
   private String applicationName;
