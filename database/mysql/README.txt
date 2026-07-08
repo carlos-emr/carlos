@@ -1,11 +1,23 @@
-OSCAR McMaster cvs
+CARLOS EMR database
 
-This folder contains the necessary sql scripts to build the MySQL OSCAR database.
+Schema management is Flyway. The single source of truth is the migration set under
+`migration/` — a consolidated V1 genesis baseline (complete schema + required reference data)
+plus forward-only migrations, tracked in a `flyway_schema_history` version table.
 
-Generally speaking for new installation you only need to run the init scripts, and 
-not the update scripts. The update scripts are there for updating existing installations
-to the more recent schema.
+New install:
+  flyway migrate  (locations = migration/common + one province: migration/on OR migration/bc)
+A fresh migrate yields a runnable database (structure + reference rows the app needs). Demo/patient
+data is dev-only (development.sql, filtered by build-demo.sh) and is NOT part of the baseline.
 
-It is highly advised that installations use the InnoDB engine. As of this writing
-it is the default engine under windows installations but is not for linux/unix 
-installations. You may encounter foreign key errors if you're not using innodb.
+Schema changes:
+  Add a forward migration VYYYY.MM.DD[.N]__short_description.sql under migration/common (shared) or
+  migration/on / migration/bc (province-specific). Make it idempotent. Never edit the V1* baseline.
+
+Notes:
+- InnoDB is required (foreign keys). Tables use the utf8mb4 character set.
+- `updates/` holds the FROZEN legacy dated patches (historical reference; a few are still applied
+  for demo seeding). The legacy script build (createdatabase_*.sh, oscarinit*.sql, oscardata*.sql,
+  icd*.sql, measurementMapData.sql, caisi/initcaisi*.sql, olis/olisinit.sql, bc_*.sql) has been
+  retired — recover from git history if ever needed.
+
+See docs/database-schema-management.md and migration/README.md for the full model.

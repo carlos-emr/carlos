@@ -31,6 +31,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Guards the default carlosdoc privilege seed and matching migration.
  *
+ * <p>The fresh-install seed now lives in the Flyway baseline reference-data migration
+ * ({@code migration/on/V1.0.2__on_data.sql}), captured by {@code mysqldump}, so the
+ * assertions match the dump's extended-INSERT tuple form ({@code ('col',...)}) rather
+ * than the hand-written {@code insert into ... values(...)} statements the old
+ * {@code oscardata.sql} used. Row order in a dump follows the primary key, so this test
+ * asserts presence of each seed tuple, not their relative ordering.
+ *
  * @since 2026-05-21
  */
 @DisplayName("carlosdoc privilege seed regressions")
@@ -38,37 +45,31 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("security")
 class CarlosdocPrivilegeSeedRegressionTest {
 
-    private static final Path OSCARDATA = Path.of("database", "mysql", "oscardata.sql");
+    private static final Path SEED = Path.of("database", "mysql", "migration", "on", "V1.0.2__on_data.sql");
     private static final Path MIGRATION = Path.of("database", "mysql", "updates",
             "update-2026-05-21-carlosdoc-schedule-group-privilege.sql");
-    private static final String ADMIN_GROUP_CREATE_GRANT =
-            "insert into `secObjPrivilege` values('admin','_admin.schedule.groupCreate','x',0,'999998');";
-    private static final String CARLOSDOC_GROUP_CREATE_OVERRIDE =
-            "insert into `secObjPrivilege` values('999998','_admin.schedule.groupCreate','o',1,'999998');";
 
     @Test
     @DisplayName("should keep carlosdoc in admin role and preserve schedule access")
     void shouldKeepCarlosdocAdmin_whenSeeded() throws IOException {
-        String seedSql = Files.readString(OSCARDATA, StandardCharsets.UTF_8);
+        String seedSql = Files.readString(SEED, StandardCharsets.UTF_8);
 
         assertThat(seedSql).contains(
-                "insert into `secUserRole` (`provider_no`,`role_name`,`orgcd`,`activeyn`,lastUpdateDate) values('999998', 'admin', 'R0000001',1,now());",
-                "insert into `secObjPrivilege` values('admin', '_admin', 'x', 0, '999998');",
-                "insert into `secObjPrivilege` values('admin','_admin.schedule','x',0,'999998');",
-                "insert into `secObjPrivilege` values('admin','_appointment','x',0,'999998');");
+                "'999998','admin','R0000001',1,",
+                "('admin','_admin','x',0,'999998')",
+                "('admin','_admin.schedule','x',0,'999998')",
+                "('admin','_appointment','x',0,'999998')");
     }
 
     @Test
     @DisplayName("should deny carlosdoc schedule group creation in seed")
     void shouldDenyCarlosdocGroupCreation_whenSeeded() throws IOException {
-        String seedSql = Files.readString(OSCARDATA, StandardCharsets.UTF_8);
+        String seedSql = Files.readString(SEED, StandardCharsets.UTF_8);
 
         assertThat(seedSql).contains(
-                "('_admin.schedule.groupCreate', 'Create schedule provider groups', 0)",
-                ADMIN_GROUP_CREATE_GRANT,
-                CARLOSDOC_GROUP_CREATE_OVERRIDE);
-        assertThat(seedSql.indexOf(CARLOSDOC_GROUP_CREATE_OVERRIDE))
-                .isGreaterThan(seedSql.indexOf(ADMIN_GROUP_CREATE_GRANT));
+                "('_admin.schedule.groupCreate','Create schedule provider groups',0)",
+                "('admin','_admin.schedule.groupCreate','x',0,'999998')",
+                "('999998','_admin.schedule.groupCreate','o',1,'999998')");
     }
 
     @Test

@@ -507,34 +507,35 @@ else
         ## service ${TOMCAT} restart >> $LOG_FILE 2>&1 &
         ## pid=$!;progress $pid
 
-	# --- Generate fresh oscar_15 schema from bundled database scripts ---
-	# The schema/ directory was populated at package build time from database/mysql/.
-	# We cd into schema/ so the createdatabase_*.sh helper scripts can use relative paths.
+	# --- Generate fresh CARLOS schema from the Flyway V1 baseline ---
+	# The schema/ directory was populated at package build time from database/mysql/migration/
+	# plus a bundled, offline-capable Flyway CLI. We apply the consolidated V1 baseline (complete
+	# schema + reference data, incl. OLIS for ON) with the common + province locations — the same
+	# set production applies via `carlos-ctl db migrate`. baselineOnMigrate handles the empty DB;
+	# the resulting flyway_schema_history lets later `carlos-ctl db migrate` runs apply forward
+	# migrations and satisfies the boot-time validate gate.
 	SCHEMA_DIR="${SRC}schema"
-	ncecho " [x] Generating oscar_15 schema from database scripts "
-	if [ "${billregion}" = "BC" ] ; then
-		echo "Running createdatabase_bc.sh for BC province" >>$LOG_FILE
-		# createdatabase_bc.sh [mysql_user] [database_name]
-		# Password is passed via MYSQL_PWD environment variable (not on command line).
-		# The helper calls createdatabase_generic.sh with province=bc and ICD version 9.
-		(cd "${SCHEMA_DIR}" && MYSQL_PWD="${db_password}" bash createdatabase_bc.sh root "${db_name}") >>$LOG_FILE 2>>$LOG_FILE &
-		pid=$!;progress $pid
-		echo "Populated ${db_name} with BC province schema" >>$LOG_FILE
-	else
-		echo "Running createdatabase_on.sh for ON province" >>$LOG_FILE
-		# createdatabase_on.sh [mysql_user] [database_name]
-		# Password is passed via MYSQL_PWD environment variable (not on command line).
-		# The helper calls createdatabase_generic.sh with province=on and ICD version 9.
-		# It also loads olis/olisinit.sql for Ontario Laboratory Information System tables.
-		(cd "${SCHEMA_DIR}" && MYSQL_PWD="${db_password}" bash createdatabase_on.sh root "${db_name}") >>$LOG_FILE 2>>$LOG_FILE &
-		pid=$!;progress $pid
-		echo "Populated ${db_name} with ON province schema" >>$LOG_FILE
-
-		ncecho " [x] Populating database with OLIS data "
-		$MYSQL ${db_name} < ${SRC}OLIS.sql 2>>$LOG_FILE &
-		pid=$!;progress $pid
-		echo "Populated database ${db_name} with OLIS lab panel data" >>$LOG_FILE
+	FLYWAY_BIN=$(ls -d ${SCHEMA_DIR}/flyway-*/flyway 2>/dev/null | head -1)
+	if [ -z "${FLYWAY_BIN}" ] || [ ! -x "${FLYWAY_BIN}" ] ; then
+		fail "bundled Flyway CLI not found under ${SCHEMA_DIR} — cannot create schema"
 	fi
+	if [ "${billregion}" = "BC" ] ; then
+		province="bc"
+	else
+		province="on"
+	fi
+	ncecho " [x] Applying CARLOS Flyway V1 baseline (${province}) to ${db_name} "
+	echo "Running flyway migrate for province ${province}" >>$LOG_FILE
+	# db_password is passed off-argv via MYSQL_PWD-style env; Flyway reads -password. The DB was
+	# already created above, so baselineOnMigrate stamps V1 and applies the baseline.
+	( "${FLYWAY_BIN}" \
+		-url="jdbc:mariadb://localhost:3306/${db_name}?allowPublicKeyRetrieval=true&useSSL=false" \
+		-user=root -password="${db_password}" \
+		-locations="filesystem:${SCHEMA_DIR}/migration/common,filesystem:${SCHEMA_DIR}/migration/${province}" \
+		-baselineOnMigrate=true migrate ) >>$LOG_FILE 2>>$LOG_FILE &
+	# progress() waits on $pid and calls fail() on a non-zero exit, so a failed migrate aborts here.
+	pid=$!;progress $pid
+	echo "Populated ${db_name} with the ${province} Flyway baseline" >>$LOG_FILE
 	#ncecho " [x] Patching database to early ${PROGRAM} schema with patch1"
 	#$MYSQL ${db_name} < ${SRC}oscar_15_to_oscar_19.sql >>$LOG_FILE 2>>$LOG_FILE &
 	#pid=$!;progress $pid
@@ -546,9 +547,10 @@ else
 	        pid=$!;progress $pid   
         fi
 	
-	ncecho " [x] Patching database to very latest schema"
-	$MYSQL ${db_name} < ${SRC}patch.sql >>$LOG_FILE 2>>$LOG_FILE &
-	pid=$!;progress $pid
+	# patch.sql was the OSCAR19->CARLOS conversion patch that brought a legacy oscar_15 schema up
+	# to the current CARLOS baseline. The Flyway V1 baseline applied above IS that current schema,
+	# so it is intentionally NOT run on a fresh install. It remains part of the UPGRADE/conversion
+	# path (an OSCAR19 datadir is stamped with `flyway baseline` then migrated forward).
 	#$MYSQL ${db_name} -e "insert into issue (code,description,role,update_date,sortOrderId) select icd9.icd9, icd9.description, 'doctor', now(), '0' from icd9;"
 	#echo  Populated the issues table in ${db_name} with ICD9 codes >>$LOG_FILE
 

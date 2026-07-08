@@ -3,9 +3,11 @@
 SQL Migration Pattern Enforcer Hook for Claude Code
 
 This hook enforces CARLOS database migration standards:
-- Original SQL initialization files must NOT be modified
-- All schema changes must go into dated patch files (update-YYYY-MM-DD-*.sql)
-- Patch files must be idempotent and safe to run multiple times
+- The Flyway V1 baseline (database/mysql/migration/**/V1*.sql) must NOT be hand-edited
+- All schema changes must go into NEW forward migrations
+  (database/mysql/migration/<common|on|bc>/VYYYY.MM.DD__desc.sql), or the frozen legacy
+  updates/ dir for historical patches
+- Migrations must be idempotent and safe to run multiple times
 
 Exit codes:
 - 0: Safe operation (patch file or non-SQL file)
@@ -19,33 +21,37 @@ from datetime import datetime
 from pathlib import Path
 
 
-# Original SQL files that must NOT be modified
+# Flyway baseline files that must NOT be hand-edited. The V1 baseline is the genesis
+# schema + reference data (captured once); schema changes ship as NEW forward migrations,
+# never as edits to the baseline. Guarded by basename inside database/mysql/migration/.
 PROTECTED_SQL_FILES = [
-    "oscarinit.sql",
-    "oscarinit_2025.sql",
-    "oscarinit_bc.sql",
-    "oscarinit_on.sql",
-    "oscardata.sql",
-    "oscardata_bc.sql",
-    "oscardata_on.sql",
-    "icd9.sql",
-    "icd10.sql",
-    "measurementMapData.sql",
+    "V1__baseline_schema.sql",
+    "V1.0.1__on_schema.sql",
+    "V1.0.2__on_data.sql",
+    "V1.0.1__bc_schema.sql",
+    "V1.0.2__bc_data.sql",
 ]
 
-# Protected directories (cannot create new SQL files here)
+# Protected directories (cannot create ad-hoc raw SQL files directly here)
 PROTECTED_DIRECTORIES = [
     "database/mysql",
-    "database/mysql/caisi",
-    "database/mysql/olis",
     "database/mysql/SnomedCore",
 ]
 
-# Allowed directory for patch files
+# Allowed directories for new migrations: the legacy dated-patch dir (frozen, still read by
+# a few tests) and the Flyway forward-migration locations.
 PATCH_DIRECTORY = "database/mysql/updates"
+MIGRATION_DIRECTORIES = (
+    "database/mysql/migration/common",
+    "database/mysql/migration/on",
+    "database/mysql/migration/bc",
+)
 
 # Expected patch file naming pattern
 PATCH_PATTERN = re.compile(r"^update-\d{4}-\d{2}-\d{2}-.+\.sql$")
+# Flyway forward-migration naming (dated versioned migration under a location dir),
+# e.g. V2026.07.08__add_column.sql or V2026.07.08.1__followup.sql
+MIGRATION_PATTERN = re.compile(r"^V\d{4}\.\d{2}\.\d{2}(\.\d+)?__.+\.sql$")
 
 
 def get_file_path_from_input(tool_input: dict) -> str:
@@ -54,29 +60,33 @@ def get_file_path_from_input(tool_input: dict) -> str:
 
 
 def is_protected_sql_file(file_path: str) -> bool:
-    """Check if the file is a protected original SQL initialization file."""
+    """Check if the file is a protected Flyway baseline file (must not be hand-edited)."""
     path = Path(file_path)
 
-    # Check if it's in a protected directory and matches protected filename
+    # Check if it's a baseline file inside the Flyway migration tree
     for protected_file in PROTECTED_SQL_FILES:
         if path.name == protected_file:
-            # Check if it's in database/mysql or subdirectories
-            if "database/mysql" in file_path:
+            if "database/mysql/migration" in file_path:
                 return True
 
     return False
 
 
 def is_valid_patch_file(file_path: str) -> bool:
-    """Check if the file is a valid dated patch file in the updates directory."""
+    """Check if the file is a valid new migration: a dated patch in updates/, or a Flyway
+    forward migration (VYYYY.MM.DD__desc.sql) under a migration location directory."""
     path = Path(file_path)
 
-    # Must be in the updates directory
-    if PATCH_DIRECTORY not in file_path:
-        return False
+    # Legacy dated patch directory (frozen; still referenced by a few regression tests)
+    if PATCH_DIRECTORY in file_path and PATCH_PATTERN.match(path.name) is not None:
+        return True
 
-    # Must match the naming pattern: update-YYYY-MM-DD-*.sql
-    return PATCH_PATTERN.match(path.name) is not None
+    # Flyway forward migration under common/on/bc
+    if any(loc in file_path for loc in MIGRATION_DIRECTORIES) and \
+            MIGRATION_PATTERN.match(path.name) is not None:
+        return True
+
+    return False
 
 
 def is_creating_sql_in_protected_dir(tool_name: str, file_path: str) -> bool:
@@ -137,18 +147,19 @@ def main():
         if is_valid_patch_file(file_path):
             sys.exit(0)
 
-        # Block modification of protected original SQL files
+        # Block modification of protected baseline files
         if is_protected_sql_file(file_path):
             print("\n=== SQL Migration Pattern Enforcer ===", file=sys.stderr)
-            print(f"BLOCKED: Cannot modify original SQL initialization file", file=sys.stderr)
+            print(f"BLOCKED: Cannot hand-edit the Flyway V1 baseline", file=sys.stderr)
             print(f"File: {file_path}\n", file=sys.stderr)
             print("CARLOS migration standards require:", file=sys.stderr)
-            print("  ✗ Do NOT modify original SQL files (oscarinit*.sql, oscardata*.sql, etc.)", file=sys.stderr)
-            print("  ✓ Create dated patch files in database/mysql/updates/\n", file=sys.stderr)
+            print("  ✗ Do NOT edit the V1 baseline (migration/**/V1*.sql) — it is the genesis schema", file=sys.stderr)
+            print("  ✓ Ship schema changes as NEW forward migrations:", file=sys.stderr)
+            print("      database/mysql/migration/<common|on|bc>/VYYYY.MM.DD__short_description.sql\n", file=sys.stderr)
             print("To apply this schema change:", file=sys.stderr)
-            print(f"  1. Create: database/mysql/updates/{generate_patch_filename_suggestion()}", file=sys.stderr)
+            print(f"  1. Create a forward migration: V{datetime.now().strftime('%Y.%m.%d')}__short_description.sql", file=sys.stderr)
             print("  2. Make your ALTER TABLE statements idempotent (check if exists first)", file=sys.stderr)
-            print("  3. Test that the patch can be run multiple times safely\n", file=sys.stderr)
+            print("  3. Test that the migration can be run multiple times safely\n", file=sys.stderr)
             print("Example idempotent ALTER TABLE:", file=sys.stderr)
             print("  SET @col_exists = 0;", file=sys.stderr)
             print("  SELECT COUNT(*) INTO @col_exists FROM information_schema.COLUMNS", file=sys.stderr)
@@ -166,13 +177,13 @@ def main():
             print(f"BLOCKED: Cannot create new SQL file in protected directory", file=sys.stderr)
             print(f"File: {file_path}\n", file=sys.stderr)
             print("CARLOS migration standards require:", file=sys.stderr)
-            print("  ✗ Do NOT create SQL files in database/mysql/ (root)", file=sys.stderr)
-            print("  ✓ Create dated patch files in database/mysql/updates/\n", file=sys.stderr)
+            print("  ✗ Do NOT create ad-hoc SQL files in database/mysql/ (root)", file=sys.stderr)
+            print("  ✓ Create a Flyway forward migration in a location directory\n", file=sys.stderr)
             print("To add this SQL content:", file=sys.stderr)
-            print(f"  Create: database/mysql/updates/{generate_patch_filename_suggestion()}", file=sys.stderr)
-            print("\nPatch file naming convention:", file=sys.stderr)
-            print("  update-YYYY-MM-DD-brief-description.sql", file=sys.stderr)
-            print("  Example: update-2026-02-12-add-provider-type-column.sql", file=sys.stderr)
+            print("  Create: database/mysql/migration/<common|on|bc>/VYYYY.MM.DD__brief_description.sql", file=sys.stderr)
+            print("\nForward-migration naming convention:", file=sys.stderr)
+            print("  VYYYY.MM.DD__brief_description.sql   (append .N for multiple on one day)", file=sys.stderr)
+            print("  Example: V2026.07.08__add_provider_type_column.sql", file=sys.stderr)
             sys.exit(2)
 
         # Allow all other SQL operations

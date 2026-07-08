@@ -65,12 +65,8 @@
       "Bash(git push -u origin *)"
     ],
     "ask": [
-      "Edit(database/mysql/oscarinit*.sql)",
-      "Edit(database/mysql/oscardata*.sql)",
-      "Edit(database/mysql/icd*.sql)",
-      "Edit(database/mysql/measurementMapData.sql)",
-      "Write(database/mysql/oscarinit*.sql)",
-      "Write(database/mysql/oscardata*.sql)",
+      "Edit(database/mysql/migration/**/V1*.sql)",
+      "Write(database/mysql/migration/**/V1*.sql)",
       "Bash(gh pr close *)",
       "Bash(gh issue close *)",
       "Bash(gh issue edit *)",

@@ -37,12 +37,15 @@ Demo/patient data is **not** in this baseline — it belongs in a dev-only `demo
 - **New schema changes** are Flyway migrations named `VYYYY.MM.DD[.N]__short_description.sql` in
   `common/` (shared) or `on/`/`bc/` (province-specific). Never edit the `V1*` baseline files or add to
   `../updates/` (frozen — see `../updates/README.md`).
-- **The `V1` baseline is COMPLETE** (schema + required reference data), regenerated only by
-  `../build-baseline.sh`. It excludes the dead tables in `pruned-tables.txt`.
+- **The `V1` baseline is COMPLETE and frozen** (schema + required reference data): it is the genesis
+  of the CARLOS schema. It was captured once (demo-free, dead-pruned per `pruned-tables.txt`) at the
+  Flyway cutover; the legacy `createdatabase_*.sh` / `oscarinit*` / `oscardata*` build it replaced has
+  been retired (recoverable from git history). Do not regenerate it — evolve the schema forward.
 - **drugref2 is a separate database** — not managed here (keeps `../development-drugref.sql` + `../drugref/*.sql`).
 
-## Regenerating
+## Evolving the schema
 
-Run in a devcontainer (MariaDB): `database/mysql/build-baseline.sh`. It builds the demo-free,
-dead-pruned database per province and dumps the split baseline. See
-`docs/database-schema-management.md` for the model and the schema+data verification.
+Add a forward migration under the right location — `common/` for shared changes, `on/`/`bc/` for
+province-specific ones — named `VYYYY.MM.DD[.N]__short_description.sql`, and make it idempotent. A
+fresh `flyway migrate` applies `V1` then your delta; existing databases apply only the new delta.
+See `docs/database-schema-management.md` for the model and CI verification (`db-schema-verify.yml`).

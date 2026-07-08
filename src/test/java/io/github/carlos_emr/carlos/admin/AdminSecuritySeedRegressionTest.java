@@ -23,24 +23,32 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * Admin security seed regressions.
+ *
+ * <p>The fresh-install seed now lives in the Flyway baseline reference-data migration
+ * ({@code migration/on/V1.0.2__on_data.sql}), captured by {@code mysqldump}, so the
+ * fresh-seed assertions match the dump's extended-INSERT tuple form ({@code ('col',...)}).
+ * The paired production {@code updates/*.sql} migrations are frozen historical files and
+ * keep their original hand-written statement form.
+ */
 @DisplayName("Admin security seed regressions")
 @Tag("unit")
 @Tag("admin")
 class AdminSecuritySeedRegressionTest {
 
-    private static final String DOCTOR_EFORM_WRITE_GRANT =
-            "insert into `secObjPrivilege` values('doctor','_eform','w',0,'999998');";
+    private static final Path SEED = Path.of("database", "mysql", "migration", "on", "V1.0.2__on_data.sql");
 
     @Test
     @DisplayName("should grant site-access privacy to admin role in fresh and migrated databases")
     void shouldGrantSiteAccessPrivacy_toAdminRole() throws IOException {
-        String freshSeed = Files.readString(Path.of("database/mysql/oscardata.sql"));
+        String freshSeed = Files.readString(SEED, StandardCharsets.UTF_8);
         String migration = Files.readString(Path.of(
                 "database/mysql/updates/update-2026-05-19-admin-site-access-privacy.sql"));
 
         assertThat(freshSeed)
                 .as("fresh dev databases should let carlosdoc's admin role reach site-aware admin pages")
-                .contains("insert into `secObjPrivilege` values('admin','_site_access_privacy','x',0,'999998')");
+                .contains("('admin','_site_access_privacy','x',0,'999998')");
         assertThat(migration)
                 .as("existing production databases should receive the same admin privilege")
                 .contains("('_site_access_privacy', 'restrict access to only the assigned sites of a provider', 0)")
@@ -50,11 +58,11 @@ class AdminSecuritySeedRegressionTest {
     @Test
     @DisplayName("should seed doctor role with eForm write privilege in fresh seed")
     void shouldSeedDoctorEFormWritePrivilege_inFreshSeed() throws IOException {
-        String freshSeed = Files.readString(Path.of("database/mysql/oscardata.sql"), StandardCharsets.UTF_8);
+        String freshSeed = Files.readString(SEED, StandardCharsets.UTF_8);
 
         assertThat(freshSeed)
                 .as("fresh dev databases should seed doctor with _eform write (not full-access)")
-                .contains(DOCTOR_EFORM_WRITE_GRANT)
+                .contains("('doctor','_eform','w',0,'999998')")
                 .as("admin deletion rights come from the existing _admin.eform grant, not a new _eform:d row")
                 .doesNotContain("'admin','_eform','d'");
     }

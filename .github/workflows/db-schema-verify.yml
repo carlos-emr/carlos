@@ -1,13 +1,11 @@
-# GitHub Workflow: Verify CARLOS DB schema identity (legacy scripts vs Flyway baseline)
+# GitHub Workflow: Verify the CARLOS Flyway baseline applies cleanly
 #
-# Proves that a database built by `flyway migrate` (consolidated V1 baseline + deltas) is
-# schema-identical to one built the legacy way (createdatabase_<prov>.sh + the required recent
-# update-*.sql). This is the core guarantee behind adopting Flyway: the migration set reproduces
-# today's known-good schema exactly.
-#
-# Dormant until the baseline is generated: if common/V1__baseline_core_schema.sql does not yet
-# exist, the diff step is skipped with a notice (the Flyway path has nothing to apply). Run
-# database/mysql/build-baseline.sh in a devcontainer and commit the V1* files to activate it.
+# The legacy script build (createdatabase_<prov>.sh + oscarinit*/oscardata*) has been retired:
+# the consolidated Flyway V1 baseline is now the single source of truth. There is no longer a
+# legacy schema to diff against, so this workflow proves the forward guarantee instead — that a
+# fresh `flyway migrate` (common + province) succeeds, validates, and yields a populated schema —
+# for both provinces. Reference-data/row-count parity against the old build was verified once at
+# cutover (PR #3150) and is preserved in git history.
 #
 # Triggered only on changes under database/mysql/** so it does not slow unrelated PRs.
 
@@ -20,18 +18,16 @@ on:
       - '.github/workflows/db-schema-verify.yml'
 
 jobs:
-  schema-identity:
+  flyway-baseline:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - province: on
-            icd: '9'
-          - province: bc
-            icd: '9'
+        province: [on, bc]
     services:
       mariadb:
+        # 10.5 matches the devcontainer/CI runtime and the timestamp semantics the baseline
+        # DDL was captured under (explicit_defaults_for_timestamp OFF).
         image: mariadb:10.5
         env:
           MARIADB_ROOT_PASSWORD: password
@@ -53,74 +49,45 @@ jobs:
             | tar xz
           echo "$PWD/flyway-${FLYWAY_VERSION}" >> "$GITHUB_PATH"
 
-      - name: Skip if baseline not yet generated
-        id: guard
-        run: |
-          if [ ! -f "database/mysql/migration/common/V1__baseline_schema.sql" ]; then
-            echo "::notice::No V1 baseline committed yet — run database/mysql/build-baseline.sh and commit the V1 files to activate schema verification."
-            echo "active=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "active=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Build DB-A (legacy scripts) and DB-B (Flyway) and diff
-        if: steps.guard.outputs.active == 'true'
+      - name: Migrate the V1 baseline and smoke-check the result
         env:
-          MYSQL_HOST: 127.0.0.1
           MYSQL_PWD: password
         run: |
           set -euo pipefail
           cd database/mysql
           PROV=${{ matrix.province }}
-          ICD=${{ matrix.icd }}
+          MYSQL="mysql -h 127.0.0.1 -uroot -ppassword"
+          JDBC="jdbc:mysql://127.0.0.1:3306/carlos_${PROV}?allowPublicKeyRetrieval=true&useSSL=false"
 
-          # createdatabase_*.sh connect via the default socket (host "localhost"); a GitHub Actions
-          # service-container DB is reachable only over TCP. Force the mariadb clients to 127.0.0.1
-          # + TCP via ~/.my.cnf so the legacy build (which passes no -h) reaches the service DB.
-          printf '[client]\nhost=127.0.0.1\nprotocol=tcp\n' > ~/.my.cnf
-
-          # DB-A: legacy path. Call createdatabase_generic.sh directly (the bc wrapper caps at 3
-          # args and can't pass suppressPwdGen), matching build-baseline.sh. Then apply the same
-          # required updates it folds into V1 (bare update-*.sql names from its REQUIRED_UPDATES).
-          ./createdatabase_generic.sh root password legacy_${PROV} ${PROV} ${ICD} suppressPwdGen >/dev/null
-          for u in $(grep -oE "update-[0-9]{4}-[0-9]{2}-[0-9]{2}[a-zA-Z0-9._-]*\.sql" build-baseline.sh | sort -u); do
-            [ -f "updates/$u" ] && mysql -h 127.0.0.1 -uroot -ppassword legacy_${PROV} < "updates/$u" || true
-          done
-          # Prune the same dead tables build-baseline.sh drops, so DB-A matches the pruned V1.
-          { echo "SET FOREIGN_KEY_CHECKS=0;"; grep -v '^#' migration/pruned-tables.txt | grep -v '^[[:space:]]*$' \
-              | while read -r t; do echo "DROP TABLE IF EXISTS \`$t\`;"; done; echo "SET FOREIGN_KEY_CHECKS=1;"; } \
-            | mysql -h 127.0.0.1 -uroot -ppassword legacy_${PROV}
-
-          # DB-B: Flyway path (complete baseline: common schema + province schema + province data)
-          mysql -h 127.0.0.1 -uroot -ppassword -e "CREATE DATABASE flyway_${PROV};"
-          flyway -url="jdbc:mysql://127.0.0.1:3306/flyway_${PROV}?allowPublicKeyRetrieval=true&useSSL=false" \
-            -user=root -password=password \
+          # Fresh install path: exactly what production runs via `carlos-ctl db migrate` and the
+          # .deb postinst — common + province locations, baselineOnMigrate for the empty schema.
+          $MYSQL -e "CREATE DATABASE carlos_${PROV};"
+          flyway -url="$JDBC" -user=root -password=password \
             -locations="filesystem:migration/common,filesystem:migration/${PROV}" \
             -baselineOnMigrate=true migrate
 
-          # Schema parity (exclude Flyway's own flyway_schema_history — the only expected difference).
-          norm() { mysqldump -h 127.0.0.1 -uroot -ppassword --no-data --skip-comments --skip-dump-date \
-                    --ignore-table="$1.flyway_schema_history" "$1" \
-                    | sed -E 's/ AUTO_INCREMENT=[0-9]+//g' | sort; }
-          norm legacy_${PROV} > /tmp/a.sql
-          norm flyway_${PROV} > /tmp/b.sql
-          if ! diff -u /tmp/a.sql /tmp/b.sql; then
-            echo "::error::Flyway schema for ${PROV} differs from the pruned legacy-built schema"
-            exit 1
-          fi
-          echo "Schema identity verified for province ${PROV}"
+          # validate re-checks every applied migration's checksum against the files on disk:
+          # this catches a hand-edited baseline or a mismatched delta.
+          flyway -url="$JDBC" -user=root -password=password \
+            -locations="filesystem:migration/common,filesystem:migration/${PROV}" validate
 
-          # Data parity: exact row count per table must match between the two builds.
-          rowcounts() {
-            for t in $(mysql -N -h 127.0.0.1 -uroot -ppassword -e \
-                "SELECT table_name FROM information_schema.tables WHERE table_schema='$1' AND table_name<>'flyway_schema_history'"); do
-              printf "%s %s\n" "$t" "$(mysql -N -h 127.0.0.1 -uroot -ppassword -e "SELECT COUNT(*) FROM \`$1\`.\`$t\`")"
-            done | sort
-          }
-          rowcounts legacy_${PROV} > /tmp/ra.txt
-          rowcounts flyway_${PROV} > /tmp/rb.txt
-          if ! diff -u /tmp/ra.txt /tmp/rb.txt; then
-            echo "::error::Flyway reference data for ${PROV} differs from the legacy-built data (row counts)"
+          # Smoke checks: a real, populated schema (not an empty or half-applied DB).
+          TABLES=$($MYSQL -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='carlos_${PROV}' AND table_name<>'flyway_schema_history'")
+          echo "province ${PROV}: ${TABLES} tables"
+          if [ "${TABLES}" -lt 300 ]; then
+            echo "::error::Only ${TABLES} tables after migrate for ${PROV} — baseline did not apply fully"
             exit 1
           fi
-          echo "Schema + data identity verified for province ${PROV}"
+
+          # Required reference data must be present: the carlosdoc admin privilege seed and ICD codes.
+          ADMIN_GRANT=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM secObjPrivilege WHERE roleUserGroup='admin' AND objectName='_admin'")
+          ICD=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM icd9")
+          if [ "${ADMIN_GRANT}" -lt 1 ]; then
+            echo "::error::carlosdoc admin privilege seed missing after migrate for ${PROV}"
+            exit 1
+          fi
+          if [ "${ICD:-0}" -lt 1 ]; then
+            echo "::error::diagnostic code table (icd9) empty after migrate for ${PROV}"
+            exit 1
+          fi
+          echo "Flyway baseline verified for province ${PROV}: ${TABLES} tables, reference data present"

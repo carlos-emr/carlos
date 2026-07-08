@@ -385,45 +385,25 @@ chmod 711 ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/restore.sh
 cp -R release/drugrefUpdate.cron ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/
 chmod +x ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/drugrefUpdate.cron
 
-# --- Bundle database schema scripts for new installs ---
-# The postinst script calls these at install time (for new installs only) to create and
-# populate the oscar_15 schema.  Both ON (Ontario) and BC (British Columbia) variants are
-# included; the installer selects the appropriate one based on the province debconf answer.
-echo "bundling database schema scripts from database/mysql/"
-mkdir -p ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
-# Core schema (required for all provinces)
-cp ./database/mysql/oscarinit.sql          ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
-cp ./database/mysql/oscarinit_2025.sql     ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
-cp ./database/mysql/oscardata.sql          ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
-cp ./database/mysql/oscardata_additional.sql ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
-cp ./database/mysql/measurementMapData.sql ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
-cp ./database/mysql/expire_openodoc.sql    ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
-# ICD-9 and ICD-10 diagnostic code tables
-cp ./database/mysql/icd9.sql              ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
-cp ./database/mysql/icd10.sql             ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
-cp ./database/mysql/icd9_issue_groups.sql  ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
-cp ./database/mysql/icd10_issue_groups.sql ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
-# Ontario (ON) province-specific data
-cp ./database/mysql/oscarinit_on.sql      ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
-cp ./database/mysql/oscardata_on.sql      ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
-# Ontario OLIS (Ontario Laboratory Information System) data
-cp -R ./database/mysql/olis/              ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/olis/
-# BC (British Columbia) province-specific data
-cp ./database/mysql/oscarinit_bc.sql       ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
-cp ./database/mysql/oscardata_bc.sql       ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
-cp ./database/mysql/bc_billingServiceCodes.sql    ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
-cp ./database/mysql/bc_professionalSpecialists.sql ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
-cp ./database/mysql/bc_pharmacies.sql     ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
-# CAISI (Computerized Assessment and Integration System) community data — used by both provinces
-cp -R ./database/mysql/caisi/             ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/caisi/
-# Database creation helper scripts — postinst calls the province-appropriate one.
-# createdatabase_generic.sh [user] [pass] [dbname] [on|bc] [icd_version]
-# createdatabase_on.sh      [user] [pass] [dbname]   (wraps generic with on/9)
-# createdatabase_bc.sh      [user] [pass] [dbname]   (wraps generic with bc/9)
-cp ./database/mysql/createdatabase_generic.sh ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
-cp ./database/mysql/createdatabase_on.sh      ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
-cp ./database/mysql/createdatabase_bc.sh      ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
-chmod 755 ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/createdatabase_*.sh
+# --- Bundle the Flyway migration set + CLI for new installs ---
+# New installs no longer run the legacy createdatabase_*.sh scripts. The postinst applies the
+# consolidated Flyway V1 baseline (schema + reference data) with the bundled Flyway CLI, selecting
+# the common + province (on|bc) locations from the province debconf answer — exactly the set the
+# container path applies via `carlos-ctl db migrate`. This yields a proper flyway_schema_history so
+# subsequent `carlos-ctl db migrate` runs and the boot-time validate gate work.
+FLYWAY_VERSION=11.14.0
+SCHEMA_OUT=${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema
+echo "bundling Flyway migration set from database/mysql/migration/"
+mkdir -p ${SCHEMA_OUT}
+cp -R ./database/mysql/migration ${SCHEMA_OUT}/migration
+# expire_openodoc.sql is a dev-only credential-expiry helper kept for existing tooling.
+cp ./database/mysql/expire_openodoc.sql ${SCHEMA_OUT}/ 2>/dev/null || true
+
+echo "bundling Flyway ${FLYWAY_VERSION} CLI (offline-capable, self-contained JRE)"
+# The bundled linux CLI tarball is on Red Gate's mirror; Maven Central only ships the jar.
+curl -fsSL "https://download.red-gate.com/maven/release/com/redgate/flyway/flyway-commandline/${FLYWAY_VERSION}/flyway-commandline-${FLYWAY_VERSION}-linux-x64.tar.gz" \
+  | tar xz -C ${SCHEMA_OUT}
+chmod 755 ${SCHEMA_OUT}/flyway-${FLYWAY_VERSION}/flyway
 
 # Bundle incremental update scripts for CARLOS revision upgrades.
 # update-2026-02-14-facility-integrator-removal.sql is intentionally excluded because it

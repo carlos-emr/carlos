@@ -161,7 +161,7 @@ class RemovedJspReferenceRegressionTest {
         String strutsAdmin = Files.readString(Path.of("src/main/webapp/WEB-INF/classes/struts-admin.xml"));
         String adminJsp = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/admin/admin.jsp"));
         String adminLeftNav = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/administration/leftNav.jspf"));
-        String oscarData = Files.readString(Path.of("database/mysql/oscardata.sql"));
+        String oscarData = Files.readString(Path.of("database/mysql/migration/on/V1.0.2__on_data.sql"));
         String traceabilityPermissionCleanup = Files.readString(Path.of(
                 "database/mysql/updates/update-2026-05-26-remove-traceability-permission.sql"));
 
