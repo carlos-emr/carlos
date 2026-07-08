@@ -23,6 +23,11 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
+import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
+import io.github.carlos_emr.carlos.commn.model.CtlDocument;
+import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
+import io.github.carlos_emr.carlos.commn.model.Document;
+import io.github.carlos_emr.carlos.commn.model.EFormData;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -31,6 +36,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import java.util.Date;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
@@ -54,6 +62,12 @@ public class ConsultDocsDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private ConsultDocsDao consultDocsDao;
 
+    @PersistenceContext(unitName = "entityManagerFactory")
+    private EntityManager entityManager;
+
+    private static final String PROVIDER_NO = "999001";
+    private static final String INSERT_DEMOGRAPHIC_SQL = "INSERT INTO demographic (demographic_no, first_name, last_name, sex, provider_no, patient_status) VALUES (:id, 'Test', 'Patient', 'M', :providerNo, 'AC')";
+
     private ConsultDocs createConsultDoc(int requestId, int documentNo, String docType, String deleted) {
         ConsultDocs doc = new ConsultDocs();
         doc.setRequestId(requestId);
@@ -61,7 +75,84 @@ public class ConsultDocsDaoIntegrationTest extends CarlosTestBase {
         doc.setDocType(docType);
         doc.setDeleted(deleted);
         consultDocsDao.persist(doc);
+        entityManager.flush();
         return doc;
+    }
+
+    private void createDemographic(int demographicNo) {
+        entityManager.createNativeQuery(INSERT_DEMOGRAPHIC_SQL)
+                .setParameter("id", demographicNo)
+                .setParameter("providerNo", PROVIDER_NO)
+                .executeUpdate();
+        entityManager.flush();
+    }
+
+    private ConsultationRequest createConsultationRequest(int demographicNo) {
+        ConsultationRequest consult = new ConsultationRequest();
+        consult.setDemographicId(demographicNo);
+        consult.setProviderNo(PROVIDER_NO);
+        consult.setReferralDate(new Date());
+        consult.setServiceId(1);
+        consult.setStatus("1");
+        entityManager.persist(consult);
+        entityManager.flush();
+        return consult;
+    }
+
+    private EFormData createEFormData(int demographicNo, boolean patientIndependent) {
+        Date now = new Date();
+        EFormData eFormData = new EFormData();
+        eFormData.setDemographicId(demographicNo);
+        eFormData.setFormId(1);
+        eFormData.setFormName("TestForm");
+        eFormData.setSubject("Test Subject");
+        eFormData.setCurrent(true);
+        eFormData.setFormDate(now);
+        eFormData.setFormTime(now);
+        eFormData.setProviderNo(PROVIDER_NO);
+        eFormData.setFormData("<form>test</form>");
+        eFormData.setShowLatestFormOnly(false);
+        eFormData.setPatientIndependent(patientIndependent);
+        eFormData.setRoleType("");
+        entityManager.persist(eFormData);
+        entityManager.flush();
+        return eFormData;
+    }
+
+    private Document createDocument(char status) {
+        Date now = new Date();
+        Document document = new Document();
+        document.setDoctype("consult");
+        document.setDocdesc("Test document");
+        document.setDocfilename("test.pdf");
+        document.setDoccreator(PROVIDER_NO);
+        document.setResponsible(PROVIDER_NO);
+        document.setStatus(status);
+        document.setContenttype("application/pdf");
+        document.setPublic1(0);
+        document.setNumberofpages(1);
+        document.setObservationdate(now);
+        document.setUpdatedatetime(now);
+        document.setContentdatetime(now);
+        entityManager.persist(document);
+        entityManager.flush();
+        return document;
+    }
+
+    private void createCtlDocument(int demographicNo, Integer documentNo) {
+        createCtlDocument(demographicNo, documentNo, String.valueOf(Document.STATUS_ACTIVE));
+    }
+
+    private void createCtlDocument(int demographicNo, Integer documentNo, String status) {
+        CtlDocument ctlDocument = new CtlDocument();
+        ctlDocument.setId(new CtlDocumentPK("demographic", demographicNo, documentNo));
+        ctlDocument.setStatus(status);
+        entityManager.persist(ctlDocument);
+        entityManager.flush();
+    }
+
+    private String deletedValue(ConsultDocs consultDocs) {
+        return entityManager.find(ConsultDocs.class, consultDocs.getId()).getDeleted();
     }
 
     @Nested
@@ -140,5 +231,112 @@ public class ConsultDocsDaoIntegrationTest extends CarlosTestBase {
             List<ConsultDocs> results = consultDocsDao.findByRequestId(99999);
             assertThat(results).isEmpty();
         }
+    }
+
+    @Nested
+    @DisplayName("stale active consult attachment cleanup")
+    class StaleActiveConsultAttachmentCleanup {
+
+        @Test
+        @DisplayName("should report only invalid active eForm and document attachments")
+        void shouldReportOnlyInvalidActiveEFormAndDocumentAttachments_forCleanupDryRun() {
+            CleanupFixture fixture = createCleanupFixture();
+
+            List<ConsultDocs> results = consultDocsDao.findStaleActiveConsultAttachments();
+
+            assertThat(results)
+                    .extracting(ConsultDocs::getId)
+                    .containsExactlyInAnyOrder(
+                            fixture.wrongPatientEForm.getId(),
+                            fixture.missingEForm.getId(),
+                            fixture.missingDocument.getId(),
+                            fixture.deletedDocument.getId(),
+                            fixture.wrongPatientDocument.getId());
+            assertThat(consultDocsDao.countStaleActiveConsultAttachments()).isEqualTo(5);
+        }
+
+        @Test
+        @DisplayName("should soft-delete only invalid active eForm and document attachments")
+        void shouldSoftDeleteOnlyInvalidActiveEFormAndDocumentAttachments() {
+            CleanupFixture fixture = createCleanupFixture();
+
+            int updated = consultDocsDao.markStaleActiveConsultAttachmentsDeleted();
+            entityManager.flush();
+            entityManager.clear();
+
+            assertThat(updated).isEqualTo(5);
+            assertThat(deletedValue(fixture.validSamePatientEForm)).isNull();
+            assertThat(deletedValue(fixture.patientIndependentEForm)).isNull();
+            assertThat(deletedValue(fixture.validDocument)).isNull();
+            assertThat(deletedValue(fixture.validNonDeletedDocument)).isNull();
+            assertThat(deletedValue(fixture.activeLabWithMissingTarget)).isNull();
+            assertThat(deletedValue(fixture.activeFormWithMissingTarget)).isNull();
+            assertThat(deletedValue(fixture.activeHrmWithMissingTarget)).isNull();
+            assertThat(deletedValue(fixture.alreadyDeletedWrongPatientEForm)).isEqualTo(ConsultDocs.DELETED);
+            assertThat(deletedValue(fixture.alreadyDeletedMissingDocument)).isEqualTo(ConsultDocs.DELETED);
+            assertThat(deletedValue(fixture.wrongPatientEForm)).isEqualTo(ConsultDocs.DELETED);
+            assertThat(deletedValue(fixture.missingEForm)).isEqualTo(ConsultDocs.DELETED);
+            assertThat(deletedValue(fixture.missingDocument)).isEqualTo(ConsultDocs.DELETED);
+            assertThat(deletedValue(fixture.deletedDocument)).isEqualTo(ConsultDocs.DELETED);
+            assertThat(deletedValue(fixture.wrongPatientDocument)).isEqualTo(ConsultDocs.DELETED);
+        }
+
+        private CleanupFixture createCleanupFixture() {
+            int demographicNo = 81001;
+            int otherDemographicNo = 81002;
+            createDemographic(demographicNo);
+            createDemographic(otherDemographicNo);
+            ConsultationRequest consult = createConsultationRequest(demographicNo);
+
+            EFormData samePatientEForm = createEFormData(demographicNo, false);
+            EFormData patientIndependentEForm = createEFormData(otherDemographicNo, true);
+            EFormData wrongPatientEForm = createEFormData(otherDemographicNo, false);
+
+            Document validDocument = createDocument(Document.STATUS_ACTIVE);
+            createCtlDocument(demographicNo, validDocument.getDocumentNo());
+
+            Document validNonDeletedDocument = createDocument('S');
+            createCtlDocument(demographicNo, validNonDeletedDocument.getDocumentNo(), "S");
+
+            Document deletedDocument = createDocument(Document.STATUS_DELETED);
+            createCtlDocument(demographicNo, deletedDocument.getDocumentNo());
+
+            Document wrongPatientDocument = createDocument(Document.STATUS_ACTIVE);
+            createCtlDocument(otherDemographicNo, wrongPatientDocument.getDocumentNo());
+
+            CleanupFixture fixture = new CleanupFixture();
+            fixture.validSamePatientEForm = createConsultDoc(consult.getId(), samePatientEForm.getId(), ConsultDocs.DOCTYPE_EFORM, null);
+            fixture.patientIndependentEForm = createConsultDoc(consult.getId(), patientIndependentEForm.getId(), ConsultDocs.DOCTYPE_EFORM, null);
+            fixture.wrongPatientEForm = createConsultDoc(consult.getId(), wrongPatientEForm.getId(), ConsultDocs.DOCTYPE_EFORM, null);
+            fixture.missingEForm = createConsultDoc(consult.getId(), 990001, ConsultDocs.DOCTYPE_EFORM, null);
+            fixture.alreadyDeletedWrongPatientEForm = createConsultDoc(consult.getId(), wrongPatientEForm.getId(), ConsultDocs.DOCTYPE_EFORM, ConsultDocs.DELETED);
+            fixture.validDocument = createConsultDoc(consult.getId(), validDocument.getDocumentNo(), ConsultDocs.DOCTYPE_DOC, null);
+            fixture.validNonDeletedDocument = createConsultDoc(consult.getId(), validNonDeletedDocument.getDocumentNo(), ConsultDocs.DOCTYPE_DOC, null);
+            fixture.missingDocument = createConsultDoc(consult.getId(), 990002, ConsultDocs.DOCTYPE_DOC, null);
+            fixture.deletedDocument = createConsultDoc(consult.getId(), deletedDocument.getDocumentNo(), ConsultDocs.DOCTYPE_DOC, null);
+            fixture.wrongPatientDocument = createConsultDoc(consult.getId(), wrongPatientDocument.getDocumentNo(), ConsultDocs.DOCTYPE_DOC, null);
+            fixture.alreadyDeletedMissingDocument = createConsultDoc(consult.getId(), 990003, ConsultDocs.DOCTYPE_DOC, ConsultDocs.DELETED);
+            fixture.activeLabWithMissingTarget = createConsultDoc(consult.getId(), 990004, ConsultDocs.DOCTYPE_LAB, null);
+            fixture.activeFormWithMissingTarget = createConsultDoc(consult.getId(), 990005, ConsultDocs.DOCTYPE_FORM, null);
+            fixture.activeHrmWithMissingTarget = createConsultDoc(consult.getId(), 990006, ConsultDocs.DOCTYPE_HRM, null);
+            return fixture;
+        }
+    }
+
+    private static class CleanupFixture {
+        private ConsultDocs validSamePatientEForm;
+        private ConsultDocs patientIndependentEForm;
+        private ConsultDocs wrongPatientEForm;
+        private ConsultDocs missingEForm;
+        private ConsultDocs alreadyDeletedWrongPatientEForm;
+        private ConsultDocs validDocument;
+        private ConsultDocs validNonDeletedDocument;
+        private ConsultDocs missingDocument;
+        private ConsultDocs deletedDocument;
+        private ConsultDocs wrongPatientDocument;
+        private ConsultDocs alreadyDeletedMissingDocument;
+        private ConsultDocs activeLabWithMissingTarget;
+        private ConsultDocs activeFormWithMissingTarget;
+        private ConsultDocs activeHrmWithMissingTarget;
     }
 }
