@@ -69,6 +69,8 @@ import java.util.*;
 @Service
 public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager {
     private static final Logger logger = MiscUtils.getLogger();
+    private static final String MISSING_ATTACHMENT_METADATA = "missing attachment metadata";
+    private static final String UNREADABLE_TEMPORARY_PDF = "unreadable temporary PDF";
 
     @Autowired
     private ConsultDocsDao consultDocsDao;
@@ -611,7 +613,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         }
         for (EFormData eForm : attachedEForms) {
             if (eForm == null) {
-                recordSkippedAttachment(attachmentWarnings, DocumentType.EFORM, null, "missing attachment metadata");
+                recordSkippedAttachment(attachmentWarnings, DocumentType.EFORM, null, MISSING_ATTACHMENT_METADATA);
                 continue;
             }
             Integer eFormId = eForm.getId();
@@ -626,7 +628,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         }
         for (EDoc eDoc : attachedEDocs) {
             if (eDoc == null) {
-                recordSkippedAttachment(attachmentWarnings, DocumentType.DOC, null, "missing attachment metadata");
+                recordSkippedAttachment(attachmentWarnings, DocumentType.DOC, null, MISSING_ATTACHMENT_METADATA);
                 continue;
             }
             String docId = eDoc.getDocId();
@@ -641,7 +643,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         }
         for (LabResultData lab : attachedLabs) {
             if (lab == null) {
-                recordSkippedAttachment(attachmentWarnings, DocumentType.LAB, null, "missing attachment metadata");
+                recordSkippedAttachment(attachmentWarnings, DocumentType.LAB, null, MISSING_ATTACHMENT_METADATA);
                 continue;
             }
             String labId = lab.getSegmentID();
@@ -656,7 +658,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         }
         for (HashMap<String, ?> hrm : attachedHRMs) {
             if (hrm == null || !(hrm.get("id") instanceof Integer)) {
-                recordSkippedAttachment(attachmentWarnings, DocumentType.HRM, null, "missing attachment metadata");
+                recordSkippedAttachment(attachmentWarnings, DocumentType.HRM, null, MISSING_ATTACHMENT_METADATA);
                 continue;
             }
             Integer hrmId = (Integer) hrm.get("id");
@@ -671,7 +673,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         }
         for (EctFormData.PatientForm form : attachedForms) {
             if (form == null) {
-                recordSkippedAttachment(attachmentWarnings, DocumentType.FORM, null, "missing attachment metadata");
+                recordSkippedAttachment(attachmentWarnings, DocumentType.FORM, null, MISSING_ATTACHMENT_METADATA);
                 continue;
             }
             String formId = form.getFormId();
@@ -690,7 +692,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         try {
             Path path = renderer.render();
             if (path == null || !Files.isReadable(path)) {
-                recordSkippedAttachment(attachmentWarnings, documentType, documentId, "unreadable temporary PDF");
+                recordSkippedAttachment(attachmentWarnings, documentType, documentId, UNREADABLE_TEMPORARY_PDF);
                 return;
             }
             pdfDocumentList.add(path.toString());
@@ -704,8 +706,10 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
     private void recordSkippedAttachment(List<String> attachmentWarnings, DocumentType documentType, Object documentId, String reason) {
         String safeAttachmentId = String.valueOf(documentId);
         attachmentWarnings.add(getAttachmentDisplayType(documentType) + " attachment " + safeAttachmentId + " is unavailable and was not included.");
-        logger.warn("Skipped consultation attachment type={} id={} while rendering PDF package: {}",
-                documentType.getType(), LogSafe.sanitize(safeAttachmentId), LogSafe.sanitize(reason));
+        if (logger.isWarnEnabled()) {
+            logger.warn("Skipped consultation attachment type={} id={} while rendering PDF package: {}",
+                    documentType.getType(), LogSafe.sanitize(safeAttachmentId), LogSafe.sanitize(reason));
+        }
     }
 
     private String getAttachmentDisplayType(DocumentType documentType) {
