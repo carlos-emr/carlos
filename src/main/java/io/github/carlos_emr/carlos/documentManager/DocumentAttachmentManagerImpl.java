@@ -4,6 +4,7 @@ import io.github.carlos_emr.carlos.managers.*;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.interactive.form.PDAcroForm;
+import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.ConsultDocsDao;
 import io.github.carlos_emr.carlos.commn.dao.EFormDocsDao;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
@@ -13,7 +14,9 @@ import io.github.carlos_emr.carlos.hospitalReportManager.HRMUtil;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.data.AttachmentLabResultData;
 import io.github.carlos_emr.carlos.utility.DateUtils;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -65,6 +68,8 @@ import java.util.*;
  */
 @Service
 public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager {
+    private static final Logger logger = MiscUtils.getLogger();
+
     @Autowired
     private ConsultDocsDao consultDocsDao;
     @Autowired
@@ -466,6 +471,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         String requestId = (String) request.getAttribute("reqId");
         String demographicId = (String) request.getAttribute("demographicId");
         Path consultationFormPDFPath = consultationManager.renderConsultationForm(request);
+        List<String> attachmentWarnings = initializeAttachmentWarnings(request);
 
         List<EFormData> attachedEForms = consultationManager.getAttachedEForms(requestId);
         List<EDoc> attachedEDocs = EDocUtil.listDocs(loggedInInfo, demographicId, requestId, EDocUtil.ATTACHED);
@@ -476,11 +482,11 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
 
         ArrayList<Object> pdfDocumentList = new ArrayList<>();
         pdfDocumentList.add(consultationFormPDFPath.toString());
-        attachEFormPDFs(loggedInInfo, attachedEForms, pdfDocumentList);
-        attachEDocPDFs(loggedInInfo, attachedEDocs, pdfDocumentList);
-        attachLabPDFs(loggedInInfo, attachedLabs, pdfDocumentList);
-        attachHRMPDFs(loggedInInfo, attachedHRMs, pdfDocumentList);
-        attachFormPDFs(request, response, attachedForms, pdfDocumentList);
+        attachEFormPDFs(loggedInInfo, attachedEForms, pdfDocumentList, attachmentWarnings);
+        attachEDocPDFs(loggedInInfo, attachedEDocs, pdfDocumentList, attachmentWarnings);
+        attachLabPDFs(loggedInInfo, attachedLabs, pdfDocumentList, attachmentWarnings);
+        attachHRMPDFs(loggedInInfo, attachedHRMs, pdfDocumentList, attachmentWarnings);
+        attachFormPDFs(request, response, attachedForms, pdfDocumentList, attachmentWarnings);
 
         return concatPDF(pdfDocumentList);
     }
@@ -507,6 +513,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         String fdid = (String) request.getAttribute("fdid");
         String demographicId = (String) request.getAttribute("demographicId");
         Path eFormPath = eformDataManager.createEformPDF(loggedInInfo, Integer.parseInt(fdid));
+        List<String> attachmentWarnings = initializeAttachmentWarnings(request);
 
         List<EFormData> attachedEForms = EFormUtil.listPatientEformsCurrentAttachedToEForm(fdid);
         List<EDoc> attachedEDocs = EDocUtil.listDocsAttachedToEForm(loggedInInfo, demographicId, fdid, EDocUtil.ATTACHED);
@@ -517,11 +524,11 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
 
         ArrayList<Object> pdfDocumentList = new ArrayList<>();
         pdfDocumentList.add(eFormPath.toString());
-        attachEFormPDFs(loggedInInfo, attachedEForms, pdfDocumentList);
-        attachEDocPDFs(loggedInInfo, attachedEDocs, pdfDocumentList);
-        attachLabPDFs(loggedInInfo, attachedLabs, pdfDocumentList);
-        attachHRMPDFs(loggedInInfo, attachedHRMs, pdfDocumentList);
-        attachFormPDFs(request, response, attachedForms, pdfDocumentList);
+        attachEFormPDFs(loggedInInfo, attachedEForms, pdfDocumentList, attachmentWarnings);
+        attachEDocPDFs(loggedInInfo, attachedEDocs, pdfDocumentList, attachmentWarnings);
+        attachLabPDFs(loggedInInfo, attachedLabs, pdfDocumentList, attachmentWarnings);
+        attachHRMPDFs(loggedInInfo, attachedHRMs, pdfDocumentList, attachmentWarnings);
+        attachFormPDFs(request, response, attachedForms, pdfDocumentList, attachmentWarnings);
 
         return concatPDF(pdfDocumentList);
     }
@@ -598,39 +605,129 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         return path;
     }
 
-    private void attachEFormPDFs(LoggedInInfo loggedInInfo, List<EFormData> attachedEForms, ArrayList<Object> pdfDocumentList) throws PDFGenerationException {
+    private void attachEFormPDFs(LoggedInInfo loggedInInfo, List<EFormData> attachedEForms, ArrayList<Object> pdfDocumentList, List<String> attachmentWarnings) throws PDFGenerationException {
+        if (attachedEForms == null) {
+            return;
+        }
         for (EFormData eForm : attachedEForms) {
-            Path path = renderDocument(loggedInInfo, DocumentType.EFORM, eForm.getId());
-            pdfDocumentList.add(path.toString());
+            if (eForm == null) {
+                recordSkippedAttachment(attachmentWarnings, DocumentType.EFORM, null, "missing attachment metadata");
+                continue;
+            }
+            Integer eFormId = eForm.getId();
+            addRenderedAttachmentPDF(pdfDocumentList, attachmentWarnings, DocumentType.EFORM, eFormId,
+                    () -> renderDocument(loggedInInfo, DocumentType.EFORM, eFormId));
         }
     }
 
-    private void attachEDocPDFs(LoggedInInfo loggedInInfo, List<EDoc> attachedEDocs, ArrayList<Object> pdfDocumentList) throws PDFGenerationException {
+    private void attachEDocPDFs(LoggedInInfo loggedInInfo, List<EDoc> attachedEDocs, ArrayList<Object> pdfDocumentList, List<String> attachmentWarnings) throws PDFGenerationException {
+        if (attachedEDocs == null) {
+            return;
+        }
         for (EDoc eDoc : attachedEDocs) {
-            Path path = documentManager.renderDocument(loggedInInfo, eDoc);
-            pdfDocumentList.add(path.toString());
+            if (eDoc == null) {
+                recordSkippedAttachment(attachmentWarnings, DocumentType.DOC, null, "missing attachment metadata");
+                continue;
+            }
+            String docId = eDoc.getDocId();
+            addRenderedAttachmentPDF(pdfDocumentList, attachmentWarnings, DocumentType.DOC, docId,
+                    () -> documentManager.renderDocument(loggedInInfo, eDoc));
         }
     }
 
-    private void attachLabPDFs(LoggedInInfo loggedInInfo, List<LabResultData> attachedLabs, ArrayList<Object> pdfDocumentList) throws PDFGenerationException {
+    private void attachLabPDFs(LoggedInInfo loggedInInfo, List<LabResultData> attachedLabs, ArrayList<Object> pdfDocumentList, List<String> attachmentWarnings) throws PDFGenerationException {
+        if (attachedLabs == null) {
+            return;
+        }
         for (LabResultData lab : attachedLabs) {
-            Path path = renderDocument(loggedInInfo, DocumentType.LAB, Integer.parseInt(lab.getSegmentID()));
-            pdfDocumentList.add(path.toString());
+            if (lab == null) {
+                recordSkippedAttachment(attachmentWarnings, DocumentType.LAB, null, "missing attachment metadata");
+                continue;
+            }
+            String labId = lab.getSegmentID();
+            addRenderedAttachmentPDF(pdfDocumentList, attachmentWarnings, DocumentType.LAB, labId,
+                    () -> renderDocument(loggedInInfo, DocumentType.LAB, Integer.parseInt(labId)));
         }
     }
 
-    private void attachHRMPDFs(LoggedInInfo loggedInInfo, ArrayList<HashMap<String, ? extends Object>> attachedHRMs, ArrayList<Object> pdfDocumentList) throws PDFGenerationException {
+    private void attachHRMPDFs(LoggedInInfo loggedInInfo, ArrayList<HashMap<String, ? extends Object>> attachedHRMs, ArrayList<Object> pdfDocumentList, List<String> attachmentWarnings) throws PDFGenerationException {
+        if (attachedHRMs == null) {
+            return;
+        }
         for (HashMap<String, ?> hrm : attachedHRMs) {
-            Path path = renderDocument(loggedInInfo, DocumentType.HRM, (Integer) hrm.get("id"));
-            pdfDocumentList.add(path.toString());
+            if (hrm == null || !(hrm.get("id") instanceof Integer)) {
+                recordSkippedAttachment(attachmentWarnings, DocumentType.HRM, null, "missing attachment metadata");
+                continue;
+            }
+            Integer hrmId = (Integer) hrm.get("id");
+            addRenderedAttachmentPDF(pdfDocumentList, attachmentWarnings, DocumentType.HRM, hrmId,
+                    () -> renderDocument(loggedInInfo, DocumentType.HRM, hrmId));
         }
     }
 
-    private void attachFormPDFs(HttpServletRequest request, HttpServletResponse response, List<EctFormData.PatientForm> attachedForms, ArrayList<Object> pdfDocumentList) throws PDFGenerationException {
-        for (EctFormData.PatientForm form : attachedForms) {
-            Path path = formsManager.renderForm(request, response, form);
-            pdfDocumentList.add(path.toString());
+    private void attachFormPDFs(HttpServletRequest request, HttpServletResponse response, List<EctFormData.PatientForm> attachedForms, ArrayList<Object> pdfDocumentList, List<String> attachmentWarnings) throws PDFGenerationException {
+        if (attachedForms == null) {
+            return;
         }
+        for (EctFormData.PatientForm form : attachedForms) {
+            if (form == null) {
+                recordSkippedAttachment(attachmentWarnings, DocumentType.FORM, null, "missing attachment metadata");
+                continue;
+            }
+            String formId = form.getFormId();
+            addRenderedAttachmentPDF(pdfDocumentList, attachmentWarnings, DocumentType.FORM, formId,
+                    () -> formsManager.renderForm(request, response, form));
+        }
+    }
+
+    private List<String> initializeAttachmentWarnings(HttpServletRequest request) {
+        List<String> attachmentWarnings = new ArrayList<>();
+        request.setAttribute(ATTACHMENT_WARNINGS_ATTRIBUTE, attachmentWarnings);
+        return attachmentWarnings;
+    }
+
+    private void addRenderedAttachmentPDF(ArrayList<Object> pdfDocumentList, List<String> attachmentWarnings, DocumentType documentType, Object documentId, AttachmentRenderer renderer) throws PDFGenerationException {
+        try {
+            Path path = renderer.render();
+            if (path == null || !Files.isReadable(path)) {
+                recordSkippedAttachment(attachmentWarnings, documentType, documentId, "unreadable temporary PDF");
+                return;
+            }
+            pdfDocumentList.add(path.toString());
+        } catch (SecurityException e) {
+            throw e;
+        } catch (PDFGenerationException | RuntimeException e) {
+            recordSkippedAttachment(attachmentWarnings, documentType, documentId, e.getClass().getName());
+        }
+    }
+
+    private void recordSkippedAttachment(List<String> attachmentWarnings, DocumentType documentType, Object documentId, String reason) {
+        String safeAttachmentId = String.valueOf(documentId);
+        attachmentWarnings.add(getAttachmentDisplayType(documentType) + " attachment " + safeAttachmentId + " is unavailable and was not included.");
+        logger.warn("Skipped consultation attachment type={} id={} while rendering PDF package: {}",
+                documentType.getType(), LogSafe.sanitize(safeAttachmentId), LogSafe.sanitize(reason));
+    }
+
+    private String getAttachmentDisplayType(DocumentType documentType) {
+        switch (documentType) {
+            case DOC:
+                return "Document";
+            case EFORM:
+                return "eForm";
+            case LAB:
+                return "Lab";
+            case HRM:
+                return "HRM";
+            case FORM:
+                return "Form";
+            default:
+                return "Attachment";
+        }
+    }
+
+    @FunctionalInterface
+    private interface AttachmentRenderer {
+        Path render() throws PDFGenerationException;
     }
 
     private String getDisplayLabName(LabResultData labResultData) {

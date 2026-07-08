@@ -45,6 +45,7 @@ import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -156,84 +157,131 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             // attached eForms
             List<EFormData> eForms = consultationManager.getAttachedEForms(reqId);
 
-            for (EFormData eFormItem : eForms) {
-                Path attachedForm = faxManager.renderFaxDocument(loggedInInfo, FaxManager.TransactionType.EFORM, eFormItem.getId(), eFormItem.getDemographicId());
-                alist.add(Files.newInputStream(attachedForm));
+            for (EFormData eFormItem : emptyIfNull(eForms)) {
+                if (eFormItem == null) {
+                    logSkippedAttachment("EFORM", null, "missing attachment metadata");
+                    continue;
+                }
+                try {
+                    Path attachedForm = faxManager.renderFaxDocument(loggedInInfo, FaxManager.TransactionType.EFORM, eFormItem.getId(), eFormItem.getDemographicId());
+                    addRenderedFaxAttachment(alist, streams, attachedForm, "EFORM", eFormItem.getId());
+                } catch (SecurityException e) {
+                    throw e;
+                } catch (IOException | RuntimeException e) {
+                    logSkippedAttachment("EFORM", eFormItem.getId(), e.getClass().getName());
+                }
             }
 
             //attached docs
-            for (int i = 0; i < docs.size(); i++) {
-                EDoc doc = docs.get(i);
-                if (doc.isPrintable()) {
-                    if (doc.isImage()) {
-                        bos = new ByteOutputStream();
-                        request.setAttribute("imagePath", path + doc.getFileName());
-                        request.setAttribute("imageTitle", doc.getDescription());
-                        ImagePDFCreator ipdfc = new ImagePDFCreator(request, bos);
-                        ipdfc.printPdf();
+            for (EDoc doc : emptyIfNull(docs)) {
+                if (doc == null) {
+                    logSkippedAttachment("DOCUMENT", null, "missing attachment metadata");
+                    continue;
+                }
+                try {
+                    if (doc.isPrintable()) {
+                        if (doc.isImage()) {
+                            bos = new ByteOutputStream();
+                            request.setAttribute("imagePath", path + doc.getFileName());
+                            request.setAttribute("imageTitle", doc.getDescription());
+                            ImagePDFCreator ipdfc = new ImagePDFCreator(request, bos);
+                            ipdfc.printPdf();
 
-                        buffer = bos.getBytes();
-                        bis = new ByteInputStream(buffer, bos.getCount());
-                        bos.close();
-                        streams.add(bis);
-                        alist.add(bis);
+                            buffer = bos.getBytes();
+                            bis = new ByteInputStream(buffer, bos.getCount());
+                            bos.close();
+                            streams.add(bis);
+                            alist.add(bis);
 
-                    } else if (doc.isPDF()) {
-                        alist.add(path + doc.getFileName());
-                    } else {
-                        logger.error("EctConsultationFormRequestPrintAction: " + doc.getType() + " is marked as printable but no means have been established to print it.");
+                        } else if (doc.isPDF()) {
+                            addReadableFaxAttachmentPath(alist, Path.of(path + doc.getFileName()), "DOCUMENT", doc.getDocId());
+                        } else {
+                            logger.error("EctConsultationFormRequestPrintAction: " + doc.getType() + " is marked as printable but no means have been established to print it.");
+                        }
                     }
+                } catch (SecurityException e) {
+                    throw e;
+                } catch (IOException | RuntimeException e) {
+                    logSkippedAttachment("DOCUMENT", doc.getDocId(), e.getClass().getName());
                 }
             }
 
             // Iterating over requested labs.
-            for (int i = 0; labs != null && i < labs.size(); i++) {
-                File tempLabPDF = File.createTempFile("lab" + labs.get(i).segmentID, "pdf");
-
-                // Defense-in-depth: verify temp file is in an allowed temp directory
-                if (!PathValidationUtils.isInAllowedTempDirectory(tempLabPDF)) {
-                    logger.error("Temp file not in allowed temp directory: {}", tempLabPDF.getAbsolutePath());
-                    tempLabPDF.delete();
-                    throw new SecurityException("Temp file created outside allowed temp directory");
+            for (LabResultData lab : emptyIfNull(labs)) {
+                if (lab == null) {
+                    logSkippedAttachment("LAB", null, "missing attachment metadata");
+                    continue;
                 }
+                File tempLabPDF = null;
+                try {
+                    tempLabPDF = File.createTempFile("lab" + lab.segmentID, "pdf");
 
-                // Storing the lab in PDF format inside a byte stream.
-                try (
-                        FileOutputStream fileOutputStream = new FileOutputStream(tempLabPDF);
-                        ByteOutputStream byteOutputStream = new ByteOutputStream();
-                ) {
-                    request.setAttribute("segmentID", labs.get(i).segmentID);
-                    LabPDFCreator labPDFCreator = new LabPDFCreator(request, fileOutputStream);
-                    labPDFCreator.printPdf();
-                    labPDFCreator.addEmbeddedDocuments(tempLabPDF, byteOutputStream);
+                    // Defense-in-depth: verify temp file is in an allowed temp directory
+                    if (!PathValidationUtils.isInAllowedTempDirectory(tempLabPDF)) {
+                        logger.error("Temp file not in allowed temp directory: {}", tempLabPDF.getAbsolutePath());
+                        throw new SecurityException("Temp file created outside allowed temp directory");
+                    }
 
-                    // Transferring PDF to an input stream to be concatenated with
-                    // the rest of the documents.
-                    buffer = byteOutputStream.getBytes();
-                    bis = new ByteInputStream(buffer, byteOutputStream.getCount());
-                    streams.add(bis);
-                    alist.add(bis);
+                    // Storing the lab in PDF format inside a byte stream.
+                    try (
+                            FileOutputStream fileOutputStream = new FileOutputStream(tempLabPDF);
+                            ByteOutputStream byteOutputStream = new ByteOutputStream();
+                    ) {
+                        request.setAttribute("segmentID", lab.segmentID);
+                        LabPDFCreator labPDFCreator = new LabPDFCreator(request, fileOutputStream);
+                        labPDFCreator.printPdf();
+                        labPDFCreator.addEmbeddedDocuments(tempLabPDF, byteOutputStream);
+
+                        // Transferring PDF to an input stream to be concatenated with
+                        // the rest of the documents.
+                        buffer = byteOutputStream.getBytes();
+                        bis = new ByteInputStream(buffer, byteOutputStream.getCount());
+                        streams.add(bis);
+                        alist.add(bis);
+                    }
+                } catch (SecurityException e) {
+                    throw e;
+                } catch (IOException | RuntimeException e) {
+                    logSkippedAttachment("LAB", lab.segmentID, e.getClass().getName());
+                } finally {
+                    if (tempLabPDF != null && !tempLabPDF.delete()) {
+                        logger.debug("Temporary consultation lab PDF was already removed");
+                    }
                 }
-                tempLabPDF.delete();
             }
 
             // attached HRMs
             ArrayList<HashMap<String, ? extends Object>> attachedHRMDocuments = consultationManager.getAttachedHRMDocuments(loggedInInfo, demoNo, reqId);
-            for (HashMap<String, ? extends Object> attachedHRMDocument : attachedHRMDocuments) {
-                bos = new ByteOutputStream();
-                HRMPDFCreator hrmPdf = new HRMPDFCreator(bos, (Integer) attachedHRMDocument.get("id"), loggedInInfo);
-                hrmPdf.printPdf();
-                buffer = bos.getBytes();
-                bis = new ByteInputStream(buffer, bos.getCount());
-                bos.close();
-                streams.add(bis);
-                alist.add(bis);
+            for (HashMap<String, ? extends Object> attachedHRMDocument : emptyIfNull(attachedHRMDocuments)) {
+                Object hrmId = attachedHRMDocument != null ? attachedHRMDocument.get("id") : null;
+                if (!(hrmId instanceof Integer)) {
+                    logSkippedAttachment("HRM", hrmId, "missing attachment metadata");
+                    continue;
+                }
+                try {
+                    bos = new ByteOutputStream();
+                    HRMPDFCreator hrmPdf = new HRMPDFCreator(bos, (Integer) hrmId, loggedInInfo);
+                    hrmPdf.printPdf();
+                    buffer = bos.getBytes();
+                    bis = new ByteInputStream(buffer, bos.getCount());
+                    bos.close();
+                    streams.add(bis);
+                    alist.add(bis);
+                } catch (SecurityException e) {
+                    throw e;
+                } catch (RuntimeException e) {
+                    logSkippedAttachment("HRM", hrmId, e.getClass().getName());
+                }
             }
 
             // attached forms
             List<EctFormData.PatientForm> forms = consultationManager.getAttachedForms(loggedInInfo, Integer.parseInt(reqId), Integer.parseInt(demoNo));
 
-            for (EctFormData.PatientForm formItem : forms) {
+            for (EctFormData.PatientForm formItem : emptyIfNull(forms)) {
+                if (formItem == null) {
+                    logSkippedAttachment("FORM", null, "missing attachment metadata");
+                    continue;
+                }
                 FormTransportContainer formTransportContainer = new FormTransportContainer(
                         response, request, "/form/forwardshortcutname"
                         + "?method=fetch&formname="
@@ -247,8 +295,14 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
                 formTransportContainer.setSubject(formItem.getFormName() + " Form ID " + formItem.getFormId());
                 formTransportContainer.setFormName(formItem.getFormName());
                 formTransportContainer.setRealPath(ServletActionContext.getServletContext().getRealPath(File.separator));
-                Path attachedForm = faxManager.renderFaxDocument(loggedInInfo, FaxManager.TransactionType.FORM, formTransportContainer);
-                alist.add(Files.newInputStream(attachedForm));
+                try {
+                    Path attachedForm = faxManager.renderFaxDocument(loggedInInfo, FaxManager.TransactionType.FORM, formTransportContainer);
+                    addRenderedFaxAttachment(alist, streams, attachedForm, "FORM", formItem.getFormId());
+                } catch (SecurityException e) {
+                    throw e;
+                } catch (IOException | RuntimeException e) {
+                    logSkippedAttachment("FORM", formItem.getFormId(), e.getClass().getName());
+                }
             }
 
             if (alist.size() > 0) {
@@ -289,5 +343,34 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
         }
         return null;
 
+    }
+
+    private void addRenderedFaxAttachment(ArrayList<Object> alist, ArrayList<InputStream> streams, Path attachmentPath, String attachmentType, Object attachmentId) throws IOException {
+        if (attachmentPath == null || !Files.isReadable(attachmentPath)) {
+            logSkippedAttachment(attachmentType, attachmentId, "unreadable temporary PDF");
+            return;
+        }
+
+        InputStream inputStream = Files.newInputStream(attachmentPath);
+        streams.add(inputStream);
+        alist.add(inputStream);
+    }
+
+    private void addReadableFaxAttachmentPath(ArrayList<Object> alist, Path attachmentPath, String attachmentType, Object attachmentId) {
+        if (attachmentPath == null || !Files.isReadable(attachmentPath)) {
+            logSkippedAttachment(attachmentType, attachmentId, "unreadable temporary PDF");
+            return;
+        }
+
+        alist.add(attachmentPath.toString());
+    }
+
+    private void logSkippedAttachment(String attachmentType, Object attachmentId, String reason) {
+        logger.warn("Skipped consultation print attachment type={} id={} while rendering PDF package: {}",
+                LogSafe.sanitize(attachmentType), LogSafe.sanitize(String.valueOf(attachmentId)), LogSafe.sanitize(reason));
+    }
+
+    private <T> List<T> emptyIfNull(List<T> source) {
+        return source == null ? List.of() : source;
     }
 }

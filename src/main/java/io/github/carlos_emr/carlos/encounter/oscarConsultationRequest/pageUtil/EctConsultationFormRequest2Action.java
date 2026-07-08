@@ -36,6 +36,7 @@ import io.github.carlos_emr.carlos.managers.*;
 import io.github.carlos_emr.carlos.utility.*;
 import org.apache.struts2.ActionSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.time.DateUtils;
@@ -739,6 +740,15 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         json.put("consultPDF", (String) request.getAttribute("consultPDF"));
         json.put("consultPDFName", (String) request.getAttribute("consultPDFName"));
         json.put(ATTR_ERROR_MESSAGE, (String) request.getAttribute(ATTR_ERROR_MESSAGE));
+        ArrayNode attachmentWarnings = json.putArray(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE);
+        Object warningAttribute = request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE);
+        if (warningAttribute instanceof List<?>) {
+            for (Object warning : (List<?>) warningAttribute) {
+                if (warning != null) {
+                    attachmentWarnings.add(String.valueOf(warning));
+                }
+            }
+        }
         try {
             if (!response.isCommitted()) {
                 response.resetBuffer();
