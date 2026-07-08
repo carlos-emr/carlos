@@ -55,7 +55,12 @@
     if (fallbackDemographicNo == null || fallbackDemographicNo.trim().isEmpty()) {
         fallbackDemographicNo = request.getParameter("de");
     }
-    if (fallbackDemographicNo == null) {
+    if (fallbackDemographicNo != null) {
+        fallbackDemographicNo = fallbackDemographicNo.trim();
+        if (!fallbackDemographicNo.matches("[1-9]\\d*")) {
+            fallbackDemographicNo = "";
+        }
+    } else {
         fallbackDemographicNo = "";
     }
     String fallbackUrl = request.getContextPath() + "/encounter/oscarConsultationRequest/ViewDisplayDemographicConsultationRequests";
