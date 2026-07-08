@@ -230,6 +230,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getContentAsString()).contains("\"consultPDF\":\"" + PDF_BASE64 + "\"");
         assertThat(response.getContentAsString()).contains("The captured signature could not be saved and will not appear on the PDF.");
         assertThat(response.getContentAsString()).contains("\"signatureImg\":null");
+        assertThat(request.getAttribute(ConsultationSignatureService.SUPPRESS_SIGNATURE_ATTRIBUTE)).isEqualTo(Boolean.TRUE);
         verify(consultationRequestDao, never()).merge(any());
         verify(documentAttachmentManager).renderConsultationFormWithAttachments(request, response);
     }

@@ -52,6 +52,7 @@ import java.nio.file.Path;
 public class ConsultationSignatureService {
 
     public static final String SIGNATURE_IMAGE_OVERRIDE_ATTRIBUTE = "consultationSignatureImageOverride";
+    public static final String SUPPRESS_SIGNATURE_ATTRIBUTE = "consultationSuppressSignature";
 
     private final DigitalSignatureManager digitalSignatureManager;
     private final SecurityInfoManager securityInfoManager;

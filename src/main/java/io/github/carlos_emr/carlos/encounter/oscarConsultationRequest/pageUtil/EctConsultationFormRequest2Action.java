@@ -728,6 +728,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
     private void warnSignatureNotApplied() {
         request.setAttribute(ATTR_SIGNATURE_NOT_APPLIED, Boolean.TRUE);
         request.setAttribute(ATTR_WARNING_MESSAGE, SIGNATURE_NOT_APPLIED_WARNING);
+        request.setAttribute(ConsultationSignatureService.SUPPRESS_SIGNATURE_ATTRIBUTE, Boolean.TRUE);
     }
 
     /**
