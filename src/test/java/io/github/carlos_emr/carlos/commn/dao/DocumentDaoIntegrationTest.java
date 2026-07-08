@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
+import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 import io.github.carlos_emr.carlos.commn.model.ConsultResponseDoc;
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
@@ -170,6 +171,29 @@ public class DocumentDaoIntegrationTest extends CarlosTestBase {
         entityManager.persist(ctl);
         entityManager.flush();
         return ctl;
+    }
+
+    private ConsultationRequest createConsultationRequest(Integer demoId) {
+        ConsultationRequest consult = new ConsultationRequest();
+        consult.setDemographicId(demoId);
+        consult.setProviderNo(PROVIDER_NO);
+        consult.setReferralDate(today);
+        consult.setServiceId(1);
+        consult.setStatus("1");
+        entityManager.persist(consult);
+        entityManager.flush();
+        return consult;
+    }
+
+    private ConsultDocs createConsultDocumentAttachment(Integer requestId, Integer documentNo, String deleted) {
+        ConsultDocs consultDoc = new ConsultDocs();
+        consultDoc.setDocumentNo(documentNo);
+        consultDoc.setRequestId(requestId);
+        consultDoc.setDocType(ConsultDocs.DOCTYPE_DOC);
+        consultDoc.setDeleted(deleted);
+        entityManager.persist(consultDoc);
+        entityManager.flush();
+        return consultDoc;
     }
 
     /**
@@ -974,17 +998,13 @@ public class DocumentDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should return Document and ConsultDocs pairs for consultation")
         void shouldReturnPairs_forConsultation() {
             // Given
+            ConsultationRequest consult = createConsultationRequest(DEMO_ID);
             Document doc = createAndPersist("consult", PROVIDER_NO, 'A');
-            ConsultDocs cd = new ConsultDocs();
-            cd.setDocumentNo(doc.getDocumentNo());
-            cd.setRequestId(100);
-            cd.setDocType(ConsultDocs.DOCTYPE_DOC);
-            cd.setDeleted(null);
-            entityManager.persist(cd);
-            entityManager.flush();
+            createCtlDocument("demographic", DEMO_ID, doc.getDocumentNo());
+            createConsultDocumentAttachment(consult.getId(), doc.getDocumentNo(), null);
 
             // When
-            List<Object[]> result = documentDao.findDocsAndConsultDocsByConsultId(100);
+            List<Object[]> result = documentDao.findDocsAndConsultDocsByConsultId(consult.getId());
 
             // Then
             assertThat(result).hasSize(1);
@@ -996,17 +1016,46 @@ public class DocumentDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should exclude deleted consult docs")
         void shouldExcludeDeleted_consultDocs() {
             // Given
+            ConsultationRequest consult = createConsultationRequest(DEMO_ID);
             Document doc = createAndPersist("consult", PROVIDER_NO, 'A');
-            ConsultDocs cd = new ConsultDocs();
-            cd.setDocumentNo(doc.getDocumentNo());
-            cd.setRequestId(100);
-            cd.setDocType(ConsultDocs.DOCTYPE_DOC);
-            cd.setDeleted("Y");
-            entityManager.persist(cd);
-            entityManager.flush();
+            createCtlDocument("demographic", DEMO_ID, doc.getDocumentNo());
+            createConsultDocumentAttachment(consult.getId(), doc.getDocumentNo(), "Y");
 
             // When
-            List<Object[]> result = documentDao.findDocsAndConsultDocsByConsultId(100);
+            List<Object[]> result = documentDao.findDocsAndConsultDocsByConsultId(consult.getId());
+
+            // Then
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should exclude consult docs without matching demographic document link")
+        void shouldExcludeConsultDocs_withoutMatchingDemographicDocumentLink() {
+            // Given
+            ConsultationRequest consult = createConsultationRequest(DEMO_ID);
+            Document doc = createAndPersist("consult", PROVIDER_NO, 'A');
+            createConsultDocumentAttachment(consult.getId(), doc.getDocumentNo(), null);
+
+            // When
+            List<Object[]> result = documentDao.findDocsAndConsultDocsByConsultId(consult.getId());
+
+            // Then
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should exclude consult docs linked to a different demographic")
+        void shouldExcludeConsultDocs_linkedToDifferentDemographic() {
+            // Given
+            int otherDemoId = DEMO_ID + 1;
+            createDemographic(otherDemoId);
+            ConsultationRequest consult = createConsultationRequest(DEMO_ID);
+            Document doc = createAndPersist("consult", PROVIDER_NO, 'A');
+            createCtlDocument("demographic", otherDemoId, doc.getDocumentNo());
+            createConsultDocumentAttachment(consult.getId(), doc.getDocumentNo(), null);
+
+            // When
+            List<Object[]> result = documentDao.findDocsAndConsultDocsByConsultId(consult.getId());
 
             // Then
             assertThat(result).isEmpty();
