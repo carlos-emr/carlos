@@ -110,11 +110,13 @@
                 <p class="text-muted mb-2" style="font-size:0.9rem;">Printing Consultation form...</p>
             <% } %>
 
-            <p class="text-muted mb-3" style="font-size:0.85rem;">
-                <fmt:message key="encounter.oscarConsultationRequest.ConfirmConsultationRequest.msgClose5Sec"/>
-                <br>
-                <span id="countdown" class="fw-semibold">5</span>s
-            </p>
+            <% if (!"true".equals(isPreview)) { %>
+                <p class="text-muted mb-3" style="font-size:0.85rem;">
+                    <fmt:message key="encounter.oscarConsultationRequest.ConfirmConsultationRequest.msgClose5Sec"/>
+                    <br>
+                    <span id="countdown" class="fw-semibold">5</span>s
+                </p>
+            <% } %>
 
             <button type="button" id="closeButton" class="btn btn-sm btn-outline-secondary">
                 <i class="fa-solid fa-xmark me-1"></i><fmt:message key="global.btnClose"/>
@@ -122,8 +124,7 @@
         </div>
 
     <script>
-        var PRINT_CLOSE_DELAY_MS = 10000;
-        var BLOB_URL_REVOKE_DELAY_MS = PRINT_CLOSE_DELAY_MS + 5000;
+        var BLOB_URL_REVOKE_DELAY_MS = 15000;
 
         function BackToOscar() {
             closeOrReturn();
@@ -147,7 +148,15 @@
         }
 
         function finishPage(secs) {
-            // Countdown display
+            // Print consultation request form
+            const consultPDFName = '<carlos:encode value='<%= String.valueOf(request.getAttribute("consultPDFName")) %>' context="javaScriptBlock"/>';
+            const consultPDF = '<carlos:encode value='<%= String.valueOf(request.getAttribute("consultPDF")) %>' context="javaScriptBlock"/>';
+            const isPreviewReady = '<carlos:encode value='<%= String.valueOf(request.getAttribute("isPreviewReady")) %>' context="javaScriptBlock"/>';
+            if (consultPDF !== 'null' && consultPDFName !== 'null' && isPreviewReady === 'true') {
+                downloadConsultForm(consultPDFName, consultPDF);
+                return;
+            }
+
             var remaining = secs;
             var countdownEl = document.getElementById('countdown');
             var timer = setInterval(function() {
@@ -155,18 +164,6 @@
                 if (countdownEl) countdownEl.textContent = remaining;
                 if (remaining <= 0) clearInterval(timer);
             }, 1000);
-
-            // Print consultation request form
-            const consultPDFName = '<carlos:encode value='<%= String.valueOf(request.getAttribute("consultPDFName")) %>' context="javaScriptBlock"/>';
-            const consultPDF = '<carlos:encode value='<%= String.valueOf(request.getAttribute("consultPDF")) %>' context="javaScriptBlock"/>';
-            const isPreviewReady = '<carlos:encode value='<%= String.valueOf(request.getAttribute("isPreviewReady")) %>' context="javaScriptBlock"/>';
-            if (consultPDF !== 'null' && consultPDFName !== 'null' && isPreviewReady === 'true') {
-                downloadConsultForm(consultPDFName, consultPDF, function () {
-                    window.setTimeout(closeOrReturn, PRINT_CLOSE_DELAY_MS);
-                });
-                return;
-            }
-
             window.setTimeout(closeOrReturn, secs * 1000);
         }
 
@@ -184,7 +181,9 @@
             window.setTimeout(function () {
                 URL.revokeObjectURL(objectUrl);
             }, BLOB_URL_REVOKE_DELAY_MS);
-            callback();
+            if (typeof callback === 'function') {
+                callback();
+            }
         }
 
         document.getElementById('closeButton').addEventListener('click', BackToOscar);
