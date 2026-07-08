@@ -10,8 +10,13 @@
 --      non-deleted document.
 --
 -- Labs, HRM, and form attachments are intentionally not changed here.
+--
+-- Manual-only cleanup script. Run the dry-run/reporting SELECT first, review
+-- the row count, then run the APPLY section in the same maintenance window if
+-- the count matches expectations. Do not include this file in unattended
+-- upgrade batches because the reporting SELECT does not gate the UPDATE.
 
--- Dry-run/reporting query: review this count before applying the UPDATE.
+-- DRY-RUN/REPORTING SECTION
 SELECT COUNT(*) AS stale_active_consult_attachments_to_soft_delete
 FROM consultdocs cd
 JOIN consultationRequests cr ON cr.requestId = cd.requestId
@@ -45,6 +50,8 @@ WHERE cd.deleted IS NULL
     )
   );
 
+-- APPLY SECTION
+-- Run only after reviewing the dry-run/reporting count above.
 UPDATE consultdocs cd
 JOIN consultationRequests cr ON cr.requestId = cd.requestId
 LEFT JOIN eform_data e ON cd.doctype = 'E' AND e.fdid = cd.document_no
