@@ -43,7 +43,7 @@
       "Glob(**)",
       "Write(database/mysql/updates/update-*.sql)",
       "Edit(database/mysql/updates/update-*.sql)",
-      "Bash(mysql -h db *)",
+      "Bash(mariadb -h db *)",
       "Bash(curl *)",
       "Bash(gh pr *)",
       "Bash(gh issue view *)",

@@ -110,7 +110,7 @@ cd "${DOCS}" || { echo "Failed to change to ${DOCS}" >&2; exit 1; }
 if [ -f CarlosBackup.sql.gz ] ; then
 	gunzip CarlosBackup.sql.gz
 	echo "Loading backup database into mysql... you might have time for a coffee"
-	MYSQL_PWD="${db_password}" mysql -uroot ${db_name} < CarlosBackup.sql
+	MYSQL_PWD="${db_password}" mariadb -uroot ${db_name} < CarlosBackup.sql
 	echo "Cleanup, deleting CarlosBackup.sql... its huge"
 	rm CarlosBackup.sql
 else

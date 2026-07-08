@@ -335,7 +335,7 @@ jobs:
           echo "Waiting for MariaDB to start..."
           ready=false
           for i in {1..30}; do
-            if docker exec test-mariadb mysqladmin ping -h localhost -u root -ptestpassword 2>/dev/null; then
+            if docker exec test-mariadb mariadb-admin ping -h localhost -u root -ptestpassword 2>/dev/null; then
               echo "MariaDB is ready!"
               ready=true
               break
@@ -352,7 +352,7 @@ jobs:
           fi
 
           echo "Verifying MariaDB version..."
-          docker exec test-mariadb mysql --version
+          docker exec test-mariadb mariadb --version
 
           echo "Verifying database scripts are present..."
           docker exec test-mariadb ls -la /database/mysql/
@@ -363,7 +363,7 @@ jobs:
             # Check container logs for the exact completion message from populate_db.sh: "Database initialization complete!"
             if docker logs test-mariadb 2>&1 | grep -q "Database initialization complete!"; then
               # Verify database state to avoid false positives from reused logs
-              provider_count=$(docker exec test-mariadb mysql -N -u root -ptestpassword -e "SELECT COUNT(*) FROM oscar.provider;" 2>/dev/null || echo 0)
+              provider_count=$(docker exec test-mariadb mariadb -N -u root -ptestpassword -e "SELECT COUNT(*) FROM oscar.provider;" 2>/dev/null || echo 0)
               if [ "$provider_count" -gt 0 ]; then
                 echo "Database initialization complete and provider table populated (count=$provider_count)."
                 initialized=true
@@ -384,9 +384,9 @@ jobs:
 
           # Verify all databases exist
           echo "Verifying databases..."
-          docker exec test-mariadb mysql -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "oscar" > /dev/null || { echo "ERROR: oscar database not found"; docker stop test-mariadb && docker rm test-mariadb; exit 1; }
-          docker exec test-mariadb mysql -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "oscar_test" > /dev/null || { echo "ERROR: oscar_test database not found"; docker stop test-mariadb && docker rm test-mariadb; exit 1; }
-          docker exec test-mariadb mysql -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "drugref2" > /dev/null || { echo "ERROR: drugref2 database not found"; docker stop test-mariadb && docker rm test-mariadb; exit 1; }
+          docker exec test-mariadb mariadb -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "oscar" > /dev/null || { echo "ERROR: oscar database not found"; docker stop test-mariadb && docker rm test-mariadb; exit 1; }
+          docker exec test-mariadb mariadb -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "oscar_test" > /dev/null || { echo "ERROR: oscar_test database not found"; docker stop test-mariadb && docker rm test-mariadb; exit 1; }
+          docker exec test-mariadb mariadb -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "drugref2" > /dev/null || { echo "ERROR: drugref2 database not found"; docker stop test-mariadb && docker rm test-mariadb; exit 1; }
           echo "All databases verified!"
 
           echo "All tests passed!"

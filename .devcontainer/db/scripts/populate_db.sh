@@ -5,11 +5,12 @@ echo 'Setting up all databases...'
 MIG=/database/mysql/migration
 # Use MYSQL_ROOT_PASSWORD environment variable, fallback to 'password' for development
 DB_PASSWORD="${MYSQL_ROOT_PASSWORD:-password}"
-SQL="mysql -u root -p${DB_PASSWORD}"
+# MariaDB 11.x dropped the mysql* client symlinks (mysql/mysqladmin/mysqldump); use mariadb.
+SQL="mariadb -u root -p${DB_PASSWORD}"
 
 # Build oscar + oscar_test from the Flyway migration set — the SAME files production applies via
 # `carlos-ctl db migrate` (common + Ontario locations): a complete, dead-pruned schema + reference
-# data. Loaded here with the mysql CLI (not the Flyway CLI) because the MariaDB initdb temp server
+# data. Loaded here with the mariadb CLI (not the Flyway CLI) because the MariaDB initdb temp server
 # is socket-only and Flyway needs TCP; dev databases are disposable, so a flyway_schema_history is
 # not required. Keep this list of locations in sync with database/mysql/migration/.
 for DB in oscar oscar_test; do

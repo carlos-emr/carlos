@@ -216,7 +216,7 @@ docker exec carlos-tomcat-dev rm -rf /root/.m2/repository
 ### **Database troubleshooting:**
 ```bash
 # Check database users
-docker exec carlos-mariadb-dev mysql -u root -ppassword oscar -e "SELECT user_name, pin FROM security;"
+docker exec carlos-mariadb-dev mariadb -u root -ppassword oscar -e "SELECT user_name, pin FROM security;"
 
 # Reset database only (keeps app container and Maven cache)
 docker-compose stop db
@@ -229,7 +229,7 @@ Database volumes persist data between container restarts. This means that even a
 
 ```bash
 # Check database state
-docker exec carlos-mariadb-dev mysql -u root -ppassword oscar -e "SHOW TABLES;" | wc -l
+docker exec carlos-mariadb-dev mariadb -u root -ppassword oscar -e "SHOW TABLES;" | wc -l
 
 # Force complete database rebuild from SQL files
 docker-compose stop db
@@ -277,7 +277,7 @@ docker ps --format "table {{.Names}}\t{{.Status}}"
 docker inspect carlos-mariadb-dev --format='{{json .State.Health}}' | jq
 
 # Force health check manually
-docker exec carlos-mariadb-dev mysqladmin ping -h localhost -u root -ppassword
+docker exec carlos-mariadb-dev mariadb-admin ping -h localhost -u root -ppassword
 ```
 
 The application container will wait up to 10 minutes (60s start period + 10 retries × 10s interval) for the database to become healthy. This prevents connection failures during fresh database initialization.
@@ -293,15 +293,15 @@ python3 scripts/generate_bcrypt_password.py
 # Copy the generated hash (starts with {bcrypt}$2b$...)
 
 # Update the database with the new hash
-docker exec carlos-mariadb-dev mysql -u root -ppassword oscar -e \
+docker exec carlos-mariadb-dev mariadb -u root -ppassword oscar -e \
   "UPDATE security SET password='YOUR_BCRYPT_HASH_HERE' WHERE user_name='carlosdoc';"
 
 # Optional: Force password reset on next login
-docker exec carlos-mariadb-dev mysql -u root -ppassword oscar -e \
+docker exec carlos-mariadb-dev mariadb -u root -ppassword oscar -e \
   "UPDATE security SET forcePasswordReset=1 WHERE user_name='carlosdoc';"
 
 # Verify the change
-docker exec carlos-mariadb-dev mysql -u root -ppassword oscar -e \
+docker exec carlos-mariadb-dev mariadb -u root -ppassword oscar -e \
   "SELECT user_name, LEFT(password, 20) as password_start FROM security WHERE user_name='carlosdoc';"
 ```
 
@@ -313,7 +313,7 @@ Enter password: mynewpassword
 Generated BCrypt hash: {bcrypt}$2b$12$abc123...xyz789
 
 # Update database
-$ docker exec carlos-mariadb-dev mysql -u root -ppassword oscar -e \
+$ docker exec carlos-mariadb-dev mariadb -u root -ppassword oscar -e \
   "UPDATE security SET password='{bcrypt}\$2b\$12\$abc123...xyz789' WHERE user_name='carlosdoc';"
 ```
 

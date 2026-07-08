@@ -153,9 +153,10 @@ else
 fi
 
 
-# Export MYSQL_PWD so mysql commands don't expose password in process list
+# Export MYSQL_PWD so client commands don't expose the password in the process list
 export MYSQL_PWD="${db_password}"
-MYSQL="mysql -u root"
+# MariaDB 11.x dropped the mysql* client symlinks; use the mariadb client.
+MYSQL="mariadb -u root"
 #echo password = ${db_password} >> $LOG_FILE
 
 echo "test the obtained password before proceeding!!"  >>$LOG_FILE

@@ -22,7 +22,7 @@ PASSWORD="${DB_PASSWORD}"
 rm -f results.txt
 
 #run query
-echo "SELECT count(*) from drugs where create_date >= DATE_SUB(NOW(), INTERVAL 30 day) and customName is not NULL;" | MYSQL_PWD="${PASSWORD}" mysql -u $USERNAME $DBNAME | tail -1 > results.txt
+echo "SELECT count(*) from drugs where create_date >= DATE_SUB(NOW(), INTERVAL 30 day) and customName is not NULL;" | MYSQL_PWD="${PASSWORD}" mariadb -u $USERNAME $DBNAME | tail -1 > results.txt
 
 DATA=`cat results.txt`
 

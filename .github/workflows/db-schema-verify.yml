@@ -36,7 +36,7 @@ jobs:
         ports:
           - 3306:3306
         options: >-
-          --health-cmd="mysqladmin ping -ppassword"
+          --health-cmd="mariadb-admin ping -ppassword"
           --health-interval=10s --health-timeout=5s --health-retries=10
 
     steps:
@@ -58,7 +58,7 @@ jobs:
           set -euo pipefail
           cd database/mysql
           PROV=${{ matrix.province }}
-          MYSQL="mysql -h 127.0.0.1 -uroot -ppassword"
+          MYSQL="mariadb -h 127.0.0.1 -uroot -ppassword"
           JDBC="jdbc:mysql://127.0.0.1:3306/carlos_${PROV}?allowPublicKeyRetrieval=true&useSSL=false"
 
           # Fresh install path: exactly what production runs via `carlos-ctl db migrate` and the
