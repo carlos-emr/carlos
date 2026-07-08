@@ -47,6 +47,7 @@ import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
+import io.github.carlos_emr.carlos.managers.ConsultationPreviewSignatureOutcome;
 import io.github.carlos_emr.carlos.managers.ConsultationSignatureService;
 import io.github.carlos_emr.carlos.managers.ConsultationStampOutcome;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
@@ -171,22 +172,14 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("persists a captured manual signature before direct print preview")
     void shouldPersistManualSignature_beforeDirectPrintPreview() throws Exception {
-        ConsultationRequest existing = new ConsultationRequest();
-        existing.setDemographicId(1);
-        when(consultationRequestDao.find(9)).thenReturn(existing);
-
-        DigitalSignature savedSignature = mock(DigitalSignature.class);
-        when(savedSignature.getId()).thenReturn(77);
-
         action.setSignatureImg("9999981000");
         request.setParameter("newSignature", "true");
         request.setParameter("newSignatureImg", "9999981000");
         when(consultationSignatureService.resolveManualSignatureRequestId("9999981000", "9999981000"))
                 .thenReturn("9999981000");
-        when(consultationSignatureService.wasManualSignatureCaptured("9999981000")).thenReturn(true);
-        when(digitalSignatureManager.processAndSaveDigitalSignature(
-                loggedInInfo, "9999981000", 1, ModuleType.CONSULTATION))
-                .thenReturn(savedSignature);
+        when(consultationSignatureService.saveManualSignatureForPreview(
+                loggedInInfo, 9, 1, "9999981000", "9999981000", "999998"))
+                .thenReturn(new ConsultationPreviewSignatureOutcome(ConsultationPreviewSignatureOutcome.Status.SAVED, "77"));
 
         String result = action.execute();
 
@@ -196,8 +189,8 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getContentAsString()).contains("\"errorMessage\":null");
         assertThat(response.getContentAsString()).contains("\"warningMessage\":null");
         assertThat(response.getContentAsString()).contains("\"signatureImg\":\"77\"");
-        assertThat(existing.getSignatureImg()).isEqualTo("77");
-        verify(consultationRequestDao).merge(existing);
+        verify(consultationSignatureService).saveManualSignatureForPreview(
+                loggedInInfo, 9, 1, "9999981000", "9999981000", "999998");
         verify(documentAttachmentManager).renderConsultationFormWithAttachments(request, response);
     }
 
@@ -227,10 +220,9 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         request.setParameter("newSignatureImg", "9999981000");
         when(consultationSignatureService.resolveManualSignatureRequestId("9999981000", "9999981000"))
                 .thenReturn("9999981000");
-        when(consultationSignatureService.wasManualSignatureCaptured("9999981000")).thenReturn(false);
-        when(digitalSignatureManager.processAndSaveDigitalSignature(
-                loggedInInfo, "9999981000", 1, ModuleType.CONSULTATION))
-                .thenReturn(null);
+        when(consultationSignatureService.saveManualSignatureForPreview(
+                loggedInInfo, 9, 1, "9999981000", "9999981000", "999998"))
+                .thenReturn(new ConsultationPreviewSignatureOutcome(ConsultationPreviewSignatureOutcome.Status.PERSIST_FAILED, ""));
 
         String result = action.execute();
 
@@ -240,6 +232,44 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getContentAsString()).contains("\"signatureImg\":null");
         verify(consultationRequestDao, never()).merge(any());
         verify(documentAttachmentManager).renderConsultationFormWithAttachments(request, response);
+    }
+
+    @Test
+    @DisplayName("returns an error without rendering when direct print preview targets a missing consultation")
+    void shouldReturnErrorWithoutRendering_whenDirectPrintPreviewTargetMissing() throws Exception {
+        action.setSignatureImg("9999981000");
+        request.setParameter("newSignature", "true");
+        request.setParameter("newSignatureImg", "9999981000");
+        when(consultationSignatureService.resolveManualSignatureRequestId("9999981000", "9999981000"))
+                .thenReturn("9999981000");
+        when(consultationSignatureService.saveManualSignatureForPreview(
+                loggedInInfo, 9, 1, "9999981000", "9999981000", "999998"))
+                .thenReturn(new ConsultationPreviewSignatureOutcome(ConsultationPreviewSignatureOutcome.Status.REQUEST_NOT_FOUND, ""));
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentAsString()).contains("Consultation request not found.");
+        verify(documentAttachmentManager, never()).renderConsultationFormWithAttachments(any(), any());
+    }
+
+    @Test
+    @DisplayName("returns an error without rendering when direct print preview demographic does not match the consultation")
+    void shouldReturnErrorWithoutRendering_whenDirectPrintPreviewDemographicMismatches() throws Exception {
+        action.setSignatureImg("9999981000");
+        request.setParameter("newSignature", "true");
+        request.setParameter("newSignatureImg", "9999981000");
+        when(consultationSignatureService.resolveManualSignatureRequestId("9999981000", "9999981000"))
+                .thenReturn("9999981000");
+        when(consultationSignatureService.saveManualSignatureForPreview(
+                loggedInInfo, 9, 1, "9999981000", "9999981000", "999998"))
+                .thenReturn(new ConsultationPreviewSignatureOutcome(ConsultationPreviewSignatureOutcome.Status.DEMOGRAPHIC_MISMATCH, ""));
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentAsString()).contains("Consultation request does not match the selected patient.");
+        verify(documentAttachmentManager, never()).renderConsultationFormWithAttachments(any(), any());
     }
 
     @Test
