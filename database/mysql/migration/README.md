@@ -1,56 +1,48 @@
 # CARLOS Flyway migrations (`database/mysql/migration/`)
 
-This is the **single source of truth** for the CARLOS `oscar` schema going forward. It replaces the
-old "run every init script, then hand-pick a subset of `updates/*.sql`" build with a versioned,
-checksummed Flyway migration set.
+The **single source of truth** for the CARLOS `oscar` schema. A fresh `flyway migrate` produces a
+complete, working database — schema **and** required reference data — with no legacy scripts in the
+loop. Dead tables from removed modules are pruned (see `pruned-tables.txt`).
 
-## Layout
+## Layout (Flyway-native: shared + per-province locations)
 
 ```
 migration/
-  flyway.conf                 # non-secret defaults (locations, baseline); credentials passed at run time
-  common/                     # RESERVED for genuinely shared FUTURE migrations (currently empty)
-  on/
-    V1__baseline_schema.sql          # Ontario schema baseline (structure only) — generated
-    V2026.MM.DD__<desc>.sql          # NEW Ontario schema changes go here
-  bc/
-    V1__baseline_schema.sql          # British Columbia schema baseline (structure only) — generated
+  flyway.conf                     # non-secret defaults (locations, baseline); creds passed at run time
+  pruned-tables.txt               # dead tables excluded from the baseline (removed-module cruft)
+  common/  V1__baseline_schema.sql        # province-neutral tables (structure)
+  on/      V1.0.1__on_schema.sql          # Ontario-only tables (structure)
+           V1.0.2__on_data.sql            # Ontario reference data (rows)
+  bc/      V1.0.1__bc_schema.sql          # British Columbia-only tables (structure)
+           V1.0.2__bc_data.sql            # British Columbia reference data (rows)
 ```
 
-A database applies **`common` + exactly one province location** (`on` OR `bc`). The `V1` baseline is
-**province-complete and structure-only** (`mysqldump --no-data`): each province dir carries its full
-schema, so `flyway migrate` reproduces that province's script-built schema exactly (verified — the
-only difference from the legacy build is Flyway's own `flyway_schema_history` table). Because a run
-only ever combines `common` + one province, the two `V1` files never collide.
+A database applies **`common` + exactly one province** location, selected by `flyway.locations`:
 
-Seed / reference / demo data is **not** in the baseline (the authoritative "schema" is the table
-structure, not the default rows). If seed/reference migrations are adopted later they are added as
-separate `V1.x`/`R__` files; `common/` is where genuinely shared future migrations live.
+| Target | locations |
+|---|---|
+| Ontario | `common, on` |
+| British Columbia | `common, bc` |
+
+Versions order globally across the selected locations: `V1` (common schema) → `V1.0.1` (province
+schema) → `V1.0.2` (province data). Because a run only ever combines `common` + one province, the two
+provinces' `V1.0.x` files never collide. The province data file carries the full reference rows
+(shared + province), so `common` holds structure only.
+
+Demo/patient data is **not** in this baseline — it belongs in a dev-only `demo` location (see
+`docs/database-schema-management.md`).
 
 ## Conventions
 
-- **New schema changes** are Flyway migrations named `VYYYY.MM.DD[.N]__short_description.sql`
-  (1:1 with the old `update-YYYY-MM-DD-desc` cadence). Never edit `oscarinit*.sql` or add files to
-  `../updates/` — that directory is frozen (see `../updates/README.md`).
-- **The `V1` baseline is structure only.** Seed / reference data (ICD, measurement maps, province
-  lookups) and the default accounts are not baked in. If adopted later, large static reference is a
-  versioned load-once migration (`V1.x`), **not** a repeatable `R__` (which would replay multi-MB
-  inserts on any checksum change).
-- **drugref2 is a separate database** and is NOT managed here; it keeps its own
-  `../development-drugref.sql` + `../drugref/*.sql`.
-- **Dev/demo seed data stays OUT** of this migration set. `development.sql`, the FAKE-name patch,
-  and RTL demo seeds are applied only by the devcontainer / resetsql skill, after `flyway migrate`.
+- **New schema changes** are Flyway migrations named `VYYYY.MM.DD[.N]__short_description.sql` in
+  `common/` (shared) or `on/`/`bc/` (province-specific). Never edit the `V1*` baseline files or add to
+  `../updates/` (frozen — see `../updates/README.md`).
+- **The `V1` baseline is COMPLETE** (schema + required reference data), regenerated only by
+  `../build-baseline.sh`. It excludes the dead tables in `pruned-tables.txt`.
+- **drugref2 is a separate database** — not managed here (keeps `../development-drugref.sql` + `../drugref/*.sql`).
 
-## Generating the baseline
+## Regenerating
 
-The `V1__baseline_schema.sql` files are **generated**, not hand-written. Run the maintainer tool in a
-devcontainer (which has MariaDB):
-
-```
-database/mysql/build-baseline.sh
-```
-
-It builds a known-good database from `createdatabase_generic.sh <prov> 9` + the currently-required
-`updates/*.sql`, `mysqldump --no-data`s the schema, normalizes it, and writes
-`on/V1__baseline_schema.sql` and `bc/V1__baseline_schema.sql`. See
-`docs/database-schema-management.md` for the full model and verification steps.
+Run in a devcontainer (MariaDB): `database/mysql/build-baseline.sh`. It builds the demo-free,
+dead-pruned database per province and dumps the split baseline. See
+`docs/database-schema-management.md` for the model and the schema+data verification.

@@ -14,17 +14,30 @@ over is treated as a **conversion**, CARLOS uses **Flyway** for schema managemen
 `V1` baseline plus forward-only dated migrations, with a `flyway_schema_history` version table as the
 single source of truth.
 
-## The authoritative schema
+## The authoritative baseline (V1)
 
-> The authoritative schema is **what the devcontainer build scripts produce** —
-> `createdatabase_<prov>.sh` plus the currently-required `updates/*.sql` — **excluding demo data**
-> (`development.sql` and the FAKE-name/RTL demo seeds).
+> V1 is the **complete** working database — schema **and** required reference data — that the
+> devcontainer build scripts produce (`createdatabase_<prov>.sh` + the currently-required
+> `updates/*.sql`), **minus demo data** (`development.sql`, FAKE-name/RTL demo seeds) **and minus
+> dead tables** from removed modules (`migration/pruned-tables.txt`).
 
 It is captured by `mysqldump` of that live, script-built database. It is **not** derived from the
-Spring/Hibernate `@Entity` mappings: those currently **drift** from the real column set, so
-generating DDL from them (or turning on `hibernate.hbm2ddl.auto`) would produce a schema the running
-application has never actually used. `hibernate.hbm2ddl.auto` stays unset in production; Flyway owns
-the schema, Hibernate only maps it.
+Spring/Hibernate `@Entity` mappings: those **drift** from the real column set, so generating DDL from
+them (or turning on `hibernate.hbm2ddl.auto`) would produce a schema the running application has never
+actually used. `hibernate.hbm2ddl.auto` stays unset in production; Flyway owns the schema, Hibernate
+only maps it.
+
+A fresh `flyway migrate` therefore yields a runnable DB (structure + reference rows the app needs).
+Demo/patient data is loaded separately (dev-only).
+
+### Dead-table pruning
+
+`migration/pruned-tables.txt` lists tables with **zero references anywhere in `src/`** (case-insensitive
+substring, incl. tests/JSP/XML) and zero references in the repo outside `database/` — the schema cruft
+of removed/legacy modules (BORN, OCAN, generic-intake, PHR, Integrator, Sharing/XDS, Eyeform, HRM,
+MDS, drug-dispensing, CAISI reporting/bed/room/security). 20 of them are already `DROP`ped by the
+project's own `updates/*-removal.sql` scripts, which just aren't in the fresh-install path. V1 omits
+them; `build-baseline.sh` and `db-schema-verify.yml` drop the same set so the parity check holds.
 
 ## Layout
 
@@ -62,9 +75,10 @@ database/mysql/build-baseline.sh
 ```
 
 It builds a throwaway database per province from `createdatabase_generic.sh <prov> 9` + the required
-recent updates, dumps the normalized **structure only** (`mysqldump --no-data`), and writes
-`migration/on/V1__baseline_schema.sql` and `migration/bc/V1__baseline_schema.sql`. Commit the
-regenerated files. The baseline is structure only — seed/reference data is intentionally excluded.
+recent updates, **drops the dead tables** in `pruned-tables.txt`, splits the live tables into shared
+vs province-only, and writes the complete baseline: `common/V1__baseline_schema.sql`,
+`on/V1.0.1__on_schema.sql` + `on/V1.0.2__on_data.sql`, and the BC equivalents. Commit the regenerated
+files.
 
 ## Verification
 
@@ -87,10 +101,12 @@ This is staged so each step leaves the tree buildable:
 - **Landed:** Flyway dependencies + Maven plugin, the boot-time validate gate (default `off`), the
   migration directory + config, `build-baseline.sh`, the CI schema-verify workflow, the
   frozen-`updates/` policy, and the `carlos-ctl db migrate|baseline|info` verbs.
-- **Landed + verified:** the province `V1__baseline_schema.sql` files (Ontario 535 tables, BC 516).
-  Confirmed with MariaDB 10.11 that `flyway migrate` reproduces the script-built schema **exactly**
-  for both provinces — the only difference from the legacy build is Flyway's own
-  `flyway_schema_history` table (which the CI diff and the check below both exclude).
-- **Next:** decide the seed/reference strategy (versioned `V1.x` vs a separate dev-only load), then
-  cut `populate_db.sh` over to `flyway migrate` + a dev-only seed block and switch production to
-  `carlos.flyway.onBoot=validate`.
+- **Landed + verified:** the complete, dead-pruned, province-split `V1` baseline (Ontario 410 live
+  tables, BC 397). Verified that `flyway migrate` (common + province) reproduces the pruned
+  script-built database **exactly** — schema identical AND every table's exact row count identical —
+  for both provinces (the only schema difference is Flyway's own `flyway_schema_history`, excluded by
+  the CI diff).
+- **Next:** add a dev-only `demo` location (development.sql) selected in the devcontainer, cut
+  `populate_db.sh` over to `flyway migrate` + demo, and switch production to
+  `carlos.flyway.onBoot=validate`. The 2 held tables (`HL7HandlerMSHMapping`, `billing_on_cheader2`)
+  await a manual keep/drop decision.

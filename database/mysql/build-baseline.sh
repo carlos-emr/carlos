@@ -1,25 +1,29 @@
 #!/usr/bin/env bash
 #
-# build-baseline.sh — regenerate the CARLOS Flyway schema baseline (V1) for each province.
+# build-baseline.sh — regenerate the CARLOS Flyway V1 baseline (complete: schema + reference data).
 #
-# WHY: fresh CARLOS installs should not replay 20 years of dated update-*.sql patches. This tool
-# captures the *authoritative schema* — what the devcontainer build scripts produce — as a clean,
-# checksummed Flyway baseline:
+# WHY: fresh CARLOS installs should not replay 20 years of dated update-*.sql patches, nor carry the
+# dead tables of removed modules. This tool captures the *authoritative* database — what the
+# devcontainer build scripts produce — as a clean, checksummed, DEAD-CODE-PRUNED Flyway baseline,
+# split the Flyway-native way into a shared location plus per-province locations:
 #
-#   migration/on/V1__baseline_schema.sql   Ontario schema (structure only)
-#   migration/bc/V1__baseline_schema.sql   British Columbia schema (structure only)
+#   migration/common/V1__baseline_schema.sql     province-neutral tables (structure)
+#   migration/on/V1.0.1__on_schema.sql            Ontario-only tables (structure)
+#   migration/on/V1.0.2__on_data.sql              Ontario reference data (rows)
+#   migration/bc/V1.0.1__bc_schema.sql            British Columbia-only tables (structure)
+#   migration/bc/V1.0.2__bc_data.sql              British Columbia reference data (rows)
 #
-# It captures STRUCTURE ONLY (mysqldump --no-data). Seed / reference / demo data is deliberately
-# excluded (the authoritative "schema" is the table structure, not the default rows; demo data is
-# dev-only and loaded separately). Seed/reference migrations, if adopted later, are added as
-# separate V1.x files — see docs/database-schema-management.md.
+# A database applies common + exactly one province (flyway.locations=common,on | common,bc). The V1
+# baseline is COMPLETE (schema + required reference data) so a fresh `flyway migrate` yields a working
+# database. Demo/patient data is NOT here (see the demo location / dev seed).
 #
-# The baseline is province-complete (each province dir carries its full schema); migration/common/
-# is reserved for genuinely shared FUTURE migrations. Because a given database only ever applies
-# common + ONE province location, the two V1 files never collide.
+# PRUNING: migration/pruned-tables.txt lists tables with zero references in CARLOS src/ (removed/
+# legacy modules). They are dropped before the dump so V1 reflects only live schema. Keep that list
+# authoritative — db-schema-verify.yml drops the same set from the legacy build so the parity diff
+# holds.
 #
-# It is a MAINTAINER tool. Run it in the devcontainer (which has MariaDB) whenever the baseline
-# needs regenerating, then commit the regenerated V1 files. It never runs during the normal build.
+# It is a MAINTAINER tool. Run it in the devcontainer (which has MariaDB) whenever the baseline needs
+# regenerating, then commit the regenerated files. It never runs during the normal build.
 #
 # Usage:
 #   database/mysql/build-baseline.sh [--host HOST] [--user USER] [--password PW]
@@ -44,15 +48,15 @@ while [ "$#" -gt 0 ]; do
 done
 
 export MYSQL_PWD="$PASSWORD"
+MYSQL="mysql -h $HOST -u $USER"
+DUMP="mysqldump -h $HOST -u $USER"
 
 # The devcontainer/CI engine is MariaDB 10.5, where explicit_defaults_for_timestamp defaults to OFF
 # (a bare `timestamp` column becomes NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()).
-# MariaDB 10.10+ flips that default to ON (bare timestamp -> NULL DEFAULT NULL), which would capture a
-# DIFFERENT schema. Force OFF so the baseline matches the 10.5 build regardless of the host engine.
-mysql -h "$HOST" -u "$USER" -e "SET GLOBAL explicit_defaults_for_timestamp=0;" 2>/dev/null || true
+# MariaDB 10.10+ flips that default to ON. Force OFF so the baseline matches the 10.5 build.
+$MYSQL -e "SET GLOBAL explicit_defaults_for_timestamp=0;" 2>/dev/null || true
 
-# The recent updates populate_db.sh replays on top of the init scripts today. Keep this list in
-# sync with .devcontainer/db/scripts/populate_db.sh until the cutover retires that block.
+# Recent updates populate_db.sh replays on top of the init scripts. Keep in sync with populate_db.sh.
 REQUIRED_UPDATES="
 update-2025-01-29.sql
 update-2025-02-27.sql
@@ -67,9 +71,9 @@ update-2026-03-25-security-mfa-default.sql
 update-2026-04-30-sec-obj-missing-privileges.sql
 "
 
-# Normalize a mysqldump --no-data stream so the committed file is stable across runs/hosts:
-# drop AUTO_INCREMENT counters, DEFINER clauses, the mariadb-dump sandbox-mode directive, and the
-# dump-date / server-version lines.
+# Dead tables pruned from the baseline (removed/legacy modules; zero src/ references).
+PRUNE_LIST="$(grep -v '^#' migration/pruned-tables.txt | grep -v '^[[:space:]]*$')"
+
 normalize() {
   sed -E \
     -e 's/ AUTO_INCREMENT=[0-9]+//g' \
@@ -78,40 +82,37 @@ normalize() {
     -e '/^-- Dump completed/d' \
     -e '/^-- Server version/d'
 }
+hdr() { printf -- '-- CARLOS baseline (%s) — GENERATED by build-baseline.sh, do not edit by hand.\n\n' "$1"; }
 
-build_province() {
-  province="$1"   # on | bc  (LOCATION qualifier for oscarinit_$LOCATION / oscardata_$LOCATION)
-  icd="$2"        # 9 | 10   (icd$ICD.sql). Both provinces currently ship ICD-9.
-  label="$3"      # human-readable name for the file header
-  tmp_db="carlos_baseline_${province}"
-
-  # Call createdatabase_generic.sh directly rather than the province wrappers: the bc wrapper caps
-  # at 3 args and cannot pass suppressPwdGen. generic = (user password db LOCATION ICD suppress).
-  echo ">> building throwaway ${tmp_db} (LOCATION=${province}, ICD=${icd}) + required updates"
-  mysql -h "$HOST" -u "$USER" -e "DROP DATABASE IF EXISTS ${tmp_db};"
-  ./createdatabase_generic.sh "$USER" "$PASSWORD" "$tmp_db" "$province" "$icd" suppressPwdGen >/dev/null
-
-  for u in $REQUIRED_UPDATES; do
-    [ -f "updates/$u" ] && mysql -h "$HOST" -u "$USER" "$tmp_db" < "updates/$u"
-  done
-
-  out="migration/${province}/V1__baseline_schema.sql"
-  echo ">> writing ${out}"
-  {
-    printf -- '-- CARLOS consolidated schema baseline (%s) — GENERATED by build-baseline.sh, do not edit by hand.\n' "$label"
-    printf -- '-- Structure only (no seed/demo data). Captured from the devcontainer script build:\n'
-    printf -- '-- createdatabase_generic.sh %s %s + the required updates/*.sql. Regenerate with build-baseline.sh.\n\n' "$province" "$icd"
-    mysqldump -h "$HOST" -u "$USER" --no-data --skip-comments --skip-dump-date \
-      --single-transaction --routines --events "$tmp_db" | normalize
-  } > "$out"
-
-  mysql -h "$HOST" -u "$USER" -e "DROP DATABASE IF EXISTS ${tmp_db};"
+# Build a demo-free, dead-pruned database for a province and print its live table list to stdout.
+build_pruned_db() {
+  province="$1"; icd="$2"; db="carlos_baseline_${province}"
+  # createdatabase_generic.sh directly (bc wrapper caps at 3 args, can't pass suppressPwdGen).
+  $MYSQL -e "DROP DATABASE IF EXISTS ${db};" >&2
+  ./createdatabase_generic.sh "$USER" "$PASSWORD" "$db" "$province" "$icd" suppressPwdGen >/dev/null 2>&1
+  for u in $REQUIRED_UPDATES; do [ -f "updates/$u" ] && $MYSQL "$db" < "updates/$u" 2>/dev/null; done
+  # prune dead tables
+  { echo "SET FOREIGN_KEY_CHECKS=0;"; while IFS= read -r t; do echo "DROP TABLE IF EXISTS \`$t\`;"; done <<< "$PRUNE_LIST"; echo "SET FOREIGN_KEY_CHECKS=1;"; } | $MYSQL "$db" 2>/dev/null
+  $MYSQL -N -e "SELECT table_name FROM information_schema.tables WHERE table_schema='${db}' ORDER BY table_name" | LC_ALL=C sort
 }
 
-echo "== CARLOS schema baseline generator =="
-build_province on 9 "Ontario"
-build_province bc 9 "British Columbia"
-echo
-echo ">> wrote migration/on/V1__baseline_schema.sql and migration/bc/V1__baseline_schema.sql"
-echo ">> Verify (docs/database-schema-management.md): flyway migrate into a fresh DB and diff its"
-echo "   schema (excluding flyway_schema_history) against the script-built DB — expect no diff."
+echo "== CARLOS V1 baseline generator (complete, pruned, province-split) =="
+build_pruned_db on 9 > /tmp/bb_on.txt
+build_pruned_db bc 9 > /tmp/bb_bc.txt
+comm -12 /tmp/bb_on.txt /tmp/bb_bc.txt > /tmp/bb_common.txt   # shared tables
+comm -23 /tmp/bb_on.txt /tmp/bb_bc.txt > /tmp/bb_ononly.txt   # Ontario-only
+comm -13 /tmp/bb_on.txt /tmp/bb_bc.txt > /tmp/bb_bconly.txt   # BC-only
+echo ">> live tables: common=$(wc -l </tmp/bb_common.txt) on_only=$(wc -l </tmp/bb_ononly.txt) bc_only=$(wc -l </tmp/bb_bconly.txt)"
+
+# common schema (shared tables are identical across provinces; dump from ON)
+{ hdr "common schema — province-neutral live tables"; $DUMP --no-data --skip-comments --skip-dump-date --single-transaction carlos_baseline_on $(cat /tmp/bb_common.txt) 2>/dev/null | normalize; } > migration/common/V1__baseline_schema.sql
+{ hdr "Ontario-only schema"; $DUMP --no-data --skip-comments --skip-dump-date carlos_baseline_on $(cat /tmp/bb_ononly.txt) 2>/dev/null | normalize; } > migration/on/V1.0.1__on_schema.sql
+{ hdr "British Columbia-only schema"; $DUMP --no-data --skip-comments --skip-dump-date carlos_baseline_bc $(cat /tmp/bb_bconly.txt) 2>/dev/null | normalize; } > migration/bc/V1.0.1__bc_schema.sql
+# full reference data per province (includes common-table rows + province rows)
+{ hdr "Ontario reference data"; $DUMP --no-create-info --skip-comments --skip-dump-date --hex-blob --single-transaction --skip-triggers carlos_baseline_on 2>/dev/null | normalize; } > migration/on/V1.0.2__on_data.sql
+{ hdr "British Columbia reference data"; $DUMP --no-create-info --skip-comments --skip-dump-date --hex-blob --single-transaction --skip-triggers carlos_baseline_bc 2>/dev/null | normalize; } > migration/bc/V1.0.2__bc_data.sql
+
+$MYSQL -e "DROP DATABASE IF EXISTS carlos_baseline_on; DROP DATABASE IF EXISTS carlos_baseline_bc;" 2>/dev/null || true
+echo ">> wrote migration/{common,on,bc}/V1* baseline files."
+echo ">> Verify (docs/database-schema-management.md): flyway migrate common+<prov> into a fresh DB and"
+echo "   diff schema + row counts against the pruned legacy build — expect no diff."
