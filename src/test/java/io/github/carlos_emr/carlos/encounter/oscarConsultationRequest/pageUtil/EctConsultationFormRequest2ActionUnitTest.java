@@ -136,6 +136,9 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         when(consultationSignatureService.resolvePreviewSignatureImage(loggedInInfo, false, "", "sig-request", "999998"))
                 .thenReturn(SIGNATURE_BYTES);
         when(demographicManager.getDemographicFormattedName(loggedInInfo, 1)).thenReturn("Patient, Test");
+        ConsultationRequest previewConsultation = new ConsultationRequest();
+        previewConsultation.setDemographicId(1);
+        when(consultationRequestDao.find(9)).thenReturn(previewConsultation);
 
         pdfPath = Files.createTempFile("consult-preview", ".pdf");
         when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response)).thenReturn(pdfPath);
@@ -182,6 +185,20 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getContentAsString()).contains("\"errorMessage\":null");
         assertThat(request.getAttribute(ConsultationSignatureService.SIGNATURE_IMAGE_OVERRIDE_ATTRIBUTE))
                 .isEqualTo(SIGNATURE_BYTES);
+        verify(documentAttachmentManager).renderConsultationFormWithAttachments(request, response);
+    }
+
+    @Test
+    @DisplayName("uses the saved consultation demographic for print preview rendering")
+    void shouldUseSavedConsultationDemographic_whenSubmittedDemographicDoesNotMatch() throws Exception {
+        action.setDemographicNo("999");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(request.getAttribute("demographicId")).isEqualTo("1");
+        assertThat(response.getContentAsString()).contains("\"consultPDF\":\"" + PDF_BASE64 + "\"");
+        verify(demographicManager).getDemographicFormattedName(loggedInInfo, 1);
         verify(documentAttachmentManager).renderConsultationFormWithAttachments(request, response);
     }
 

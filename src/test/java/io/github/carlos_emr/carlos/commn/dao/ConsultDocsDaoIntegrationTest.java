@@ -28,6 +28,7 @@ import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
 import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
+import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -153,6 +154,13 @@ public class ConsultDocsDaoIntegrationTest extends CarlosTestBase {
         entityManager.flush();
     }
 
+    private PatientLabRouting createPatientLabRouting(int labNo, String labType, int demographicNo) {
+        PatientLabRouting patientLabRouting = new PatientLabRouting(labNo, labType, demographicNo);
+        entityManager.persist(patientLabRouting);
+        entityManager.flush();
+        return patientLabRouting;
+    }
+
     private String deletedValue(ConsultDocs consultDocs) {
         return entityManager.find(ConsultDocs.class, consultDocs.getId()).getDeleted();
     }
@@ -232,6 +240,30 @@ public class ConsultDocsDaoIntegrationTest extends CarlosTestBase {
         void shouldReturnEmptyList_whenRequestNotFound() {
             List<ConsultDocs> results = consultDocsDao.findByRequestId(99999);
             assertThat(results).isEmpty();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find only labs routed to the consultation demographic")
+        void shouldFindLabsOnlyForConsultationDemographic_whenConsultHasStaleLabRows() {
+            int demographicNo = 82001;
+            int otherDemographicNo = 82002;
+            createDemographic(demographicNo);
+            createDemographic(otherDemographicNo);
+            ConsultationRequest consult = createConsultationRequest(demographicNo);
+            createPatientLabRouting(7001, "MDS", demographicNo);
+            createPatientLabRouting(7002, "MDS", otherDemographicNo);
+            createPatientLabRouting(7004, "MDS", demographicNo);
+            createConsultDoc(consult.getId(), 7001, ConsultDocs.DOCTYPE_LAB, null);
+            createConsultDoc(consult.getId(), 7002, ConsultDocs.DOCTYPE_LAB, null);
+            createConsultDoc(consult.getId(), 7003, ConsultDocs.DOCTYPE_LAB, null);
+            createConsultDoc(consult.getId(), 7004, ConsultDocs.DOCTYPE_LAB, ConsultDocs.DELETED);
+
+            List<Object[]> results = consultDocsDao.findLabs(consult.getId());
+
+            assertThat(results).hasSize(1);
+            assertThat(((ConsultDocs) results.get(0)[0]).getDocumentNo()).isEqualTo(7001);
+            assertThat(((PatientLabRouting) results.get(0)[1]).getDemographicNo()).isEqualTo(demographicNo);
         }
     }
 
