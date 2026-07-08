@@ -45,9 +45,8 @@ import org.springframework.stereotype.Repository;
 public class ConsultDocsDaoImpl extends AbstractDaoImpl<ConsultDocs> implements ConsultDocsDao {
     private static final String DEMOGRAPHIC_MODULE = "demographic";
 
-    private static final String STALE_ACTIVE_CONSULT_ATTACHMENTS_QUERY =
-            "SELECT cd FROM ConsultDocs cd "
-                    + "WHERE cd.deleted IS NULL "
+    private static final String STALE_ACTIVE_CONSULT_ATTACHMENTS_WHERE_CLAUSE =
+            "WHERE cd.deleted IS NULL "
                     + "AND EXISTS (SELECT cr.id FROM ConsultationRequest cr WHERE cr.id = cd.requestId) "
                     + "AND ("
                     + "(cd.docType = :eformType AND ("
@@ -67,6 +66,12 @@ public class ConsultDocsDaoImpl extends AbstractDaoImpl<ConsultDocs> implements 
                     + "AND ctl.id.module = :demographicModule AND ctl.id.moduleId = cr.demographicId)"
                     + "))"
                     + ")";
+
+    private static final String STALE_ACTIVE_CONSULT_ATTACHMENTS_QUERY =
+            "SELECT cd FROM ConsultDocs cd " + STALE_ACTIVE_CONSULT_ATTACHMENTS_WHERE_CLAUSE;
+
+    private static final String STALE_ACTIVE_CONSULT_ATTACHMENTS_COUNT_QUERY =
+            "SELECT COUNT(cd) FROM ConsultDocs cd " + STALE_ACTIVE_CONSULT_ATTACHMENTS_WHERE_CLAUSE;
 
     public ConsultDocsDaoImpl() {
         super(ConsultDocs.class);
@@ -118,7 +123,9 @@ public class ConsultDocsDaoImpl extends AbstractDaoImpl<ConsultDocs> implements 
     }
 
     public int countStaleActiveConsultAttachments() {
-        return findStaleActiveConsultAttachments().size();
+        Query query = createStaleActiveConsultAttachmentsCountQuery();
+        Number count = (Number) query.getSingleResult();
+        return count.intValue();
     }
 
     public int markStaleActiveConsultAttachmentsDeleted() {
@@ -132,10 +139,20 @@ public class ConsultDocsDaoImpl extends AbstractDaoImpl<ConsultDocs> implements 
 
     private Query createStaleActiveConsultAttachmentsQuery() {
         Query query = entityManager.createQuery(STALE_ACTIVE_CONSULT_ATTACHMENTS_QUERY);
+        setStaleActiveConsultAttachmentsParameters(query);
+        return query;
+    }
+
+    private Query createStaleActiveConsultAttachmentsCountQuery() {
+        Query query = entityManager.createQuery(STALE_ACTIVE_CONSULT_ATTACHMENTS_COUNT_QUERY);
+        setStaleActiveConsultAttachmentsParameters(query);
+        return query;
+    }
+
+    private void setStaleActiveConsultAttachmentsParameters(Query query) {
         query.setParameter("eformType", ConsultDocs.DOCTYPE_EFORM);
         query.setParameter("documentType", ConsultDocs.DOCTYPE_DOC);
         query.setParameter("deletedDocumentStatus", Document.STATUS_DELETED);
         query.setParameter("demographicModule", DEMOGRAPHIC_MODULE);
-        return query;
     }
 }
