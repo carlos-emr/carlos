@@ -48,7 +48,8 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y mariadb-client
           FLYWAY_VERSION=11.14.0
-          curl -fsSL "https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/${FLYWAY_VERSION}/flyway-commandline-${FLYWAY_VERSION}-linux-x64.tar.gz" \
+          # The bundled linux CLI tarball is on Red Gate's mirror; Maven Central only has the jar.
+          curl -fsSL "https://download.red-gate.com/maven/release/com/redgate/flyway/flyway-commandline/${FLYWAY_VERSION}/flyway-commandline-${FLYWAY_VERSION}-linux-x64.tar.gz" \
             | tar xz
           echo "$PWD/flyway-${FLYWAY_VERSION}" >> "$GITHUB_PATH"
 
@@ -73,9 +74,10 @@ jobs:
           PROV=${{ matrix.province }}
           ICD=${{ matrix.icd }}
 
-          # DB-A: legacy path
+          # DB-A: legacy path — apply the same required updates build-baseline.sh folds into V1
+          # (bare update-*.sql filenames listed in its REQUIRED_UPDATES block).
           ./createdatabase_${PROV}.sh root password legacy_${PROV} suppressPwdGen >/dev/null
-          for u in $(grep -oE "updates/[a-zA-Z0-9._-]+\.sql" build-baseline.sh | sed 's#updates/##' | sort -u); do
+          for u in $(grep -oE "update-[0-9]{4}-[0-9]{2}-[0-9]{2}[a-zA-Z0-9._-]*\.sql" build-baseline.sh | sort -u); do
             [ -f "updates/$u" ] && mysql -h 127.0.0.1 -uroot -ppassword legacy_${PROV} < "updates/$u" || true
           done
 
