@@ -57,7 +57,7 @@ Migrations are also copied onto the WAR classpath at `db/migration` (a build `<r
 
 | Context | How | Notes |
 |---|---|---|
-| Devcontainer / CI dev DB | `flyway migrate` (or `carlos.flyway.onBoot=migrate`) | Disposable, single-node. Demo data loaded separately, after migrate. |
+| Devcontainer dev DB | `populate_db.sh` loads the migration `.sql` files via the `mysql` CLI (common + on), then demo | The MariaDB initdb temp server is socket-only and Flyway needs TCP, so the devcontainer applies the SAME migration files with the mysql client (dev DBs are disposable — no `flyway_schema_history` needed). Demo (`development.sql`, filtered to the live schema by `build-demo.sh`) loads after, dev-only. Native reset: rebuild the container, or `flyway clean && migrate` on a TCP connection. |
 | CI schema check | `.github/workflows/db-schema-verify.yml` | Diffs the legacy-script schema against the Flyway schema; dormant until `V1` is committed. |
 | Production | `carlos-ctl db migrate` (operator-gated, after `carlos-ctl db-backup`) | Never on app boot. The app runs `carlos.flyway.onBoot=validate` and refuses to start if the schema is behind. |
 | OpenO/oscar19 conversion | `carlos-ctl db baseline --version=1` then `carlos-ctl db migrate` | Stamps the existing datadir at the baseline; only forward CARLOS migrations apply. |
