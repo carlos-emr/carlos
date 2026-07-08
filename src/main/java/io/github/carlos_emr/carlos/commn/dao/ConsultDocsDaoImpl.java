@@ -131,6 +131,7 @@ public class ConsultDocsDaoImpl extends AbstractDaoImpl<ConsultDocs> implements 
         return count.intValue();
     }
 
+    @Override
     public int markStaleActiveConsultAttachmentsDeleted() {
         Query query = createStaleActiveConsultAttachmentsUpdateQuery();
         return query.executeUpdate();
