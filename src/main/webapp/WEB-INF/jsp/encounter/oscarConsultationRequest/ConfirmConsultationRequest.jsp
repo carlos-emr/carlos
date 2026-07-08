@@ -122,6 +122,9 @@
         </div>
 
     <script>
+        var PRINT_CLOSE_DELAY_MS = 10000;
+        var BLOB_URL_REVOKE_DELAY_MS = PRINT_CLOSE_DELAY_MS + 5000;
+
         function BackToOscar() {
             closeOrReturn();
         }
@@ -159,7 +162,7 @@
             const isPreviewReady = '<carlos:encode value='<%= String.valueOf(request.getAttribute("isPreviewReady")) %>' context="javaScriptBlock"/>';
             if (consultPDF !== 'null' && consultPDFName !== 'null' && isPreviewReady === 'true') {
                 downloadConsultForm(consultPDFName, consultPDF, function () {
-                    window.setTimeout(closeOrReturn, secs * 1000);
+                    window.setTimeout(closeOrReturn, PRINT_CLOSE_DELAY_MS);
                 });
                 return;
             }
@@ -171,10 +174,16 @@
             const pdfData = new Uint8Array(atob(consultPDF).split('').map(char => char.charCodeAt(0)));
             const pdfBlob = new Blob([pdfData], {type: 'application/pdf'});
             const downloadLink = document.createElement('a');
-            downloadLink.href = URL.createObjectURL(pdfBlob);
+            const objectUrl = URL.createObjectURL(pdfBlob);
+            downloadLink.href = objectUrl;
             downloadLink.download = consultPDFName;
+            downloadLink.style.display = 'none';
+            document.body.appendChild(downloadLink);
             downloadLink.click();
-            URL.revokeObjectURL(downloadLink.href);
+            document.body.removeChild(downloadLink);
+            window.setTimeout(function () {
+                URL.revokeObjectURL(objectUrl);
+            }, BLOB_URL_REVOKE_DELAY_MS);
             callback();
         }
 
