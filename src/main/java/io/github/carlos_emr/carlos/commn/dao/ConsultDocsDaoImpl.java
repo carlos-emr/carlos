@@ -73,6 +73,9 @@ public class ConsultDocsDaoImpl extends AbstractDaoImpl<ConsultDocs> implements 
     private static final String STALE_ACTIVE_CONSULT_ATTACHMENTS_COUNT_QUERY =
             "SELECT COUNT(cd) FROM ConsultDocs cd " + STALE_ACTIVE_CONSULT_ATTACHMENTS_WHERE_CLAUSE;
 
+    private static final String STALE_ACTIVE_CONSULT_ATTACHMENTS_UPDATE_QUERY =
+            "UPDATE ConsultDocs cd SET cd.deleted = :consultDeleted " + STALE_ACTIVE_CONSULT_ATTACHMENTS_WHERE_CLAUSE;
+
     public ConsultDocsDaoImpl() {
         super(ConsultDocs.class);
     }
@@ -129,12 +132,8 @@ public class ConsultDocsDaoImpl extends AbstractDaoImpl<ConsultDocs> implements 
     }
 
     public int markStaleActiveConsultAttachmentsDeleted() {
-        List<ConsultDocs> consultDocs = findStaleActiveConsultAttachments();
-        for (ConsultDocs consultDoc : consultDocs) {
-            consultDoc.setDeleted(ConsultDocs.DELETED);
-            entityManager.merge(consultDoc);
-        }
-        return consultDocs.size();
+        Query query = createStaleActiveConsultAttachmentsUpdateQuery();
+        return query.executeUpdate();
     }
 
     private Query createStaleActiveConsultAttachmentsQuery() {
@@ -146,6 +145,13 @@ public class ConsultDocsDaoImpl extends AbstractDaoImpl<ConsultDocs> implements 
     private Query createStaleActiveConsultAttachmentsCountQuery() {
         Query query = entityManager.createQuery(STALE_ACTIVE_CONSULT_ATTACHMENTS_COUNT_QUERY);
         setStaleActiveConsultAttachmentsParameters(query);
+        return query;
+    }
+
+    private Query createStaleActiveConsultAttachmentsUpdateQuery() {
+        Query query = entityManager.createQuery(STALE_ACTIVE_CONSULT_ATTACHMENTS_UPDATE_QUERY);
+        setStaleActiveConsultAttachmentsParameters(query);
+        query.setParameter("consultDeleted", ConsultDocs.DELETED);
         return query;
     }
 
