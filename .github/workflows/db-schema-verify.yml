@@ -74,6 +74,11 @@ jobs:
           PROV=${{ matrix.province }}
           ICD=${{ matrix.icd }}
 
+          # createdatabase_*.sh connect via the default socket (host "localhost"); a GitHub Actions
+          # service-container DB is reachable only over TCP. Force the mariadb clients to 127.0.0.1
+          # + TCP via ~/.my.cnf so the legacy build (which passes no -h) reaches the service DB.
+          printf '[client]\nhost=127.0.0.1\nprotocol=tcp\n' > ~/.my.cnf
+
           # DB-A: legacy path. Call createdatabase_generic.sh directly (the bc wrapper caps at 3
           # args and can't pass suppressPwdGen), matching build-baseline.sh. Then apply the same
           # required updates it folds into V1 (bare update-*.sql names from its REQUIRED_UPDATES).
