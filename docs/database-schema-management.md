@@ -94,7 +94,7 @@ with the legacy build now retired, that proof lives in git history.
 Ongoing verification:
 
 1. **Baseline applies (CI).** `db-schema-verify.yml` runs `flyway migrate` + `validate` for `on` and
-   `bc` on a MariaDB 10.5 service DB and smoke-checks a populated schema (table count ≥ 300, the
+   `bc` on a MariaDB 11.8.8 service DB and smoke-checks a populated schema (table count ≥ 300, the
    `carlosdoc` admin privilege seed, and diagnostic codes present).
 2. **Runtime proof.** Boot the devcontainer against the Flyway-built DB, log in as
    `carlosdoc` / `carlos2026`, run the UI smoke test and a couple of DAO integration tests.

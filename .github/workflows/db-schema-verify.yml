@@ -26,9 +26,11 @@ jobs:
         province: [on, bc]
     services:
       mariadb:
-        # 10.5 matches the devcontainer/CI runtime and the timestamp semantics the baseline
-        # DDL was captured under (explicit_defaults_for_timestamp OFF).
-        image: mariadb:10.5
+        # 11.8.8 matches the devcontainer/CI runtime and production (carlos-podman). The V1 baseline
+        # DDL is fully explicit about every timestamp column's nullability/default, so 11.8's
+        # explicit_defaults_for_timestamp=ON (vs 10.5's OFF) produces identical columns; the 3
+        # zero-date timestamp defaults still load because sql_mode omits NO_ZERO_DATE.
+        image: mariadb:11.8.8
         env:
           MARIADB_ROOT_PASSWORD: password
         ports:
