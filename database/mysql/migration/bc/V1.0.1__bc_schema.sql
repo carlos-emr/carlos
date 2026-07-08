@@ -815,7 +815,7 @@ CREATE TABLE `formBCAR` (
   `pg3_consultName` varchar(60) DEFAULT NULL,
   `pg3_signature` varchar(60) DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formBCAR2007`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1636,7 +1636,7 @@ CREATE TABLE `formBCAR2007` (
   `ar2_tweakA` varchar(3) DEFAULT NULL,
   `ar2_tweakK` varchar(3) DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formBCAR2012`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2483,7 +2483,7 @@ CREATE TABLE `formBCAR2012` (
   `ar2_tweakA` varchar(3) DEFAULT NULL,
   `ar2_tweakK` varchar(3) DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formBCBirthSumMo`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;

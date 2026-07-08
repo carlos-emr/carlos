@@ -7959,7 +7959,7 @@ CREATE TABLE `formRourke2020` (
   `archived` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`ID`),
   KEY `formRourke2020_demographic_no` (`demographic_no`)
-) ENGINE=Aria DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci PAGE_CHECKSUM=1;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formSF36`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
