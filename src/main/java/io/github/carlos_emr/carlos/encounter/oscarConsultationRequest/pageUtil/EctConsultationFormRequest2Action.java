@@ -113,6 +113,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
     private static final String ATTR_ERROR_MESSAGE = "errorMessage";
     private static final String ATTR_WARNING_MESSAGE = "warningMessage";
     private static final String ATTR_SIGNATURE_IMG = "signatureImg";
+    private static final String ATTR_PREVIEW_SIGNATURE_IMG = "consultPreviewSignatureImg";
     private static final String SIGNATURE_NOT_APPLIED_WARNING = "The captured signature could not be saved and will not appear on the PDF.";
 
     private Integer parseUpdateInteger(String rawValue, String logMessage, String actionErrorMessage) {
@@ -705,7 +706,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 manualSignatureRequestId, signatureProviderNo);
         if (outcome.isSaved()) {
             this.setSignatureImg(outcome.signatureId());
-            request.setAttribute(ATTR_SIGNATURE_IMG, outcome.signatureId());
+            request.setAttribute(ATTR_PREVIEW_SIGNATURE_IMG, outcome.signatureId());
             return true;
         }
         if (outcome.status() == ConsultationPreviewSignatureOutcome.Status.PERSIST_FAILED) {
@@ -800,7 +801,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         json.put("consultPDFName", (String) request.getAttribute("consultPDFName"));
         json.put(ATTR_ERROR_MESSAGE, (String) request.getAttribute(ATTR_ERROR_MESSAGE));
         json.put(ATTR_WARNING_MESSAGE, (String) request.getAttribute(ATTR_WARNING_MESSAGE));
-        json.put(ATTR_SIGNATURE_IMG, (String) request.getAttribute(ATTR_SIGNATURE_IMG));
+        json.put(ATTR_SIGNATURE_IMG, (String) request.getAttribute(ATTR_PREVIEW_SIGNATURE_IMG));
         try {
             if (!response.isCommitted()) {
                 response.resetBuffer();

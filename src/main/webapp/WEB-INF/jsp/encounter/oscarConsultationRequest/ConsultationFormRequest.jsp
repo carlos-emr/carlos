@@ -2102,7 +2102,7 @@ if (userAgent != null) {
                         alert(data.errorMessage.replace(/\\n/g, '\n'));
                         return;
                     }
-                    if (data.signatureImg) {
+                    if (data.signatureImg && isStoredSignatureId(data.signatureImg)) {
                         var signatureImg = document.getElementById('signatureImg');
                         var newSignature = document.getElementById('newSignature');
                         if (signatureImg) {

@@ -58,6 +58,7 @@ class SignatureStampJspRegressionTest {
                 .contains("function isStoredSignatureId(value)")
                 .contains("function hasPendingManualSignature()")
                 .contains("signatureImgTag.onerror = function()")
+                .contains("if (data.signatureImg && isStoredSignatureId(data.signatureImg))")
                 .contains("/provider/providerSignatureImage?providerNo=<%=SafeEncode.forUriComponent(signatureProviderNo)%>")
                 .doesNotContain("UserProperty consultSigProp = userPropertyDAO.getProp(providerNo, UserProperty.PROVIDER_CONSULT_SIGNATURE);");
     }
