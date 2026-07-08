@@ -36,12 +36,40 @@ import java.util.List;
 
 import jakarta.persistence.Query;
 
+import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
+import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
+import io.github.carlos_emr.carlos.commn.model.Document;
+import io.github.carlos_emr.carlos.commn.model.EFormData;
 import org.springframework.stereotype.Repository;
 
 @Repository
 @SuppressWarnings("unchecked")
 public class ConsultDocsDaoImpl extends AbstractDaoImpl<ConsultDocs> implements ConsultDocsDao {
+    private static final String DEMOGRAPHIC_MODULE = "demographic";
+
+    private static final String STALE_ACTIVE_CONSULT_ATTACHMENTS_QUERY =
+            "SELECT cd FROM ConsultDocs cd "
+                    + "WHERE cd.deleted IS NULL "
+                    + "AND EXISTS (SELECT cr.id FROM " + ConsultationRequest.class.getName() + " cr WHERE cr.id = cd.requestId) "
+                    + "AND ("
+                    + "(cd.docType = :eformType AND ("
+                    + "NOT EXISTS (SELECT e.id FROM " + EFormData.class.getName() + " e WHERE e.id = cd.documentNo) "
+                    + "OR EXISTS (SELECT e.id FROM " + EFormData.class.getName() + " e, " + ConsultationRequest.class.getName() + " cr "
+                    + "WHERE e.id = cd.documentNo AND cr.id = cd.requestId AND (e.patientIndependent IS NULL OR e.patientIndependent = false) "
+                    + "AND (e.demographicId IS NULL OR e.demographicId <> cr.demographicId))"
+                    + ")) "
+                    + "OR "
+                    + "(cd.docType = :documentType AND ("
+                    + "NOT EXISTS (SELECT d.documentNo FROM " + Document.class.getName() + " d WHERE d.documentNo = cd.documentNo) "
+                    + "OR EXISTS (SELECT d.documentNo FROM " + Document.class.getName() + " d "
+                    + "WHERE d.documentNo = cd.documentNo AND d.status = :deletedDocumentStatus) "
+                    + "OR NOT EXISTS (SELECT ctl.id.documentNo FROM " + CtlDocument.class.getName() + " ctl, " + Document.class.getName() + " d, " + ConsultationRequest.class.getName() + " cr "
+                    + "WHERE ctl.id.documentNo = cd.documentNo AND d.documentNo = cd.documentNo AND cr.id = cd.requestId "
+                    + "AND d.status = ctl.status AND d.status <> :deletedDocumentStatus "
+                    + "AND ctl.id.module = :demographicModule AND ctl.id.moduleId = cr.demographicId)"
+                    + "))"
+                    + ")";
 
     public ConsultDocsDaoImpl() {
         super(ConsultDocs.class);
@@ -85,5 +113,32 @@ public class ConsultDocsDaoImpl extends AbstractDaoImpl<ConsultDocs> implements 
         q.setParameter("consultationId", consultationId);
         q.setParameter("docType", ConsultDocs.DOCTYPE_LAB);
         return q.getResultList();
+    }
+
+    public List<ConsultDocs> findStaleActiveConsultAttachments() {
+        Query query = createStaleActiveConsultAttachmentsQuery();
+        return query.getResultList();
+    }
+
+    public int countStaleActiveConsultAttachments() {
+        return findStaleActiveConsultAttachments().size();
+    }
+
+    public int markStaleActiveConsultAttachmentsDeleted() {
+        List<ConsultDocs> consultDocs = findStaleActiveConsultAttachments();
+        for (ConsultDocs consultDoc : consultDocs) {
+            consultDoc.setDeleted(ConsultDocs.DELETED);
+            entityManager.merge(consultDoc);
+        }
+        return consultDocs.size();
+    }
+
+    private Query createStaleActiveConsultAttachmentsQuery() {
+        Query query = entityManager.createQuery(STALE_ACTIVE_CONSULT_ATTACHMENTS_QUERY);
+        query.setParameter("eformType", ConsultDocs.DOCTYPE_EFORM);
+        query.setParameter("documentType", ConsultDocs.DOCTYPE_DOC);
+        query.setParameter("deletedDocumentStatus", Document.STATUS_DELETED);
+        query.setParameter("demographicModule", DEMOGRAPHIC_MODULE);
+        return query;
     }
 }
