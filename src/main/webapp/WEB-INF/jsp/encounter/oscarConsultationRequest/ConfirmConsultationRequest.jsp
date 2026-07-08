@@ -51,6 +51,17 @@
     // Store transType as a local variable for safe comparison
     String transType = (String) request.getAttribute("transType");
     String isPreview = (String) request.getAttribute("isPreviewReady");
+    String fallbackDemographicNo = request.getParameter("demographicNo");
+    if (fallbackDemographicNo == null || fallbackDemographicNo.trim().isEmpty()) {
+        fallbackDemographicNo = request.getParameter("de");
+    }
+    if (fallbackDemographicNo == null) {
+        fallbackDemographicNo = "";
+    }
+    String fallbackUrl = request.getContextPath() + "/encounter/oscarConsultationRequest/ViewDisplayDemographicConsultationRequests";
+    if (!fallbackDemographicNo.trim().isEmpty()) {
+        fallbackUrl += "?de=" + java.net.URLEncoder.encode(fallbackDemographicNo, java.nio.charset.StandardCharsets.UTF_8);
+    }
 %>
 <!DOCTYPE html>
 <html>
@@ -61,7 +72,7 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     </head>
 
-    <body onload="finishPage(5);" class="d-flex align-items-center justify-content-center" style="min-height:100vh; background-color:var(--carlos-bg-light);">
+    <body class="d-flex align-items-center justify-content-center" style="min-height:100vh; background-color:var(--carlos-bg-light);">
 
         <div class="text-center p-4" style="max-width:420px;">
             <div class="mb-3">
@@ -100,14 +111,31 @@
                 <span id="countdown" class="fw-semibold">5</span>s
             </p>
 
-            <a href="javascript:BackToOscar();" class="btn btn-sm btn-outline-secondary">
+            <button type="button" id="closeButton" class="btn btn-sm btn-outline-secondary">
                 <i class="fa-solid fa-xmark me-1"></i><fmt:message key="global.btnClose"/>
-            </a>
+            </button>
         </div>
 
     <script>
         function BackToOscar() {
-            window.close();
+            closeOrReturn();
+        }
+
+        function closeOrReturn() {
+            if (window.opener && !window.opener.closed) {
+                window.close();
+                window.setTimeout(returnToConsultations, 100);
+                return;
+            }
+            returnToConsultations();
+        }
+
+        function returnToConsultations() {
+            if (window.history.length > 1 && document.referrer) {
+                window.history.back();
+                return;
+            }
+            window.location.href = '<carlos:encode value='<%= fallbackUrl %>' context="javaScriptBlock"/>';
         }
 
         function finishPage(secs) {
@@ -126,12 +154,12 @@
             const isPreviewReady = '<carlos:encode value='<%= String.valueOf(request.getAttribute("isPreviewReady")) %>' context="javaScriptBlock"/>';
             if (consultPDF !== 'null' && consultPDFName !== 'null' && isPreviewReady === 'true') {
                 downloadConsultForm(consultPDFName, consultPDF, function () {
-                    setTimeout("window.close()", secs * 1000);
+                    window.setTimeout(closeOrReturn, secs * 1000);
                 });
                 return;
             }
 
-            setTimeout("window.close()", secs * 500);
+            window.setTimeout(closeOrReturn, secs * 1000);
         }
 
         function downloadConsultForm(consultPDFName, consultPDF, callback) {
@@ -144,6 +172,9 @@
             URL.revokeObjectURL(downloadLink.href);
             callback();
         }
+
+        document.getElementById('closeButton').addEventListener('click', BackToOscar);
+        finishPage(5);
     </script>
     </body>
 </html>
