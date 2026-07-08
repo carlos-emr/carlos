@@ -1,0 +1,96 @@
+# GitHub Workflow: Verify CARLOS DB schema identity (legacy scripts vs Flyway baseline)
+#
+# Proves that a database built by `flyway migrate` (consolidated V1 baseline + deltas) is
+# schema-identical to one built the legacy way (createdatabase_<prov>.sh + the required recent
+# update-*.sql). This is the core guarantee behind adopting Flyway: the migration set reproduces
+# today's known-good schema exactly.
+#
+# Dormant until the baseline is generated: if common/V1__baseline_core_schema.sql does not yet
+# exist, the diff step is skipped with a notice (the Flyway path has nothing to apply). Run
+# database/mysql/build-baseline.sh in a devcontainer and commit the V1* files to activate it.
+#
+# Triggered only on changes under database/mysql/** so it does not slow unrelated PRs.
+
+name: DB schema verify
+
+on:
+  pull_request:
+    paths:
+      - 'database/mysql/**'
+      - '.github/workflows/db-schema-verify.yml'
+
+jobs:
+  schema-identity:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - province: on
+            icd: '9'
+          - province: bc
+            icd: '10'
+    services:
+      mariadb:
+        image: mariadb:10.5
+        env:
+          MARIADB_ROOT_PASSWORD: password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -ppassword"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install MariaDB client and Flyway CLI
+        run: |
+          sudo apt-get update && sudo apt-get install -y mariadb-client
+          FLYWAY_VERSION=11.14.0
+          curl -fsSL "https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/${FLYWAY_VERSION}/flyway-commandline-${FLYWAY_VERSION}-linux-x64.tar.gz" \
+            | tar xz
+          echo "$PWD/flyway-${FLYWAY_VERSION}" >> "$GITHUB_PATH"
+
+      - name: Skip if baseline not yet generated
+        id: guard
+        run: |
+          if [ ! -f database/mysql/migration/common/V1__baseline_core_schema.sql ]; then
+            echo "::notice::No V1 baseline committed yet — run database/mysql/build-baseline.sh and commit the V1* files to activate schema verification."
+            echo "active=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "active=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build DB-A (legacy scripts) and DB-B (Flyway) and diff
+        if: steps.guard.outputs.active == 'true'
+        env:
+          MYSQL_HOST: 127.0.0.1
+          MYSQL_PWD: password
+        run: |
+          set -euo pipefail
+          cd database/mysql
+          PROV=${{ matrix.province }}
+          ICD=${{ matrix.icd }}
+
+          # DB-A: legacy path
+          ./createdatabase_${PROV}.sh root password legacy_${PROV} suppressPwdGen >/dev/null
+          for u in $(grep -oE "updates/[a-zA-Z0-9._-]+\.sql" build-baseline.sh | sed 's#updates/##' | sort -u); do
+            [ -f "updates/$u" ] && mysql -h 127.0.0.1 -uroot -ppassword legacy_${PROV} < "updates/$u" || true
+          done
+
+          # DB-B: Flyway path
+          mysql -h 127.0.0.1 -uroot -ppassword -e "CREATE DATABASE flyway_${PROV};"
+          flyway -url="jdbc:mariadb://127.0.0.1:3306/flyway_${PROV}" -user=root -password=password \
+            -locations="filesystem:migration/common,filesystem:migration/${PROV}" \
+            -baselineOnMigrate=true migrate
+
+          norm() { mysqldump -h 127.0.0.1 -uroot -ppassword --no-data --skip-comments --skip-dump-date "$1" \
+                    | sed -E 's/ AUTO_INCREMENT=[0-9]+//g' | sort; }
+          norm legacy_${PROV} > /tmp/a.sql
+          norm flyway_${PROV} > /tmp/b.sql
+          if ! diff -u /tmp/a.sql /tmp/b.sql; then
+            echo "::error::Flyway schema for ${PROV} differs from the legacy-built schema"
+            exit 1
+          fi
+          echo "Schema identity verified for province ${PROV}"

@@ -47,6 +47,18 @@
 
 	</bean>
 
+	<!-- Flyway schema-version boot gate. Default mode is 'off' (no-op): schema stays managed
+	     out of band exactly as before. Set carlos.flyway.onBoot=validate in production (fail fast
+	     if the DB schema is behind the deployed WAR) once the consolidated baseline is adopted, or
+	     =migrate in the disposable devcontainer. See docs/database-schema-management.md. -->
+	<bean id="flywaySchemaValidator" class="io.github.carlos_emr.carlos.db.FlywaySchemaValidator">
+		<constructor-arg ref="dataSource" />
+		<!-- Defaults inline so a rendered carlos.properties that predates these keys still boots
+		     (falls back to the no-op 'off' mode) instead of failing placeholder resolution. -->
+		<constructor-arg value="${carlos.flyway.onBoot:off}" />
+		<constructor-arg value="${carlos.flyway.locations:classpath:db/migration/common,classpath:db/migration/on}" />
+	</bean>
+
 	<!-- JPA -->
 	<!-- primary="true" was originally needed to resolve autowiring ambiguity with a
 	     legacy Hibernate {@code sessionFactory} bean defined in

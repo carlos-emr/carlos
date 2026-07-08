@@ -2708,6 +2708,22 @@
     "integrity" : "sha512:zC/pRyvlU0GI0dMnwsj9s5EU+Do8nKflyyQl8JUXZT/+zLfg2W9cOP4PDrTYhGrsu7LZJ3e2ZuuAOWmgajhvqg==",
     "classifier" : "jakarta"
   }, {
+    "groupId" : "org.flywaydb",
+    "artifactId" : "flyway-core",
+    "version" : "11.14.0",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:M3DDle/ul5G04by8IuAoY7GECan7YjMFCLax5JNpD95jHz3MXlBGQ8vpdHJdBTiQVU9lFJ7NW+ILfGHGclkiKA=="
+  }, {
+    "groupId" : "org.flywaydb",
+    "artifactId" : "flyway-mysql",
+    "version" : "11.14.0",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:rztF2Fnv+YogPjYWa6mFxERHLLr6W+mRP7D8Wt02/mXgTaInbtnYmnjfx/n+RzgliOit6Csh/avEF7D/d0YleQ=="
+  }, {
     "groupId" : "org.freemarker",
     "artifactId" : "freemarker",
     "version" : "2.3.34",
