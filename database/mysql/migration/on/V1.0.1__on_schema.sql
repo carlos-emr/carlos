@@ -25,7 +25,7 @@ CREATE TABLE `batch_billing` (
   `create_date` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `creator` varchar(6) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `billing_on_cheader1`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -78,7 +78,7 @@ CREATE TABLE `billing_on_cheader1` (
   KEY `clinic` (`clinic`),
   KEY `status` (`status`),
   KEY `billing_on_cheader1_ikey` (`timestamp1`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `billing_on_cheader2`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -96,7 +96,7 @@ CREATE TABLE `billing_on_cheader2` (
   `timestamp` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`),
   KEY `ch1_id` (`ch1_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `billing_on_diskname`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -114,7 +114,7 @@ CREATE TABLE `billing_on_diskname` (
   `total` varchar(20) DEFAULT NULL,
   `timestamp` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `billing_on_eareport`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -147,7 +147,7 @@ CREATE TABLE `billing_on_eareport` (
   KEY `providerohip_no` (`providerohip_no`),
   KEY `code_date` (`code_date`),
   KEY `process_date` (`process_date`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `billing_on_errorCode`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -156,7 +156,7 @@ CREATE TABLE `billing_on_errorCode` (
   `code` varchar(5) NOT NULL,
   `description` varchar(255) NOT NULL DEFAULT '',
   PRIMARY KEY (`code`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `billing_on_ext`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -173,7 +173,7 @@ CREATE TABLE `billing_on_ext` (
   PRIMARY KEY (`id`),
   KEY `key_val` (`key_val`),
   KEY `billing_no` (`billing_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `billing_on_favourite`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -186,7 +186,7 @@ CREATE TABLE `billing_on_favourite` (
   `timestamp` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `deleted` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `billing_on_filename`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -202,7 +202,7 @@ CREATE TABLE `billing_on_filename` (
   `total` varchar(20) DEFAULT NULL,
   `timestamp` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `billing_on_header`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -229,7 +229,7 @@ CREATE TABLE `billing_on_header` (
   `action` varchar(60) DEFAULT '',
   `comment` varchar(200) DEFAULT '',
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `billing_on_item`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -250,7 +250,7 @@ CREATE TABLE `billing_on_item` (
   `timestamp` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`),
   KEY `ch1_id` (`ch1_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `billing_on_premium`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -266,7 +266,7 @@ CREATE TABLE `billing_on_premium` (
   `create_date` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `creator` varchar(6) NOT NULL,
   PRIMARY KEY (`premium_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `billing_on_proc`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -279,7 +279,7 @@ CREATE TABLE `billing_on_proc` (
   `object` varchar(60) DEFAULT '',
   `createdatetime` datetime DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `billing_on_repo`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -291,7 +291,7 @@ CREATE TABLE `billing_on_repo` (
   `content` text DEFAULT NULL,
   `createdatetime` datetime DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `ctl_billingtype`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -300,7 +300,7 @@ CREATE TABLE `ctl_billingtype` (
   `servicetype` varchar(10) NOT NULL,
   `billtype` varchar(5) NOT NULL,
   PRIMARY KEY (`servicetype`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formLabReq07`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -429,7 +429,7 @@ CREATE TABLE `formLabReq07` (
   `patientChartNo` varchar(20) DEFAULT NULL,
   PRIMARY KEY (`ID`),
   KEY `formLabReq07_ikey` (`demographic_no`,`formEdited`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formLabReq10`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -573,7 +573,7 @@ CREATE TABLE `formLabReq10` (
   `patientChartNo` varchar(20) DEFAULT NULL,
   `letterhead` varchar(25) DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formPositionHazard`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -677,7 +677,7 @@ CREATE TABLE `formPositionHazard` (
   `ProcedureName` text DEFAULT NULL,
   `SubstanceForm` text DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formRourke2009`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1912,7 +1912,7 @@ CREATE TABLE `formRourke2009` (
   `p4_nippisingattained` text DEFAULT NULL,
   PRIMARY KEY (`ID`),
   KEY `formRourke2009_demographic_no` (`demographic_no`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `frm_labreq_preset`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1924,7 +1924,7 @@ CREATE TABLE `frm_labreq_preset` (
   `prop_value` varchar(255) NOT NULL,
   `status` int(1) NOT NULL,
   PRIMARY KEY (`preset_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `labReportInformation`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1938,7 +1938,7 @@ CREATE TABLE `labReportInformation` (
   `total_CType` varchar(5) DEFAULT NULL,
   `total_DType` varchar(5) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 

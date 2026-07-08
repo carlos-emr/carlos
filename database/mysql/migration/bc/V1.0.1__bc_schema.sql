@@ -18,7 +18,7 @@ CREATE TABLE `billinglocation` (
   `billinglocation` varchar(10) DEFAULT '00',
   `billinglocation_desc` varchar(200) DEFAULT '',
   `region` varchar(5) DEFAULT ''
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `billingmaster`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -87,7 +87,7 @@ CREATE TABLE `billingmaster` (
   `wcb_id` int(10) DEFAULT NULL,
   PRIMARY KEY (`billingmaster_no`),
   KEY `billingmaster_wcb_id` (`wcb_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `billingnote`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -104,7 +104,7 @@ CREATE TABLE `billingnote` (
   KEY `provider_no` (`provider_no`),
   KEY `createdate` (`createdate`),
   KEY `note_type` (`note_type`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `billingvisit`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -113,7 +113,7 @@ CREATE TABLE `billingvisit` (
   `visittype` varchar(10) DEFAULT '00',
   `visit_desc` varchar(100) DEFAULT '',
   `region` varchar(5) DEFAULT ''
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formBCAR`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -815,7 +815,7 @@ CREATE TABLE `formBCAR` (
   `pg3_consultName` varchar(60) DEFAULT NULL,
   `pg3_signature` varchar(60) DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formBCAR2007`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1636,7 +1636,7 @@ CREATE TABLE `formBCAR2007` (
   `ar2_tweakA` varchar(3) DEFAULT NULL,
   `ar2_tweakK` varchar(3) DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formBCAR2012`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2483,7 +2483,7 @@ CREATE TABLE `formBCAR2012` (
   `ar2_tweakA` varchar(3) DEFAULT NULL,
   `ar2_tweakK` varchar(3) DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formBCBirthSumMo`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2702,7 +2702,7 @@ CREATE TABLE `formBCBirthSumMo` (
   PRIMARY KEY (`ID`),
   KEY `demographic_no` (`demographic_no`),
   KEY `formCreated` (`formCreated`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 

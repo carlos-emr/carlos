@@ -24,7 +24,7 @@ CREATE TABLE `AppDefinition` (
   `added` datetime DEFAULT NULL,
   `consentTypeId` int(15) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `AppUser`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -36,7 +36,7 @@ CREATE TABLE `AppUser` (
   `authenticationData` text DEFAULT NULL,
   `added` datetime DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `CVCImmunization`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -52,7 +52,7 @@ CREATE TABLE `CVCImmunization` (
   `parentConceptId` varchar(255) DEFAULT NULL,
   `ispa` tinyint(1) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `CVCMapping`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -63,7 +63,7 @@ CREATE TABLE `CVCMapping` (
   `cvcSnomedId` varchar(255) DEFAULT NULL,
   `preferCVC` tinyint(1) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `CVCMedication`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -80,7 +80,7 @@ CREATE TABLE `CVCMedication` (
   `manufacturerId` int(11) DEFAULT NULL,
   `manufacturerDisplay` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `CVCMedicationGTIN`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -90,7 +90,7 @@ CREATE TABLE `CVCMedicationGTIN` (
   `cvcMedicationId` int(11) NOT NULL,
   `gtin` varchar(255) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `CVCMedicationLotNumber`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -101,7 +101,7 @@ CREATE TABLE `CVCMedicationLotNumber` (
   `lotNumber` varchar(255) NOT NULL,
   `expiryDate` date DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `CdsClientForm`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -122,7 +122,7 @@ CREATE TABLE `CdsClientForm` (
   KEY `signed` (`signed`),
   KEY `facilityId` (`facilityId`,`clientId`),
   KEY `admissionId` (`admissionId`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `CdsClientFormData`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -135,7 +135,7 @@ CREATE TABLE `CdsClientFormData` (
   PRIMARY KEY (`id`),
   KEY `cdsClientFormId` (`cdsClientFormId`),
   KEY `question` (`question`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `CdsFormOption`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -146,7 +146,7 @@ CREATE TABLE `CdsFormOption` (
   `cdsDataCategory` varchar(16) NOT NULL,
   `cdsDataCategoryName` varchar(255) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `CdsHospitalisationDays`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -157,7 +157,7 @@ CREATE TABLE `CdsHospitalisationDays` (
   `admitted` date NOT NULL,
   `discharged` date DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `ClientLink`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -181,7 +181,7 @@ CREATE TABLE `ClientLink` (
   CONSTRAINT `ClientLink_ibfk_2` FOREIGN KEY (`clientId`) REFERENCES `demographic` (`demographic_no`),
   CONSTRAINT `ClientLink_ibfk_3` FOREIGN KEY (`linkProviderNo`) REFERENCES `provider` (`provider_no`),
   CONSTRAINT `ClientLink_ibfk_4` FOREIGN KEY (`unlinkProviderNo`) REFERENCES `provider` (`provider_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `Consent`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -199,7 +199,7 @@ CREATE TABLE `Consent` (
   `deleted` tinyint(1) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `Consent_demographic_no_IDX` (`demographic_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `Contact`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -231,7 +231,7 @@ CREATE TABLE `Contact` (
   KEY `type` (`type`),
   KEY `cpso` (`cpso`),
   KEY `systemId` (`systemId`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `ContactSpecialty`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -241,7 +241,7 @@ CREATE TABLE `ContactSpecialty` (
   `specialty` varchar(50) NOT NULL,
   `description` varchar(140) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `CtlRelationships`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -254,7 +254,7 @@ CREATE TABLE `CtlRelationships` (
   `maleInverse` varchar(50) DEFAULT NULL,
   `femaleInverse` varchar(50) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `DHIRSubmissionLog`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -272,7 +272,7 @@ CREATE TABLE `DHIRSubmissionLog` (
   `clientRequestId` varchar(100) DEFAULT NULL,
   `clientResponseId` varchar(100) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `DemographicContact`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -298,7 +298,7 @@ CREATE TABLE `DemographicContact` (
   `programNo` int(11) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `demographicNo` (`demographicNo`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `Department`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -308,7 +308,7 @@ CREATE TABLE `Department` (
   `name` varchar(255) NOT NULL,
   `annotation` text DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `DigitalSignature`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -328,7 +328,7 @@ CREATE TABLE `DigitalSignature` (
   CONSTRAINT `DigitalSignature_ibfk_1` FOREIGN KEY (`facilityId`) REFERENCES `Facility` (`id`),
   CONSTRAINT `DigitalSignature_ibfk_2` FOREIGN KEY (`providerNo`) REFERENCES `provider` (`provider_no`),
   CONSTRAINT `DigitalSignature_ibfk_3` FOREIGN KEY (`demographicId`) REFERENCES `demographic` (`demographic_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `DocumentExtraReviewer`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -339,7 +339,7 @@ CREATE TABLE `DocumentExtraReviewer` (
   `reviewerProviderNo` varchar(40) DEFAULT NULL,
   `reviewDateTime` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `DrugProduct`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -357,7 +357,7 @@ CREATE TABLE `DrugProduct` (
   `lastUpdateDate` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
   `lastUpdateUser` varchar(10) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `EFormDocs`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -371,7 +371,7 @@ CREATE TABLE `EFormDocs` (
   `attach_date` date DEFAULT NULL,
   `provider_no` varchar(6) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `EFormReportTool`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -387,7 +387,7 @@ CREATE TABLE `EFormReportTool` (
   `dateLastPopulated` timestamp NULL DEFAULT NULL,
   `latestMarked` tinyint(1) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `Episode`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -405,7 +405,7 @@ CREATE TABLE `Episode` (
   `lastUpdateTime` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `notes` text DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `Facility`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -442,7 +442,7 @@ CREATE TABLE `Facility` (
   `assignRejectedVacancyApplicant` varchar(25) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `name` (`name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `FaxClientLog`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -457,7 +457,7 @@ CREATE TABLE `FaxClientLog` (
   `faxId` varchar(10) DEFAULT NULL,
   `transactionType` varchar(25) DEFAULT NULL,
   PRIMARY KEY (`faxLogId`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `FlowSheetUserCreated`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -480,7 +480,7 @@ CREATE TABLE `FlowSheetUserCreated` (
   `xmlContent` text DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `FlowSheetUserCreated_archived` (`archived`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `Flowsheet`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -493,7 +493,7 @@ CREATE TABLE `Flowsheet` (
   `external` tinyint(1) DEFAULT NULL,
   `createdDate` date DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `FunctionalCentre`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -502,7 +502,7 @@ CREATE TABLE `FunctionalCentre` (
   `accountId` varchar(64) NOT NULL,
   `description` varchar(255) NOT NULL,
   PRIMARY KEY (`accountId`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `GroupNoteLink`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -519,7 +519,7 @@ CREATE TABLE `GroupNoteLink` (
   KEY `demographicNo` (`demographicNo`),
   KEY `anonymous` (`anonymous`),
   KEY `active` (`active`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `HL7HandlerMSHMapping`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -531,7 +531,7 @@ CREATE TABLE `HL7HandlerMSHMapping` (
   `facility_name` varchar(255) DEFAULT NULL,
   `notes` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `HRMCategory`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -542,7 +542,7 @@ CREATE TABLE `HRMCategory` (
   `subClassNameMnemonic` varchar(255) DEFAULT NULL,
   `sendingFacilityId` varchar(50) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `HRMDocument`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -574,7 +574,7 @@ CREATE TABLE `HRMDocument` (
   `subClassName` varchar(255) DEFAULT NULL,
   `sourceFacilityReportNo` varchar(100) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `HRMDocumentComment`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -587,7 +587,7 @@ CREATE TABLE `HRMDocumentComment` (
   `commentTime` datetime DEFAULT NULL,
   `deleted` tinyint(1) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `HRMDocumentSubClass`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -602,7 +602,7 @@ CREATE TABLE `HRMDocumentSubClass` (
   `isActive` tinyint(4) NOT NULL,
   `sendingFacilityId` varchar(50) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `HRMDocumentToDemographic`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -615,7 +615,7 @@ CREATE TABLE `HRMDocumentToDemographic` (
   PRIMARY KEY (`id`),
   KEY `idx_hrmDocumentId_hd` (`hrmDocumentId`),
   KEY `idx_demographicNo_hd` (`demographicNo`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `HRMDocumentToProvider`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -631,7 +631,7 @@ CREATE TABLE `HRMDocumentToProvider` (
   PRIMARY KEY (`id`),
   KEY `idx_hrmDocumentId_hp` (`hrmDocumentId`),
   KEY `idx_signedOff_providerNo_hp` (`signedOff`,`providerNo`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `HRMProviderConfidentialityStatement`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -640,7 +640,7 @@ CREATE TABLE `HRMProviderConfidentialityStatement` (
   `providerNo` varchar(20) NOT NULL DEFAULT '',
   `statement` text DEFAULT NULL,
   PRIMARY KEY (`providerNo`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `HRMSubClass`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -654,7 +654,7 @@ CREATE TABLE `HRMSubClass` (
   `sendingFacilityId` varchar(50) NOT NULL,
   `hrmCategoryId` int(11) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `HnrDataValidation`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -676,7 +676,7 @@ CREATE TABLE `HnrDataValidation` (
   CONSTRAINT `HnrDataValidation_ibfk_1` FOREIGN KEY (`facilityId`) REFERENCES `Facility` (`id`),
   CONSTRAINT `HnrDataValidation_ibfk_2` FOREIGN KEY (`clientId`) REFERENCES `demographic` (`demographic_no`),
   CONSTRAINT `HnrDataValidation_ibfk_3` FOREIGN KEY (`validatorProviderNo`) REFERENCES `provider` (`provider_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `ISO36612`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -687,7 +687,7 @@ CREATE TABLE `ISO36612` (
   `province` varchar(255) DEFAULT NULL,
   `country` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `Icd9Synonym`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -697,7 +697,7 @@ CREATE TABLE `Icd9Synonym` (
   `patientFriendly` varchar(250) NOT NULL,
   `id` int(11) NOT NULL AUTO_INCREMENT,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `Institution`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -716,7 +716,7 @@ CREATE TABLE `Institution` (
   `email` varchar(50) DEFAULT NULL,
   `annotation` text DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `InstitutionDepartment`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -724,7 +724,7 @@ DROP TABLE IF EXISTS `InstitutionDepartment`;
 CREATE TABLE `InstitutionDepartment` (
   `institutionId` int(11) NOT NULL,
   `departmentId` int(11) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `IssueGroup`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -733,7 +733,7 @@ CREATE TABLE `IssueGroup` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `name` varchar(255) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `IssueGroupIssues`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -743,7 +743,7 @@ CREATE TABLE `IssueGroupIssues` (
   `issue_id` int(11) NOT NULL,
   UNIQUE KEY `issueGroupId` (`issueGroupId`,`issue_id`),
   KEY `issue_id` (`issue_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `LookupCodeValue`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -759,7 +759,7 @@ CREATE TABLE `LookupCodeValue` (
   `codecsv` varchar(255) DEFAULT NULL,
   `orderByIndex` int(11) DEFAULT NULL,
   PRIMARY KEY (`code`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `LookupList`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -774,7 +774,7 @@ CREATE TABLE `LookupList` (
   `createdBy` varchar(8) NOT NULL,
   `dateCreated` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `LookupListItem`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -789,7 +789,7 @@ CREATE TABLE `LookupListItem` (
   `createdBy` varchar(8) NOT NULL,
   `dateCreated` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `MyGroupAccessRestriction`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -803,7 +803,7 @@ CREATE TABLE `MyGroupAccessRestriction` (
   PRIMARY KEY (`id`),
   KEY `myGroupNo` (`myGroupNo`),
   KEY `myGroupNo_2` (`myGroupNo`,`providerNo`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `OscarCode`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -813,7 +813,7 @@ CREATE TABLE `OscarCode` (
   `OscarCode` varchar(25) NOT NULL,
   `description` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `OscarJob`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -829,7 +829,7 @@ CREATE TABLE `OscarJob` (
   `updated` datetime NOT NULL,
   `config` text DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `OscarJobType`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -842,7 +842,7 @@ CREATE TABLE `OscarJobType` (
   `enabled` tinyint(1) NOT NULL,
   `updated` datetime NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `PageMonitor`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -859,7 +859,7 @@ CREATE TABLE `PageMonitor` (
   `providerNo` varchar(10) DEFAULT NULL,
   `providerName` varchar(100) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `PreventionReport`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -875,7 +875,7 @@ CREATE TABLE `PreventionReport` (
   `archived` tinyint(1) DEFAULT NULL,
   `uuid` varchar(50) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `PreventionsLotNrs`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -889,7 +889,7 @@ CREATE TABLE `PreventionsLotNrs` (
   `deleted` tinyint(1) NOT NULL,
   `lastUpdateDate` datetime NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `PrintResourceLog`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -903,7 +903,7 @@ CREATE TABLE `PrintResourceLog` (
   `externalLocation` varchar(200) DEFAULT NULL,
   `externalMethod` varchar(100) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `ProviderPreference`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -927,7 +927,7 @@ CREATE TABLE `ProviderPreference` (
   `defaultBillingLocation` varchar(4) DEFAULT 'no',
   `defaultSliCode` varchar(4) DEFAULT 'no',
   PRIMARY KEY (`providerNo`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `ProviderPreferenceAppointmentScreenEForm`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -936,7 +936,7 @@ CREATE TABLE `ProviderPreferenceAppointmentScreenEForm` (
   `providerNo` varchar(6) NOT NULL,
   `appointmentScreenEForm` int(11) NOT NULL,
   `eFormName` varchar(255) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `ProviderPreferenceAppointmentScreenForm`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -944,7 +944,7 @@ DROP TABLE IF EXISTS `ProviderPreferenceAppointmentScreenForm`;
 CREATE TABLE `ProviderPreferenceAppointmentScreenForm` (
   `providerNo` varchar(6) NOT NULL,
   `appointmentScreenForm` varchar(128) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `ProviderPreferenceAppointmentScreenQuickLink`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -953,7 +953,7 @@ CREATE TABLE `ProviderPreferenceAppointmentScreenQuickLink` (
   `providerNo` varchar(6) NOT NULL,
   `name` varchar(64) NOT NULL,
   `url` varchar(255) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `RemoteDataLog`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -966,7 +966,7 @@ CREATE TABLE `RemoteDataLog` (
   `documentId` varchar(255) NOT NULL,
   `documentContents` mediumblob NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `RemoteReferral`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -985,7 +985,7 @@ CREATE TABLE `RemoteReferral` (
   PRIMARY KEY (`id`),
   KEY `facilityId` (`facilityId`),
   KEY `demographicId` (`demographicId`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `ResourceStorage`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1003,7 +1003,7 @@ CREATE TABLE `ResourceStorage` (
   PRIMARY KEY (`id`),
   KEY `ResourceStorage_resourceType_active` (`resourceType`(10),`active`),
   KEY `ResourceStorage_resourceType_uuid` (`uuid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `SecurityArchive`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1025,7 +1025,7 @@ CREATE TABLE `SecurityArchive` (
   `lastUpdateUser` varchar(20) DEFAULT NULL,
   `lastUpdateDate` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `SecurityToken`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1039,7 +1039,7 @@ CREATE TABLE `SecurityToken` (
   `providerNo` varchar(10) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `token` (`token`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `ServiceAccessToken`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1055,7 +1055,7 @@ CREATE TABLE `ServiceAccessToken` (
   `scopes` varchar(255) DEFAULT NULL,
   `dateCreated` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `ServiceClient`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1069,7 +1069,7 @@ CREATE TABLE `ServiceClient` (
   `dateCreated` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `lifetime` int(11) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `ServiceOAuthNonce`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1087,7 +1087,7 @@ CREATE TABLE `ServiceOAuthNonce` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_service_oauth_nonce` (`nonceKeyHash`),
   KEY `idx_service_oauth_nonce_ts` (`oauthTimestamp`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `ServiceRequestToken`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1103,7 +1103,7 @@ CREATE TABLE `ServiceRequestToken` (
   `scopes` varchar(255) DEFAULT NULL,
   `dateCreated` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `SystemMessage`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1114,7 +1114,7 @@ CREATE TABLE `SystemMessage` (
   `creationDate` datetime NOT NULL,
   `expiryDate` datetime NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `SystemPreferences`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1125,7 +1125,7 @@ CREATE TABLE `SystemPreferences` (
   `value` varchar(255) DEFAULT NULL,
   `updateDate` datetime DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `access_type`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1135,7 +1135,7 @@ CREATE TABLE `access_type` (
   `name` varchar(255) DEFAULT NULL,
   `type` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`access_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `admission`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1167,7 +1167,7 @@ CREATE TABLE `admission` (
   KEY `admission_ikey` (`client_id`,`program_id`,`lastUpdateDate`),
   KEY `FK9uhg2nwhjhwrpr4nh21ucexyg` (`clientstatus_id`),
   CONSTRAINT `FK9uhg2nwhjhwrpr4nh21ucexyg` FOREIGN KEY (`clientstatus_id`) REFERENCES `program_clientstatus` (`clientstatus_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `agency`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1179,7 +1179,7 @@ CREATE TABLE `agency` (
   `intake_indepth` int(10) unsigned DEFAULT 2,
   `intake_indepth_state` char(3) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `allergies`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1210,7 +1210,7 @@ CREATE TABLE `allergies` (
   `reaction_type` varchar(20) DEFAULT NULL,
   `nonDrug` tinyint(1) DEFAULT NULL,
   PRIMARY KEY (`allergyid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `app_lookuptable`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1225,7 +1225,7 @@ CREATE TABLE `app_lookuptable` (
   `activeyn` tinyint(1) DEFAULT NULL,
   `readonly` tinyint(1) DEFAULT NULL,
   PRIMARY KEY (`tableid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `app_lookuptable_fields`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1244,7 +1244,7 @@ CREATE TABLE `app_lookuptable_fields` (
   `autoyn` tinyint(1) DEFAULT NULL,
   `fieldlength` int(10) DEFAULT NULL,
   PRIMARY KEY (`tableid`,`fieldname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `appointment`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1266,7 +1266,7 @@ CREATE TABLE `appointment` (
   `type` varchar(50) DEFAULT NULL,
   `style` varchar(10) DEFAULT NULL,
   `billing` varchar(10) DEFAULT NULL,
-  `status` char(2) CHARACTER SET utf8mb3 COLLATE utf8mb3_bin DEFAULT NULL,
+  `status` char(2) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,
   `imported_status` varchar(20) DEFAULT NULL,
   `createdatetime` datetime DEFAULT NULL,
   `updatedatetime` datetime DEFAULT NULL,
@@ -1281,7 +1281,7 @@ CREATE TABLE `appointment` (
   KEY `demographic_no` (`demographic_no`),
   KEY `location` (`location`),
   KEY `appointment_ikey` (`demographic_no`,`updatedatetime`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `appointmentArchive`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1314,7 +1314,7 @@ CREATE TABLE `appointmentArchive` (
   `creatorSecurityId` int(11) DEFAULT NULL,
   `bookingSource` varchar(32) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `appointmentType`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1328,7 +1328,7 @@ CREATE TABLE `appointmentType` (
   `resources` varchar(10) DEFAULT NULL,
   `duration` int(12) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `appointment_status`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1344,7 +1344,7 @@ CREATE TABLE `appointment_status` (
   `short_letter_colour` int(11) DEFAULT NULL COMMENT 'The colour of the short letters in the system',
   `short_letters` varchar(5) DEFAULT NULL COMMENT 'The short letter representation of the appointment status',
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `batchEligibility`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1354,7 +1354,7 @@ CREATE TABLE `batchEligibility` (
   `MOHResponse` varchar(100) NOT NULL,
   `reason` varchar(255) NOT NULL,
   PRIMARY KEY (`responseCode`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `bed`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1369,7 +1369,7 @@ CREATE TABLE `bed` (
   `name` varchar(45) NOT NULL,
   `active` tinyint(1) unsigned NOT NULL DEFAULT 1,
   PRIMARY KEY (`bed_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `billactivity`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1391,7 +1391,7 @@ CREATE TABLE `billactivity` (
   `total` varchar(20) DEFAULT NULL,
   `sentdate` datetime DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `billcenter`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1400,7 +1400,7 @@ CREATE TABLE `billcenter` (
   `billcenter_code` char(2) NOT NULL DEFAULT '',
   `billcenter_desc` varchar(20) DEFAULT NULL,
   PRIMARY KEY (`billcenter_code`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `billing`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1440,7 +1440,7 @@ CREATE TABLE `billing` (
   KEY `apptProvider_no` (`apptProvider_no`),
   KEY `creator` (`creator`),
   KEY `status` (`status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `billing_on_3rdPartyAddress`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1456,7 +1456,7 @@ CREATE TABLE `billing_on_3rdPartyAddress` (
   `telephone` varchar(15) NOT NULL DEFAULT '',
   `fax` varchar(15) NOT NULL DEFAULT '',
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `billing_on_item_payment`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1475,7 +1475,7 @@ CREATE TABLE `billing_on_item_payment` (
   KEY `ch1_id` (`ch1_id`),
   KEY `billing_on_payment_id` (`billing_on_payment_id`),
   KEY `billing_on_item_id` (`billing_on_item_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `billing_on_payment`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1491,7 +1491,7 @@ CREATE TABLE `billing_on_payment` (
   `total_refund` decimal(10,2) NOT NULL,
   `total_credit` decimal(10,2) NOT NULL,
   PRIMARY KEY (`payment_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `billing_on_transaction`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1539,7 +1539,7 @@ CREATE TABLE `billing_on_transaction` (
   KEY `provider_no` (`provider_no`),
   KEY `creator` (`creator`),
   KEY `pay_program` (`pay_program`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `billing_payment_type`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1549,7 +1549,7 @@ CREATE TABLE `billing_payment_type` (
   `payment_type` varchar(25) NOT NULL DEFAULT '',
   PRIMARY KEY (`id`),
   UNIQUE KEY `payment_type` (`payment_type`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `billing_preferences`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1560,7 +1560,7 @@ CREATE TABLE `billing_preferences` (
   `providerNo` int(10) unsigned NOT NULL DEFAULT 0,
   `defaultPayeeNo` varchar(11) NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `billingdetail`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1577,7 +1577,7 @@ CREATE TABLE `billingdetail` (
   `billingunit` char(2) DEFAULT NULL,
   PRIMARY KEY (`billing_dt_no`),
   KEY `billingno` (`billing_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `billinginr`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1600,7 +1600,7 @@ CREATE TABLE `billinginr` (
   `createdatetime` datetime NOT NULL DEFAULT '0001-01-01 00:00:00',
   `status` char(1) DEFAULT NULL,
   PRIMARY KEY (`billinginr_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `billingperclimit`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1612,7 +1612,7 @@ CREATE TABLE `billingperclimit` (
   `effective_date` date DEFAULT '1970-01-01',
   `id` int(11) NOT NULL AUTO_INCREMENT,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `billingreferral`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1633,7 +1633,7 @@ CREATE TABLE `billingreferral` (
   `fax` varchar(16) DEFAULT NULL,
   PRIMARY KEY (`billingreferral_no`),
   KEY `referral_no` (`referral_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `billingservice`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1655,7 +1655,7 @@ CREATE TABLE `billingservice` (
   `gstFlag` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`billingservice_no`),
   KEY `billingservice_service_code_index` (`service_code`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `caisi_form`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1668,7 +1668,7 @@ CREATE TABLE `caisi_form` (
   `status` smallint(6) DEFAULT NULL,
   `version` bigint(20) DEFAULT 0,
   PRIMARY KEY (`form_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `caisi_form_data`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1683,7 +1683,7 @@ CREATE TABLE `caisi_form_data` (
   `data_key` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `FKC253B2E74497F4E` (`instance_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `caisi_form_data_tmpsave`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1698,7 +1698,7 @@ CREATE TABLE `caisi_form_data_tmpsave` (
   `data_key` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`tmp_form_data_id`),
   KEY `caisi_form_data_tmpsave_key1` (`tmp_instance_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `caisi_form_instance`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1713,7 +1713,7 @@ CREATE TABLE `caisi_form_instance` (
   `client_id` bigint(20) DEFAULT NULL,
   `program_id` int(11) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `caisi_role`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1725,7 +1725,7 @@ CREATE TABLE `caisi_role` (
   `oscar_name` varchar(255) NOT NULL DEFAULT '',
   `update_date` datetime NOT NULL,
   PRIMARY KEY (`role_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `casemgmt_cpp`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1746,7 +1746,7 @@ CREATE TABLE `casemgmt_cpp` (
   `otherSupportSystems` text DEFAULT NULL,
   `pastMedications` text DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `casemgmt_issue`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1766,7 +1766,7 @@ CREATE TABLE `casemgmt_issue` (
   KEY `FK718D130B49CFB32F` (`issue_id`),
   KEY `casemgmt_issue_ikey` (`demographic_no`,`update_date`),
   CONSTRAINT `FK9eqe58ou1bf43kamxcwh8dquh` FOREIGN KEY (`issue_id`) REFERENCES `issue` (`issue_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `casemgmt_issue_notes`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1778,7 +1778,7 @@ CREATE TABLE `casemgmt_issue_notes` (
   KEY `note_id` (`note_id`),
   CONSTRAINT `FKjaxhqj7ritpbh2p9ov3nk54t2` FOREIGN KEY (`id`) REFERENCES `casemgmt_issue` (`id`),
   CONSTRAINT `FKstesao78srug1a650gu46i33o` FOREIGN KEY (`note_id`) REFERENCES `casemgmt_note` (`note_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `casemgmt_note`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1816,7 +1816,7 @@ CREATE TABLE `casemgmt_note` (
   KEY `program_no` (`program_no`),
   KEY `observation_date` (`observation_date`),
   KEY `casemgmt_note_ikey` (`demographic_no`,`update_date`,`locked`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `casemgmt_note_ext`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1830,7 +1830,7 @@ CREATE TABLE `casemgmt_note_ext` (
   PRIMARY KEY (`id`),
   KEY `note_idIndex` (`note_id`),
   CONSTRAINT `FKmgvgpkoky8rte7i7igeawga0y` FOREIGN KEY (`note_id`) REFERENCES `casemgmt_note` (`note_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `casemgmt_note_link`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1844,7 +1844,7 @@ CREATE TABLE `casemgmt_note_link` (
   PRIMARY KEY (`id`),
   KEY `note_idIndex` (`note_id`),
   KEY `casemgmt_note_link_table_table_name_index` (`table_name`,`table_id`,`other_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `casemgmt_note_lock`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1861,7 +1861,7 @@ CREATE TABLE `casemgmt_note_lock` (
   KEY `casemgmt_note_lock_providerNo` (`provider_no`),
   KEY `casemgmt_note_lock_note_id` (`note_id`),
   KEY `casemgmt_note_lock_providerNo_noteId` (`provider_no`,`note_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `casemgmt_tmpsave`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1875,7 +1875,7 @@ CREATE TABLE `casemgmt_tmpsave` (
   `update_date` datetime DEFAULT NULL,
   `note_id` int(10) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `client_image`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1888,7 +1888,7 @@ CREATE TABLE `client_image` (
   `update_date` datetime DEFAULT NULL,
   `contents` longblob DEFAULT NULL,
   PRIMARY KEY (`image_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `client_referral`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1910,7 +1910,7 @@ CREATE TABLE `client_referral` (
   `present_problems` text DEFAULT NULL,
   `radioRejectionReason` varchar(10) DEFAULT '0',
   PRIMARY KEY (`referral_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `clinic`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1929,7 +1929,7 @@ CREATE TABLE `clinic` (
   `clinic_delim_phone` text DEFAULT NULL,
   `clinic_delim_fax` text DEFAULT NULL,
   PRIMARY KEY (`clinic_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `clinic_location`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1940,7 +1940,7 @@ CREATE TABLE `clinic_location` (
   `clinic_no` int(10) NOT NULL DEFAULT 0,
   `clinic_location_name` varchar(40) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `clinic_nbr`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1951,7 +1951,7 @@ CREATE TABLE `clinic_nbr` (
   `nbr_string` text DEFAULT NULL,
   `nbr_status` varchar(1) DEFAULT NULL,
   PRIMARY KEY (`nbr_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `config_Immunization`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1964,7 +1964,7 @@ CREATE TABLE `config_Immunization` (
   `providerNo` varchar(6) DEFAULT NULL,
   `archived` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`setId`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `consentType`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1978,7 +1978,7 @@ CREATE TABLE `consentType` (
   `providerNo` varchar(11) DEFAULT NULL,
   `remoteEnabled` tinyint(1) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `consultResponseDoc`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1992,7 +1992,7 @@ CREATE TABLE `consultResponseDoc` (
   `attachDate` date DEFAULT NULL,
   `providerNo` varchar(6) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `consultationRequestExt`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2005,7 +2005,7 @@ CREATE TABLE `consultationRequestExt` (
   `dateCreated` date NOT NULL,
   PRIMARY KEY (`id`),
   KEY `requestId` (`requestId`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `consultationRequestExtArchive`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2020,7 +2020,7 @@ CREATE TABLE `consultationRequestExtArchive` (
   `consultationRequestArchiveId` int(10) NOT NULL,
   PRIMARY KEY (`id`),
   KEY `requestId` (`requestId`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `consultationRequests`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2057,7 +2057,7 @@ CREATE TABLE `consultationRequests` (
   `fdid` int(10) DEFAULT NULL,
   `source` varchar(50) DEFAULT NULL,
   PRIMARY KEY (`requestId`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `consultationRequestsArchive`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2094,7 +2094,7 @@ CREATE TABLE `consultationRequestsArchive` (
   `fdid` int(10) DEFAULT NULL,
   `source` varchar(50) DEFAULT NULL,
   PRIMARY KEY (`Id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `consultationResponse`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2127,7 +2127,7 @@ CREATE TABLE `consultationResponse` (
   `letterheadPhone` varchar(50) DEFAULT NULL,
   `letterheadFax` varchar(50) DEFAULT NULL,
   PRIMARY KEY (`responseId`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `consultationServices`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2137,7 +2137,7 @@ CREATE TABLE `consultationServices` (
   `serviceDesc` varchar(255) DEFAULT NULL,
   `active` char(2) DEFAULT NULL,
   PRIMARY KEY (`serviceId`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `consultdocs`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2151,7 +2151,7 @@ CREATE TABLE `consultdocs` (
   `attach_date` date DEFAULT NULL,
   `provider_no` varchar(6) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `country_codes`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2164,7 +2164,7 @@ CREATE TABLE `country_codes` (
   PRIMARY KEY (`id`),
   KEY `country_id` (`country_id`),
   KEY `c_locale` (`c_locale`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `criteria`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2180,7 +2180,7 @@ CREATE TABLE `criteria` (
   `MATCH_SCORE_WEIGHT` double NOT NULL,
   `CAN_BE_ADHOC` int(1) NOT NULL,
   PRIMARY KEY (`CRITERIA_ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `criteria_selection_option`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2190,7 +2190,7 @@ CREATE TABLE `criteria_selection_option` (
   `CRITERIA_ID` int(11) NOT NULL,
   `OPTION_VALUE` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`SELECT_OPTION_ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `criteria_type`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2204,7 +2204,7 @@ CREATE TABLE `criteria_type` (
   `WL_PROGRAM_ID` int(11) DEFAULT NULL,
   `CAN_BE_ADHOC` tinyint(1) NOT NULL,
   PRIMARY KEY (`CRITERIA_TYPE_ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `criteria_type_option`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2218,7 +2218,7 @@ CREATE TABLE `criteria_type_option` (
   `RANGE_START_VALUE` int(11) DEFAULT NULL,
   `RANGE_END_VALUE` int(11) DEFAULT NULL,
   PRIMARY KEY (`OPTION_ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `cssStyles`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2229,7 +2229,7 @@ CREATE TABLE `cssStyles` (
   `style` text DEFAULT NULL,
   `status` char(1) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `ctl_billingservice`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2244,7 +2244,7 @@ CREATE TABLE `ctl_billingservice` (
   `status` char(1) DEFAULT NULL,
   `service_order` int(4) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `ctl_billingservice_premium`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2256,7 +2256,7 @@ CREATE TABLE `ctl_billingservice_premium` (
   `status` char(1) DEFAULT '',
   `update_date` date DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `ctl_diagcode`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2267,7 +2267,7 @@ CREATE TABLE `ctl_diagcode` (
   `diagnostic_code` varchar(5) DEFAULT NULL,
   `status` char(1) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `ctl_doc_class`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2277,7 +2277,7 @@ CREATE TABLE `ctl_doc_class` (
   `reportclass` varchar(60) NOT NULL,
   `subclass` varchar(60) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `ctl_doctype`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2288,7 +2288,7 @@ CREATE TABLE `ctl_doctype` (
   `doctype` varchar(60) NOT NULL DEFAULT '',
   `status` char(1) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `ctl_document`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2301,7 +2301,7 @@ CREATE TABLE `ctl_document` (
   PRIMARY KEY (`module_id`,`module`,`document_no`),
   KEY `module` (`module`),
   KEY `document_no` (`document_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `ctl_frequency`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2312,7 +2312,7 @@ CREATE TABLE `ctl_frequency` (
   `dailymin` varchar(5) NOT NULL DEFAULT '0',
   `dailymax` varchar(5) NOT NULL DEFAULT '0',
   PRIMARY KEY (`freqid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `ctl_specialinstructions`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2321,7 +2321,7 @@ CREATE TABLE `ctl_specialinstructions` (
   `id` tinyint(4) NOT NULL AUTO_INCREMENT,
   `description` varchar(50) NOT NULL DEFAULT '',
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `custom_filter`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2339,7 +2339,7 @@ CREATE TABLE `custom_filter` (
   `shortcut` tinyint(1) DEFAULT 0,
   `message` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `custom_filter_assignees`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2347,7 +2347,7 @@ DROP TABLE IF EXISTS `custom_filter_assignees`;
 CREATE TABLE `custom_filter_assignees` (
   `filter_id` int(10) NOT NULL DEFAULT 0,
   `provider_no` varchar(6) NOT NULL DEFAULT ''
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `custom_filter_providers`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2355,7 +2355,7 @@ DROP TABLE IF EXISTS `custom_filter_providers`;
 CREATE TABLE `custom_filter_providers` (
   `filter_id` int(10) NOT NULL DEFAULT 0,
   `provider_no` varchar(6) NOT NULL DEFAULT ''
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `dashboard`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2369,7 +2369,7 @@ CREATE TABLE `dashboard` (
   `active` bit(1) DEFAULT NULL,
   `locked` bit(1) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `dataExport`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2385,7 +2385,7 @@ CREATE TABLE `dataExport` (
   `contactPhone` varchar(255) DEFAULT NULL,
   `contactEmail` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `default_issue`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2397,7 +2397,7 @@ CREATE TABLE `default_issue` (
   `provider_no` varchar(6) NOT NULL,
   `update_time` datetime NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `default_role_access`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2411,7 +2411,7 @@ CREATE TABLE `default_role_access` (
   KEY `FKhs2yix1qvq9oqmbwsj2w2xgmu` (`access_id`),
   CONSTRAINT `FKhs2yix1qvq9oqmbwsj2w2xgmu` FOREIGN KEY (`access_id`) REFERENCES `access_type` (`access_id`),
   CONSTRAINT `FKin3oxi92mkmuf0we80ivhcd8a` FOREIGN KEY (`role_id`) REFERENCES `secRole` (`role_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `demographic`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2479,7 +2479,7 @@ CREATE TABLE `demographic` (
   KEY `hin` (`hin`),
   KEY `name` (`last_name`,`first_name`),
   KEY `country_of_origin` (`country_of_origin`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `demographicArchive`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2544,7 +2544,7 @@ CREATE TABLE `demographicArchive` (
   `pronounId` int(11) DEFAULT NULL,
   `gender` varchar(25) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `demographicExt`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2560,7 +2560,7 @@ CREATE TABLE `demographicExt` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_demo_ext` (`demographic_no`,`key_val`),
   KEY `demographic_no` (`demographic_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `demographicExtArchive`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2577,7 +2577,7 @@ CREATE TABLE `demographicExtArchive` (
   PRIMARY KEY (`id`),
   KEY `demographic_no` (`demographic_no`),
   KEY `archiveId` (`archiveId`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `demographicPharmacy`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2591,7 +2591,7 @@ CREATE TABLE `demographicPharmacy` (
   `preferredOrder` int(10) DEFAULT NULL,
   `consentToContact` tinyint(1) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `demographicQueryFavourites`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2612,7 +2612,7 @@ CREATE TABLE `demographicQueryFavourites` (
   `archived` char(1) DEFAULT NULL,
   `demoIds` text DEFAULT NULL,
   PRIMARY KEY (`favId`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `demographicSets`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2624,7 +2624,7 @@ CREATE TABLE `demographicSets` (
   `eligibility` char(1) DEFAULT NULL,
   `archive` char(1) DEFAULT '0',
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `demographic_merged`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2641,7 +2641,7 @@ CREATE TABLE `demographic_merged` (
   KEY `dem_merged_dem` (`demographic_no`,`deleted`),
   KEY `dem_merged_merge` (`merged_to`,`deleted`),
   CONSTRAINT `FKqev6qw9c8jc2f3w40p524h5xd` FOREIGN KEY (`merged_to`) REFERENCES `demographic` (`demographic_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `demographicaccessory`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2650,7 +2650,7 @@ CREATE TABLE `demographicaccessory` (
   `demographic_no` int(10) NOT NULL DEFAULT 0,
   `content` text DEFAULT NULL,
   PRIMARY KEY (`demographic_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `demographiccust`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2667,7 +2667,7 @@ CREATE TABLE `demographiccust` (
   KEY `cust2` (`cust2`),
   KEY `cust3` (`cust3`),
   KEY `cust4` (`cust4`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `demographiccustArchive`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2681,7 +2681,7 @@ CREATE TABLE `demographiccustArchive` (
   `cust4` varchar(255) DEFAULT NULL,
   `content` text DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `desannualreviewplan`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2696,7 +2696,7 @@ CREATE TABLE `desannualreviewplan` (
   `risk_content` text DEFAULT NULL,
   `checklist_content` text DEFAULT NULL,
   PRIMARY KEY (`des_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `desaprisk`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2711,7 +2711,7 @@ CREATE TABLE `desaprisk` (
   `risk_content` text DEFAULT NULL,
   `checklist_content` text DEFAULT NULL,
   PRIMARY KEY (`desaprisk_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `diagnosticcode`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2724,7 +2724,7 @@ CREATE TABLE `diagnosticcode` (
   `region` varchar(5) DEFAULT NULL,
   PRIMARY KEY (`diagnosticcode_no`),
   KEY `diagnosticcode_diagnostic_code_index` (`diagnostic_code`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `diseases`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2735,7 +2735,7 @@ CREATE TABLE `diseases` (
   `ICD9_E` char(6) NOT NULL DEFAULT '',
   `entry_date` date DEFAULT NULL,
   PRIMARY KEY (`diseaseid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `document`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2770,7 +2770,7 @@ CREATE TABLE `document` (
   `sent_date_time` datetime DEFAULT NULL,
   PRIMARY KEY (`document_no`),
   KEY `document_ikey` (`public1`,`doctype`,`status`,`updatedatetime`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `documentDescriptionTemplate`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2783,7 +2783,7 @@ CREATE TABLE `documentDescriptionTemplate` (
   `provider_no` varchar(6) DEFAULT NULL,
   `lastUpdated` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `document_review`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2798,7 +2798,7 @@ CREATE TABLE `document_review` (
   KEY `provider_no` (`provider_no`),
   CONSTRAINT `document_review_ibfk_1` FOREIGN KEY (`document_no`) REFERENCES `document` (`document_no`),
   CONSTRAINT `document_review_ibfk_2` FOREIGN KEY (`provider_no`) REFERENCES `provider` (`provider_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `document_storage`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2809,7 +2809,7 @@ CREATE TABLE `document_storage` (
   `fileContents` mediumblob DEFAULT NULL,
   `uploadDate` date DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `drugReason`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2830,7 +2830,7 @@ CREATE TABLE `drugReason` (
   KEY `drugId` (`drugId`),
   KEY `archivedFlag` (`archivedFlag`),
   KEY `codingSystem` (`codingSystem`(30),`code`(30))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `drugs`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2899,7 +2899,7 @@ CREATE TABLE `drugs` (
   `pharmacyId` int(11) DEFAULT NULL,
   PRIMARY KEY (`drugid`),
   KEY `drugs_demographic_no` (`demographic_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `dsGuidelineProviderMap`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2909,7 +2909,7 @@ CREATE TABLE `dsGuidelineProviderMap` (
   `provider_no` varchar(11) NOT NULL,
   `guideline_uuid` varchar(60) NOT NULL,
   PRIMARY KEY (`mapid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `dsGuidelines`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2927,7 +2927,7 @@ CREATE TABLE `dsGuidelines` (
   `dateDecomissioned` datetime DEFAULT NULL,
   `status` varchar(1) DEFAULT 'A',
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `dxCodeTranslations`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2937,7 +2937,7 @@ CREATE TABLE `dxCodeTranslations` (
   `patientFriendly` varchar(250) NOT NULL,
   `id` int(11) NOT NULL AUTO_INCREMENT,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `dx_associations`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2950,7 +2950,7 @@ CREATE TABLE `dx_associations` (
   `code` varchar(50) NOT NULL,
   `update_date` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `dxresearch`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2968,7 +2968,7 @@ CREATE TABLE `dxresearch` (
   PRIMARY KEY (`dxresearch_no`),
   KEY `dxresearch_ikey` (`demographic_no`,`status`,`update_date`),
   KEY `dxresearch_integrator` (`demographic_no`,`update_date`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `eChart`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -2987,7 +2987,7 @@ CREATE TABLE `eChart` (
   `encounter` text DEFAULT NULL,
   PRIMARY KEY (`eChartId`),
   KEY `demographicno` (`demographicNo`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci MAX_ROWS=200000000 AVG_ROW_LENGTH=9000;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci MAX_ROWS=200000000 AVG_ROW_LENGTH=9000;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `eform`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -3011,7 +3011,7 @@ CREATE TABLE `eform` (
   `errorLog` tinyblob DEFAULT NULL,
   PRIMARY KEY (`fid`),
   UNIQUE KEY `id` (`fid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `eform_data`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -3039,7 +3039,7 @@ CREATE TABLE `eform_data` (
   KEY `idx_eform_data_subject` (`subject`),
   KEY `idx_eform_data_fid` (`fid`),
   KEY `idx_eform_data_form_provider` (`form_provider`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `eform_groups`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -3049,7 +3049,7 @@ CREATE TABLE `eform_groups` (
   `fid` int(8) NOT NULL DEFAULT 0,
   `group_name` varchar(20) NOT NULL DEFAULT '',
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `eform_values`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -3063,7 +3063,7 @@ CREATE TABLE `eform_values` (
   `var_value` text DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `eform_values_varname_varvalue` (`var_name`,`var_value`(30))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `emailAttachment`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -3078,7 +3078,7 @@ CREATE TABLE `emailAttachment` (
   PRIMARY KEY (`id`),
   KEY `logId` (`logId`),
   CONSTRAINT `emailAttachment_ibfk_1` FOREIGN KEY (`logId`) REFERENCES `emailLog` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `emailConfig`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -3093,7 +3093,7 @@ CREATE TABLE `emailConfig` (
   `senderEmail` varchar(255) DEFAULT NULL,
   `configDetails` varchar(1000) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `emailLog`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -3122,7 +3122,7 @@ CREATE TABLE `emailLog` (
   PRIMARY KEY (`id`),
   KEY `configId` (`configId`),
   CONSTRAINT `emailLog_ibfk_1` FOREIGN KEY (`configId`) REFERENCES `emailConfig` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `encounter`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -3137,7 +3137,7 @@ CREATE TABLE `encounter` (
   `content` text DEFAULT NULL,
   `encounterattachment` text DEFAULT NULL,
   PRIMARY KEY (`encounter_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `encounterForm`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -3148,7 +3148,7 @@ CREATE TABLE `encounterForm` (
   `form_table` varchar(50) NOT NULL DEFAULT '',
   `hidden` int(5) NOT NULL DEFAULT 0,
   PRIMARY KEY (`form_value`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `encounterWindow`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -3160,7 +3160,7 @@ CREATE TABLE `encounterWindow` (
   `presBoxSize` int(10) NOT NULL DEFAULT 30,
   `rowThreeSize` int(10) NOT NULL DEFAULT 378,
   PRIMARY KEY (`provider_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `encountertemplate`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -3172,7 +3172,7 @@ CREATE TABLE `encountertemplate` (
   `creator` varchar(6) DEFAULT NULL,
   PRIMARY KEY (`encountertemplate_name`),
   KEY `encountertemplate_url` (`createdatetime`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `erefer_attachment`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -3183,7 +3183,7 @@ CREATE TABLE `erefer_attachment` (
   `created` datetime DEFAULT NULL,
   `archived` tinyint(1) DEFAULT 0,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `erefer_attachment_data`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -3193,7 +3193,7 @@ CREATE TABLE `erefer_attachment_data` (
   `lab_id` int(11) NOT NULL,
   `lab_type` varchar(20) NOT NULL,
   PRIMARY KEY (`erefer_attachment_id`,`lab_id`,`lab_type`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `facility_message`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -3207,7 +3207,7 @@ CREATE TABLE `facility_message` (
   `facility_name` varchar(32) DEFAULT NULL,
   `programId` int(11) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `favorites`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -3241,7 +3241,7 @@ CREATE TABLE `favorites` (
   `unitName` varchar(10) DEFAULT NULL,
   `dispenseInternal` tinyint(1) NOT NULL,
   PRIMARY KEY (`favoriteid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `favoritesprivilege`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -3252,7 +3252,7 @@ CREATE TABLE `favoritesprivilege` (
   `opentopublic` tinyint(1) DEFAULT NULL,
   `writeable` tinyint(1) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `fax_config`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -3274,7 +3274,7 @@ CREATE TABLE `fax_config` (
   `senderEmail` varchar(255) DEFAULT '',
   `accountName` varchar(55) DEFAULT '',
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `faxes`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -3298,7 +3298,7 @@ CREATE TABLE `faxes` (
   PRIMARY KEY (`id`),
   KEY `faxline` (`faxline`),
   KEY `faxstatus` (`status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `fileUploadCheck`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -3310,7 +3310,7 @@ CREATE TABLE `fileUploadCheck` (
   `md5sum` varchar(255) DEFAULT NULL,
   `date_time` datetime NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `flowsheet_customization`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -3327,7 +3327,7 @@ CREATE TABLE `flowsheet_customization` (
   `archived` char(1) DEFAULT '0',
   `archived_date` datetime DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `flowsheet_drug`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -3342,7 +3342,7 @@ CREATE TABLE `flowsheet_drug` (
   `archived` char(1) DEFAULT '0',
   `archived_date` datetime DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `flowsheet_dx`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -3358,7 +3358,7 @@ CREATE TABLE `flowsheet_dx` (
   `archived` char(1) DEFAULT '0',
   `archived_date` datetime DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `form`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -3373,7 +3373,7 @@ CREATE TABLE `form` (
   `content` text DEFAULT NULL,
   PRIMARY KEY (`form_no`),
   KEY `form_select` (`demographic_no`,`form_name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `form2MinWalk`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -3402,7 +3402,7 @@ CREATE TABLE `form2MinWalk` (
   `Q3From13To16s` tinyint(1) DEFAULT NULL,
   `Q3Cmt` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formAdfV2`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -3477,7 +3477,7 @@ CREATE TABLE `formAdfV2` (
   `signature` varchar(60) DEFAULT NULL,
   `sigName` varchar(60) DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formAlpha`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -3532,7 +3532,7 @@ CREATE TABLE `formAlpha` (
   `resources` tinyint(1) DEFAULT NULL,
   `comments` text DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formAnnual`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -3658,7 +3658,7 @@ CREATE TABLE `formAnnual` (
   `plan` text DEFAULT NULL,
   `signature` varchar(60) DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formAnnualV2`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -3863,7 +3863,7 @@ CREATE TABLE `formAnnualV2` (
   `examGenitalia` varchar(100) DEFAULT NULL,
   `toDoProstateCancer` text DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formBCHP`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -3876,15 +3876,15 @@ CREATE TABLE `formBCHP` (
   `formEdited` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00' ON UPDATE current_timestamp(),
   `c_lastVisited` char(3) DEFAULT NULL,
   `pg1_formDate` date DEFAULT NULL,
-  `pg1_patientName` varchar(40) DEFAULT NULL,
-  `pg1_phn` varchar(20) DEFAULT NULL,
-  `pg1_phone` varchar(15) DEFAULT NULL,
-  `pg1_emergContact` varchar(40) DEFAULT NULL,
-  `pg1_emergContactPhone` varchar(15) DEFAULT NULL,
-  `pg1_allergies` varchar(90) DEFAULT NULL,
-  `pg1_md` varchar(40) DEFAULT NULL,
-  `pg1_msp` varchar(9) DEFAULT NULL,
-  `pg1_mdPhone` varchar(15) DEFAULT NULL,
+  `pg1_patientName` text DEFAULT NULL,
+  `pg1_phn` text DEFAULT NULL,
+  `pg1_phone` text DEFAULT NULL,
+  `pg1_emergContact` text DEFAULT NULL,
+  `pg1_emergContactPhone` text DEFAULT NULL,
+  `pg1_allergies` text DEFAULT NULL,
+  `pg1_md` text DEFAULT NULL,
+  `pg1_msp` text DEFAULT NULL,
+  `pg1_mdPhone` text DEFAULT NULL,
   `pg1_livingWillY` tinyint(1) DEFAULT NULL,
   `pg1_livingWillN` tinyint(1) DEFAULT NULL,
   `pg1_diabetes` tinyint(1) DEFAULT NULL,
@@ -3894,86 +3894,86 @@ CREATE TABLE `formBCHP` (
   `pg1_chf` tinyint(1) DEFAULT NULL,
   `pg1_stroke` tinyint(1) DEFAULT NULL,
   `pg1_kidneyDisease` tinyint(1) DEFAULT NULL,
-  `pg1_lowGFR` varchar(10) DEFAULT NULL,
+  `pg1_lowGFR` text DEFAULT NULL,
   `pg1_asthma` tinyint(1) DEFAULT NULL,
   `pg1_copd` tinyint(1) DEFAULT NULL,
   `pg1_co2retainer` tinyint(1) DEFAULT NULL,
   `pg1_cancer` tinyint(1) DEFAULT NULL,
-  `pg1_cancerSpec` varchar(40) DEFAULT NULL,
+  `pg1_cancerSpec` text DEFAULT NULL,
   `pg1_other` tinyint(1) DEFAULT NULL,
-  `pg1_otherSpec` varchar(90) DEFAULT NULL,
+  `pg1_otherSpec` text DEFAULT NULL,
   `pg1_majorSurg` tinyint(1) DEFAULT NULL,
-  `pg1_majorSurgSpec` varchar(80) DEFAULT NULL,
+  `pg1_majorSurgSpec` text DEFAULT NULL,
   `pg1_date1` date DEFAULT NULL,
-  `pg1_medName1` varchar(30) DEFAULT NULL,
-  `pg1_dose1` varchar(10) DEFAULT NULL,
-  `pg1_howOften1` varchar(10) DEFAULT NULL,
-  `pg1_reason1` varchar(20) DEFAULT NULL,
+  `pg1_medName1` text DEFAULT NULL,
+  `pg1_dose1` text DEFAULT NULL,
+  `pg1_howOften1` text DEFAULT NULL,
+  `pg1_reason1` text DEFAULT NULL,
   `pg1_date2` date DEFAULT NULL,
-  `pg1_medName2` varchar(30) DEFAULT NULL,
-  `pg1_dose2` varchar(10) DEFAULT NULL,
-  `pg1_howOften2` varchar(10) DEFAULT NULL,
-  `pg1_reason2` varchar(20) DEFAULT NULL,
+  `pg1_medName2` text DEFAULT NULL,
+  `pg1_dose2` text DEFAULT NULL,
+  `pg1_howOften2` text DEFAULT NULL,
+  `pg1_reason2` text DEFAULT NULL,
   `pg1_date3` date DEFAULT NULL,
-  `pg1_medName3` varchar(30) DEFAULT NULL,
-  `pg1_dose3` varchar(10) DEFAULT NULL,
-  `pg1_howOften3` varchar(10) DEFAULT NULL,
-  `pg1_reason3` varchar(20) DEFAULT NULL,
+  `pg1_medName3` text DEFAULT NULL,
+  `pg1_dose3` text DEFAULT NULL,
+  `pg1_howOften3` text DEFAULT NULL,
+  `pg1_reason3` text DEFAULT NULL,
   `pg1_date4` date DEFAULT NULL,
-  `pg1_medName4` varchar(30) DEFAULT NULL,
-  `pg1_dose4` varchar(10) DEFAULT NULL,
-  `pg1_howOften4` varchar(10) DEFAULT NULL,
-  `pg1_reason4` varchar(20) DEFAULT NULL,
+  `pg1_medName4` text DEFAULT NULL,
+  `pg1_dose4` text DEFAULT NULL,
+  `pg1_howOften4` text DEFAULT NULL,
+  `pg1_reason4` text DEFAULT NULL,
   `pg1_date5` date DEFAULT NULL,
-  `pg1_medName5` varchar(30) DEFAULT NULL,
-  `pg1_dose5` varchar(10) DEFAULT NULL,
-  `pg1_howOften5` varchar(10) DEFAULT NULL,
-  `pg1_reason5` varchar(20) DEFAULT NULL,
+  `pg1_medName5` text DEFAULT NULL,
+  `pg1_dose5` text DEFAULT NULL,
+  `pg1_howOften5` text DEFAULT NULL,
+  `pg1_reason5` text DEFAULT NULL,
   `pg1_date6` date DEFAULT NULL,
-  `pg1_medName6` varchar(30) DEFAULT NULL,
-  `pg1_dose6` varchar(10) DEFAULT NULL,
-  `pg1_howOften6` varchar(10) DEFAULT NULL,
-  `pg1_reason6` varchar(20) DEFAULT NULL,
+  `pg1_medName6` text DEFAULT NULL,
+  `pg1_dose6` text DEFAULT NULL,
+  `pg1_howOften6` text DEFAULT NULL,
+  `pg1_reason6` text DEFAULT NULL,
   `pg1_date7` date DEFAULT NULL,
-  `pg1_medName7` varchar(30) DEFAULT NULL,
-  `pg1_dose7` varchar(10) DEFAULT NULL,
-  `pg1_howOften7` varchar(10) DEFAULT NULL,
-  `pg1_reason7` varchar(20) DEFAULT NULL,
+  `pg1_medName7` text DEFAULT NULL,
+  `pg1_dose7` text DEFAULT NULL,
+  `pg1_howOften7` text DEFAULT NULL,
+  `pg1_reason7` text DEFAULT NULL,
   `pg1_date8` date DEFAULT NULL,
-  `pg1_medName8` varchar(30) DEFAULT NULL,
-  `pg1_dose8` varchar(10) DEFAULT NULL,
-  `pg1_howOften8` varchar(10) DEFAULT NULL,
-  `pg1_reason8` varchar(20) DEFAULT NULL,
+  `pg1_medName8` text DEFAULT NULL,
+  `pg1_dose8` text DEFAULT NULL,
+  `pg1_howOften8` text DEFAULT NULL,
+  `pg1_reason8` text DEFAULT NULL,
   `pg1_date9` date DEFAULT NULL,
-  `pg1_medName9` varchar(30) DEFAULT NULL,
-  `pg1_dose9` varchar(10) DEFAULT NULL,
-  `pg1_howOften9` varchar(10) DEFAULT NULL,
-  `pg1_reason9` varchar(20) DEFAULT NULL,
+  `pg1_medName9` text DEFAULT NULL,
+  `pg1_dose9` text DEFAULT NULL,
+  `pg1_howOften9` text DEFAULT NULL,
+  `pg1_reason9` text DEFAULT NULL,
   `pg1_date10` date DEFAULT NULL,
-  `pg1_medName10` varchar(30) DEFAULT NULL,
-  `pg1_dose10` varchar(10) DEFAULT NULL,
-  `pg1_howOften10` varchar(10) DEFAULT NULL,
-  `pg1_reason10` varchar(20) DEFAULT NULL,
+  `pg1_medName10` text DEFAULT NULL,
+  `pg1_dose10` text DEFAULT NULL,
+  `pg1_howOften10` text DEFAULT NULL,
+  `pg1_reason10` text DEFAULT NULL,
   `pg1_date11` date DEFAULT NULL,
-  `pg1_medName11` varchar(30) DEFAULT NULL,
-  `pg1_dose11` varchar(10) DEFAULT NULL,
-  `pg1_howOften11` varchar(10) DEFAULT NULL,
-  `pg1_reason11` varchar(20) DEFAULT NULL,
+  `pg1_medName11` text DEFAULT NULL,
+  `pg1_dose11` text DEFAULT NULL,
+  `pg1_howOften11` text DEFAULT NULL,
+  `pg1_reason11` text DEFAULT NULL,
   `pg1_date12` date DEFAULT NULL,
-  `pg1_medName12` varchar(30) DEFAULT NULL,
-  `pg1_dose12` varchar(10) DEFAULT NULL,
-  `pg1_howOften12` varchar(10) DEFAULT NULL,
-  `pg1_reason12` varchar(20) DEFAULT NULL,
+  `pg1_medName12` text DEFAULT NULL,
+  `pg1_dose12` text DEFAULT NULL,
+  `pg1_howOften12` text DEFAULT NULL,
+  `pg1_reason12` text DEFAULT NULL,
   `pg1_date13` date DEFAULT NULL,
-  `pg1_medName13` varchar(30) DEFAULT NULL,
-  `pg1_dose13` varchar(10) DEFAULT NULL,
-  `pg1_howOften13` varchar(10) DEFAULT NULL,
-  `pg1_reason13` varchar(20) DEFAULT NULL,
+  `pg1_medName13` text DEFAULT NULL,
+  `pg1_dose13` text DEFAULT NULL,
+  `pg1_howOften13` text DEFAULT NULL,
+  `pg1_reason13` text DEFAULT NULL,
   `pg1_date14` date DEFAULT NULL,
-  `pg1_medName14` varchar(30) DEFAULT NULL,
-  `pg1_dose14` varchar(10) DEFAULT NULL,
-  `pg1_howOften14` varchar(10) DEFAULT NULL,
-  `pg1_reason14` varchar(20) DEFAULT NULL,
+  `pg1_medName14` text DEFAULT NULL,
+  `pg1_dose14` text DEFAULT NULL,
+  `pg1_howOften14` text DEFAULT NULL,
+  `pg1_reason14` text DEFAULT NULL,
   `pg1_fluDate1` date DEFAULT NULL,
   `pg1_fluDate2` date DEFAULT NULL,
   `pg1_fluDate3` date DEFAULT NULL,
@@ -4009,7 +4009,7 @@ CREATE TABLE `formBCHP` (
   `pg1_hepbDate5` date DEFAULT NULL,
   `pg1_hepbDate6` date DEFAULT NULL,
   `pg1_hepbDate7` date DEFAULT NULL,
-  `pg1_otherVac` varchar(30) DEFAULT NULL,
+  `pg1_otherVac` text DEFAULT NULL,
   `pg1_otherDate1` date DEFAULT NULL,
   `pg1_otherDate2` date DEFAULT NULL,
   `pg1_otherDate3` date DEFAULT NULL,
@@ -4018,75 +4018,75 @@ CREATE TABLE `formBCHP` (
   `pg1_otherDate6` date DEFAULT NULL,
   `pg1_otherDate7` date DEFAULT NULL,
   `pg2_date1` date DEFAULT NULL,
-  `pg2_medName1` varchar(30) DEFAULT NULL,
-  `pg2_dose1` varchar(10) DEFAULT NULL,
-  `pg2_howOften1` varchar(10) DEFAULT NULL,
-  `pg2_reason1` varchar(20) DEFAULT NULL,
+  `pg2_medName1` text DEFAULT NULL,
+  `pg2_dose1` text DEFAULT NULL,
+  `pg2_howOften1` text DEFAULT NULL,
+  `pg2_reason1` text DEFAULT NULL,
   `pg2_date2` date DEFAULT NULL,
-  `pg2_medName2` varchar(30) DEFAULT NULL,
-  `pg2_dose2` varchar(10) DEFAULT NULL,
-  `pg2_howOften2` varchar(10) DEFAULT NULL,
-  `pg2_reason2` varchar(20) DEFAULT NULL,
+  `pg2_medName2` text DEFAULT NULL,
+  `pg2_dose2` text DEFAULT NULL,
+  `pg2_howOften2` text DEFAULT NULL,
+  `pg2_reason2` text DEFAULT NULL,
   `pg2_date3` date DEFAULT NULL,
-  `pg2_medName3` varchar(30) DEFAULT NULL,
-  `pg2_dose3` varchar(10) DEFAULT NULL,
-  `pg2_howOften3` varchar(10) DEFAULT NULL,
-  `pg2_reason3` varchar(20) DEFAULT NULL,
+  `pg2_medName3` text DEFAULT NULL,
+  `pg2_dose3` text DEFAULT NULL,
+  `pg2_howOften3` text DEFAULT NULL,
+  `pg2_reason3` text DEFAULT NULL,
   `pg2_date4` date DEFAULT NULL,
-  `pg2_medName4` varchar(30) DEFAULT NULL,
-  `pg2_dose4` varchar(10) DEFAULT NULL,
-  `pg2_howOften4` varchar(10) DEFAULT NULL,
-  `pg2_reason4` varchar(20) DEFAULT NULL,
+  `pg2_medName4` text DEFAULT NULL,
+  `pg2_dose4` text DEFAULT NULL,
+  `pg2_howOften4` text DEFAULT NULL,
+  `pg2_reason4` text DEFAULT NULL,
   `pg2_date5` date DEFAULT NULL,
-  `pg2_medName5` varchar(30) DEFAULT NULL,
-  `pg2_dose5` varchar(10) DEFAULT NULL,
-  `pg2_howOften5` varchar(10) DEFAULT NULL,
-  `pg2_reason5` varchar(20) DEFAULT NULL,
+  `pg2_medName5` text DEFAULT NULL,
+  `pg2_dose5` text DEFAULT NULL,
+  `pg2_howOften5` text DEFAULT NULL,
+  `pg2_reason5` text DEFAULT NULL,
   `pg2_date6` date DEFAULT NULL,
-  `pg2_medName6` varchar(30) DEFAULT NULL,
-  `pg2_dose6` varchar(10) DEFAULT NULL,
-  `pg2_howOften6` varchar(10) DEFAULT NULL,
-  `pg2_reason6` varchar(20) DEFAULT NULL,
+  `pg2_medName6` text DEFAULT NULL,
+  `pg2_dose6` text DEFAULT NULL,
+  `pg2_howOften6` text DEFAULT NULL,
+  `pg2_reason6` text DEFAULT NULL,
   `pg2_date7` date DEFAULT NULL,
-  `pg2_medName7` varchar(30) DEFAULT NULL,
-  `pg2_dose7` varchar(10) DEFAULT NULL,
-  `pg2_howOften7` varchar(10) DEFAULT NULL,
-  `pg2_reason7` varchar(20) DEFAULT NULL,
+  `pg2_medName7` text DEFAULT NULL,
+  `pg2_dose7` text DEFAULT NULL,
+  `pg2_howOften7` text DEFAULT NULL,
+  `pg2_reason7` text DEFAULT NULL,
   `pg2_date8` date DEFAULT NULL,
-  `pg2_medName8` varchar(30) DEFAULT NULL,
-  `pg2_dose8` varchar(10) DEFAULT NULL,
-  `pg2_howOften8` varchar(10) DEFAULT NULL,
-  `pg2_reason8` varchar(20) DEFAULT NULL,
+  `pg2_medName8` text DEFAULT NULL,
+  `pg2_dose8` text DEFAULT NULL,
+  `pg2_howOften8` text DEFAULT NULL,
+  `pg2_reason8` text DEFAULT NULL,
   `pg2_date9` date DEFAULT NULL,
-  `pg2_medName9` varchar(30) DEFAULT NULL,
-  `pg2_dose9` varchar(10) DEFAULT NULL,
-  `pg2_howOften9` varchar(10) DEFAULT NULL,
-  `pg2_reason9` varchar(20) DEFAULT NULL,
+  `pg2_medName9` text DEFAULT NULL,
+  `pg2_dose9` text DEFAULT NULL,
+  `pg2_howOften9` text DEFAULT NULL,
+  `pg2_reason9` text DEFAULT NULL,
   `pg2_date10` date DEFAULT NULL,
-  `pg2_medName10` varchar(30) DEFAULT NULL,
-  `pg2_dose10` varchar(10) DEFAULT NULL,
-  `pg2_howOften10` varchar(10) DEFAULT NULL,
-  `pg2_reason10` varchar(20) DEFAULT NULL,
+  `pg2_medName10` text DEFAULT NULL,
+  `pg2_dose10` text DEFAULT NULL,
+  `pg2_howOften10` text DEFAULT NULL,
+  `pg2_reason10` text DEFAULT NULL,
   `pg2_date11` date DEFAULT NULL,
-  `pg2_medName11` varchar(30) DEFAULT NULL,
-  `pg2_dose11` varchar(10) DEFAULT NULL,
-  `pg2_howOften11` varchar(10) DEFAULT NULL,
-  `pg2_reason11` varchar(20) DEFAULT NULL,
+  `pg2_medName11` text DEFAULT NULL,
+  `pg2_dose11` text DEFAULT NULL,
+  `pg2_howOften11` text DEFAULT NULL,
+  `pg2_reason11` text DEFAULT NULL,
   `pg2_date12` date DEFAULT NULL,
-  `pg2_medName12` varchar(30) DEFAULT NULL,
-  `pg2_dose12` varchar(10) DEFAULT NULL,
-  `pg2_howOften12` varchar(10) DEFAULT NULL,
-  `pg2_reason12` varchar(20) DEFAULT NULL,
+  `pg2_medName12` text DEFAULT NULL,
+  `pg2_dose12` text DEFAULT NULL,
+  `pg2_howOften12` text DEFAULT NULL,
+  `pg2_reason12` text DEFAULT NULL,
   `pg2_date13` date DEFAULT NULL,
-  `pg2_medName13` varchar(30) DEFAULT NULL,
-  `pg2_dose13` varchar(10) DEFAULT NULL,
-  `pg2_howOften13` varchar(10) DEFAULT NULL,
-  `pg2_reason13` varchar(20) DEFAULT NULL,
+  `pg2_medName13` text DEFAULT NULL,
+  `pg2_dose13` text DEFAULT NULL,
+  `pg2_howOften13` text DEFAULT NULL,
+  `pg2_reason13` text DEFAULT NULL,
   `pg2_date14` date DEFAULT NULL,
-  `pg2_medName14` varchar(30) DEFAULT NULL,
-  `pg2_dose14` varchar(10) DEFAULT NULL,
-  `pg2_howOften14` varchar(10) DEFAULT NULL,
-  `pg2_reason14` varchar(20) DEFAULT NULL,
+  `pg2_medName14` text DEFAULT NULL,
+  `pg2_dose14` text DEFAULT NULL,
+  `pg2_howOften14` text DEFAULT NULL,
+  `pg2_reason14` text DEFAULT NULL,
   `pg2_fluDate1` date DEFAULT NULL,
   `pg2_fluDate2` date DEFAULT NULL,
   `pg2_fluDate3` date DEFAULT NULL,
@@ -4094,7 +4094,7 @@ CREATE TABLE `formBCHP` (
   `pg2_fluDate5` date DEFAULT NULL,
   `pg2_fluDate6` date DEFAULT NULL,
   `pg2_fluDate7` date DEFAULT NULL,
-  `pg2_otherVac1` varchar(30) DEFAULT NULL,
+  `pg2_otherVac1` text DEFAULT NULL,
   `pg2_other1Date1` date DEFAULT NULL,
   `pg2_other1Date2` date DEFAULT NULL,
   `pg2_other1Date3` date DEFAULT NULL,
@@ -4102,7 +4102,7 @@ CREATE TABLE `formBCHP` (
   `pg2_other1Date5` date DEFAULT NULL,
   `pg2_other1Date6` date DEFAULT NULL,
   `pg2_other1Date7` date DEFAULT NULL,
-  `pg2_otherVac2` varchar(30) DEFAULT NULL,
+  `pg2_otherVac2` text DEFAULT NULL,
   `pg2_other2Date1` date DEFAULT NULL,
   `pg2_other2Date2` date DEFAULT NULL,
   `pg2_other2Date3` date DEFAULT NULL,
@@ -4110,7 +4110,7 @@ CREATE TABLE `formBCHP` (
   `pg2_other2Date5` date DEFAULT NULL,
   `pg2_other2Date6` date DEFAULT NULL,
   `pg2_other2Date7` date DEFAULT NULL,
-  `pg2_otherVac3` varchar(30) DEFAULT NULL,
+  `pg2_otherVac3` text DEFAULT NULL,
   `pg2_other3Date1` date DEFAULT NULL,
   `pg2_other3Date2` date DEFAULT NULL,
   `pg2_other3Date3` date DEFAULT NULL,
@@ -4118,7 +4118,7 @@ CREATE TABLE `formBCHP` (
   `pg2_other3Date5` date DEFAULT NULL,
   `pg2_other3Date6` date DEFAULT NULL,
   `pg2_other3Date7` date DEFAULT NULL,
-  `pg2_otherVac4` varchar(30) DEFAULT NULL,
+  `pg2_otherVac4` text DEFAULT NULL,
   `pg2_other4Date1` date DEFAULT NULL,
   `pg2_other4Date2` date DEFAULT NULL,
   `pg2_other4Date3` date DEFAULT NULL,
@@ -4126,7 +4126,7 @@ CREATE TABLE `formBCHP` (
   `pg2_other4Date5` date DEFAULT NULL,
   `pg2_other4Date6` date DEFAULT NULL,
   `pg2_other4Date7` date DEFAULT NULL,
-  `pg2_otherVac5` varchar(30) DEFAULT NULL,
+  `pg2_otherVac5` text DEFAULT NULL,
   `pg2_other5Date1` date DEFAULT NULL,
   `pg2_other5Date2` date DEFAULT NULL,
   `pg2_other5Date3` date DEFAULT NULL,
@@ -4135,7 +4135,7 @@ CREATE TABLE `formBCHP` (
   `pg2_other5Date6` date DEFAULT NULL,
   `pg2_other5Date7` date DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formBPMH`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -4153,7 +4153,7 @@ CREATE TABLE `formBPMH` (
   `allergies` blob DEFAULT NULL,
   `drugs` blob DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formCESD`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -4247,7 +4247,7 @@ CREATE TABLE `formCESD` (
   `Q20Most` tinyint(1) DEFAULT NULL,
   `score` int(2) DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formCaregiver`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -4307,7 +4307,7 @@ CREATE TABLE `formCaregiver` (
   `score1` int(2) DEFAULT NULL,
   `SRBScore` int(3) DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formConsult`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -4340,7 +4340,7 @@ CREATE TABLE `formConsult` (
   `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `consultTime` date DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formCostQuestionnaire`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -4412,7 +4412,7 @@ CREATE TABLE `formCostQuestionnaire` (
   `retired` tinyint(1) DEFAULT NULL,
   `homemakerWithOutPaid` tinyint(1) DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formCounseling`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -4445,7 +4445,7 @@ CREATE TABLE `formCounseling` (
   `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `consultTime` date DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formDischargeSummary`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -4509,7 +4509,7 @@ CREATE TABLE `formDischargeSummary` (
   `signatureDate` varchar(20) DEFAULT NULL,
   `notes` text DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formFalls`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -4533,7 +4533,7 @@ CREATE TABLE `formFalls` (
   `limitActY` tinyint(1) DEFAULT NULL,
   `limitActN` tinyint(1) DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formGripStrength`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -4554,7 +4554,7 @@ CREATE TABLE `formGripStrength` (
   `domAvg` varchar(5) DEFAULT NULL,
   `nonDomAvg` varchar(5) DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formGrowth0_36`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -4693,7 +4693,7 @@ CREATE TABLE `formGrowth0_36` (
   `comment_20` varchar(25) DEFAULT NULL,
   PRIMARY KEY (`ID`),
   KEY `demographic_no` (`demographic_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formGrowthChart`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -4704,264 +4704,264 @@ CREATE TABLE `formGrowthChart` (
   `provider_no` int(10) DEFAULT NULL,
   `formCreated` date DEFAULT NULL,
   `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  `patientName` varchar(80) DEFAULT NULL,
-  `recordNo` varchar(10) DEFAULT NULL,
-  `motherStature` varchar(80) DEFAULT NULL,
-  `fatherStature` varchar(80) DEFAULT NULL,
+  `patientName` text DEFAULT NULL,
+  `recordNo` text DEFAULT NULL,
+  `motherStature` text DEFAULT NULL,
+  `fatherStature` text DEFAULT NULL,
   `date_1` date DEFAULT NULL,
-  `age_1` varchar(5) DEFAULT NULL,
-  `stature_1` varchar(6) DEFAULT NULL,
-  `weight_1` varchar(6) DEFAULT NULL,
-  `comment_1` varchar(25) DEFAULT NULL,
-  `bmi_1` varchar(5) DEFAULT NULL,
+  `age_1` text DEFAULT NULL,
+  `stature_1` text DEFAULT NULL,
+  `weight_1` text DEFAULT NULL,
+  `comment_1` text DEFAULT NULL,
+  `bmi_1` text DEFAULT NULL,
   `date_2` date DEFAULT NULL,
-  `age_2` varchar(5) DEFAULT NULL,
-  `stature_2` varchar(6) DEFAULT NULL,
-  `weight_2` varchar(6) DEFAULT NULL,
-  `comment_2` varchar(25) DEFAULT NULL,
-  `bmi_2` varchar(5) DEFAULT NULL,
+  `age_2` text DEFAULT NULL,
+  `stature_2` text DEFAULT NULL,
+  `weight_2` text DEFAULT NULL,
+  `comment_2` text DEFAULT NULL,
+  `bmi_2` text DEFAULT NULL,
   `date_3` date DEFAULT NULL,
-  `age_3` varchar(5) DEFAULT NULL,
-  `stature_3` varchar(6) DEFAULT NULL,
-  `weight_3` varchar(6) DEFAULT NULL,
-  `comment_3` varchar(25) DEFAULT NULL,
-  `bmi_3` varchar(5) DEFAULT NULL,
+  `age_3` text DEFAULT NULL,
+  `stature_3` text DEFAULT NULL,
+  `weight_3` text DEFAULT NULL,
+  `comment_3` text DEFAULT NULL,
+  `bmi_3` text DEFAULT NULL,
   `date_4` date DEFAULT NULL,
-  `age_4` varchar(5) DEFAULT NULL,
-  `stature_4` varchar(6) DEFAULT NULL,
-  `weight_4` varchar(6) DEFAULT NULL,
-  `comment_4` varchar(25) DEFAULT NULL,
-  `bmi_4` varchar(5) DEFAULT NULL,
+  `age_4` text DEFAULT NULL,
+  `stature_4` text DEFAULT NULL,
+  `weight_4` text DEFAULT NULL,
+  `comment_4` text DEFAULT NULL,
+  `bmi_4` text DEFAULT NULL,
   `date_5` date DEFAULT NULL,
-  `age_5` varchar(5) DEFAULT NULL,
-  `stature_5` varchar(6) DEFAULT NULL,
-  `weight_5` varchar(6) DEFAULT NULL,
-  `comment_5` varchar(25) DEFAULT NULL,
-  `bmi_5` varchar(5) DEFAULT NULL,
+  `age_5` text DEFAULT NULL,
+  `stature_5` text DEFAULT NULL,
+  `weight_5` text DEFAULT NULL,
+  `comment_5` text DEFAULT NULL,
+  `bmi_5` text DEFAULT NULL,
   `date_6` date DEFAULT NULL,
-  `age_6` varchar(5) DEFAULT NULL,
-  `stature_6` varchar(6) DEFAULT NULL,
-  `weight_6` varchar(6) DEFAULT NULL,
-  `comment_6` varchar(25) DEFAULT NULL,
-  `bmi_6` varchar(5) DEFAULT NULL,
+  `age_6` text DEFAULT NULL,
+  `stature_6` text DEFAULT NULL,
+  `weight_6` text DEFAULT NULL,
+  `comment_6` text DEFAULT NULL,
+  `bmi_6` text DEFAULT NULL,
   `date_7` date DEFAULT NULL,
-  `age_7` varchar(5) DEFAULT NULL,
-  `stature_7` varchar(6) DEFAULT NULL,
-  `weight_7` varchar(6) DEFAULT NULL,
-  `comment_7` varchar(25) DEFAULT NULL,
-  `bmi_7` varchar(5) DEFAULT NULL,
+  `age_7` text DEFAULT NULL,
+  `stature_7` text DEFAULT NULL,
+  `weight_7` text DEFAULT NULL,
+  `comment_7` text DEFAULT NULL,
+  `bmi_7` text DEFAULT NULL,
   `date_8` date DEFAULT NULL,
-  `age_8` varchar(5) DEFAULT NULL,
-  `stature_8` varchar(6) DEFAULT NULL,
-  `weight_8` varchar(6) DEFAULT NULL,
-  `comment_8` varchar(25) DEFAULT NULL,
-  `bmi_8` varchar(5) DEFAULT NULL,
+  `age_8` text DEFAULT NULL,
+  `stature_8` text DEFAULT NULL,
+  `weight_8` text DEFAULT NULL,
+  `comment_8` text DEFAULT NULL,
+  `bmi_8` text DEFAULT NULL,
   `date_9` date DEFAULT NULL,
-  `age_9` varchar(5) DEFAULT NULL,
-  `stature_9` varchar(6) DEFAULT NULL,
-  `weight_9` varchar(6) DEFAULT NULL,
-  `comment_9` varchar(25) DEFAULT NULL,
-  `bmi_9` varchar(5) DEFAULT NULL,
+  `age_9` text DEFAULT NULL,
+  `stature_9` text DEFAULT NULL,
+  `weight_9` text DEFAULT NULL,
+  `comment_9` text DEFAULT NULL,
+  `bmi_9` text DEFAULT NULL,
   `date_10` date DEFAULT NULL,
-  `age_10` varchar(5) DEFAULT NULL,
-  `stature_10` varchar(6) DEFAULT NULL,
-  `weight_10` varchar(6) DEFAULT NULL,
-  `comment_10` varchar(25) DEFAULT NULL,
-  `bmi_10` varchar(5) DEFAULT NULL,
+  `age_10` text DEFAULT NULL,
+  `stature_10` text DEFAULT NULL,
+  `weight_10` text DEFAULT NULL,
+  `comment_10` text DEFAULT NULL,
+  `bmi_10` text DEFAULT NULL,
   `date_11` date DEFAULT NULL,
-  `age_11` varchar(5) DEFAULT NULL,
-  `stature_11` varchar(6) DEFAULT NULL,
-  `weight_11` varchar(6) DEFAULT NULL,
-  `comment_11` varchar(25) DEFAULT NULL,
-  `bmi_11` varchar(5) DEFAULT NULL,
+  `age_11` text DEFAULT NULL,
+  `stature_11` text DEFAULT NULL,
+  `weight_11` text DEFAULT NULL,
+  `comment_11` text DEFAULT NULL,
+  `bmi_11` text DEFAULT NULL,
   `date_12` date DEFAULT NULL,
-  `age_12` varchar(5) DEFAULT NULL,
-  `stature_12` varchar(6) DEFAULT NULL,
-  `weight_12` varchar(6) DEFAULT NULL,
-  `comment_12` varchar(25) DEFAULT NULL,
-  `bmi_12` varchar(5) DEFAULT NULL,
+  `age_12` text DEFAULT NULL,
+  `stature_12` text DEFAULT NULL,
+  `weight_12` text DEFAULT NULL,
+  `comment_12` text DEFAULT NULL,
+  `bmi_12` text DEFAULT NULL,
   `date_13` date DEFAULT NULL,
-  `age_13` varchar(5) DEFAULT NULL,
-  `stature_13` varchar(6) DEFAULT NULL,
-  `weight_13` varchar(6) DEFAULT NULL,
-  `comment_13` varchar(25) DEFAULT NULL,
-  `bmi_13` varchar(5) DEFAULT NULL,
+  `age_13` text DEFAULT NULL,
+  `stature_13` text DEFAULT NULL,
+  `weight_13` text DEFAULT NULL,
+  `comment_13` text DEFAULT NULL,
+  `bmi_13` text DEFAULT NULL,
   `date_14` date DEFAULT NULL,
-  `age_14` varchar(5) DEFAULT NULL,
-  `stature_14` varchar(6) DEFAULT NULL,
-  `weight_14` varchar(6) DEFAULT NULL,
-  `comment_14` varchar(25) DEFAULT NULL,
-  `bmi_14` varchar(5) DEFAULT NULL,
+  `age_14` text DEFAULT NULL,
+  `stature_14` text DEFAULT NULL,
+  `weight_14` text DEFAULT NULL,
+  `comment_14` text DEFAULT NULL,
+  `bmi_14` text DEFAULT NULL,
   `date_15` date DEFAULT NULL,
-  `age_15` varchar(5) DEFAULT NULL,
-  `stature_15` varchar(6) DEFAULT NULL,
-  `weight_15` varchar(6) DEFAULT NULL,
-  `comment_15` varchar(25) DEFAULT NULL,
-  `bmi_15` varchar(5) DEFAULT NULL,
+  `age_15` text DEFAULT NULL,
+  `stature_15` text DEFAULT NULL,
+  `weight_15` text DEFAULT NULL,
+  `comment_15` text DEFAULT NULL,
+  `bmi_15` text DEFAULT NULL,
   `date_16` date DEFAULT NULL,
-  `age_16` varchar(5) DEFAULT NULL,
-  `stature_16` varchar(6) DEFAULT NULL,
-  `weight_16` varchar(6) DEFAULT NULL,
-  `comment_16` varchar(25) DEFAULT NULL,
-  `bmi_16` varchar(5) DEFAULT NULL,
+  `age_16` text DEFAULT NULL,
+  `stature_16` text DEFAULT NULL,
+  `weight_16` text DEFAULT NULL,
+  `comment_16` text DEFAULT NULL,
+  `bmi_16` text DEFAULT NULL,
   `date_17` date DEFAULT NULL,
-  `age_17` varchar(5) DEFAULT NULL,
-  `stature_17` varchar(6) DEFAULT NULL,
-  `weight_17` varchar(6) DEFAULT NULL,
-  `comment_17` varchar(25) DEFAULT NULL,
-  `bmi_17` varchar(5) DEFAULT NULL,
+  `age_17` text DEFAULT NULL,
+  `stature_17` text DEFAULT NULL,
+  `weight_17` text DEFAULT NULL,
+  `comment_17` text DEFAULT NULL,
+  `bmi_17` text DEFAULT NULL,
   `date_18` date DEFAULT NULL,
-  `age_18` varchar(5) DEFAULT NULL,
-  `stature_18` varchar(6) DEFAULT NULL,
-  `weight_18` varchar(6) DEFAULT NULL,
-  `comment_18` varchar(25) DEFAULT NULL,
-  `bmi_18` varchar(5) DEFAULT NULL,
+  `age_18` text DEFAULT NULL,
+  `stature_18` text DEFAULT NULL,
+  `weight_18` text DEFAULT NULL,
+  `comment_18` text DEFAULT NULL,
+  `bmi_18` text DEFAULT NULL,
   `date_19` date DEFAULT NULL,
-  `age_19` varchar(5) DEFAULT NULL,
-  `stature_19` varchar(6) DEFAULT NULL,
-  `weight_19` varchar(6) DEFAULT NULL,
-  `comment_19` varchar(25) DEFAULT NULL,
-  `bmi_19` varchar(5) DEFAULT NULL,
+  `age_19` text DEFAULT NULL,
+  `stature_19` text DEFAULT NULL,
+  `weight_19` text DEFAULT NULL,
+  `comment_19` text DEFAULT NULL,
+  `bmi_19` text DEFAULT NULL,
   `date_20` date DEFAULT NULL,
-  `age_20` varchar(5) DEFAULT NULL,
-  `stature_20` varchar(6) DEFAULT NULL,
-  `weight_20` varchar(6) DEFAULT NULL,
-  `comment_20` varchar(25) DEFAULT NULL,
-  `bmi_20` varchar(5) DEFAULT NULL,
+  `age_20` text DEFAULT NULL,
+  `stature_20` text DEFAULT NULL,
+  `weight_20` text DEFAULT NULL,
+  `comment_20` text DEFAULT NULL,
+  `bmi_20` text DEFAULT NULL,
   `date_21` date DEFAULT NULL,
-  `age_21` varchar(5) DEFAULT NULL,
-  `stature_21` varchar(6) DEFAULT NULL,
-  `weight_21` varchar(6) DEFAULT NULL,
-  `comment_21` varchar(25) DEFAULT NULL,
-  `bmi_21` varchar(5) DEFAULT NULL,
+  `age_21` text DEFAULT NULL,
+  `stature_21` text DEFAULT NULL,
+  `weight_21` text DEFAULT NULL,
+  `comment_21` text DEFAULT NULL,
+  `bmi_21` text DEFAULT NULL,
   `date_22` date DEFAULT NULL,
-  `age_22` varchar(5) DEFAULT NULL,
-  `stature_22` varchar(6) DEFAULT NULL,
-  `weight_22` varchar(6) DEFAULT NULL,
-  `comment_22` varchar(25) DEFAULT NULL,
-  `bmi_22` varchar(5) DEFAULT NULL,
+  `age_22` text DEFAULT NULL,
+  `stature_22` text DEFAULT NULL,
+  `weight_22` text DEFAULT NULL,
+  `comment_22` text DEFAULT NULL,
+  `bmi_22` text DEFAULT NULL,
   `date_23` date DEFAULT NULL,
-  `age_23` varchar(5) DEFAULT NULL,
-  `stature_23` varchar(6) DEFAULT NULL,
-  `weight_23` varchar(6) DEFAULT NULL,
-  `comment_23` varchar(25) DEFAULT NULL,
-  `bmi_23` varchar(5) DEFAULT NULL,
+  `age_23` text DEFAULT NULL,
+  `stature_23` text DEFAULT NULL,
+  `weight_23` text DEFAULT NULL,
+  `comment_23` text DEFAULT NULL,
+  `bmi_23` text DEFAULT NULL,
   `date_24` date DEFAULT NULL,
-  `age_24` varchar(5) DEFAULT NULL,
-  `stature_24` varchar(6) DEFAULT NULL,
-  `weight_24` varchar(6) DEFAULT NULL,
-  `comment_24` varchar(25) DEFAULT NULL,
-  `bmi_24` varchar(5) DEFAULT NULL,
+  `age_24` text DEFAULT NULL,
+  `stature_24` text DEFAULT NULL,
+  `weight_24` text DEFAULT NULL,
+  `comment_24` text DEFAULT NULL,
+  `bmi_24` text DEFAULT NULL,
   `date_25` date DEFAULT NULL,
-  `age_25` varchar(5) DEFAULT NULL,
-  `stature_25` varchar(6) DEFAULT NULL,
-  `weight_25` varchar(6) DEFAULT NULL,
-  `comment_25` varchar(25) DEFAULT NULL,
-  `bmi_25` varchar(5) DEFAULT NULL,
+  `age_25` text DEFAULT NULL,
+  `stature_25` text DEFAULT NULL,
+  `weight_25` text DEFAULT NULL,
+  `comment_25` text DEFAULT NULL,
+  `bmi_25` text DEFAULT NULL,
   `date_26` date DEFAULT NULL,
-  `age_26` varchar(5) DEFAULT NULL,
-  `stature_26` varchar(6) DEFAULT NULL,
-  `weight_26` varchar(6) DEFAULT NULL,
-  `comment_26` varchar(25) DEFAULT NULL,
-  `bmi_26` varchar(5) DEFAULT NULL,
+  `age_26` text DEFAULT NULL,
+  `stature_26` text DEFAULT NULL,
+  `weight_26` text DEFAULT NULL,
+  `comment_26` text DEFAULT NULL,
+  `bmi_26` text DEFAULT NULL,
   `date_27` date DEFAULT NULL,
-  `age_27` varchar(5) DEFAULT NULL,
-  `stature_27` varchar(6) DEFAULT NULL,
-  `weight_27` varchar(6) DEFAULT NULL,
-  `comment_27` varchar(25) DEFAULT NULL,
-  `bmi_27` varchar(5) DEFAULT NULL,
+  `age_27` text DEFAULT NULL,
+  `stature_27` text DEFAULT NULL,
+  `weight_27` text DEFAULT NULL,
+  `comment_27` text DEFAULT NULL,
+  `bmi_27` text DEFAULT NULL,
   `date_28` date DEFAULT NULL,
-  `age_28` varchar(5) DEFAULT NULL,
-  `stature_28` varchar(6) DEFAULT NULL,
-  `weight_28` varchar(6) DEFAULT NULL,
-  `comment_28` varchar(25) DEFAULT NULL,
-  `bmi_28` varchar(5) DEFAULT NULL,
+  `age_28` text DEFAULT NULL,
+  `stature_28` text DEFAULT NULL,
+  `weight_28` text DEFAULT NULL,
+  `comment_28` text DEFAULT NULL,
+  `bmi_28` text DEFAULT NULL,
   `date_29` date DEFAULT NULL,
-  `age_29` varchar(5) DEFAULT NULL,
-  `stature_29` varchar(6) DEFAULT NULL,
-  `weight_29` varchar(6) DEFAULT NULL,
-  `comment_29` varchar(25) DEFAULT NULL,
-  `bmi_29` varchar(5) DEFAULT NULL,
+  `age_29` text DEFAULT NULL,
+  `stature_29` text DEFAULT NULL,
+  `weight_29` text DEFAULT NULL,
+  `comment_29` text DEFAULT NULL,
+  `bmi_29` text DEFAULT NULL,
   `date_30` date DEFAULT NULL,
-  `age_30` varchar(5) DEFAULT NULL,
-  `stature_30` varchar(6) DEFAULT NULL,
-  `weight_30` varchar(6) DEFAULT NULL,
-  `comment_30` varchar(25) DEFAULT NULL,
-  `bmi_30` varchar(5) DEFAULT NULL,
+  `age_30` text DEFAULT NULL,
+  `stature_30` text DEFAULT NULL,
+  `weight_30` text DEFAULT NULL,
+  `comment_30` text DEFAULT NULL,
+  `bmi_30` text DEFAULT NULL,
   `date_31` date DEFAULT NULL,
-  `age_31` varchar(5) DEFAULT NULL,
-  `stature_31` varchar(6) DEFAULT NULL,
-  `weight_31` varchar(6) DEFAULT NULL,
-  `comment_31` varchar(25) DEFAULT NULL,
-  `bmi_31` varchar(5) DEFAULT NULL,
+  `age_31` text DEFAULT NULL,
+  `stature_31` text DEFAULT NULL,
+  `weight_31` text DEFAULT NULL,
+  `comment_31` text DEFAULT NULL,
+  `bmi_31` text DEFAULT NULL,
   `date_32` date DEFAULT NULL,
-  `age_32` varchar(5) DEFAULT NULL,
-  `stature_32` varchar(6) DEFAULT NULL,
-  `weight_32` varchar(6) DEFAULT NULL,
-  `comment_32` varchar(25) DEFAULT NULL,
-  `bmi_32` varchar(5) DEFAULT NULL,
+  `age_32` text DEFAULT NULL,
+  `stature_32` text DEFAULT NULL,
+  `weight_32` text DEFAULT NULL,
+  `comment_32` text DEFAULT NULL,
+  `bmi_32` text DEFAULT NULL,
   `date_33` date DEFAULT NULL,
-  `age_33` varchar(5) DEFAULT NULL,
-  `stature_33` varchar(6) DEFAULT NULL,
-  `weight_33` varchar(6) DEFAULT NULL,
-  `comment_33` varchar(25) DEFAULT NULL,
-  `bmi_33` varchar(5) DEFAULT NULL,
+  `age_33` text DEFAULT NULL,
+  `stature_33` text DEFAULT NULL,
+  `weight_33` text DEFAULT NULL,
+  `comment_33` text DEFAULT NULL,
+  `bmi_33` text DEFAULT NULL,
   `date_34` date DEFAULT NULL,
-  `age_34` varchar(5) DEFAULT NULL,
-  `stature_34` varchar(6) DEFAULT NULL,
-  `weight_34` varchar(6) DEFAULT NULL,
-  `comment_34` varchar(25) DEFAULT NULL,
-  `bmi_34` varchar(5) DEFAULT NULL,
+  `age_34` text DEFAULT NULL,
+  `stature_34` text DEFAULT NULL,
+  `weight_34` text DEFAULT NULL,
+  `comment_34` text DEFAULT NULL,
+  `bmi_34` text DEFAULT NULL,
   `date_35` date DEFAULT NULL,
-  `age_35` varchar(5) DEFAULT NULL,
-  `stature_35` varchar(6) DEFAULT NULL,
-  `weight_35` varchar(6) DEFAULT NULL,
-  `comment_35` varchar(25) DEFAULT NULL,
-  `bmi_35` varchar(5) DEFAULT NULL,
+  `age_35` text DEFAULT NULL,
+  `stature_35` text DEFAULT NULL,
+  `weight_35` text DEFAULT NULL,
+  `comment_35` text DEFAULT NULL,
+  `bmi_35` text DEFAULT NULL,
   `date_36` date DEFAULT NULL,
-  `age_36` varchar(5) DEFAULT NULL,
-  `stature_36` varchar(6) DEFAULT NULL,
-  `weight_36` varchar(6) DEFAULT NULL,
-  `comment_36` varchar(25) DEFAULT NULL,
-  `bmi_36` varchar(5) DEFAULT NULL,
+  `age_36` text DEFAULT NULL,
+  `stature_36` text DEFAULT NULL,
+  `weight_36` text DEFAULT NULL,
+  `comment_36` text DEFAULT NULL,
+  `bmi_36` text DEFAULT NULL,
   `date_37` date DEFAULT NULL,
-  `age_37` varchar(5) DEFAULT NULL,
-  `stature_37` varchar(6) DEFAULT NULL,
-  `weight_37` varchar(6) DEFAULT NULL,
-  `comment_37` varchar(25) DEFAULT NULL,
-  `bmi_37` varchar(5) DEFAULT NULL,
+  `age_37` text DEFAULT NULL,
+  `stature_37` text DEFAULT NULL,
+  `weight_37` text DEFAULT NULL,
+  `comment_37` text DEFAULT NULL,
+  `bmi_37` text DEFAULT NULL,
   `date_38` date DEFAULT NULL,
-  `age_38` varchar(5) DEFAULT NULL,
-  `stature_38` varchar(6) DEFAULT NULL,
-  `weight_38` varchar(6) DEFAULT NULL,
-  `comment_38` varchar(25) DEFAULT NULL,
-  `bmi_38` varchar(5) DEFAULT NULL,
+  `age_38` text DEFAULT NULL,
+  `stature_38` text DEFAULT NULL,
+  `weight_38` text DEFAULT NULL,
+  `comment_38` text DEFAULT NULL,
+  `bmi_38` text DEFAULT NULL,
   `date_39` date DEFAULT NULL,
-  `age_39` varchar(5) DEFAULT NULL,
-  `stature_39` varchar(6) DEFAULT NULL,
-  `weight_39` varchar(6) DEFAULT NULL,
-  `comment_39` varchar(25) DEFAULT NULL,
-  `bmi_39` varchar(5) DEFAULT NULL,
+  `age_39` text DEFAULT NULL,
+  `stature_39` text DEFAULT NULL,
+  `weight_39` text DEFAULT NULL,
+  `comment_39` text DEFAULT NULL,
+  `bmi_39` text DEFAULT NULL,
   `date_40` date DEFAULT NULL,
-  `age_40` varchar(5) DEFAULT NULL,
-  `stature_40` varchar(6) DEFAULT NULL,
-  `weight_40` varchar(6) DEFAULT NULL,
-  `comment_40` varchar(25) DEFAULT NULL,
-  `bmi_40` varchar(5) DEFAULT NULL,
+  `age_40` text DEFAULT NULL,
+  `stature_40` text DEFAULT NULL,
+  `weight_40` text DEFAULT NULL,
+  `comment_40` text DEFAULT NULL,
+  `bmi_40` text DEFAULT NULL,
   `date_41` date DEFAULT NULL,
-  `age_41` varchar(5) DEFAULT NULL,
-  `stature_41` varchar(6) DEFAULT NULL,
-  `weight_41` varchar(6) DEFAULT NULL,
-  `comment_41` varchar(25) DEFAULT NULL,
-  `bmi_41` varchar(5) DEFAULT NULL,
+  `age_41` text DEFAULT NULL,
+  `stature_41` text DEFAULT NULL,
+  `weight_41` text DEFAULT NULL,
+  `comment_41` text DEFAULT NULL,
+  `bmi_41` text DEFAULT NULL,
   `date_42` date DEFAULT NULL,
-  `age_42` varchar(5) DEFAULT NULL,
-  `stature_42` varchar(6) DEFAULT NULL,
-  `weight_42` varchar(6) DEFAULT NULL,
-  `comment_42` varchar(25) DEFAULT NULL,
-  `bmi_42` varchar(5) DEFAULT NULL,
+  `age_42` text DEFAULT NULL,
+  `stature_42` text DEFAULT NULL,
+  `weight_42` text DEFAULT NULL,
+  `comment_42` text DEFAULT NULL,
+  `bmi_42` text DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formHomeFalls`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -5037,7 +5037,7 @@ CREATE TABLE `formHomeFalls` (
   `mobility25N` tinyint(1) DEFAULT NULL,
   `mobility25NA` tinyint(1) DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formImmunAllergy`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -5069,7 +5069,7 @@ CREATE TABLE `formImmunAllergy` (
   `InstrFU` tinyint(1) DEFAULT NULL,
   `disChNoComp` tinyint(1) DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formIntakeInfo`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -5232,7 +5232,7 @@ CREATE TABLE `formIntakeInfo` (
   `weight` varchar(10) DEFAULT NULL,
   `height` varchar(10) DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formInternetAccess`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -5257,7 +5257,7 @@ CREATE TABLE `formInternetAccess` (
   `infoY` tinyint(1) DEFAULT NULL,
   `infoN` tinyint(1) DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formLabReq`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -5334,7 +5334,7 @@ CREATE TABLE `formLabReq` (
   `formDate` date DEFAULT NULL,
   `signature` varchar(60) DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formLateLifeFDIDisability`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -5507,7 +5507,7 @@ CREATE TABLE `formLateLifeFDIDisability` (
   `D16Alot` tinyint(1) DEFAULT NULL,
   `D16Completely` tinyint(1) DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formLateLifeFDIFunction`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -5720,7 +5720,7 @@ CREATE TABLE `formLateLifeFDIFunction` (
   `FD32ALot` tinyint(1) DEFAULT NULL,
   `FD32Cannot` tinyint(1) DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formMMSE`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -5757,7 +5757,7 @@ CREATE TABLE `formMMSE` (
   `i_depression` tinyint(1) DEFAULT NULL,
   `i_normal` tinyint(1) DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formMentalHealth`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -5837,7 +5837,7 @@ CREATE TABLE `formMentalHealth` (
   `o_outComments` text DEFAULT NULL,
   `a_formDate` date DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formMentalHealthForm1`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -5884,7 +5884,7 @@ CREATE TABLE `formMentalHealthForm1` (
   `datetimeOfDelivered` varchar(20) DEFAULT NULL,
   `signature2` varchar(60) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formMentalHealthForm14`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -5905,7 +5905,7 @@ CREATE TABLE `formMentalHealthForm14` (
   `relationship` varchar(20) DEFAULT NULL,
   `signatureDate` varchar(20) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formMentalHealthForm42`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -5944,7 +5944,7 @@ CREATE TABLE `formMentalHealthForm42` (
   `dateOfSign2` varchar(10) DEFAULT NULL,
   `signPhysician2` varchar(60) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formNoShowPolicy`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -5957,7 +5957,7 @@ CREATE TABLE `formNoShowPolicy` (
   `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `formVersion` varchar(10) DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formPalliativeCare`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -5968,98 +5968,98 @@ CREATE TABLE `formPalliativeCare` (
   `provider_no` int(10) DEFAULT NULL,
   `formCreated` date DEFAULT NULL,
   `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  `pName` varchar(60) DEFAULT NULL,
-  `diagnosis` varchar(60) DEFAULT NULL,
+  `pName` text DEFAULT NULL,
+  `diagnosis` text DEFAULT NULL,
   `date1` date DEFAULT NULL,
   `date2` date DEFAULT NULL,
   `date3` date DEFAULT NULL,
   `date4` date DEFAULT NULL,
-  `pain1` varchar(255) DEFAULT NULL,
-  `pain2` varchar(255) DEFAULT NULL,
-  `pain3` varchar(255) DEFAULT NULL,
-  `pain4` varchar(255) DEFAULT NULL,
-  `giBowels1` varchar(255) DEFAULT NULL,
-  `giBowels2` varchar(255) DEFAULT NULL,
-  `giBowels3` varchar(255) DEFAULT NULL,
-  `giBowels4` varchar(255) DEFAULT NULL,
-  `giNausea1` varchar(255) DEFAULT NULL,
-  `giNausea2` varchar(255) DEFAULT NULL,
-  `giNausea3` varchar(255) DEFAULT NULL,
-  `giNausea4` varchar(255) DEFAULT NULL,
-  `giDysphagia1` varchar(255) DEFAULT NULL,
-  `giDysphagia2` varchar(255) DEFAULT NULL,
-  `giDysphagia3` varchar(255) DEFAULT NULL,
-  `giDysphagia4` varchar(255) DEFAULT NULL,
-  `giHiccups1` varchar(255) DEFAULT NULL,
-  `giHiccups2` varchar(255) DEFAULT NULL,
-  `giHiccups3` varchar(255) DEFAULT NULL,
-  `giHiccups4` varchar(255) DEFAULT NULL,
-  `giMouth1` varchar(255) DEFAULT NULL,
-  `giMouth2` varchar(255) DEFAULT NULL,
-  `giMouth3` varchar(255) DEFAULT NULL,
-  `giMouth4` varchar(255) DEFAULT NULL,
-  `gu1` varchar(255) DEFAULT NULL,
-  `gu2` varchar(255) DEFAULT NULL,
-  `gu3` varchar(255) DEFAULT NULL,
-  `gu4` varchar(255) DEFAULT NULL,
-  `skinUlcers1` varchar(255) DEFAULT NULL,
-  `skinUlcers2` varchar(255) DEFAULT NULL,
-  `skinUlcers3` varchar(255) DEFAULT NULL,
-  `skinUlcers4` varchar(255) DEFAULT NULL,
-  `skinPruritis1` varchar(255) DEFAULT NULL,
-  `skinPruritis2` varchar(255) DEFAULT NULL,
-  `skinPruritis3` varchar(255) DEFAULT NULL,
-  `skinPruritis4` varchar(255) DEFAULT NULL,
-  `psychAgitation1` varchar(255) DEFAULT NULL,
-  `psychAgitation2` varchar(255) DEFAULT NULL,
-  `psychAgitation3` varchar(255) DEFAULT NULL,
-  `psychAgitation4` varchar(255) DEFAULT NULL,
-  `psychAnorexia1` varchar(255) DEFAULT NULL,
-  `psychAnorexia2` varchar(255) DEFAULT NULL,
-  `psychAnorexia3` varchar(255) DEFAULT NULL,
-  `psychAnorexia4` varchar(255) DEFAULT NULL,
-  `psychAnxiety1` varchar(255) DEFAULT NULL,
-  `psychAnxiety2` varchar(255) DEFAULT NULL,
-  `psychAnxiety3` varchar(255) DEFAULT NULL,
-  `psychAnxiety4` varchar(255) DEFAULT NULL,
-  `psychDepression1` varchar(255) DEFAULT NULL,
-  `psychDepression2` varchar(255) DEFAULT NULL,
-  `psychDepression3` varchar(255) DEFAULT NULL,
-  `psychDepression4` varchar(255) DEFAULT NULL,
-  `psychFatigue1` varchar(255) DEFAULT NULL,
-  `psychFatigue2` varchar(255) DEFAULT NULL,
-  `psychFatigue3` varchar(255) DEFAULT NULL,
-  `psychFatigue4` varchar(255) DEFAULT NULL,
-  `psychSomnolence1` varchar(255) DEFAULT NULL,
-  `psychSomnolence2` varchar(255) DEFAULT NULL,
-  `psychSomnolence3` varchar(255) DEFAULT NULL,
-  `psychSomnolence4` varchar(255) DEFAULT NULL,
-  `respCough1` varchar(255) DEFAULT NULL,
-  `respCough2` varchar(255) DEFAULT NULL,
-  `respCough3` varchar(255) DEFAULT NULL,
-  `respCough4` varchar(255) DEFAULT NULL,
-  `respDyspnea1` varchar(255) DEFAULT NULL,
-  `respDyspnea2` varchar(255) DEFAULT NULL,
-  `respDyspnea3` varchar(255) DEFAULT NULL,
-  `respDyspnea4` varchar(255) DEFAULT NULL,
-  `respFever1` varchar(255) DEFAULT NULL,
-  `respFever2` varchar(255) DEFAULT NULL,
-  `respFever3` varchar(255) DEFAULT NULL,
-  `respFever4` varchar(255) DEFAULT NULL,
-  `respCaregiver1` varchar(255) DEFAULT NULL,
-  `respCaregiver2` varchar(255) DEFAULT NULL,
-  `respCaregiver3` varchar(255) DEFAULT NULL,
-  `respCaregiver4` varchar(255) DEFAULT NULL,
-  `other1` varchar(255) DEFAULT NULL,
-  `other2` varchar(255) DEFAULT NULL,
-  `other3` varchar(255) DEFAULT NULL,
-  `other4` varchar(255) DEFAULT NULL,
-  `signature1` varchar(50) DEFAULT NULL,
-  `signature2` varchar(50) DEFAULT NULL,
-  `signature3` varchar(50) DEFAULT NULL,
-  `signature4` varchar(50) DEFAULT NULL,
+  `pain1` text DEFAULT NULL,
+  `pain2` text DEFAULT NULL,
+  `pain3` text DEFAULT NULL,
+  `pain4` text DEFAULT NULL,
+  `giBowels1` text DEFAULT NULL,
+  `giBowels2` text DEFAULT NULL,
+  `giBowels3` text DEFAULT NULL,
+  `giBowels4` text DEFAULT NULL,
+  `giNausea1` text DEFAULT NULL,
+  `giNausea2` text DEFAULT NULL,
+  `giNausea3` text DEFAULT NULL,
+  `giNausea4` text DEFAULT NULL,
+  `giDysphagia1` text DEFAULT NULL,
+  `giDysphagia2` text DEFAULT NULL,
+  `giDysphagia3` text DEFAULT NULL,
+  `giDysphagia4` text DEFAULT NULL,
+  `giHiccups1` text DEFAULT NULL,
+  `giHiccups2` text DEFAULT NULL,
+  `giHiccups3` text DEFAULT NULL,
+  `giHiccups4` text DEFAULT NULL,
+  `giMouth1` text DEFAULT NULL,
+  `giMouth2` text DEFAULT NULL,
+  `giMouth3` text DEFAULT NULL,
+  `giMouth4` text DEFAULT NULL,
+  `gu1` text DEFAULT NULL,
+  `gu2` text DEFAULT NULL,
+  `gu3` text DEFAULT NULL,
+  `gu4` text DEFAULT NULL,
+  `skinUlcers1` text DEFAULT NULL,
+  `skinUlcers2` text DEFAULT NULL,
+  `skinUlcers3` text DEFAULT NULL,
+  `skinUlcers4` text DEFAULT NULL,
+  `skinPruritis1` text DEFAULT NULL,
+  `skinPruritis2` text DEFAULT NULL,
+  `skinPruritis3` text DEFAULT NULL,
+  `skinPruritis4` text DEFAULT NULL,
+  `psychAgitation1` text DEFAULT NULL,
+  `psychAgitation2` text DEFAULT NULL,
+  `psychAgitation3` text DEFAULT NULL,
+  `psychAgitation4` text DEFAULT NULL,
+  `psychAnorexia1` text DEFAULT NULL,
+  `psychAnorexia2` text DEFAULT NULL,
+  `psychAnorexia3` text DEFAULT NULL,
+  `psychAnorexia4` text DEFAULT NULL,
+  `psychAnxiety1` text DEFAULT NULL,
+  `psychAnxiety2` text DEFAULT NULL,
+  `psychAnxiety3` text DEFAULT NULL,
+  `psychAnxiety4` text DEFAULT NULL,
+  `psychDepression1` text DEFAULT NULL,
+  `psychDepression2` text DEFAULT NULL,
+  `psychDepression3` text DEFAULT NULL,
+  `psychDepression4` text DEFAULT NULL,
+  `psychFatigue1` text DEFAULT NULL,
+  `psychFatigue2` text DEFAULT NULL,
+  `psychFatigue3` text DEFAULT NULL,
+  `psychFatigue4` text DEFAULT NULL,
+  `psychSomnolence1` text DEFAULT NULL,
+  `psychSomnolence2` text DEFAULT NULL,
+  `psychSomnolence3` text DEFAULT NULL,
+  `psychSomnolence4` text DEFAULT NULL,
+  `respCough1` text DEFAULT NULL,
+  `respCough2` text DEFAULT NULL,
+  `respCough3` text DEFAULT NULL,
+  `respCough4` text DEFAULT NULL,
+  `respDyspnea1` text DEFAULT NULL,
+  `respDyspnea2` text DEFAULT NULL,
+  `respDyspnea3` text DEFAULT NULL,
+  `respDyspnea4` text DEFAULT NULL,
+  `respFever1` text DEFAULT NULL,
+  `respFever2` text DEFAULT NULL,
+  `respFever3` text DEFAULT NULL,
+  `respFever4` text DEFAULT NULL,
+  `respCaregiver1` text DEFAULT NULL,
+  `respCaregiver2` text DEFAULT NULL,
+  `respCaregiver3` text DEFAULT NULL,
+  `respCaregiver4` text DEFAULT NULL,
+  `other1` text DEFAULT NULL,
+  `other2` text DEFAULT NULL,
+  `other3` text DEFAULT NULL,
+  `other4` text DEFAULT NULL,
+  `signature1` text DEFAULT NULL,
+  `signature2` text DEFAULT NULL,
+  `signature3` text DEFAULT NULL,
+  `signature4` text DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formPeriMenopausal`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -6282,7 +6282,7 @@ CREATE TABLE `formPeriMenopausal` (
   `other33` varchar(100) DEFAULT NULL,
   `other34` varchar(100) DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formRhImmuneGlobulin`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -6370,7 +6370,7 @@ CREATE TABLE `formRhImmuneGlobulin` (
   `famPhyPhone` varchar(20) DEFAULT NULL,
   `famPhyFax` varchar(20) DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formRourke`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -6384,28 +6384,28 @@ CREATE TABLE `formRourke` (
   `c_lastVisited` char(3) DEFAULT NULL,
   `c_birthRemarks` text DEFAULT NULL,
   `c_riskFactors` text DEFAULT NULL,
-  `c_pName` varchar(60) DEFAULT NULL,
+  `c_pName` text DEFAULT NULL,
   `c_birthDate` date DEFAULT NULL,
-  `c_length` varchar(6) DEFAULT NULL,
-  `c_headCirc` varchar(6) DEFAULT NULL,
-  `c_birthWeight` varchar(7) DEFAULT NULL,
-  `c_dischargeWeight` varchar(7) DEFAULT NULL,
+  `c_length` text DEFAULT NULL,
+  `c_headCirc` text DEFAULT NULL,
+  `c_birthWeight` text DEFAULT NULL,
+  `c_dischargeWeight` text DEFAULT NULL,
   `p1_date1w` date DEFAULT NULL,
   `p1_date2w` date DEFAULT NULL,
   `p1_date1m` date DEFAULT NULL,
   `p1_date2m` date DEFAULT NULL,
-  `p1_ht1w` varchar(5) DEFAULT NULL,
-  `p1_wt1w` varchar(5) DEFAULT NULL,
-  `p1_hc1w` varchar(5) DEFAULT NULL,
-  `p1_ht2w` varchar(5) DEFAULT NULL,
-  `p1_wt2w` varchar(5) DEFAULT NULL,
-  `p1_hc2w` varchar(5) DEFAULT NULL,
-  `p1_ht1m` varchar(5) DEFAULT NULL,
-  `p1_wt1m` varchar(5) DEFAULT NULL,
-  `p1_hc1m` varchar(5) DEFAULT NULL,
-  `p1_ht2m` varchar(5) DEFAULT NULL,
-  `p1_wt2m` varchar(5) DEFAULT NULL,
-  `p1_hc2m` varchar(5) DEFAULT NULL,
+  `p1_ht1w` text DEFAULT NULL,
+  `p1_wt1w` text DEFAULT NULL,
+  `p1_hc1w` text DEFAULT NULL,
+  `p1_ht2w` text DEFAULT NULL,
+  `p1_wt2w` text DEFAULT NULL,
+  `p1_hc2w` text DEFAULT NULL,
+  `p1_ht1m` text DEFAULT NULL,
+  `p1_wt1m` text DEFAULT NULL,
+  `p1_hc1m` text DEFAULT NULL,
+  `p1_ht2m` text DEFAULT NULL,
+  `p1_wt2m` text DEFAULT NULL,
+  `p1_hc2m` text DEFAULT NULL,
   `p1_pConcern1w` text DEFAULT NULL,
   `p1_pConcern2w` text DEFAULT NULL,
   `p1_pConcern1m` text DEFAULT NULL,
@@ -6413,18 +6413,18 @@ CREATE TABLE `formRourke` (
   `p1_breastFeeding1w` tinyint(1) DEFAULT NULL,
   `p1_formulaFeeding1w` tinyint(1) DEFAULT NULL,
   `p1_stoolUrine1w` tinyint(1) DEFAULT NULL,
-  `p1_nutrition1w` varchar(250) DEFAULT NULL,
+  `p1_nutrition1w` text DEFAULT NULL,
   `p1_breastFeeding2w` tinyint(1) DEFAULT NULL,
   `p1_formulaFeeding2w` tinyint(1) DEFAULT NULL,
   `p1_stoolUrine2w` tinyint(1) DEFAULT NULL,
-  `p1_nutrition2w` varchar(250) DEFAULT NULL,
+  `p1_nutrition2w` text DEFAULT NULL,
   `p1_breastFeeding1m` tinyint(1) DEFAULT NULL,
   `p1_formulaFeeding1m` tinyint(1) DEFAULT NULL,
   `p1_stoolUrine1m` tinyint(1) DEFAULT NULL,
-  `p1_nutrition1m` varchar(250) DEFAULT NULL,
+  `p1_nutrition1m` text DEFAULT NULL,
   `p1_breastFeeding2m` tinyint(1) DEFAULT NULL,
   `p1_formulaFeeding2m` tinyint(1) DEFAULT NULL,
-  `p1_nutrition2m` varchar(250) DEFAULT NULL,
+  `p1_nutrition2m` text DEFAULT NULL,
   `p1_carSeat1w` tinyint(1) DEFAULT NULL,
   `p1_cribSafety1w` tinyint(1) DEFAULT NULL,
   `p1_sleeping1w` tinyint(1) DEFAULT NULL,
@@ -6437,7 +6437,7 @@ CREATE TABLE `formRourke` (
   `p1_sleepPos1w` tinyint(1) DEFAULT NULL,
   `p1_temp1w` tinyint(1) DEFAULT NULL,
   `p1_smoke1w` tinyint(1) DEFAULT NULL,
-  `p1_educationAdvice1w` varchar(250) DEFAULT NULL,
+  `p1_educationAdvice1w` text DEFAULT NULL,
   `p1_carSeat2w` tinyint(1) DEFAULT NULL,
   `p1_cribSafety2w` tinyint(1) DEFAULT NULL,
   `p1_sleeping2w` tinyint(1) DEFAULT NULL,
@@ -6450,7 +6450,7 @@ CREATE TABLE `formRourke` (
   `p1_sleepPos2w` tinyint(1) DEFAULT NULL,
   `p1_temp2w` tinyint(1) DEFAULT NULL,
   `p1_smoke2w` tinyint(1) DEFAULT NULL,
-  `p1_educationAdvice2w` varchar(250) DEFAULT NULL,
+  `p1_educationAdvice2w` text DEFAULT NULL,
   `p1_carbonMonoxide1m` tinyint(1) DEFAULT NULL,
   `p1_sleepwear1m` tinyint(1) DEFAULT NULL,
   `p1_hotWater1m` tinyint(1) DEFAULT NULL,
@@ -6459,7 +6459,7 @@ CREATE TABLE `formRourke` (
   `p1_sooth1m` tinyint(1) DEFAULT NULL,
   `p1_interaction1m` tinyint(1) DEFAULT NULL,
   `p1_supports1m` tinyint(1) DEFAULT NULL,
-  `p1_educationAdvice1m` varchar(250) DEFAULT NULL,
+  `p1_educationAdvice1m` text DEFAULT NULL,
   `p1_falls2m` tinyint(1) DEFAULT NULL,
   `p1_toys2m` tinyint(1) DEFAULT NULL,
   `p1_crying2m` tinyint(1) DEFAULT NULL,
@@ -6467,20 +6467,20 @@ CREATE TABLE `formRourke` (
   `p1_interaction2m` tinyint(1) DEFAULT NULL,
   `p1_stress2m` tinyint(1) DEFAULT NULL,
   `p1_fever2m` tinyint(1) DEFAULT NULL,
-  `p1_educationAdvice2m` varchar(250) DEFAULT NULL,
-  `p1_development1w` varchar(250) DEFAULT NULL,
-  `p1_development2w` varchar(250) DEFAULT NULL,
+  `p1_educationAdvice2m` text DEFAULT NULL,
+  `p1_development1w` text DEFAULT NULL,
+  `p1_development2w` text DEFAULT NULL,
   `p1_focusGaze1m` tinyint(1) DEFAULT NULL,
   `p1_startles1m` tinyint(1) DEFAULT NULL,
   `p1_sucks1m` tinyint(1) DEFAULT NULL,
   `p1_noParentsConcerns1m` tinyint(1) DEFAULT NULL,
-  `p1_development1m` varchar(250) DEFAULT NULL,
+  `p1_development1m` text DEFAULT NULL,
   `p1_followMoves2m` tinyint(1) DEFAULT NULL,
   `p1_sounds2m` tinyint(1) DEFAULT NULL,
   `p1_headUp2m` tinyint(1) DEFAULT NULL,
   `p1_cuddled2m` tinyint(1) DEFAULT NULL,
   `p1_noParentConcerns2m` tinyint(1) DEFAULT NULL,
-  `p1_development2m` varchar(250) DEFAULT NULL,
+  `p1_development2m` text DEFAULT NULL,
   `p1_skin1w` tinyint(1) DEFAULT NULL,
   `p1_fontanelles1w` tinyint(1) DEFAULT NULL,
   `p1_eyes1w` tinyint(1) DEFAULT NULL,
@@ -6491,7 +6491,7 @@ CREATE TABLE `formRourke` (
   `p1_hips1w` tinyint(1) DEFAULT NULL,
   `p1_testicles1w` tinyint(1) DEFAULT NULL,
   `p1_maleUrinary1w` tinyint(1) DEFAULT NULL,
-  `p1_physical1w` varchar(250) DEFAULT NULL,
+  `p1_physical1w` text DEFAULT NULL,
   `p1_skin2w` tinyint(1) DEFAULT NULL,
   `p1_fontanelles2w` tinyint(1) DEFAULT NULL,
   `p1_eyes2w` tinyint(1) DEFAULT NULL,
@@ -6502,58 +6502,58 @@ CREATE TABLE `formRourke` (
   `p1_hips2w` tinyint(1) DEFAULT NULL,
   `p1_testicles2w` tinyint(1) DEFAULT NULL,
   `p1_maleUrinary2w` tinyint(1) DEFAULT NULL,
-  `p1_physical2w` varchar(250) DEFAULT NULL,
+  `p1_physical2w` text DEFAULT NULL,
   `p1_fontanelles1m` tinyint(1) DEFAULT NULL,
   `p1_eyes1m` tinyint(1) DEFAULT NULL,
   `p1_cover1m` tinyint(1) DEFAULT NULL,
   `p1_hearing1m` tinyint(1) DEFAULT NULL,
   `p1_heart1m` tinyint(1) DEFAULT NULL,
   `p1_hips1m` tinyint(1) DEFAULT NULL,
-  `p1_physical1m` varchar(250) DEFAULT NULL,
+  `p1_physical1m` text DEFAULT NULL,
   `p1_fontanelles2m` tinyint(1) DEFAULT NULL,
   `p1_eyes2m` tinyint(1) DEFAULT NULL,
   `p1_cover2m` tinyint(1) DEFAULT NULL,
   `p1_hearing2m` tinyint(1) DEFAULT NULL,
   `p1_heart2m` tinyint(1) DEFAULT NULL,
   `p1_hips2m` tinyint(1) DEFAULT NULL,
-  `p1_physical2m` varchar(250) DEFAULT NULL,
+  `p1_physical2m` text DEFAULT NULL,
   `p1_pkuThyroid1w` tinyint(1) DEFAULT NULL,
   `p1_hemoScreen1w` tinyint(1) DEFAULT NULL,
-  `p1_problems1w` varchar(250) DEFAULT NULL,
-  `p1_problems2w` varchar(250) DEFAULT NULL,
-  `p1_problems1m` varchar(250) DEFAULT NULL,
-  `p1_problems2m` varchar(250) DEFAULT NULL,
+  `p1_problems1w` text DEFAULT NULL,
+  `p1_problems2w` text DEFAULT NULL,
+  `p1_problems1m` text DEFAULT NULL,
+  `p1_problems2m` text DEFAULT NULL,
   `p1_hepB1w` tinyint(1) DEFAULT NULL,
-  `p1_immunization1w` varchar(250) DEFAULT NULL,
-  `p1_immunization2w` varchar(250) DEFAULT NULL,
+  `p1_immunization1w` text DEFAULT NULL,
+  `p1_immunization2w` text DEFAULT NULL,
   `p1_immuniz1m` tinyint(1) DEFAULT NULL,
   `p1_acetaminophen1m` tinyint(1) DEFAULT NULL,
   `p1_hepB1m` tinyint(1) DEFAULT NULL,
-  `p1_immunization1m` varchar(250) DEFAULT NULL,
+  `p1_immunization1m` text DEFAULT NULL,
   `p1_acetaminophen2m` tinyint(1) DEFAULT NULL,
   `p1_hib2m` tinyint(1) DEFAULT NULL,
   `p1_polio2m` tinyint(1) DEFAULT NULL,
-  `p1_immunization2m` varchar(250) DEFAULT NULL,
-  `p1_signature1w` varchar(250) DEFAULT NULL,
-  `p1_signature2w` varchar(250) DEFAULT NULL,
-  `p1_signature1m` varchar(250) DEFAULT NULL,
-  `p1_signature2m` varchar(250) DEFAULT NULL,
+  `p1_immunization2m` text DEFAULT NULL,
+  `p1_signature1w` text DEFAULT NULL,
+  `p1_signature2w` text DEFAULT NULL,
+  `p1_signature1m` text DEFAULT NULL,
+  `p1_signature2m` text DEFAULT NULL,
   `p2_date4m` date DEFAULT NULL,
   `p2_date6m` date DEFAULT NULL,
   `p2_date9m` date DEFAULT NULL,
   `p2_date12m` date DEFAULT NULL,
-  `p2_ht4m` varchar(5) DEFAULT NULL,
-  `p2_wt4m` varchar(5) DEFAULT NULL,
-  `p2_hc4m` varchar(5) DEFAULT NULL,
-  `p2_ht6m` varchar(5) DEFAULT NULL,
-  `p2_wt6m` varchar(5) DEFAULT NULL,
-  `p2_hc6m` varchar(5) DEFAULT NULL,
-  `p2_ht9m` varchar(5) DEFAULT NULL,
-  `p2_wt9m` varchar(5) DEFAULT NULL,
-  `p2_hc9m` varchar(5) DEFAULT NULL,
-  `p2_ht12m` varchar(5) DEFAULT NULL,
-  `p2_wt12m` varchar(5) DEFAULT NULL,
-  `p2_hc12m` varchar(5) DEFAULT NULL,
+  `p2_ht4m` text DEFAULT NULL,
+  `p2_wt4m` text DEFAULT NULL,
+  `p2_hc4m` text DEFAULT NULL,
+  `p2_ht6m` text DEFAULT NULL,
+  `p2_wt6m` text DEFAULT NULL,
+  `p2_hc6m` text DEFAULT NULL,
+  `p2_ht9m` text DEFAULT NULL,
+  `p2_wt9m` text DEFAULT NULL,
+  `p2_hc9m` text DEFAULT NULL,
+  `p2_ht12m` text DEFAULT NULL,
+  `p2_wt12m` text DEFAULT NULL,
+  `p2_hc12m` text DEFAULT NULL,
   `p2_pConcern4m` text DEFAULT NULL,
   `p2_pConcern6m` text DEFAULT NULL,
   `p2_pConcern9m` text DEFAULT NULL,
@@ -6561,14 +6561,14 @@ CREATE TABLE `formRourke` (
   `p2_breastFeeding4m` tinyint(1) DEFAULT NULL,
   `p2_formulaFeeding4m` tinyint(1) DEFAULT NULL,
   `p2_cereal4m` tinyint(1) DEFAULT NULL,
-  `p2_nutrition4m` varchar(250) DEFAULT NULL,
+  `p2_nutrition4m` text DEFAULT NULL,
   `p2_breastFeeding6m` tinyint(1) DEFAULT NULL,
   `p2_formulaFeeding6m` tinyint(1) DEFAULT NULL,
   `p2_bottle6m` tinyint(1) DEFAULT NULL,
   `p2_vegFruit6m` tinyint(1) DEFAULT NULL,
   `p2_egg6m` tinyint(1) DEFAULT NULL,
   `p2_choking6m` tinyint(1) DEFAULT NULL,
-  `p2_nutrition6m` varchar(250) DEFAULT NULL,
+  `p2_nutrition6m` text DEFAULT NULL,
   `p2_breastFeeding9m` tinyint(1) DEFAULT NULL,
   `p2_formulaFeeding9m` tinyint(1) DEFAULT NULL,
   `p2_bottle9m` tinyint(1) DEFAULT NULL,
@@ -6576,11 +6576,11 @@ CREATE TABLE `formRourke` (
   `p2_milk9m` tinyint(1) DEFAULT NULL,
   `p2_egg9m` tinyint(1) DEFAULT NULL,
   `p2_choking9m` tinyint(1) DEFAULT NULL,
-  `p2_nutrition9m` varchar(250) DEFAULT NULL,
+  `p2_nutrition9m` text DEFAULT NULL,
   `p2_milk12m` tinyint(1) DEFAULT NULL,
   `p2_bottle12m` tinyint(1) DEFAULT NULL,
   `p2_appetite12m` tinyint(1) DEFAULT NULL,
-  `p2_nutrition12m` varchar(250) DEFAULT NULL,
+  `p2_nutrition12m` text DEFAULT NULL,
   `p2_carSeat4m` tinyint(1) DEFAULT NULL,
   `p2_stairs4m` tinyint(1) DEFAULT NULL,
   `p2_bath4m` tinyint(1) DEFAULT NULL,
@@ -6589,20 +6589,20 @@ CREATE TABLE `formRourke` (
   `p2_childCare4m` tinyint(1) DEFAULT NULL,
   `p2_family4m` tinyint(1) DEFAULT NULL,
   `p2_teething4m` tinyint(1) DEFAULT NULL,
-  `p2_educationAdvice4m` varchar(250) DEFAULT NULL,
+  `p2_educationAdvice4m` text DEFAULT NULL,
   `p2_poison6m` tinyint(1) DEFAULT NULL,
   `p2_electric6m` tinyint(1) DEFAULT NULL,
   `p2_sleeping6m` tinyint(1) DEFAULT NULL,
   `p2_parent6m` tinyint(1) DEFAULT NULL,
   `p2_childCare6m` tinyint(1) DEFAULT NULL,
-  `p2_educationAdvice6m` varchar(250) DEFAULT NULL,
+  `p2_educationAdvice6m` text DEFAULT NULL,
   `p2_childProof9m` tinyint(1) DEFAULT NULL,
   `p2_separation9m` tinyint(1) DEFAULT NULL,
   `p2_sleeping9m` tinyint(1) DEFAULT NULL,
   `p2_dayCare9m` tinyint(1) DEFAULT NULL,
   `p2_homeVisit9m` tinyint(1) DEFAULT NULL,
   `p2_smoke9m` tinyint(1) DEFAULT NULL,
-  `p2_educationAdvice9m` varchar(250) DEFAULT NULL,
+  `p2_educationAdvice9m` text DEFAULT NULL,
   `p2_poison12m` tinyint(1) DEFAULT NULL,
   `p2_electric12m` tinyint(1) DEFAULT NULL,
   `p2_carbon12m` tinyint(1) DEFAULT NULL,
@@ -6610,13 +6610,13 @@ CREATE TABLE `formRourke` (
   `p2_sleeping12m` tinyint(1) DEFAULT NULL,
   `p2_parent12m` tinyint(1) DEFAULT NULL,
   `p2_teething12m` tinyint(1) DEFAULT NULL,
-  `p2_educationAdvice12m` varchar(250) DEFAULT NULL,
+  `p2_educationAdvice12m` text DEFAULT NULL,
   `p2_turnHead4m` tinyint(1) DEFAULT NULL,
   `p2_laugh4m` tinyint(1) DEFAULT NULL,
   `p2_headSteady4m` tinyint(1) DEFAULT NULL,
   `p2_grasp4m` tinyint(1) DEFAULT NULL,
   `p2_concern4m` tinyint(1) DEFAULT NULL,
-  `p2_development4m` varchar(250) DEFAULT NULL,
+  `p2_development4m` text DEFAULT NULL,
   `p2_follow6m` tinyint(1) DEFAULT NULL,
   `p2_respond6m` tinyint(1) DEFAULT NULL,
   `p2_babbles6m` tinyint(1) DEFAULT NULL,
@@ -6624,7 +6624,7 @@ CREATE TABLE `formRourke` (
   `p2_sits6m` tinyint(1) DEFAULT NULL,
   `p2_mouth6m` tinyint(1) DEFAULT NULL,
   `p2_concern6m` tinyint(1) DEFAULT NULL,
-  `p2_development6m` varchar(250) DEFAULT NULL,
+  `p2_development6m` text DEFAULT NULL,
   `p2_looks9m` tinyint(1) DEFAULT NULL,
   `p2_babbles9m` tinyint(1) DEFAULT NULL,
   `p2_sits9m` tinyint(1) DEFAULT NULL,
@@ -6632,81 +6632,81 @@ CREATE TABLE `formRourke` (
   `p2_opposes9m` tinyint(1) DEFAULT NULL,
   `p2_reaches9m` tinyint(1) DEFAULT NULL,
   `p2_noParentsConcerns9m` tinyint(1) DEFAULT NULL,
-  `p2_development9m` varchar(250) DEFAULT NULL,
+  `p2_development9m` text DEFAULT NULL,
   `p2_understands12m` tinyint(1) DEFAULT NULL,
   `p2_chatters12m` tinyint(1) DEFAULT NULL,
   `p2_crawls12m` tinyint(1) DEFAULT NULL,
   `p2_pulls12m` tinyint(1) DEFAULT NULL,
   `p2_emotions12m` tinyint(1) DEFAULT NULL,
   `p2_noParentConcerns12m` tinyint(1) DEFAULT NULL,
-  `p2_development12m` varchar(250) DEFAULT NULL,
+  `p2_development12m` text DEFAULT NULL,
   `p2_eyes4m` tinyint(1) DEFAULT NULL,
   `p2_cover4m` tinyint(1) DEFAULT NULL,
   `p2_hearing4m` tinyint(1) DEFAULT NULL,
   `p2_babbling4m` tinyint(1) DEFAULT NULL,
   `p2_hips4m` tinyint(1) DEFAULT NULL,
-  `p2_physical4m` varchar(250) DEFAULT NULL,
+  `p2_physical4m` text DEFAULT NULL,
   `p2_fontanelles6m` tinyint(1) DEFAULT NULL,
   `p2_eyes6m` tinyint(1) DEFAULT NULL,
   `p2_cover6m` tinyint(1) DEFAULT NULL,
   `p2_hearing6m` tinyint(1) DEFAULT NULL,
   `p2_hips6m` tinyint(1) DEFAULT NULL,
-  `p2_physical6m` varchar(250) DEFAULT NULL,
+  `p2_physical6m` text DEFAULT NULL,
   `p2_eyes9m` tinyint(1) DEFAULT NULL,
   `p2_cover9m` tinyint(1) DEFAULT NULL,
   `p2_hearing9m` tinyint(1) DEFAULT NULL,
-  `p2_physical9m` varchar(250) DEFAULT NULL,
+  `p2_physical9m` text DEFAULT NULL,
   `p2_eyes12m` tinyint(1) DEFAULT NULL,
   `p2_cover12m` tinyint(1) DEFAULT NULL,
   `p2_hearing12m` tinyint(1) DEFAULT NULL,
   `p2_hips12m` tinyint(1) DEFAULT NULL,
-  `p2_physical12m` varchar(250) DEFAULT NULL,
-  `p2_problems4m` varchar(250) DEFAULT NULL,
+  `p2_physical12m` text DEFAULT NULL,
+  `p2_problems4m` text DEFAULT NULL,
   `p2_tb6m` tinyint(1) DEFAULT NULL,
-  `p2_problems6m` varchar(250) DEFAULT NULL,
+  `p2_problems6m` text DEFAULT NULL,
   `p2_antiHbs9m` tinyint(1) DEFAULT NULL,
   `p2_hgb9m` tinyint(1) DEFAULT NULL,
-  `p2_problems9m` varchar(250) DEFAULT NULL,
+  `p2_problems9m` text DEFAULT NULL,
   `p2_hgb12m` tinyint(1) DEFAULT NULL,
   `p2_serum12m` tinyint(1) DEFAULT NULL,
-  `p2_problems12m` varchar(250) DEFAULT NULL,
+  `p2_problems12m` text DEFAULT NULL,
   `p2_hib4m` tinyint(1) DEFAULT NULL,
   `p2_polio4m` tinyint(1) DEFAULT NULL,
-  `p2_immunization4m` varchar(250) DEFAULT NULL,
+  `p2_immunization4m` text DEFAULT NULL,
   `p2_hib6m` tinyint(1) DEFAULT NULL,
   `p2_polio6m` tinyint(1) DEFAULT NULL,
   `p2_hepB6m` tinyint(1) DEFAULT NULL,
-  `p2_immunization6m` varchar(250) DEFAULT NULL,
+  `p2_immunization6m` text DEFAULT NULL,
   `p2_tbSkin9m` tinyint(1) DEFAULT NULL,
-  `p2_immunization9m` varchar(250) DEFAULT NULL,
+  `p2_immunization9m` text DEFAULT NULL,
   `p2_mmr12m` tinyint(1) DEFAULT NULL,
   `p2_varicella12m` tinyint(1) DEFAULT NULL,
-  `p2_immunization12m` varchar(250) DEFAULT NULL,
-  `p2_signature4m` varchar(250) DEFAULT NULL,
-  `p2_signature6m` varchar(250) DEFAULT NULL,
-  `p2_signature9m` varchar(250) DEFAULT NULL,
-  `p2_signature12m` varchar(250) DEFAULT NULL,
+  `p2_immunization12m` text DEFAULT NULL,
+  `p2_signature4m` text DEFAULT NULL,
+  `p2_signature6m` text DEFAULT NULL,
+  `p2_signature9m` text DEFAULT NULL,
+  `p2_signature12m` text DEFAULT NULL,
   `p3_date18m` date DEFAULT NULL,
   `p3_date2y` date DEFAULT NULL,
   `p3_date4y` date DEFAULT NULL,
-  `p3_ht18m` varchar(5) DEFAULT NULL,
-  `p3_wt18m` varchar(5) DEFAULT NULL,
-  `p3_hc18m` varchar(5) DEFAULT NULL,
-  `p3_ht2y` varchar(5) DEFAULT NULL,
-  `p3_wt2y` varchar(5) DEFAULT NULL,
-  `p3_ht4y` varchar(5) DEFAULT NULL,
-  `p3_wt4y` varchar(5) DEFAULT NULL,
+  `p3_ht18m` text DEFAULT NULL,
+  `p3_wt18m` text DEFAULT NULL,
+  `p3_hc18m` text DEFAULT NULL,
+  `p3_ht2y` text DEFAULT NULL,
+  `p3_wt2y` text DEFAULT NULL,
+  `p3_ht4y` text DEFAULT NULL,
+  `p3_wt4y` text DEFAULT NULL,
   `p3_pConcern18m` text DEFAULT NULL,
   `p3_pConcern2y` text DEFAULT NULL,
   `p3_pConcern4y` text DEFAULT NULL,
   `p3_bottle18m` tinyint(1) DEFAULT NULL,
-  `p3_nutrition18m` varchar(250) DEFAULT NULL,
+  `p3_nutrition18m` text DEFAULT NULL,
   `p3_milk2y` tinyint(1) DEFAULT NULL,
   `p3_food2y` tinyint(1) DEFAULT NULL,
-  `p3_nutrition2y` varchar(250) DEFAULT NULL,
+  `p3_nutrition2y` text DEFAULT NULL,
   `p3_milk4y` tinyint(1) DEFAULT NULL,
   `p3_food4y` tinyint(1) DEFAULT NULL,
-  `p3_nutrition4y` varchar(250) DEFAULT NULL,
+  `p3_nutrition4y` text DEFAULT NULL,
   `p3_bath18m` tinyint(1) DEFAULT NULL,
   `p3_choking18m` tinyint(1) DEFAULT NULL,
   `p3_temperment18m` tinyint(1) DEFAULT NULL,
@@ -6714,7 +6714,7 @@ CREATE TABLE `formRourke` (
   `p3_social18m` tinyint(1) DEFAULT NULL,
   `p3_dental18m` tinyint(1) DEFAULT NULL,
   `p3_toilet18m` tinyint(1) DEFAULT NULL,
-  `p3_educationAdvice18m` varchar(250) DEFAULT NULL,
+  `p3_educationAdvice18m` text DEFAULT NULL,
   `p3_bike2y` tinyint(1) DEFAULT NULL,
   `p3_matches2y` tinyint(1) DEFAULT NULL,
   `p3_carbon2y` tinyint(1) DEFAULT NULL,
@@ -6723,7 +6723,7 @@ CREATE TABLE `formRourke` (
   `p3_dayCare2y` tinyint(1) DEFAULT NULL,
   `p3_dental2y` tinyint(1) DEFAULT NULL,
   `p3_toilet2y` tinyint(1) DEFAULT NULL,
-  `p3_educationAdvice2y` varchar(250) DEFAULT NULL,
+  `p3_educationAdvice2y` text DEFAULT NULL,
   `p3_bike4y` tinyint(1) DEFAULT NULL,
   `p3_matches4y` tinyint(1) DEFAULT NULL,
   `p3_carbon4y` tinyint(1) DEFAULT NULL,
@@ -6731,7 +6731,7 @@ CREATE TABLE `formRourke` (
   `p3_social4y` tinyint(1) DEFAULT NULL,
   `p3_dental4y` tinyint(1) DEFAULT NULL,
   `p3_school4y` tinyint(1) DEFAULT NULL,
-  `p3_educationAdvice4y` varchar(250) DEFAULT NULL,
+  `p3_educationAdvice4y` text DEFAULT NULL,
   `p3_points18m` tinyint(1) DEFAULT NULL,
   `p3_words18m` tinyint(1) DEFAULT NULL,
   `p3_picks18m` tinyint(1) DEFAULT NULL,
@@ -6741,7 +6741,7 @@ CREATE TABLE `formRourke` (
   `p3_showParents18m` tinyint(1) DEFAULT NULL,
   `p3_looks18m` tinyint(1) DEFAULT NULL,
   `p3_noParentsConcerns18m` tinyint(1) DEFAULT NULL,
-  `p3_development18m` varchar(250) DEFAULT NULL,
+  `p3_development18m` text DEFAULT NULL,
   `p3_word2y` tinyint(1) DEFAULT NULL,
   `p3_sentence2y` tinyint(1) DEFAULT NULL,
   `p3_run2y` tinyint(1) DEFAULT NULL,
@@ -6749,14 +6749,14 @@ CREATE TABLE `formRourke` (
   `p3_copies2y` tinyint(1) DEFAULT NULL,
   `p3_skills2y` tinyint(1) DEFAULT NULL,
   `p3_noParentsConcerns2y` tinyint(1) DEFAULT NULL,
-  `p3_development2y` varchar(250) DEFAULT NULL,
+  `p3_development2y` text DEFAULT NULL,
   `p3_understands3y` tinyint(1) DEFAULT NULL,
   `p3_twists3y` tinyint(1) DEFAULT NULL,
   `p3_turnPages3y` tinyint(1) DEFAULT NULL,
   `p3_share3y` tinyint(1) DEFAULT NULL,
   `p3_listens3y` tinyint(1) DEFAULT NULL,
   `p3_noParentsConcerns3y` tinyint(1) DEFAULT NULL,
-  `p3_development3y` varchar(250) DEFAULT NULL,
+  `p3_development3y` text DEFAULT NULL,
   `p3_understands4y` tinyint(1) DEFAULT NULL,
   `p3_questions4y` tinyint(1) DEFAULT NULL,
   `p3_oneFoot4y` tinyint(1) DEFAULT NULL,
@@ -6764,7 +6764,7 @@ CREATE TABLE `formRourke` (
   `p3_toilet4y` tinyint(1) DEFAULT NULL,
   `p3_comfort4y` tinyint(1) DEFAULT NULL,
   `p3_noParentsConcerns4y` tinyint(1) DEFAULT NULL,
-  `p3_development4y` varchar(250) DEFAULT NULL,
+  `p3_development4y` text DEFAULT NULL,
   `p3_counts5y` tinyint(1) DEFAULT NULL,
   `p3_speaks5y` tinyint(1) DEFAULT NULL,
   `p3_ball5y` tinyint(1) DEFAULT NULL,
@@ -6773,36 +6773,36 @@ CREATE TABLE `formRourke` (
   `p3_alone5y` tinyint(1) DEFAULT NULL,
   `p3_separate5y` tinyint(1) DEFAULT NULL,
   `p3_noParentsConcerns5y` tinyint(1) DEFAULT NULL,
-  `p3_development5y` varchar(250) DEFAULT NULL,
+  `p3_development5y` text DEFAULT NULL,
   `p3_eyes18m` tinyint(1) DEFAULT NULL,
   `p3_cover18m` tinyint(1) DEFAULT NULL,
   `p3_hearing18m` tinyint(1) DEFAULT NULL,
-  `p3_physical18m` varchar(250) DEFAULT NULL,
+  `p3_physical18m` text DEFAULT NULL,
   `p3_visual2y` tinyint(1) DEFAULT NULL,
   `p3_cover2y` tinyint(1) DEFAULT NULL,
   `p3_hearing2y` tinyint(1) DEFAULT NULL,
-  `p3_physical2y` varchar(250) DEFAULT NULL,
+  `p3_physical2y` text DEFAULT NULL,
   `p3_visual4y` tinyint(1) DEFAULT NULL,
   `p3_cover4y` tinyint(1) DEFAULT NULL,
   `p3_hearing4y` tinyint(1) DEFAULT NULL,
   `p3_blood4y` tinyint(1) DEFAULT NULL,
-  `p3_physical4y` varchar(250) DEFAULT NULL,
-  `p3_problems18m` varchar(250) DEFAULT NULL,
+  `p3_physical4y` text DEFAULT NULL,
+  `p3_problems18m` text DEFAULT NULL,
   `p3_serum2y` tinyint(1) DEFAULT NULL,
-  `p3_problems2y` varchar(250) DEFAULT NULL,
-  `p3_problems4y` varchar(250) DEFAULT NULL,
+  `p3_problems2y` text DEFAULT NULL,
+  `p3_problems4y` text DEFAULT NULL,
   `p3_hib18m` tinyint(1) DEFAULT NULL,
   `p3_polio18m` tinyint(1) DEFAULT NULL,
-  `p3_immunization18m` varchar(250) DEFAULT NULL,
-  `p3_immunization2y` varchar(250) DEFAULT NULL,
+  `p3_immunization18m` text DEFAULT NULL,
+  `p3_immunization2y` text DEFAULT NULL,
   `p3_mmr4y` tinyint(1) DEFAULT NULL,
   `p3_polio4y` tinyint(1) DEFAULT NULL,
-  `p3_immunization4y` varchar(250) DEFAULT NULL,
-  `p3_signature18m` varchar(250) DEFAULT NULL,
-  `p3_signature2y` varchar(50) DEFAULT NULL,
-  `p3_signature4y` varchar(50) DEFAULT NULL,
+  `p3_immunization4y` text DEFAULT NULL,
+  `p3_signature18m` text DEFAULT NULL,
+  `p3_signature2y` text DEFAULT NULL,
+  `p3_signature4y` text DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formRourke2006`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -7436,7 +7436,7 @@ CREATE TABLE `formRourke2006` (
   `p1_signature1m` varchar(250) DEFAULT NULL,
   `p2_signature6m` varchar(250) DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formRourke2017`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -7605,7 +7605,7 @@ CREATE TABLE `formRourke2017` (
   `p4_nippisingattained` text DEFAULT NULL,
   PRIMARY KEY (`ID`),
   KEY `formRourke2017_demographic_no` (`demographic_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formRourke2020`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -7613,21 +7613,21 @@ DROP TABLE IF EXISTS `formRourke2020`;
 CREATE TABLE `formRourke2020` (
   `ID` int(10) NOT NULL AUTO_INCREMENT,
   `demographic_no` int(10) DEFAULT NULL,
-  `c_male` varchar(2) DEFAULT '',
-  `c_female` varchar(2) DEFAULT '',
-  `provider_no` varchar(6) DEFAULT NULL,
+  `c_male` text DEFAULT '',
+  `c_female` text DEFAULT '',
+  `provider_no` text DEFAULT NULL,
   `formCreated` date DEFAULT NULL,
   `formEdited` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `c_lastVisited` char(3) DEFAULT NULL,
   `c_birthRemarks` text DEFAULT NULL,
   `c_riskFactors` text DEFAULT NULL,
   `c_famHistory` text DEFAULT NULL,
-  `c_pName` varchar(60) DEFAULT NULL,
+  `c_pName` text DEFAULT NULL,
   `c_birthDate` date DEFAULT NULL,
-  `c_length` varchar(6) DEFAULT NULL,
-  `c_headCirc` varchar(6) DEFAULT NULL,
-  `c_birthWeight` varchar(7) DEFAULT NULL,
-  `c_dischargeWeight` varchar(7) DEFAULT NULL,
+  `c_length` text DEFAULT NULL,
+  `c_headCirc` text DEFAULT NULL,
+  `c_birthWeight` text DEFAULT NULL,
+  `c_dischargeWeight` text DEFAULT NULL,
   `c_fsa` char(3) DEFAULT NULL,
   `start_of_gestation` date DEFAULT NULL,
   `c_APGAR1min` int(11) DEFAULT NULL,
@@ -7635,15 +7635,15 @@ CREATE TABLE `formRourke2020` (
   `p1_date1w` date DEFAULT NULL,
   `p1_date2w` date DEFAULT NULL,
   `p1_date1m` date DEFAULT NULL,
-  `p1_ht1w` varchar(5) DEFAULT NULL,
-  `p1_wt1w` varchar(5) DEFAULT NULL,
-  `p1_hc1w` varchar(5) DEFAULT NULL,
-  `p1_ht2w` varchar(5) DEFAULT NULL,
-  `p1_wt2w` varchar(5) DEFAULT NULL,
-  `p1_hc2w` varchar(5) DEFAULT NULL,
-  `p1_ht1m` varchar(5) DEFAULT NULL,
-  `p1_wt1m` varchar(5) DEFAULT NULL,
-  `p1_hc1m` varchar(5) DEFAULT NULL,
+  `p1_ht1w` text DEFAULT NULL,
+  `p1_wt1w` text DEFAULT NULL,
+  `p1_hc1w` text DEFAULT NULL,
+  `p1_ht2w` text DEFAULT NULL,
+  `p1_wt2w` text DEFAULT NULL,
+  `p1_hc2w` text DEFAULT NULL,
+  `p1_ht1m` text DEFAULT NULL,
+  `p1_wt1m` text DEFAULT NULL,
+  `p1_hc1m` text DEFAULT NULL,
   `p1_pConcern1w` text DEFAULT NULL,
   `p1_pConcern2w` text DEFAULT NULL,
   `p1_pConcern1m` text DEFAULT NULL,
@@ -7653,19 +7653,19 @@ CREATE TABLE `formRourke2020` (
   `p1_problems1w` text DEFAULT NULL,
   `p1_problems2w` text DEFAULT NULL,
   `p1_problems1m` text DEFAULT NULL,
-  `p1_signature2w` varchar(250) DEFAULT NULL,
+  `p1_signature2w` text DEFAULT NULL,
   `p2_date2m` date DEFAULT NULL,
   `p2_date4m` date DEFAULT NULL,
   `p2_date6m` date DEFAULT NULL,
-  `p2_ht2m` varchar(5) DEFAULT NULL,
-  `p2_wt2m` varchar(5) DEFAULT NULL,
-  `p2_hc2m` varchar(5) DEFAULT NULL,
-  `p2_ht4m` varchar(5) DEFAULT NULL,
-  `p2_wt4m` varchar(5) DEFAULT NULL,
-  `p2_hc4m` varchar(5) DEFAULT NULL,
-  `p2_ht6m` varchar(5) DEFAULT NULL,
-  `p2_wt6m` varchar(5) DEFAULT NULL,
-  `p2_hc6m` varchar(5) DEFAULT NULL,
+  `p2_ht2m` text DEFAULT NULL,
+  `p2_wt2m` text DEFAULT NULL,
+  `p2_hc2m` text DEFAULT NULL,
+  `p2_ht4m` text DEFAULT NULL,
+  `p2_wt4m` text DEFAULT NULL,
+  `p2_hc4m` text DEFAULT NULL,
+  `p2_ht6m` text DEFAULT NULL,
+  `p2_wt6m` text DEFAULT NULL,
+  `p2_hc6m` text DEFAULT NULL,
   `p2_pConcern2m` text DEFAULT NULL,
   `p2_pConcern4m` text DEFAULT NULL,
   `p2_pConcern6m` text DEFAULT NULL,
@@ -7677,20 +7677,20 @@ CREATE TABLE `formRourke2020` (
   `p2_problems2m` text DEFAULT NULL,
   `p2_problems4m` text DEFAULT NULL,
   `p2_problems6m` text DEFAULT NULL,
-  `p2_signature2m` varchar(250) DEFAULT NULL,
-  `p2_signature4m` varchar(250) DEFAULT NULL,
+  `p2_signature2m` text DEFAULT NULL,
+  `p2_signature4m` text DEFAULT NULL,
   `p3_date9m` date DEFAULT NULL,
   `p3_date12m` date DEFAULT NULL,
   `p3_date15m` date DEFAULT NULL,
-  `p3_ht9m` varchar(5) DEFAULT NULL,
-  `p3_wt9m` varchar(5) DEFAULT NULL,
-  `p3_hc9m` varchar(5) DEFAULT NULL,
-  `p3_ht12m` varchar(5) DEFAULT NULL,
-  `p3_wt12m` varchar(5) DEFAULT NULL,
-  `p3_hc12m` varchar(5) DEFAULT NULL,
-  `p3_ht15m` varchar(5) DEFAULT NULL,
-  `p3_wt15m` varchar(5) DEFAULT NULL,
-  `p3_hc15m` varchar(5) DEFAULT NULL,
+  `p3_ht9m` text DEFAULT NULL,
+  `p3_wt9m` text DEFAULT NULL,
+  `p3_hc9m` text DEFAULT NULL,
+  `p3_ht12m` text DEFAULT NULL,
+  `p3_wt12m` text DEFAULT NULL,
+  `p3_hc12m` text DEFAULT NULL,
+  `p3_ht15m` text DEFAULT NULL,
+  `p3_wt15m` text DEFAULT NULL,
+  `p3_hc15m` text DEFAULT NULL,
   `p3_pConcern9m` text DEFAULT NULL,
   `p3_pConcern12m` text DEFAULT NULL,
   `p3_pConcern15m` text DEFAULT NULL,
@@ -7702,34 +7702,34 @@ CREATE TABLE `formRourke2020` (
   `p3_problems9m` text DEFAULT NULL,
   `p3_problems12m` text DEFAULT NULL,
   `p3_problems15m` text DEFAULT NULL,
-  `p3_signature9m` varchar(250) DEFAULT NULL,
-  `p3_signature12m` varchar(250) DEFAULT NULL,
-  `p3_signature15m` varchar(250) DEFAULT NULL,
+  `p3_signature9m` text DEFAULT NULL,
+  `p3_signature12m` text DEFAULT NULL,
+  `p3_signature15m` text DEFAULT NULL,
   `p4_date18m` date DEFAULT NULL,
   `p4_date24m` date DEFAULT NULL,
   `p4_date48m` date DEFAULT NULL,
-  `p4_ht18m` varchar(5) DEFAULT NULL,
-  `p4_wt18m` varchar(5) DEFAULT NULL,
-  `p4_hc18m` varchar(5) DEFAULT NULL,
-  `p4_ht24m` varchar(5) DEFAULT NULL,
-  `p4_wt24m` varchar(5) DEFAULT NULL,
-  `p4_hc24m` varchar(5) DEFAULT NULL,
-  `p4_ht48m` varchar(5) DEFAULT NULL,
-  `p4_bmi24m` varchar(5) DEFAULT NULL,
-  `p4_bmi48m` varchar(10) DEFAULT NULL,
-  `p4_wt48m` varchar(5) DEFAULT NULL,
+  `p4_ht18m` text DEFAULT NULL,
+  `p4_wt18m` text DEFAULT NULL,
+  `p4_hc18m` text DEFAULT NULL,
+  `p4_ht24m` text DEFAULT NULL,
+  `p4_wt24m` text DEFAULT NULL,
+  `p4_hc24m` text DEFAULT NULL,
+  `p4_ht48m` text DEFAULT NULL,
+  `p4_bmi24m` text DEFAULT NULL,
+  `p4_bmi48m` text DEFAULT NULL,
+  `p4_wt48m` text DEFAULT NULL,
   `p4_pConcern18m` text DEFAULT NULL,
   `p4_pConcern24m` text DEFAULT NULL,
   `p4_pConcern48m` text DEFAULT NULL,
   `p4_problems18m` text DEFAULT NULL,
   `p4_problems24m` text DEFAULT NULL,
   `p4_problems48m` text DEFAULT NULL,
-  `p4_signature18m` varchar(250) DEFAULT NULL,
-  `p4_signature24m` varchar(250) DEFAULT NULL,
-  `p4_signature48m` varchar(250) DEFAULT NULL,
-  `p1_signature1w` varchar(250) DEFAULT NULL,
-  `p1_signature1m` varchar(250) DEFAULT NULL,
-  `p2_signature6m` varchar(250) DEFAULT NULL,
+  `p4_signature18m` text DEFAULT NULL,
+  `p4_signature24m` text DEFAULT NULL,
+  `p4_signature48m` text DEFAULT NULL,
+  `p1_signature1w` text DEFAULT NULL,
+  `p1_signature1m` text DEFAULT NULL,
+  `p2_signature6m` text DEFAULT NULL,
   `p1_pNutrition1w` text DEFAULT NULL,
   `p1_pNutrition2w` text DEFAULT NULL,
   `p1_pNutrition1m` text DEFAULT NULL,
@@ -7774,192 +7774,192 @@ CREATE TABLE `formRourke2020` (
   `p4_nippisingattained` text DEFAULT NULL,
   `p5_1GiveDtRota` date DEFAULT NULL,
   `p5_1ExpDtRota` date DEFAULT NULL,
-  `p5_1InjeRota` varchar(255) DEFAULT NULL,
-  `p5_1LotNRota` varchar(255) DEFAULT NULL,
-  `p5_1InitialRota` varchar(255) DEFAULT NULL,
-  `p5_1CommentsRota` varchar(255) DEFAULT NULL,
+  `p5_1InjeRota` text DEFAULT NULL,
+  `p5_1LotNRota` text DEFAULT NULL,
+  `p5_1InitialRota` text DEFAULT NULL,
+  `p5_1CommentsRota` text DEFAULT NULL,
   `p5_1GiveDtHib` date DEFAULT NULL,
   `p5_1ExpDtHib` date DEFAULT NULL,
-  `p5_1InjeHib` varchar(255) DEFAULT NULL,
-  `p5_1LotNHib` varchar(255) DEFAULT NULL,
-  `p5_1InitialHib` varchar(255) DEFAULT NULL,
-  `p5_1CommentsHib` varchar(255) DEFAULT NULL,
+  `p5_1InjeHib` text DEFAULT NULL,
+  `p5_1LotNHib` text DEFAULT NULL,
+  `p5_1InitialHib` text DEFAULT NULL,
+  `p5_1CommentsHib` text DEFAULT NULL,
   `p5_1GiveDtPneu` date DEFAULT NULL,
   `p5_1ExpDtPneu` date DEFAULT NULL,
-  `p5_1InjePneu` varchar(255) DEFAULT NULL,
-  `p5_1LotNPneu` varchar(255) DEFAULT NULL,
-  `p5_1InitialPneu` varchar(255) DEFAULT NULL,
-  `p5_1CommentsPneu` varchar(255) DEFAULT NULL,
+  `p5_1InjePneu` text DEFAULT NULL,
+  `p5_1LotNPneu` text DEFAULT NULL,
+  `p5_1InitialPneu` text DEFAULT NULL,
+  `p5_1CommentsPneu` text DEFAULT NULL,
   `p5_1GiveDtMenCon` date DEFAULT NULL,
   `p5_1ExpDtMenCon` date DEFAULT NULL,
-  `p5_1InjeMenCon` varchar(255) DEFAULT NULL,
-  `p5_1LotNMenCon` varchar(255) DEFAULT NULL,
-  `p5_1InitialMenCon` varchar(255) DEFAULT NULL,
-  `p5_1CommentsMenCon` varchar(255) DEFAULT NULL,
+  `p5_1InjeMenCon` text DEFAULT NULL,
+  `p5_1LotNMenCon` text DEFAULT NULL,
+  `p5_1InitialMenCon` text DEFAULT NULL,
+  `p5_1CommentsMenCon` text DEFAULT NULL,
   `p5_1GiveDtHepa` date DEFAULT NULL,
   `p5_1ExpDtHepa` date DEFAULT NULL,
-  `p5_1InjeHepa` varchar(255) DEFAULT NULL,
-  `p5_1LotNHepa` varchar(255) DEFAULT NULL,
-  `p5_1InitialHepa` varchar(255) DEFAULT NULL,
-  `p5_1CommentsHepa` varchar(255) DEFAULT NULL,
+  `p5_1InjeHepa` text DEFAULT NULL,
+  `p5_1LotNHepa` text DEFAULT NULL,
+  `p5_1InitialHepa` text DEFAULT NULL,
+  `p5_1CommentsHepa` text DEFAULT NULL,
   `p5_1GiveDtMMR` date DEFAULT NULL,
   `p5_1ExpDtMMR` date DEFAULT NULL,
-  `p5_1InjeMMR` varchar(255) DEFAULT NULL,
-  `p5_1LotNMMR` varchar(255) DEFAULT NULL,
-  `p5_1InitialMMR` varchar(255) DEFAULT NULL,
-  `p5_1CommentsMMR` varchar(255) DEFAULT NULL,
+  `p5_1InjeMMR` text DEFAULT NULL,
+  `p5_1LotNMMR` text DEFAULT NULL,
+  `p5_1InitialMMR` text DEFAULT NULL,
+  `p5_1CommentsMMR` text DEFAULT NULL,
   `p5_1GiveDtVaricella` date DEFAULT NULL,
   `p5_1ExpDtVaricella` date DEFAULT NULL,
-  `p5_1InjeVaricella` varchar(255) DEFAULT NULL,
-  `p5_1LotNVaricella` varchar(255) DEFAULT NULL,
-  `p5_1InitialVaricella` varchar(255) DEFAULT NULL,
-  `p5_1CommentsVaricella` varchar(255) DEFAULT NULL,
+  `p5_1InjeVaricella` text DEFAULT NULL,
+  `p5_1LotNVaricella` text DEFAULT NULL,
+  `p5_1InitialVaricella` text DEFAULT NULL,
+  `p5_1CommentsVaricella` text DEFAULT NULL,
   `p5_1GiveDtdTapIpv` date DEFAULT NULL,
   `p5_1ExpDtdTapIpv` date DEFAULT NULL,
-  `p5_1InjeDTaPIpv` varchar(255) DEFAULT NULL,
-  `p5_1LotNDTaPIpv` varchar(255) DEFAULT NULL,
-  `p5_1InitialDTaPIpv` varchar(255) DEFAULT NULL,
-  `p5_1CommentsDTaPIpv` varchar(255) DEFAULT NULL,
+  `p5_1InjeDTaPIpv` text DEFAULT NULL,
+  `p5_1LotNDTaPIpv` text DEFAULT NULL,
+  `p5_1InitialDTaPIpv` text DEFAULT NULL,
+  `p5_1CommentsDTaPIpv` text DEFAULT NULL,
   `p5_1GiveDtdTap` date DEFAULT NULL,
   `p5_1ExpDtdTap` date DEFAULT NULL,
-  `p5_1InjeDTap` varchar(255) DEFAULT NULL,
-  `p5_1LotNDTap` varchar(255) DEFAULT NULL,
-  `p5_1InitialDTap` varchar(255) DEFAULT NULL,
-  `p5_1CommentsDTap` varchar(255) DEFAULT NULL,
-  `p5_1NaciInfluenza` varchar(255) DEFAULT NULL,
+  `p5_1InjeDTap` text DEFAULT NULL,
+  `p5_1LotNDTap` text DEFAULT NULL,
+  `p5_1InitialDTap` text DEFAULT NULL,
+  `p5_1CommentsDTap` text DEFAULT NULL,
+  `p5_1NaciInfluenza` text DEFAULT NULL,
   `p5_1GiveDtInfluenza` date DEFAULT NULL,
   `p5_1ExpDtInfluenza` date DEFAULT NULL,
-  `p5_1InjeInfluenza` varchar(255) DEFAULT NULL,
-  `p5_1LotNInfluenza` varchar(255) DEFAULT NULL,
-  `p5_1InitialInfluenza` varchar(255) DEFAULT NULL,
-  `p5_1CommentsInfluenza` varchar(255) DEFAULT NULL,
+  `p5_1InjeInfluenza` text DEFAULT NULL,
+  `p5_1LotNInfluenza` text DEFAULT NULL,
+  `p5_1InitialInfluenza` text DEFAULT NULL,
+  `p5_1CommentsInfluenza` text DEFAULT NULL,
   `p5_1GiveDtHpv` date DEFAULT NULL,
   `p5_1ExpDtHpv` date DEFAULT NULL,
-  `p5_1InjeHPV` varchar(255) DEFAULT NULL,
-  `p5_1LotNHPV` varchar(255) DEFAULT NULL,
-  `p5_1InitialHPV` varchar(255) DEFAULT NULL,
-  `p5_1CommentsHPV` varchar(255) DEFAULT NULL,
+  `p5_1InjeHPV` text DEFAULT NULL,
+  `p5_1LotNHPV` text DEFAULT NULL,
+  `p5_1InitialHPV` text DEFAULT NULL,
+  `p5_1CommentsHPV` text DEFAULT NULL,
   `p5_1GiveDtOther` date DEFAULT NULL,
   `p5_1ExpDtOther` date DEFAULT NULL,
-  `p5_1InjeOther` varchar(255) DEFAULT NULL,
-  `p5_1LotNOther` varchar(255) DEFAULT NULL,
-  `p5_1InitialOther` varchar(255) DEFAULT NULL,
-  `p5_1CommentsOther` varchar(255) DEFAULT NULL,
-  `p5_1NaciOther` varchar(255) DEFAULT NULL,
+  `p5_1InjeOther` text DEFAULT NULL,
+  `p5_1LotNOther` text DEFAULT NULL,
+  `p5_1InitialOther` text DEFAULT NULL,
+  `p5_1CommentsOther` text DEFAULT NULL,
+  `p5_1NaciOther` text DEFAULT NULL,
   `p5_2GiveDtRota` date DEFAULT NULL,
   `p5_2ExpDtRota` date DEFAULT NULL,
-  `p5_2InjeRota` varchar(255) DEFAULT NULL,
-  `p5_2LotNRota` varchar(255) DEFAULT NULL,
-  `p5_2InitialRota` varchar(255) DEFAULT NULL,
-  `p5_2CommentsRota` varchar(255) DEFAULT NULL,
+  `p5_2InjeRota` text DEFAULT NULL,
+  `p5_2LotNRota` text DEFAULT NULL,
+  `p5_2InitialRota` text DEFAULT NULL,
+  `p5_2CommentsRota` text DEFAULT NULL,
   `p5_2GiveDtHib` date DEFAULT NULL,
   `p5_2ExpDtHib` date DEFAULT NULL,
-  `p5_2InjeHib` varchar(255) DEFAULT NULL,
-  `p5_2LotNHib` varchar(255) DEFAULT NULL,
-  `p5_2InitialHib` varchar(255) DEFAULT NULL,
-  `p5_2CommentsHib` varchar(255) DEFAULT NULL,
+  `p5_2InjeHib` text DEFAULT NULL,
+  `p5_2LotNHib` text DEFAULT NULL,
+  `p5_2InitialHib` text DEFAULT NULL,
+  `p5_2CommentsHib` text DEFAULT NULL,
   `p5_2GiveDtPneu` date DEFAULT NULL,
   `p5_2ExpDtPneu` date DEFAULT NULL,
-  `p5_2InjePneu` varchar(255) DEFAULT NULL,
-  `p5_2LotNPneu` varchar(255) DEFAULT NULL,
-  `p5_2InitialPneu` varchar(255) DEFAULT NULL,
-  `p5_2CommentsPneu` varchar(255) DEFAULT NULL,
+  `p5_2InjePneu` text DEFAULT NULL,
+  `p5_2LotNPneu` text DEFAULT NULL,
+  `p5_2InitialPneu` text DEFAULT NULL,
+  `p5_2CommentsPneu` text DEFAULT NULL,
   `p5_2GiveDtMenCon` date DEFAULT NULL,
   `p5_2ExpDtMenCon` date DEFAULT NULL,
-  `p5_2InjeMenCon` varchar(255) DEFAULT NULL,
-  `p5_2LotNMenCon` varchar(255) DEFAULT NULL,
-  `p5_2InitialMenCon` varchar(255) DEFAULT NULL,
-  `p5_2CommentsMenCon` varchar(255) DEFAULT NULL,
+  `p5_2InjeMenCon` text DEFAULT NULL,
+  `p5_2LotNMenCon` text DEFAULT NULL,
+  `p5_2InitialMenCon` text DEFAULT NULL,
+  `p5_2CommentsMenCon` text DEFAULT NULL,
   `p5_2GiveDtHepa` date DEFAULT NULL,
   `p5_2ExpDtHepa` date DEFAULT NULL,
-  `p5_2InjeHepa` varchar(255) DEFAULT NULL,
-  `p5_2LotNHepa` varchar(255) DEFAULT NULL,
-  `p5_2InitialHepa` varchar(255) DEFAULT NULL,
-  `p5_2CommentsHepa` varchar(255) DEFAULT NULL,
+  `p5_2InjeHepa` text DEFAULT NULL,
+  `p5_2LotNHepa` text DEFAULT NULL,
+  `p5_2InitialHepa` text DEFAULT NULL,
+  `p5_2CommentsHepa` text DEFAULT NULL,
   `p5_2GiveDtMMR` date DEFAULT NULL,
   `p5_2ExpDtMMR` date DEFAULT NULL,
-  `p5_2InjeMMR` varchar(255) DEFAULT NULL,
-  `p5_2LotNMMR` varchar(255) DEFAULT NULL,
-  `p5_2InitialMMR` varchar(255) DEFAULT NULL,
-  `p5_2CommentsMMR` varchar(255) DEFAULT NULL,
+  `p5_2InjeMMR` text DEFAULT NULL,
+  `p5_2LotNMMR` text DEFAULT NULL,
+  `p5_2InitialMMR` text DEFAULT NULL,
+  `p5_2CommentsMMR` text DEFAULT NULL,
   `p5_2GiveDtVaricella` date DEFAULT NULL,
   `p5_2ExpDtVaricella` date DEFAULT NULL,
-  `p5_2InjeVaricella` varchar(255) DEFAULT NULL,
-  `p5_2LotNVaricella` varchar(255) DEFAULT NULL,
-  `p5_2InitialVaricella` varchar(255) DEFAULT NULL,
-  `p5_2CommentsVaricella` varchar(255) DEFAULT NULL,
-  `p5_2NaciInfluenza` varchar(255) DEFAULT NULL,
+  `p5_2InjeVaricella` text DEFAULT NULL,
+  `p5_2LotNVaricella` text DEFAULT NULL,
+  `p5_2InitialVaricella` text DEFAULT NULL,
+  `p5_2CommentsVaricella` text DEFAULT NULL,
+  `p5_2NaciInfluenza` text DEFAULT NULL,
   `p5_2GiveDtInfluenza` date DEFAULT NULL,
   `p5_2ExpDtInfluenza` date DEFAULT NULL,
-  `p5_2InjeInfluenza` varchar(255) DEFAULT NULL,
-  `p5_2LotNInfluenza` varchar(255) DEFAULT NULL,
-  `p5_2InitialInfluenza` varchar(255) DEFAULT NULL,
-  `p5_2CommentsInfluenza` varchar(255) DEFAULT NULL,
+  `p5_2InjeInfluenza` text DEFAULT NULL,
+  `p5_2LotNInfluenza` text DEFAULT NULL,
+  `p5_2InitialInfluenza` text DEFAULT NULL,
+  `p5_2CommentsInfluenza` text DEFAULT NULL,
   `p5_2GiveDtHpv` date DEFAULT NULL,
   `p5_2ExpDtHpv` date DEFAULT NULL,
-  `p5_2InjeHPV` varchar(255) DEFAULT NULL,
-  `p5_2LotNHPV` varchar(255) DEFAULT NULL,
-  `p5_2InitialHPV` varchar(255) DEFAULT NULL,
-  `p5_2CommentsHPV` varchar(255) DEFAULT NULL,
+  `p5_2InjeHPV` text DEFAULT NULL,
+  `p5_2LotNHPV` text DEFAULT NULL,
+  `p5_2InitialHPV` text DEFAULT NULL,
+  `p5_2CommentsHPV` text DEFAULT NULL,
   `p5_3GiveDtRota` date DEFAULT NULL,
   `p5_3ExpDtRota` date DEFAULT NULL,
-  `p5_3InjeRota` varchar(255) DEFAULT NULL,
-  `p5_3LotNRota` varchar(255) DEFAULT NULL,
-  `p5_3InitialRota` varchar(255) DEFAULT NULL,
-  `p5_3CommentsRota` varchar(255) DEFAULT NULL,
+  `p5_3InjeRota` text DEFAULT NULL,
+  `p5_3LotNRota` text DEFAULT NULL,
+  `p5_3InitialRota` text DEFAULT NULL,
+  `p5_3CommentsRota` text DEFAULT NULL,
   `p5_3GiveDtHib` date DEFAULT NULL,
   `p5_3ExpDtHib` date DEFAULT NULL,
-  `p5_3InjeHib` varchar(255) DEFAULT NULL,
-  `p5_3LotNHib` varchar(255) DEFAULT NULL,
-  `p5_3InitialHib` varchar(255) DEFAULT NULL,
-  `p5_3CommentsHib` varchar(255) DEFAULT NULL,
+  `p5_3InjeHib` text DEFAULT NULL,
+  `p5_3LotNHib` text DEFAULT NULL,
+  `p5_3InitialHib` text DEFAULT NULL,
+  `p5_3CommentsHib` text DEFAULT NULL,
   `p5_3GiveDtPneu` date DEFAULT NULL,
   `p5_3ExpDtPneu` date DEFAULT NULL,
-  `p5_3InjePneu` varchar(255) DEFAULT NULL,
-  `p5_3LotNPneu` varchar(255) DEFAULT NULL,
-  `p5_3InitialPneu` varchar(255) DEFAULT NULL,
-  `p5_3CommentsPneu` varchar(255) DEFAULT NULL,
+  `p5_3InjePneu` text DEFAULT NULL,
+  `p5_3LotNPneu` text DEFAULT NULL,
+  `p5_3InitialPneu` text DEFAULT NULL,
+  `p5_3CommentsPneu` text DEFAULT NULL,
   `p5_3GiveDtMenCon` date DEFAULT NULL,
   `p5_3ExpDtMenCon` date DEFAULT NULL,
-  `p5_3InjeMenCon` varchar(255) DEFAULT NULL,
-  `p5_3LotNMenCon` varchar(255) DEFAULT NULL,
-  `p5_3InitialMenCon` varchar(255) DEFAULT NULL,
-  `p5_3CommentsMenCon` varchar(255) DEFAULT NULL,
+  `p5_3InjeMenCon` text DEFAULT NULL,
+  `p5_3LotNMenCon` text DEFAULT NULL,
+  `p5_3InitialMenCon` text DEFAULT NULL,
+  `p5_3CommentsMenCon` text DEFAULT NULL,
   `p5_3GiveDtHepa` date DEFAULT NULL,
   `p5_3ExpDtHepa` date DEFAULT NULL,
-  `p5_3InjeHepa` varchar(255) DEFAULT NULL,
-  `p5_3LotNHepa` varchar(255) DEFAULT NULL,
-  `p5_3InitialHepa` varchar(255) DEFAULT NULL,
-  `p5_3CommentsHepa` varchar(255) DEFAULT NULL,
-  `p5_3NaciInfluenza` varchar(255) DEFAULT NULL,
+  `p5_3InjeHepa` text DEFAULT NULL,
+  `p5_3LotNHepa` text DEFAULT NULL,
+  `p5_3InitialHepa` text DEFAULT NULL,
+  `p5_3CommentsHepa` text DEFAULT NULL,
+  `p5_3NaciInfluenza` text DEFAULT NULL,
   `p5_3GiveDtInfluenza` date DEFAULT NULL,
   `p5_3ExpDtInfluenza` date DEFAULT NULL,
-  `p5_3InjeInfluenza` varchar(255) DEFAULT NULL,
-  `p5_3LotNInfluenza` varchar(255) DEFAULT NULL,
-  `p5_3InitialInfluenza` varchar(255) DEFAULT NULL,
-  `p5_3CommentsInfluenza` varchar(255) DEFAULT NULL,
+  `p5_3InjeInfluenza` text DEFAULT NULL,
+  `p5_3LotNInfluenza` text DEFAULT NULL,
+  `p5_3InitialInfluenza` text DEFAULT NULL,
+  `p5_3CommentsInfluenza` text DEFAULT NULL,
   `p5_3GiveDtHpv` date DEFAULT NULL,
   `p5_3ExpDtHpv` date DEFAULT NULL,
-  `p5_3InjeHPV` varchar(255) DEFAULT NULL,
-  `p5_3LotNHPV` varchar(255) DEFAULT NULL,
-  `p5_3InitialHPV` varchar(255) DEFAULT NULL,
-  `p5_3CommentsHPV` varchar(255) DEFAULT NULL,
+  `p5_3InjeHPV` text DEFAULT NULL,
+  `p5_3LotNHPV` text DEFAULT NULL,
+  `p5_3InitialHPV` text DEFAULT NULL,
+  `p5_3CommentsHPV` text DEFAULT NULL,
   `p5_4GiveDtHib` date DEFAULT NULL,
   `p5_4ExpDtHib` date DEFAULT NULL,
-  `p5_4InjeHib` varchar(255) DEFAULT NULL,
-  `p5_4LotNHib` varchar(255) DEFAULT NULL,
-  `p5_4InitialHib` varchar(255) DEFAULT NULL,
-  `p5_4CommentsHib` varchar(255) DEFAULT NULL,
+  `p5_4InjeHib` text DEFAULT NULL,
+  `p5_4LotNHib` text DEFAULT NULL,
+  `p5_4InitialHib` text DEFAULT NULL,
+  `p5_4CommentsHib` text DEFAULT NULL,
   `p5_4GiveDtPneu` date DEFAULT NULL,
   `p5_4ExpDtPneu` date DEFAULT NULL,
-  `p5_4InjePneu` varchar(255) DEFAULT NULL,
-  `p5_4LotNPneu` varchar(255) DEFAULT NULL,
-  `p5_4InitialPneu` varchar(255) DEFAULT NULL,
-  `p5_4CommentsPneu` varchar(255) DEFAULT NULL,
+  `p5_4InjePneu` text DEFAULT NULL,
+  `p5_4LotNPneu` text DEFAULT NULL,
+  `p5_4InitialPneu` text DEFAULT NULL,
+  `p5_4CommentsPneu` text DEFAULT NULL,
   `archived` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`ID`),
   KEY `formRourke2020_demographic_no` (`demographic_no`)
-) ENGINE=Aria DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci PAGE_CHECKSUM=1;
+) ENGINE=Aria DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci PAGE_CHECKSUM=1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formSF36`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -8176,7 +8176,7 @@ CREATE TABLE `formSF36` (
   `Q12aMuch` tinyint(1) DEFAULT NULL,
   `Q12aCmt` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formSF36Caregiver`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -8393,7 +8393,7 @@ CREATE TABLE `formSF36Caregiver` (
   `Q12aMuch` tinyint(1) DEFAULT NULL,
   `Q12aCmt` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formSatisfactionScale`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -8433,7 +8433,7 @@ CREATE TABLE `formSatisfactionScale` (
   `dissatisfied17` char(2) DEFAULT NULL,
   `abletogetrehabilitation18` char(2) DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formSelfAdministered`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -8473,7 +8473,7 @@ CREATE TABLE `formSelfAdministered` (
   `relativeTakeCareY` tinyint(1) DEFAULT NULL,
   `relativeTakeCareN` tinyint(1) DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formSelfAssessment`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -8578,7 +8578,7 @@ CREATE TABLE `formSelfAssessment` (
   `ReligiousAffiliation` mediumtext DEFAULT NULL,
   `GeneralOther` mediumtext DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formSelfEfficacy`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -8634,7 +8634,7 @@ CREATE TABLE `formSelfEfficacy` (
   `controlDepress6` varchar(2) DEFAULT NULL,
   `manDprScore` varchar(5) DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formSelfManagement`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -8696,7 +8696,7 @@ CREATE TABLE `formSelfManagement` (
   `communicate3` varchar(1) DEFAULT NULL,
   `communicateScore` varchar(4) DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formTreatmentPref`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -8712,7 +8712,7 @@ CREATE TABLE `formTreatmentPref` (
   `controlGr` tinyint(1) DEFAULT NULL,
   `eitherGr` tinyint(1) DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formVTForm`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -8881,7 +8881,7 @@ CREATE TABLE `formVTForm` (
   PRIMARY KEY (`ID`),
   KEY `ID` (`ID`),
   KEY `demographic_no` (`demographic_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `form_boolean_value`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -8892,7 +8892,7 @@ CREATE TABLE `form_boolean_value` (
   `field_name` varchar(50) NOT NULL,
   `value` tinyint(1) DEFAULT NULL,
   PRIMARY KEY (`form_name`,`form_id`,`field_name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formchf`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9088,7 +9088,7 @@ CREATE TABLE `formchf` (
   `sig2` varchar(20) DEFAULT NULL,
   `sig3` varchar(20) DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `formreceptionassessment`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9233,7 +9233,7 @@ CREATE TABLE `formreceptionassessment` (
   `cbox_fortYork` char(1) DEFAULT NULL,
   `cbox_downsviewDells` char(1) DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `functional_user_type`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9242,7 +9242,7 @@ CREATE TABLE `functional_user_type` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `name` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `groupMembers_tbl`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9255,7 +9255,7 @@ CREATE TABLE `groupMembers_tbl` (
   `destinationFacilityId` int(6) DEFAULT NULL,
   `clinicLocationNo` int(11) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `groups_tbl`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9265,7 +9265,7 @@ CREATE TABLE `groups_tbl` (
   `parentID` int(10) DEFAULT NULL,
   `groupDesc` varchar(50) DEFAULT NULL,
   PRIMARY KEY (`groupID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `gstControl`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9275,7 +9275,7 @@ CREATE TABLE `gstControl` (
   `gstPercent` int(3) NOT NULL DEFAULT 0,
   `id` int(11) NOT NULL AUTO_INCREMENT,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `hash_audit`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9287,7 +9287,7 @@ CREATE TABLE `hash_audit` (
   `type` char(3) NOT NULL,
   `algorithm` varchar(127) DEFAULT NULL,
   PRIMARY KEY (`pkid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `health_safety`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9299,7 +9299,7 @@ CREATE TABLE `health_safety` (
   `username` varchar(128) DEFAULT NULL,
   `updatedate` datetime DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `hl7TextInfo`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9325,7 +9325,7 @@ CREATE TABLE `hl7TextInfo` (
   PRIMARY KEY (`id`),
   KEY `labno_index` (`lab_no`),
   KEY `accession_index` (`accessionNum`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `hl7TextMessage`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9339,7 +9339,7 @@ CREATE TABLE `hl7TextMessage` (
   `created` datetime NOT NULL,
   PRIMARY KEY (`lab_id`),
   KEY `hl7TextMessage_ikey` (`created`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `icd9`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9349,7 +9349,7 @@ CREATE TABLE `icd9` (
   `icd9` varchar(7) NOT NULL DEFAULT '',
   `description` varchar(200) NOT NULL DEFAULT '',
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `ichppccode`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9359,7 +9359,7 @@ CREATE TABLE `ichppccode` (
   `diagnostic_code` varchar(10) DEFAULT NULL,
   `description` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`ichppccode`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `immunizations`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9373,7 +9373,7 @@ CREATE TABLE `immunizations` (
   `archived` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`ID`),
   KEY `demographic_no` (`demographic_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `incomingLabRules`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9385,7 +9385,7 @@ CREATE TABLE `incomingLabRules` (
   `frwdProvider_no` varchar(6) DEFAULT NULL,
   `archive` varchar(1) DEFAULT '0',
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `incomingLabRulesType`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9397,7 +9397,7 @@ CREATE TABLE `incomingLabRulesType` (
   PRIMARY KEY (`id`),
   KEY `forward_rule_id` (`forward_rule_id`),
   CONSTRAINT `incomingLabRulesType_ibfk_1` FOREIGN KEY (`forward_rule_id`) REFERENCES `incomingLabRules` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `indicatorTemplate`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9419,7 +9419,7 @@ CREATE TABLE `indicatorTemplate` (
   `metricSetName` varchar(255) DEFAULT NULL,
   `metricLabel` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `issue`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9436,7 +9436,7 @@ CREATE TABLE `issue` (
   PRIMARY KEY (`issue_id`),
   KEY `description_index` (`description`(20)),
   KEY `code` (`code`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `joint_admissions`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9453,7 +9453,7 @@ CREATE TABLE `joint_admissions` (
   PRIMARY KEY (`id`),
   KEY `client_id` (`client_id`),
   KEY `head_client_id` (`head_client_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `labPatientPhysicianInfo`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9485,7 +9485,7 @@ CREATE TABLE `labPatientPhysicianInfo` (
   `lastUpdateDate` datetime NOT NULL,
   PRIMARY KEY (`id`),
   KEY `labPatientPhysicianInfo_ikey` (`lastUpdateDate`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `labRequestReportLink`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9498,7 +9498,7 @@ CREATE TABLE `labRequestReportLink` (
   `report_table` varchar(60) NOT NULL,
   `report_id` int(10) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `labTestResults`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9520,7 +9520,7 @@ CREATE TABLE `labTestResults` (
   `location_id` varchar(255) DEFAULT NULL,
   `last` char(1) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `log`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9543,7 +9543,7 @@ CREATE TABLE `log` (
   KEY `contentId` (`contentId`),
   KEY `demographic_no` (`demographic_no`),
   KEY `provider_noIndex` (`provider_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `log_letters`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9558,7 +9558,7 @@ CREATE TABLE `log_letters` (
   KEY `report_id` (`report_id`),
   KEY `provider_no` (`provider_no`),
   KEY `date_time` (`date_time`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `lst_field_category`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9569,7 +9569,7 @@ CREATE TABLE `lst_field_category` (
   `isactive` tinyint(1) DEFAULT NULL,
   `displayorder` int(10) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `lst_gender`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9580,7 +9580,7 @@ CREATE TABLE `lst_gender` (
   `isactive` tinyint(1) DEFAULT NULL,
   `displayorder` int(10) DEFAULT NULL,
   PRIMARY KEY (`code`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `lst_orgcd`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9595,7 +9595,7 @@ CREATE TABLE `lst_orgcd` (
   `codeCsv` varchar(80) DEFAULT NULL,
   PRIMARY KEY (`code`),
   KEY `IDX_ORGCD_CODE` (`codetree`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `lst_service_restriction`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9606,7 +9606,7 @@ CREATE TABLE `lst_service_restriction` (
   `isactive` tinyint(1) DEFAULT NULL,
   `displayorder` int(10) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `mdsMSH`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9624,7 +9624,7 @@ CREATE TABLE `mdsMSH` (
   `demographic_no` int(10) DEFAULT 0,
   PRIMARY KEY (`segmentID`),
   KEY `mdsMSH_ikey` (`dateTime`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `mdsNTE`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9635,7 +9635,7 @@ CREATE TABLE `mdsNTE` (
   `comment` varchar(255) DEFAULT NULL,
   `associatedOBX` int(10) DEFAULT NULL,
   KEY `segmentID` (`segmentID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `mdsOBR`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9650,7 +9650,7 @@ CREATE TABLE `mdsOBR` (
   `fillerFieldOne` char(60) DEFAULT NULL,
   `quantityTiming` char(200) DEFAULT NULL,
   KEY `segmentID` (`segmentID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `mdsOBX`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9667,7 +9667,7 @@ CREATE TABLE `mdsOBX` (
   `producersID` varchar(60) DEFAULT NULL,
   `associatedOBR` int(10) DEFAULT NULL,
   KEY `segmentID` (`segmentID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `mdsPID`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9682,7 +9682,7 @@ CREATE TABLE `mdsPID` (
   `homePhone` char(40) DEFAULT NULL,
   `healthNumber` char(16) DEFAULT NULL,
   KEY `segmentID` (`segmentID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `mdsPV1`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9698,7 +9698,7 @@ CREATE TABLE `mdsPV1` (
   `accStatus` char(2) DEFAULT NULL,
   `admDateTime` char(26) DEFAULT NULL,
   KEY `segmentID` (`segmentID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `mdsZFR`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9712,7 +9712,7 @@ CREATE TABLE `mdsZFR` (
   `editFlag` varchar(255) DEFAULT NULL,
   `abnormalFlag` varchar(255) DEFAULT NULL,
   KEY `segmentID` (`segmentID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `mdsZLB`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9727,7 +9727,7 @@ CREATE TABLE `mdsZLB` (
   `MDSLU` varchar(5) DEFAULT NULL,
   `MDSLV` varchar(5) DEFAULT NULL,
   KEY `segmentID` (`segmentID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `mdsZMC`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9741,7 +9741,7 @@ CREATE TABLE `mdsZMC` (
   `sigFlag` varchar(5) DEFAULT NULL,
   `messageCodeDesc` varchar(255) DEFAULT NULL,
   KEY `segmentID` (`segmentID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `mdsZMN`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9759,7 +9759,7 @@ CREATE TABLE `mdsZMN` (
   `reportGroup` varchar(10) DEFAULT NULL,
   `reportGroupVersion` varchar(255) DEFAULT NULL,
   KEY `segmentID` (`segmentID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `mdsZRG`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9774,7 +9774,7 @@ CREATE TABLE `mdsZRG` (
   `MDSIndex` varchar(255) DEFAULT NULL,
   `reportGroupHeading` varchar(255) DEFAULT NULL,
   KEY `segmentID` (`segmentID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `measurementCSSLocation`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9783,7 +9783,7 @@ CREATE TABLE `measurementCSSLocation` (
   `cssID` int(9) NOT NULL AUTO_INCREMENT,
   `location` varchar(255) NOT NULL,
   PRIMARY KEY (`cssID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `measurementGroup`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9794,7 +9794,7 @@ CREATE TABLE `measurementGroup` (
   `typeDisplayName` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `name` (`name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `measurementGroupStyle`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9804,7 +9804,7 @@ CREATE TABLE `measurementGroupStyle` (
   `groupName` varchar(100) NOT NULL,
   `cssID` int(9) NOT NULL,
   PRIMARY KEY (`groupID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `measurementMap`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9817,7 +9817,7 @@ CREATE TABLE `measurementMap` (
   `lab_type` varchar(10) NOT NULL,
   PRIMARY KEY (`id`),
   KEY `ident_code` (`ident_code`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `measurementType`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9834,7 +9834,7 @@ CREATE TABLE `measurementType` (
   KEY `id` (`id`),
   KEY `type` (`type`),
   KEY `measuringInstruction` (`measuringInstruction`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `measurementTypeDeleted`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9848,7 +9848,7 @@ CREATE TABLE `measurementTypeDeleted` (
   `validation` varchar(100) NOT NULL,
   `dateDeleted` datetime NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `measurements`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9869,7 +9869,7 @@ CREATE TABLE `measurements` (
   KEY `measuringInstruction` (`measuringInstruction`),
   KEY `demographicNo` (`demographicNo`),
   KEY `measurement_integrator` (`demographicNo`,`dateEntered`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `measurementsDeleted`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9887,7 +9887,7 @@ CREATE TABLE `measurementsDeleted` (
   `dateDeleted` datetime NOT NULL,
   `originalId` int(10) unsigned NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `measurementsExt`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9900,7 +9900,7 @@ CREATE TABLE `measurementsExt` (
   PRIMARY KEY (`id`),
   KEY `measurement_id` (`measurement_id`),
   KEY `measurements_ext_keyval_val` (`keyval`,`val`(100))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `messagelisttbl`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9918,7 +9918,7 @@ CREATE TABLE `messagelisttbl` (
   KEY `provider_no` (`provider_no`),
   KEY `status` (`status`),
   KEY `remoteLocation` (`remoteLocation`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `messagetbl`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9939,7 +9939,7 @@ CREATE TABLE `messagetbl` (
   `type` int(10) DEFAULT NULL,
   `type_link` varchar(2048) DEFAULT NULL,
   PRIMARY KEY (`messageid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `msgDemoMap`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9951,7 +9951,7 @@ CREATE TABLE `msgDemoMap` (
   PRIMARY KEY (`id`),
   KEY `messageID` (`messageID`,`demographic_no`),
   KEY `demoMap_messageID_demographic_no` (`messageID`,`demographic_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `mygroup`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9964,7 +9964,7 @@ CREATE TABLE `mygroup` (
   `vieworder` char(2) DEFAULT NULL,
   `default_billing_form` varchar(10) DEFAULT NULL,
   PRIMARY KEY (`mygroup_no`,`provider_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `oscarKeys`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9974,7 +9974,7 @@ CREATE TABLE `oscarKeys` (
   `pubKey` text DEFAULT NULL,
   `privKey` text DEFAULT NULL,
   PRIMARY KEY (`name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `oscar_msg_type`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9984,7 +9984,7 @@ CREATE TABLE `oscar_msg_type` (
   `description` varchar(255) DEFAULT NULL,
   `code` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`type`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `oscarcommlocations`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -9997,7 +9997,7 @@ CREATE TABLE `oscarcommlocations` (
   `addressBook` text DEFAULT NULL,
   `remoteServerURL` varchar(30) DEFAULT NULL,
   PRIMARY KEY (`locationId`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `other_id`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10010,7 +10010,7 @@ CREATE TABLE `other_id` (
   `other_id` varchar(30) NOT NULL,
   `deleted` tinyint(1) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `partial_date`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10022,7 +10022,7 @@ CREATE TABLE `partial_date` (
   `field_name` int(11) DEFAULT NULL,
   `format` varchar(10) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `patientLabRouting`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10040,7 +10040,7 @@ CREATE TABLE `patientLabRouting` (
   KEY `lab_no_index` (`lab_no`),
   KEY `all_index` (`lab_type`,`lab_no`,`demographic_no`),
   KEY `patientLabRouting_ikey` (`created`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `pharmacyInfo`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10062,7 +10062,7 @@ CREATE TABLE `pharmacyInfo` (
   `serviceLocationIdentifier` varchar(255) DEFAULT NULL,
   `uid` int(10) NOT NULL,
   PRIMARY KEY (`recordID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `pmm_log`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10076,7 +10076,7 @@ CREATE TABLE `pmm_log` (
   `content` varchar(80) NOT NULL,
   `ip` varchar(30) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `prescribe`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10089,7 +10089,7 @@ CREATE TABLE `prescribe` (
   `prescribe_time` time NOT NULL DEFAULT '00:00:00',
   `content` text DEFAULT NULL,
   PRIMARY KEY (`prescribe_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `prescription`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10106,7 +10106,7 @@ CREATE TABLE `prescription` (
   `digital_signature_id` int(11) DEFAULT NULL,
   `lastUpdateDate` datetime NOT NULL,
   PRIMARY KEY (`script_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `preventions`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10138,7 +10138,7 @@ CREATE TABLE `preventions` (
   KEY `preventions_creation_date` (`creation_date`),
   KEY `preventions_next_date` (`next_date`),
   KEY `preventions_ikey` (`lastUpdateDate`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `preventionsExt`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10151,7 +10151,7 @@ CREATE TABLE `preventionsExt` (
   PRIMARY KEY (`id`),
   KEY `preventionsExt_prevention_id` (`prevention_id`),
   KEY `preventionsExt_keyval` (`keyval`(10))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `professionalSpecialists`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10185,7 +10185,7 @@ CREATE TABLE `professionalSpecialists` (
   `deleted` tinyint(1) NOT NULL DEFAULT 0,
   `province` varchar(55) DEFAULT NULL,
   PRIMARY KEY (`specId`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `program`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10243,7 +10243,7 @@ CREATE TABLE `program` (
   KEY `facilityId` (`facilityId`),
   KEY `program_ikey` (`facilityId`,`lastUpdateDate`),
   CONSTRAINT `program_ibfk_1` FOREIGN KEY (`facilityId`) REFERENCES `Facility` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `programSignature`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10257,7 +10257,7 @@ CREATE TABLE `programSignature` (
   `caisiRoleName` varchar(255) NOT NULL DEFAULT '',
   `updateDate` datetime DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `program_access`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10269,7 +10269,7 @@ CREATE TABLE `program_access` (
   `all_roles` tinyint(1) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `FKC385F77F9BCAF076` (`access_type_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `program_access_roles`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10281,7 +10281,7 @@ CREATE TABLE `program_access_roles` (
   KEY `FK55BF0DFDBC1003F0` (`id`),
   KEY `FK55BF0DFD60605436` (`role_id`),
   CONSTRAINT `FKmwoclnncdj2il9ular8rro7nk` FOREIGN KEY (`id`) REFERENCES `program_access` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `program_client_restriction`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10303,7 +10303,7 @@ CREATE TABLE `program_client_restriction` (
   CONSTRAINT `FK_pcr_demographic` FOREIGN KEY (`demographic_no`) REFERENCES `demographic` (`demographic_no`),
   CONSTRAINT `FK_pcr_program` FOREIGN KEY (`program_id`) REFERENCES `program` (`id`),
   CONSTRAINT `FK_pcr_provider` FOREIGN KEY (`provider_no`) REFERENCES `provider` (`provider_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `program_clientstatus`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10313,7 +10313,7 @@ CREATE TABLE `program_clientstatus` (
   `name` varchar(255) DEFAULT NULL,
   `program_id` bigint(20) DEFAULT NULL,
   PRIMARY KEY (`clientstatus_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `program_functional_user`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10327,7 +10327,7 @@ CREATE TABLE `program_functional_user` (
   KEY `FK13B70CCFE0B12E7` (`user_type_id`),
   KEY `FK13B70CCE6DF0AD3` (`provider_no`),
   CONSTRAINT `FK288fkfagl2hr1bns9b3qbf8fw` FOREIGN KEY (`user_type_id`) REFERENCES `functional_user_type` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `program_provider`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10343,7 +10343,7 @@ CREATE TABLE `program_provider` (
   KEY `FK3EFA2D4CE6DF0AD3` (`provider_no`),
   KEY `FK3EFA2D4CDAA8624B` (`team_id`),
   CONSTRAINT `FKfg27qvr98onqjiqn6wi3r5obw` FOREIGN KEY (`provider_no`) REFERENCES `provider` (`provider_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `program_provider_team`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10356,7 +10356,7 @@ CREATE TABLE `program_provider_team` (
   KEY `FK5E7B3D703073B4BB` (`elt`),
   CONSTRAINT `FKdnvemm0tthasq3eahbiuuefh` FOREIGN KEY (`elt`) REFERENCES `program_team` (`team_id`),
   CONSTRAINT `FKt1tgve2mege16gusn7prwq552` FOREIGN KEY (`id`) REFERENCES `program_provider` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `program_queue`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10374,7 +10374,7 @@ CREATE TABLE `program_queue` (
   `present_problems` varchar(255) DEFAULT NULL,
   `intake_id` int(10) DEFAULT NULL,
   PRIMARY KEY (`queue_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `program_team`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10384,7 +10384,7 @@ CREATE TABLE `program_team` (
   `name` varchar(255) DEFAULT NULL,
   `program_id` bigint(20) DEFAULT NULL,
   PRIMARY KEY (`team_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `property`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10395,7 +10395,7 @@ CREATE TABLE `property` (
   `id` int(10) NOT NULL AUTO_INCREMENT,
   `provider_no` varchar(6) DEFAULT '',
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `provider`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10431,7 +10431,7 @@ CREATE TABLE `provider` (
   `practitionerNoType` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`provider_no`),
   KEY `provider_ikey` (`lastUpdateDate`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `providerArchive`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10466,7 +10466,7 @@ CREATE TABLE `providerArchive` (
   `signed_confidentiality` datetime DEFAULT NULL,
   `practitionerNoType` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `providerExt`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10474,7 +10474,7 @@ DROP TABLE IF EXISTS `providerExt`;
 CREATE TABLE `providerExt` (
   `provider_no` varchar(6) DEFAULT NULL,
   `signature` varchar(255) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `providerLabRouting`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10490,7 +10490,7 @@ CREATE TABLE `providerLabRouting` (
   PRIMARY KEY (`id`),
   KEY `labno_index` (`lab_no`),
   KEY `provider_lab_status_index` (`provider_no`(3),`status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `providerLabRoutingFavorites`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10501,7 +10501,7 @@ CREATE TABLE `providerLabRoutingFavorites` (
   `route_to_provider_no` varchar(6) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `provider_no` (`provider_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `provider_default_program`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10512,7 +10512,7 @@ CREATE TABLE `provider_default_program` (
   `program_id` int(10) NOT NULL DEFAULT 0,
   `signnote` tinyint(1) DEFAULT 0,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `provider_facility`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10524,7 +10524,7 @@ CREATE TABLE `provider_facility` (
   KEY `facility_id` (`facility_id`),
   CONSTRAINT `provider_facility_ibfk_1` FOREIGN KEY (`provider_no`) REFERENCES `provider` (`provider_no`),
   CONSTRAINT `provider_facility_ibfk_2` FOREIGN KEY (`facility_id`) REFERENCES `Facility` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `providerbillcenter`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10533,7 +10533,7 @@ CREATE TABLE `providerbillcenter` (
   `provider_no` varchar(6) NOT NULL DEFAULT '""',
   `billcenter_code` char(2) NOT NULL DEFAULT '""',
   PRIMARY KEY (`provider_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `providersite`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10542,7 +10542,7 @@ CREATE TABLE `providersite` (
   `provider_no` varchar(6) NOT NULL,
   `site_id` int(11) NOT NULL,
   PRIMARY KEY (`provider_no`,`site_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `publicKeys`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10554,7 +10554,7 @@ CREATE TABLE `publicKeys` (
   `privateKey` text NOT NULL,
   `matchingProfessionalSpecialistId` int(11) DEFAULT NULL,
   PRIMARY KEY (`service`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `queue`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10564,7 +10564,7 @@ CREATE TABLE `queue` (
   `name` varchar(40) NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `name` (`name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `queue_document_link`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10575,7 +10575,7 @@ CREATE TABLE `queue_document_link` (
   `document_id` int(10) NOT NULL,
   `status` char(1) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `quickList`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10587,7 +10587,7 @@ CREATE TABLE `quickList` (
   `dxResearchCode` varchar(10) DEFAULT NULL,
   `codingSystem` varchar(20) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `quickListUser`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10598,7 +10598,7 @@ CREATE TABLE `quickListUser` (
   `quickListName` varchar(10) NOT NULL,
   `lastUsed` datetime DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `radetail`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10619,7 +10619,7 @@ CREATE TABLE `radetail` (
   `claim_no` varchar(12) NOT NULL DEFAULT '',
   PRIMARY KEY (`radetail_no`),
   KEY `service_date_index` (`service_date`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `raheader`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10636,7 +10636,7 @@ CREATE TABLE `raheader` (
   `readdate` varchar(12) NOT NULL DEFAULT '',
   `content` text DEFAULT NULL,
   PRIMARY KEY (`raheader_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `rbt_groups`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10646,7 +10646,7 @@ CREATE TABLE `rbt_groups` (
   `tid` int(11) DEFAULT NULL,
   `group_name` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `recyclebin`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10660,7 +10660,7 @@ CREATE TABLE `recyclebin` (
   `table_content` text DEFAULT NULL,
   PRIMARY KEY (`recyclebin_no`),
   KEY `keyword` (`keyword`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `relationships`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10678,7 +10678,7 @@ CREATE TABLE `relationships` (
   `notes` text DEFAULT NULL,
   `deleted` char(1) DEFAULT '0',
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `remoteAttachments`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10691,7 +10691,7 @@ CREATE TABLE `remoteAttachments` (
   `date` date DEFAULT NULL,
   `time` time DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `report`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10711,7 +10711,7 @@ CREATE TABLE `report` (
   `updateddate` datetime DEFAULT NULL,
   `sptorun` varchar(32) DEFAULT NULL,
   PRIMARY KEY (`reportno`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `reportByExamples`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10722,7 +10722,7 @@ CREATE TABLE `reportByExamples` (
   `query` blob NOT NULL,
   `date` datetime NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `reportByExamplesFavorite`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10733,7 +10733,7 @@ CREATE TABLE `reportByExamplesFavorite` (
   `query` blob NOT NULL,
   `name` varchar(255) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `reportConfig`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10749,7 +10749,7 @@ CREATE TABLE `reportConfig` (
   PRIMARY KEY (`id`),
   KEY `report_id` (`report_id`),
   KEY `name` (`name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `reportFilter`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10767,7 +10767,7 @@ CREATE TABLE `reportFilter` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `order_no` (`report_id`,`order_no`),
   KEY `report_id` (`report_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `reportItem`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10777,7 +10777,7 @@ CREATE TABLE `reportItem` (
   `report_name` varchar(80) NOT NULL DEFAULT '',
   `status` int(1) DEFAULT 1,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `reportTableFieldCaption`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10789,7 +10789,7 @@ CREATE TABLE `reportTableFieldCaption` (
   `caption` varchar(80) NOT NULL DEFAULT '',
   PRIMARY KEY (`id`),
   KEY `table_name` (`table_name`,`name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `reportTemplates`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10805,7 +10805,7 @@ CREATE TABLE `reportTemplates` (
   `uuid` varchar(60) DEFAULT NULL,
   `sequence` tinyint(1) DEFAULT NULL,
   PRIMARY KEY (`templateid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `report_date`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10819,7 +10819,7 @@ CREATE TABLE `report_date` (
   `enddate_s` varchar(8) DEFAULT NULL,
   `asofdate_s` varchar(8) DEFAULT NULL,
   PRIMARY KEY (`sessionid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `report_letters`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10836,7 +10836,7 @@ CREATE TABLE `report_letters` (
   KEY `archive` (`archive`),
   KEY `provider_no` (`provider_no`),
   KEY `date_time` (`date_time`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `reportagesex`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10852,7 +10852,7 @@ CREATE TABLE `reportagesex` (
   `status` char(2) DEFAULT '',
   `date_joined` date DEFAULT '0001-01-01',
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `reportprovider`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10864,7 +10864,7 @@ CREATE TABLE `reportprovider` (
   `action` varchar(20) DEFAULT '',
   `status` char(1) DEFAULT '',
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `reporttemp`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10877,7 +10877,7 @@ CREATE TABLE `reporttemp` (
   `address` text DEFAULT NULL,
   `creator` varchar(10) DEFAULT NULL,
   PRIMARY KEY (`demographic_no`,`edb`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `room`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10895,7 +10895,7 @@ CREATE TABLE `room` (
   PRIMARY KEY (`room_id`),
   KEY `FK_room_facility` (`facility_id`),
   CONSTRAINT `FK_room_facility` FOREIGN KEY (`facility_id`) REFERENCES `Facility` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `rschedule`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10912,7 +10912,7 @@ CREATE TABLE `rschedule` (
   `creator` varchar(50) DEFAULT NULL,
   `status` char(1) NOT NULL DEFAULT '',
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `scheduledate`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10932,7 +10932,7 @@ CREATE TABLE `scheduledate` (
   KEY `scheduledate_pno` (`provider_no`),
   KEY `scheduledate_status` (`status`),
   KEY `scheduledate_key1` (`sdate`,`provider_no`,`hour`,`status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `scheduleholiday`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10941,7 +10941,7 @@ CREATE TABLE `scheduleholiday` (
   `sdate` date NOT NULL DEFAULT '0001-01-01',
   `holiday_name` varchar(100) NOT NULL DEFAULT '',
   PRIMARY KEY (`sdate`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `scheduletemplate`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10952,7 +10952,7 @@ CREATE TABLE `scheduletemplate` (
   `summary` varchar(80) DEFAULT NULL,
   `timecode` text DEFAULT NULL,
   PRIMARY KEY (`provider_no`,`name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `scheduletemplatecode`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10967,7 +10967,7 @@ CREATE TABLE `scheduletemplatecode` (
   `bookinglimit` int(11) NOT NULL DEFAULT 1,
   PRIMARY KEY (`id`),
   KEY `code` (`code`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `scratch_pad`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10979,7 +10979,7 @@ CREATE TABLE `scratch_pad` (
   `scratch_text` text DEFAULT NULL,
   `status` tinyint(1) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `secObjPrivilege`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -10991,7 +10991,7 @@ CREATE TABLE `secObjPrivilege` (
   `priority` int(2) DEFAULT 0,
   `provider_no` varchar(6) DEFAULT NULL,
   PRIMARY KEY (`roleUserGroup`,`objectName`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `secObjectName`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -11001,7 +11001,7 @@ CREATE TABLE `secObjectName` (
   `description` varchar(60) DEFAULT NULL,
   `orgapplicable` tinyint(1) DEFAULT 0,
   PRIMARY KEY (`objectName`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `secPrivilege`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -11012,7 +11012,7 @@ CREATE TABLE `secPrivilege` (
   `description` varchar(80) NOT NULL DEFAULT '',
   PRIMARY KEY (`id`),
   UNIQUE KEY `privilege` (`privilege`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `secRole`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -11023,7 +11023,7 @@ CREATE TABLE `secRole` (
   `description` varchar(60) DEFAULT NULL,
   PRIMARY KEY (`role_no`),
   UNIQUE KEY `role_name` (`role_name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `secUserRole`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -11037,7 +11037,7 @@ CREATE TABLE `secUserRole` (
   `lastUpdateDate` datetime NOT NULL,
   PRIMARY KEY (`id`),
   KEY `secUserRole_ikey` (`lastUpdateDate`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `security`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -11064,7 +11064,7 @@ CREATE TABLE `security` (
   `mfaSecret` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`security_no`),
   UNIQUE KEY `user_name` (`user_name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `serviceSpecialists`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -11072,7 +11072,7 @@ DROP TABLE IF EXISTS `serviceSpecialists`;
 CREATE TABLE `serviceSpecialists` (
   `serviceId` int(10) DEFAULT NULL,
   `specId` int(10) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `site`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -11096,7 +11096,7 @@ CREATE TABLE `site` (
   PRIMARY KEY (`site_id`),
   UNIQUE KEY `unique_name` (`name`),
   UNIQUE KEY `unique_shortname` (`short_name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `specialistsJavascript`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -11106,7 +11106,7 @@ CREATE TABLE `specialistsJavascript` (
   `setId` char(1) DEFAULT NULL,
   `javascriptString` mediumtext DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `specialty`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -11115,7 +11115,7 @@ CREATE TABLE `specialty` (
   `region` varchar(5) DEFAULT '',
   `specialty` char(2) DEFAULT '',
   `specialtydesc` varchar(100) DEFAULT ''
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `survey`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -11133,7 +11133,7 @@ CREATE TABLE `survey` (
   `launched_instance_id` bigint(20) DEFAULT NULL,
   `version` bigint(20) DEFAULT 0,
   PRIMARY KEY (`surveyid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `surveyData`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -11158,7 +11158,7 @@ CREATE TABLE `surveyData` (
   KEY `survey_date_index` (`survey_date`),
   KEY `answer_index` (`answer`),
   KEY `processed_index` (`processed`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `table_modification`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -11176,7 +11176,7 @@ CREATE TABLE `table_modification` (
   KEY `table_modification_demographic_no` (`demographic_no`),
   KEY `table_modification_provider_no` (`provider_no`),
   KEY `table_modification_modification_type` (`modification_type`(10))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `tickler`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -11200,7 +11200,7 @@ CREATE TABLE `tickler` (
   KEY `idx_tickler_status_service_date` (`status`,`service_date`),
   KEY `idx_tickler_task_assigned_to` (`task_assigned_to`),
   KEY `idx_tickler_creator` (`creator`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `tickler_category`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -11211,7 +11211,7 @@ CREATE TABLE `tickler_category` (
   `description` varchar(255) DEFAULT NULL,
   `active` bit(1) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `tickler_comments`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -11224,7 +11224,7 @@ CREATE TABLE `tickler_comments` (
   `update_date` datetime NOT NULL,
   PRIMARY KEY (`id`),
   KEY `ticklerno` (`tickler_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `tickler_link`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -11236,7 +11236,7 @@ CREATE TABLE `tickler_link` (
   `tickler_no` int(10) NOT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_tickler_link_tickler_no` (`tickler_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `tickler_text_suggest`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -11248,7 +11248,7 @@ CREATE TABLE `tickler_text_suggest` (
   `create_date` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `active` tinyint(1) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `tickler_update`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -11263,7 +11263,7 @@ CREATE TABLE `tickler_update` (
   `provider_no` varchar(6) NOT NULL,
   `update_date` datetime NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `user_ds_message_prefs`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -11281,7 +11281,7 @@ CREATE TABLE `user_ds_message_prefs` (
   KEY `provider_no` (`provider_no`),
   KEY `resource_id` (`resource_id`),
   KEY `resource_type` (`resource_type`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `vacancy`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -11299,7 +11299,7 @@ CREATE TABLE `vacancy` (
   `statusUpdateUser` varchar(25) DEFAULT NULL,
   `statusUpdateDate` datetime DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `vacancy_client_match`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -11317,7 +11317,7 @@ CREATE TABLE `vacancy_client_match` (
   `proportion` varchar(8) DEFAULT NULL,
   PRIMARY KEY (`match_id`),
   UNIQUE KEY `vacancy_id` (`vacancy_id`,`client_id`,`form_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `vacancy_template`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -11328,7 +11328,7 @@ CREATE TABLE `vacancy_template` (
   `ACTIVE` tinyint(1) NOT NULL,
   `WL_PROGRAM_ID` int(11) NOT NULL,
   PRIMARY KEY (`TEMPLATE_ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `validations`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -11345,7 +11345,7 @@ CREATE TABLE `validations` (
   `isTrue` tinyint(1) DEFAULT NULL,
   `isDate` tinyint(1) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `view`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -11358,7 +11358,7 @@ CREATE TABLE `view` (
   `role` varchar(255) NOT NULL DEFAULT '',
   `providerNo` varchar(6) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `waitingList`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -11373,7 +11373,7 @@ CREATE TABLE `waitingList` (
   `is_history` char(1) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `listID` (`listID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `waitingListName`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -11386,7 +11386,7 @@ CREATE TABLE `waitingListName` (
   `create_date` datetime NOT NULL,
   `is_history` char(1) DEFAULT 'N',
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `workflow`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -11400,7 +11400,7 @@ CREATE TABLE `workflow` (
   `current_state` varchar(50) DEFAULT NULL,
   `create_date_time` datetime DEFAULT NULL,
   PRIMARY KEY (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
