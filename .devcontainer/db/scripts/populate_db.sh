@@ -18,8 +18,13 @@ SQL="mariadb -u root"
 # version order — mirroring Flyway's scan — so a newly added migration can never be silently
 # missed here. V1.0.1/V1.0.2 are the Ontario genesis files, loaded explicitly after V1 below.
 # (Filenames contain no whitespace — the repo's migration hook enforces V1.0.N__desc.sql.)
-FORWARD=$(ls "${MIG}/common/"V1.0.*__*.sql "${MIG}/on/"V1.0.*__*.sql 2>/dev/null \
-  | grep -Ev '/V1\.0\.[12]__' \
+FORWARD=$(for f in "${MIG}/common/"V1.0.*__*.sql "${MIG}/on/"V1.0.*__*.sql; do
+    [ -f "$f" ] || continue
+    case "$f" in
+      */V1.0.1__*|*/V1.0.2__*) continue ;;
+    esac
+    printf '%s\n' "$f"
+  done \
   | awk -F'/V1\\.0\\.' '{ n=$2; sub(/__.*/,"",n); print n "\t" $0 }' \
   | sort -n | cut -f2)
 if [ -z "${FORWARD}" ]; then
@@ -31,7 +36,7 @@ fi
 # authoring time — this guards files that bypass the hook (plain git add, external tools).
 DUP_VERSIONS=$(echo "${FORWARD}" | awk -F'/V1\\.0\\.' '{ n=$2; sub(/__.*/,"",n); print n }' | sort -n | uniq -d)
 if [ -n "${DUP_VERSIONS}" ]; then
-  echo "ERROR: duplicate forward migration version(s) across common+on:" $(echo "${DUP_VERSIONS}" | sed 's/^/V1.0./') >&2
+  echo "ERROR: duplicate forward migration version(s) across common+on: $(printf '%s\n' "${DUP_VERSIONS}" | sed 's/^/V1.0./')" >&2
   exit 1
 fi
 # Assemble the load into a temp file first: /bin/sh has no pipefail, so `cat ... | mariadb`

@@ -1,7 +1,7 @@
 #!/bin/bash
 
-SENDER=marc
-KEY=test
+SENDER="marc"
+KEY="test"
 
 DBNAME=oscar_15
 USERNAME=oscar
@@ -26,8 +26,7 @@ rm -f results.txt
 command -v mariadb >/dev/null 2>&1 && DB_CLIENT=mariadb || DB_CLIENT=mysql
 echo "SELECT count(*) from drugs where create_date >= DATE_SUB(NOW(), INTERVAL 30 day) and customName is not NULL;" | MYSQL_PWD="${PASSWORD}" "${DB_CLIENT}" -u "${USERNAME}" "${DBNAME}" | tail -1 > results.txt
 
-DATA=`cat results.txt`
+DATA=$(cat results.txt)
 
 #upload results using POST to avoid sensitive data in URL/logs
 wget --post-data="sender=${SENDER}&key=${KEY}&data=${DATA}" "https://download.oscar-emr.com/MedispanQueryService/uploadResults.jsp"
-

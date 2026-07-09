@@ -61,7 +61,7 @@ function getTimeStamp() {
         date '+%F-%T' 2>> $LOG_ERR
 }
 function errorExit() {
-        echo -e "ERROR: $1\n`getTimeStamp`" >> $LOG_ERR
+        echo -e "ERROR: $1\n$(getTimeStamp)" >> $LOG_ERR
         exit
 }
 function confirmVar() {
@@ -133,6 +133,9 @@ case "$optionName" in
   d) DATABASE="$OPTARG";;
   b) BASE_DOCUMENT_DIR="$OPTARG";;
   t) TMPBACKDIR="$OPTARG";;
+  \?) echo "Invalid option: -${OPTARG}" >&2; echo -e "$USAGE" >&2; exit 1;;
+  :) echo "Option -${OPTARG} requires an argument." >&2; echo -e "$USAGE" >&2; exit 1;;
+  *) echo -e "$USAGE" >&2; exit 1;;
 esac
 done
 
@@ -202,7 +205,7 @@ confirmVar $KEXALGORITHMS
 SSH_OPTIONS="ssh -C -o 'Protocol=2' -o 'KexAlgorithms $KEXALGORITHMS'"
 
 DY=$(date +%d)
-DATE_TIME="`getTimeStamp`"
+DATE_TIME="$(getTimeStamp)"
 SHUTDOWN_WAIT=120
 
 echo " >> ${DATE_TIME} Backup Start" >> $LOG_ERR
@@ -385,7 +388,7 @@ fi
 
 chown -R $TOMCAT_OWNER $BASE_DOCUMENT_DIR/carlos 2>> $LOG_ERR
 
-DATE_TIME="`getTimeStamp`"
+DATE_TIME="$(getTimeStamp)"
 
 pid=$(ps aux | grep org.apache.catalina.startup.Bootstrap | grep -v grep | awk '{ print $2 }')
 echo ${pid}
