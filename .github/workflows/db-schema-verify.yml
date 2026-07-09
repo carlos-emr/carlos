@@ -68,6 +68,13 @@ jobs:
             [ "$i" = 60 ] && { echo "::error::MariaDB did not start"; docker logs carlos-db; exit 1; }
             sleep 2
           done
+          # ASSERT the 32K invariant this whole job depends on — a mis-mounted my.cnf would fall
+          # back to 16K pages and only fail indirectly (or not at all) on narrow tables.
+          PAGE_SIZE=$(mariadb -N -h 127.0.0.1 -uroot -ppassword -e 'SELECT @@innodb_page_size')
+          if [ "${PAGE_SIZE}" != "32768" ]; then
+            echo "::error::innodb_page_size is ${PAGE_SIZE}, expected 32768 — the CARLOS my.cnf did not apply"
+            exit 1
+          fi
 
       - name: Migrate the V1 baseline and smoke-check the result
         env:

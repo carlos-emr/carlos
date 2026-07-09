@@ -1015,7 +1015,7 @@ Labels are reserved for cross-cutting attributes that can apply alongside any is
 - **Security**: `SecurityInfoManager.hasPrivilege()` + OWASP encoding required
 - **Actions**: `*2Action.java` pattern for Struts2 migration
 - **Packages**: `io.github.carlos_emr.carlos.*` (new) vs `org.oscarehr.*` (legacy)
-- **Database**: Date-based migrations, audit trails (`lastUpdateUser`, `lastUpdateDate`)
+- **Database**: Flyway V1 baseline + sequential V1.0.N forward migrations, audit trails (`lastUpdateUser`, `lastUpdateDate`)
 
 ---
 

@@ -3,7 +3,8 @@
 # zero references in the repo outside database/. From removed/legacy modules (BORN, OCAN,
 # generic-intake, PHR, Integrator, Sharing/XDS, Eyeform, HRM, MDS, drug-dispensing, CAISI
 # reporting/bed/room/security). 20 are DROPped by the project's own *-removal.sql scripts.
-# build-baseline.sh and db-schema-verify.yml drop these before generating/verifying V1.
+# These tables were excluded when V1 was captured at the Flyway cutover (the retired
+# build-baseline.sh generator dropped them before the dump); kept as documentation.
 # HELD for manual review (NOT pruned): HL7HandlerMSHMapping, billing_on_cheader2.
 # See the dead-table reevaluation for per-table detail.
 BORNPathwayMapping
