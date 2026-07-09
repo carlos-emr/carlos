@@ -288,6 +288,10 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
         }
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: constructed path is immediately validated for
+    // directory containment before readability check or use.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
+            justification = "path is validated for directory containment before readability check or use")
     private File resolveReadableDocumentAttachmentFile(String documentDirectory, EDoc doc) {
         File validatedFile = PathValidationUtils.validateExistingPath(
                 new File(documentDirectory, doc.getFileName()), new File(documentDirectory));
