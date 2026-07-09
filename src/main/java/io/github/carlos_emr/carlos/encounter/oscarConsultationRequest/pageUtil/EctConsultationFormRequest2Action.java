@@ -711,10 +711,19 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
             request.setAttribute(ATTR_ERROR_MESSAGE, PRINT_PREVIEW_ERROR_MESSAGE);
             return false;
         }
+        Integer parsedConsultationDemographicNo;
+        try {
+            parsedConsultationDemographicNo = Integer.valueOf(consultationDemographicNo);
+        } catch (NumberFormatException e) {
+            logger.error("Invalid consultation demographic while generating print preview for requestId={}",
+                    LogSafe.sanitize(requestId), e);
+            request.setAttribute(ATTR_ERROR_MESSAGE, PRINT_PREVIEW_ERROR_MESSAGE);
+            return false;
+        }
 
         request.setAttribute("reqId", requestId);
         request.setAttribute("demographicId", consultationDemographicNo);
-        String fileName = generateFileName(loggedInInfo, Integer.parseInt(consultationDemographicNo));
+        String fileName = generateFileName(loggedInInfo, parsedConsultationDemographicNo);
         String base64PDF = "";
         try {
             Path pdfPath = documentAttachmentManager.renderConsultationFormWithAttachments(request, response);
