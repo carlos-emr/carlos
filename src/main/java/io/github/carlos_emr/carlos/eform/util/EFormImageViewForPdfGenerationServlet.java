@@ -103,7 +103,14 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
             throw e;
         } catch (IllegalArgumentException | SecurityException e) {
             logger.warn("Rejected EFormImageViewForPdfGenerationServlet request", e);
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
+            if (!response.isCommitted()) {
+                try {
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
+                } catch (IOException ioException) {
+                    logger.debug("Unable to send bad-request response for EFormImageViewForPdfGenerationServlet", ioException);
+                    throw ioException;
+                }
+            }
         } catch (Exception e) {
             logger.error("Unexpected error in EFormImageViewForPdfGenerationServlet", e);
             if (!response.isCommitted()) {

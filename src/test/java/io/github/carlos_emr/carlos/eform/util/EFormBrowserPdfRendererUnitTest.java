@@ -5,6 +5,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.List;
 import java.util.Set;
@@ -52,11 +53,49 @@ class EFormBrowserPdfRendererUnitTest {
     }
 
     @Test
-    @DisplayName("should create a secure temporary renderer directory")
+    @DisplayName("should resolve the renderer temp root under base document directory when configured")
+    void shouldResolveRendererTempRoot_underBaseDocumentDirectoryWhenConfigured() {
+        Path root = EFormBrowserPdfRenderer.resolveRendererTempRoot(
+                "/var/lib/carlos/documents",
+                "/var/lib/tomcat10",
+                "/tmp");
+
+        assertThat(root)
+                .isEqualTo(Paths.get("/var/lib/carlos/documents", "eform", "browser-pdf-temp"));
+    }
+
+    @Test
+    @DisplayName("should resolve the renderer temp root under catalina base when base document directory is missing")
+    void shouldResolveRendererTempRoot_underCatalinaBaseWhenBaseDocumentDirectoryMissing() {
+        Path root = EFormBrowserPdfRenderer.resolveRendererTempRoot(
+                null,
+                "/var/lib/tomcat10",
+                "/tmp");
+
+        assertThat(root)
+                .isEqualTo(Paths.get("/var/lib/tomcat10", "work", "carlos", "eform-browser-pdf-temp"));
+    }
+
+    @Test
+    @DisplayName("should resolve the renderer temp root under a namespaced system temp fallback")
+    void shouldResolveRendererTempRoot_underNamespacedSystemTempFallback() {
+        Path root = EFormBrowserPdfRenderer.resolveRendererTempRoot(
+                null,
+                null,
+                "/tmp");
+
+        assertThat(root)
+                .isEqualTo(Paths.get("/tmp", "carlos-eform-browser-pdf-temp"));
+    }
+
+    @Test
+    @DisplayName("should create a secure temporary renderer directory inside the managed temp root")
     void shouldCreateSecureTemporaryRendererDirectory() throws IOException {
-        Path directory = EFormBrowserPdfRenderer.createSecureTempDirectory("eform-browser-render-test-");
+        Path root = Files.createTempDirectory("eform-browser-render-root-");
+        Path directory = EFormBrowserPdfRenderer.createSecureTempDirectory(root, "eform-browser-render-test-");
         try {
             assertThat(Files.isDirectory(directory)).isTrue();
+            assertThat(directory.getParent()).isEqualTo(root);
             if (Files.getFileStore(directory).supportsFileAttributeView("posix")) {
                 assertThat(Files.getPosixFilePermissions(directory))
                         .containsExactlyInAnyOrder(
@@ -66,15 +105,18 @@ class EFormBrowserPdfRendererUnitTest {
             }
         } finally {
             Files.deleteIfExists(directory);
+            Files.deleteIfExists(root);
         }
     }
 
     @Test
-    @DisplayName("should create a secure temporary renderer pdf file")
+    @DisplayName("should create a secure temporary renderer pdf file inside the managed temp root")
     void shouldCreateSecureTemporaryRendererPdfFile() throws IOException {
-        Path file = EFormBrowserPdfRenderer.createSecureTempFile("eform-browser-render-test-", ".pdf");
+        Path root = Files.createTempDirectory("eform-browser-render-root-");
+        Path file = EFormBrowserPdfRenderer.createSecureTempFile(root, "eform-browser-render-test-", ".pdf");
         try {
             assertThat(Files.isRegularFile(file)).isTrue();
+            assertThat(file.getParent()).isEqualTo(root);
             if (Files.getFileStore(file).supportsFileAttributeView("posix")) {
                 Set<PosixFilePermission> permissions = Files.getPosixFilePermissions(file);
                 assertThat(permissions)
@@ -84,6 +126,7 @@ class EFormBrowserPdfRendererUnitTest {
             }
         } finally {
             Files.deleteIfExists(file);
+            Files.deleteIfExists(root);
         }
     }
 

@@ -8,6 +8,7 @@ import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.io.File;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -45,6 +46,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 
 @Service
@@ -71,15 +73,16 @@ public class EFormBrowserPdfRenderer {
         String projectHome = CarlosProperties.getInstance().getProperty("project_home", "");
         String baseUrl = resolveBaseUrl(projectHome, ServletActionContext.getRequest());
         String appPath = buildAppPath(fdid, providerId);
-        Path runtimeRoot = prepareRendererRuntime();
+        Path tempRoot = resolveRendererTempRoot();
+        Path runtimeRoot = prepareRendererRuntime(tempRoot);
         Path scriptPath = runtimeRoot.resolve(MAIN_SCRIPT_NAME);
         Path nodeModulesRoot = resolveNodeModulesRoot(runtimeRoot);
         Path outputDirectory;
         Path outputPdfPath;
 
         try {
-            outputDirectory = createSecureTempDirectory("eform-browser-render-");
-            outputPdfPath = createSecureTempFile("eform-browser-render-", ".pdf");
+            outputDirectory = createSecureTempDirectory(tempRoot, "eform-browser-render-");
+            outputPdfPath = createSecureTempFile(tempRoot, "eform-browser-render-", ".pdf");
         } catch (IOException e) {
             throw new PDFGenerationException("Unable to allocate temporary files for browser-rendered eForm output.", e);
         }
@@ -266,12 +269,36 @@ public class EFormBrowserPdfRenderer {
         return null;
     }
 
-    private Path prepareRendererRuntime() throws PDFGenerationException {
+    private Path resolveRendererTempRoot() throws PDFGenerationException {
+        try {
+            return resolveRendererTempRoot(
+                    CarlosProperties.getInstance().getProperty("BASE_DOCUMENT_DIR"),
+                    System.getProperty("catalina.base"),
+                    System.getProperty("java.io.tmpdir"));
+        } catch (RuntimeException e) {
+            throw new PDFGenerationException("Unable to resolve a managed temporary directory for eForm browser PDF generation.", e);
+        }
+    }
+
+    static Path resolveRendererTempRoot(String baseDocumentDir, String catalinaBase, String javaTmpDir) {
+        if (baseDocumentDir != null && !baseDocumentDir.isBlank()) {
+            File baseDir = PathValidationUtils.resolveConfiguredDirectory(baseDocumentDir.trim(), "BASE_DOCUMENT_DIR");
+            return Path.of(baseDir.getPath(), "eform", "browser-pdf-temp");
+        }
+        if (catalinaBase != null && !catalinaBase.isBlank()) {
+            File catalinaDir = PathValidationUtils.resolveConfiguredDirectory(catalinaBase.trim(), "catalina.base");
+            return Path.of(catalinaDir.getPath(), "work", "carlos", "eform-browser-pdf-temp");
+        }
+        File tempDir = PathValidationUtils.validateConfiguredDirectory(javaTmpDir, "java.io.tmpdir");
+        return Path.of(tempDir.getPath(), "carlos-eform-browser-pdf-temp");
+    }
+
+    private Path prepareRendererRuntime(Path tempRoot) throws PDFGenerationException {
         Path checkoutRoot = resolveScriptRoot();
         if (checkoutRoot != null) {
             return checkoutRoot.resolve("scripts");
         }
-        return extractBundledRendererRuntime();
+        return extractBundledRendererRuntime(tempRoot);
     }
 
     private Path resolveScriptRoot() {
@@ -350,9 +377,9 @@ public class EFormBrowserPdfRenderer {
         }
     }
 
-    private Path extractBundledRendererRuntime() throws PDFGenerationException {
+    private Path extractBundledRendererRuntime(Path tempRoot) throws PDFGenerationException {
         try {
-            Path runtimeDir = createSecureTempDirectory("eform-browser-pdf-runtime-");
+            Path runtimeDir = createSecureTempDirectory(tempRoot, "eform-browser-pdf-runtime-");
             runtimeDir.toFile().deleteOnExit();
             for (String scriptName : BUNDLED_SCRIPT_NAMES) {
                 copyBundledScript(runtimeDir, scriptName);
@@ -407,24 +434,25 @@ public class EFormBrowserPdfRenderer {
         }
     }
 
-    static Path createSecureTempDirectory(String prefix) throws IOException {
-        return createSecureTempPath(true, prefix, null);
+    static Path createSecureTempDirectory(Path tempRoot, String prefix) throws IOException {
+        return createSecureTempPath(tempRoot, true, prefix, null);
     }
 
-    static Path createSecureTempFile(String prefix, String suffix) throws IOException {
-        return createSecureTempPath(false, prefix, suffix);
+    static Path createSecureTempFile(Path tempRoot, String prefix, String suffix) throws IOException {
+        return createSecureTempPath(tempRoot, false, prefix, suffix);
     }
 
-    private static Path createSecureTempPath(boolean directory, String prefix, String suffix) throws IOException {
+    private static Path createSecureTempPath(Path tempRoot, boolean directory, String prefix, String suffix) throws IOException {
+        Path managedRoot = Files.createDirectories(tempRoot);
         FileAttribute<?>[] secureAttributes = securePosixAttributes(directory);
         if (directory) {
             return secureAttributes.length == 0
-                    ? Files.createTempDirectory(prefix)
-                    : Files.createTempDirectory(prefix, secureAttributes);
+                    ? Files.createTempDirectory(managedRoot, prefix)
+                    : Files.createTempDirectory(managedRoot, prefix, secureAttributes);
         }
         return secureAttributes.length == 0
-                ? Files.createTempFile(prefix, suffix)
-                : Files.createTempFile(prefix, suffix, secureAttributes);
+                ? Files.createTempFile(managedRoot, prefix, suffix)
+                : Files.createTempFile(managedRoot, prefix, suffix, secureAttributes);
     }
 
     private static FileAttribute<?>[] securePosixAttributes(boolean directory) {
