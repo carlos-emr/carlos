@@ -50,9 +50,10 @@ MIGRATION_DIRECTORIES = (
 # Expected patch file naming pattern
 PATCH_PATTERN = re.compile(r"^update-\d{4}-\d{2}-\d{2}-.+\.sql$")
 # Flyway forward-migration naming: sequential versions in the V1.x family (next free number),
-# e.g. V1.0.3__performance_indexes.sql. The five genesis baseline files are protected by exact
-# basename above, so they can never be (re)created or edited through this allowance.
-MIGRATION_PATTERN = re.compile(r"^V\d+(\.\d+)*__.+\.sql$")
+# e.g. V1.0.3__performance_indexes.sql. Restricted to V1.<n>[.<n>...] so date-style (V2026.07.08)
+# or new-major (V2.0.0) names are rejected — the documented convention is V1.0.N. The five genesis
+# baseline files are additionally protected by exact basename above.
+MIGRATION_PATTERN = re.compile(r"^V1(\.\d+)+__.+\.sql$")
 
 
 def get_file_path_from_input(tool_input: dict) -> str:
@@ -86,11 +87,13 @@ def is_valid_patch_file(file_path: str) -> bool:
     # Legacy dated patch directory is FROZEN: existing files may still be edited (a few are read
     # by regression tests / applied for demo seeding), but NEW files there would be schema changes
     # outside Flyway history — those must go to migration/<common|on|bc> instead.
-    if PATCH_DIRECTORY in file_path and PATCH_PATTERN.match(path.name) is not None:
+    # (Trailing slash makes this a path-component match, not a bare substring — it must not catch
+    # sibling paths like updates_bak/ or an updates_summary.sql file.)
+    if f"{PATCH_DIRECTORY}/" in file_path and PATCH_PATTERN.match(path.name) is not None:
         return path.exists()
 
     # Flyway forward migration under common/on/bc
-    if any(loc in file_path for loc in MIGRATION_DIRECTORIES) and \
+    if any(f"{loc}/" in file_path for loc in MIGRATION_DIRECTORIES) and \
             MIGRATION_PATTERN.match(path.name) is not None:
         return True
 
@@ -157,8 +160,9 @@ def main():
 
         # Block anything else under the FROZEN legacy updates/ dir: new files there would be
         # schema changes outside Flyway history (is_valid_patch_file only allows edits to
-        # EXISTING well-named patches, which a few tests/demo seeds still read).
-        if PATCH_DIRECTORY in file_path:
+        # EXISTING well-named patches, which a few tests/demo seeds still read). Trailing slash
+        # keeps this a directory-boundary match (updates_bak/ etc. must not be caught).
+        if f"{PATCH_DIRECTORY}/" in file_path:
             print("\n=== SQL Migration Pattern Enforcer ===", file=sys.stderr)
             print("BLOCKED: database/mysql/updates/ is FROZEN — no new files", file=sys.stderr)
             print(f"File: {file_path}\n", file=sys.stderr)
@@ -189,6 +193,18 @@ def main():
             print("    'ALTER TABLE table_name ADD COLUMN column_name varchar(25)',", file=sys.stderr)
             print("    'SELECT \"Column already exists\"');", file=sys.stderr)
             print("  PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;", file=sys.stderr)
+            sys.exit(2)
+
+        # Block badly-versioned SQL under the migration location dirs: anything that reached
+        # here is neither a protected baseline nor a valid V1.0.N forward migration (date-style
+        # V2026.07.08 or new-major V2.x names land here too).
+        if any(f"{loc}/" in file_path for loc in MIGRATION_DIRECTORIES):
+            print("\n=== SQL Migration Pattern Enforcer ===", file=sys.stderr)
+            print("BLOCKED: invalid Flyway migration name for this location", file=sys.stderr)
+            print(f"File: {file_path}\n", file=sys.stderr)
+            print("Forward migrations must be named V1.0.N__short_description.sql", file=sys.stderr)
+            print("  (sequential; use the next free version number; make it idempotent)", file=sys.stderr)
+            print("  Example: V1.0.5__add_provider_type_column.sql", file=sys.stderr)
             sys.exit(2)
 
         # Block creation of new SQL files in protected directories

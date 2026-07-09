@@ -625,10 +625,10 @@ else
 		echo  Populated ${db_name} with demo data>>$LOG_FILE
 	fi
 
-    echo "creating secrets for 2FA" >> $LOG_FILE
-    ## take the top 30 characters from dev/urandom, uencode it
-    SECRET=$(head -c 30 /dev/urandom | base32)
-    $MYSQL ${db_name} -e "UPDATE security SET totp_secret='${SECRET}' WHERE user_name='oscardoc' LIMIT 1;"
+    # The legacy 2FA-secret step (UPDATE security SET totp_secret=... for the seeded clinician)
+    # has been removed: CARLOS carries no totp_secret column anywhere (schema, updates, or code)
+    # — it was an upstream-fork feature that never existed in this schema, so the statement could
+    # only ever fail into the log.
 
     echo "Generating random initial credentials for 'carlos' admin user" >> $LOG_FILE
     # Generate a password meeting CARLOS default requirements:
@@ -642,12 +642,16 @@ else
     # Generate a random 4-digit PIN
     CARLOS_PIN=$(printf '%04d' $(( $(od -An -N2 -tu2 < /dev/urandom | tr -d ' ') % 10000 )))
     # Insert 'carlos' user into the security table, copying provider_no and lock settings
-    # from the existing 'oscardoc' account so privileges are the same.
+    # from the seeded 'carlosdoc' account so privileges are the same.
     # Account expires in 1 month (b_ExpireSet=1, date_ExpireDate = now + 1 month)
     # and requires a password change at first login (forcePasswordReset=1).
     ncecho " [x] Created initial carlos admin user in security table "
-    $MYSQL ${db_name} -e "INSERT INTO security (user_name, password, provider_no, pin, b_ExpireSet, date_ExpireDate, b_LocalLockSet, b_RemoteLockSet, forcePasswordReset, lastUpdateDate, lastUpdateUser) SELECT 'carlos', '${CARLOS_PASS}', provider_no, '${CARLOS_PIN}', 1, DATE_ADD(CURDATE(), INTERVAL 1 MONTH), b_LocalLockSet, b_RemoteLockSet, 1, NOW(), 'system' FROM security WHERE user_name='oscardoc' LIMIT 1;" 2>>$LOG_FILE &
+    $MYSQL ${db_name} -e "INSERT INTO security (user_name, password, provider_no, pin, b_ExpireSet, date_ExpireDate, b_LocalLockSet, b_RemoteLockSet, forcePasswordReset, lastUpdateDate, lastUpdateUser) SELECT 'carlos', '${CARLOS_PASS}', provider_no, '${CARLOS_PIN}', 1, DATE_ADD(CURDATE(), INTERVAL 1 MONTH), b_LocalLockSet, b_RemoteLockSet, 1, NOW(), 'system' FROM security WHERE user_name='carlosdoc' LIMIT 1;" 2>>$LOG_FILE &
     pid=$!;progress $pid
+    # Harden the seeded default clinician account the same way: its documented password/PIN
+    # cannot survive first login on a production install (forcePasswordReset=1), matching the
+    # rotation warning printed after schema creation.
+    $MYSQL ${db_name} -e "UPDATE security SET forcePasswordReset=1, lastUpdateDate=NOW(), lastUpdateUser='system' WHERE user_name='carlosdoc' LIMIT 1;" 2>>$LOG_FILE
 
 	echo "probing for Java" >>$LOG_FILE
 

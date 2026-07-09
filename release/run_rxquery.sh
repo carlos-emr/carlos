@@ -24,7 +24,7 @@ rm -f results.txt
 #run query
 # mariadb client preferred (MariaDB 11.x has no mysql symlink); fall back to mysql.
 command -v mariadb >/dev/null 2>&1 && DB_CLIENT=mariadb || DB_CLIENT=mysql
-echo "SELECT count(*) from drugs where create_date >= DATE_SUB(NOW(), INTERVAL 30 day) and customName is not NULL;" | MYSQL_PWD="${PASSWORD}" ${DB_CLIENT} -u $USERNAME $DBNAME | tail -1 > results.txt
+echo "SELECT count(*) from drugs where create_date >= DATE_SUB(NOW(), INTERVAL 30 day) and customName is not NULL;" | MYSQL_PWD="${PASSWORD}" "${DB_CLIENT}" -u "${USERNAME}" "${DBNAME}" | tail -1 > results.txt
 
 DATA=`cat results.txt`
 

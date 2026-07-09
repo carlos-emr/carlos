@@ -19,6 +19,7 @@ import java.nio.file.Path;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -39,14 +40,21 @@ class AdminSecuritySeedRegressionTest {
 
     private static final Path SEED = Path.of("database", "mysql", "migration", "on", "V1.0.2__on_data.sql");
 
+    /** The seed dump is a multi-MB mysqldump — read once per class, not per test. */
+    private static String seedSql;
+
+    @BeforeAll
+    static void loadSeed() throws IOException {
+        seedSql = Files.readString(SEED, StandardCharsets.UTF_8);
+    }
+
     @Test
     @DisplayName("should grant site-access privacy to admin role in fresh and migrated databases")
     void shouldGrantSiteAccessPrivacy_toAdminRole() throws IOException {
-        String freshSeed = Files.readString(SEED, StandardCharsets.UTF_8);
         String migration = Files.readString(Path.of(
                 "database/mysql/updates/update-2026-05-19-admin-site-access-privacy.sql"), StandardCharsets.UTF_8);
 
-        assertThat(freshSeed)
+        assertThat(seedSql)
                 .as("fresh dev databases should let carlosdoc's admin role reach site-aware admin pages")
                 .contains("('admin','_site_access_privacy','x',0,'999998')");
         assertThat(migration)
@@ -58,9 +66,7 @@ class AdminSecuritySeedRegressionTest {
     @Test
     @DisplayName("should seed doctor role with eForm write privilege in fresh seed")
     void shouldSeedDoctorEFormWritePrivilege_inFreshSeed() throws IOException {
-        String freshSeed = Files.readString(SEED, StandardCharsets.UTF_8);
-
-        assertThat(freshSeed)
+        assertThat(seedSql)
                 .as("fresh dev databases should seed doctor with _eform write (not full-access)")
                 .contains("('doctor','_eform','w',0,'999998')")
                 .as("admin deletion rights come from the existing _admin.eform grant, not a new _eform:d row")

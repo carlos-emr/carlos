@@ -24,6 +24,7 @@ import java.nio.file.Path;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -49,11 +50,17 @@ class CarlosdocPrivilegeSeedRegressionTest {
     private static final Path MIGRATION = Path.of("database", "mysql", "updates",
             "update-2026-05-21-carlosdoc-schedule-group-privilege.sql");
 
+    /** The seed dump is a multi-MB mysqldump — read once per class, not per test. */
+    private static String seedSql;
+
+    @BeforeAll
+    static void loadSeed() throws IOException {
+        seedSql = Files.readString(SEED, StandardCharsets.UTF_8);
+    }
+
     @Test
     @DisplayName("should keep carlosdoc in admin role and preserve schedule access")
     void shouldKeepCarlosdocAdmin_whenSeeded() throws IOException {
-        String seedSql = Files.readString(SEED, StandardCharsets.UTF_8);
-
         assertThat(seedSql).contains(
                 "'999998','admin','R0000001',1,",
                 "('admin','_admin','x',0,'999998')",
@@ -64,8 +71,6 @@ class CarlosdocPrivilegeSeedRegressionTest {
     @Test
     @DisplayName("should deny carlosdoc schedule group creation in seed")
     void shouldDenyCarlosdocGroupCreation_whenSeeded() throws IOException {
-        String seedSql = Files.readString(SEED, StandardCharsets.UTF_8);
-
         assertThat(seedSql).contains(
                 "('_admin.schedule.groupCreate','Create schedule provider groups',0)",
                 "('admin','_admin.schedule.groupCreate','x',0,'999998')",
