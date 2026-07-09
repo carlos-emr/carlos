@@ -2,8 +2,8 @@ package io.github.carlos_emr.carlos.consultation;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
@@ -51,7 +51,7 @@ class ConsultationDemographicResolverUnitTest {
         assertThat(resolution.isResolved()).isFalse();
         assertThat(resolution.failureReason()).isEqualTo(FailureReason.MISSING_REQUEST_ID);
         assertThat(resolution.cause()).isNull();
-        verify(consultationRequestDao, never()).find(9);
+        verifyNoInteractions(consultationRequestDao);
     }
 
     @Test
@@ -67,7 +67,7 @@ class ConsultationDemographicResolverUnitTest {
         assertThat(resolution.isResolved()).isFalse();
         assertThat(resolution.failureReason()).isEqualTo(FailureReason.INVALID_REQUEST_ID);
         assertThat(resolution.cause()).isInstanceOf(NumberFormatException.class);
-        verify(consultationRequestDao, never()).find(9);
+        verifyNoInteractions(consultationRequestDao);
         verify(logger).warn("Invalid consultation {} request id while resolving demographic", "print");
     }
 
