@@ -238,7 +238,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("warns but returns unsigned PDF JSON when preview signature persistence throws")
-    void shouldWarnButReturnPdf_whenManualSignaturePersistenceThrowsForDirectPrintPreview() throws Exception {
+    void shouldReturnUnsignedPdfWithWarning_whenManualSignaturePersistenceThrowsForDirectPrintPreview() throws Exception {
         action.setSignatureImg("9999981000");
         request.setParameter("newSignature", "true");
         request.setParameter("newSignatureImg", "9999981000");

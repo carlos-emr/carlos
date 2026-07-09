@@ -711,8 +711,8 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                     loggedInInfo, consultationRequestId, demographicId, submittedSignatureImg,
                     manualSignatureRequestId, signatureProviderNo);
         } catch (DataAccessException | PersistenceException | TransactionException e) {
-            logger.error("Unable to persist captured consultation signature before print preview (requestId={})",
-                    consultationRequestId, e);
+            logger.error("Unable to persist captured consultation signature before print preview (requestId={}, provider={})",
+                    consultationRequestId, LogSafe.sanitize(signatureProviderNo), e);
             warnSignatureNotApplied();
             return true;
         }
