@@ -161,7 +161,7 @@ async function capturePages(page, outputDir) {
   const files = [];
   for (let index = 0; index < regions.length; index += 1) {
     const clip = regions[index];
-    const outputPath = path.join(outputDir, `page-${String(index + 1).padStart(3, '0')}.png`);
+    const outputPath = path.join(outputDir, `page-${String(index + 1).padStart(3, '0')}.png`); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- outputDir is normalized from a validated local artifact directory and the filename is a fixed renderer-generated basename
     await page.screenshot({
       path: outputPath,
       clip: {
@@ -203,7 +203,7 @@ async function main() {
   let captureFiles = [];
   try {
     await page.emulateMedia({ media: 'screen' });
-    await page.goto(appUrl(baseUrl, args['app-path']), { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page.goto(appUrl(baseUrl, args['app-path']), { waitUntil: 'domcontentloaded', timeout: 30000 }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- validateBaseUrl restricts hosts to local/private by default and appUrl rejects non-root-relative or protocol-relative paths
     await waitForStableRender(page);
     await preparePageForCapture(page);
     captureFiles = await capturePages(page, outputDir);

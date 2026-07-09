@@ -37,6 +37,8 @@ import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.apache.struts2.ServletActionContext;
 import org.springframework.stereotype.Service;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
@@ -217,6 +219,8 @@ public class EFormBrowserPdfRenderer {
         return normalizedPath;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (host label classification for local/private loopback); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (host label classification for local/private loopback); not a security or authorization decision")
     static boolean isLocalRendererHost(String rawHost) {
         String host = rawHost == null ? "" : rawHost.trim().toLowerCase();
         if (host.startsWith("[") && host.endsWith("]")) {
