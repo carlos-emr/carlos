@@ -13,10 +13,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.FileAttribute;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -74,8 +78,8 @@ public class EFormBrowserPdfRenderer {
         Path outputPdfPath;
 
         try {
-            outputDirectory = Files.createTempDirectory("eform-browser-render-");
-            outputPdfPath = Files.createTempFile("eform-browser-render-", ".pdf");
+            outputDirectory = createSecureTempDirectory("eform-browser-render-");
+            outputPdfPath = createSecureTempFile("eform-browser-render-", ".pdf");
         } catch (IOException e) {
             throw new PDFGenerationException("Unable to allocate temporary files for browser-rendered eForm output.", e);
         }
@@ -348,7 +352,7 @@ public class EFormBrowserPdfRenderer {
 
     private Path extractBundledRendererRuntime() throws PDFGenerationException {
         try {
-            Path runtimeDir = Files.createTempDirectory("eform-browser-pdf-runtime-");
+            Path runtimeDir = createSecureTempDirectory("eform-browser-pdf-runtime-");
             runtimeDir.toFile().deleteOnExit();
             for (String scriptName : BUNDLED_SCRIPT_NAMES) {
                 copyBundledScript(runtimeDir, scriptName);
@@ -403,6 +407,42 @@ public class EFormBrowserPdfRenderer {
         }
     }
 
+    static Path createSecureTempDirectory(String prefix) throws IOException {
+        return createSecureTempPath(true, prefix, null);
+    }
+
+    static Path createSecureTempFile(String prefix, String suffix) throws IOException {
+        return createSecureTempPath(false, prefix, suffix);
+    }
+
+    private static Path createSecureTempPath(boolean directory, String prefix, String suffix) throws IOException {
+        FileAttribute<?>[] secureAttributes = securePosixAttributes(directory);
+        if (directory) {
+            return secureAttributes.length == 0
+                    ? Files.createTempDirectory(prefix)
+                    : Files.createTempDirectory(prefix, secureAttributes);
+        }
+        return secureAttributes.length == 0
+                ? Files.createTempFile(prefix, suffix)
+                : Files.createTempFile(prefix, suffix, secureAttributes);
+    }
+
+    private static FileAttribute<?>[] securePosixAttributes(boolean directory) {
+        try {
+            Set<PosixFilePermission> permissions = directory
+                    ? EnumSet.of(
+                            PosixFilePermission.OWNER_READ,
+                            PosixFilePermission.OWNER_WRITE,
+                            PosixFilePermission.OWNER_EXECUTE)
+                    : EnumSet.of(
+                            PosixFilePermission.OWNER_READ,
+                            PosixFilePermission.OWNER_WRITE);
+            return new FileAttribute<?>[] { PosixFilePermissions.asFileAttribute(permissions) };
+        } catch (UnsupportedOperationException e) {
+            return new FileAttribute<?>[0];
+        }
+    }
+
     private static boolean isDefaultPort(String scheme, int port) {
         return ("http".equalsIgnoreCase(scheme) && port == 80)
                 || ("https".equalsIgnoreCase(scheme) && port == 443);
@@ -420,9 +460,8 @@ public class EFormBrowserPdfRenderer {
         if (directory == null) {
             return;
         }
-        try {
-            Files.walk(directory)
-                    .sorted(Comparator.reverseOrder())
+        try (var stream = Files.walk(directory)) {
+            stream.sorted(Comparator.reverseOrder())
                     .forEach(EFormBrowserPdfRenderer::deleteQuietly);
         } catch (IOException e) {
             logger.debug("Unable to delete temporary browser-rendered capture directory {}", directory, e);

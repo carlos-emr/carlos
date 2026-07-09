@@ -3,8 +3,11 @@ package io.github.carlos_emr.carlos.eform.util;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermission;
 import java.util.List;
+import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -43,7 +46,44 @@ class EFormBrowserPdfRendererUnitTest {
                     .contains(".DoNotPrint")
                     .contains("#BaseSelect")
                     .contains("computeCaptureRegions")
-                    .contains("unionRects");
+                    .contains("unionRects")
+                    .contains("document.fonts.ready instanceof Promise");
+        }
+    }
+
+    @Test
+    @DisplayName("should create a secure temporary renderer directory")
+    void shouldCreateSecureTemporaryRendererDirectory() throws IOException {
+        Path directory = EFormBrowserPdfRenderer.createSecureTempDirectory("eform-browser-render-test-");
+        try {
+            assertThat(Files.isDirectory(directory)).isTrue();
+            if (Files.getFileStore(directory).supportsFileAttributeView("posix")) {
+                assertThat(Files.getPosixFilePermissions(directory))
+                        .containsExactlyInAnyOrder(
+                                PosixFilePermission.OWNER_READ,
+                                PosixFilePermission.OWNER_WRITE,
+                                PosixFilePermission.OWNER_EXECUTE);
+            }
+        } finally {
+            Files.deleteIfExists(directory);
+        }
+    }
+
+    @Test
+    @DisplayName("should create a secure temporary renderer pdf file")
+    void shouldCreateSecureTemporaryRendererPdfFile() throws IOException {
+        Path file = EFormBrowserPdfRenderer.createSecureTempFile("eform-browser-render-test-", ".pdf");
+        try {
+            assertThat(Files.isRegularFile(file)).isTrue();
+            if (Files.getFileStore(file).supportsFileAttributeView("posix")) {
+                Set<PosixFilePermission> permissions = Files.getPosixFilePermissions(file);
+                assertThat(permissions)
+                        .containsExactlyInAnyOrder(
+                                PosixFilePermission.OWNER_READ,
+                                PosixFilePermission.OWNER_WRITE);
+            }
+        } finally {
+            Files.deleteIfExists(file);
         }
     }
 

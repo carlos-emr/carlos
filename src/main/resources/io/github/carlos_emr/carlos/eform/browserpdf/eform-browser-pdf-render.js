@@ -36,7 +36,7 @@ async function waitForStableRender(page) {
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   await page.waitForTimeout(1500);
   await page.evaluate(async () => {
-    if (document.fonts && document.fonts.ready) {
+    if (document.fonts && document.fonts.ready instanceof Promise) {
       await document.fonts.ready;
     }
 
