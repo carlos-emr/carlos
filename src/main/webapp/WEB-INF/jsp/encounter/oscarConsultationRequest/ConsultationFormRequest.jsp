@@ -96,7 +96,6 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.DigitalSignatureUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.SignatureReference" %>
 <%@ page import="io.github.carlos_emr.carlos.ui.servlet.ImageRenderingServlet" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
@@ -1926,42 +1925,6 @@ String storedImgUrl=request.getContextPath()+"/imageRenderingServlet?source="+Im
                     && signatureImg.value.length > 0 && !isStoredSignatureId(signatureImg.value);
         }
 
-        function setManualReSignVisible(visible) {
-            var manualReSign = document.getElementById('manualReSign');
-            if (manualReSign) {
-                manualReSign.style.display = visible ? 'block' : 'none';
-            }
-        }
-
-        function showSignaturePreview() {
-            var signatureShow = document.getElementById('signatureShow');
-            var signatureFrame = document.getElementById('signatureFrame');
-            if (signatureShow) {
-                signatureShow.style.display = 'block';
-            }
-            if (signatureFrame) {
-                signatureFrame.style.display = 'none';
-            }
-            setManualReSignVisible(true);
-        }
-
-        function showManualSignatureFrame() {
-            var signatureShow = document.getElementById('signatureShow');
-            var signatureFrame = document.getElementById('signatureFrame');
-            var newSignature = document.getElementById('newSignature');
-            if (signatureShow) {
-                signatureShow.style.display = 'none';
-            }
-            if (signatureFrame) {
-                signatureFrame.style.display = 'block';
-            }
-            if (newSignature) {
-                newSignature.value = 'true';
-            }
-            setManualReSignVisible(false);
-            return false;
-        }
-
         function updateSignatureProvider(providerNo) {
             var signatureProviderNo = document.getElementById('signatureProviderNo');
             if (signatureProviderNo) {
@@ -1983,13 +1946,13 @@ String storedImgUrl=request.getContextPath()+"/imageRenderingServlet?source="+Im
 
             signatureImgTag.onload = function() {
                 newSignature.value = 'false';
-                showSignaturePreview();
+                signatureFrame.style.display = 'none';
+                signatureShow.style.display = 'block';
             };
             signatureImgTag.onerror = function() {
                 newSignature.value = 'true';
                 signatureShow.style.display = 'none';
                 signatureFrame.style.display = 'block';
-                setManualReSignVisible(false);
             };
             counter = counter + 1;
             signatureImgTag.src = '<%=request.getContextPath()%>' + '/provider/providerSignatureImage?providerNo=' + encodeURIComponent(providerNo) + '&rand=' + counter;
@@ -2002,12 +1965,15 @@ String storedImgUrl=request.getContextPath()+"/imageRenderingServlet?source="+Im
                 var signatureImgTag = document.getElementById('signatureImgTag');
                 signatureImgTag.onload = function() {
                     document.getElementById('newSignature').value = "false";
-                    showSignaturePreview();
+                    document.getElementById("signatureFrame").style.display = "none";
+                    document.getElementById('signatureShow').style.display = "block";
                 };
                 signatureImgTag.onerror = function() {
                     // Stored signature is unrenderable — fall back to manual signing rather than
                     // leaving a broken image visible while newSignature=false would silently persist it.
-                    showManualSignatureFrame();
+                    document.getElementById('newSignature').value = "true";
+                    document.getElementById('signatureShow').style.display = "none";
+                    document.getElementById("signatureFrame").style.display = "block";
                 };
                 signatureImgTag.src = "<%=storedImgUrl %>" + encodeURIComponent(signatureImg.value);
             } else if (!hasPendingManualSignature()) {
@@ -2046,7 +2012,6 @@ if (userAgent != null) {
             if (e.isSave) {
                 refreshImage();
                 document.getElementById('newSignature').value = "true";
-                showSignaturePreview();
             } else {
                 document.getElementById('newSignature').value = "false";
             }
@@ -3215,7 +3180,6 @@ if (userAgent != null) {
                                 } catch (SecurityException e) {
                                     MiscUtils.getLogger().warn("Blocked unexpected consultation signature stamp path for provider {}", signatureProviderNo, e);
                                 }
-                                boolean hasStoredSignature = SignatureReference.isStoredId(consultUtil.signatureImg);
                         %>
                         <div class="consult-section-heading"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.formSignature"/></div>
                         <div>
@@ -3227,24 +3191,29 @@ if (userAgent != null) {
                                 <input type="hidden" name="newSignatureImg" id="newSignatureImg"
                                        value="<%=signatureRequestId %>"/>
 
+                                <% if (hasStampSignature) { %>
                                 <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.altProviderSig" var="providerSigAlt"/>
-                                <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.formSignature" var="signatureFrameTitle"/>
-                                <div id="signatureShow" style="display:<%= hasStampSignature ? "block" : "none" %>;">
-                                    <img id="signatureImgTag"
-                                         src="<%= hasStampSignature ? request.getContextPath() + "/provider/providerSignatureImage?providerNo=" + SafeEncode.forUriComponent(signatureProviderNo) : "" %>"
-                                         alt="${carlos:forHtmlAttribute(providerSigAlt)}"
-                                         style="max-height:120px;"/>
+                                <div id="signatureShow" style="display: block;">
+                                    <img id="signatureImgTag" src="<%=request.getContextPath()%>/provider/providerSignatureImage?providerNo=<%=SafeEncode.forUriComponent(signatureProviderNo)%>"
+                                         alt="${carlos:forHtmlAttribute(providerSigAlt)}" style="max-height:120px;"/>
                                 </div>
-                                <div id="signatureFrame" style="display:<%= (hasStampSignature || hasStoredSignature) ? "none" : "block" %>;">
+                                <div id="signatureFrame" style="display: none;">
                                     <iframe style="width:500px; height:132px;"
-                                        title="${carlos:forHtmlAttribute(signatureFrameTitle)}"
                                         src="<%= request.getContextPath() %>/signature_pad/tabletSignature?inWindow=true&<%=DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY%>=<%=signatureRequestId%>&<%=ModuleType.class.getSimpleName()%>=<%=ModuleType.CONSULTATION%>" ></iframe>
                                 </div>
-                                <div id="manualReSign" style="margin-top:5px; display:<%= (hasStampSignature || hasStoredSignature) ? "block" : "none" %>;">
-                                    <button type="button" class="btn btn-link btn-sm p-0" onclick="showManualSignatureFrame();">
+                                <div style="margin-top:5px;">
+                                    <a href="javascript:void(0)" onclick="document.getElementById('signatureShow').style.display='none';document.getElementById('signatureFrame').style.display='block';document.getElementById('newSignature').value='true';">
                                         <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.linkResignManually"/>
-                                    </button>
+                                    </a>
                                 </div>
+                                <% } else { %>
+                                <div id="signatureShow" style="display: none;">
+                                    <img id="signatureImgTag" src=""/>
+                                </div>
+
+                                <iframe style="width:500px; height:132px;" id="signatureFrame"
+							src="<%= request.getContextPath() %>/signature_pad/tabletSignature?inWindow=true&<%=DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY%>=<%=signatureRequestId%>&<%=ModuleType.class.getSimpleName()%>=<%=ModuleType.CONSULTATION%>" ></iframe>
+                                <% } %>
                         </div>
                         <% }%>
 
