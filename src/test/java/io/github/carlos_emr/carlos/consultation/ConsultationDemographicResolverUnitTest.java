@@ -1,7 +1,6 @@
 package io.github.carlos_emr.carlos.consultation;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -35,8 +34,8 @@ class ConsultationDemographicResolverUnitTest {
         assertThat(resolution.demographicId()).isEqualTo("1");
         assertThat(resolution.failureReason()).isNull();
         verify(consultationRequestDao).find(9);
-        verify(logger).warn(eq("Ignoring mismatched consultation {} demographic requestId={} submittedDemographic={} consultationDemographic={}"),
-                eq("preview"), eq("9"), eq("999"), eq("1"));
+        verify(logger).warn("Ignoring mismatched consultation {} demographic requestId={} consultationDemographic={}",
+                "preview", 9, "1");
     }
 
     @Test
@@ -67,8 +66,7 @@ class ConsultationDemographicResolverUnitTest {
         assertThat(resolution.failureReason()).isEqualTo(FailureReason.INVALID_REQUEST_ID);
         assertThat(resolution.cause()).isInstanceOf(NumberFormatException.class);
         verify(consultationRequestDao, never()).find(9);
-        verify(logger).warn(eq("Invalid consultation {} request id while resolving demographic requestId={}"),
-                eq("print"), eq("../9"));
+        verify(logger).warn("Invalid consultation {} request id while resolving demographic", "print");
     }
 
     @Test
@@ -85,7 +83,6 @@ class ConsultationDemographicResolverUnitTest {
         assertThat(resolution.isResolved()).isFalse();
         assertThat(resolution.failureReason()).isEqualTo(FailureReason.MISSING_CONSULTATION_REQUEST);
         assertThat(resolution.cause()).isNull();
-        verify(logger).warn(eq("Unable to resolve consultation {} demographic for requestId={}"),
-                eq("PDF"), eq("9"));
+        verify(logger).warn("Unable to resolve consultation {} demographic for requestId={}", "PDF", 9);
     }
 }

@@ -261,7 +261,7 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             } catch (SecurityException e) {
                 throw e;
             } catch (DocumentException e) {
-                logSkippedAttachment(ATTACHMENT_TYPE_DOC, documentId(doc), e.getClass().getName());
+                logSkippedAttachment(ATTACHMENT_TYPE_DOC, documentId(doc), "document PDF conversion failed");
             } catch (IOException | RuntimeException e) {
                 logSkippedAttachment(ATTACHMENT_TYPE_DOC, documentId(doc), e.getClass().getName());
             }

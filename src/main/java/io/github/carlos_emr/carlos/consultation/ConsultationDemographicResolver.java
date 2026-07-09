@@ -25,7 +25,6 @@ import java.util.Objects;
 
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
-import io.github.carlos_emr.carlos.utility.LogSafe;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
@@ -65,39 +64,38 @@ public final class ConsultationDemographicResolver {
         try {
             parsedRequestId = Integer.parseInt(normalizedRequestId);
         } catch (NumberFormatException e) {
-            warn(logger, "Invalid consultation {} request id while resolving demographic requestId={}",
-                    context, normalizedRequestId, null, null);
+            if (logger != null && logger.isWarnEnabled()) {
+                logger.warn("Invalid consultation {} request id while resolving demographic", safeContext(context));
+            }
             return Resolution.unresolved(FailureReason.INVALID_REQUEST_ID, e);
         }
 
         ConsultationRequest consultationRequest = consultationRequestDao.find(parsedRequestId);
         if (consultationRequest == null || consultationRequest.getDemographicId() == null) {
-            warn(logger, "Unable to resolve consultation {} demographic for requestId={}",
-                    context, String.valueOf(parsedRequestId), null, null);
+            if (logger != null && logger.isWarnEnabled()) {
+                logger.warn("Unable to resolve consultation {} demographic for requestId={}",
+                        safeContext(context), parsedRequestId);
+            }
             return Resolution.unresolved(FailureReason.MISSING_CONSULTATION_REQUEST, null);
         }
 
         String consultationDemographicId = String.valueOf(consultationRequest.getDemographicId());
         String submittedDemographic = Objects.toString(submittedDemographicId, null);
         if (StringUtils.isNotBlank(submittedDemographic) && !consultationDemographicId.equals(submittedDemographic)) {
-            warn(logger, "Ignoring mismatched consultation {} demographic requestId={} submittedDemographic={} consultationDemographic={}",
-                    context, String.valueOf(parsedRequestId), submittedDemographic, consultationDemographicId);
+            if (logger != null && logger.isWarnEnabled()) {
+                logger.warn("Ignoring mismatched consultation {} demographic requestId={} consultationDemographic={}",
+                        safeContext(context), parsedRequestId, consultationDemographicId);
+            }
         }
 
         return Resolution.resolved(consultationDemographicId);
     }
 
-    private static void warn(Logger logger, String message, String context, String requestId,
-            String submittedDemographic, String consultationDemographic) {
-        if (logger == null || !logger.isWarnEnabled()) {
-            return;
+    private static String safeContext(String context) {
+        if ("PDF".equals(context) || "preview".equals(context) || "print".equals(context)) {
+            return context;
         }
-        if (submittedDemographic == null && consultationDemographic == null) {
-            logger.warn(message, LogSafe.sanitize(context), LogSafe.sanitize(requestId));
-            return;
-        }
-        logger.warn(message, LogSafe.sanitize(context), LogSafe.sanitize(requestId),
-                LogSafe.sanitize(submittedDemographic), LogSafe.sanitize(consultationDemographic));
+        return "request";
     }
 
     /**

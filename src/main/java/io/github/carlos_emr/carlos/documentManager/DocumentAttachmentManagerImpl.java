@@ -662,18 +662,21 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         for (LabResultData lab : attachedLabs) {
             if (lab == null) {
                 recordSkippedAttachment(attachmentWarnings, DocumentType.LAB, null, MISSING_ATTACHMENT_METADATA);
-                continue;
+            } else {
+                attachLabPDF(loggedInInfo, lab, pdfDocumentList, attachmentWarnings);
             }
-            String labId = lab.getSegmentID();
-            Integer parsedLabId;
-            try {
-                parsedLabId = Integer.valueOf(labId);
-            } catch (NumberFormatException e) {
-                recordSkippedAttachment(attachmentWarnings, DocumentType.LAB, labId, "invalid lab segment id");
-                continue;
-            }
+        }
+    }
+
+    private void attachLabPDF(LoggedInInfo loggedInInfo, LabResultData lab, ArrayList<Object> pdfDocumentList,
+            List<String> attachmentWarnings) throws PDFGenerationException {
+        String labId = lab.getSegmentID();
+        try {
+            Integer parsedLabId = Integer.valueOf(labId);
             addRenderedAttachmentPDF(pdfDocumentList, attachmentWarnings, DocumentType.LAB, labId,
                     () -> renderDocument(loggedInInfo, DocumentType.LAB, parsedLabId));
+        } catch (NumberFormatException e) {
+            recordSkippedAttachment(attachmentWarnings, DocumentType.LAB, labId, "invalid lab segment id");
         }
     }
 
