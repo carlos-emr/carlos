@@ -96,7 +96,9 @@ jobs:
 
           # Every expected migration must actually have applied — catches a silently-empty or
           # missing province location, which migrate+validate alone would not flag.
-          for v in 1 1.0.1 1.0.2; do
+          EXPECTED="1 1.0.1 1.0.2 1.0.3"
+          [ "${PROV}" = "on" ] && EXPECTED="${EXPECTED} 1.0.4"
+          for v in ${EXPECTED}; do
             ok=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM flyway_schema_history WHERE version='${v}' AND success=1")
             if [ "${ok}" != "1" ]; then
               echo "::error::migration version ${v} missing from flyway_schema_history for ${PROV}"

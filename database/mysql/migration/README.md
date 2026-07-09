@@ -34,7 +34,7 @@ Demo/patient data is **not** in this baseline — it belongs in a dev-only `demo
 
 ## Conventions
 
-- **New schema changes** are Flyway migrations named `VYYYY.MM.DD[.N]__short_description.sql` in
+- **New schema changes** are Flyway migrations named `V1.0.N__short_description.sql` (sequential, next free number) in
   `common/` (shared) or `on/`/`bc/` (province-specific). Never edit the `V1*` baseline files or add to
   `../updates/` (frozen — see `../updates/README.md`).
 - **The `V1` baseline is COMPLETE and frozen** (schema + required reference data): it is the genesis
@@ -46,6 +46,6 @@ Demo/patient data is **not** in this baseline — it belongs in a dev-only `demo
 ## Evolving the schema
 
 Add a forward migration under the right location — `common/` for shared changes, `on/`/`bc/` for
-province-specific ones — named `VYYYY.MM.DD[.N]__short_description.sql`, and make it idempotent. A
+province-specific ones — named `V1.0.N__short_description.sql` (next free number), and make it idempotent. A
 fresh `flyway migrate` applies `V1` then your delta; existing databases apply only the new delta.
 See `docs/database-schema-management.md` for the model and CI verification (`db-schema-verify.yml`).

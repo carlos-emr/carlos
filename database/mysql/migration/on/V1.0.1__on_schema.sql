@@ -69,6 +69,7 @@ CREATE TABLE `billing_on_cheader1` (
   `programNo` int(10) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `appointment_no` (`appointment_no`,`demographic_no`),
+  KEY `demographic_no` (`demographic_no`),
   KEY `billing_date` (`billing_date`),
   KEY `provider_no` (`provider_no`),
   KEY `provider_ohip_no` (`provider_ohip_no`),
@@ -76,8 +77,7 @@ CREATE TABLE `billing_on_cheader1` (
   KEY `creator` (`creator`),
   KEY `clinic` (`clinic`),
   KEY `status` (`status`),
-  KEY `billing_on_cheader1_ikey` (`timestamp1`),
-  KEY `idx_billing_on_cheader1_demo_date` (`demographic_no`,`billing_date`)
+  KEY `billing_on_cheader1_ikey` (`timestamp1`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `billing_on_cheader2`;
@@ -249,8 +249,7 @@ CREATE TABLE `billing_on_item` (
   `status` char(1) DEFAULT NULL,
   `timestamp` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`),
-  KEY `ch1_id` (`ch1_id`),
-  KEY `idx_billing_on_item_service_code` (`service_code`)
+  KEY `ch1_id` (`ch1_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `billing_on_premium`;

@@ -738,7 +738,7 @@ migration/bc/V1.0.1__bc_schema.sql         # BC-only tables
 migration/bc/V1.0.2__bc_data.sql           # BC reference data (carlosdoc seed, ICD, + billing/specialist/pharmacy catalogs)
 migration/pruned-tables.txt                # dead tables excluded from the baseline
 
-# Forward schema changes: migration/<common|on|bc>/VYYYY.MM.DD[.N]__desc.sql (idempotent)
+# Forward schema changes: migration/<common|on|bc>/V1.0.N__desc.sql (sequential, next free number; idempotent)
 updates/                # FROZEN legacy dated patches (historical; a few still used for demo seeding)
 
 # Other
@@ -994,7 +994,7 @@ src/main/java/io/github/carlos_emr/carlos/*/web/*2Action.java # 2Action implemen
 # Database Configuration
 src/main/resources/OscarDatabaseBase.xml           # Hibernate configuration
 database/mysql/migration/common/V1__baseline_schema.sql  # Flyway V1 genesis schema
-database/mysql/migration/<common|on|bc>/VYYYY.MM.DD__*.sql # Forward schema migrations
+database/mysql/migration/<common|on|bc>/V1.0.N__*.sql # Forward schema migrations (sequential)
 ```
 
 ### Security Implementation Examples

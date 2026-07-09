@@ -404,8 +404,7 @@ CREATE TABLE `Episode` (
   `lastUpdateUser` varchar(25) NOT NULL,
   `lastUpdateTime` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `notes` text DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `idx_Episode_demographicNo_status` (`demographicNo`,`status`)
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `Facility`;
@@ -1210,8 +1209,7 @@ CREATE TABLE `allergies` (
   `atc` varchar(55) DEFAULT NULL,
   `reaction_type` varchar(20) DEFAULT NULL,
   `nonDrug` tinyint(1) DEFAULT NULL,
-  PRIMARY KEY (`allergyid`),
-  KEY `idx_allergies_demographic_no_archived` (`demographic_no`,`archived`)
+  PRIMARY KEY (`allergyid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `app_lookuptable`;
@@ -1280,9 +1278,9 @@ CREATE TABLE `appointment` (
   `bookingSource` varchar(32) DEFAULT NULL,
   PRIMARY KEY (`appointment_no`),
   KEY `appointment_date` (`appointment_date`,`start_time`,`demographic_no`),
+  KEY `demographic_no` (`demographic_no`),
   KEY `location` (`location`),
-  KEY `appointment_ikey` (`demographic_no`,`updatedatetime`),
-  KEY `idx_appointment_provider_date_time` (`provider_no`,`appointment_date`,`start_time`)
+  KEY `appointment_ikey` (`demographic_no`,`updatedatetime`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `appointmentArchive`;
@@ -1315,8 +1313,7 @@ CREATE TABLE `appointmentArchive` (
   `urgency` varchar(30) DEFAULT NULL,
   `creatorSecurityId` int(11) DEFAULT NULL,
   `bookingSource` varchar(32) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `idx_appointmentArchive_demographic_no` (`demographic_no`)
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `appointmentType`;
@@ -1748,8 +1745,7 @@ CREATE TABLE `casemgmt_cpp` (
   `otherFileNumber` varchar(100) DEFAULT NULL,
   `otherSupportSystems` text DEFAULT NULL,
   `pastMedications` text DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `idx_casemgmt_cpp_demographic_no` (`demographic_no`)
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `casemgmt_issue`;
@@ -1815,11 +1811,11 @@ CREATE TABLE `casemgmt_note` (
   `minuteOfEncTransportationTime` int(11) DEFAULT NULL,
   PRIMARY KEY (`note_id`),
   KEY `FKA8D537806CCA0FC` (`provider_no`),
+  KEY `demographic_no` (`demographic_no`),
   KEY `uuid` (`uuid`),
   KEY `program_no` (`program_no`),
   KEY `observation_date` (`observation_date`),
-  KEY `casemgmt_note_ikey` (`demographic_no`,`update_date`,`locked`),
-  KEY `idx_casemgmt_note_demo_observation` (`demographic_no`,`observation_date`)
+  KEY `casemgmt_note_ikey` (`demographic_no`,`update_date`,`locked`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `casemgmt_note_ext`;
@@ -2060,9 +2056,7 @@ CREATE TABLE `consultationRequests` (
   `lastUpdateDate` datetime NOT NULL,
   `fdid` int(10) DEFAULT NULL,
   `source` varchar(50) DEFAULT NULL,
-  PRIMARY KEY (`requestId`),
-  KEY `idx_consultationRequests_demographicNo` (`demographicNo`),
-  KEY `idx_consultationRequests_sendTo_status` (`sendTo`,`status`)
+  PRIMARY KEY (`requestId`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `consultationRequestsArchive`;
@@ -2132,8 +2126,7 @@ CREATE TABLE `consultationResponse` (
   `letterheadAddress` text DEFAULT NULL,
   `letterheadPhone` varchar(50) DEFAULT NULL,
   `letterheadFax` varchar(50) DEFAULT NULL,
-  PRIMARY KEY (`responseId`),
-  KEY `idx_consultationResponse_demographicNo` (`demographicNo`)
+  PRIMARY KEY (`responseId`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `consultationServices`;
@@ -2157,8 +2150,7 @@ CREATE TABLE `consultdocs` (
   `deleted` char(1) DEFAULT NULL,
   `attach_date` date DEFAULT NULL,
   `provider_no` varchar(6) NOT NULL,
-  PRIMARY KEY (`id`),
-  KEY `idx_consultdocs_requestId_doctype` (`requestId`,`doctype`)
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `country_codes`;
@@ -2486,8 +2478,7 @@ CREATE TABLE `demographic` (
   PRIMARY KEY (`demographic_no`),
   KEY `hin` (`hin`),
   KEY `name` (`last_name`,`first_name`),
-  KEY `country_of_origin` (`country_of_origin`),
-  KEY `idx_demographic_provider_no` (`provider_no`)
+  KEY `country_of_origin` (`country_of_origin`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `demographicArchive`;
@@ -2907,9 +2898,7 @@ CREATE TABLE `drugs` (
   `priorRxProtocol` varchar(255) DEFAULT NULL,
   `pharmacyId` int(11) DEFAULT NULL,
   PRIMARY KEY (`drugid`),
-  KEY `idx_drugs_demographic_no_archived` (`demographic_no`,`archived`),
-  KEY `idx_drugs_regional_identifier` (`regional_identifier`),
-  KEY `idx_drugs_ATC` (`ATC`)
+  KEY `drugs_demographic_no` (`demographic_no`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `dsGuidelineProviderMap`;
@@ -3042,13 +3031,14 @@ CREATE TABLE `eform_data` (
   `patient_independent` tinyint(1) NOT NULL,
   `roleType` varchar(50) DEFAULT NULL,
   PRIMARY KEY (`fdid`),
+  UNIQUE KEY `id` (`fdid`),
+  KEY `idx_eform_data_demographic_no` (`demographic_no`),
   KEY `idx_eform_data_status` (`status`),
   KEY `idx_eform_data_from_date` (`form_date`),
   KEY `idx_eform_data_form_name` (`form_name`),
   KEY `idx_eform_data_subject` (`subject`),
   KEY `idx_eform_data_fid` (`fid`),
-  KEY `idx_eform_data_form_provider` (`form_provider`),
-  KEY `idx_eform_data_demographic_status` (`demographic_no`,`status`)
+  KEY `idx_eform_data_form_provider` (`form_provider`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `eform_groups`;
@@ -3250,8 +3240,7 @@ CREATE TABLE `favorites` (
   `custom_instructions` tinyint(1) DEFAULT 0,
   `unitName` varchar(10) DEFAULT NULL,
   `dispenseInternal` tinyint(1) NOT NULL,
-  PRIMARY KEY (`favoriteid`),
-  KEY `idx_favorites_provider_no` (`provider_no`)
+  PRIMARY KEY (`favoriteid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `favoritesprivilege`;
@@ -9335,8 +9324,7 @@ CREATE TABLE `hl7TextInfo` (
   `label` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `labno_index` (`lab_no`),
-  KEY `accession_index` (`accessionNum`),
-  KEY `idx_hl7TextInfo_filler_order_num` (`filler_order_num`)
+  KEY `accession_index` (`accessionNum`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `hl7TextMessage`;
@@ -9554,7 +9542,7 @@ CREATE TABLE `log` (
   KEY `content` (`content`),
   KEY `contentId` (`contentId`),
   KEY `demographic_no` (`demographic_no`),
-  KEY `idx_log_provider_no_dateTime` (`provider_no`,`dateTime`)
+  KEY `provider_noIndex` (`provider_no`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `log_letters`;
@@ -9843,6 +9831,7 @@ CREATE TABLE `measurementType` (
   `validation` varchar(100) NOT NULL,
   `createDate` datetime NOT NULL,
   PRIMARY KEY (`id`),
+  KEY `id` (`id`),
   KEY `type` (`type`),
   KEY `measuringInstruction` (`measuringInstruction`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -9878,8 +9867,8 @@ CREATE TABLE `measurements` (
   PRIMARY KEY (`id`),
   KEY `type` (`type`),
   KEY `measuringInstruction` (`measuringInstruction`),
-  KEY `measurement_integrator` (`demographicNo`,`dateEntered`),
-  KEY `idx_measurements_demo_type_observed` (`demographicNo`,`type`,`dateObserved`)
+  KEY `demographicNo` (`demographicNo`),
+  KEY `measurement_integrator` (`demographicNo`,`dateEntered`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `measurementsDeleted`;
@@ -9949,8 +9938,7 @@ CREATE TABLE `messagetbl` (
   `actionstatus` char(2) DEFAULT NULL,
   `type` int(10) DEFAULT NULL,
   `type_link` varchar(2048) DEFAULT NULL,
-  PRIMARY KEY (`messageid`),
-  KEY `idx_messagetbl_sentbyNo_sentByLocation` (`sentbyNo`,`sentByLocation`)
+  PRIMARY KEY (`messageid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `msgDemoMap`;
@@ -9961,8 +9949,8 @@ CREATE TABLE `msgDemoMap` (
   `messageID` mediumint(9) NOT NULL DEFAULT 0,
   `demographic_no` int(10) NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
-  KEY `demoMap_messageID_demographic_no` (`messageID`,`demographic_no`),
-  KEY `idx_msgDemoMap_demographic_no` (`demographic_no`)
+  KEY `messageID` (`messageID`,`demographic_no`),
+  KEY `demoMap_messageID_demographic_no` (`messageID`,`demographic_no`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `mygroup`;
@@ -10048,6 +10036,7 @@ CREATE TABLE `patientLabRouting` (
   `dateModified` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `demographic` (`demographic_no`),
+  KEY `lab_type_index` (`lab_type`),
   KEY `lab_no_index` (`lab_no`),
   KEY `all_index` (`lab_type`,`lab_no`,`demographic_no`),
   KEY `patientLabRouting_ikey` (`created`)
@@ -10116,8 +10105,7 @@ CREATE TABLE `prescription` (
   `rx_comments` text DEFAULT NULL,
   `digital_signature_id` int(11) DEFAULT NULL,
   `lastUpdateDate` datetime NOT NULL,
-  PRIMARY KEY (`script_no`),
-  KEY `idx_prescription_demographic_no` (`demographic_no`)
+  PRIMARY KEY (`script_no`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `preventions`;
@@ -10196,8 +10184,7 @@ CREATE TABLE `professionalSpecialists` (
   `hideFromView` tinyint(1) NOT NULL,
   `deleted` tinyint(1) NOT NULL DEFAULT 0,
   `province` varchar(55) DEFAULT NULL,
-  PRIMARY KEY (`specId`),
-  KEY `idx_professionalSpecialists_lName_fName` (`lName`,`fName`)
+  PRIMARY KEY (`specId`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `program`;
@@ -10502,7 +10489,7 @@ CREATE TABLE `providerLabRouting` (
   `id` int(10) NOT NULL AUTO_INCREMENT,
   PRIMARY KEY (`id`),
   KEY `labno_index` (`lab_no`),
-  KEY `idx_providerLabRouting_prov_status_type` (`provider_no`,`status`,`lab_type`)
+  KEY `provider_lab_status_index` (`provider_no`(3),`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `providerLabRoutingFavorites`;
@@ -10941,6 +10928,7 @@ CREATE TABLE `scheduledate` (
   `creator` varchar(50) DEFAULT NULL,
   `status` char(1) NOT NULL DEFAULT '',
   PRIMARY KEY (`id`),
+  KEY `scheduledate_sdate` (`sdate`),
   KEY `scheduledate_pno` (`provider_no`),
   KEY `scheduledate_status` (`status`),
   KEY `scheduledate_key1` (`sdate`,`provider_no`,`hour`,`status`)
@@ -11207,6 +11195,7 @@ CREATE TABLE `tickler` (
   `category_id` int(11) DEFAULT NULL,
   `creation_date` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`tickler_no`),
+  KEY `statusIndex` (`status`),
   KEY `demo_status_date_Index` (`demographic_no`,`status`,`service_date`),
   KEY `idx_tickler_status_service_date` (`status`,`service_date`),
   KEY `idx_tickler_task_assigned_to` (`task_assigned_to`),

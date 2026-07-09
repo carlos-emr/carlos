@@ -11,7 +11,7 @@ replayed in order on a fresh install — they were already folded into `oscarini
 
 Since every new CARLOS install is effectively **fresh**, and any OpenO / OSCAR-19 datadir carried
 over is treated as a **conversion**, CARLOS now uses **Flyway** for schema management: a consolidated
-`V1` baseline plus forward-only dated migrations, with a `flyway_schema_history` version table as the
+`V1` baseline plus forward-only sequential migrations, with a `flyway_schema_history` version table as the
 single source of truth. The legacy script build (`createdatabase_*.sh`, `oscarinit*.sql`,
 `oscardata*.sql`, `icd*.sql`, `measurementMapData.sql`, `caisi/initcaisi*.sql`, `olis/olisinit.sql`,
 `bc_*.sql`) has been **retired** — it is recoverable from git history but no longer in any build path.
@@ -51,7 +51,7 @@ file is retained as documentation of what was dropped and why.
 
 - `database/mysql/migration/` — the Flyway migration set (single source of truth).
   See its `README.md` for the `common` / `on` / `bc` location split and the version-number grammar
-  (`V1` baseline, `V1.0.x` province schema/reference, `VYYYY.MM.DD[.N]__desc` forward deltas).
+  (`V1` baseline, `V1.0.1`/`V1.0.2` province schema/reference, then sequential `V1.0.N__desc` forward deltas).
 - `database/mysql/updates/` — **frozen**, historical/reference only (see its `README.md`). A few
   entries are still applied for demo seeding (RTL eform) and read by regression tests.
 - `database/mysql/development.sql` + `build-demo.sh` — dev-only demo dataset and the filter that trims
@@ -71,7 +71,7 @@ Migrations are also copied onto the WAR classpath at `db/migration` (a build `<r
 | CI schema check | `.github/workflows/db-schema-verify.yml` | Runs `flyway migrate` + `validate` for both provinces and smoke-checks a populated schema (table count + reference rows). |
 | Production (.deb) | `release/postinst` runs the bundled Flyway CLI `migrate` (common + province) on new installs | The .deb bundles `migration/` + a pinned, offline Flyway CLI. Upgrades apply the frozen `updates/*.sql`. |
 | Production (container) | `carlos-ctl db migrate` (operator-gated, after `carlos-ctl db-backup`) | Never on app boot. The app runs `carlos.flyway.onBoot=validate` and refuses to start if the schema is behind. |
-| OpenO/oscar19 conversion | `carlos-ctl db baseline --version=1` then `carlos-ctl db migrate` | Stamps the existing datadir at the baseline; only forward CARLOS migrations apply. |
+| OpenO/oscar19 conversion | `carlos-ctl db baseline --version=1.0.2` then `carlos-ctl db migrate` | Stamps the existing datadir at the FULL genesis (common `V1` + province `V1.0.1`/`V1.0.2`) so only forward migrations (`V1.0.3`+) apply. **Never stamp at 1**: Flyway would then re-run the province files — `V1.0.1` DROPs and recreates province tables (data loss) and `V1.0.2` re-inserts reference rows (abort). |
 
 The boot gate is `io.github.carlos_emr.carlos.db.FlywaySchemaValidator`, wired in `spring_jpa.xml`
 and controlled by `carlos.flyway.onBoot` (`off` | `validate` | `migrate`, default `off`) and
@@ -83,7 +83,7 @@ The `V1` baseline is frozen and never regenerated. To change the schema, add a *
 
 - Pick the location: `migration/common/` for a shared change, `migration/on/` or `migration/bc/` for a
   province-specific one.
-- Name it `VYYYY.MM.DD[.N]__short_description.sql` (append `.N` for a second migration on the same day).
+- Name it `V1.0.N__short_description.sql` using the next free version number across common + your province (versions must be unique within the applied set; provinces never co-apply, but avoid reusing numbers to prevent confusion).
 - Make it **idempotent** (guard `ALTER`/`INSERT` with existence checks) so re-runs are safe.
 
 A fresh `flyway migrate` applies `V1` then your delta; existing databases apply only the new delta.
@@ -104,8 +104,8 @@ Ongoing verification:
    `carlosdoc` admin privilege seed, and diagnostic codes present).
 2. **Runtime proof.** Boot the devcontainer against the Flyway-built DB, log in as
    `carlosdoc` / `carlos2026`, run the UI smoke test and a couple of DAO integration tests.
-3. **Conversion proof.** On a copy of an OpenO/oscar19 datadir, `flyway baseline -baselineVersion=1`
-   then `flyway migrate`; confirm only forward migrations run and the app boots.
+3. **Conversion proof.** On a copy of an OpenO/oscar19 datadir, `flyway baseline -baselineVersion=1.0.2`
+   then `flyway migrate`; confirm only forward migrations (`V1.0.3`+) run and the app boots.
 
 ## Rollout status
 

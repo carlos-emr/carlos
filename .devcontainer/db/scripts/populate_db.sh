@@ -23,7 +23,9 @@ trap 'rm -f "${LOAD_SQL}"' EXIT
   echo "SET FOREIGN_KEY_CHECKS=0;"
   cat "${MIG}/common/V1__baseline_schema.sql" \
       "${MIG}/on/V1.0.1__on_schema.sql" \
-      "${MIG}/on/V1.0.2__on_data.sql"
+      "${MIG}/on/V1.0.2__on_data.sql" \
+      "${MIG}/common/V1.0.3__performance_indexes.sql" \
+      "${MIG}/on/V1.0.4__on_performance_indexes.sql"
   echo "SET FOREIGN_KEY_CHECKS=1;"
 } > "${LOAD_SQL}"
 for DB in oscar oscar_test; do

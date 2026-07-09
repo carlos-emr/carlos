@@ -5,7 +5,7 @@ SQL Migration Pattern Enforcer Hook for Claude Code
 This hook enforces CARLOS database migration standards:
 - The Flyway V1 baseline (database/mysql/migration/**/V1*.sql) must NOT be hand-edited
 - All schema changes must go into NEW forward migrations
-  (database/mysql/migration/<common|on|bc>/VYYYY.MM.DD__desc.sql), or the frozen legacy
+  (database/mysql/migration/<common|on|bc>/V1.0.N__desc.sql, next free number), or the frozen legacy
   updates/ dir for historical patches
 - Migrations must be idempotent and safe to run multiple times
 
@@ -49,9 +49,10 @@ MIGRATION_DIRECTORIES = (
 
 # Expected patch file naming pattern
 PATCH_PATTERN = re.compile(r"^update-\d{4}-\d{2}-\d{2}-.+\.sql$")
-# Flyway forward-migration naming (dated versioned migration under a location dir),
-# e.g. V2026.07.08__add_column.sql or V2026.07.08.1__followup.sql
-MIGRATION_PATTERN = re.compile(r"^V\d{4}\.\d{2}\.\d{2}(\.\d+)?__.+\.sql$")
+# Flyway forward-migration naming: sequential versions in the V1.x family (next free number),
+# e.g. V1.0.3__performance_indexes.sql. The five genesis baseline files are protected by exact
+# basename above, so they can never be (re)created or edited through this allowance.
+MIGRATION_PATTERN = re.compile(r"^V\d+(\.\d+)*__.+\.sql$")
 
 
 def get_file_path_from_input(tool_input: dict) -> str:
@@ -74,8 +75,13 @@ def is_protected_sql_file(file_path: str) -> bool:
 
 def is_valid_patch_file(file_path: str) -> bool:
     """Check if the file is a valid new migration: a dated patch in updates/, or a Flyway
-    forward migration (VYYYY.MM.DD__desc.sql) under a migration location directory."""
+    forward migration (V1.0.N__desc.sql, next free sequential version) under a location dir."""
     path = Path(file_path)
+
+    # The genesis baseline files also match the sequential-version pattern; they are NEVER a
+    # valid target through this allowance (main() would otherwise allow before the block check).
+    if path.name in PROTECTED_SQL_FILES:
+        return False
 
     # Legacy dated patch directory is FROZEN: existing files may still be edited (a few are read
     # by regression tests / applied for demo seeding), but NEW files there would be schema changes
@@ -157,9 +163,9 @@ def main():
             print("CARLOS migration standards require:", file=sys.stderr)
             print("  ✗ Do NOT edit the V1 baseline (migration/**/V1*.sql) — it is the genesis schema", file=sys.stderr)
             print("  ✓ Ship schema changes as NEW forward migrations:", file=sys.stderr)
-            print("      database/mysql/migration/<common|on|bc>/VYYYY.MM.DD__short_description.sql\n", file=sys.stderr)
+            print("      database/mysql/migration/<common|on|bc>/V1.0.N__short_description.sql (next free number)\n", file=sys.stderr)
             print("To apply this schema change:", file=sys.stderr)
-            print(f"  1. Create a forward migration: V{datetime.now().strftime('%Y.%m.%d')}__short_description.sql", file=sys.stderr)
+            print("  1. Create a forward migration: V1.0.N__short_description.sql (next free version)", file=sys.stderr)
             print("  2. Make your ALTER TABLE statements idempotent (check if exists first)", file=sys.stderr)
             print("  3. Test that the migration can be run multiple times safely\n", file=sys.stderr)
             print("Example idempotent ALTER TABLE:", file=sys.stderr)
@@ -182,9 +188,9 @@ def main():
             print("  ✗ Do NOT create ad-hoc SQL files in database/mysql/ (root)", file=sys.stderr)
             print("  ✓ Create a Flyway forward migration in a location directory\n", file=sys.stderr)
             print("To add this SQL content:", file=sys.stderr)
-            print("  Create: database/mysql/migration/<common|on|bc>/VYYYY.MM.DD__brief_description.sql", file=sys.stderr)
+            print("  Create: database/mysql/migration/<common|on|bc>/V1.0.N__brief_description.sql", file=sys.stderr)
             print("\nForward-migration naming convention:", file=sys.stderr)
-            print("  VYYYY.MM.DD__brief_description.sql   (append .N for multiple on one day)", file=sys.stderr)
+            print("  V1.0.N__brief_description.sql   (sequential; use the next free version number)", file=sys.stderr)
             print("  Example: V2026.07.08__add_provider_type_column.sql", file=sys.stderr)
             sys.exit(2)
 
