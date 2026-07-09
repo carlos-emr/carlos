@@ -114,8 +114,9 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
         EDoc doc = printableDocument("43", "../outside.pdf", "application/pdf");
         ArrayList<Object> attachments = new ArrayList<>();
         ArrayList<InputStream> streams = new ArrayList<>();
+        List<EDoc> docs = List.of(doc);
 
-        assertThatThrownBy(() -> appendDocumentAttachments(attachments, streams, List.of(doc)))
+        assertThatThrownBy(() -> appendDocumentAttachments(attachments, streams, docs))
                 .isInstanceOf(SecurityException.class);
         assertThat(attachments).isEmpty();
         assertThat(streams).isEmpty();
