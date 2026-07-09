@@ -15,7 +15,7 @@ Exit codes:
 """
 
 import json
-import os
+import posixpath
 import re
 import sys
 from datetime import datetime
@@ -204,12 +204,14 @@ def main():
         # Get file path. Lexically normalize it FIRST (collapse ./ and ../ segments) so the
         # substring/anchor containment checks below cannot be evaded by a traversal path — e.g.
         # database/mysql/migration/common/../../../outside/V1.0.99__bad.sql resolves outside the
-        # migration tree and must not be classified as a valid migration. normpath is repo-root-
-        # agnostic (the hook doesn't know the repo root) and lexical, so it works for a not-yet-
-        # written file without touching the filesystem or resolving symlinks.
+        # migration tree and must not be classified as a valid migration. posixpath.normpath (not
+        # os.path.normpath) so forward slashes are PRESERVED on Windows — os.path would rewrite
+        # them to backslashes and silently bypass every POSIX-string check in this hook. It is
+        # repo-root-agnostic and lexical, so it works for a not-yet-written file without touching
+        # the filesystem or resolving symlinks.
         file_path = get_file_path_from_input(tool_input)
         if file_path:
-            file_path = os.path.normpath(file_path)
+            file_path = posixpath.normpath(file_path)
 
         # Only check SQL files
         if not file_path.endswith('.sql'):
