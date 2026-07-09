@@ -44,7 +44,7 @@ class AdminSecuritySeedRegressionTest {
     void shouldGrantSiteAccessPrivacy_toAdminRole() throws IOException {
         String freshSeed = Files.readString(SEED, StandardCharsets.UTF_8);
         String migration = Files.readString(Path.of(
-                "database/mysql/updates/update-2026-05-19-admin-site-access-privacy.sql"));
+                "database/mysql/updates/update-2026-05-19-admin-site-access-privacy.sql"), StandardCharsets.UTF_8);
 
         assertThat(freshSeed)
                 .as("fresh dev databases should let carlosdoc's admin role reach site-aware admin pages")

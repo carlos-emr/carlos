@@ -52,12 +52,13 @@ Both coexist and share a single JDBC connection via `TransactionAwareDataSourceP
 data) plus forward-only migrations, tracked in `flyway_schema_history`. See
 [`docs/database-schema-management.md`](../../docs/database-schema-management.md).
 
-**Forward migrations** go under a Flyway location, named `VYYYY.MM.DD[.N]__short_description.sql`:
+**Forward migrations** go under a Flyway location, named `V1.0.N__short_description.sql`
+(sequential; use the next free version number across common + your province):
 
 ```text
-database/mysql/migration/common/VYYYY.MM.DD__desc.sql   -- shared change
-database/mysql/migration/on/VYYYY.MM.DD__desc.sql       -- Ontario-only change
-database/mysql/migration/bc/VYYYY.MM.DD__desc.sql       -- BC-only change
+database/mysql/migration/common/V1.0.N__desc.sql   -- shared change
+database/mysql/migration/on/V1.0.N__desc.sql       -- Ontario-only change
+database/mysql/migration/bc/V1.0.N__desc.sql       -- BC-only change
 ```
 
 Never edit the `V1*` baseline files. The legacy `database/mysql/updates/update-YYYY-MM-DD-*.sql`
@@ -234,7 +235,7 @@ src/main/resources/OscarDatabaseBase.xml         -- Hibernate configuration
 database/mysql/migration/common/V1__baseline_schema.sql -- Flyway V1 genesis schema
 database/mysql/migration/on/V1.0.2__on_data.sql  -- Ontario reference data (incl. OLIS)
 database/mysql/migration/bc/V1.0.2__bc_data.sql  -- BC reference data
-database/mysql/migration/<common|on|bc>/VYYYY.MM.DD__*.sql -- forward migrations
+database/mysql/migration/<common|on|bc>/V1.0.N__*.sql -- forward migrations (sequential)
 
 # DAO Patterns
 io/github/carlos_emr/carlos/commn/dao/*Dao.java        -- DAO interfaces
@@ -250,7 +251,7 @@ io/github/carlos_emr/carlos/commn/model/*.java          -- Entity models
 - Use parameterized queries exclusively
 - Include `lastUpdateUser` and `lastUpdateDate` on every new table
 - Check HBM mappings before writing HQL (case sensitivity, column lengths)
-- Follow date-based migration naming: `update-YYYY-MM-DD-description.sql`
+- Follow Flyway forward-migration naming: `V1.0.N__description.sql` (sequential, next free number)
 - Use backtick quoting for SQL reserved words in HBM XML
 
 **Ask first:**

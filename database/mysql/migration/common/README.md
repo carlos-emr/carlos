@@ -4,5 +4,5 @@
 identical across Ontario and BC. It is the frozen genesis of the CARLOS schema (see `../README.md`).
 
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
-shared future schema changes** here as `VYYYY.MM.DD[.N]__short_description.sql` so one migration
+shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration
 covers both provinces.

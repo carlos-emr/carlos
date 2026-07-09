@@ -546,6 +546,20 @@ else
 	# progress() waits on $pid and calls fail() on a non-zero exit, so a failed migrate aborts here.
 	pid=$!;progress $pid
 	echo "Populated ${db_name} with the ${province} Flyway baseline" >>$LOG_FILE
+	# The baseline reference data seeds the DOCUMENTED default clinician login (inherited from
+	# the legacy oscardata seed). Warn loudly: leaving it live on a real deployment is an
+	# unauthenticated-adjacent PHI exposure. Forced rotation at first login is app-level
+	# follow-up work; until then the operator must rotate it by hand.
+	echo ""
+	echo "*********************************************************************"
+	echo "* SECURITY WARNING: this install seeded the default clinician login *"
+	echo "*   username: carlosdoc   password: carlos2026   PIN: 2026          *"
+	echo "* These credentials are PUBLICLY DOCUMENTED. Log in and change the  *"
+	echo "* password and PIN (or disable the account) BEFORE entering any     *"
+	echo "* real patient data.                                                *"
+	echo "*********************************************************************"
+	echo ""
+	echo "SECURITY WARNING: default clinician login carlosdoc/carlos2026 (PIN 2026) was seeded — rotate before production use" >>$LOG_FILE
 	#ncecho " [x] Patching database to early ${PROGRAM} schema with patch1"
 	#$MYSQL ${db_name} < ${SRC}oscar_15_to_oscar_19.sql >>$LOG_FILE 2>>$LOG_FILE &
 	#pid=$!;progress $pid

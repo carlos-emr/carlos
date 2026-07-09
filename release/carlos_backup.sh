@@ -286,6 +286,13 @@ done
 echo ${DATABASE}
 echo "Log file =$LOG_ERR"
 
+# Drop stale dump artifacts from a previous run first: the DB tarball below globs
+# CarlosBackup.sql* / MyISAMBackup.sql*, so toggling NO_GZIP_MYSQLDUMP_FLAG would otherwise
+# leave the opposite-extension file behind and archive an outdated dump alongside the fresh one.
+rm -f $BASE_DOCUMENT_DIR/carlos/CarlosBackup.sql $BASE_DOCUMENT_DIR/carlos/CarlosBackup.sql.gz \
+      $BASE_DOCUMENT_DIR/carlos/MyISAMBackup.sql $BASE_DOCUMENT_DIR/carlos/MyISAMBackup.sql.gz \
+      $BASE_DOCUMENT_DIR/carlos/drugref.sql $BASE_DOCUMENT_DIR/carlos/drugref.sql.gz 2>> $LOG_ERR
+
 if [ ${NO_GZIP_MYSQLDUMP_FLAG} == 1 ]; then
   MYSQL_PWD="${db_password}" ${DB_DUMP} ${DUMP_OPTIONS} ${DATABASE} -u${db_username} > $BASE_DOCUMENT_DIR/carlos/CarlosBackup.sql 2>> $LOG_ERR
   # Guard: with no MyISAM tables (the Flyway baseline is InnoDB throughout), an empty table list

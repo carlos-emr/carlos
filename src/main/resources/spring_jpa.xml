@@ -49,8 +49,12 @@
 
 	<!-- Flyway schema-version boot gate. Default mode is 'off' (no-op): schema stays managed
 	     out of band exactly as before. Set carlos.flyway.onBoot=validate in production (fail fast
-	     if the DB schema is behind the deployed WAR) once the consolidated baseline is adopted, or
-	     =migrate in the disposable devcontainer. See docs/database-schema-management.md. -->
+	     if the DB schema is behind the deployed WAR) once the consolidated baseline is adopted.
+	     =migrate applies pending migrations on boot but ONLY against an empty schema or one that
+	     already carries flyway_schema_history — the gate never auto-baselines, so a non-empty
+	     pre-Flyway datadir must first be adopted via the explicit operator baseline step
+	     (carlos-ctl db baseline at version 1.0.2, the full genesis).
+	     See docs/database-schema-management.md. -->
 	<bean id="flywaySchemaValidator" class="io.github.carlos_emr.carlos.db.FlywaySchemaValidator">
 		<constructor-arg ref="dataSource" />
 		<!-- Defaults inline so a rendered carlos.properties that predates these keys still boots

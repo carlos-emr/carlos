@@ -8,21 +8,33 @@
 -- from the legacy updates/ patches), hence every statement is idempotent.
 -- note, this create index if not exists only works in mariadb
 
--- ---- Drop redundant indexes first (exact/PK duplicates and left-prefix shadows whose reads are
--- ---- fully covered by a surviving or newly-added composite; InnoDB secondary indexes carry the
+-- ---- Guard composites BEFORE the shadow drops. Each drop below is justified by a composite that
+-- ---- exists in the V1 baseline — but a CONVERTED (baseline-stamped) datadir may predate some of
+-- ---- them (all_index in particular was never shipped by any legacy update). Creating them here
+-- ---- first is a no-op on fresh installs and guarantees no drop ever leaves a column unindexed.
+CREATE INDEX IF NOT EXISTS `appointment_ikey` ON `appointment` (`demographic_no`,`updatedatetime`);
+CREATE INDEX IF NOT EXISTS `casemgmt_note_ikey` ON `casemgmt_note` (`demographic_no`,`update_date`,`locked`);
+CREATE INDEX IF NOT EXISTS `measurement_integrator` ON `measurements` (`demographicNo`,`dateEntered`);
+CREATE INDEX IF NOT EXISTS `idx_tickler_status_service_date` ON `tickler` (`status`,`service_date`);
+CREATE INDEX IF NOT EXISTS `all_index` ON `patientLabRouting` (`lab_type`,`lab_no`,`demographic_no`);
+CREATE INDEX IF NOT EXISTS `scheduledate_key1` ON `scheduledate` (`sdate`,`provider_no`,`hour`,`status`);
+CREATE INDEX IF NOT EXISTS `demoMap_messageID_demographic_no` ON `msgDemoMap` (`messageID`,`demographic_no`);
+
+-- ---- Drop redundant indexes (exact/PK duplicates and left-prefix shadows whose reads are fully
+-- ---- covered by a guarded-above or newly-added composite; InnoDB secondary indexes carry the
 -- ---- PK implicitly, so these drops are read-equivalent and save pure write amplification).
-ALTER TABLE `appointment` DROP INDEX IF EXISTS `demographic_no`;              -- prefix of appointment_ikey
-ALTER TABLE `casemgmt_note` DROP INDEX IF EXISTS `demographic_no`;            -- prefix of casemgmt_note_ikey
-ALTER TABLE `measurements` DROP INDEX IF EXISTS `demographicNo`;              -- prefix of measurement_integrator
-ALTER TABLE `tickler` DROP INDEX IF EXISTS `statusIndex`;                     -- prefix of idx_tickler_status_service_date
-ALTER TABLE `patientLabRouting` DROP INDEX IF EXISTS `lab_type_index`;        -- prefix of all_index
-ALTER TABLE `scheduledate` DROP INDEX IF EXISTS `scheduledate_sdate`;         -- prefix of scheduledate_key1
+ALTER TABLE `appointment` DROP INDEX IF EXISTS `demographic_no`;              -- prefix of appointment_ikey (guarded above)
+ALTER TABLE `casemgmt_note` DROP INDEX IF EXISTS `demographic_no`;            -- prefix of casemgmt_note_ikey (guarded above)
+ALTER TABLE `measurements` DROP INDEX IF EXISTS `demographicNo`;              -- prefix of measurement_integrator (guarded above)
+ALTER TABLE `tickler` DROP INDEX IF EXISTS `statusIndex`;                     -- prefix of idx_tickler_status_service_date (guarded above)
+ALTER TABLE `patientLabRouting` DROP INDEX IF EXISTS `lab_type_index`;        -- prefix of all_index (guarded above)
+ALTER TABLE `scheduledate` DROP INDEX IF EXISTS `scheduledate_sdate`;         -- prefix of scheduledate_key1 (guarded above)
 ALTER TABLE `drugs` DROP INDEX IF EXISTS `drugs_demographic_no`;              -- prefix of idx_drugs_demographic_no_archived (added below)
 ALTER TABLE `log` DROP INDEX IF EXISTS `provider_noIndex`;                    -- prefix of idx_log_provider_no_dateTime (added below)
 ALTER TABLE `eform_data` DROP INDEX IF EXISTS `idx_eform_data_demographic_no`; -- prefix of idx_eform_data_demographic_status (added below)
 ALTER TABLE `eform_data` DROP INDEX IF EXISTS `id`;                           -- UNIQUE duplicate of the PK (fdid)
 ALTER TABLE `providerLabRouting` DROP INDEX IF EXISTS `provider_lab_status_index`; -- legacy provider_no(3) prefix; replaced below
-ALTER TABLE `msgDemoMap` DROP INDEX IF EXISTS `messageID`;                    -- exact duplicate of demoMap_messageID_demographic_no
+ALTER TABLE `msgDemoMap` DROP INDEX IF EXISTS `messageID`;                    -- exact duplicate of demoMap_messageID_demographic_no (guarded above)
 ALTER TABLE `measurementType` DROP INDEX IF EXISTS `id`;                      -- duplicate of the PK
 
 -- ---- Schedule screen: the provider day view had no provider_no-leading index.

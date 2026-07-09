@@ -133,7 +133,7 @@ mariadb -h db -uroot -ppassword oscar -e "SELECT 1;"
 ```bash
 mariadb -h db -uroot -ppassword oscar -e \
   "SELECT user_name, pin FROM security WHERE user_name='carlosdoc';"
-# Expected: carlosdoc | 2025
+# Expected: carlosdoc | 2026
 ```
 
 ### 4. Test Patients Exist

@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.db;
 
 import javax.sql.DataSource;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.flywaydb.core.Flyway;
@@ -34,7 +35,7 @@ import org.springframework.beans.factory.InitializingBean;
  * Application-boot schema-version gate backed by Flyway.
  *
  * <p>CARLOS manages its MariaDB/MySQL schema with Flyway migrations (a consolidated
- * {@code V1} baseline plus dated {@code VYYYY.MM.DD} deltas). In production the migrations are
+ * {@code V1} baseline plus sequential {@code V1.0.N} deltas). In production the migrations are
  * applied by an explicit, operator-gated step ({@code carlos-ctl db migrate}, run after a
  * pre-migration backup) — <strong>never</strong> silently on application boot, because a
  * multi-node deployment would otherwise have every instance racing to migrate a PHI schema on a
@@ -54,8 +55,14 @@ import org.springframework.beans.factory.InitializingBean;
  *       schema). This is the recommended production posture once the baseline has been adopted:
  *       the app refuses to start against a schema it was not built for, rather than failing later
  *       with obscure column-not-found errors.</li>
- *   <li>{@code migrate} — apply pending migrations on boot. Intended for the disposable
- *       devcontainer / single-node dev database only; do not use in multi-node production.</li>
+ *   <li>{@code migrate} — apply pending migrations on boot. Intended for a disposable,
+ *       single-node dev database that starts <strong>empty</strong> (or already carries a
+ *       {@code flyway_schema_history}); do not use in multi-node production. This gate deliberately
+ *       does NOT set {@code baselineOnMigrate}: a non-empty pre-Flyway datadir must be adopted by
+ *       the explicit operator step ({@code carlos-ctl db baseline --version=1.0.2}, the full
+ *       genesis), never auto-stamped on boot — an automatic baseline at the wrong version would
+ *       make Flyway re-run the province files ({@code V1.0.1} DROPs and recreates province tables:
+ *       data loss). Such a datadir fails loud here instead.</li>
  * </ul>
  *
  * <p>The bean reads migrations from the classpath location(s) in {@code carlos.flyway.locations}
@@ -94,6 +101,10 @@ public class FlywaySchemaValidator implements InitializingBean {
         this.locations = splitLocations(locations);
     }
 
+    // IMPROPER_UNICODE flags any case folding regardless of Locale; this is an intended
+    // case-insensitive comparison of a three-value ASCII config token, not a trust decision.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE",
+            justification = "Intended case-insensitive compare of an ASCII config token (off|validate|migrate)")
     private static String normalizeMode(String raw) {
         if (raw == null || raw.isBlank()) {
             return MODE_OFF;
@@ -130,14 +141,14 @@ public class FlywaySchemaValidator implements InitializingBean {
                     + " requires carlos.flyway.locations to be set — refusing to boot with the "
                     + "schema gate enabled but nothing to validate against");
         }
-        // baselineOnMigrate lets an existing (pre-Flyway) datadir adopt the baseline in place: the
-        // first migrate stamps flyway_schema_history at baselineVersion instead of erroring on a
-        // non-empty schema. Harmless for a fresh DB that starts empty.
+        // Deliberately NO baselineOnMigrate: auto-stamping a non-empty pre-Flyway datadir on boot
+        // is a data-loss trap (stamped at "1", the next migrate re-runs V1.0.1 which DROPs and
+        // recreates province tables). Conversions must use the explicit, operator-gated
+        // `carlos-ctl db baseline --version=1.0.2` (the full genesis) instead; an unadopted
+        // non-empty schema fails loud here.
         Flyway flyway = Flyway.configure()
                 .dataSource(dataSource)
                 .locations(locations)
-                .baselineOnMigrate(true)
-                .baselineVersion("1")
                 .load();
 
         if (MODE_MIGRATE.equals(mode)) {

@@ -155,6 +155,18 @@ def main():
         if is_valid_patch_file(file_path):
             sys.exit(0)
 
+        # Block anything else under the FROZEN legacy updates/ dir: new files there would be
+        # schema changes outside Flyway history (is_valid_patch_file only allows edits to
+        # EXISTING well-named patches, which a few tests/demo seeds still read).
+        if PATCH_DIRECTORY in file_path:
+            print("\n=== SQL Migration Pattern Enforcer ===", file=sys.stderr)
+            print("BLOCKED: database/mysql/updates/ is FROZEN — no new files", file=sys.stderr)
+            print(f"File: {file_path}\n", file=sys.stderr)
+            print("New schema changes must be Flyway forward migrations:", file=sys.stderr)
+            print("  database/mysql/migration/<common|on|bc>/V1.0.N__short_description.sql", file=sys.stderr)
+            print("  (sequential; use the next free version number; make it idempotent)", file=sys.stderr)
+            sys.exit(2)
+
         # Block modification of protected baseline files
         if is_protected_sql_file(file_path):
             print("\n=== SQL Migration Pattern Enforcer ===", file=sys.stderr)
@@ -191,7 +203,7 @@ def main():
             print("  Create: database/mysql/migration/<common|on|bc>/V1.0.N__brief_description.sql", file=sys.stderr)
             print("\nForward-migration naming convention:", file=sys.stderr)
             print("  V1.0.N__brief_description.sql   (sequential; use the next free version number)", file=sys.stderr)
-            print("  Example: V2026.07.08__add_provider_type_column.sql", file=sys.stderr)
+            print("  Example: V1.0.5__add_provider_type_column.sql", file=sys.stderr)
             sys.exit(2)
 
         # Allow all other SQL operations

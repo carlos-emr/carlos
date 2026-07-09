@@ -8,7 +8,8 @@ for historical and conversion reference only.
   schema/data files under `migration/on/` and `migration/bc/`), which is what fresh installs
   load. They are **not** replayed on a fresh install.
 - **Do not add new schema changes here.** New schema changes are Flyway migrations under
-  `database/mysql/migration/` using the `VYYYY.MM.DD[.N]__description.sql` convention.
+  `database/mysql/migration/` using the `V1.0.N__description.sql` convention (sequential,
+  next free version number).
 - A handful of files here are still referenced by dev-only tooling (the resetsql skill and
   the devcontainer RTL/demo seed steps); those references are intentional and must remain.
 

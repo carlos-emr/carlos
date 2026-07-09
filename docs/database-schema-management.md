@@ -39,6 +39,26 @@ preserves the schema the application actually runs; retrofitting audit columns i
 (entity + DAO + backfill per table), not a baseline edit. New tables added via forward migrations
 MUST include the audit columns.
 
+### Security note — seeded default credentials
+
+The baseline reference data (province `V1.0.2` files) seeds the **documented default clinician
+login** `carlosdoc` / `carlos2026` (PIN `2026`) — inherited from the legacy `oscardata` seed, not
+introduced by the Flyway cutover. The `.deb` installer prints a prominent rotation warning after
+schema creation. Any non-dev deployment MUST rotate or disable this account before entering real
+patient data; installer/app-forced rotation at first login is tracked as application-level
+follow-up work.
+
+### Database engine requirement — MariaDB
+
+CARLOS targets **MariaDB** (11.8.x LTS is what dev, CI, and the container/podman production stack
+all run). The migrations rely on MariaDB-only idempotent DDL (`CREATE INDEX IF NOT EXISTS`,
+`ALTER TABLE ... DROP INDEX IF EXISTS`) — the repo's established idiom — and the dev/CI tooling
+uses the `mariadb`/`mariadb-dump` clients (MariaDB 11.x no longer ships the `mysql` symlinks). The
+`mariadb`→`mysql` client fallbacks in the release scripts, and the `.deb` `control` alternative
+that still admits `mysql-server`, remain only so package **upgrades** on legacy MySQL-hosted
+installs keep working; whether to drop MySQL from the dependency alternatives entirely is an
+operator/roadmap decision, not something a schema PR should change.
+
 ### Dead-table pruning
 
 `migration/pruned-tables.txt` lists tables with **zero references anywhere in `src/`** (case-insensitive
