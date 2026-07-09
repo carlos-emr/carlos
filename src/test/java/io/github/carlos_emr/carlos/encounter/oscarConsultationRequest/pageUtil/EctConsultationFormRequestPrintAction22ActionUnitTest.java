@@ -41,6 +41,7 @@ import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
 import org.apache.struts2.ServletActionContext;
@@ -139,8 +140,46 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
         }
     }
 
+    @Test
+    @DisplayName("should log missing rendered PDF when fax attachment path is null")
+    void shouldLogMissingRenderedPdf_whenFaxAttachmentPathNull() {
+        ArrayList<Object> attachments = new ArrayList<>();
+        ArrayList<InputStream> streams = new ArrayList<>();
+
+        try (LogCapture capture = LogCapture.forLogger(EctConsultationFormRequestPrintAction22Action.class)) {
+            addRenderedFaxAttachment(attachments, streams, null);
+
+            assertThat(attachments).isEmpty();
+            assertThat(streams).isEmpty();
+            assertThat(String.join("\n", capture.messages()))
+                    .contains("missing rendered PDF")
+                    .doesNotContain("unreadable temporary PDF");
+        }
+    }
+
+    @Test
+    @DisplayName("should log unreadable temporary PDF when fax attachment path is missing")
+    void shouldLogUnreadableTemporaryPdf_whenFaxAttachmentPathMissing() {
+        ArrayList<Object> attachments = new ArrayList<>();
+        ArrayList<InputStream> streams = new ArrayList<>();
+
+        try (LogCapture capture = LogCapture.forLogger(EctConsultationFormRequestPrintAction22Action.class)) {
+            addRenderedFaxAttachment(attachments, streams, tempDir.resolve("missing.pdf"));
+
+            assertThat(attachments).isEmpty();
+            assertThat(streams).isEmpty();
+            assertThat(String.join("\n", capture.messages()))
+                    .contains("unreadable temporary PDF")
+                    .doesNotContain("missing rendered PDF");
+        }
+    }
+
     private void appendDocumentAttachments(ArrayList<Object> attachments, ArrayList<InputStream> streams, List<EDoc> docs) {
         ReflectionTestUtils.invokeMethod(action, "appendDocumentAttachments", attachments, streams, docs, tempDir.toString() + File.separator);
+    }
+
+    private void addRenderedFaxAttachment(ArrayList<Object> attachments, ArrayList<InputStream> streams, Path attachmentPath) {
+        ReflectionTestUtils.invokeMethod(action, "addRenderedFaxAttachment", attachments, streams, attachmentPath, "EFORM", 45);
     }
 
     private EDoc printableDocument(String docId, String fileName, String contentType) {

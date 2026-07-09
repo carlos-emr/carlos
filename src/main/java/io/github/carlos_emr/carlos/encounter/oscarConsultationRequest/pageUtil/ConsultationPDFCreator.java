@@ -679,10 +679,8 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
             infoTable.addCell(setInfoCell(cell, getResource("msgappDate")));
             infoTable.addCell(setDataCell(cell, reqFrm.appointmentDate));
             infoTable.addCell(setInfoCell(cell, getResource("msgTime")));
-            infoTable.addCell(setDataCell(cell, String.format("%s%s%s %s", reqFrm.appointmentHour,
-                    reqFrm.appointmentMinute != null && !reqFrm.appointmentMinute.isEmpty() ? ":" : "",
-                    reqFrm.appointmentMinute,
-                    reqFrm.appointmentPm)));
+            infoTable.addCell(setDataCell(cell, formatAppointmentTime(reqFrm.appointmentHour,
+                    reqFrm.appointmentMinute, reqFrm.appointmentPm)));
         }
 
         infoTable.addCell(setInfoCell(cell, getResource("msgChart")));
@@ -782,6 +780,14 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
 
             addTable(pdfPTable, table);
         }
+    }
+
+    static String formatAppointmentTime(String appointmentHour, String appointmentMinute, String appointmentPm) {
+        String safeHour = appointmentHour == null ? "" : appointmentHour;
+        String safeMinute = appointmentMinute == null ? "" : appointmentMinute;
+        String safePm = appointmentPm == null ? "" : appointmentPm;
+        String separator = safeMinute.isEmpty() ? "" : ":";
+        return String.format("%s%s%s %s", safeHour, separator, safeMinute, safePm).trim();
     }
 
     /**
