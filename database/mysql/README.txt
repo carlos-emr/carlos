@@ -10,8 +10,9 @@ A fresh migrate yields a runnable database (structure + reference rows the app n
 data is dev-only (development.sql, filtered by build-demo.sh) and is NOT part of the baseline.
 
 Schema changes:
-  Add a forward migration VYYYY.MM.DD[.N]__short_description.sql under migration/common (shared) or
-  migration/on / migration/bc (province-specific). Make it idempotent. Never edit the V1* baseline.
+  Add a forward migration V1.0.N__short_description.sql (sequential, next free number) under
+  migration/common (shared) or migration/on / migration/bc (province-specific). Make it
+  idempotent. Never edit the V1* baseline.
 
 Notes:
 - InnoDB is required (foreign keys). Tables use the utf8mb4 character set.

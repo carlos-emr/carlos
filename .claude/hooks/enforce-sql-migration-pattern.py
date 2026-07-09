@@ -49,11 +49,11 @@ MIGRATION_DIRECTORIES = (
 
 # Expected patch file naming pattern
 PATCH_PATTERN = re.compile(r"^update-\d{4}-\d{2}-\d{2}-.+\.sql$")
-# Flyway forward-migration naming: sequential versions in the V1.x family (next free number),
-# e.g. V1.0.3__performance_indexes.sql. Restricted to V1.<n>[.<n>...] so date-style (V2026.07.08)
-# or new-major (V2.0.0) names are rejected — the documented convention is V1.0.N. The five genesis
-# baseline files are additionally protected by exact basename above.
-MIGRATION_PATTERN = re.compile(r"^V1(\.\d+)+__.+\.sql$")
+# Flyway forward-migration naming: exactly the documented V1.0.N convention (sequential, next
+# free number), e.g. V1.0.3__performance_indexes.sql. Anything else — date-style (V2026.07.08),
+# new-major (V2.0.0), minor bumps (V1.1), or sub-versions (V1.0.3.1) — is rejected. The five
+# genesis baseline files are additionally protected by exact basename above.
+MIGRATION_PATTERN = re.compile(r"^V1\.0\.\d+__.+\.sql$")
 
 
 def get_file_path_from_input(tool_input: dict) -> str:

@@ -653,6 +653,19 @@ else
     # rotation warning printed after schema creation.
     $MYSQL ${db_name} -e "UPDATE security SET forcePasswordReset=1, lastUpdateDate=NOW(), lastUpdateUser='system' WHERE user_name='carlosdoc' LIMIT 1;" 2>>$LOG_FILE
 
+    # Verify both statements actually took effect: the INSERT...SELECT exits 0 even when the
+    # seed row is missing (zero rows inserted), and set -e is disabled so the UPDATE's status
+    # is never checked. Without this gate the installer would print admin credentials that do
+    # not exist in the database and leave the default clinician login un-hardened.
+    CARLOS_ADMIN_ROWS=$($MYSQL -N ${db_name} -e "SELECT COUNT(*) FROM security WHERE user_name='carlos';" 2>>$LOG_FILE)
+    CARLOSDOC_RESET=$($MYSQL -N ${db_name} -e "SELECT COALESCE(MAX(forcePasswordReset),0) FROM security WHERE user_name='carlosdoc';" 2>>$LOG_FILE)
+    if [ "${CARLOS_ADMIN_ROWS:-0}" -lt 1 ] || [ "${CARLOSDOC_RESET:-0}" != "1" ]; then
+        echo "ERROR: security account setup failed — carlos rows=${CARLOS_ADMIN_ROWS:-?}, carlosdoc forcePasswordReset=${CARLOSDOC_RESET:-?} (expected >=1 and 1). The carlosdoc seed row may be missing or misnamed." >>$LOG_FILE
+        ncecho " security account setup failed (see ${LOG_FILE}) "
+        fail
+    fi
+    echo "Verified: carlos admin created and carlosdoc forcePasswordReset=1" >>$LOG_FILE
+
 	echo "probing for Java" >>$LOG_FILE
 
     # About Java

@@ -1410,8 +1410,11 @@
                         <location>filesystem:database/mysql/migration/common</location>
                         <location>filesystem:database/mysql/migration/on</location>
                     </locations>
-                    <baselineVersion>1</baselineVersion>
-                    <baselineDescription>CARLOS consolidated baseline</baselineDescription>
+                    <!-- Conversion default: stamp at the FULL genesis (V1 + province
+                         V1.0.1/V1.0.2). Never 1 — that would replay the province files on the
+                         next migrate (data loss). -->
+                    <baselineVersion>1.0.2</baselineVersion>
+                    <baselineDescription>CARLOS full genesis (V1 + province V1.0.1/V1.0.2)</baselineDescription>
                 </configuration>
             </plugin>
             <plugin>
