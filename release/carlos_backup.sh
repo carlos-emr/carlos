@@ -165,7 +165,14 @@ LOG_ERR="${LOG_PATH}/${LOG_FILE}"
 
 confirmVar ${db_password}
 export DB_PASSWORD_6606913a="${db_password}"
-MyISAM_TABLES=$(MYSQL_PWD="${db_password}" mariadb -s -u"${db_username}" -e "SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA='${DATABASE}' AND ENGINE='MyISAM';")
+# MariaDB 11.x dropped the mysql* client symlinks; prefer mariadb/mariadb-dump but fall back to
+# the mysql names (the package control file still accepts mysql-server as an alternative).
+if command -v mariadb >/dev/null 2>&1 ; then
+  DB_CLIENT=mariadb ; DB_DUMP=mariadb-dump
+else
+  DB_CLIENT=mysql ; DB_DUMP=mysqldump
+fi
+MyISAM_TABLES=$(MYSQL_PWD="${db_password}" ${DB_CLIENT} -s -u"${db_username}" -e "SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA='${DATABASE}' AND ENGINE='MyISAM';")
 
 IGNORED_TABLES_STRING=""
 T=(${MyISAM_TABLES})
@@ -280,13 +287,23 @@ echo ${DATABASE}
 echo "Log file =$LOG_ERR"
 
 if [ ${NO_GZIP_MYSQLDUMP_FLAG} == 1 ]; then
-  MYSQL_PWD="${db_password}" mariadb-dump ${DUMP_OPTIONS} ${DATABASE} -u${db_username} > $BASE_DOCUMENT_DIR/carlos/CarlosBackup.sql 2>> $LOG_ERR
-  MYSQL_PWD="${db_password}" mariadb-dump ${DATABASE} ${MyISAM_TABLES} -u${db_username} > $BASE_DOCUMENT_DIR/carlos/MyISAMBackup.sql 2>> $LOG_ERR
-  MYSQL_PWD="${db_password}" mariadb-dump ${DUMP_OPTIONS} drugref -u${db_username} > $BASE_DOCUMENT_DIR/carlos/drugref.sql 2>> $LOG_ERR
+  MYSQL_PWD="${db_password}" ${DB_DUMP} ${DUMP_OPTIONS} ${DATABASE} -u${db_username} > $BASE_DOCUMENT_DIR/carlos/CarlosBackup.sql 2>> $LOG_ERR
+  # Guard: with no MyISAM tables (the Flyway baseline is InnoDB throughout), an empty table list
+  # would make the dump tool re-dump the ENTIRE database into MyISAMBackup.sql.
+  if [ -n "${MyISAM_TABLES}" ]; then
+    MYSQL_PWD="${db_password}" ${DB_DUMP} ${DATABASE} ${MyISAM_TABLES} -u${db_username} > $BASE_DOCUMENT_DIR/carlos/MyISAMBackup.sql 2>> $LOG_ERR
+  else
+    : > $BASE_DOCUMENT_DIR/carlos/MyISAMBackup.sql
+  fi
+  MYSQL_PWD="${db_password}" ${DB_DUMP} ${DUMP_OPTIONS} drugref -u${db_username} > $BASE_DOCUMENT_DIR/carlos/drugref.sql 2>> $LOG_ERR
 else
-  MYSQL_PWD="${db_password}" mariadb-dump ${DUMP_OPTIONS} ${DATABASE} -u${db_username}|gzip --rsyncable -c -9 > $BASE_DOCUMENT_DIR/carlos/CarlosBackup.sql.gz 2>> $LOG_ERR
-  MYSQL_PWD="${db_password}" mariadb-dump ${DATABASE} ${MyISAM_TABLES} -u${db_username} |gzip --rsyncable -c -9 > $BASE_DOCUMENT_DIR/carlos/MyISAMBackup.sql.gz 2>> $LOG_ERR
-  MYSQL_PWD="${db_password}" mariadb-dump ${DUMP_OPTIONS} drugref -u${db_username}|gzip --rsyncable -c -9 > $BASE_DOCUMENT_DIR/carlos/drugref.sql.gz 2>> $LOG_ERR
+  MYSQL_PWD="${db_password}" ${DB_DUMP} ${DUMP_OPTIONS} ${DATABASE} -u${db_username}|gzip --rsyncable -c -9 > $BASE_DOCUMENT_DIR/carlos/CarlosBackup.sql.gz 2>> $LOG_ERR
+  if [ -n "${MyISAM_TABLES}" ]; then
+    MYSQL_PWD="${db_password}" ${DB_DUMP} ${DATABASE} ${MyISAM_TABLES} -u${db_username} |gzip --rsyncable -c -9 > $BASE_DOCUMENT_DIR/carlos/MyISAMBackup.sql.gz 2>> $LOG_ERR
+  else
+    : | gzip -c > $BASE_DOCUMENT_DIR/carlos/MyISAMBackup.sql.gz
+  fi
+  MYSQL_PWD="${db_password}" ${DB_DUMP} ${DUMP_OPTIONS} drugref -u${db_username}|gzip --rsyncable -c -9 > $BASE_DOCUMENT_DIR/carlos/drugref.sql.gz 2>> $LOG_ERR
 fi
 cp -u $WAR_FILE $BASE_DOCUMENT_DIR/carlos/ 2>> $LOG_ERR
 cp -u $PROPFILE $BASE_DOCUMENT_DIR/carlos/ 2>> $LOG_ERR

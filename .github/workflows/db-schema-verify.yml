@@ -17,6 +17,10 @@ on:
       - 'database/mysql/**'
       - '.github/workflows/db-schema-verify.yml'
 
+# Read-only job: it checks out the repo and talks to a local docker container.
+permissions:
+  contents: read
+
 jobs:
   flyway-baseline:
     runs-on: ubuntu-latest
@@ -27,14 +31,20 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Install MariaDB client and Flyway CLI
         run: |
           sudo apt-get update && sudo apt-get install -y mariadb-client
           FLYWAY_VERSION=11.14.0
+          # Pinned SHA256 (same pin as release/make_CARLOS_deb.sh) — update together with the version.
+          FLYWAY_SHA256=310af67e104e128e93cfe7fa7a59570024f0bb2c03bfdc70137acbe03d5cf5d0
           # The bundled linux CLI tarball is on Red Gate's mirror; Maven Central only has the jar.
           curl -fsSL "https://download.red-gate.com/maven/release/com/redgate/flyway/flyway-commandline/${FLYWAY_VERSION}/flyway-commandline-${FLYWAY_VERSION}-linux-x64.tar.gz" \
-            | tar xz
+            -o /tmp/flyway.tgz
+          echo "${FLYWAY_SHA256}  /tmp/flyway.tgz" | sha256sum -c -
+          tar xzf /tmp/flyway.tgz
           echo "$PWD/flyway-${FLYWAY_VERSION}" >> "$GITHUB_PATH"
 
       - name: Start MariaDB 11.8.8 with the CARLOS server config
@@ -62,10 +72,11 @@ jobs:
       - name: Migrate the V1 baseline and smoke-check the result
         env:
           MYSQL_PWD: password
+          # Matrix value enters via env (not inline ${{ }} in the script body) — template-injection hygiene.
+          PROV: ${{ matrix.province }}
         run: |
           set -euo pipefail
           cd database/mysql
-          PROV=${{ matrix.province }}
           MYSQL="mariadb -h 127.0.0.1 -uroot -ppassword"
           JDBC="jdbc:mysql://127.0.0.1:3306/carlos_${PROV}?allowPublicKeyRetrieval=true&useSSL=false"
 
@@ -76,10 +87,22 @@ jobs:
             -locations="filesystem:migration/common,filesystem:migration/${PROV}" \
             -baselineOnMigrate=true migrate
 
-          # validate re-checks every applied migration's checksum against the files on disk:
-          # this catches a hand-edited baseline or a mismatched delta.
+          # validate confirms the applied history is consistent with the files. NOTE: on a fresh
+          # DB this is NOT an independent proof against a hand-edited baseline (migrate computed
+          # the checksums from these same files moments ago) — the explicit history + content
+          # assertions below carry that weight.
           flyway -url="$JDBC" -user=root -password=password \
             -locations="filesystem:migration/common,filesystem:migration/${PROV}" validate
+
+          # Every expected migration must actually have applied — catches a silently-empty or
+          # missing province location, which migrate+validate alone would not flag.
+          for v in 1 1.0.1 1.0.2; do
+            ok=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM flyway_schema_history WHERE version='${v}' AND success=1")
+            if [ "${ok}" != "1" ]; then
+              echo "::error::migration version ${v} missing from flyway_schema_history for ${PROV}"
+              exit 1
+            fi
+          done
 
           # Smoke checks: a real, populated schema (not an empty or half-applied DB).
           TABLES=$($MYSQL -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='carlos_${PROV}' AND table_name<>'flyway_schema_history'")

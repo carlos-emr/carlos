@@ -16,12 +16,22 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 IN="${1:?usage: build-demo.sh <input-full-demo.sql> <output-filtered.sql>}"
 OUT="${2:?usage: build-demo.sh <input-full-demo.sql> <output-filtered.sql>}"
 
+# The `> "$OUT"` redirect truncates before awk reads: identical paths would destroy the input.
+if [ "$(readlink -f "$IN")" = "$(readlink -f "$OUT")" ]; then
+  echo "ERROR: input and output must be different files" >&2
+  exit 1
+fi
+
+# Per-run temp file (predictable /tmp names collide across concurrent runs and are symlink-attackable).
+LIVE_TABLES="$(mktemp)"
+trap 'rm -f "$LIVE_TABLES"' EXIT
+
 # Live tables = the CREATE TABLE names across the baseline schema files (common + both provinces).
 grep -hoE 'CREATE TABLE +`[^`]+`' \
   "${SCRIPT_DIR}/migration/common/V1__baseline_schema.sql" \
   "${SCRIPT_DIR}/migration/on/V1.0.1__on_schema.sql" \
   "${SCRIPT_DIR}/migration/bc/V1.0.1__bc_schema.sql" \
-  | sed -E 's/CREATE TABLE +`([^`]+)`/\1/' | LC_ALL=C sort -u > /tmp/_live_tables.txt
+  | sed -E 's/CREATE TABLE +`([^`]+)`/\1/' | LC_ALL=C sort -u > "$LIVE_TABLES"
 
 awk 'NR==FNR{keep["`"$1"`"]=1; next}
 {
@@ -33,6 +43,6 @@ awk 'NR==FNR{keep["`"$1"`"]=1; next}
   }
   if ($0 ~ /^TRUNCATE TABLE/) { match($0,/`[^`]+`/); t=substr($0,RSTART,RLENGTH); if (t in keep) print; next }
   print
-}' /tmp/_live_tables.txt "$IN" > "$OUT"
+}' "$LIVE_TABLES" "$IN" > "$OUT"
 
-echo ">> wrote ${OUT} (filtered to $(wc -l < /tmp/_live_tables.txt) live tables)"
+echo ">> wrote ${OUT} (filtered to $(wc -l < "$LIVE_TABLES") live tables)"

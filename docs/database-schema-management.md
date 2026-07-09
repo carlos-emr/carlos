@@ -33,6 +33,12 @@ A fresh `flyway migrate` yields a runnable DB (structure + reference rows the ap
 data is loaded separately (dev-only). The baseline is never regenerated — schema changes ship as new
 forward migrations (see **Evolving the schema**).
 
+**Known, intentional guideline exception:** many legacy-captured tables in the baseline predate
+the "every table includes `lastUpdateUser`/`lastUpdateDate` audit columns" convention. The baseline
+preserves the schema the application actually runs; retrofitting audit columns is application work
+(entity + DAO + backfill per table), not a baseline edit. New tables added via forward migrations
+MUST include the audit columns.
+
 ### Dead-table pruning
 
 `migration/pruned-tables.txt` lists tables with **zero references anywhere in `src/`** (case-insensitive
@@ -61,7 +67,7 @@ Migrations are also copied onto the WAR classpath at `db/migration` (a build `<r
 
 | Context | How | Notes |
 |---|---|---|
-| Devcontainer dev DB | `populate_db.sh` loads the migration `.sql` files via the `mysql` CLI (common + on), then demo | The MariaDB initdb temp server is socket-only and Flyway needs TCP, so the devcontainer applies the SAME migration files with the mysql client (dev DBs are disposable — no `flyway_schema_history` needed). Demo (`development.sql`, filtered to the live schema by `build-demo.sh`) loads after, dev-only. Native reset: rebuild the container, or `flyway clean && migrate` on a TCP connection. |
+| Devcontainer dev DB | `populate_db.sh` loads the migration `.sql` files via the `mariadb` client (common + on), then demo | The MariaDB initdb temp server is socket-only and Flyway needs TCP, so the devcontainer applies the SAME migration files with the `mariadb` client (MariaDB 11.x has no `mysql` symlink; dev DBs are disposable — no `flyway_schema_history` needed). Demo (`development.sql`, filtered to the live schema by `build-demo.sh`) loads after, dev-only. Native reset: rebuild the container, or `flyway clean && migrate` on a TCP connection. |
 | CI schema check | `.github/workflows/db-schema-verify.yml` | Runs `flyway migrate` + `validate` for both provinces and smoke-checks a populated schema (table count + reference rows). |
 | Production (.deb) | `release/postinst` runs the bundled Flyway CLI `migrate` (common + province) on new installs | The .deb bundles `migration/` + a pinned, offline Flyway CLI. Upgrades apply the frozen `updates/*.sql`. |
 | Production (container) | `carlos-ctl db migrate` (operator-gated, after `carlos-ctl db-backup`) | Never on app boot. The app runs `carlos.flyway.onBoot=validate` and refuses to start if the schema is behind. |

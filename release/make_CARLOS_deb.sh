@@ -401,8 +401,16 @@ cp ./database/mysql/expire_openodoc.sql ${SCHEMA_OUT}/ 2>/dev/null || true
 
 echo "bundling Flyway ${FLYWAY_VERSION} CLI (offline-capable, self-contained JRE)"
 # The bundled linux CLI tarball is on Red Gate's mirror; Maven Central only ships the jar.
+# Download to a file and verify a pinned SHA256 before extracting (same supply-chain posture as
+# the drugref.war check below) — update FLYWAY_SHA256 when bumping FLYWAY_VERSION.
+FLYWAY_SHA256=${FLYWAY_SHA256:-310af67e104e128e93cfe7fa7a59570024f0bb2c03bfdc70137acbe03d5cf5d0}
+FLYWAY_TARBALL="$(mktemp -d)/flyway-${FLYWAY_VERSION}.tar.gz"
 curl -fsSL "https://download.red-gate.com/maven/release/com/redgate/flyway/flyway-commandline/${FLYWAY_VERSION}/flyway-commandline-${FLYWAY_VERSION}-linux-x64.tar.gz" \
-  | tar xz -C ${SCHEMA_OUT}
+  -o "${FLYWAY_TARBALL}"
+echo "${FLYWAY_SHA256}  ${FLYWAY_TARBALL}" | sha256sum -c - || { echo "ERROR: Flyway CLI SHA256 mismatch — aborting build" >&2; exit 1; }
+tar xzf "${FLYWAY_TARBALL}" -C ${SCHEMA_OUT}
+rm -f "${FLYWAY_TARBALL}"
+[ -x "${SCHEMA_OUT}/flyway-${FLYWAY_VERSION}/flyway" ] || { echo "ERROR: Flyway CLI missing after extract" >&2; exit 1; }
 chmod 755 ${SCHEMA_OUT}/flyway-${FLYWAY_VERSION}/flyway
 
 # Bundle incremental update scripts for CARLOS revision upgrades.

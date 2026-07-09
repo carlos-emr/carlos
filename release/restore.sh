@@ -110,7 +110,9 @@ cd "${DOCS}" || { echo "Failed to change to ${DOCS}" >&2; exit 1; }
 if [ -f CarlosBackup.sql.gz ] ; then
 	gunzip CarlosBackup.sql.gz
 	echo "Loading backup database into mysql... you might have time for a coffee"
-	MYSQL_PWD="${db_password}" mariadb -uroot ${db_name} < CarlosBackup.sql
+	# mariadb client preferred (MariaDB 11.x has no mysql symlink); fall back to mysql.
+	command -v mariadb >/dev/null 2>&1 && DB_CLIENT=mariadb || DB_CLIENT=mysql
+	MYSQL_PWD="${db_password}" ${DB_CLIENT} -uroot ${db_name} < CarlosBackup.sql
 	echo "Cleanup, deleting CarlosBackup.sql... its huge"
 	rm CarlosBackup.sql
 else

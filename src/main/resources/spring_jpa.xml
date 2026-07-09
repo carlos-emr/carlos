@@ -54,7 +54,9 @@
 	<bean id="flywaySchemaValidator" class="io.github.carlos_emr.carlos.db.FlywaySchemaValidator">
 		<constructor-arg ref="dataSource" />
 		<!-- Defaults inline so a rendered carlos.properties that predates these keys still boots
-		     (falls back to the no-op 'off' mode) instead of failing placeholder resolution. -->
+		     (falls back to the no-op 'off' mode) instead of failing placeholder resolution.
+		     The locations default is the Ontario set; a BC deployment that enables the gate MUST
+		     also set carlos.flyway.locations=classpath:db/migration/common,classpath:db/migration/bc. -->
 		<constructor-arg value="${carlos.flyway.onBoot:off}" />
 		<constructor-arg value="${carlos.flyway.locations:classpath:db/migration/common,classpath:db/migration/on}" />
 	</bean>
@@ -66,7 +68,11 @@
 	     the {@code primary} attribute is still meaningful in contexts (including
 	     some tests) that define another compatible {@code sessionFactory} or
 	     {@code EntityManagerFactory} bean. -->
-	<bean id="entityManagerFactory" primary="true" class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
+	<!-- depends-on makes the Flyway boot gate's ordering contractual: the schema is
+	     validated/migrated BEFORE Hibernate ever touches the database. XML definition
+	     order alone is not a guarantee of singleton initialization order. -->
+	<bean id="entityManagerFactory" primary="true" depends-on="flywaySchemaValidator"
+	      class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
 		<property name="dataSource" ref="dataSource" />
 		<!-- Hibernate 7 requires the EMF to know about all @Entity types referenced
 		     by JPA associations. packagesToScan discovers annotated model classes. -->

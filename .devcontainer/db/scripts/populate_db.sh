@@ -3,26 +3,35 @@ set -e
 echo 'Setting up all databases...'
 
 MIG=/database/mysql/migration
-# Use MYSQL_ROOT_PASSWORD environment variable, fallback to 'password' for development
-DB_PASSWORD="${MYSQL_ROOT_PASSWORD:-password}"
+# Use MYSQL_ROOT_PASSWORD environment variable, fallback to 'password' for development.
+# The password travels via MYSQL_PWD (off-argv — -p<pw> would be visible in the process list).
+export MYSQL_PWD="${MYSQL_ROOT_PASSWORD:-password}"
 # MariaDB 11.x dropped the mysql* client symlinks (mysql/mysqladmin/mysqldump); use mariadb.
-SQL="mariadb -u root -p${DB_PASSWORD}"
+SQL="mariadb -u root"
 
 # Build oscar + oscar_test from the Flyway migration set — the SAME files production applies via
 # `carlos-ctl db migrate` (common + Ontario locations): a complete, dead-pruned schema + reference
 # data. Loaded here with the mariadb CLI (not the Flyway CLI) because the MariaDB initdb temp server
 # is socket-only and Flyway needs TCP; dev databases are disposable, so a flyway_schema_history is
 # not required. Keep this list of locations in sync with database/mysql/migration/.
+# Assemble the load into a temp file first: /bin/sh has no pipefail, so `cat ... | mariadb`
+# would mask a missing migration file (mariadb exits 0 on the truncated stream) — a redirect
+# from a fully-assembled file makes any cat failure abort under set -e instead.
+LOAD_SQL=$(mktemp)
+trap 'rm -f "${LOAD_SQL}"' EXIT
+{
+  echo "SET FOREIGN_KEY_CHECKS=0;"
+  cat "${MIG}/common/V1__baseline_schema.sql" \
+      "${MIG}/on/V1.0.1__on_schema.sql" \
+      "${MIG}/on/V1.0.2__on_data.sql"
+  echo "SET FOREIGN_KEY_CHECKS=1;"
+} > "${LOAD_SQL}"
 for DB in oscar oscar_test; do
   echo "Creating ${DB} from the Flyway baseline (common + on)..."
-  $SQL -e "CREATE DATABASE IF NOT EXISTS ${DB};"
-  {
-    echo "SET FOREIGN_KEY_CHECKS=0;"
-    cat "${MIG}/common/V1__baseline_schema.sql" \
-        "${MIG}/on/V1.0.1__on_schema.sql" \
-        "${MIG}/on/V1.0.2__on_data.sql"
-    echo "SET FOREIGN_KEY_CHECKS=1;"
-  } | $SQL "${DB}"
+  # Explicit charset so the DATABASE default matches the fully-utf8mb4 schema even if the
+  # server default ever changes (all baseline tables also set it per-table).
+  $SQL -e "CREATE DATABASE IF NOT EXISTS ${DB} CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
+  $SQL "${DB}" < "${LOAD_SQL}"
 done
 
 # drugref2 is a separate database (not part of the oscar schema).

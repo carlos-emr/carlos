@@ -77,9 +77,11 @@ def is_valid_patch_file(file_path: str) -> bool:
     forward migration (VYYYY.MM.DD__desc.sql) under a migration location directory."""
     path = Path(file_path)
 
-    # Legacy dated patch directory (frozen; still referenced by a few regression tests)
+    # Legacy dated patch directory is FROZEN: existing files may still be edited (a few are read
+    # by regression tests / applied for demo seeding), but NEW files there would be schema changes
+    # outside Flyway history — those must go to migration/<common|on|bc> instead.
     if PATCH_DIRECTORY in file_path and PATCH_PATTERN.match(path.name) is not None:
-        return True
+        return path.exists()
 
     # Flyway forward migration under common/on/bc
     if any(loc in file_path for loc in MIGRATION_DIRECTORIES) and \
@@ -150,7 +152,7 @@ def main():
         # Block modification of protected baseline files
         if is_protected_sql_file(file_path):
             print("\n=== SQL Migration Pattern Enforcer ===", file=sys.stderr)
-            print(f"BLOCKED: Cannot hand-edit the Flyway V1 baseline", file=sys.stderr)
+            print("BLOCKED: Cannot hand-edit the Flyway V1 baseline", file=sys.stderr)
             print(f"File: {file_path}\n", file=sys.stderr)
             print("CARLOS migration standards require:", file=sys.stderr)
             print("  ✗ Do NOT edit the V1 baseline (migration/**/V1*.sql) — it is the genesis schema", file=sys.stderr)
@@ -174,7 +176,7 @@ def main():
         # Block creation of new SQL files in protected directories
         if is_creating_sql_in_protected_dir(tool_name, file_path):
             print("\n=== SQL Migration Pattern Enforcer ===", file=sys.stderr)
-            print(f"BLOCKED: Cannot create new SQL file in protected directory", file=sys.stderr)
+            print("BLOCKED: Cannot create new SQL file in protected directory", file=sys.stderr)
             print(f"File: {file_path}\n", file=sys.stderr)
             print("CARLOS migration standards require:", file=sys.stderr)
             print("  ✗ Do NOT create ad-hoc SQL files in database/mysql/ (root)", file=sys.stderr)

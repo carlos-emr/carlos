@@ -1,17 +1,23 @@
 /**
- * CARLOS EMR - Clinical Assisting Recording Ledger Open Source
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
  *
- * Copyright (c) 2026 CARLOS EMR contributors
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.db;
 
@@ -40,10 +46,14 @@ import org.springframework.beans.factory.InitializingBean;
  *   <li>{@code off} (default) — do nothing. Schema is assumed to be managed entirely out of band
  *       (the legacy shell-script build, or an operator-run {@code migrate}). This preserves the
  *       historical behaviour where the app performs no schema management.</li>
- *   <li>{@code validate} — verify the database is at (or ahead of) the schema the deployed WAR
- *       expects and <strong>fail fast</strong> if it is behind. This is the recommended production
- *       posture once the baseline has been adopted: the app refuses to start against a schema it
- *       was not built for, rather than failing later with obscure column-not-found errors.</li>
+ *   <li>{@code validate} — verify the database matches the schema the deployed WAR expects and
+ *       <strong>fail fast</strong> otherwise: applied-migration checksums must match the shipped
+ *       files AND no shipped migration may still be pending (a database that is <em>behind</em> the
+ *       WAR aborts boot; one that is <em>ahead</em> — carrying applied migrations the WAR does not
+ *       ship — fails Flyway validation too, which protects against running an older WAR on a newer
+ *       schema). This is the recommended production posture once the baseline has been adopted:
+ *       the app refuses to start against a schema it was not built for, rather than failing later
+ *       with obscure column-not-found errors.</li>
  *   <li>{@code migrate} — apply pending migrations on boot. Intended for the disposable
  *       devcontainer / single-node dev database only; do not use in multi-node production.</li>
  * </ul>
@@ -70,10 +80,13 @@ public class FlywaySchemaValidator implements InitializingBean {
     /**
      * @param dataSource the application {@code DataSource} (same pool the app uses); Flyway opens
      *                   its own short-lived connections from it and never holds one.
-     * @param mode       one of {@code off} / {@code validate} / {@code migrate}; unknown or blank
-     *                   values are treated as {@code off} (fail-safe: never block boot on a typo).
+     * @param mode       one of {@code off} / {@code validate} / {@code migrate}. Blank/absent means
+     *                   {@code off} (a rendered carlos.properties that predates the key still
+     *                   boots). Any OTHER value aborts boot: a mistyped {@code validate} silently
+     *                   downgrading to {@code off} would disable the schema gate without anyone
+     *                   noticing, which is worse than failing loud on the typo.
      * @param locations  comma-separated Flyway locations (e.g. {@code classpath:db/migration/common,
-     *                   classpath:db/migration/on}); blank disables the gate.
+     *                   classpath:db/migration/on}); blank is only legal in {@code off} mode.
      */
     public FlywaySchemaValidator(DataSource dataSource, String mode, String locations) {
         this.dataSource = dataSource;
@@ -82,14 +95,16 @@ public class FlywaySchemaValidator implements InitializingBean {
     }
 
     private static String normalizeMode(String raw) {
-        if (raw == null) {
+        if (raw == null || raw.isBlank()) {
             return MODE_OFF;
         }
         String m = raw.trim().toLowerCase(java.util.Locale.ROOT);
-        if (MODE_VALIDATE.equals(m) || MODE_MIGRATE.equals(m)) {
+        if (MODE_OFF.equals(m) || MODE_VALIDATE.equals(m) || MODE_MIGRATE.equals(m)) {
             return m;
         }
-        return MODE_OFF;
+        throw new IllegalArgumentException(
+                "carlos.flyway.onBoot must be off|validate|migrate but was '" + raw
+                        + "' — refusing to guess (a typo must not silently disable the schema gate)");
     }
 
     private static String[] splitLocations(String raw) {
@@ -109,8 +124,11 @@ public class FlywaySchemaValidator implements InitializingBean {
             return;
         }
         if (locations.length == 0) {
-            logger.warn("carlos.flyway.onBoot={} but carlos.flyway.locations is empty — skipping schema gate", mode);
-            return;
+            // An empty location set in validate/migrate mode is a broken configuration, not a
+            // reason to silently skip the gate the operator explicitly turned on.
+            throw new IllegalStateException("carlos.flyway.onBoot=" + mode
+                    + " requires carlos.flyway.locations to be set — refusing to boot with the "
+                    + "schema gate enabled but nothing to validate against");
         }
         // baselineOnMigrate lets an existing (pre-Flyway) datadir adopt the baseline in place: the
         // first migrate stamps flyway_schema_history at baselineVersion instead of erroring on a
@@ -129,8 +147,25 @@ public class FlywaySchemaValidator implements InitializingBean {
             return;
         }
 
-        // MODE_VALIDATE: fail fast when the running schema is behind the deployed WAR.
+        // MODE_VALIDATE: fail fast when the running schema does not match the deployed WAR.
+        // validate() covers checksum drift and applied-but-not-shipped migrations; the explicit
+        // pending check below makes "database is BEHIND the WAR" a hard failure too — Flyway's
+        // treatment of pending migrations during validate has varied across versions, so the
+        // contract is enforced here rather than assumed.
         flyway.validate();
+        MigrationInfo[] pending = flyway.info().pending();
+        if (pending.length > 0) {
+            StringBuilder versions = new StringBuilder();
+            for (MigrationInfo p : pending) {
+                if (versions.length() > 0) {
+                    versions.append(", ");
+                }
+                versions.append(p.getVersion() != null ? p.getVersion().toString() : p.getDescription());
+            }
+            throw new IllegalStateException("database schema is BEHIND the deployed WAR: "
+                    + pending.length + " pending migration(s) [" + versions
+                    + "] — run `carlos-ctl db migrate` (after a backup) before starting the app");
+        }
         MigrationInfo current = flyway.info().current();
         logger.info("Flyway schema validation passed; database at version {}",
                 current != null ? current.getVersion() : "(none)");

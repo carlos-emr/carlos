@@ -65,8 +65,6 @@
       "Bash(git push -u origin *)"
     ],
     "ask": [
-      "Edit(database/mysql/migration/**/V1*.sql)",
-      "Write(database/mysql/migration/**/V1*.sql)",
       "Bash(gh pr close *)",
       "Bash(gh issue close *)",
       "Bash(gh issue edit *)",

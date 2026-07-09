@@ -6,7 +6,7 @@ loop. Dead tables from removed modules are pruned (see `pruned-tables.txt`).
 
 ## Layout (Flyway-native: shared + per-province locations)
 
-```
+```text
 migration/
   flyway.conf                     # non-secret defaults (locations, baseline); creds passed at run time
   pruned-tables.txt               # dead tables excluded from the baseline (removed-module cruft)

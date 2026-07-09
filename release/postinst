@@ -155,8 +155,13 @@ fi
 
 # Export MYSQL_PWD so client commands don't expose the password in the process list
 export MYSQL_PWD="${db_password}"
-# MariaDB 11.x dropped the mysql* client symlinks; use the mariadb client.
-MYSQL="mariadb -u root"
+# MariaDB 11.x dropped the mysql* client symlinks; prefer the mariadb client but fall back to
+# mysql — the package control file still accepts mysql-server as an alternative dependency.
+if command -v mariadb >/dev/null 2>&1 ; then
+	MYSQL="mariadb -u root"
+else
+	MYSQL="mysql -u root"
+fi
 #echo password = ${db_password} >> $LOG_FILE
 
 echo "test the obtained password before proceeding!!"  >>$LOG_FILE
@@ -518,7 +523,10 @@ else
 	SCHEMA_DIR="${SRC}schema"
 	FLYWAY_BIN=$(ls -d ${SCHEMA_DIR}/flyway-*/flyway 2>/dev/null | head -1)
 	if [ -z "${FLYWAY_BIN}" ] || [ ! -x "${FLYWAY_BIN}" ] ; then
-		fail "bundled Flyway CLI not found under ${SCHEMA_DIR} — cannot create schema"
+		# fail() takes no message argument — log the reason first so it isn't lost.
+		echo "ERROR: bundled Flyway CLI not found under ${SCHEMA_DIR} — cannot create schema" >>$LOG_FILE
+		ncecho " bundled Flyway CLI not found under ${SCHEMA_DIR} "
+		fail
 	fi
 	if [ "${billregion}" = "BC" ] ; then
 		province="bc"
@@ -527,11 +535,12 @@ else
 	fi
 	ncecho " [x] Applying CARLOS Flyway V1 baseline (${province}) to ${db_name} "
 	echo "Running flyway migrate for province ${province}" >>$LOG_FILE
-	# db_password is passed off-argv via MYSQL_PWD-style env; Flyway reads -password. The DB was
+	# The password goes to Flyway via the FLYWAY_PASSWORD environment variable (off-argv — a
+	# -password= flag would be visible in the process list while the migrate runs). The DB was
 	# already created above, so baselineOnMigrate stamps V1 and applies the baseline.
-	( "${FLYWAY_BIN}" \
+	( FLYWAY_PASSWORD="${db_password}" "${FLYWAY_BIN}" \
 		-url="jdbc:mariadb://localhost:3306/${db_name}?allowPublicKeyRetrieval=true&useSSL=false" \
-		-user=root -password="${db_password}" \
+		-user=root \
 		-locations="filesystem:${SCHEMA_DIR}/migration/common,filesystem:${SCHEMA_DIR}/migration/${province}" \
 		-baselineOnMigrate=true migrate ) >>$LOG_FILE 2>>$LOG_FILE &
 	# progress() waits on $pid and calls fail() on a non-zero exit, so a failed migrate aborts here.

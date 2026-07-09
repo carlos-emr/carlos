@@ -909,7 +909,7 @@ migration/common/V1__baseline_schema.sql   # province-neutral schema (structure)
 migration/on/V1.0.1__on_schema.sql         # Ontario-only tables
 migration/on/V1.0.2__on_data.sql           # Ontario reference data (incl. carlosdoc seed, ICD, OLIS)
 migration/bc/V1.0.1__bc_schema.sql         # BC-only tables
-migration/bc/V1.0.2__bc_data.sql           # BC reference data (incl. billing/specialist/pharmacy catalogs)
+migration/bc/V1.0.2__bc_data.sql           # BC reference data (carlosdoc seed, ICD, + billing/specialist/pharmacy catalogs)
 migration/pruned-tables.txt                # dead tables excluded from the baseline
 
 # Forward schema changes: migration/<common|on|bc>/VYYYY.MM.DD[.N]__desc.sql (idempotent)
