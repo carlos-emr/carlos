@@ -115,6 +115,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
     private static final String ATTR_SIGNATURE_IMG = "signatureImg";
     private static final String ATTR_PREVIEW_SIGNATURE_IMG = "consultPreviewSignatureImg";
     private static final String SIGNATURE_NOT_APPLIED_WARNING = "The captured signature could not be saved and will not appear on the PDF.";
+    private static final String INVALID_DEMOGRAPHIC_NUMBER = "Invalid demographic number";
 
     private Integer parseUpdateInteger(String rawValue, String logMessage, String actionErrorMessage) {
         try {
@@ -204,7 +205,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                     demographicId = Integer.parseInt(demographicNo);
                 } catch (NumberFormatException e) {
                     MiscUtils.getLogger().error("Invalid demographic number for new consultation: {}", demographicNo);
-                    addActionError("Invalid demographic number");
+                    addActionError(INVALID_DEMOGRAPHIC_NUMBER);
                     return INPUT;
                 }
 
@@ -377,7 +378,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 
             Integer parsedDemographicId = parseUpdateInteger(demographicNo,
                     "Invalid demographic number for consultation update: {}",
-                    "Invalid demographic number");
+                    INVALID_DEMOGRAPHIC_NUMBER);
             if (parsedDemographicId == null) {
                 return INPUT;
             }
@@ -686,7 +687,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 
         Integer demographicId = parseUpdateInteger(demographicNo,
                 "Invalid demographic number for consultation print preview signature: {}",
-                "Invalid demographic number");
+                INVALID_DEMOGRAPHIC_NUMBER);
         if (demographicId == null) {
             request.setAttribute(ATTR_ERROR_MESSAGE, "A print preview of this consultation could not be generated. \n\nInvalid demographic number.");
             return false;

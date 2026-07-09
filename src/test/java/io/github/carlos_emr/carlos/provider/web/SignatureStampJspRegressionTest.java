@@ -63,8 +63,10 @@ class SignatureStampJspRegressionTest {
                 .contains("if (data.signatureImg && isStoredSignatureId(data.signatureImg))")
                 .contains("boolean hasStoredSignature = SignatureReference.isStoredId(consultUtil.signatureImg);")
                 .contains("id=\"manualReSign\"")
-                .contains("onclick=\"return showManualSignatureFrame();\"")
-                .contains("/provider/providerSignatureImage?providerNo=<%=SafeEncode.forUriComponent(signatureProviderNo)%>")
+                .contains("title=\"${carlos:forHtmlAttribute(signatureFrameTitle)}\"")
+                .contains("type=\"button\" class=\"btn btn-link btn-sm p-0\" onclick=\"showManualSignatureFrame();\"")
+                .contains("\"/provider/providerSignatureImage?providerNo=\" + SafeEncode.forUriComponent(signatureProviderNo)")
+                .doesNotContain("href=\"javascript:void(0)\" onclick=\"return showManualSignatureFrame();\"")
                 .doesNotContain("UserProperty consultSigProp = userPropertyDAO.getProp(providerNo, UserProperty.PROVIDER_CONSULT_SIGNATURE);");
     }
 
