@@ -404,7 +404,10 @@ echo "bundling Flyway ${FLYWAY_VERSION} CLI (offline-capable, self-contained JRE
 # Download to a file and verify a pinned SHA256 before extracting (same supply-chain posture as
 # the drugref.war check below) — update FLYWAY_SHA256 when bumping FLYWAY_VERSION.
 FLYWAY_SHA256=${FLYWAY_SHA256:-310af67e104e128e93cfe7fa7a59570024f0bb2c03bfdc70137acbe03d5cf5d0}
-FLYWAY_TARBALL="$(mktemp -d)/flyway-${FLYWAY_VERSION}.tar.gz"
+# Plain temp FILE (not mktemp -d): the tarball is extracted into ${SCHEMA_OUT}, so the temp
+# location only needs to hold the download. Using a file avoids leaving an empty temp dir behind
+# after the rm below (tar/sha256sum don't require a .tar.gz name).
+FLYWAY_TARBALL="$(mktemp)"
 curl -fsSL "https://download.red-gate.com/maven/release/com/redgate/flyway/flyway-commandline/${FLYWAY_VERSION}/flyway-commandline-${FLYWAY_VERSION}-linux-x64.tar.gz" \
   -o "${FLYWAY_TARBALL}"
 echo "${FLYWAY_SHA256}  ${FLYWAY_TARBALL}" | sha256sum -c - || { echo "ERROR: Flyway CLI SHA256 mismatch — aborting build" >&2; exit 1; }

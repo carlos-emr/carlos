@@ -28,6 +28,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.MigrationInfo;
+import org.flywaydb.core.api.MigrationInfoService;
 import org.flywaydb.core.api.output.MigrateResult;
 import org.springframework.beans.factory.InitializingBean;
 
@@ -164,7 +165,10 @@ public class FlywaySchemaValidator implements InitializingBean {
         // treatment of pending migrations during validate has varied across versions, so the
         // contract is enforced here rather than assumed.
         flyway.validate();
-        MigrationInfo[] pending = flyway.info().pending();
+        // Resolve migration state once and reuse it for both the pending check and the current
+        // version log — flyway.info() rescans the migration set + history table on each call.
+        MigrationInfoService info = flyway.info();
+        MigrationInfo[] pending = info.pending();
         if (pending.length > 0) {
             StringBuilder versions = new StringBuilder();
             for (MigrationInfo p : pending) {
@@ -177,7 +181,7 @@ public class FlywaySchemaValidator implements InitializingBean {
                     + pending.length + " pending migration(s) [" + versions
                     + "] — run `carlos-ctl db migrate` (after a backup) before starting the app");
         }
-        MigrationInfo current = flyway.info().current();
+        MigrationInfo current = info.current();
         logger.info("Flyway schema validation passed; database at version {}",
                 current != null ? current.getVersion() : "(none)");
     }

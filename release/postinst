@@ -550,16 +550,21 @@ else
 	# the legacy oscardata seed). Warn loudly: leaving it live on a real deployment is an
 	# unauthenticated-adjacent PHI exposure. Forced rotation at first login is app-level
 	# follow-up work; until then the operator must rotate it by hand.
+	# Do NOT echo the literal default password/PIN here: they are publicly documented, but
+	# printing them to stdout/$LOG_FILE lands them in terminal scrollback and provisioning logs
+	# next to the genuinely-secret randomized 'carlos' admin credentials shown below. The account
+	# is already flagged forcePasswordReset=1, so name it and point at the docs instead.
 	echo ""
 	echo "*********************************************************************"
 	echo "* SECURITY WARNING: this install seeded the default clinician login *"
-	echo "*   username: carlosdoc   password: carlos2026   PIN: 2026          *"
-	echo "* These credentials are PUBLICLY DOCUMENTED. Log in and change the  *"
-	echo "* password and PIN (or disable the account) BEFORE entering any     *"
-	echo "* real patient data.                                                *"
+	echo "*   username: carlosdoc                                             *"
+	echo "* Its default password/PIN are PUBLICLY DOCUMENTED and the account  *"
+	echo "* is set to force a password reset at first login. Log in and       *"
+	echo "* change the password and PIN (or disable the account) BEFORE       *"
+	echo "* entering any real patient data.                                   *"
 	echo "*********************************************************************"
 	echo ""
-	echo "SECURITY WARNING: default clinician login carlosdoc/carlos2026 (PIN 2026) was seeded — rotate before production use" >>$LOG_FILE
+	echo "SECURITY WARNING: default clinician login 'carlosdoc' was seeded with the documented default password/PIN (forcePasswordReset=1) — rotate or disable before production use" >>$LOG_FILE
 	#ncecho " [x] Patching database to early ${PROGRAM} schema with patch1"
 	#$MYSQL ${db_name} < ${SRC}oscar_15_to_oscar_19.sql >>$LOG_FILE 2>>$LOG_FILE &
 	#pid=$!;progress $pid
