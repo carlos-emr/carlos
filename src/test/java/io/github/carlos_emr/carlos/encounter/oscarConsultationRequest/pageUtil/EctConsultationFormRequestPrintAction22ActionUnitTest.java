@@ -1,0 +1,154 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockConstruction;
+import static org.mockito.Mockito.mockStatic;
+
+import java.io.File;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+
+import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
+import io.github.carlos_emr.carlos.documentManager.EDoc;
+import io.github.carlos_emr.carlos.managers.ConsultationManager;
+import io.github.carlos_emr.carlos.managers.FaxManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+
+import org.apache.struts2.ServletActionContext;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.mockito.MockedConstruction;
+import org.mockito.MockedStatic;
+import org.openpdf.text.DocumentException;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.test.util.ReflectionTestUtils;
+
+@DisplayName("EctConsultationFormRequestPrintAction22Action")
+@Tag("unit")
+class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTestBase {
+
+    @TempDir
+    private Path tempDir;
+
+    private MockedStatic<ServletActionContext> servletActionContextMock;
+    private MockHttpServletRequest request;
+    private MockHttpServletResponse response;
+    private EctConsultationFormRequestPrintAction22Action action;
+
+    @BeforeEach
+    void setUp() {
+        request = new MockHttpServletRequest();
+        response = new MockHttpServletResponse();
+
+        servletActionContextMock = mockStatic(ServletActionContext.class);
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+        registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
+        registerMock(ConsultationManager.class, mock(ConsultationManager.class));
+        registerMock(ConsultationRequestDao.class, mock(ConsultationRequestDao.class));
+        registerMock(FaxManager.class, mock(FaxManager.class));
+
+        action = new EctConsultationFormRequestPrintAction22Action();
+    }
+
+    @AfterEach
+    void tearDown() {
+        if (servletActionContextMock != null) {
+            servletActionContextMock.close();
+        }
+    }
+
+    @Test
+    @DisplayName("should append the validated PDF file path when the attachment is readable")
+    void shouldAppendValidatedPdfPath_whenDocumentReadable() throws Exception {
+        Path pdfPath = Files.write(tempDir.resolve("consult-attachment.pdf"), "%PDF-1.4".getBytes(StandardCharsets.US_ASCII));
+        EDoc doc = printableDocument("42", pdfPath.getFileName().toString(), "application/pdf");
+        ArrayList<Object> attachments = new ArrayList<>();
+        ArrayList<InputStream> streams = new ArrayList<>();
+
+        appendDocumentAttachments(attachments, streams, List.of(doc));
+
+        assertThat(attachments).containsExactly(pdfPath.toFile().getPath());
+        assertThat(streams).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should reject document paths outside the configured attachment directory")
+    void shouldRejectTraversalDocumentPath_whenAppendingAttachments() {
+        EDoc doc = printableDocument("43", "../outside.pdf", "application/pdf");
+        ArrayList<Object> attachments = new ArrayList<>();
+        ArrayList<InputStream> streams = new ArrayList<>();
+
+        assertThatThrownBy(() -> appendDocumentAttachments(attachments, streams, List.of(doc)))
+                .isInstanceOf(SecurityException.class);
+        assertThat(attachments).isEmpty();
+        assertThat(streams).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should skip malformed image documents instead of failing the print package")
+    void shouldSkipMalformedImageDocument_whenAppendingAttachments() throws Exception {
+        Path imagePath = Files.write(tempDir.resolve("bad-image.png"), new byte[]{1, 2, 3});
+        EDoc doc = printableDocument("44", imagePath.getFileName().toString(), "image/png");
+        ArrayList<Object> attachments = new ArrayList<>();
+        ArrayList<InputStream> streams = new ArrayList<>();
+
+        try (MockedConstruction<ImagePDFCreator> mockedImages = mockConstruction(ImagePDFCreator.class,
+                (mock, context) -> doThrow(new DocumentException("bad image")).when(mock).printPdf())) {
+            appendDocumentAttachments(attachments, streams, List.of(doc));
+
+            assertThat(attachments).isEmpty();
+            assertThat(streams).isEmpty();
+            assertThat(request.getAttribute("imagePath")).isEqualTo(imagePath.toFile().getPath());
+            assertThat(mockedImages.constructed()).hasSize(1);
+        }
+    }
+
+    private void appendDocumentAttachments(ArrayList<Object> attachments, ArrayList<InputStream> streams, List<EDoc> docs) {
+        ReflectionTestUtils.invokeMethod(action, "appendDocumentAttachments", attachments, streams, docs, tempDir.toString() + File.separator);
+    }
+
+    private EDoc printableDocument(String docId, String fileName, String contentType) {
+        EDoc doc = new EDoc();
+        doc.setDocId(docId);
+        doc.setFileName(fileName);
+        doc.setContentType(contentType);
+        doc.setDescription("Consult attachment " + docId);
+        return doc;
+    }
+}
