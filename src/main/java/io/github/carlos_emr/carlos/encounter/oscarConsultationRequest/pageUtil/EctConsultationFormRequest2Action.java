@@ -57,12 +57,15 @@ import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.persistence.PersistenceException;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.springframework.dao.DataAccessException;
+import org.springframework.transaction.TransactionException;
 
 /**
  * Struts2 action that handles creating, updating, printing, faxing, and electronically
@@ -707,7 +710,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
             outcome = consultationSignatureService.saveManualSignatureForPreview(
                     loggedInInfo, consultationRequestId, demographicId, submittedSignatureImg,
                     manualSignatureRequestId, signatureProviderNo);
-        } catch (RuntimeException e) {
+        } catch (DataAccessException | PersistenceException | TransactionException e) {
             logger.error("Unable to persist captured consultation signature before print preview (requestId={})",
                     consultationRequestId, e);
             warnSignatureNotApplied();

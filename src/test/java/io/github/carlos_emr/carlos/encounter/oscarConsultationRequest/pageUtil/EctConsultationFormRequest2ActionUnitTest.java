@@ -66,6 +66,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -245,7 +246,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
                 .thenReturn("9999981000");
         when(consultationSignatureService.saveManualSignatureForPreview(
                 loggedInInfo, 9, 1, "9999981000", "9999981000", "999998"))
-                .thenThrow(new RuntimeException("database commit failed"));
+                .thenThrow(new DataIntegrityViolationException("database commit failed"));
 
         String result = action.execute();
 
