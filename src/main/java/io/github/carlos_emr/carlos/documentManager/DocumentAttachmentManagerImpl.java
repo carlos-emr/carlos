@@ -737,7 +737,14 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
     }
 
     private void recordUnavailableConsultAttachmentWarnings(String requestId, List<String> attachmentWarnings) {
-        List<ConsultDocs> unavailableAttachments = consultDocsDao.findUnavailableActiveConsultAttachments(Integer.valueOf(requestId));
+        Integer consultRequestId;
+        try {
+            consultRequestId = Integer.valueOf(requestId);
+        } catch (NumberFormatException e) {
+            logger.warn("Skipped unavailable consult attachment lookup for invalid requestId={}", LogSafe.sanitize(requestId));
+            return;
+        }
+        List<ConsultDocs> unavailableAttachments = consultDocsDao.findUnavailableActiveConsultAttachments(consultRequestId);
         if (unavailableAttachments == null) {
             return;
         }
