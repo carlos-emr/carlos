@@ -106,6 +106,7 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
     private static final String ATTACHMENT_TYPE_HRM = "HRM";
     private static final String ATTACHMENT_TYPE_FORM = "FORM";
     private static final String MISSING_ATTACHMENT_METADATA = "missing attachment metadata";
+    private static final String MISSING_RENDERED_PDF = "missing rendered PDF";
     private static final String UNREADABLE_ATTACHMENT_FILE = "unreadable attachment file";
     private static final String UNREADABLE_TEMPORARY_PDF = "unreadable temporary PDF";
     private transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -234,7 +235,11 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
     }
 
     private void addRenderedFaxAttachment(ArrayList<Object> alist, ArrayList<InputStream> streams, Path attachmentPath, String attachmentType, Object attachmentId) throws IOException {
-        if (attachmentPath == null || !Files.isReadable(attachmentPath)) {
+        if (attachmentPath == null) {
+            logSkippedAttachment(attachmentType, attachmentId, MISSING_RENDERED_PDF);
+            return;
+        }
+        if (!Files.isReadable(attachmentPath)) {
             logSkippedAttachment(attachmentType, attachmentId, UNREADABLE_TEMPORARY_PDF);
             return;
         }
