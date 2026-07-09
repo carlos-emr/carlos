@@ -13,8 +13,10 @@ import io.github.carlos_emr.carlos.consultation.ConsultationDemographicResolver.
 
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+@Tag("unit")
 class ConsultationDemographicResolverUnitTest {
 
     @Test
