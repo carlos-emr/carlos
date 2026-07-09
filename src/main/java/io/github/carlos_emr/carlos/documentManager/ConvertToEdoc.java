@@ -236,6 +236,10 @@ public final class ConvertToEdoc {
         return execute(eformString, filename);
     }
 
+    public synchronized static Path saveAsTempPDF(String htmlString, String filename) {
+        return execute(htmlString, filename);
+    }
+
     /**
      * Converts a Form (via its transport container) to a temporary PDF file without
      * creating an EDoc entity. The caller is responsible for deleting the temporary file after use.

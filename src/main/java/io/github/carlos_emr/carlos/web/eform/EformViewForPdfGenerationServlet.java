@@ -37,30 +37,53 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
 import org.apache.logging.log4j.Logger;
+
+import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
+import io.github.carlos_emr.carlos.commn.model.Facility;
+import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.commn.model.Security;
+import io.github.carlos_emr.carlos.managers.FacilityManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SessionConstants;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * The purpose of this servlet is to allow a local process to convert an html page into a pdf file in a manner similar to viewing a pdf with a browser and selecting print to file
  */
 public final class EformViewForPdfGenerationServlet extends HttpServlet {
 
+    public static final String SKIP_HTML_INJECTION_ATTRIBUTE = EformViewForPdfGenerationServlet.class.getName() + ".skipHtmlInjection";
+
     private static final Logger logger = MiscUtils.getLogger();
 
     @Override
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         try {
-            // ensure it's a local machine request... no one else should be calling this servlet.
             String remoteAddress = request.getRemoteAddr();
-            logger.debug("EformPdfServlet request from : " + remoteAddress);
+            logger.debug("EformPdfServlet request from : {}", remoteAddress);
             if (!"127.0.0.1".equals(remoteAddress) && !"0:0:0:0:0:0:0:1".equals(remoteAddress) && !"::1".equals(remoteAddress)) {
-                logger.warn("Unauthorised request made to EformPdfServlet from address : " + remoteAddress);
+                logger.warn("Unauthorised request made to EformPdfServlet from address : {}", remoteAddress);
                 response.sendError(HttpServletResponse.SC_FORBIDDEN);
                 return;
             }
 
-            // https://127.0.0.1:8443/oscar/eform/efmshowform_data?fdid=2&parentAjaxId=eforms
+            String providerNo = request.getParameter("providerId");
+            if (providerNo == null || providerNo.isBlank()) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing required parameter: providerId");
+                return;
+            }
+
+            if (!establishRendererSession(request, providerNo.trim())) {
+                response.sendError(HttpServletResponse.SC_NOT_FOUND, "Unable to initialize renderer session");
+                return;
+            }
+            request.setAttribute(SKIP_HTML_INJECTION_ATTRIBUTE, Boolean.TRUE);
+
             RequestDispatcher requestDispatcher = request.getRequestDispatcher("/eform/efmshowform_data");
             requestDispatcher.forward(request, response);
         } catch (ServletException | IOException e) {
@@ -72,5 +95,41 @@ public final class EformViewForPdfGenerationServlet extends HttpServlet {
                     "An internal error occurred. Please try again or contact your system administrator.");
             }
         }
+    }
+
+    boolean establishRendererSession(HttpServletRequest request, String providerNo) {
+        ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
+        SecurityDao securityDao = SpringUtils.getBean(SecurityDao.class);
+        FacilityManager facilityManager = SpringUtils.getBean(FacilityManager.class);
+
+        Provider provider = providerDao.getProvider(providerNo);
+        Security security = securityDao.getByProviderNo(providerNo);
+        if (provider == null || security == null) {
+            logger.warn("Renderer session initialization failed for providerNo={}", providerNo);
+            return false;
+        }
+
+        HttpSession session = request.getSession(true);
+        session.setAttribute("user", providerNo);
+        session.setAttribute("provider", provider);
+        session.setAttribute(SessionConstants.LOGGED_IN_PROVIDER, provider);
+        session.setAttribute(SessionConstants.LOGGED_IN_SECURITY, security);
+
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        loggedInInfo.setSession(session);
+        loggedInInfo.setLoggedInProvider(provider);
+        loggedInInfo.setLoggedInSecurity(security);
+        loggedInInfo.setInitiatingCode(request.getRequestURI());
+        loggedInInfo.setLocale(request.getLocale());
+        loggedInInfo.setIp(request.getRemoteAddr());
+
+        Facility facility = facilityManager.getDefaultFacility(loggedInInfo);
+        if (facility != null) {
+            session.setAttribute(SessionConstants.CURRENT_FACILITY, facility);
+            loggedInInfo.setCurrentFacility(facility);
+        }
+
+        LoggedInInfo.setLoggedInInfoIntoSession(session, loggedInInfo);
+        return true;
     }
 }

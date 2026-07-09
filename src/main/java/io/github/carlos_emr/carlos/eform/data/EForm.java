@@ -708,7 +708,7 @@ public class EForm extends EFormBase {
         //put values into according controls
         if (type.equals("textarea")) {
             pointer = html.indexOf(">", pointer) + 1;
-            html.insert(pointer, output);
+            html.insert(pointer, Encode.forHtml(output));
         } else if (type.equals("select")) {
             int selectEnd = StringBuilderUtils.indexOfIgnoreCase(html, "</select>", pointer);
             if (selectEnd >= 0) {
@@ -718,8 +718,7 @@ public class EForm extends EFormBase {
                 html = html.insert(pointer, " selected");
             }
         } else { //type=input
-            output = output.replace("\"", "&quot;");
-            html.insert(pointer, " value=\"" + output + "\"");
+            html.insert(pointer, " value=\"" + Encode.forHtmlAttribute(output) + "\"");
         }
         return (html);
     }

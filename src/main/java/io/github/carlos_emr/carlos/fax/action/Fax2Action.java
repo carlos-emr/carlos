@@ -64,6 +64,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.commons.io.FilenameUtils;
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class Fax2Action extends ActionSupport {
@@ -369,6 +371,8 @@ public class Fax2Action extends ActionSupport {
         String actionForward = ERROR;
         Path pdfPath = null;
         List<FaxConfig> accounts = faxManager.getFaxGatewayAccounts(loggedInInfo);
+        logger.info("prepareFax start: transactionType={} transactionId={} demographicNo={} accounts={} recipient={} faxFilePath={}",
+                transactionType, transactionId, demographicNo, accounts.size(), recipient, faxFilePath);
 
         /*
          * No fax accounts - No Fax.
@@ -381,6 +385,10 @@ public class Fax2Action extends ActionSupport {
 
                 try {
                     pdfPath = documentAttachmentManager.renderEFormWithAttachments(request, response);
+                    logger.info("prepareFax renderEFormWithAttachments returned path={} readable={} exists={}",
+                            pdfPath,
+                            pdfPath != null && Files.isReadable(pdfPath),
+                            pdfPath != null && Files.exists(pdfPath));
                 } catch (PDFGenerationException e) {
                     logger.error(e.getMessage(), e);
                     String errorMessage = "This eForm (and attachments, if applicable) cannot be faxed. \\n\\n" + e.getMessage();
@@ -407,6 +415,8 @@ public class Fax2Action extends ActionSupport {
             actionForward = "preview";
         }
 
+        logger.info("prepareFax end: transactionId={} actionForward={} pdfPath={} responseCommitted={}",
+                transactionId, actionForward, pdfPath, response.isCommitted());
         return actionForward;
     }
 
@@ -418,10 +428,34 @@ public class Fax2Action extends ActionSupport {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String jobId = request.getParameter("jobId");
+        String faxFilePath = request.getParameter("faxFilePath");
         int pageCount = 0;
 
         if (jobId != null && !jobId.isEmpty()) {
             pageCount = faxManager.getPageCount(loggedInInfo, Integer.parseInt(jobId));
+        } else if (faxFilePath != null && !faxFilePath.isEmpty()) {
+            try {
+                Path resolvedPath = faxManager.resolveAndValidateFilePath(faxFilePath);
+                try (PDDocument pdf = Loader.loadPDF(resolvedPath.toFile())) {
+                    pageCount = pdf.getNumberOfPages();
+                }
+            } catch (SecurityException e) {
+                logger.error("Security validation failed for page count path: " + faxFilePath, e);
+                try {
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "Access denied");
+                } catch (IOException ex) {
+                    logger.error("Error sending error response", ex);
+                }
+                return;
+            } catch (IOException e) {
+                logger.error("File not found or error processing page count path: " + faxFilePath, e);
+                try {
+                    response.sendError(HttpServletResponse.SC_NOT_FOUND, "File not found");
+                } catch (IOException ex) {
+                    logger.error("Error sending error response", ex);
+                }
+                return;
+            }
         }
 
         ObjectNode jsonObject = objectMapper.createObjectNode();

@@ -523,7 +523,14 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         attachHRMPDFs(loggedInInfo, attachedHRMs, pdfDocumentList);
         attachFormPDFs(request, response, attachedForms, pdfDocumentList);
 
-        return concatPDF(pdfDocumentList);
+        return preserveSingleEformPdfWhenUnattached(eFormPath, pdfDocumentList);
+    }
+
+    Path preserveSingleEformPdfWhenUnattached(Path eFormPath, List<Object> pdfDocumentList) throws PDFGenerationException {
+        if (pdfDocumentList.size() == 1 && eFormPath.toString().equals(pdfDocumentList.get(0))) {
+            return eFormPath;
+        }
+        return concatPDF(new ArrayList<>(pdfDocumentList));
     }
 
     /**

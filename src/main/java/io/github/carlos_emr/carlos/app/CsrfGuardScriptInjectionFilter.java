@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.app;
 
+import io.github.carlos_emr.carlos.web.eform.EformViewForPdfGenerationServlet;
+
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.RequestNegotiation;
 import org.owasp.csrfguard.CsrfGuard;
@@ -126,6 +128,11 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         HttpServletRequest httpRequest = (HttpServletRequest) request;
         HttpServletResponse httpResponse = (HttpServletResponse) response;
         String safeRequestUri = LogSafe.sanitizeUri(httpRequest.getRequestURI());
+
+        if (Boolean.TRUE.equals(httpRequest.getAttribute(EformViewForPdfGenerationServlet.SKIP_HTML_INJECTION_ATTRIBUTE))) {
+            chain.doFilter(request, response);
+            return;
+        }
 
         // Skip AJAX requests on REQUEST dispatch only (not FORWARD).
         // On FORWARD dispatch, the CaptureResponseWrapper is needed to prevent

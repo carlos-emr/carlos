@@ -22,6 +22,8 @@
 
 package io.github.carlos_emr.carlos.eform.util;
 
+import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
@@ -30,7 +32,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import io.github.carlos_emr.carlos.commn.model.EFormValue;
+import io.github.carlos_emr.carlos.eform.data.EForm;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 @DisplayName("EFormViewForPdfGenerationServlet unit tests")
 @Tag("unit")
@@ -90,6 +99,53 @@ class EFormViewForPdfGenerationServletUnitTest {
     @DisplayName("should return null for empty string input")
     void shouldReturnNull_forEmptyUrl() {
         assertThat(EFormViewForPdfGenerationServlet.normalizePdfSignatureUrl("", "/carlos")).isNull();
+    }
+
+    @Test
+    @DisplayName("should build fax-ready HTML from the stored letter content")
+    void shouldBuildFaxReadyHtml_whenPreparingPdfHtml() {
+        EForm eForm = mock(EForm.class);
+        AtomicReference<String> htmlRef = new AtomicReference<>("<div id=\"signatureDisplay\"></div>");
+        when(eForm.getDemographicNo()).thenReturn("1");
+        when(eForm.getFormHtml()).thenAnswer(invocation -> htmlRef.get());
+        doAnswer(invocation -> {
+            htmlRef.set(invocation.getArgument(0));
+            return null;
+        }).when(eForm).setFormHtml(anyString());
+
+        EFormValue letter = new EFormValue();
+        letter.setVarName("Letter");
+        letter.setVarValue("<div class=\"DoNotPrint\" style=\"color:red\">hide</div><img src=\"../eform/displayImage?imagefile=bg.png\" />");
+
+        String html = EFormViewForPdfGenerationServlet.buildPdfHtml(
+                eForm,
+                List.of(letter),
+                "/carlos",
+                "carlos",
+                true);
+
+        assertThat(html).contains("position:absolute; margin-top:35px;");
+        assertThat(html).contains("/carlos/EFormImageViewForPdfGenerationServlet?imagefile=bg.png");
+        assertThat(html).contains("<div class=\"DoNotPrint\" style=\"display:none;color:red\"");
+        assertThat(html).contains("<body style='width:640px;'>");
+    }
+
+    @Test
+    @DisplayName("should keep scripts blocked for legacy server-side PDF rendering")
+    void shouldBuildStrictCsp_whenNotBrowserRendering() {
+        assertThat(EFormViewForPdfGenerationServlet.buildContentSecurityPolicy(false))
+                .contains("script-src 'none'")
+                .contains("object-src 'none'");
+    }
+
+    @Test
+    @DisplayName("should allow same-origin scripts for browser PDF rendering")
+    void shouldBuildBrowserRenderCsp_whenBrowserRendering() {
+        assertThat(EFormViewForPdfGenerationServlet.buildContentSecurityPolicy(true))
+                .contains("default-src 'self' data:")
+                .contains("script-src 'self' 'unsafe-inline' 'unsafe-eval'")
+                .contains("object-src 'none'")
+                .contains("img-src 'self' data: blob:");
     }
 
     private static Stream<String> invalidSignatureUrls() {

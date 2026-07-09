@@ -48,30 +48,27 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
     @Override
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         try {
-            // ensure it's a local machine request... no one else should be calling this servlet.
             String remoteAddress = request.getRemoteAddr();
             logger.debug("EFormViewForPdfGenerationServlet request from : {}", remoteAddress);
             if (!"127.0.0.1".equals(remoteAddress) && !"0:0:0:0:0:0:0:1".equals(remoteAddress) && !"::1".equals(remoteAddress)) {
                 logger.warn("Unauthorised request made to EFormViewForPdfGenerationServlet from address : {}", remoteAddress);
                 response.sendError(HttpServletResponse.SC_FORBIDDEN);
-                return; // Critical: stop execution for non-localhost requests
+                return;
             }
 
-            // Add security headers to restrict content capabilities (no scripts, no plugins)
+            boolean browserRender = "true".equals(request.getParameter("browserRender"));
             response.setHeader("X-Content-Type-Options", "nosniff");
-            response.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'none'; object-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data:");
+            response.setHeader("Content-Security-Policy", buildContentSecurityPolicy(browserRender));
 
             boolean prepareForFax = "true".equals(request.getParameter("prepareForFax"));
             String id = request.getParameter("fdid");
             String providerId = request.getParameter("providerId");
 
-            // Validate required parameters
             if (id == null || id.trim().isEmpty()) {
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing required parameter: fdid");
                 return;
             }
 
-            // Validate id is a valid integer
             int formDataId;
             try {
                 formDataId = Integer.parseInt(id);
@@ -80,53 +77,10 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
                 return;
             }
 
-            EForm eForm = new EForm(id);
-            eForm.setSignatureCode(request.getContextPath(), request.getHeader("User-Agent"), eForm.getDemographicNo(), providerId);
-            eForm.setContextPath(request.getContextPath());
-            String projectHome = CarlosProperties.getInstance().getProperty("project_home");
-
-            EFormValueDao efvDao = (EFormValueDao) SpringUtils.getBean(EFormValueDao.class);
-            List<EFormValue> eFormValues = efvDao.findByFormDataId(formDataId);
-            for (EFormValue value : eFormValues) {
-                if (value.getVarName().equals("Letter")) {
-                    String html = value.getVarValue();
-                    html = html.replace(IMAGE_RENDERING_SERVLET_PATH, PDF_SIGNATURE_SERVLET_PATH);
-                    if (prepareForFax) {
-                        html = "<div style=\"position:relative\"><div style=\"position:absolute; margin-top:35px;\">" + html + "</div></div>";
-                    }
-                    html = "<html><body style='width:640px;'>" + html + "</body></html>";
-                    eForm.setFormHtml(html);
-                }
-                if (value.getVarName().equals("signatureValue")) {
-
-                    // Checking to see if there are any parameters for the signature in the html.
-                    String html = eForm.getFormHtml();
-                    String signatureInit = "signatureControl.initialize\\s*\\(\\s*\\{\\s*eform:true,\\s+height:(\\d+),\\s+width:(\\d+),\\s+top:(\\d+),\\s+left:(\\d+)\\s*\\}\\s*\\)";
-                    Pattern pattern = Pattern.compile(signatureInit);
-                    Matcher matcher = pattern.matcher(html);
-                    boolean matchFound = matcher.find();
-                    if (matchFound && matcher.groupCount() == 4) {
-                        String sign = normalizePdfSignatureUrl(value.getVarValue(), request.getContextPath());
-                        if (sign == null) {
-                            logger.warn("Skipping invalid signature URL while preparing eForm PDF");
-                            continue;
-                        }
-                        String left = matcher.group(4), top = matcher.group(3), width = matcher.group(2), height = matcher.group(1);
-                        eForm.setFormHtml(html.replace("<div id=\"signatureDisplay\"></div>",
-                                buildSignatureImageMarkup(sign, left, top, width, height)));
-                    }
-                }
-            }
-
-            eForm.setFormHtml(eForm.getFormHtml().replace("../eform/displayImage", "/" + projectHome + "/EFormImageViewForPdfGenerationServlet"));
-            eForm.setFormHtml(eForm.getFormHtml().replace("${oscar_image_path}", "/" + projectHome + "/EFormImageViewForPdfGenerationServlet?imagefile="));
-            eForm.setFormHtml(eForm.getFormHtml().replace("$%7Boscar_image_path%7D", "/" + projectHome + "/EFormImageViewForPdfGenerationServlet?imagefile="));
-            eForm.setFormHtml(eForm.getFormHtml().replace("<div class=\"DoNotPrint\" style=\"", "<div class=\"DoNotPrint\" style=\"display:none;"));
-            eForm.setImagePath(request.getContextPath());
-            eForm.setNowDateTime();
+            String html = buildPdfHtmlForFdid(formDataId, request.getContextPath(), request.getHeader("User-Agent"), providerId, prepareForFax);
 
             response.setContentType("text/html;charset=UTF-8");
-            response.getOutputStream().write(eForm.getFormHtml().getBytes(Charset.forName("UTF-8")));
+            response.getOutputStream().write(html.getBytes(Charset.forName("UTF-8")));
         } catch (IOException e) {
             throw e;
         } catch (Exception e) {
@@ -136,6 +90,70 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
                     "An internal error occurred. Please try again or contact your system administrator.");
             }
         }
+    }
+
+    public static String buildPdfHtmlForFdid(int formDataId, String contextPath, String userAgent, String providerId, boolean prepareForFax) {
+        EForm eForm = new EForm(String.valueOf(formDataId));
+        eForm.setSignatureCode(contextPath, userAgent, eForm.getDemographicNo(), providerId);
+        eForm.setContextPath(contextPath);
+
+        EFormValueDao efvDao = SpringUtils.getBean(EFormValueDao.class);
+        List<EFormValue> eFormValues = efvDao.findByFormDataId(formDataId);
+        String projectHome = CarlosProperties.getInstance().getProperty("project_home");
+
+        return buildPdfHtml(eForm, eFormValues, contextPath, projectHome, prepareForFax);
+    }
+
+    static String buildPdfHtml(EForm eForm, List<EFormValue> eFormValues, String contextPath, String projectHome, boolean prepareForFax) {
+        for (EFormValue value : eFormValues) {
+            if ("Letter".equals(value.getVarName())) {
+                String html = value.getVarValue();
+                html = html.replace(IMAGE_RENDERING_SERVLET_PATH, PDF_SIGNATURE_SERVLET_PATH);
+                if (prepareForFax) {
+                    html = "<div style=\"position:relative\"><div style=\"position:absolute; margin-top:35px;\">" + html + "</div></div>";
+                }
+                html = "<html><body style='width:640px;'>" + html + "</body></html>";
+                eForm.setFormHtml(html);
+            }
+            if ("signatureValue".equals(value.getVarName())) {
+                String html = eForm.getFormHtml();
+                String signatureInit = "signatureControl.initialize\\s*\\(\\s*\\{\\s*eform:true,\\s+height:(\\d+),\\s+width:(\\d+),\\s+top:(\\d+),\\s+left:(\\d+)\\s*\\}\\s*\\)";
+                Pattern pattern = Pattern.compile(signatureInit);
+                Matcher matcher = pattern.matcher(html);
+                boolean matchFound = matcher.find();
+                if (matchFound && matcher.groupCount() == 4) {
+                    String sign = normalizePdfSignatureUrl(value.getVarValue(), contextPath);
+                    if (sign == null) {
+                        logger.warn("Skipping invalid signature URL while preparing eForm PDF");
+                        continue;
+                    }
+                    String left = matcher.group(4), top = matcher.group(3), width = matcher.group(2), height = matcher.group(1);
+                    eForm.setFormHtml(html.replace("<div id=\"signatureDisplay\"></div>",
+                            buildSignatureImageMarkup(sign, left, top, width, height)));
+                }
+            }
+        }
+
+        String html = eForm.getFormHtml();
+        html = html.replace("../eform/displayImage", "/" + projectHome + "/EFormImageViewForPdfGenerationServlet");
+        html = html.replace("${oscar_image_path}", "/" + projectHome + "/EFormImageViewForPdfGenerationServlet?imagefile=");
+        html = html.replace("$%7Boscar_image_path%7D", "/" + projectHome + "/EFormImageViewForPdfGenerationServlet?imagefile=");
+        html = html.replace("<div class=\"DoNotPrint\" style=\"", "<div class=\"DoNotPrint\" style=\"display:none;");
+        eForm.setFormHtml(html);
+        eForm.setImagePath(contextPath);
+        html = eForm.getFormHtml();
+        html = html.replace(contextPath + "/eform/displayImage", contextPath + "/EFormImageViewForPdfGenerationServlet");
+        html = html.replace("/eform/displayImage", contextPath + "/EFormImageViewForPdfGenerationServlet");
+        eForm.setFormHtml(html);
+        eForm.setNowDateTime();
+        return eForm.getFormHtml();
+    }
+
+    static String buildContentSecurityPolicy(boolean browserRender) {
+        if (!browserRender) {
+            return "default-src 'self'; script-src 'none'; object-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data:";
+        }
+        return "default-src 'self' data:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; object-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'";
     }
 
     static String normalizePdfSignatureUrl(String rawUrl, String contextPath) {

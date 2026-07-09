@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.app;
 
+import io.github.carlos_emr.carlos.web.eform.EformViewForPdfGenerationServlet;
+
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Writer;
@@ -268,6 +270,9 @@ public class LogoutBroadcastFilter implements Filter {
      * @return true when the response should be wrapped for possible script injection
      */
     private boolean isResponseWrappingCandidate(HttpServletRequest request) {
+        if (Boolean.TRUE.equals(request.getAttribute(EformViewForPdfGenerationServlet.SKIP_HTML_INJECTION_ATTRIBUTE))) {
+            return false;
+        }
         if (isExcluded(request) || isStaticAssetPath(request) || RequestNegotiation.isAjax(request)) {
             return false;
         }

@@ -53,6 +53,7 @@ import org.springframework.context.annotation.Lazy;
 
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.eform.data.EForm;
+import io.github.carlos_emr.carlos.eform.util.EFormBrowserPdfRenderer;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
@@ -76,6 +77,10 @@ public class EformDataManagerImpl implements EformDataManager {
 
     @Autowired
     private FormsManager formsManager;
+
+    
+    @Autowired
+    private EFormBrowserPdfRenderer eFormBrowserPdfRenderer;
 
     public EformDataManagerImpl() {
         // Default
@@ -186,15 +191,15 @@ public class EformDataManagerImpl implements EformDataManager {
         }
 
         EFormData eformData = eFormDataDao.find(fdid);
-        Path path = null;
+        Path path;
         try {
-            path = ConvertToEdoc.saveAsTempPDF(eformData);
+            path = eFormBrowserPdfRenderer.renderSavedEformPdf(fdid, loggedInInfo.getLoggedInProviderNo());
         } catch (Exception e) {
-            throw new PDFGenerationException("EForm PDF generation failed during HTML-to-PDF conversion.", e);
+            throw new PDFGenerationException("EForm PDF generation failed during browser rendering.", e);
         }
 
         if (path == null) {
-            throw new PDFGenerationException("EForm PDF generation failed during HTML-to-PDF conversion.");
+            throw new PDFGenerationException("EForm PDF generation failed during browser rendering.");
         }
 
         if (Files.isReadable(path)) {
