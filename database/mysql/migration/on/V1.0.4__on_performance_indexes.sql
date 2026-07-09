@@ -1,7 +1,8 @@
 -- V1.0.4 — performance indexes for Ontario billing (see common/V1.0.3 for the rationale:
 -- forward migration so both fresh installs and baseline-stamped OpenO conversions receive it;
 -- idempotent because converted datadirs vary).
--- note, this create index if not exists only works in mariadb
+-- NOTE: `CREATE INDEX IF NOT EXISTS` / `DROP INDEX IF EXISTS` are MariaDB-only DDL; CARLOS
+-- targets MariaDB (see docs/database-schema-management.md).
 
 -- Patient billing history: demographicNo + status!='D' ORDER BY billingDate DESC.
 -- The single-column demographic_no index becomes a left-prefix shadow of the composite.

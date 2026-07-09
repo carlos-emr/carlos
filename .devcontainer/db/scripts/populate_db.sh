@@ -26,6 +26,14 @@ if [ -z "${FORWARD}" ]; then
   echo "ERROR: no forward migrations (V1.0.3+) discovered under ${MIG} — layout changed?" >&2
   exit 1
 fi
+# Flyway rejects duplicate versions across co-applied locations (common + on); fail fast the same
+# way instead of silently loading both files. The repo's migration hook blocks duplicates at
+# authoring time — this guards files that bypass the hook (plain git add, external tools).
+DUP_VERSIONS=$(echo "${FORWARD}" | awk -F'/V1\\.0\\.' '{ n=$2; sub(/__.*/,"",n); print n }' | sort -n | uniq -d)
+if [ -n "${DUP_VERSIONS}" ]; then
+  echo "ERROR: duplicate forward migration version(s) across common+on:" $(echo "${DUP_VERSIONS}" | sed 's/^/V1.0./') >&2
+  exit 1
+fi
 # Assemble the load into a temp file first: /bin/sh has no pipefail, so `cat ... | mariadb`
 # would mask a missing migration file (mariadb exits 0 on the truncated stream) — a redirect
 # from a fully-assembled file makes any cat failure abort under set -e instead.

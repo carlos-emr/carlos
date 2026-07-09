@@ -6,7 +6,8 @@
 -- applies) and OpenO/oscar19 conversions (V1 is baseline-STAMPED without executing, then this
 -- applies). Converted datadirs are heterogeneous (some already carry a subset of these indexes
 -- from the legacy updates/ patches), hence every statement is idempotent.
--- note, this create index if not exists only works in mariadb
+-- NOTE: `CREATE INDEX IF NOT EXISTS` / `DROP INDEX IF EXISTS` are MariaDB-only DDL; CARLOS
+-- targets MariaDB (see docs/database-schema-management.md).
 
 -- ---- Guard composites BEFORE the shadow drops. Each drop below is justified by a composite that
 -- ---- exists in the V1 baseline — but a CONVERTED (baseline-stamped) datadir may predate some of
