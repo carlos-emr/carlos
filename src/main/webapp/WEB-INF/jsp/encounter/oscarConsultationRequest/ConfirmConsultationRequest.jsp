@@ -51,22 +51,6 @@
     // Store transType as a local variable for safe comparison
     String transType = (String) request.getAttribute("transType");
     String isPreview = (String) request.getAttribute("isPreviewReady");
-    String fallbackDemographicNo = request.getParameter("demographicNo");
-    if (fallbackDemographicNo == null || fallbackDemographicNo.trim().isEmpty()) {
-        fallbackDemographicNo = request.getParameter("de");
-    }
-    if (fallbackDemographicNo != null) {
-        fallbackDemographicNo = fallbackDemographicNo.trim();
-        if (!fallbackDemographicNo.matches("[1-9]\\d*")) {
-            fallbackDemographicNo = "";
-        }
-    } else {
-        fallbackDemographicNo = "";
-    }
-    String fallbackUrl = request.getContextPath() + "/encounter/oscarConsultationRequest/ViewDisplayDemographicConsultationRequests";
-    if (!fallbackDemographicNo.trim().isEmpty()) {
-        fallbackUrl += "?de=" + java.net.URLEncoder.encode(fallbackDemographicNo, java.nio.charset.StandardCharsets.UTF_8);
-    }
 %>
 <!DOCTYPE html>
 <html>
@@ -77,7 +61,7 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     </head>
 
-    <body class="d-flex align-items-center justify-content-center" style="min-height:100vh; background-color:var(--carlos-bg-light);">
+    <body onload="finishPage(5);" class="d-flex align-items-center justify-content-center" style="min-height:100vh; background-color:var(--carlos-bg-light);">
 
         <div class="text-center p-4" style="max-width:420px;">
             <div class="mb-3">
@@ -110,53 +94,24 @@
                 <p class="text-muted mb-2" style="font-size:0.9rem;">Printing Consultation form...</p>
             <% } %>
 
-            <% if (!"true".equals(isPreview)) { %>
-                <p class="text-muted mb-3" style="font-size:0.85rem;">
-                    <fmt:message key="encounter.oscarConsultationRequest.ConfirmConsultationRequest.msgClose5Sec"/>
-                    <br>
-                    <span id="countdown" class="fw-semibold">5</span>s
-                </p>
-            <% } %>
+            <p class="text-muted mb-3" style="font-size:0.85rem;">
+                <fmt:message key="encounter.oscarConsultationRequest.ConfirmConsultationRequest.msgClose5Sec"/>
+                <br>
+                <span id="countdown" class="fw-semibold">5</span>s
+            </p>
 
-            <button type="button" id="closeButton" class="btn btn-sm btn-outline-secondary">
+            <a href="javascript:BackToOscar();" class="btn btn-sm btn-outline-secondary">
                 <i class="fa-solid fa-xmark me-1"></i><fmt:message key="global.btnClose"/>
-            </button>
+            </a>
         </div>
 
     <script>
-        var BLOB_URL_REVOKE_DELAY_MS = 15000;
-
         function BackToOscar() {
-            closeOrReturn();
-        }
-
-        function closeOrReturn() {
-            if (window.opener && !window.opener.closed) {
-                window.close();
-                window.setTimeout(returnToConsultations, 100);
-                return;
-            }
-            returnToConsultations();
-        }
-
-        function returnToConsultations() {
-            if (window.history.length > 1 && document.referrer) {
-                window.history.back();
-                return;
-            }
-            window.location.href = '<carlos:encode value='<%= fallbackUrl %>' context="javaScriptBlock"/>';
+            window.close();
         }
 
         function finishPage(secs) {
-            // Print consultation request form
-            const consultPDFName = '<carlos:encode value='<%= String.valueOf(request.getAttribute("consultPDFName")) %>' context="javaScriptBlock"/>';
-            const consultPDF = '<carlos:encode value='<%= String.valueOf(request.getAttribute("consultPDF")) %>' context="javaScriptBlock"/>';
-            const isPreviewReady = '<carlos:encode value='<%= String.valueOf(request.getAttribute("isPreviewReady")) %>' context="javaScriptBlock"/>';
-            if (consultPDF !== 'null' && consultPDFName !== 'null' && isPreviewReady === 'true') {
-                downloadConsultForm(consultPDFName, consultPDF);
-                return;
-            }
-
+            // Countdown display
             var remaining = secs;
             var countdownEl = document.getElementById('countdown');
             var timer = setInterval(function() {
@@ -164,30 +119,31 @@
                 if (countdownEl) countdownEl.textContent = remaining;
                 if (remaining <= 0) clearInterval(timer);
             }, 1000);
-            window.setTimeout(closeOrReturn, secs * 1000);
+
+            // Print consultation request form
+            const consultPDFName = '<carlos:encode value='<%= String.valueOf(request.getAttribute("consultPDFName")) %>' context="javaScriptBlock"/>';
+            const consultPDF = '<carlos:encode value='<%= String.valueOf(request.getAttribute("consultPDF")) %>' context="javaScriptBlock"/>';
+            const isPreviewReady = '<carlos:encode value='<%= String.valueOf(request.getAttribute("isPreviewReady")) %>' context="javaScriptBlock"/>';
+            if (consultPDF !== 'null' && consultPDFName !== 'null' && isPreviewReady === 'true') {
+                downloadConsultForm(consultPDFName, consultPDF, function () {
+                    setTimeout("window.close()", secs * 1000);
+                });
+                return;
+            }
+
+            setTimeout("window.close()", secs * 500);
         }
 
         function downloadConsultForm(consultPDFName, consultPDF, callback) {
             const pdfData = new Uint8Array(atob(consultPDF).split('').map(char => char.charCodeAt(0)));
             const pdfBlob = new Blob([pdfData], {type: 'application/pdf'});
             const downloadLink = document.createElement('a');
-            const objectUrl = URL.createObjectURL(pdfBlob);
-            downloadLink.href = objectUrl;
+            downloadLink.href = URL.createObjectURL(pdfBlob);
             downloadLink.download = consultPDFName;
-            downloadLink.style.display = 'none';
-            document.body.appendChild(downloadLink);
             downloadLink.click();
-            document.body.removeChild(downloadLink);
-            window.setTimeout(function () {
-                URL.revokeObjectURL(objectUrl);
-            }, BLOB_URL_REVOKE_DELAY_MS);
-            if (typeof callback === 'function') {
-                callback();
-            }
+            URL.revokeObjectURL(downloadLink.href);
+            callback();
         }
-
-        document.getElementById('closeButton').addEventListener('click', BackToOscar);
-        finishPage(5);
     </script>
     </body>
 </html>
