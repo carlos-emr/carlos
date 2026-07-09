@@ -265,16 +265,21 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             return;
         }
 
+        File validatedFile = resolveReadableDocumentAttachmentFile(documentDirectory, doc);
+        if (validatedFile == null) {
+            return;
+        }
+
         if (doc.isImage()) {
             try (ByteOutputStream outputStream = new ByteOutputStream()) {
-                request.setAttribute("imagePath", documentDirectory + doc.getFileName());
+                request.setAttribute("imagePath", validatedFile.getPath());
                 request.setAttribute("imageTitle", doc.getDescription());
                 ImagePDFCreator imagePDFCreator = new ImagePDFCreator(request, outputStream);
                 imagePDFCreator.printPdf();
                 addRenderedByteAttachment(alist, streams, outputStream);
             }
         } else if (doc.isPDF()) {
-            addDocumentPathAttachment(alist, documentDirectory, doc);
+            alist.add(validatedFile.getPath());
         } else {
             if (logger.isErrorEnabled()) {
                 logger.error("EctConsultationFormRequestPrintAction: {} is marked as printable but no means have been established to print it.",
@@ -283,14 +288,14 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
         }
     }
 
-    private void addDocumentPathAttachment(ArrayList<Object> alist, String documentDirectory, EDoc doc) {
+    private File resolveReadableDocumentAttachmentFile(String documentDirectory, EDoc doc) {
         File validatedFile = PathValidationUtils.validateExistingPath(
                 new File(documentDirectory, doc.getFileName()), new File(documentDirectory));
         if (!Files.isReadable(validatedFile.toPath())) {
             logSkippedAttachment(ATTACHMENT_TYPE_DOC, documentId(doc), UNREADABLE_ATTACHMENT_FILE);
-            return;
+            return null;
         }
-        alist.add(validatedFile.getPath());
+        return validatedFile;
     }
 
     private void appendLabAttachments(ArrayList<Object> alist, ArrayList<InputStream> streams, List<LabResultData> labs) {
