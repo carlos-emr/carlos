@@ -2361,12 +2361,18 @@ var EFORM_I18N = {
             $img.on("error", function() {
                 /* The provider signature stamp image is unavailable: providerSignatureImage
                    returns 404 when the logged-in provider has no signature stamp on file.
-                   Show a warning instead of a broken/blank sticker so the reason is clear. */
-                $(this).replaceWith($("<span>", {
-                    text: EFORM_I18N.textNoSignatureStamp,
-                    class: "noSignatureStampWarning DoNotPrint",
-                    style: 'font-size:9px; color:#b00; display:inline-block; padding:2px 4px;'
-                }));
+                   Hide the broken stamp and show the warning in the palette frame ($parent),
+                   NOT inside the draggable widget: the widget can be cloned/serialized onto an
+                   eForm, so mutating it would risk baking a broken/non-printing element into a
+                   saved template. Leaving the <img> in place (hidden) keeps the widget intact. */
+                $widget.hide();
+                if ($parent.find(".noSignatureStampWarning").length === 0) {
+                    $parent.append($("<span>", {
+                        text: EFORM_I18N.textNoSignatureStamp,
+                        class: "noSignatureStampWarning",
+                        style: 'font-size:9px; color:#b00; display:inline-block; padding:2px 4px;'
+                    }));
+                }
             });
             $widget.append($img);
             $parent.append($widget);
@@ -4200,12 +4206,15 @@ var EFORM_I18N = {
                 /* The wet-signature pad can only be drawn on in interact mode. While the
                    Form Building panel is open the editor is in drag/build mode (widgets carry
                    a transparent overlay so they can be positioned), which blocks drawing.
-                   Tell the user to open another panel to actually sign. */
-                $tab.append($("<div>", {
-                    text: EFORM_I18N.textWetSignatureSignHint,
-                    id: "padSignHint",
-                    style: 'font-size:9px; color:#555; margin-top:2px;'
-                }));
+                   Tell the user to open another panel to actually sign. Guard against a
+                   duplicate id if the tab is ever initialised more than once. */
+                if ($("#padSignHint").length === 0) {
+                    $tab.append($("<div>", {
+                        text: EFORM_I18N.textWetSignatureSignHint,
+                        id: "padSignHint",
+                        style: 'font-size:9px; color:#555; margin-top:2px;'
+                    }));
+                }
             }
         }
 
