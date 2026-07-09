@@ -35,6 +35,7 @@ import static org.mockito.Mockito.when;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -203,6 +204,23 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getContentAsString()).contains("\"consultPDF\":\"" + PDF_BASE64 + "\"");
         verify(demographicManager).getDemographicFormattedName(loggedInInfo, 1);
         verify(documentAttachmentManager).renderConsultationFormWithAttachments(request, response);
+    }
+
+    @Test
+    @DisplayName("returns attachment warnings in the print preview JSON")
+    void shouldReturnAttachmentWarnings_whenPreviewSkipsUnavailableAttachments() throws Exception {
+        doAnswer(invocation -> {
+            request.setAttribute("demographicId", "1");
+            request.setAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE,
+                    List.of("Document attachment 80 is unavailable and was not included."));
+            return pdfPath;
+        }).when(documentAttachmentManager).renderConsultationFormWithAttachments(request, response);
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentAsString())
+                .contains("\"attachmentWarnings\":[\"Document attachment 80 is unavailable and was not included.\"]");
     }
 
     @Test

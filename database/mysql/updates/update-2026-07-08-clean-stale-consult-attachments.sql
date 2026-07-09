@@ -12,9 +12,16 @@
 -- Labs, HRM, and form attachments are intentionally not changed here.
 --
 -- Manual-only cleanup script. Run the dry-run/reporting SELECT first, review
--- the row count, then run the APPLY section in the same maintenance window if
--- the count matches expectations. Do not include this file in unattended
--- upgrade batches because the reporting SELECT does not gate the UPDATE.
+-- the row count, then opt in to the APPLY section in the same maintenance
+-- window if the count matches expectations:
+--
+--   SET @APPLY_STALE_CONSULT_ATTACHMENT_CLEANUP := 1;
+--   SOURCE database/mysql/updates/update-2026-07-08-clean-stale-consult-attachments.sql;
+--
+-- Without that explicit session variable, the UPDATE below is gated off and
+-- this file reports only.
+
+SET @APPLY_STALE_CONSULT_ATTACHMENT_CLEANUP := COALESCE(@APPLY_STALE_CONSULT_ATTACHMENT_CLEANUP, 0);
 
 -- DRY-RUN/REPORTING SECTION
 SELECT COUNT(*) AS stale_active_consult_attachments_to_soft_delete
@@ -64,6 +71,7 @@ LEFT JOIN ctl_document ctl ON cd.doctype = 'D'
   AND d.status <> 'D'
 SET cd.deleted = 'Y'
 WHERE cd.deleted IS NULL
+  AND @APPLY_STALE_CONSULT_ATTACHMENT_CLEANUP = 1
   AND (
     (
       cd.doctype = 'E'

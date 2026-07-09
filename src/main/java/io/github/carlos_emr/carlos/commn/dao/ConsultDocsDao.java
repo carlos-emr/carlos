@@ -45,6 +45,21 @@ public interface ConsultDocsDao extends AbstractDao<ConsultDocs> {
     List<Object[]> findLabs(Integer consultationId);
 
     /**
+     * Finds active consultation attachment rows that will be hidden from the
+     * renderable attachment lists because the target row is unavailable or does
+     * not belong to the consultation demographic.
+     *
+     * <p>This is runtime reporting only. It covers eForms, documents, and labs
+     * because those attachment queries can safely validate existence/ownership.
+     * Cleanup remains intentionally narrower and only soft-deletes eForm and
+     * document rows.</p>
+     *
+     * @param requestId consultation request id
+     * @return active unavailable consultation attachments for the request
+     */
+    List<ConsultDocs> findUnavailableActiveConsultAttachments(Integer requestId);
+
+    /**
      * Finds active consultation attachment rows that reference stale eForm or
      * document data that can be validated safely.
      *
