@@ -702,9 +702,17 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         }
         int consultationRequestId = parsedConsultationRequestId;
 
-        ConsultationPreviewSignatureOutcome outcome = consultationSignatureService.saveManualSignatureForPreview(
-                loggedInInfo, consultationRequestId, demographicId, submittedSignatureImg,
-                manualSignatureRequestId, signatureProviderNo);
+        ConsultationPreviewSignatureOutcome outcome;
+        try {
+            outcome = consultationSignatureService.saveManualSignatureForPreview(
+                    loggedInInfo, consultationRequestId, demographicId, submittedSignatureImg,
+                    manualSignatureRequestId, signatureProviderNo);
+        } catch (RuntimeException e) {
+            logger.error("Unable to persist captured consultation signature before print preview (requestId={})",
+                    consultationRequestId, e);
+            warnSignatureNotApplied();
+            return true;
+        }
         if (outcome.isSaved()) {
             this.setSignatureImg(outcome.signatureId());
             request.setAttribute(ATTR_PREVIEW_SIGNATURE_IMG, outcome.signatureId());

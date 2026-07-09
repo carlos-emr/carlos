@@ -236,6 +236,27 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("warns but returns unsigned PDF JSON when preview signature persistence throws")
+    void shouldWarnButReturnPdf_whenManualSignaturePersistenceThrowsForDirectPrintPreview() throws Exception {
+        action.setSignatureImg("9999981000");
+        request.setParameter("newSignature", "true");
+        request.setParameter("newSignatureImg", "9999981000");
+        when(consultationSignatureService.resolveManualSignatureRequestId("9999981000", "9999981000"))
+                .thenReturn("9999981000");
+        when(consultationSignatureService.saveManualSignatureForPreview(
+                loggedInInfo, 9, 1, "9999981000", "9999981000", "999998"))
+                .thenThrow(new RuntimeException("database commit failed"));
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentAsString()).contains("\"consultPDF\":\"" + PDF_BASE64 + "\"");
+        assertThat(response.getContentAsString()).contains("The captured signature could not be saved and will not appear on the PDF.");
+        assertThat(request.getAttribute(ConsultationSignatureService.SUPPRESS_SIGNATURE_ATTRIBUTE)).isEqualTo(Boolean.TRUE);
+        verify(documentAttachmentManager).renderConsultationFormWithAttachments(request, response);
+    }
+
+    @Test
     @DisplayName("returns an error without rendering when direct print preview targets a missing consultation")
     void shouldReturnErrorWithoutRendering_whenDirectPrintPreviewTargetMissing() throws Exception {
         action.setSignatureImg("9999981000");
