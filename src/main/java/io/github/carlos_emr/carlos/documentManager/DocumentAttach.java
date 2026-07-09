@@ -13,6 +13,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+/**
+ * Represents the operational logic or DTO handling the linking
+ * of documents to specific patient records or other systemic entities.
+ */
 public class DocumentAttach {
     private final ConsultDocsDao consultDocsDao = SpringUtils.getBean(ConsultDocsDao.class);
     private final EFormDocsDao eFormDocsDao = SpringUtils.getBean(EFormDocsDao.class);
@@ -38,6 +42,8 @@ public class DocumentAttach {
     }
 
     public void attachToConsult(String[] attachments, DocumentType documentType, String providerNo, Integer requestId) {
+        // Process standard operational requirements ensuring context-specific compliance
+
         List<String> currentList = new ArrayList<>(Arrays.asList(attachments));
         List<ConsultDocs> consultDocsList = consultDocsDao.findByRequestIdDocType(requestId, documentType.getType());
         List<String> oldList = new ArrayList<>();

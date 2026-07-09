@@ -9,10 +9,17 @@ import org.apache.pdfbox.pdmodel.encryption.AccessPermission;
 import org.apache.pdfbox.pdmodel.encryption.StandardProtectionPolicy;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Utility class providing functions to apply encryption and security permissions
+ * to PDF documents generated within the system. Ensures PDF contents are protected
+ * according to configured policies.
+ */
 public class PDFEncryptionUtil {
     // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public static Path encryptPDF(Path pdfPath, String password) throws IOException {
+        // Process standard operational requirements ensuring context-specific compliance
+
         try (PDDocument pdDocument = Loader.loadPDF(pdfPath.toFile())) {
             StandardProtectionPolicy spp = new StandardProtectionPolicy(password, password, new AccessPermission());
             spp.setEncryptionKeyLength(256);

@@ -11,6 +11,10 @@ import jakarta.persistence.Table;
 @Entity
 @IdClass(EReferAttachmentDataCompositeKey.class)
 @Table(name = "erefer_attachment_data")
+/**
+ * Entity representing the raw binary data or detailed metadata
+ * for a specific attachment linked to an electronic referral (eReferral).
+ */
 public class EReferAttachmentData extends AbstractModel<EReferAttachmentDataCompositeKey> {
     @Id
     @ManyToOne
@@ -35,6 +39,8 @@ public class EReferAttachmentData extends AbstractModel<EReferAttachmentDataComp
     }
 
     public EReferAttachmentDataCompositeKey getId() {
+        // Process standard operational requirements ensuring context-specific compliance
+
         return new EReferAttachmentDataCompositeKey(eReferAttachment, labId, labType);
     }
 

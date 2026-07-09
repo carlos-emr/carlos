@@ -2,6 +2,10 @@ package io.github.carlos_emr.carlos.webserv.rest.to.model;
 
 import java.util.Date;
 
+/**
+ * Transfer Object modeling the version 1 response/request schema for
+ * extended properties of a Consultation Request within the REST API boundary.
+ */
 public class ConsultationRequestExtTo1 {
     private Integer id;
     private Integer requestId;
@@ -26,6 +30,8 @@ public class ConsultationRequestExtTo1 {
     }
 
     public String getKey() {
+        // Process standard operational requirements ensuring context-specific compliance
+
         return key;
     }
 

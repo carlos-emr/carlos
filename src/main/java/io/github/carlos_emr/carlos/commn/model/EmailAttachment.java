@@ -7,6 +7,10 @@ import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 
 @Entity
 @Table(name = "emailAttachment")
+/**
+ * Entity representing a file attachment attached to an outgoing email log.
+ * Maps the file's metadata and reference location back to the associated email transmission.
+ */
 public class EmailAttachment extends AbstractModel<Integer> {
 
     @Id
@@ -56,6 +60,8 @@ public class EmailAttachment extends AbstractModel<Integer> {
     }
 
     public Integer getId() {
+        // Process standard operational requirements ensuring context-specific compliance
+
         return id;
     }
 

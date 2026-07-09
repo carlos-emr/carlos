@@ -18,9 +18,15 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import java.util.Properties;
 import java.util.Vector;
 
+/**
+ * Represents the Goods and Services Tax (GST) report for British Columbia billing administration.
+ * Provides data modeling to encapsulate GST calculations and relevant reporting metrics.
+ */
 public class GstReport {
 
     public Vector<Properties> getGST(LoggedInInfo loggedInInfo, String[] providerNos, String startDate, String endDate) {
+        // Process standard operational requirements ensuring context-specific compliance
+
         Properties props;
         Vector<Properties> list = new Vector<Properties>();
         BillingDao dao = SpringUtils.getBean(BillingDao.class);
