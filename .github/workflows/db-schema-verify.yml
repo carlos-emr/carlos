@@ -7,7 +7,7 @@
 # for both provinces. Reference-data/row-count parity against the old build was verified once at
 # cutover (PR #3150) and is preserved in git history.
 #
-# Triggered only on changes under database/mysql/** so it does not slow unrelated PRs.
+# Triggered on schema, installer, validator, hook, and devcontainer changes that can affect DB setup.
 
 name: DB schema verify
 
@@ -15,7 +15,14 @@ on:
   pull_request:
     paths:
       - 'database/mysql/**'
+      - 'release/**'
+      - 'pom.xml'
+      - 'src/main/java/io/github/carlos_emr/carlos/db/FlywaySchemaValidator.java'
+      - 'src/main/resources/spring_jpa.xml'
+      - 'src/main/resources/carlos.properties'
+      - '.devcontainer/**'
       - '.github/workflows/db-schema-verify.yml'
+      - '.claude/**'
 
 # Read-only job: it checks out the repo and talks to a local docker container.
 permissions:
@@ -48,6 +55,8 @@ jobs:
           echo "$PWD/flyway-${FLYWAY_VERSION}" >> "$GITHUB_PATH"
 
       - name: Start MariaDB 11.8.8 with the CARLOS server config
+        env:
+          MYSQL_PWD: password
         run: |
           set -euo pipefail
           # Run MariaDB with the SAME my.cnf the devcontainer/production use (not a stock service
@@ -61,8 +70,8 @@ jobs:
             mariadb:11.8.8
           echo "Waiting for MariaDB to accept connections..."
           for i in $(seq 1 60); do
-            if mariadb -h 127.0.0.1 -uroot -ppassword -e "SELECT 1" >/dev/null 2>&1; then
-              echo "MariaDB ready (innodb_page_size=$(mariadb -N -h 127.0.0.1 -uroot -ppassword -e 'SELECT @@innodb_page_size'))"
+            if mariadb -h 127.0.0.1 -uroot -e "SELECT 1" >/dev/null 2>&1; then
+              echo "MariaDB ready (innodb_page_size=$(mariadb -N -h 127.0.0.1 -uroot -e 'SELECT @@innodb_page_size'))"
               break
             fi
             [ "$i" = 60 ] && { echo "::error::MariaDB did not start"; docker logs carlos-db; exit 1; }
@@ -70,7 +79,7 @@ jobs:
           done
           # ASSERT the 32K invariant this whole job depends on — a mis-mounted my.cnf would fall
           # back to 16K pages and only fail indirectly (or not at all) on narrow tables.
-          PAGE_SIZE=$(mariadb -N -h 127.0.0.1 -uroot -ppassword -e 'SELECT @@innodb_page_size')
+          PAGE_SIZE=$(mariadb -N -h 127.0.0.1 -uroot -e 'SELECT @@innodb_page_size')
           if [ "${PAGE_SIZE}" != "32768" ]; then
             echo "::error::innodb_page_size is ${PAGE_SIZE}, expected 32768 — the CARLOS my.cnf did not apply"
             exit 1
@@ -145,5 +154,28 @@ jobs:
           if [ "${ICD:-0}" -lt 1 ]; then
             echo "::error::diagnostic code table (icd9) empty after migrate for ${PROV}"
             exit 1
+          fi
+
+          COMMON_RESTORED=$($MYSQL -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='carlos_${PROV}' AND table_name IN ('demographicstudy','study','studydata','form_hsfo2_visit','providerstudy')")
+          if [ "${COMMON_RESTORED}" != "5" ]; then
+            echo "::error::restored common legacy tables missing for ${PROV} (found ${COMMON_RESTORED}/5)"
+            exit 1
+          fi
+          REPORTING_GRANT=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM secObjPrivilege WHERE roleUserGroup='doctor' AND objectName='_admin.reporting'")
+          if [ "${REPORTING_GRANT}" -lt 1 ]; then
+            echo "::error::doctor reporting privilege missing after migrate for ${PROV}"
+            exit 1
+          fi
+          if [ "${PROV}" = "bc" ]; then
+            BC_RESTORED=$($MYSQL -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='carlos_bc' AND table_name IN ('billing_history','billing_private_transactions','teleplanS00','teleplanS21','wcb','formBCAR2020','hl7_message')")
+            if [ "${BC_RESTORED}" != "7" ]; then
+              echo "::error::restored BC legacy tables missing (found ${BC_RESTORED}/7)"
+              exit 1
+            fi
+            BC_REF=$($MYSQL -N carlos_bc -e "SELECT COUNT(*) FROM professionalSpecialists")
+            if [ "${BC_REF:-0}" -lt 1 ]; then
+              echo "::error::BC professionalSpecialists reference data missing"
+              exit 1
+            fi
           fi
           echo "Flyway baseline verified for province ${PROV}: ${TABLES} tables, reference data present"

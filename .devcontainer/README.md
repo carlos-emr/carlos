@@ -181,7 +181,7 @@ docker-compose down -v
 docker system prune -f
 
 # Remove specific volumes if they persist
-docker volume rm open-o_mariadb-files open-o_m2-volume
+docker volume rm carlos_mariadb-11-flyway-files carlos_m2-volume
 ```
 
 **Note:** Complete cleanup removes both database data AND Maven cache, requiring full dependency re-download on next build (~15-30 minutes).
@@ -201,7 +201,7 @@ docker-compose up --build -d
 docker exec carlos-tomcat-dev du -sh /root/.m2
 
 # Clear Maven cache (forces fresh download of all dependencies)
-docker volume rm open-o_m2-volume
+docker volume rm carlos_m2-volume
 
 # Or clear cache while container is running
 docker exec carlos-tomcat-dev rm -rf /root/.m2/repository
@@ -216,11 +216,11 @@ docker exec carlos-tomcat-dev rm -rf /root/.m2/repository
 ### **Database troubleshooting:**
 ```bash
 # Check database users
-docker exec carlos-mariadb-dev mariadb -u root -ppassword oscar -e "SELECT user_name, pin FROM security;"
+docker exec -e MYSQL_PWD=password carlos-mariadb-dev mariadb -u root oscar -e "SELECT user_name, pin FROM security;"
 
 # Reset database only (keeps app container and Maven cache)
 docker-compose stop db
-docker volume rm open-o_mariadb-files
+docker volume rm carlos_mariadb-11-flyway-files
 docker-compose up db -d
 ```
 
@@ -229,11 +229,11 @@ Database volumes persist data between container restarts. This means that even a
 
 ```bash
 # Check database state
-docker exec carlos-mariadb-dev mariadb -u root -ppassword oscar -e "SHOW TABLES;" | wc -l
+docker exec -e MYSQL_PWD=password carlos-mariadb-dev mariadb -u root oscar -e "SHOW TABLES;" | wc -l
 
 # Force complete database rebuild from SQL files
 docker-compose stop db
-docker volume rm open-o_mariadb-files
+docker volume rm carlos_mariadb-11-flyway-files
 docker-compose up db -d
 
 # Wait for initialization, then verify clean state
@@ -277,7 +277,7 @@ docker ps --format "table {{.Names}}\t{{.Status}}"
 docker inspect carlos-mariadb-dev --format='{{json .State.Health}}' | jq
 
 # Force health check manually
-docker exec carlos-mariadb-dev mariadb-admin ping -h localhost -u root -ppassword
+docker exec -e MYSQL_PWD=password carlos-mariadb-dev mariadb-admin ping -h localhost -u root
 ```
 
 The application container will wait up to 10 minutes (60s start period + 10 retries × 10s interval) for the database to become healthy. This prevents connection failures during fresh database initialization.
@@ -293,15 +293,15 @@ python3 scripts/generate_bcrypt_password.py
 # Copy the generated hash (starts with {bcrypt}$2b$...)
 
 # Update the database with the new hash
-docker exec carlos-mariadb-dev mariadb -u root -ppassword oscar -e \
+docker exec -e MYSQL_PWD=password carlos-mariadb-dev mariadb -u root oscar -e \
   "UPDATE security SET password='YOUR_BCRYPT_HASH_HERE' WHERE user_name='carlosdoc';"
 
 # Optional: Force password reset on next login
-docker exec carlos-mariadb-dev mariadb -u root -ppassword oscar -e \
+docker exec -e MYSQL_PWD=password carlos-mariadb-dev mariadb -u root oscar -e \
   "UPDATE security SET forcePasswordReset=1 WHERE user_name='carlosdoc';"
 
 # Verify the change
-docker exec carlos-mariadb-dev mariadb -u root -ppassword oscar -e \
+docker exec -e MYSQL_PWD=password carlos-mariadb-dev mariadb -u root oscar -e \
   "SELECT user_name, LEFT(password, 20) as password_start FROM security WHERE user_name='carlosdoc';"
 ```
 
@@ -313,7 +313,7 @@ Enter password: mynewpassword
 Generated BCrypt hash: {bcrypt}$2b$12$abc123...xyz789
 
 # Update database
-$ docker exec carlos-mariadb-dev mariadb -u root -ppassword oscar -e \
+$ docker exec -e MYSQL_PWD=password carlos-mariadb-dev mariadb -u root oscar -e \
   "UPDATE security SET password='{bcrypt}\$2b\$12\$abc123...xyz789' WHERE user_name='carlosdoc';"
 ```
 

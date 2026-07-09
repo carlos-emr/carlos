@@ -122,6 +122,104 @@ progress() {
     	done
 }
 
+normalize_billregion() {
+	case "$(printf '%s' "${1:-}" | tr '[:lower:]' '[:upper:]')" in
+		BC) printf '%s' "BC" ;;
+		*) printf '%s' "ON" ;;
+	esac
+}
+
+province_for_billregion() {
+	if [ "$(normalize_billregion "${1:-}")" = "BC" ] ; then
+		printf '%s' "bc"
+	else
+		printf '%s' "on"
+	fi
+}
+
+load_billregion_from_properties() {
+	if [ -f "${C_HOME}${PROGRAM}.properties" ] ; then
+		configured_billregion=$(sed '/^\#/d' "${C_HOME}${PROGRAM}.properties" | grep '^billregion' | tail -n 1 | cut -d "=" -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') 2>>$LOG_FILE
+		if [ -n "${configured_billregion}" ] ; then
+			billregion=$(normalize_billregion "${configured_billregion}")
+		fi
+	fi
+	billregion=$(normalize_billregion "${billregion}")
+	province=$(province_for_billregion "${billregion}")
+	echo "Using configured billregion=${billregion}, Flyway province=${province}" >>$LOG_FILE
+}
+
+configure_flyway_cli() {
+	SCHEMA_DIR="${SRC}schema"
+	FLYWAY_BIN=$(ls -d "${SCHEMA_DIR}"/flyway-*/flyway 2>/dev/null | head -1)
+	if [ -z "${FLYWAY_BIN}" ] || [ ! -x "${FLYWAY_BIN}" ] ; then
+		echo "ERROR: bundled Flyway CLI not found under ${SCHEMA_DIR}" >>$LOG_FILE
+		ncecho " bundled Flyway CLI not found under ${SCHEMA_DIR} "
+		fail
+	fi
+}
+
+sql_literal() {
+	printf '%s' "${1:-}" | sed "s/'/''/g"
+}
+
+ensure_application_db_user() {
+	if [ -z "${db_username:-}" ] ; then
+		db_username="${PROGRAM}"
+	fi
+	sql_db_username=$(sql_literal "${db_username}")
+	sql_db_password=$(sql_literal "${db_password}")
+	ncecho " [x] Ensuring ${db_username} database user "
+	$MYSQL 2>>$LOG_FILE <<SQL &
+CREATE USER IF NOT EXISTS '${sql_db_username}'@'localhost' IDENTIFIED BY '${sql_db_password}';
+GRANT ALL PRIVILEGES ON ${db_name}.* TO '${sql_db_username}'@'localhost';
+FLUSH PRIVILEGES;
+SQL
+	pid=$!;progress $pid
+}
+
+run_flyway_migrate() {
+	flyway_mode="${1:-fresh}"
+	billregion=$(normalize_billregion "${billregion}")
+	province=$(province_for_billregion "${billregion}")
+	echo "Using billregion=${billregion}, Flyway province=${province}" >>$LOG_FILE
+	configure_flyway_cli
+	ensure_application_db_user
+	flyway_locations="filesystem:${SCHEMA_DIR}/migration/common,filesystem:${SCHEMA_DIR}/migration/${province}"
+	flyway_jdbc="jdbc:mariadb://localhost:3306/${db_name}?allowPublicKeyRetrieval=true&useSSL=false"
+
+	if [ "${flyway_mode}" = "adopt" ] ; then
+		history_count=$($MYSQL -N -s "${db_name}" -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='flyway_schema_history';" 2>>$LOG_FILE)
+		if [ "${history_count:-0}" = "0" ] ; then
+			ncecho " [x] Adopting existing schema into Flyway at V1.0.2 "
+			( FLYWAY_PASSWORD="${db_password}" "${FLYWAY_BIN}" \
+				-url="${flyway_jdbc}" \
+				-user="${db_username}" \
+				-locations="${flyway_locations}" \
+				-baselineVersion=1.0.2 \
+				-baselineDescription="CARLOS full genesis (V1 + province V1.0.1/V1.0.2)" baseline ) >>$LOG_FILE 2>>$LOG_FILE &
+			pid=$!;progress $pid
+		fi
+	fi
+
+	ncecho " [x] Applying CARLOS Flyway migrations (${province}) to ${db_name} "
+	echo "Running flyway migrate for configured billregion=${billregion}, province=${province}" >>$LOG_FILE
+	if [ "${flyway_mode}" = "fresh" ] ; then
+		( FLYWAY_PASSWORD="${db_password}" "${FLYWAY_BIN}" \
+			-url="${flyway_jdbc}" \
+			-user="${db_username}" \
+			-locations="${flyway_locations}" \
+			-baselineOnMigrate=true migrate ) >>$LOG_FILE 2>>$LOG_FILE &
+	else
+		( FLYWAY_PASSWORD="${db_password}" "${FLYWAY_BIN}" \
+			-url="${flyway_jdbc}" \
+			-user="${db_username}" \
+			-locations="${flyway_locations}" migrate ) >>$LOG_FILE 2>>$LOG_FILE &
+	fi
+	pid=$!;progress $pid
+	echo "Flyway migrate completed for ${db_name} (${province})" >>$LOG_FILE
+}
+
 ### END COMMON FUNCTIONS ####
 
 # Cleanup the passwords on any condition (error or success).
@@ -175,6 +273,7 @@ echo "test the obtained password before proceeding!!"  >>$LOG_FILE
 ncecho " [x] Checking the MySQL password "
 ($MYSQL -e "SHOW DATABASES;" 1>/dev/null || { echo "'${db_password}' apparently is not the password... exiting! " ; exit 1 ; } )>> "$LOG_FILE" 2>&1 &
 pid=$!;progress $pid
+load_billregion_from_properties
 
 echo "grep the build from the properties file" >> $LOG_FILE
 #  drop lines that start with a comment,
@@ -273,6 +372,7 @@ if [ "$lastbuild" != "${VERSION}.${REVISION}" ] ; then
             done
         ) &
         pid=$!;progress $pid
+        run_flyway_migrate adopt
 
     fi
 	# lets first update the server.xml if necessary
@@ -300,7 +400,7 @@ if [ "$lastbuild" != "${VERSION}.${REVISION}" ] ; then
     oldRourke=$($MYSQL ${db_name} -s -e "SELECT COUNT(*) FROM eform WHERE file_name='Rourke-Baby-Record_v3_r1_2014-Aug-22.html' AND status='0';") # 0 or 1
     echo oldRourke=${oldRourke} >>$LOG_FILE
 
-    if [ "${STATE}" = "ON"  ] ; then
+    if [ "$(normalize_billregion "${billregion}")" = "ON"  ] ; then
 	opr=$($MYSQL ${db_name} -s -e "SELECT COUNT(*) FROM eform WHERE form_name='OPR-2017' AND form_date IN ('2017-08-24','2017-09-25');") # 0 or 1	
 	    if [ "$opr" = "0" ] ; then
 		    ncecho " [x] Installing Ontario OPR-2017 eForms " 
@@ -358,7 +458,11 @@ DEMO=$RET
 echo DEMO=${DEMO}  >>$LOG_FILE
 
 db_get carlos-emr/billregion
-billregion=$RET
+billregion=$(normalize_billregion "$RET")
+province=$(province_for_billregion "${billregion}")
+if [ "${CARLOS_PROPS_FOUND}" = "true" ] && [ -n "${lastbuild}" ] ; then
+	load_billregion_from_properties
+fi
 echo billregion=${billregion}  >>$LOG_FILE
 
 db_get carlos-emr/priorschema
@@ -430,7 +534,7 @@ result=$($MYSQL -e "SHOW DATABASES LIKE '${db_name}';")
 if [ -z "$result" ]; then 
 	ncecho " [x] Creating the new ${db_name} database "
 	##$MYSQL -e "SET storage_engine=INNODB; CREATE DATABASE IF NOT EXISTS ${db_name} DEFAULT CHARACTER SET utf8  DEFAULT COLLATE utf8_general_ci;" 2>>$LOG_FILE &
-	$MYSQL -e "CREATE DATABASE IF NOT EXISTS ${db_name} DEFAULT CHARACTER SET utf8  DEFAULT COLLATE utf8_general_ci;" 2>>$LOG_FILE &
+	$MYSQL -e "CREATE DATABASE IF NOT EXISTS ${db_name} DEFAULT CHARACTER SET utf8mb4 DEFAULT COLLATE utf8mb4_general_ci;" 2>>$LOG_FILE &
 	pid=$!;progress $pid
 	## need to disable plugin requirement for root so that OSCAR run with tomcat user can access MySQL
 	# disable in older MariaDB < 10.2
@@ -465,6 +569,8 @@ else
                 #chown -R ${TOMCAT_USER}:${TOMCAT_USER} ${C_BASE}/webapps/oscar/WEB-INF/classes/${PROGRAM}.properties 2>>$LOG_FILE
         fi
         
+        run_flyway_migrate adopt
+
         ncecho " [x] Restarting Tomcat "
         service ${TOMCAT} restart >> $LOG_FILE 2>&1 &
         pid=$!;progress $pid
@@ -493,7 +599,7 @@ if [ "${UPGRADE}" = "true" ] ; then
 	# If both carlos.properties and oscar.properties exist (prior CARLOS migration site),
 	# skip patch.sql and run incremental updates only.
 	ncecho " [x] Have new tables in ${db_name} default to utf8 "
-	$MYSQL -e "ALTER DATABASE \`$db_name\` DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci"  2>>$LOG_FILE &
+	$MYSQL -e "ALTER DATABASE \`$db_name\` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci"  2>>$LOG_FILE &
 	pid=$!;progress $pid
 
 	# Run incremental update scripts bundled with this package
@@ -506,6 +612,7 @@ if [ "${UPGRADE}" = "true" ] ; then
 		fi
 		echo "Applied ${_sql}" >> $LOG_FILE
 	done
+	run_flyway_migrate adopt
 
 else
 	### ============================================================
@@ -520,39 +627,12 @@ else
         ## service ${TOMCAT} restart >> $LOG_FILE 2>&1 &
         ## pid=$!;progress $pid
 
-	# --- Generate fresh CARLOS schema from the Flyway V1 baseline ---
+	# --- Generate fresh CARLOS schema from the Flyway migrations ---
 	# The schema/ directory was populated at package build time from database/mysql/migration/
-	# plus a bundled, offline-capable Flyway CLI. We apply the consolidated V1 baseline (complete
-	# schema + reference data, incl. OLIS for ON) with the common + province locations — the same
-	# set production applies via `carlos-ctl db migrate`. baselineOnMigrate handles the empty DB;
-	# the resulting flyway_schema_history lets later `carlos-ctl db migrate` runs apply forward
-	# migrations and satisfies the boot-time validate gate.
-	SCHEMA_DIR="${SRC}schema"
-	FLYWAY_BIN=$(ls -d "${SCHEMA_DIR}"/flyway-*/flyway 2>/dev/null | head -1)
-	if [ -z "${FLYWAY_BIN}" ] || [ ! -x "${FLYWAY_BIN}" ] ; then
-		# fail() takes no message argument — log the reason first so it isn't lost.
-		echo "ERROR: bundled Flyway CLI not found under ${SCHEMA_DIR} — cannot create schema" >>$LOG_FILE
-		ncecho " bundled Flyway CLI not found under ${SCHEMA_DIR} "
-		fail
-	fi
-	if [ "${billregion}" = "BC" ] ; then
-		province="bc"
-	else
-		province="on"
-	fi
-	ncecho " [x] Applying CARLOS Flyway V1 baseline (${province}) to ${db_name} "
-	echo "Running flyway migrate for province ${province}" >>$LOG_FILE
-	# The password goes to Flyway via the FLYWAY_PASSWORD environment variable (off-argv — a
-	# -password= flag would be visible in the process list while the migrate runs). The DB was
-	# already created above, so baselineOnMigrate stamps V1 and applies the baseline.
-	( FLYWAY_PASSWORD="${db_password}" "${FLYWAY_BIN}" \
-		-url="jdbc:mariadb://localhost:3306/${db_name}?allowPublicKeyRetrieval=true&useSSL=false" \
-		-user=root \
-		-locations="filesystem:${SCHEMA_DIR}/migration/common,filesystem:${SCHEMA_DIR}/migration/${province}" \
-		-baselineOnMigrate=true migrate ) >>$LOG_FILE 2>>$LOG_FILE &
-	# progress() waits on $pid and calls fail() on a non-zero exit, so a failed migrate aborts here.
-	pid=$!;progress $pid
-	echo "Populated ${db_name} with the ${province} Flyway baseline" >>$LOG_FILE
+	# plus a bundled, offline-capable Flyway CLI. The selected billregion, not GeoIP, chooses
+	# common + province locations. The same runner is used for existing-database adoption.
+	run_flyway_migrate fresh
+	echo "Populated ${db_name} with the ${province} Flyway migrations" >>$LOG_FILE
 	# The baseline reference data seeds the DOCUMENTED default clinician login (inherited from
 	# the legacy oscardata seed). Warn loudly: leaving it live on a real deployment is an
 	# unauthenticated-adjacent PHI exposure. Forced rotation at first login is app-level
@@ -577,7 +657,7 @@ else
 	#pid=$!;progress $pid
 	
 	
-        if [ "${STATE}" = "BC"  ] ; then
+        if [ "$(normalize_billregion "${billregion}")" = "BC"  ] ; then
          	ncecho " [x] Installing BC billing Dashboard Indicators " 
                 $MYSQL ${db_name} <  ${SRC}bc_billing_dashboard.sql 2>>$LOG_FILE &
 	        pid=$!;progress $pid   
@@ -932,7 +1012,7 @@ fi
 
 if [ "${COUNTRY}" = CA ] ; then
 
-	if [ "${STATE}" = ON ] ; then
+	if [ "$(normalize_billregion "${billregion}")" = ON ] ; then
         ncecho " [x] Installing Ontario Specific eForms "
         (
 		echo "Installing NDSS eform set under licence"  >>$LOG_FILE

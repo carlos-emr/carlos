@@ -73,7 +73,7 @@ services:
     ports:
       - "3306:3306"
     volumes:
-      - mariadb-files:/var/lib/mysql
+      - mariadb-11-flyway-files:/var/lib/mysql
     environment:
       TZ: America/Toronto
       container: docker
@@ -85,14 +85,14 @@ services:
           memory: 2G
           cpus: "2"
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-ppassword"]
+      test: ["CMD-SHELL", "MYSQL_PWD=$${MARIADB_ROOT_PASSWORD:-password} mariadb-admin ping -h localhost -u root"]
       timeout: 20s
       retries: 10
       interval: 10s
       start_period: 60s
 
 volumes:
-  mariadb-files:
+  mariadb-11-flyway-files:
     driver: local
 
   m2-volume:

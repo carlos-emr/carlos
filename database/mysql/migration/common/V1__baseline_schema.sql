@@ -8879,7 +8879,6 @@ CREATE TABLE `formVTForm` (
   `WHRBLastData` varchar(10) DEFAULT NULL,
   `WHRBLastDataEnteredDate` varchar(10) DEFAULT NULL,
   PRIMARY KEY (`ID`),
-  KEY `ID` (`ID`),
   KEY `demographic_no` (`demographic_no`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;

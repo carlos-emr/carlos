@@ -5,7 +5,17 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Read|Edit|Write",
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 $CLAUDE_PROJECT_DIR/.claude/hooks/enforce-sql-migration-pattern.py",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Read|Edit|Write|MultiEdit",
         "hooks": [
           {
             "type": "command",
@@ -15,7 +25,7 @@
         ]
       },
       {
-        "matcher": "Read|Edit|Write",
+        "matcher": "Read|Edit|Write|MultiEdit",
         "hooks": [
           {
             "type": "command",
@@ -25,7 +35,7 @@
         ]
       },
       {
-        "matcher": "Read|Edit|Write",
+        "matcher": "Read|Edit|Write|MultiEdit",
         "hooks": [
           {
             "type": "command",
@@ -41,8 +51,12 @@
       "Read(**)",
       "Grep(**)",
       "Glob(**)",
-      "Write(database/mysql/updates/update-*.sql)",
-      "Edit(database/mysql/updates/update-*.sql)",
+      "Write(database/mysql/migration/common/V1.0.*__*.sql)",
+      "Edit(database/mysql/migration/common/V1.0.*__*.sql)",
+      "Write(database/mysql/migration/on/V1.0.*__*.sql)",
+      "Edit(database/mysql/migration/on/V1.0.*__*.sql)",
+      "Write(database/mysql/migration/bc/V1.0.*__*.sql)",
+      "Edit(database/mysql/migration/bc/V1.0.*__*.sql)",
       "Bash(mariadb -h db *)",
       "Bash(curl *)",
       "Bash(gh pr *)",

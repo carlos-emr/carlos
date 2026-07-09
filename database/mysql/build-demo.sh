@@ -36,15 +36,34 @@ grep -hoE 'CREATE TABLE +`[^`]+`' \
   "${SCRIPT_DIR}/migration/bc/V1.0.1__bc_schema.sql" \
   | sed -E 's/CREATE TABLE +`([^`]+)`/\1/' | LC_ALL=C sort -u > "$LIVE_TABLES"
 
-awk 'NR==FNR{keep["`"$1"`"]=1; next}
+awk '
+function table_target(line, rest) {
+  rest=line
+  sub(/^[[:space:]]+/, "", rest)
+  if (rest ~ /^INSERT[[:space:]]+INTO[[:space:]]+/) {
+    sub(/^INSERT[[:space:]]+INTO[[:space:]]+/, "", rest)
+  } else if (rest ~ /^TRUNCATE[[:space:]]+TABLE[[:space:]]+/) {
+    sub(/^TRUNCATE[[:space:]]+TABLE[[:space:]]+/, "", rest)
+  } else {
+    return ""
+  }
+  if (rest ~ /^`/) {
+    sub(/^`/, "", rest)
+    sub(/`.*/, "", rest)
+  } else {
+    sub(/[[:space:](].*/, "", rest)
+  }
+  return "`" rest "`"
+}
+NR==FNR{keep["`"$1"`"]=1; next}
 {
   if (in_stmt) { if (!skip) print; if ($0 ~ /;[[:space:]]*$/) in_stmt=0; next }
-  if ($0 ~ /^INSERT INTO/) {
-    match($0,/`[^`]+`/); t=substr($0,RSTART,RLENGTH);
+  if ($0 ~ /^[[:space:]]*INSERT[[:space:]]+INTO[[:space:]]+/) {
+    t=table_target($0)
     skip=((t in keep)?0:1); in_stmt=1; if ($0 ~ /;[[:space:]]*$/) in_stmt=0;
     if (!skip) print; next
   }
-  if ($0 ~ /^TRUNCATE TABLE/) { match($0,/`[^`]+`/); t=substr($0,RSTART,RLENGTH); if (t in keep) print; next }
+  if ($0 ~ /^[[:space:]]*TRUNCATE[[:space:]]+TABLE[[:space:]]+/) { t=table_target($0); if (t in keep) print; next }
   print
 }' "$LIVE_TABLES" "$IN" > "$OUT"
 

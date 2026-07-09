@@ -443,6 +443,7 @@ else
 	-e 's/\(^drugref_url\)/#\1/' \
 	-e 's/\(^db_name =\)/#\1/' \
 	-e 's/\(^db_password =\)/#\1/' \
+	-e 's/\(^db_username =\)/#\1/' \
 	-e 's/\(^hibernate.dialect\)/#\1/' \
 	-e 's/\(^billregion=\)/#\1/' \
 	-e 's/\(^phoneprefix =\)/#\1/' \
@@ -573,8 +574,15 @@ echo oscar_port=8443>> ${PROGRAM}.tmp 2>>$LOG_FILE
 
 echo priorschema=${priorschema}>> ${PROGRAM}.tmp 2>>$LOG_FILE
 echo db_name=${db_name}${db_switch}>> ${PROGRAM}.tmp 2>>$LOG_FILE
+echo db_username=${PROGRAM}>> ${PROGRAM}.tmp 2>>$LOG_FILE
 echo db_password=${db_password}>> ${PROGRAM}.tmp 2>>$LOG_FILE
 echo billregion=${billregion}>> ${PROGRAM}.tmp 2>>$LOG_FILE
+if [ "${billregion}" = "BC" ]; then
+	flyway_locations=classpath:db/migration/common,classpath:db/migration/bc
+else
+	flyway_locations=classpath:db/migration/common,classpath:db/migration/on
+fi
+echo carlos.flyway.locations=${flyway_locations}>> ${PROGRAM}.tmp 2>>$LOG_FILE
 echo phoneprefix=${phoneprefix}>> ${PROGRAM}.tmp 2>>$LOG_FILE
 
 

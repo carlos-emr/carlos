@@ -13,11 +13,17 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 import javax.sql.DataSource;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
+import org.flywaydb.core.Flyway;
+import org.h2.jdbcx.JdbcDataSource;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
@@ -27,9 +33,8 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
  *
  * <p>These pin the class's safety properties — a mistyped mode must abort boot rather than silently
  * disable the schema gate, and an enabled gate with nothing to validate against must abort — so a
- * future refactor cannot regress them unnoticed. The {@code validate}-mode "database is behind the
- * WAR aborts boot" path needs a real MariaDB/MySQL with a {@code flyway_schema_history} table and is
- * covered by the CI Flyway gate ({@code .github/workflows/db-schema-verify.yml}), not here.</p>
+ * future refactor cannot regress them unnoticed. H2-backed tests also pin the strict Flyway
+ * behavior that matters before dialect-specific MariaDB schema tests run in CI.</p>
  *
  * @since 2026-07-09
  */
@@ -128,4 +133,53 @@ class FlywaySchemaValidatorUnitTest extends CarlosUnitTestBase {
                 .hasMessageContaining("carlos.flyway.locations");
         verifyNoInteractions(dataSource);
     }
+
+    @Test
+    @DisplayName("shouldFailBoot_whenMigrationLocationMissing")
+    void shouldFailBoot_whenMigrationLocationMissing(@TempDir Path tempDir) {
+        JdbcDataSource dataSource = h2DataSource("missing_location");
+        Path missing = tempDir.resolve("does-not-exist");
+        FlywaySchemaValidator validator = new FlywaySchemaValidator(
+                dataSource, "validate", "filesystem:" + missing.toAbsolutePath());
+
+        assertThatThrownBy(validator::afterPropertiesSet)
+                .isInstanceOf(Exception.class)
+                .hasMessageContaining("Failed to find filesystem location");
+    }
+
+    @Test
+    @DisplayName("shouldFailBoot_whenDatabaseHasFutureMigration")
+    void shouldFailBoot_whenDatabaseHasFutureMigration(@TempDir Path tempDir) throws Exception {
+        JdbcDataSource dataSource = h2DataSource("future_migration");
+        Path applied = tempDir.resolve("applied");
+        Path shipped = tempDir.resolve("shipped");
+        Files.createDirectories(applied);
+        Files.createDirectories(shipped);
+        String v1 = "CREATE TABLE patient (id INT PRIMARY KEY);\n";
+        Files.writeString(applied.resolve("V1__base.sql"), v1);
+        Files.writeString(applied.resolve("V2__future.sql"), "CREATE TABLE future_only (id INT PRIMARY KEY);\n");
+        Files.writeString(shipped.resolve("V1__base.sql"), v1);
+
+        Flyway.configure()
+                .dataSource(dataSource)
+                .locations("filesystem:" + applied.toAbsolutePath())
+                .load()
+                .migrate();
+
+        FlywaySchemaValidator validator = new FlywaySchemaValidator(
+                dataSource, "validate", "filesystem:" + shipped.toAbsolutePath());
+
+        assertThatThrownBy(validator::afterPropertiesSet)
+                .isInstanceOf(Exception.class)
+                .hasMessageContaining("Validate failed");
+    }
+
+    private JdbcDataSource h2DataSource(String name) {
+        JdbcDataSource dataSource = new JdbcDataSource();
+        dataSource.setURL("jdbc:h2:mem:" + name + System.nanoTime() + ";DB_CLOSE_DELAY=-1");
+        dataSource.setUser("sa");
+        dataSource.setPassword("");
+        return dataSource;
+    }
+
 }

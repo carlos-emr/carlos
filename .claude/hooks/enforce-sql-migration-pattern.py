@@ -158,18 +158,21 @@ def is_valid_patch_file(file_path: str) -> bool:
 
 
 def is_creating_sql_in_protected_dir(tool_name: str, file_path: str) -> bool:
-    """Check if attempting to create a new SQL file in a protected directory."""
-    if tool_name != "Write":
+    """Check if attempting to create a new ad-hoc SQL file under database/mysql/."""
+    if tool_name not in ("Write", "MultiEdit"):
         return False
 
     if not file_path.endswith('.sql'):
         return False
 
-    path = Path(file_path)
+    if Path(file_path).exists():
+        return False
 
-    # Check if trying to create SQL in protected directories
+    if "database/mysql/" in file_path and not is_valid_patch_file(file_path):
+        return True
+
+    path = Path(file_path)
     for protected_dir in PROTECTED_DIRECTORIES:
-        # Exact match - not in a subdirectory
         parent_str = str(path.parent)
         if parent_str == protected_dir or parent_str.endswith(f"/{protected_dir}"):
             return True
@@ -200,8 +203,8 @@ def main():
         tool_input = input_data.get("tool_input", {})
         tool_name = input_data.get("tool_name", "")
 
-        # Only process Edit and Write tools
-        if tool_name not in ("Edit", "Write"):
+        # Only process Edit, Write, and MultiEdit tools
+        if tool_name not in ("Edit", "Write", "MultiEdit"):
             sys.exit(0)
 
         # Get file path. Lexically normalize it FIRST (collapse ./ and ../ segments) so the

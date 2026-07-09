@@ -150,6 +150,10 @@ public class FlywaySchemaValidator implements InitializingBean {
         Flyway flyway = Flyway.configure()
                 .dataSource(dataSource)
                 .locations(locations)
+                // Flyway's default ignores future migrations during validate; CARLOS must fail
+                // when an older WAR starts against a database migrated by a newer WAR.
+                .ignoreMigrationPatterns("")
+                .failOnMissingLocations(true)
                 .load();
 
         if (MODE_MIGRATE.equals(mode)) {

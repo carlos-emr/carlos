@@ -391,6 +391,12 @@ chmod +x ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/drugrefUpdate.cron
 # the common + province (on|bc) locations from the province debconf answer — exactly the set the
 # container path applies via `carlos-ctl db migrate`. This yields a proper flyway_schema_history so
 # subsequent `carlos-ctl db migrate` runs and the boot-time validate gate work.
+DEB_ARCH=${DEB_ARCH:-$(dpkg --print-architecture 2>/dev/null || echo unknown)}
+if [ "${DEB_ARCH}" != "amd64" ]; then
+  echo "ERROR: this package bundles the linux-x64 Flyway CLI and must be built as amd64 (got ${DEB_ARCH})" >&2
+  exit 1
+fi
+
 FLYWAY_VERSION=11.14.0
 SCHEMA_OUT=${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema
 echo "bundling Flyway migration set from database/mysql/migration/"

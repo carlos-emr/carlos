@@ -263,13 +263,15 @@ def is_safe_pattern(match_text: str, line: str, content: str) -> bool:
 # Core detection logic
 # ---------------------------------------------------------------------------
 
-def get_file_content_from_input(tool_input: dict) -> tuple[str, str]:
-    """Extracts file path and content from tool input."""
+def get_file_content_from_input(tool_input: dict, tool_name: str) -> tuple[str, str]:
+    """Extracts file path and changed content from tool input."""
     file_path = tool_input.get("file_path", "")
 
-    # For Write tool, content is in 'content' field
-    # For Edit tool, new content is in 'new_string' field
-    content = tool_input.get("content", "") or tool_input.get("new_string", "")
+    if tool_name == "MultiEdit":
+        content = "\n".join(edit.get("new_string", "") for edit in tool_input.get("edits", []))
+    else:
+        # For Write tool, content is in 'content' field; for Edit, new content is in 'new_string'.
+        content = tool_input.get("content", "") or tool_input.get("new_string", "")
 
     return file_path, content
 
@@ -435,12 +437,12 @@ def main():
         tool_input = input_data.get("tool_input", {})
         tool_name = input_data.get("tool_name", "")
 
-        # Only process Edit and Write tools
-        if tool_name not in ("Edit", "Write"):
+        # Only process Edit, Write, and MultiEdit tools
+        if tool_name not in ("Edit", "Write", "MultiEdit"):
             sys.exit(0)
 
         # Get file path and content
-        file_path, content = get_file_content_from_input(tool_input)
+        file_path, content = get_file_content_from_input(tool_input, tool_name)
 
         # Only check Java files
         if not file_path.endswith('.java'):
