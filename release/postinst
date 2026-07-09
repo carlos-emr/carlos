@@ -521,7 +521,7 @@ else
 	# the resulting flyway_schema_history lets later `carlos-ctl db migrate` runs apply forward
 	# migrations and satisfies the boot-time validate gate.
 	SCHEMA_DIR="${SRC}schema"
-	FLYWAY_BIN=$(ls -d ${SCHEMA_DIR}/flyway-*/flyway 2>/dev/null | head -1)
+	FLYWAY_BIN=$(ls -d "${SCHEMA_DIR}"/flyway-*/flyway 2>/dev/null | head -1)
 	if [ -z "${FLYWAY_BIN}" ] || [ ! -x "${FLYWAY_BIN}" ] ; then
 		# fail() takes no message argument — log the reason first so it isn't lost.
 		echo "ERROR: bundled Flyway CLI not found under ${SCHEMA_DIR} — cannot create schema" >>$LOG_FILE

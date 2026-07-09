@@ -51,9 +51,22 @@ MIGRATION_DIRECTORIES = (
 PATCH_PATTERN = re.compile(r"^update-\d{4}-\d{2}-\d{2}-.+\.sql$")
 # Flyway forward-migration naming: exactly the documented V1.0.N convention (sequential, next
 # free number), e.g. V1.0.3__performance_indexes.sql. Anything else — date-style (V2026.07.08),
-# new-major (V2.0.0), minor bumps (V1.1), or sub-versions (V1.0.3.1) — is rejected. The five
-# genesis baseline files are additionally protected by exact basename above.
-MIGRATION_PATTERN = re.compile(r"^V1\.0\.\d+__.+\.sql$")
+# new-major (V2.0.0), minor bumps (V1.1), or sub-versions (V1.0.3.1) — is rejected. The trailing
+# component is [1-9]\d* so leading zeros (V1.0.03, which Flyway parses as 1.0.3 — a SILENT
+# duplicate of V1.0.3) and the below-baseline V1.0.0 are rejected too. The five genesis baseline
+# files are additionally protected by exact basename above.
+MIGRATION_PATTERN = re.compile(r"^V1\.0\.[1-9]\d*__.+\.sql$")
+# Version prefix extractor for the duplicate-version scan (same shape as MIGRATION_PATTERN).
+MIGRATION_VERSION = re.compile(r"^(V1\.0\.[1-9]\d*)__")
+
+# Which location dirs are ever applied together. Flyway loads `common` + exactly one province, so
+# a version is only a real collision within a co-applied set; the two provinces never co-apply
+# (on/V1.0.4 and bc/V1.0.4 can legitimately coexist).
+CO_APPLIED_LOCATIONS = {
+    "common": ("common", "on", "bc"),
+    "on": ("common", "on"),
+    "bc": ("common", "bc"),
+}
 
 
 def get_file_path_from_input(tool_input: dict) -> str:
@@ -71,6 +84,31 @@ def is_protected_sql_file(file_path: str) -> bool:
             if "database/mysql/migration" in file_path:
                 return True
 
+    return False
+
+
+def has_duplicate_version(file_path: str) -> bool:
+    """True if another migration in the co-applied set already uses this file's V1.0.N version.
+
+    Flyway rejects two migrations with the same version in one applied set (common + one province),
+    and PROTECTED_SQL_FILES only guards five exact basenames — so a new file with an existing
+    version but a different description (e.g. on/V1.0.1__new_change.sql vs the protected
+    V1.0.1__on_schema.sql) would pass the shape check yet fail Flyway. Catch it here instead.
+    """
+    path = Path(file_path)
+    m = MIGRATION_VERSION.match(path.name)
+    if m is None:
+        return False
+    version = m.group(1)
+    loc = path.parent.name  # common | on | bc
+    migration_root = path.parent.parent  # .../migration
+    for sibling_loc in CO_APPLIED_LOCATIONS.get(loc, ()):  # noqa: B007
+        sibling_dir = migration_root / sibling_loc
+        if not sibling_dir.is_dir():
+            continue
+        for existing in sibling_dir.glob(f"{version}__*.sql"):
+            if existing.name != path.name:
+                return True
     return False
 
 
@@ -92,10 +130,11 @@ def is_valid_patch_file(file_path: str) -> bool:
     if f"{PATCH_DIRECTORY}/" in file_path and PATCH_PATTERN.match(path.name) is not None:
         return path.exists()
 
-    # Flyway forward migration under common/on/bc
+    # Flyway forward migration under common/on/bc. Reject if the version collides with an existing
+    # migration in the co-applied set (Flyway would otherwise fail at migrate time).
     if any(f"{loc}/" in file_path for loc in MIGRATION_DIRECTORIES) and \
             MIGRATION_PATTERN.match(path.name) is not None:
-        return True
+        return not has_duplicate_version(file_path)
 
     return False
 
@@ -193,6 +232,19 @@ def main():
             print("    'ALTER TABLE table_name ADD COLUMN column_name varchar(25)',", file=sys.stderr)
             print("    'SELECT \"Column already exists\"');", file=sys.stderr)
             print("  PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;", file=sys.stderr)
+            sys.exit(2)
+
+        # Well-shaped V1.0.N name but the version already exists in the co-applied set — Flyway
+        # would fail at migrate time. Give a precise message (distinct from the bad-name case).
+        if any(f"{loc}/" in file_path for loc in MIGRATION_DIRECTORIES) and \
+                MIGRATION_PATTERN.match(Path(file_path).name) is not None and \
+                has_duplicate_version(file_path):
+            print("\n=== SQL Migration Pattern Enforcer ===", file=sys.stderr)
+            print("BLOCKED: duplicate Flyway migration version", file=sys.stderr)
+            print(f"File: {file_path}\n", file=sys.stderr)
+            print("Another migration in the co-applied set (common + this province) already uses", file=sys.stderr)
+            print("this version. Flyway would reject two migrations with the same version.", file=sys.stderr)
+            print("Use the next free version number (V1.0.N) instead.", file=sys.stderr)
             sys.exit(2)
 
         # Block badly-versioned SQL under the migration location dirs: anything that reached

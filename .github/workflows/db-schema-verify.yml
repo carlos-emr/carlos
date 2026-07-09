@@ -71,19 +71,26 @@ jobs:
 
       - name: Migrate the V1 baseline and smoke-check the result
         env:
+          # DB password stays off the process argv: the mariadb client reads MYSQL_PWD and Flyway
+          # reads FLYWAY_PASSWORD, so neither the `-p...` nor `-password=` flag appears in `ps`.
+          # (These CI creds are a throwaway against an ephemeral local container, but this matches
+          # the off-argv hardening used in release/postinst and carlos_backup.sh.)
           MYSQL_PWD: password
+          FLYWAY_PASSWORD: password
           # Matrix value enters via env (not inline ${{ }} in the script body) — template-injection hygiene.
           PROV: ${{ matrix.province }}
         run: |
           set -euo pipefail
           cd database/mysql
-          MYSQL="mariadb -h 127.0.0.1 -uroot -ppassword"
-          JDBC="jdbc:mysql://127.0.0.1:3306/carlos_${PROV}?allowPublicKeyRetrieval=true&useSSL=false"
+          MYSQL="mariadb -h 127.0.0.1 -uroot"
+          # jdbc:mariadb — the MariaDB driver bundled in the pinned Flyway CLI, matching the
+          # jdbc:mariadb URLs release/postinst and carlos-ctl use against the same server.
+          JDBC="jdbc:mariadb://127.0.0.1:3306/carlos_${PROV}?allowPublicKeyRetrieval=true&useSSL=false"
 
           # Fresh install path: exactly what production runs via `carlos-ctl db migrate` and the
           # .deb postinst — common + province locations, baselineOnMigrate for the empty schema.
           $MYSQL -e "CREATE DATABASE carlos_${PROV};"
-          flyway -url="$JDBC" -user=root -password=password \
+          flyway -url="$JDBC" -user=root \
             -locations="filesystem:migration/common,filesystem:migration/${PROV}" \
             -baselineOnMigrate=true migrate
 
@@ -91,7 +98,7 @@ jobs:
           # DB this is NOT an independent proof against a hand-edited baseline (migrate computed
           # the checksums from these same files moments ago) — the explicit history + content
           # assertions below carry that weight.
-          flyway -url="$JDBC" -user=root -password=password \
+          flyway -url="$JDBC" -user=root \
             -locations="filesystem:migration/common,filesystem:migration/${PROV}" validate
 
           # Every expected migration must actually have applied — catches a silently-empty or
