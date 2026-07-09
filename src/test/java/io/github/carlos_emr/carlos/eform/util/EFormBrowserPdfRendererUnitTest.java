@@ -1,5 +1,8 @@
 package io.github.carlos_emr.carlos.eform.util;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -24,6 +27,23 @@ class EFormBrowserPdfRendererUnitTest {
                 .contains("fdid=187")
                 .contains("providerId=999998")
                 .contains("providerId=999998");
+    }
+
+
+    @Test
+    @DisplayName("should keep print-only cleanup rules in the bundled renderer script")
+    void shouldKeepPrintCleanupRulesInBundledRendererScript() throws IOException {
+        try (InputStream inputStream = getClass().getClassLoader().getResourceAsStream(
+                "io/github/carlos_emr/carlos/eform/browserpdf/eform-browser-pdf-render.js")) {
+            assertThat(inputStream).isNotNull();
+            String script = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
+
+            assertThat(script)
+                    .contains(".DoNotPrint")
+                    .contains("#BaseSelect")
+                    .contains("computeCaptureRegions")
+                    .contains("unionRects");
+        }
     }
 
     @Test
