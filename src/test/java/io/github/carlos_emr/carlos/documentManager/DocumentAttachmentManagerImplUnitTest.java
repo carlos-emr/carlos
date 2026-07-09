@@ -129,7 +129,7 @@ class DocumentAttachmentManagerImplUnitTest extends CarlosUnitTestBase {
 
         ConsultationRequest consultationRequest = new ConsultationRequest();
         consultationRequest.setDemographicId(1);
-        when(consultationRequestDao.find((Object) Integer.valueOf(9))).thenReturn(consultationRequest);
+        when(consultationRequestDao.find(9)).thenReturn(consultationRequest);
         when(consultationManager.renderConsultationForm(request)).thenReturn(basePdf);
         when(consultationManager.getAttachedEForms("9")).thenReturn(List.of());
         when(consultationManager.getAttachedHRMDocuments(loggedInInfo, "1", "9"))
@@ -166,6 +166,30 @@ class DocumentAttachmentManagerImplUnitTest extends CarlosUnitTestBase {
 
             assertThat(result).isEqualTo(outputPdf);
             assertThat(request.getAttribute("demographicId")).isEqualTo("1");
+            assertThat(commonLabResultDataMock.constructed()).hasSize(1);
+        }
+    }
+
+    @Test
+    @DisplayName("uses the persisted consultation demographic when the request attribute does not match")
+    void shouldUsePersistedConsultationDemographic_whenRequestAttributeDoesNotMatch() throws Exception {
+        request.setAttribute("reqId", "9");
+        request.setAttribute("demographicId", "999");
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
+                MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class);
+                MockedConstruction<CommonLabResultData> commonLabResultDataMock = mockCommonLabResultData(List.of())) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            eDocUtilMock.when(() -> EDocUtil.listDocs(loggedInInfo, "1", "9", EDocUtil.ATTACHED))
+                    .thenReturn(new ArrayList<>());
+
+            Path result = manager.renderConsultationFormWithAttachments(request, response);
+
+            assertThat(result).isEqualTo(outputPdf);
+            assertThat(request.getAttribute("demographicId")).isEqualTo("1");
+            verify(consultationRequestDao).find(9);
+            verify(consultationManager).getAttachedForms(loggedInInfo, 9, 1);
             assertThat(commonLabResultDataMock.constructed()).hasSize(1);
         }
     }

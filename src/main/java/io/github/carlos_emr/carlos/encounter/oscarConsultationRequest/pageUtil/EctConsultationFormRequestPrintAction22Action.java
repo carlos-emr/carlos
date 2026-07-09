@@ -41,8 +41,9 @@ import org.openpdf.text.DocumentException;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
-import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
+import io.github.carlos_emr.carlos.consultation.ConsultationDemographicResolver;
+import io.github.carlos_emr.carlos.consultation.ConsultationDemographicResolver.Resolution;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMPDFCreator;
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.managers.FaxManager;
@@ -259,6 +260,8 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
                 appendDocumentAttachment(alist, streams, doc, documentDirectory);
             } catch (SecurityException e) {
                 throw e;
+            } catch (DocumentException e) {
+                logSkippedAttachment(ATTACHMENT_TYPE_DOC, documentId(doc), e.getClass().getName());
             } catch (IOException | RuntimeException e) {
                 logSkippedAttachment(ATTACHMENT_TYPE_DOC, documentId(doc), e.getClass().getName());
             }
@@ -441,32 +444,9 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
     }
 
     private String resolveConsultationDemographicNo(String requestId, String submittedDemographicNo) {
-        Integer parsedRequestId = parseConsultationRequestId(requestId);
-        if (parsedRequestId == null) {
-            return null;
-        }
-
-        ConsultationRequest consultationRequest = consultationRequestDao.find(parsedRequestId);
-        if (consultationRequest == null || consultationRequest.getDemographicId() == null) {
-            logger.warn("Unable to resolve consultation print demographic for requestId={}", parsedRequestId);
-            return null;
-        }
-
-        String consultationDemographicNo = String.valueOf(consultationRequest.getDemographicId());
-        if (submittedDemographicNo != null && !submittedDemographicNo.trim().isEmpty() && !consultationDemographicNo.equals(submittedDemographicNo)) {
-            logger.warn("Ignoring mismatched consultation print demographic for requestId={} consultationDemographic={}",
-                    parsedRequestId, consultationDemographicNo);
-        }
-        return consultationDemographicNo;
-    }
-
-    private Integer parseConsultationRequestId(String requestId) {
-        try {
-            return Integer.valueOf(requestId);
-        } catch (NumberFormatException e) {
-            logger.warn("Invalid consultation request id while resolving print demographic");
-            return null;
-        }
+        Resolution resolution = ConsultationDemographicResolver.resolve(consultationRequestDao, requestId,
+                submittedDemographicNo, "print", logger);
+        return resolution.isResolved() ? resolution.demographicId() : null;
     }
 
     private String documentId(EDoc doc) {

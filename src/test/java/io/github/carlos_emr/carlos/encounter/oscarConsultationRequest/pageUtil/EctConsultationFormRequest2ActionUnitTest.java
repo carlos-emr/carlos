@@ -141,7 +141,10 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         when(consultationRequestDao.find(9)).thenReturn(previewConsultation);
 
         pdfPath = Files.createTempFile("consult-preview", ".pdf");
-        when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response)).thenReturn(pdfPath);
+        doAnswer(invocation -> {
+            request.setAttribute("demographicId", "1");
+            return pdfPath;
+        }).when(documentAttachmentManager).renderConsultationFormWithAttachments(request, response);
         when(documentAttachmentManager.convertPDFToBase64(pdfPath)).thenReturn(PDF_BASE64);
 
         action = new EctConsultationFormRequest2Action();
