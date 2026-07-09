@@ -486,8 +486,8 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      */
     public Path renderConsultationFormWithAttachments(HttpServletRequest request, HttpServletResponse response) throws PDFGenerationException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String requestId = (String) request.getAttribute("reqId");
-        String demographicId = resolveConsultationDemographicId(requestId, (String) request.getAttribute(ATTR_DEMOGRAPHIC_ID));
+        String requestId = attributeToString(request.getAttribute("reqId"));
+        String demographicId = resolveConsultationDemographicId(requestId, attributeToString(request.getAttribute(ATTR_DEMOGRAPHIC_ID)));
         request.setAttribute(ATTR_DEMOGRAPHIC_ID, demographicId);
         Path consultationFormPDFPath = consultationManager.renderConsultationForm(request);
         List<String> attachmentWarnings = initializeAttachmentWarnings(request);
@@ -529,8 +529,8 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      */
     public Path renderEFormWithAttachments(HttpServletRequest request, HttpServletResponse response) throws PDFGenerationException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String fdid = (String) request.getAttribute("fdid");
-        String demographicId = (String) request.getAttribute(ATTR_DEMOGRAPHIC_ID);
+        String fdid = attributeToString(request.getAttribute("fdid"));
+        String demographicId = attributeToString(request.getAttribute(ATTR_DEMOGRAPHIC_ID));
         Path eFormPath = eformDataManager.createEformPDF(loggedInInfo, Integer.parseInt(fdid));
         List<String> attachmentWarnings = initializeAttachmentWarnings(request);
 
@@ -567,8 +567,8 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      */
     public Integer saveEFormAsEDoc(HttpServletRequest request, HttpServletResponse response) throws PDFGenerationException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String fdid = (String) request.getAttribute("fdid");
-        String demographicId = (String) request.getAttribute(ATTR_DEMOGRAPHIC_ID);
+        String fdid = attributeToString(request.getAttribute("fdid"));
+        String demographicId = attributeToString(request.getAttribute(ATTR_DEMOGRAPHIC_ID));
         Path eFormPath = renderEFormWithAttachments(request, response);
         return eformDataManager.saveEFormWithAttachmentsAsEDoc(loggedInInfo, fdid, demographicId, eFormPath);
     }
@@ -664,8 +664,15 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
                 continue;
             }
             String labId = lab.getSegmentID();
+            Integer parsedLabId;
+            try {
+                parsedLabId = Integer.valueOf(labId);
+            } catch (NumberFormatException e) {
+                recordSkippedAttachment(attachmentWarnings, DocumentType.LAB, labId, "invalid lab segment id");
+                continue;
+            }
             addRenderedAttachmentPDF(pdfDocumentList, attachmentWarnings, DocumentType.LAB, labId,
-                    () -> renderDocument(loggedInInfo, DocumentType.LAB, Integer.parseInt(labId)));
+                    () -> renderDocument(loggedInInfo, DocumentType.LAB, parsedLabId));
         }
     }
 
@@ -703,6 +710,10 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         List<String> attachmentWarnings = new ArrayList<>();
         request.setAttribute(ATTACHMENT_WARNINGS_ATTRIBUTE, attachmentWarnings);
         return attachmentWarnings;
+    }
+
+    private String attributeToString(Object attribute) {
+        return Objects.toString(attribute, null);
     }
 
     private String resolveConsultationDemographicId(String requestId, String requestDemographicId) throws PDFGenerationException {
