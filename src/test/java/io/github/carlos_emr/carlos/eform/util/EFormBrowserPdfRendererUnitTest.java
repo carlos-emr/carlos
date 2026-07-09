@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DisplayName("EFormBrowserPdfRenderer unit tests")
 @Tag("unit")
@@ -58,6 +59,34 @@ class EFormBrowserPdfRendererUnitTest {
     void shouldBuildLocalBaseUrl_whenUsingTheActiveRequestContext() {
         assertThat(EFormBrowserPdfRenderer.buildLocalBaseUrl("http", 8080, "/carlos"))
                 .isEqualTo("http://127.0.0.1:8080/carlos");
+    }
+
+    @Test
+    @DisplayName("should reject non-local base URLs for the Playwright renderer")
+    void shouldRejectNonLocalBaseUrl_whenBuildingRendererCommand() {
+        assertThatThrownBy(() -> EFormBrowserPdfRenderer.buildCommand(
+                "node",
+                Path.of("/tmp/carlos-develop-clean/scripts/eform-browser-pdf-render.js"),
+                "https://evil.example/steal",
+                "/eformViewForPdfGenerationServlet?fdid=187",
+                Path.of("/tmp/rendered-output"),
+                null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("base URL");
+    }
+
+    @Test
+    @DisplayName("should reject non-root-relative app paths for the Playwright renderer")
+    void shouldRejectNonRootRelativeAppPath_whenBuildingRendererCommand() {
+        assertThatThrownBy(() -> EFormBrowserPdfRenderer.buildCommand(
+                "node",
+                Path.of("/tmp/carlos-develop-clean/scripts/eform-browser-pdf-render.js"),
+                "http://127.0.0.1:8080/carlos",
+                "https://evil.example/steal",
+                Path.of("/tmp/rendered-output"),
+                null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Application path");
     }
 
     @Test

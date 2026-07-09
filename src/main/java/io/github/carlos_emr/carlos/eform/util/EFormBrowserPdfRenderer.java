@@ -3,6 +3,7 @@ package io.github.carlos_emr.carlos.eform.util;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.net.URL;
@@ -170,13 +171,16 @@ public class EFormBrowserPdfRenderer {
     }
 
     static List<String> buildCommand(String nodeBinary, Path scriptPath, String baseUrl, String appPath, Path outputDirectory, String chromePath) {
+        String validatedBaseUrl = validateRendererBaseUrl(baseUrl);
+        String validatedAppPath = validateRendererAppPath(appPath);
+
         List<String> command = new ArrayList<>();
         command.add(nodeBinary);
         command.add(scriptPath.toAbsolutePath().toString());
         command.add("--base-url");
-        command.add(baseUrl);
+        command.add(validatedBaseUrl);
         command.add("--app-path");
-        command.add(appPath);
+        command.add(validatedAppPath);
         command.add("--output-dir");
         command.add(outputDirectory.toAbsolutePath().toString());
         if (chromePath != null && !chromePath.isBlank()) {
@@ -184,6 +188,47 @@ public class EFormBrowserPdfRenderer {
             command.add(chromePath);
         }
         return command;
+    }
+
+    static String validateRendererBaseUrl(String rawBaseUrl) {
+        if (rawBaseUrl == null || rawBaseUrl.isBlank()) {
+            throw new IllegalArgumentException("Renderer base URL must be non-empty");
+        }
+
+        URI uri = URI.create(rawBaseUrl.trim());
+        String scheme = uri.getScheme();
+        if (scheme == null || (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme))) {
+            throw new IllegalArgumentException("Renderer base URL must use http or https");
+        }
+        if (uri.getHost() == null || !isLocalRendererHost(uri.getHost())) {
+            throw new IllegalArgumentException("Renderer base URL host must be local or private");
+        }
+        return rawBaseUrl.trim().replaceAll("/$", "");
+    }
+
+    static String validateRendererAppPath(String appPath) {
+        if (appPath == null || appPath.isBlank()) {
+            throw new IllegalArgumentException("Application path must be non-empty");
+        }
+        String normalizedPath = appPath.trim();
+        if (!normalizedPath.startsWith("/") || normalizedPath.startsWith("//")) {
+            throw new IllegalArgumentException("Application path must be root-relative");
+        }
+        return normalizedPath;
+    }
+
+    static boolean isLocalRendererHost(String rawHost) {
+        String host = rawHost == null ? "" : rawHost.trim().toLowerCase();
+        if (host.startsWith("[") && host.endsWith("]")) {
+            host = host.substring(1, host.length() - 1);
+        }
+        if (host.isEmpty()) {
+            return false;
+        }
+        if (Set.of("localhost", "127.0.0.1", "::1", "0:0:0:0:0:0:0:1", "0.0.0.0", "host.docker.internal", "carlos").contains(host)) {
+            return true;
+        }
+        return host.matches("^(10\\.|192\\.168\\.|172\\.(1[6-9]|2\\d|3[0-1])\\.).*");
     }
 
     private String resolveBaseUrl(String projectHome, HttpServletRequest request) {
