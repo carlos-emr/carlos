@@ -29,6 +29,10 @@
 --%>
 <%@ include file="/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%
+    java.util.ResourceBundle oscarResources = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
+%>
 <%@ include file="/WEB-INF/jsp/common/messages.jsp" %>
 <script type="text/javascript" src="<%=request.getContextPath()%>/js/validation.js"></script>
 <script type="text/javascript">
@@ -62,11 +66,6 @@
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 
-<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<%@ page import="java.util.ResourceBundle" %>
-<%
-    java.util.ResourceBundle oscarResources = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
-%>
 <%
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
 %>
