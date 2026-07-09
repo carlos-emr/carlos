@@ -290,6 +290,25 @@ public class ConsultDocsDaoIntegrationTest extends CarlosTestBase {
         }
 
         @Test
+        @DisplayName("should report unavailable active eForm document and lab attachments for runtime warnings")
+        void shouldReportUnavailableActiveAttachments_forRuntimeWarnings() {
+            CleanupFixture fixture = createCleanupFixture();
+
+            List<ConsultDocs> results = consultDocsDao.findUnavailableActiveConsultAttachments(fixture.consultId);
+
+            assertThat(results)
+                    .extracting(ConsultDocs::getId)
+                    .containsExactlyInAnyOrder(
+                            fixture.wrongPatientEForm.getId(),
+                            fixture.missingEForm.getId(),
+                            fixture.missingDocument.getId(),
+                            fixture.deletedDocument.getId(),
+                            fixture.wrongPatientDocument.getId(),
+                            fixture.activeLabWithMissingTarget.getId(),
+                            fixture.wrongPatientLab.getId());
+        }
+
+        @Test
         @DisplayName("should soft-delete only invalid active eForm and document attachments")
         void shouldSoftDeleteOnlyInvalidActiveEFormAndDocumentAttachments_forCleanup() {
             CleanupFixture fixture = createCleanupFixture();
@@ -303,6 +322,8 @@ public class ConsultDocsDaoIntegrationTest extends CarlosTestBase {
             assertThat(deletedValue(fixture.patientIndependentEForm)).isNull();
             assertThat(deletedValue(fixture.validDocument)).isNull();
             assertThat(deletedValue(fixture.validNonDeletedDocument)).isNull();
+            assertThat(deletedValue(fixture.validLab)).isNull();
+            assertThat(deletedValue(fixture.wrongPatientLab)).isNull();
             assertThat(deletedValue(fixture.activeLabWithMissingTarget)).isNull();
             assertThat(deletedValue(fixture.activeFormWithMissingTarget)).isNull();
             assertThat(deletedValue(fixture.activeHrmWithMissingTarget)).isNull();
@@ -338,7 +359,11 @@ public class ConsultDocsDaoIntegrationTest extends CarlosTestBase {
             Document wrongPatientDocument = createDocument(Document.STATUS_ACTIVE);
             createCtlDocument(otherDemographicNo, wrongPatientDocument.getDocumentNo());
 
+            createPatientLabRouting(990007, "MDS", demographicNo);
+            createPatientLabRouting(990008, "MDS", otherDemographicNo);
+
             CleanupFixture fixture = new CleanupFixture();
+            fixture.consultId = consult.getId();
             fixture.validSamePatientEForm = createConsultDoc(consult.getId(), samePatientEForm.getId(), ConsultDocs.DOCTYPE_EFORM, null);
             fixture.patientIndependentEForm = createConsultDoc(consult.getId(), patientIndependentEForm.getId(), ConsultDocs.DOCTYPE_EFORM, null);
             fixture.wrongPatientEForm = createConsultDoc(consult.getId(), wrongPatientEForm.getId(), ConsultDocs.DOCTYPE_EFORM, null);
@@ -351,6 +376,8 @@ public class ConsultDocsDaoIntegrationTest extends CarlosTestBase {
             fixture.wrongPatientDocument = createConsultDoc(consult.getId(), wrongPatientDocument.getDocumentNo(), ConsultDocs.DOCTYPE_DOC, null);
             fixture.alreadyDeletedMissingDocument = createConsultDoc(consult.getId(), 990003, ConsultDocs.DOCTYPE_DOC, ConsultDocs.DELETED);
             fixture.activeLabWithMissingTarget = createConsultDoc(consult.getId(), 990004, ConsultDocs.DOCTYPE_LAB, null);
+            fixture.validLab = createConsultDoc(consult.getId(), 990007, ConsultDocs.DOCTYPE_LAB, null);
+            fixture.wrongPatientLab = createConsultDoc(consult.getId(), 990008, ConsultDocs.DOCTYPE_LAB, null);
             fixture.activeFormWithMissingTarget = createConsultDoc(consult.getId(), 990005, ConsultDocs.DOCTYPE_FORM, null);
             fixture.activeHrmWithMissingTarget = createConsultDoc(consult.getId(), 990006, ConsultDocs.DOCTYPE_HRM, null);
             return fixture;
@@ -358,6 +385,7 @@ public class ConsultDocsDaoIntegrationTest extends CarlosTestBase {
     }
 
     private static class CleanupFixture {
+        private Integer consultId;
         private ConsultDocs validSamePatientEForm;
         private ConsultDocs patientIndependentEForm;
         private ConsultDocs wrongPatientEForm;
@@ -370,6 +398,8 @@ public class ConsultDocsDaoIntegrationTest extends CarlosTestBase {
         private ConsultDocs wrongPatientDocument;
         private ConsultDocs alreadyDeletedMissingDocument;
         private ConsultDocs activeLabWithMissingTarget;
+        private ConsultDocs validLab;
+        private ConsultDocs wrongPatientLab;
         private ConsultDocs activeFormWithMissingTarget;
         private ConsultDocs activeHrmWithMissingTarget;
     }

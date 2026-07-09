@@ -83,6 +83,7 @@ class DocumentAttachmentManagerImplUnitTest extends CarlosUnitTestBase {
     private MockHttpServletResponse response;
     private LoggedInInfo loggedInInfo;
     private LabManager labManager;
+    private ConsultDocsDao consultDocsDao;
     private ConsultationRequestDao consultationRequestDao;
     private ConsultationManager consultationManager;
     private DocumentManager documentManager;
@@ -100,6 +101,7 @@ class DocumentAttachmentManagerImplUnitTest extends CarlosUnitTestBase {
         response = new MockHttpServletResponse();
         loggedInInfo = mock(LoggedInInfo.class);
         labManager = mock(LabManager.class);
+        consultDocsDao = mock(ConsultDocsDao.class);
         consultationRequestDao = mock(ConsultationRequestDao.class);
         consultationManager = mock(ConsultationManager.class);
         documentManager = mock(DocumentManager.class);
@@ -114,7 +116,7 @@ class DocumentAttachmentManagerImplUnitTest extends CarlosUnitTestBase {
         registerMock(SecurityInfoManager.class, securityInfoManager);
 
         manager = new DocumentAttachmentManagerImpl(labManager);
-        ReflectionTestUtils.setField(manager, "consultDocsDao", mock(ConsultDocsDao.class));
+        ReflectionTestUtils.setField(manager, "consultDocsDao", consultDocsDao);
         ReflectionTestUtils.setField(manager, "consultationRequestDao", consultationRequestDao);
         ReflectionTestUtils.setField(manager, "eFormDocsDao", mock(EFormDocsDao.class));
         ReflectionTestUtils.setField(manager, "consultationManager", consultationManager);
@@ -220,6 +222,38 @@ class DocumentAttachmentManagerImplUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    @DisplayName("warns for unavailable consultdoc rows filtered before rendering")
+    void shouldWarnForUnavailableConsultDocs_whenRowsAreFilteredBeforeRendering() throws Exception {
+        request.setAttribute("reqId", "9");
+        request.setAttribute("demographicId", "1");
+        when(consultDocsDao.findUnavailableActiveConsultAttachments(9))
+                .thenReturn(List.of(
+                        consultDoc(80, "D"),
+                        consultDoc(915, "E"),
+                        consultDoc(20, "L")));
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
+                MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class);
+                MockedConstruction<CommonLabResultData> ignored = mockCommonLabResultData(List.of())) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            eDocUtilMock.when(() -> EDocUtil.listDocs(loggedInInfo, "1", "9", EDocUtil.ATTACHED))
+                    .thenReturn(new ArrayList<>());
+
+            Path result = manager.renderConsultationFormWithAttachments(request, response);
+
+            assertThat(result).isEqualTo(outputPdf);
+            assertThat(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE))
+                    .asList()
+                    .containsExactly(
+                            "Document attachment 80 is unavailable and was not included.",
+                            "eForm attachment 915 is unavailable and was not included.",
+                            "Lab attachment 20 is unavailable and was not included.");
+            verify(consultDocsDao).findUnavailableActiveConsultAttachments(9);
+        }
+    }
+
     private MockedConstruction<CommonLabResultData> mockCommonLabResultData(List<LabResultData> labs) {
         return mockConstruction(CommonLabResultData.class,
                 (mock, context) -> when(mock.populateLabResultsData(any(LoggedInInfo.class), anyString(), anyString(), eq(true)))
@@ -233,5 +267,12 @@ class DocumentAttachmentManagerImplUnitTest extends CarlosUnitTestBase {
             document.save(path.toFile());
         }
         return path;
+    }
+
+    private io.github.carlos_emr.carlos.commn.model.ConsultDocs consultDoc(int documentNo, String docType) {
+        io.github.carlos_emr.carlos.commn.model.ConsultDocs consultDoc = new io.github.carlos_emr.carlos.commn.model.ConsultDocs();
+        consultDoc.setDocumentNo(documentNo);
+        consultDoc.setDocType(docType);
+        return consultDoc;
     }
 }

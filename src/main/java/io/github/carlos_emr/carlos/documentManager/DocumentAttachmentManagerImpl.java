@@ -492,6 +492,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         request.setAttribute(ATTR_DEMOGRAPHIC_ID, demographicId);
         Path consultationFormPDFPath = consultationManager.renderConsultationForm(request);
         List<String> attachmentWarnings = initializeAttachmentWarnings(request);
+        recordUnavailableConsultAttachmentWarnings(requestId, attachmentWarnings);
 
         List<EFormData> attachedEForms = consultationManager.getAttachedEForms(requestId);
         List<EDoc> attachedEDocs = EDocUtil.listDocs(loggedInInfo, demographicId, requestId, EDocUtil.ATTACHED);
@@ -735,6 +736,33 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         throw new PDFGenerationException("Consultation request could not be loaded for PDF generation.");
     }
 
+    private void recordUnavailableConsultAttachmentWarnings(String requestId, List<String> attachmentWarnings) {
+        List<ConsultDocs> unavailableAttachments = consultDocsDao.findUnavailableActiveConsultAttachments(Integer.valueOf(requestId));
+        if (unavailableAttachments == null) {
+            return;
+        }
+        for (ConsultDocs consultDoc : unavailableAttachments) {
+            if (consultDoc == null) {
+                continue;
+            }
+            recordSkippedAttachment(attachmentWarnings, documentTypeFromConsultDoc(consultDoc),
+                    consultDoc.getDocumentNo(), "unavailable consult attachment target");
+        }
+    }
+
+    private DocumentType documentTypeFromConsultDoc(ConsultDocs consultDoc) {
+        switch (consultDoc.getDocType()) {
+            case ConsultDocs.DOCTYPE_EFORM:
+                return DocumentType.EFORM;
+            case ConsultDocs.DOCTYPE_DOC:
+                return DocumentType.DOC;
+            case ConsultDocs.DOCTYPE_LAB:
+                return DocumentType.LAB;
+            default:
+                return null;
+        }
+    }
+
     private void addRenderedAttachmentPDF(ArrayList<Object> pdfDocumentList, List<String> attachmentWarnings, DocumentType documentType, Object documentId, AttachmentRenderer renderer) throws PDFGenerationException {
         try {
             Path path = renderer.render();
@@ -754,12 +782,16 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         String safeAttachmentId = documentId == null ? "unknown" : String.valueOf(documentId);
         attachmentWarnings.add(getAttachmentDisplayType(documentType) + " attachment " + safeAttachmentId + " is unavailable and was not included.");
         if (logger.isWarnEnabled()) {
+            String attachmentType = documentType == null ? "unknown" : documentType.getType();
             logger.warn("Skipped consultation attachment type={} id={} while rendering PDF package: {}",
-                    documentType.getType(), LogSafe.sanitize(safeAttachmentId), LogSafe.sanitize(reason));
+                    attachmentType, LogSafe.sanitize(safeAttachmentId), LogSafe.sanitize(reason));
         }
     }
 
     private String getAttachmentDisplayType(DocumentType documentType) {
+        if (documentType == null) {
+            return "Attachment";
+        }
         switch (documentType) {
             case DOC:
                 return "Document";
