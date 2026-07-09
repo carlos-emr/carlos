@@ -46,8 +46,8 @@ import org.springframework.beans.factory.InitializingBean;
  * {@code carlos.flyway.onBoot} property:</p>
  * <ul>
  *   <li>{@code off} (default) — do nothing. Schema is assumed to be managed entirely out of band
- *       (the legacy shell-script build, or an operator-run {@code migrate}). This preserves the
- *       historical behaviour where the app performs no schema management.</li>
+ *       (an operator-run {@code migrate}, or a pre-Flyway datadir). This preserves the historical
+ *       behaviour where the app performs no schema management.</li>
  *   <li>{@code validate} — verify the database matches the schema the deployed WAR expects and
  *       <strong>fail fast</strong> otherwise: applied-migration checksums must match the shipped
  *       files AND no shipped migration may still be pending (a database that is <em>behind</em> the

@@ -108,11 +108,17 @@ echo "Changing directories to ${DOCS}"
 cd "${DOCS}" || { echo "Failed to change to ${DOCS}" >&2; exit 1; }
 
 if [ -f CarlosBackup.sql.gz ] ; then
-	gunzip CarlosBackup.sql.gz
+	gunzip CarlosBackup.sql.gz || { echo "ERROR: gunzip of CarlosBackup.sql.gz failed" >&2; exit 1; }
 	echo "Loading backup database into mysql... you might have time for a coffee"
 	# mariadb client preferred (MariaDB 11.x has no mysql symlink); fall back to mysql.
 	command -v mariadb >/dev/null 2>&1 && DB_CLIENT=mariadb || DB_CLIENT=mysql
-	MYSQL_PWD="${db_password}" "${DB_CLIENT}" -uroot "${db_name}" < CarlosBackup.sql
+	# Gate the restore: if the load fails, leave CarlosBackup.sql in place for a retry and abort.
+	# Deleting it on failure would destroy the only decrypted copy (the source .enc was already
+	# removed during extraction), leaving a half-restored DB and no artifact to recover from.
+	if ! MYSQL_PWD="${db_password}" "${DB_CLIENT}" -uroot "${db_name}" < CarlosBackup.sql; then
+		echo "ERROR: restore of ${db_name} failed — leaving CarlosBackup.sql in place for retry" >&2
+		exit 1
+	fi
 	echo "Cleanup, deleting CarlosBackup.sql... its huge"
 	rm CarlosBackup.sql
 else

@@ -3,7 +3,10 @@
 SQL Migration Pattern Enforcer Hook for Claude Code
 
 This hook enforces CARLOS database migration standards:
-- The Flyway V1 baseline (database/mysql/migration/**/V1*.sql) must NOT be hand-edited
+- The five Flyway genesis baseline files (V1__baseline_schema.sql plus the province
+  V1.0.1/V1.0.2 schema+data files under database/mysql/migration/**) must NOT be hand-edited.
+  Note this is an exact-basename set, NOT the glob V1*.sql — forward migrations such as
+  V1.0.3__*.sql / V1.0.4__*.sql are ordinary editable deltas, not immutable baseline.
 - All schema changes must go into NEW forward migrations
   (database/mysql/migration/<common|on|bc>/V1.0.N__desc.sql, next free number), or the frozen legacy
   updates/ dir for historical patches
@@ -240,7 +243,7 @@ def main():
             print("BLOCKED: Cannot hand-edit the Flyway V1 baseline", file=sys.stderr)
             print(f"File: {file_path}\n", file=sys.stderr)
             print("CARLOS migration standards require:", file=sys.stderr)
-            print("  ✗ Do NOT edit the V1 baseline (migration/**/V1*.sql) — it is the genesis schema", file=sys.stderr)
+            print("  ✗ Do NOT edit the five genesis baseline files (V1 + province V1.0.1/V1.0.2) — that is the genesis schema", file=sys.stderr)
             print("  ✓ Ship schema changes as NEW forward migrations:", file=sys.stderr)
             print("      database/mysql/migration/<common|on|bc>/V1.0.N__short_description.sql (next free number)\n", file=sys.stderr)
             print("To apply this schema change:", file=sys.stderr)

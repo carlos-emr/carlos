@@ -62,7 +62,9 @@ function getTimeStamp() {
 }
 function errorExit() {
         echo -e "ERROR: $1\n$(getTimeStamp)" >> $LOG_ERR
-        exit
+        # Exit non-zero: a bare `exit` returns the preceding echo's status (0), which would report
+        # a failed backup as success to cron / the calling process.
+        exit 1
 }
 function confirmVar() {
   if [ -z "$1" ]; then
@@ -296,24 +298,35 @@ rm -f "$BASE_DOCUMENT_DIR/carlos/CarlosBackup.sql" "$BASE_DOCUMENT_DIR/carlos/Ca
       "$BASE_DOCUMENT_DIR/carlos/MyISAMBackup.sql" "$BASE_DOCUMENT_DIR/carlos/MyISAMBackup.sql.gz" \
       "$BASE_DOCUMENT_DIR/carlos/drugref.sql" "$BASE_DOCUMENT_DIR/carlos/drugref.sql.gz" 2>> "$LOG_ERR"
 
+# pipefail so a failed dump is seen THROUGH the `| gzip` pipe: gzip happily compresses a truncated
+# dump and exits 0, so without this a broken dump (dropped connection, lock timeout, auth failure)
+# ships as a "successful" backup AND the retention purge below still runs, pruning good archives.
+# Each dump is gated with errorExit so a failure aborts BEFORE the tar/encrypt/offsite-ship/purge.
+set -o pipefail
 if [ "${NO_GZIP_MYSQLDUMP_FLAG:-0}" -eq 1 ]; then
-  MYSQL_PWD="${db_password}" ${DB_DUMP} ${DUMP_OPTIONS} ${DATABASE} -u${db_username} > $BASE_DOCUMENT_DIR/carlos/CarlosBackup.sql 2>> $LOG_ERR
+  MYSQL_PWD="${db_password}" ${DB_DUMP} ${DUMP_OPTIONS} ${DATABASE} -u${db_username} > $BASE_DOCUMENT_DIR/carlos/CarlosBackup.sql 2>> $LOG_ERR \
+    || errorExit "dump of ${DATABASE} failed — aborting before archive/offsite-ship/purge"
   # Guard: with no MyISAM tables (the Flyway baseline is InnoDB throughout), an empty table list
   # would make the dump tool re-dump the ENTIRE database into MyISAMBackup.sql.
   if [ -n "${MyISAM_TABLES}" ]; then
-    MYSQL_PWD="${db_password}" ${DB_DUMP} ${DATABASE} ${MyISAM_TABLES} -u${db_username} > $BASE_DOCUMENT_DIR/carlos/MyISAMBackup.sql 2>> $LOG_ERR
+    MYSQL_PWD="${db_password}" ${DB_DUMP} ${DATABASE} ${MyISAM_TABLES} -u${db_username} > $BASE_DOCUMENT_DIR/carlos/MyISAMBackup.sql 2>> $LOG_ERR \
+      || errorExit "dump of MyISAM tables in ${DATABASE} failed — aborting"
   else
     : > $BASE_DOCUMENT_DIR/carlos/MyISAMBackup.sql
   fi
-  MYSQL_PWD="${db_password}" ${DB_DUMP} ${DUMP_OPTIONS} drugref -u${db_username} > $BASE_DOCUMENT_DIR/carlos/drugref.sql 2>> $LOG_ERR
+  MYSQL_PWD="${db_password}" ${DB_DUMP} ${DUMP_OPTIONS} drugref -u${db_username} > $BASE_DOCUMENT_DIR/carlos/drugref.sql 2>> $LOG_ERR \
+    || echo "WARNING: drugref dump failed (optional reference DB); continuing without it" >> $LOG_ERR
 else
-  MYSQL_PWD="${db_password}" ${DB_DUMP} ${DUMP_OPTIONS} ${DATABASE} -u${db_username}|gzip --rsyncable -c -9 > $BASE_DOCUMENT_DIR/carlos/CarlosBackup.sql.gz 2>> $LOG_ERR
+  MYSQL_PWD="${db_password}" ${DB_DUMP} ${DUMP_OPTIONS} ${DATABASE} -u${db_username}|gzip --rsyncable -c -9 > $BASE_DOCUMENT_DIR/carlos/CarlosBackup.sql.gz 2>> $LOG_ERR \
+    || errorExit "dump|gzip of ${DATABASE} failed — aborting before archive/offsite-ship/purge"
   if [ -n "${MyISAM_TABLES}" ]; then
-    MYSQL_PWD="${db_password}" ${DB_DUMP} ${DATABASE} ${MyISAM_TABLES} -u${db_username} |gzip --rsyncable -c -9 > $BASE_DOCUMENT_DIR/carlos/MyISAMBackup.sql.gz 2>> $LOG_ERR
+    MYSQL_PWD="${db_password}" ${DB_DUMP} ${DATABASE} ${MyISAM_TABLES} -u${db_username} |gzip --rsyncable -c -9 > $BASE_DOCUMENT_DIR/carlos/MyISAMBackup.sql.gz 2>> $LOG_ERR \
+      || errorExit "dump|gzip of MyISAM tables in ${DATABASE} failed — aborting"
   else
     : | gzip -c > $BASE_DOCUMENT_DIR/carlos/MyISAMBackup.sql.gz
   fi
-  MYSQL_PWD="${db_password}" ${DB_DUMP} ${DUMP_OPTIONS} drugref -u${db_username}|gzip --rsyncable -c -9 > $BASE_DOCUMENT_DIR/carlos/drugref.sql.gz 2>> $LOG_ERR
+  MYSQL_PWD="${db_password}" ${DB_DUMP} ${DUMP_OPTIONS} drugref -u${db_username}|gzip --rsyncable -c -9 > $BASE_DOCUMENT_DIR/carlos/drugref.sql.gz 2>> $LOG_ERR \
+    || echo "WARNING: drugref dump failed (optional reference DB); continuing without it" >> $LOG_ERR
 fi
 cp -u $WAR_FILE $BASE_DOCUMENT_DIR/carlos/ 2>> $LOG_ERR
 cp -u $PROPFILE $BASE_DOCUMENT_DIR/carlos/ 2>> $LOG_ERR

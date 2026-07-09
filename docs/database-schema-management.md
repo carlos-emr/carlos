@@ -74,8 +74,9 @@ file is retained as documentation of what was dropped and why.
   (`V1` baseline, `V1.0.1`/`V1.0.2` province schema/reference, then sequential `V1.0.N__desc` forward deltas).
 - `database/mysql/updates/` — **frozen**, historical/reference only (see its `README.md`). A few
   entries are still applied for demo seeding (RTL eform) and read by regression tests.
-- `database/mysql/development.sql` + `build-demo.sh` — dev-only demo dataset and the filter that trims
-  it to the live (pruned) schema.
+- `database/mysql/build-demo.sh` — the filter that trims the demo dataset to the live (pruned)
+  schema. Its output, the dev-only demo dataset `development.sql`, is written to (and lives at)
+  `.devcontainer/db/scripts/development.sql`, not under `database/mysql/`.
 - The legacy build files (`createdatabase_*.sh`, `oscarinit*.sql`, `oscardata*.sql`, `icd*.sql`,
   `measurementMapData.sql`, `caisi/initcaisi*.sql`, `olis/olisinit.sql`, `bc_*.sql`) and the old
   `build-baseline.sh` generator have been removed — recover them from git history if ever needed.

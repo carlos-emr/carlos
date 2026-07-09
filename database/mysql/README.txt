@@ -7,7 +7,8 @@ plus forward-only migrations, tracked in a `flyway_schema_history` version table
 New install:
   flyway migrate  (locations = migration/common + one province: migration/on OR migration/bc)
 A fresh migrate yields a runnable database (structure + reference rows the app needs). Demo/patient
-data is dev-only (development.sql, filtered by build-demo.sh) and is NOT part of the baseline.
+data is dev-only and is NOT part of the baseline: build-demo.sh (here) filters it and writes
+development.sql to .devcontainer/db/scripts/, not under database/mysql/.
 
 Schema changes:
   Add a forward migration V1.0.N__short_description.sql (sequential, next free number) under

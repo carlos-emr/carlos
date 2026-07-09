@@ -109,9 +109,16 @@ jobs:
             -locations="filesystem:migration/common,filesystem:migration/${PROV}" validate
 
           # Every expected migration must actually have applied — catches a silently-empty or
-          # missing province location, which migrate+validate alone would not flag.
-          EXPECTED="1 1.0.1 1.0.2 1.0.3"
-          [ "${PROV}" = "on" ] && EXPECTED="${EXPECTED} 1.0.4"
+          # missing province location, which migrate+validate alone would not flag. Derive the
+          # expected version list from the shipped migration files (common + this province) so a
+          # newly added forward migration is asserted automatically instead of needing this list
+          # hand-updated (mirrors populate_db.sh's dynamic discovery).
+          EXPECTED=$(find migration/common migration/${PROV} -maxdepth 1 -name 'V*.sql' -printf '%f\n' \
+            | sed -n 's/^V\([0-9][0-9.]*\)__.*$/\1/p' | sort -u -V)
+          if [ -z "${EXPECTED}" ]; then
+            echo "::error::no V*.sql migrations found for ${PROV} — cannot verify applied history"
+            exit 1
+          fi
           for v in ${EXPECTED}; do
             ok=$($MYSQL -N carlos_${PROV} -e "SELECT COUNT(*) FROM flyway_schema_history WHERE version='${v}' AND success=1")
             if [ "${ok}" != "1" ]; then

@@ -917,7 +917,8 @@ updates/                # FROZEN legacy dated patches (historical; a few still u
 
 # Other
 SnomedCore/             # SNOMED CT clinical terminology (licensed, loaded separately)
-development.sql         # dev-only demo dataset (build-demo.sh filters it to the live schema)
+build-demo.sh           # filters the dev demo dataset to the live (pruned) schema; its output
+                        #   development.sql lives at .devcontainer/db/scripts/, not under database/mysql/
 ```
 
 **Development Database**:

@@ -105,7 +105,14 @@ progress() {
 			wait $pid  >>$LOG_FILE
 			retcode=$?
 			echo "$pid's retcode: $retcode" >> "$LOG_FILE"
-            		if [[ $retcode = "0" ]] || [[ $retcode = "255" ]]; then
+            		if [[ $retcode = "0" ]]; then
+				cecho success
+			elif [[ $retcode = "255" ]]; then
+				# 255 is tolerated (a backgrounded client can exit 255 when its PID is reaped
+				# before wait sees it) but it is NOT a clean success — surface it so a genuinely
+				# failed step is not masked silently. Every DB step flows through progress(), so
+				# the tolerance stays; the visibility is the fix.
+				cecho " [!] background step exited 255 (tolerated; verify results in ${LOG_FILE})"
 				cecho success
 	            	else
 				fail
@@ -651,7 +658,12 @@ else
     # Account expires in 1 month (b_ExpireSet=1, date_ExpireDate = now + 1 month)
     # and requires a password change at first login (forcePasswordReset=1).
     ncecho " [x] Created initial carlos admin user in security table "
-    $MYSQL ${db_name} -e "INSERT INTO security (user_name, password, provider_no, pin, b_ExpireSet, date_ExpireDate, b_LocalLockSet, b_RemoteLockSet, forcePasswordReset, lastUpdateDate, lastUpdateUser) SELECT 'carlos', '${CARLOS_PASS}', provider_no, '${CARLOS_PIN}', 1, DATE_ADD(CURDATE(), INTERVAL 1 MONTH), b_LocalLockSet, b_RemoteLockSet, 1, NOW(), 'system' FROM security WHERE user_name='carlosdoc' LIMIT 1;" 2>>$LOG_FILE &
+    # Feed the INSERT via stdin (here-doc), not `-e`, so the plaintext password/PIN never appear
+    # on the client's process argv (visible in `ps` to any local user for the life of the call).
+    # The here-doc + `&` preserves the existing background/$!/progress flow.
+    $MYSQL ${db_name} 2>>$LOG_FILE <<SQL &
+INSERT INTO security (user_name, password, provider_no, pin, b_ExpireSet, date_ExpireDate, b_LocalLockSet, b_RemoteLockSet, forcePasswordReset, lastUpdateDate, lastUpdateUser) SELECT 'carlos', '${CARLOS_PASS}', provider_no, '${CARLOS_PIN}', 1, DATE_ADD(CURDATE(), INTERVAL 1 MONTH), b_LocalLockSet, b_RemoteLockSet, 1, NOW(), 'system' FROM security WHERE user_name='carlosdoc' LIMIT 1;
+SQL
     pid=$!;progress $pid
     # Harden the seeded default clinician account the same way: its documented password/PIN
     # cannot survive first login on a production install (forcePasswordReset=1), matching the
