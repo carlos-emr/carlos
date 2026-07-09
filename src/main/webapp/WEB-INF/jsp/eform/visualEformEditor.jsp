@@ -270,6 +270,8 @@ FOR STAND ALONE USE
 <c:set var="i18n_textCheckbox"><fmt:message key="eform.visual.editor.text.checkbox"/></c:set>
 <c:set var="i18n_textTrash"><fmt:message key="eform.visual.editor.text.trash"/></c:set>
 <c:set var="i18n_textAddWetSignature"><fmt:message key="eform.visual.editor.text.addWetSignature"/></c:set>
+<c:set var="i18n_textWetSignatureSignHint"><fmt:message key="eform.visual.editor.text.wetSignatureSignHint"/></c:set>
+<c:set var="i18n_textNoSignatureStamp"><fmt:message key="eform.visual.editor.text.noSignatureStamp"/></c:set>
 <c:set var="i18n_textControls"><fmt:message key="eform.visual.editor.text.controls"/></c:set>
 <c:set var="i18n_textGuideOptions"><fmt:message key="eform.visual.editor.text.guideOptions"/></c:set>
 <script>
@@ -373,6 +375,8 @@ var EFORM_I18N = {
     textCheckbox: '${carlos:forJavaScript(i18n_textCheckbox)}',
     textTrash: '${carlos:forJavaScript(i18n_textTrash)}',
     textAddWetSignature: '${carlos:forJavaScript(i18n_textAddWetSignature)}',
+    textWetSignatureSignHint: '${carlos:forJavaScript(i18n_textWetSignatureSignHint)}',
+    textNoSignatureStamp: '${carlos:forJavaScript(i18n_textNoSignatureStamp)}',
     textControls: '${carlos:forJavaScript(i18n_textControls)}',
     textGuideOptions: '${carlos:forJavaScript(i18n_textGuideOptions)}'
 };
@@ -2355,9 +2359,14 @@ var EFORM_I18N = {
                 onclick: "toggleMe(this);"
             });
             $img.on("error", function() {
-                if (this.src.indexOf("BNK.png") === -1) {
-                    this.src = getBlankSignatureStampSrc();
-                }
+                /* The provider signature stamp image is unavailable: providerSignatureImage
+                   returns 404 when the logged-in provider has no signature stamp on file.
+                   Show a warning instead of a broken/blank sticker so the reason is clear. */
+                $(this).replaceWith($("<span>", {
+                    text: EFORM_I18N.textNoSignatureStamp,
+                    class: "noSignatureStampWarning DoNotPrint",
+                    style: 'font-size:9px; color:#b00; display:inline-block; padding:2px 4px;'
+                }));
             });
             $widget.append($img);
             $parent.append($widget);
@@ -4188,6 +4197,15 @@ var EFORM_I18N = {
                 $label.css("fontSize", 12);
                 $label.attr('id', "padLabel");
                 $dragFrame52.before($label);
+                /* The wet-signature pad can only be drawn on in interact mode. While the
+                   Form Building panel is open the editor is in drag/build mode (widgets carry
+                   a transparent overlay so they can be positioned), which blocks drawing.
+                   Tell the user to open another panel to actually sign. */
+                $tab.append($("<div>", {
+                    text: EFORM_I18N.textWetSignatureSignHint,
+                    id: "padSignHint",
+                    style: 'font-size:9px; color:#555; margin-top:2px;'
+                }));
             }
         }
 
