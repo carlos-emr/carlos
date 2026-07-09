@@ -9,9 +9,10 @@ import io.github.carlos_emr.carlos.commn.dao.ConsultDocsDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
 import io.github.carlos_emr.carlos.commn.dao.EFormDocsDao;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
-import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.EFormDocs;
+import io.github.carlos_emr.carlos.consultation.ConsultationDemographicResolver;
+import io.github.carlos_emr.carlos.consultation.ConsultationDemographicResolver.Resolution;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMUtil;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.data.AttachmentLabResultData;
@@ -717,30 +718,18 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
     }
 
     private String resolveConsultationDemographicId(String requestId, String requestDemographicId) throws PDFGenerationException {
-        if (StringUtils.isNullOrEmpty(requestId)) {
+        Resolution resolution = ConsultationDemographicResolver.resolve(consultationRequestDao, requestId,
+                requestDemographicId, "PDF", logger);
+        if (resolution.isResolved()) {
+            return resolution.demographicId();
+        }
+        if (resolution.failureReason() == ConsultationDemographicResolver.FailureReason.MISSING_REQUEST_ID) {
             throw new PDFGenerationException("Consultation request id is required for PDF generation.");
         }
-
-        Integer parsedRequestId;
-        try {
-            parsedRequestId = Integer.valueOf(requestId);
-        } catch (NumberFormatException e) {
-            throw new PDFGenerationException("Consultation request id is invalid for PDF generation.", e);
+        if (resolution.failureReason() == ConsultationDemographicResolver.FailureReason.INVALID_REQUEST_ID) {
+            throw new PDFGenerationException("Consultation request id is invalid for PDF generation.", resolution.cause());
         }
-
-        ConsultationRequest consultationRequest = consultationRequestDao.find(parsedRequestId);
-        if (consultationRequest == null || consultationRequest.getDemographicId() == null) {
-            throw new PDFGenerationException("Consultation request could not be loaded for PDF generation.");
-        }
-
-        String consultationDemographicId = String.valueOf(consultationRequest.getDemographicId());
-        if (!StringUtils.isNullOrEmpty(requestDemographicId) && !consultationDemographicId.equals(requestDemographicId)) {
-            if (logger.isWarnEnabled()) {
-                logger.warn("Ignoring mismatched consultation PDF demographic requestId={} requestDemographic={} consultationDemographic={}",
-                        LogSafe.sanitize(requestId), LogSafe.sanitize(requestDemographicId), LogSafe.sanitize(consultationDemographicId));
-            }
-        }
-        return consultationDemographicId;
+        throw new PDFGenerationException("Consultation request could not be loaded for PDF generation.");
     }
 
     private void addRenderedAttachmentPDF(ArrayList<Object> pdfDocumentList, List<String> attachmentWarnings, DocumentType documentType, Object documentId, AttachmentRenderer renderer) throws PDFGenerationException {

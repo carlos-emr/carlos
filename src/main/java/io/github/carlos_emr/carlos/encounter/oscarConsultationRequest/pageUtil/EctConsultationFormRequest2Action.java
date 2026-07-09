@@ -560,7 +560,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                     if (signatureImageOverride != null && signatureImageOverride.length > 0) {
                         request.setAttribute(ConsultationSignatureService.SIGNATURE_IMAGE_OVERRIDE_ATTRIBUTE, signatureImageOverride);
                     }
-                    renderConsultationFormWithAttachments(request, response, requestId, demographicNo, consultationRequestDao);
+                    renderConsultationFormWithAttachments(request, response, requestId, demographicNo);
                 }
             } catch (RuntimeException e) {
                 // Log the full exception server-side only; do not surface e.getMessage() to the
@@ -578,7 +578,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         request.setAttribute("teamVar", sendTo);
 
         if (submission.endsWith("And Print Preview")) {
-            if (renderConsultationFormWithAttachments(request, response, requestId, demographicNo, consultationRequestDao)) {
+            if (renderConsultationFormWithAttachments(request, response, requestId, demographicNo)) {
                 return SUCCESS;
             }
             return "error";
@@ -704,65 +704,32 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
      * @param demographicNo String the patient demographic number
      * @return boolean true if PDF generation succeeded, false on error
      */
-    private boolean renderConsultationFormWithAttachments(HttpServletRequest request, HttpServletResponse response, String requestId, String demographicNo, ConsultationRequestDao consultationRequestDao) {
+    private boolean renderConsultationFormWithAttachments(HttpServletRequest request, HttpServletResponse response, String requestId, String demographicNo) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String consultationDemographicNo = resolveConsultationDemographicNo(consultationRequestDao, requestId, demographicNo);
-        if (StringUtils.isBlank(consultationDemographicNo)) {
-            request.setAttribute(ATTR_ERROR_MESSAGE, PRINT_PREVIEW_ERROR_MESSAGE);
-            return false;
-        }
-        Integer parsedConsultationDemographicNo;
-        try {
-            parsedConsultationDemographicNo = Integer.valueOf(consultationDemographicNo);
-        } catch (NumberFormatException e) {
-            logger.error("Invalid consultation demographic while generating print preview for requestId={}",
-                    LogSafe.sanitize(requestId), e);
-            request.setAttribute(ATTR_ERROR_MESSAGE, PRINT_PREVIEW_ERROR_MESSAGE);
-            return false;
-        }
-
         request.setAttribute("reqId", requestId);
-        request.setAttribute("demographicId", consultationDemographicNo);
-        String fileName = generateFileName(loggedInInfo, parsedConsultationDemographicNo);
-        String base64PDF = "";
+        request.setAttribute("demographicId", demographicNo);
         try {
             Path pdfPath = documentAttachmentManager.renderConsultationFormWithAttachments(request, response);
-            base64PDF = documentAttachmentManager.convertPDFToBase64(pdfPath);
+            // The renderer normalizes demographicId to the persisted consultation patient.
+            String consultationDemographicNo = Objects.toString(request.getAttribute("demographicId"), "");
+            int parsedConsultationDemographicNo = Integer.parseInt(consultationDemographicNo);
+            String fileName = generateFileName(loggedInInfo, parsedConsultationDemographicNo);
+            String base64PDF = documentAttachmentManager.convertPDFToBase64(pdfPath);
+            request.setAttribute("consultPDFName", fileName);
+            request.setAttribute("consultPDF", base64PDF);
+            request.setAttribute("isPreviewReady", "true");
+            return true;
         } catch (PDFGenerationException e) {
             // Log the full exception server-side only; the browser-facing message must not echo
             // e.getMessage() (internal/identifier leakage, and renders "null" when absent).
             logger.error("Error generating consultation print preview PDF", e);
             request.setAttribute(ATTR_ERROR_MESSAGE, PRINT_PREVIEW_ERROR_MESSAGE);
             return false;
-        }
-
-        request.setAttribute("consultPDFName", fileName);
-        request.setAttribute("consultPDF", base64PDF);
-        request.setAttribute("isPreviewReady", "true");
-        return true;
-    }
-
-    private String resolveConsultationDemographicNo(ConsultationRequestDao consultationRequestDao, String requestId, String submittedDemographicNo) {
-        if (StringUtils.isBlank(requestId)) {
-            return "";
-        }
-
-        try {
-            ConsultationRequest consultationRequest = consultationRequestDao.find(Integer.parseInt(requestId));
-            if (consultationRequest == null || consultationRequest.getDemographicId() == null) {
-                logger.warn("Unable to resolve consultation demographic for requestId={}", LogSafe.sanitize(requestId));
-                return "";
-            }
-
-            String consultationDemographicNo = String.valueOf(consultationRequest.getDemographicId());
-            if (StringUtils.isNotBlank(submittedDemographicNo) && !consultationDemographicNo.equals(submittedDemographicNo)) {
-                logger.warn("Ignoring mismatched consultation preview demographic requestId={} submittedDemographic={} consultationDemographic={}",
-                        LogSafe.sanitize(requestId), LogSafe.sanitize(submittedDemographicNo), LogSafe.sanitize(consultationDemographicNo));
-            }
-            return consultationDemographicNo;
         } catch (NumberFormatException e) {
-            logger.warn("Invalid consultation request id while resolving preview demographic requestId={}", LogSafe.sanitize(requestId));
-            return "";
+            logger.error("Invalid consultation demographic while generating print preview for requestId={}",
+                    LogSafe.sanitize(requestId), e);
+            request.setAttribute(ATTR_ERROR_MESSAGE, PRINT_PREVIEW_ERROR_MESSAGE);
+            return false;
         }
     }
 
