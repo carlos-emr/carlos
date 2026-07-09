@@ -100,14 +100,28 @@ def has_duplicate_version(file_path: str) -> bool:
     if m is None:
         return False
     version = m.group(1)
-    loc = path.parent.name  # common | on | bc
-    migration_root = path.parent.parent  # .../migration
-    for sibling_loc in CO_APPLIED_LOCATIONS.get(loc, ()):  # noqa: B007
+    # Identify the common|on|bc location from the FULL path via the location anchors, not the
+    # immediate parent: a migration may sit in a nested dir (Flyway scans locations recursively),
+    # in which case path.parent.name would be the subdir and the scan would be silently skipped.
+    loc = None
+    migration_root = None
+    for md in MIGRATION_DIRECTORIES:  # "database/mysql/migration/<loc>"
+        anchor = f"{md}/"
+        idx = file_path.find(anchor)
+        if idx != -1:
+            loc = md.rsplit("/", 1)[1]                              # common | on | bc
+            migration_root = Path(file_path[:idx]) / md.rsplit("/", 1)[0]  # .../migration
+            break
+    if loc is None or migration_root is None:
+        return False
+    self_resolved = path.resolve()
+    for sibling_loc in CO_APPLIED_LOCATIONS.get(loc, ()):
         sibling_dir = migration_root / sibling_loc
         if not sibling_dir.is_dir():
             continue
-        for existing in sibling_dir.glob(f"{version}__*.sql"):
-            if existing.name != path.name:
+        # rglob (not glob) so an existing nested migration with the same version is caught too.
+        for existing in sibling_dir.rglob(f"{version}__*.sql"):
+            if existing.resolve() != self_resolved:
                 return True
     return False
 
