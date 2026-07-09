@@ -1,4 +1,10 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
+
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="java.util.ResourceBundle" %>
+<%
+    java.util.ResourceBundle oscarResources = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
+%>
 <!-- 
 /*
 * 
@@ -24,6 +30,7 @@
  -->
 
 <%@ include file="/taglibs.jsp"%>
+<fmt:setBundle basename="oscarResources"/>
 <style>
 .b th {color:black;}
 </style>
@@ -39,7 +46,7 @@
 	}
 
 	function deleteProvider(id) {
-		if(!confirm("Are you sure you want to delete the staff entry?")) {
+		if(!confirm('<%= SafeEncode.forJavaScript(oscarResources.getString("pmmodule.admin.programEdit.staff.confirmDeleteStaff")) %>')) {
 			return;
 		}
 		document.programManagerForm.elements['provider.id'].value=id;
@@ -63,7 +70,7 @@
 	}
 	
 	function removeTeam(id,team_id) {
-		if(!confirm("Are you sure you want to delete the team entry?")) {
+		if(!confirm('<%= SafeEncode.forJavaScript(oscarResources.getString("pmmodule.admin.programEdit.staff.confirmDeleteTeam")) %>')) {
 			return;
 		}
 		document.programManagerForm.elements['teamId'].value=team_id;	
@@ -82,7 +89,7 @@
 	
 	function add_provider(form) {
 		if(form.elements['provider.providerNo'].value == 0) {
-			alert('You must choose a provider');
+			alert('<%= SafeEncode.forJavaScript(oscarResources.getString("pmmodule.admin.programEdit.staff.alertChooseProvider")) %>');
 			return false;
 		}
 		form.elements['method'].value='save_provider';
@@ -94,25 +101,30 @@
 <div class="tabs">
 <table cellpadding="3" cellspacing="0" border="0">
 	<tr>
-		<th title="Programs">Staff</th>
+		<fmt:message key="pmmodule.admin.programEdit.staff.titlePrograms" var="titlePrograms"/>
+<th title="${carlos:forHtmlAttribute(titlePrograms)}"><fmt:message key="pmmodule.admin.programEdit.staff.thStaff"/></th>
 	</tr>
 </table>
 </div>
 <!--  show current staff -->
 <display:table class="simple" cellspacing="2" cellpadding="3" id="provider" name="providers" export="false" pagesize="0" requestURI="/PMmodule/ProgramManager">
 	<display:setProperty name="paging.banner.placement" value="bottom" />
-	<display:setProperty name="basic.msg.empty_list" value="No staff currently assigned to this program." />
+	<fmt:message key="pmmodule.admin.programEdit.staff.emptyList" var="emptyListMsg"/>
+<display:setProperty name="basic.msg.empty_list" value="${emptyListMsg}"/>
 	<display:column sortable="false" title="">
-		<a href="javascript:void(0);" onclick="deleteProvider('${carlos:forJavaScript(provider.id)}');return false;"> Delete </a>
+		<a href="javascript:void(0);" onclick="deleteProvider('${carlos:forJavaScript(provider.id)}');return false;"><fmt:message key="pmmodule.admin.programEdit.staff.aDelete"/></a>
 	</display:column>
-	<display:column property="provider.formattedName" sortable="true" title="Name" />
-	<display:column property="provider.phone" sortable="true" title="Phone" />
-	<display:column sortable="false" title="Team">
+	<fmt:message key="pmmodule.admin.programEdit.staff.titleName" var="titleName"/>
+<display:column property="provider.formattedName" sortable="true" title="${carlos:forHtmlAttribute(titleName)}" />
+	<fmt:message key="pmmodule.admin.programEdit.staff.titlePhone" var="titlePhone"/>
+<display:column property="provider.phone" sortable="true" title="${carlos:forHtmlAttribute(titlePhone)}" />
+	<fmt:message key="pmmodule.admin.programEdit.staff.titleTeam" var="titleTeam"/>
+<display:column sortable="false" title="${carlos:forHtmlAttribute(titleTeam)}">
 		<table width="100%" cellspacing="2" cellpadding="2">
 			<c:forEach var="team" items="${provider.teams}">
 				<tr>
 					<td>${carlos:forHtml(team.name)}</td>
-					<td><a href="javascript:void(0);" onclick="removeTeam('${carlos:forJavaScript(provider.id)}','${carlos:forJavaScript(team.id)}');return false;">Remove</a>
+					<td><a href="javascript:void(0);" onclick="removeTeam('${carlos:forJavaScript(provider.id)}','${carlos:forJavaScript(team.id)}');return false;"><fmt:message key="pmmodule.admin.programEdit.staff.aRemove"/></a>
 				</tr>
 			</c:forEach>
 		</table>
@@ -123,7 +135,8 @@
 			</c:forEach>
 		</select>
 	</display:column>
-	<display:column sortable="false" title="Role">
+	<fmt:message key="pmmodule.admin.programEdit.staff.titleRole" var="titleRole"/>
+<display:column sortable="false" title="${carlos:forHtmlAttribute(titleRole)}">
 		<select name="x" onchange="assignRole('${carlos:forJavaScript(provider.id)}',this);">
 			<option value="0">&nbsp;</option>
 			<c:forEach var="role" items="${roles}">
@@ -142,7 +155,7 @@
 <br />
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
 	<tr class="b">
-		<td width="20%">Provider:</td>
+		<td width="20%"><fmt:message key="pmmodule.admin.programEdit.staff.tdProvider"/></td>
 		<td>
 			<html:hidden property="provider.id" />
 			<html:hidden property="provider.providerNo" />
@@ -153,11 +166,11 @@
 			}
 			%>
 			<input type="text" name="providerName" size="30" value="<%=providerName%>" />
-			<input type="button" value="Search" onclick="search_provider(this.form.providerName.value);" />
+			<input type="button" value="<fmt:message key='pmmodule.admin.programEdit.staff.btnSearch'/>" onclick="search_provider(this.form.providerName.value);" />
 		</td>
 	</tr>
 	<tr class="b">
-		<td width="20%">Role:</td>
+		<td width="20%"><fmt:message key="pmmodule.admin.programEdit.staff.tdRole"/></td>
 		<td>
 			<html:select property="provider.roleId">
 				<html:options collection="roles" property="id" labelProperty="name" />
@@ -166,7 +179,7 @@
 	</tr>
 	<tr>
 		<td colspan="2">
-			<input type="button" value="Save" onclick="add_provider(this.form)" />
+			<input type="button" value="<fmt:message key='pmmodule.admin.programEdit.staff.btnSave'/>" onclick="add_provider(this.form)" />
 			<html:cancel />
 		</td>
 	</tr>

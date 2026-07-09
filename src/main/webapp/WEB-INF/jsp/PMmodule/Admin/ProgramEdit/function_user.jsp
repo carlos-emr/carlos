@@ -1,4 +1,10 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
+
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="java.util.ResourceBundle" %>
+<%
+    java.util.ResourceBundle oscarResources = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
+%>
 <%--
 
 
@@ -29,6 +35,7 @@
 
 --%>
 <%@ include file="/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 <c:url var="programManagerFunctionUsersUri" value="/PMmodule/ProgramManager">
     <c:param name="method" value="edit"/>
     <c:param name="id" value="${requestScope.id}"/>
@@ -46,7 +53,7 @@
     }
 
     function deleteFunctionalUser(id) {
-        if (!confirm("Are you sure you want to delete the functional user entry?")) {
+        if (!confirm('<%= SafeEncode.forJavaScript(oscarResources.getString("pmmodule.admin.programEdit.functionUser.confirmDelete")) %>')) {
             return;
         }
         document.programManagerForm.elements['function.id'].value = id;
@@ -61,14 +68,15 @@
     }
 
     function add_functional_user(form) {
-        alert('temporarily disabled');
+        alert('<%= SafeEncode.forJavaScript(oscarResources.getString("pmmodule.admin.programEdit.functionUser.alertDisabled")) %>');
         return false;
     }
 </script>
 <div class="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="Programs">Functional Users</th>
+            <fmt:message key="pmmodule.admin.programEdit.functionUser.titlePrograms" var="titlePrograms"/>
+<th title="${carlos:forHtmlAttribute(titlePrograms)}"><fmt:message key="pmmodule.admin.programEdit.functionUser.thFunctionalUsers"/></th>
         </tr>
     </table>
 </div>
@@ -77,19 +85,21 @@
 <display:table class="simple" cellspacing="2" cellpadding="3" id="functional" name="functional_users" export="false"
                pagesize="0" requestURI="${programManagerFunctionUsersUri}">
     <display:setProperty name="paging.banner.placement" value="bottom"/>
-    <display:setProperty name="basic.msg.empty_list" value="No functional users defined for this program"/>
+    <fmt:message key="pmmodule.admin.programEdit.functionUser.emptyList" var="emptyListMsg"/>
+<display:setProperty name="basic.msg.empty_list" value="${emptyListMsg}"/>
     <display:column sortable="false" title="">
-        <a onclick="deleteFunctionalUser('${carlos:forJavaScript(functional.id)}');return false;" href="javascript:void(0);">
-            Delete </a>
+        <a onclick="deleteFunctionalUser('${carlos:forJavaScript(functional.id)}');return false;" href="javascript:void(0);"><fmt:message key="pmmodule.admin.programEdit.functionUser.aDelete"/></a>
     </display:column>
-    <display:column property="userType.name" sortable="true" title="Functional User Type"/>
-    <display:column property="provider.formattedName" sortable="true" title="Provider Name"/>
+    <fmt:message key="pmmodule.admin.programEdit.functionUser.titleUserType" var="titleUserType"/>
+<display:column property="userType.name" sortable="true" title="${carlos:forHtmlAttribute(titleUserType)}"/>
+    <fmt:message key="pmmodule.admin.programEdit.functionUser.titleProviderName" var="titleProviderName"/>
+<display:column property="provider.formattedName" sortable="true" title="${carlos:forHtmlAttribute(titleProviderName)}"/>
 </display:table>
 <br/>
 <br/>
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
     <tr class="b">
-        <td width="20%">Provider :</td>
+        <td width="20%"><fmt:message key="pmmodule.admin.programEdit.functionUser.tdProvider"/></td>
         <td>
             <%
                 String providerName = (String) request.getAttribute("providerName");
@@ -98,11 +108,11 @@
                 }
             %>
             <input type="text" name="providerName" size="30" value="<%=providerName%>"/>
-            <input type="button" value="Search" onclick="search_provider(this.form.providerName.value);"/>
+            <input type="button" value="<fmt:message key='pmmodule.admin.programEdit.functionUser.btnSearch'/>" onclick="search_provider(this.form.providerName.value);"/>
         </td>
     </tr>
     <tr class="b">
-        <td width="20%">Functional User Type:</td>
+        <td width="20%"><fmt:message key="pmmodule.admin.programEdit.functionUser.tdUserType"/></td>
         <td>
             <select name="function.userTypeId" id="function.userTypeId">
                 <c:forEach var="functionalUserType" items="${functionalUserTypes}">
@@ -115,8 +125,8 @@
     </tr>
     <tr>
         <td colspan="2">
-            <input type="button" value="Save" onclick="add_functional_user(this.form)"/>
-            <button type="button" onclick="window.history.back();">Cancel</button>
+            <input type="button" value="<fmt:message key='pmmodule.admin.programEdit.functionUser.btnSave'/>" onclick="add_functional_user(this.form)"/>
+            <button type="button" onclick="window.history.back();"><fmt:message key="pmmodule.admin.programEdit.functionUser.btnCancel"/></button>
         </td>
     </tr>
 </table>

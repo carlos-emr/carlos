@@ -33,6 +33,7 @@
 <%@page import="java.util.List" %>
 <%@page import="java.text.SimpleDateFormat" %>
 <%@ include file="/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%
     String currentProgramId = (String) request.getAttribute("id");
@@ -83,7 +84,8 @@
     <input type="hidden" name="programId" id="programId" value="<%=request.getAttribute("id")%>"/>
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="Vacancies">Vacancies</th>
+            <fmt:message key="pmmodule.admin.programEdit.vacancies.titleVacancies" var="titleVacancies"/>
+<th title="${carlos:forHtmlAttribute(titleVacancies)}"><fmt:message key="pmmodule.admin.programEdit.vacancies.thVacancies"/></th>
         </tr>
     </table>
 </div>
@@ -91,10 +93,10 @@
 <table id="vacancyTable" width="100%" border="1" cellspacing="2" cellpadding="3">
     <thead>
     <tr class="b">
-        <td width="25%" style="text-align:center;font-weight:bold"><a href="javascript:void(0)" id="sortVacancies">Vacancy Name</a></td>
-        <td width="25%" class="beright" style="text-align:center;font-weight:bold">Vacancy Template Name</td>
-        <td width="25%" style="text-align:center;font-weight:bold">Vacancy Status</td>
-        <td width="25%" style="text-align:center;font-weight:bold">Vacancy Create Date</td>
+        <td width="25%" style="text-align:center;font-weight:bold"><a href="javascript:void(0)" id="sortVacancies"><fmt:message key="pmmodule.admin.programEdit.vacancies.aVacancyName"/></a></td>
+        <td width="25%" class="beright" style="text-align:center;font-weight:bold"><fmt:message key="pmmodule.admin.programEdit.vacancies.tdVacancyTemplateName"/></td>
+        <td width="25%" style="text-align:center;font-weight:bold"><fmt:message key="pmmodule.admin.programEdit.vacancies.tdVacancyStatus"/></td>
+        <td width="25%" style="text-align:center;font-weight:bold"><fmt:message key="pmmodule.admin.programEdit.vacancies.tdVacancyCreateDate"/></td>
     </tr>
     </thead>
     <tbody>
@@ -113,4 +115,4 @@
     </tbody>
 </table>
 
-<a onclick="openVacancy('');return false;" href="javascript:void(0)">Create New Vacancy</a>
+<a onclick="openVacancy('');return false;" href="javascript:void(0)"><fmt:message key="pmmodule.admin.programEdit.vacancies.aCreateNewVacancy"/></a>

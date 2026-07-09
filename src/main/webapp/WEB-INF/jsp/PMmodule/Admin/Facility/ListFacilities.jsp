@@ -1,4 +1,10 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
+
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="java.util.ResourceBundle" %>
+<%
+    java.util.ResourceBundle oscarResources = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
+%>
 <%--
 
 
@@ -29,10 +35,11 @@
 
 --%>
 <%@ include file="/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <script>
     function ConfirmDelete(name) {
-        if (confirm("Are you sure you want to delete " + name + " ?")) {
+        if (confirm('<%= SafeEncode.forJavaScript(oscarResources.getString("pmmodule.admin.listFacilities.confirmDelete")) %>' + " " + name + " ?")) {
             return true;
         }
         return false;
@@ -42,7 +49,8 @@
 <div class="tabs" id="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="Facilities">Facilities management</th>
+            <fmt:message key="pmmodule.admin.listFacilities.titleFacilities" var="titleFacilities"/>
+<th title="${carlos:forHtmlAttribute(titleFacilities)}"><fmt:message key="pmmodule.admin.listFacilities.thFacilitiesManagement"/></th>
         </tr>
     </table>
 </div>
@@ -54,23 +62,20 @@
         <display:setProperty name="paging.banner.item_name" value="agency"/>
         <display:setProperty name="paging.banner.items_name"
                              value="facilities"/>
-        <display:setProperty name="basic.msg.empty_list"
-                             value="No facilities found."/>
+        <fmt:message key="pmmodule.admin.listFacilities.emptyList" var="emptyListMsg"/>
+<display:setProperty name="basic.msg.empty_list" value="${emptyListMsg}"/>
 
         <display:column sortable="false" title="">
             <a
-                    href="<%=request.getContextPath() %>/PMmodule/FacilityManager?method=view&id=${carlos:forUriComponent(facility.id)}">
-                Details </a>
+                    href="<%=request.getContextPath() %>/PMmodule/FacilityManager?method=view&id=${carlos:forUriComponent(facility.id)}"><fmt:message key="pmmodule.admin.listFacilities.aDetails"/></a>
         </display:column>
         <display:column sortable="false" title="">
             <a
-                    href="<%=request.getContextPath() %>/PMmodule/FacilityManager?method=edit&id=${carlos:forUriComponent(facility.id)}">
-                Edit </a>
+                    href="<%=request.getContextPath() %>/PMmodule/FacilityManager?method=edit&id=${carlos:forUriComponent(facility.id)}"><fmt:message key="pmmodule.admin.listFacilities.aEdit"/></a>
         </display:column>
         <display:column sortable="false" title="">
             <a href="javascript:void(0)"
-                    onclick="if(ConfirmDelete('${carlos:forJavaScript(facility.name)}')){document.getElementById('deleteForm_${carlos:forJavaScript(facility.id)}').submit()}">
-                Disable </a>
+                    onclick="if(ConfirmDelete('${carlos:forJavaScript(facility.name)}')){document.getElementById('deleteForm_${carlos:forJavaScript(facility.id)}').submit()}"><fmt:message key="pmmodule.admin.listFacilities.aDisable"/></a>
             <form id="deleteForm_${carlos:forHtmlAttribute(facility.id)}" method="post"
                   action="<%=request.getContextPath() %>/PMmodule/FacilityManager" style="display:none">
                 <input type="hidden" name="method" value="delete"/>
@@ -80,16 +85,19 @@
         </display:column>
 
 
-        <display:column property="name" sortable="true" title="Name"/>
-        <display:column property="description" sortable="true"
-                        title="Description"/>
-        <display:column property="contactName" sortable="true"
-                        title="Contact name"/>
-        <display:column property="hic" sortable="true" title="HIC?"/>
+        <fmt:message key="pmmodule.admin.listFacilities.titleName" var="titleName"/>
+<display:column property="name" sortable="true" title="${carlos:forHtmlAttribute(titleName)}"/>
+        <fmt:message key="pmmodule.admin.listFacilities.titleDescription" var="titleDescription"/>
+<display:column property="description" sortable="true"
+                        title="${carlos:forHtmlAttribute(titleDescription)}"/>
+        <fmt:message key="pmmodule.admin.listFacilities.titleContactName" var="titleContactName"/>
+<display:column property="contactName" sortable="true"
+                        title="${carlos:forHtmlAttribute(titleContactName)}"/>
+        <fmt:message key="pmmodule.admin.listFacilities.titleHic" var="titleHic"/>
+<display:column property="hic" sortable="true" title="${carlos:forHtmlAttribute(titleHic)}"/>
     </display:table>
 </form>
 <div>
     <p><a
-            href="<%=request.getContextPath() %>/PMmodule/FacilityManager?method=add">
-        Add new facility </a></p>
+            href="<%=request.getContextPath() %>/PMmodule/FacilityManager?method=add"><fmt:message key="pmmodule.admin.listFacilities.aAddNewFacility"/></a></p>
 </div>

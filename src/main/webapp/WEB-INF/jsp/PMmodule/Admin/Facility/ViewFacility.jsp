@@ -29,6 +29,7 @@
 
 --%>
 <%@ include file="/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ include file="/WEB-INF/jsp/common/messages.jsp" %>
 <c:url var="facilityViewUri" value="/PMmodule/FacilityManager">
     <c:param name="method" value="view"/>
@@ -38,42 +39,43 @@
 <div class="tabs" id="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="Facility">Facility summary</th>
+            <fmt:message key="pmmodule.admin.viewFacility.titleFacility" var="titleFacility"/>
+<th title="${carlos:forHtmlAttribute(titleFacility)}"><fmt:message key="pmmodule.admin.viewFacility.thFacilitySummary"/></th>
         </tr>
     </table>
 </div>
 
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
     <tr class="b">
-        <td width="20%">Facility Id:</td>
+        <td width="20%"><fmt:message key='pmmodule.admin.viewFacility.tdFacilityId'/></td>
         <td>${carlos:forHtml(requestScope.id)}</td>
     </tr>
     <tr class="b">
-        <td width="20%">Name:</td>
+        <td width="20%"><fmt:message key='pmmodule.admin.viewFacility.tdName'/></td>
         <td>${carlos:forHtml(facility.name)}</td>
     </tr>
     <tr class="b">
-        <td width="20%">Description:</td>
+        <td width="20%"><fmt:message key='pmmodule.admin.viewFacility.tdDescription'/></td>
         <td>${carlos:forHtml(facility.description)}</td>
     </tr>
     <tr class="b">
-        <td width="20%">HIC:</td>
+        <td width="20%"><fmt:message key='pmmodule.admin.viewFacility.tdHic'/></td>
         <td>${carlos:forHtml(facility.hic)}</td>
     </tr>
     <tr class="b">
-        <td width="20%">Primary Contact Name:</td>
+        <td width="20%"><fmt:message key='pmmodule.admin.viewFacility.tdPrimaryContactName'/></td>
         <td>${carlos:forHtml(facility.contactName)}</td>
     </tr>
     <tr class="b">
-        <td width="20%">Primary Contact Email:</td>
+        <td width="20%"><fmt:message key='pmmodule.admin.viewFacility.tdPrimaryContactEmail'/></td>
         <td>${carlos:forHtml(facility.contactEmail)}</td>
     </tr>
     <tr class="b">
-        <td width="20%">Primary Contact Phone:</td>
+        <td width="20%"><fmt:message key='pmmodule.admin.viewFacility.tdPrimaryContactPhone'/></td>
         <td>${carlos:forHtml(facility.contactPhone)}</td>
     </tr>
     <tr class="b">
-        <td width="20%">Digital Signatures Enabled:</td>
+        <td width="20%"><fmt:message key="pmmodule.admin.viewFacility.tdDigitalSignaturesEnabled"/></td>
         <td>${carlos:forHtml(facility.enableDigitalSignatures)}</td>
     </tr>
 </table>
@@ -81,15 +83,18 @@
 <div class="tabs" id="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="Associated programs">Associated programs</th>
+            <fmt:message key="pmmodule.admin.viewFacility.titleAssociatedPrograms" var="titleAssociatedPrograms"/>
+<th title="${carlos:forHtmlAttribute(titleAssociatedPrograms)}"><fmt:message key="pmmodule.admin.viewFacility.thAssociatedPrograms"/></th>
         </tr>
     </table>
 </div>
 <display:table class="simple" cellspacing="2" cellpadding="3"
                id="program" name="associatedPrograms" export="false"
                requestURI="${facilityViewUri}">
-    <display:setProperty name="basic.msg.empty_list" value="No programs."/>
-    <display:column sortable="true" sortProperty="name" title="Program Name">
+    <fmt:message key="pmmodule.admin.viewFacility.emptyListPrograms" var="emptyListMsg"/>
+<display:setProperty name="basic.msg.empty_list" value="${emptyListMsg}"/>
+    <fmt:message key="pmmodule.admin.viewFacility.titleProgramName" var="titleProgramName"/>
+<display:column sortable="true" sortProperty="name" title="${carlos:forHtmlAttribute(titleProgramName)}">
         <c:choose>
             <c:when test="${program.facilityId == facility.id}">
                 <a href="${pageContext.request.contextPath}/PMmodule/ProgramManagerView?id=${carlos:forUriComponent(program.id)}">${carlos:forHtml(program.name)}</a>
@@ -97,15 +102,18 @@
             <c:otherwise>${carlos:forHtml(program.name)}</c:otherwise>
         </c:choose>
     </display:column>
-    <display:column property="type" sortable="true" title="Program Type"/>
-    <display:column property="queueSize" sortable="true" title="Clients in Queue"/>
+    <fmt:message key="pmmodule.admin.viewFacility.titleProgramType" var="titleProgramType"/>
+<display:column property="type" sortable="true" title="${carlos:forHtmlAttribute(titleProgramType)}"/>
+    <fmt:message key="pmmodule.admin.viewFacility.titleClientsInQueue" var="titleClientsInQueue"/>
+<display:column property="queueSize" sortable="true" title="${carlos:forHtmlAttribute(titleClientsInQueue)}"/>
 </display:table>
 
 <br/>
 <div class="tabs" id="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="Facility Messages">Messages</th>
+            <fmt:message key="pmmodule.admin.viewFacility.titleFacilityMessages" var="titleFacilityMessages"/>
+<th title="${carlos:forHtmlAttribute(titleFacilityMessages)}"><fmt:message key="pmmodule.admin.viewFacility.thMessages"/></th>
         </tr>
     </table>
 </div>
@@ -116,10 +124,10 @@ while still admitted in this facility.
 
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
     <tr>
-        <th>Name</th>
-        <th>Client DOB</th>
-        <th>Bed Program</th>
-        <th>Discharge Date/Time</th>
+        <th><fmt:message key="pmmodule.admin.viewFacility.thName"/></th>
+        <th><fmt:message key="pmmodule.admin.viewFacility.thClientDob"/></th>
+        <th><fmt:message key="pmmodule.admin.viewFacility.thBedProgram"/></th>
+        <th><fmt:message key="pmmodule.admin.viewFacility.thDischargeDateTime"/></th>
     </tr>
     <c:forEach var="client" items="${associatedClients}">
         <tr class="b" <c:if test="${client.inOneDay}">style="color:red;"</c:if>>
@@ -136,8 +144,8 @@ Automatic discharges in the past 24 hours appear red.
 
     <div>
     <p>
-        <a href="${pageContext.request.contextPath}/PMmodule/FacilityManager?method=edit&amp;id=${carlos:forUriComponent(requestScope.id)}">Edit facility</a>
+        <a href="${pageContext.request.contextPath}/PMmodule/FacilityManager?method=edit&amp;id=${carlos:forUriComponent(requestScope.id)}"><fmt:message key="pmmodule.admin.viewFacility.aEditFacility"/></a>
         |
-        <a href="${pageContext.request.contextPath}/PMmodule/FacilityManager?method=list">Return to facilities list</a>
+        <a href="${pageContext.request.contextPath}/PMmodule/FacilityManager?method=list"><fmt:message key='pmmodule.admin.viewFacility.aReturnToFacilitiesList'/></a>
     </p>
 </div>

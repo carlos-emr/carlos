@@ -30,8 +30,15 @@
 
 
 <%@ include file="/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="java.util.ResourceBundle" %>
+<%
+    java.util.ResourceBundle oscarResources = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
+%>
 <c:url var="programManagerClientsUri" value="/PMmodule/ProgramManager">
     <c:param name="method" value="edit"/>
     <c:param name="id" value="${requestScope.id}"/>
@@ -61,7 +68,8 @@
 <div class="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="Programs">Clients</th>
+            <fmt:message key="pmmodule.admin.programEdit.clients.titlePrograms" var="titlePrograms"/>
+<th title="${carlos:forHtmlAttribute(titlePrograms)}"><fmt:message key="pmmodule.admin.programEdit.clients.thClients"/></th>
         </tr>
     </table>
 </div>
@@ -69,19 +77,25 @@
 <display:table class="simple" cellspacing="2" cellpadding="3" id="admission" name="admissions" export="false"
                pagesize="0" requestURI="${programManagerClientsUri}">
     <display:setProperty name="paging.banner.placement" value="bottom"/>
-    <display:setProperty name="basic.msg.empty_list" value="No clients currently admitted to this program."/>
+    <fmt:message key="pmmodule.admin.programEdit.clients.emptyList" var="emptyListMsg"/>
+<display:setProperty name="basic.msg.empty_list" value="${emptyListMsg}"/>
 
     <display:column sortable="false" title="">
-        <a href="javascript:void(0);" onclick="alert('Please discharge clients from the client manager');">
+        <a href="javascript:void(0);" onclick="alert('<%= SafeEncode.forJavaScript(oscarResources.getString("pmmodule.admin.programEdit.clients.alertDischarge")) %>');">
             Discharge </a>
     </display:column>
-    <display:column property="client.formattedName" sortable="true" title="Name"/>
-    <display:column property="admissionDate" sortable="true" title="Admission Date"/>
+    <fmt:message key="pmmodule.admin.programEdit.clients.titleName" var="titleName"/>
+<display:column property="client.formattedName" sortable="true" title="${carlos:forHtmlAttribute(titleName)}"/>
+    <fmt:message key="pmmodule.admin.programEdit.clients.titleAdmissionDate" var="titleAdmissionDate"/>
+<display:column property="admissionDate" sortable="true" title="${carlos:forHtmlAttribute(titleAdmissionDate)}"/>
     <caisi:isModuleLoad moduleName="pmm.refer.temporaryAdmission.enabled">
-        <display:column property="temporaryAdmission" sortable="true" title="Temporary Admission"/>
+        <fmt:message key="pmmodule.admin.programEdit.clients.titleTemporaryAdmission" var="titleTemporaryAdmission"/>
+<display:column property="temporaryAdmission" sortable="true" title="${carlos:forHtmlAttribute(titleTemporaryAdmission)}"/>
     </caisi:isModuleLoad>
-    <display:column property="admissionNotes" sortable="true" title="Admission Notes"/>
-    <display:column property="teamName" sortable="true" title="Team"/>
+    <fmt:message key="pmmodule.admin.programEdit.clients.titleAdmissionNotes" var="titleAdmissionNotes"/>
+<display:column property="admissionNotes" sortable="true" title="${carlos:forHtmlAttribute(titleAdmissionNotes)}"/>
+    <fmt:message key="pmmodule.admin.programEdit.clients.titleTeam" var="titleTeam"/>
+<display:column property="teamName" sortable="true" title="${carlos:forHtmlAttribute(titleTeam)}"/>
     <display:column sortable="false" title="">
         <select name="x" onchange="assignTeam('${carlos:forJavaScript(admission.id)}',this);">
             <option value="0">&nbsp;</option>
@@ -97,7 +111,8 @@
             </c:forEach>
         </select>
     </display:column>
-    <display:column sortable="false" title="Status">
+    <fmt:message key="pmmodule.admin.programEdit.clients.titleStatus" var="titleStatus"/>
+<display:column sortable="false" title="${carlos:forHtmlAttribute(titleStatus)}">
         <select name="y" onchange="assignStatus('${carlos:forJavaScript(admission.id)}',this);">
             <option value="0">&nbsp;</option>
             <c:forEach var="status" items="${client_statuses}">

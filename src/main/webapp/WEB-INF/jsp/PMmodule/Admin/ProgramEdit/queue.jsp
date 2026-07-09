@@ -24,6 +24,7 @@
  -->
 
 <%@ include file="/taglibs.jsp"%>
+<fmt:setBundle basename="oscarResources"/>
 <script type="text/javascript">
 function removeFromQueue(id) {
 	document.programManagerForm.elements['queue.id'].value = id;
@@ -41,24 +42,31 @@ function removeFromRemoteQueue(remoteReferralId) {
 <div class="tabs" id="tabs">
 	<table cellpadding="3" cellspacing="0" border="0">
 		<tr>
-			<th title="Programs">Local Queue</th>
+			<fmt:message key="pmmodule.admin.programEdit.queue.titlePrograms" var="titlePrograms"/>
+<th title="${carlos:forHtmlAttribute(titlePrograms)}"><fmt:message key="pmmodule.admin.programEdit.queue.thLocalQueue"/></th>
 		</tr>
 	</table>
 </div>
 <!--  show current clients -->
 <display:table class="simple" cellspacing="2" cellpadding="3" id="queue_entry" name="queue" export="false" pagesize="0" requestURI="/PMmodule/ProgramManager">
 	<display:setProperty name="paging.banner.placement" value="bottom" />
-	<display:setProperty name="basic.msg.empty_list" value="Queue is empty." />
+	<fmt:message key="pmmodule.admin.programEdit.queue.emptyList" var="emptyListMsg"/>
+<display:setProperty name="basic.msg.empty_list" value="${emptyListMsg}"/>
 	<display:column sortable="false" title="">
-		<a href="javascript:void(0);" onclick="removeFromQueue('${carlos:forJavaScript(queue_entry.id)}');return false;"> Remove </a>
+		<a href="javascript:void(0);" onclick="removeFromQueue('${carlos:forJavaScript(queue_entry.id)}');return false;"><fmt:message key="pmmodule.admin.programEdit.queue.aRemove"/></a>
 	</display:column>
-	<display:column property="clientFormattedName" sortable="true" title="Client Name" />
-	<display:column property="referralDate" sortable="true" title="Referral Date" />
-	<display:column property="providerFormattedName" sortable="true" title="Referring Provider" />
+	<fmt:message key="pmmodule.admin.programEdit.queue.titleClientName" var="titleClientName"/>
+<display:column property="clientFormattedName" sortable="true" title="${carlos:forHtmlAttribute(titleClientName)}" />
+	<fmt:message key="pmmodule.admin.programEdit.queue.titleReferralDate" var="titleReferralDate"/>
+<display:column property="referralDate" sortable="true" title="${carlos:forHtmlAttribute(titleReferralDate)}" />
+	<fmt:message key="pmmodule.admin.programEdit.queue.titleReferringProvider" var="titleReferringProvider"/>
+<display:column property="providerFormattedName" sortable="true" title="${carlos:forHtmlAttribute(titleReferringProvider)}" />
   	<caisi:isModuleLoad moduleName="pmm.refer.temporaryAdmission.enabled">
-		<display:column property="temporaryAdmission" sortable="true" title="Temporary Admission" />
+		<fmt:message key="pmmodule.admin.programEdit.queue.titleTemporaryAdmission" var="titleTemporaryAdmission"/>
+<display:column property="temporaryAdmission" sortable="true" title="${carlos:forHtmlAttribute(titleTemporaryAdmission)}" />
 	</caisi:isModuleLoad>
-	<display:column property="notes" sortable="true" title="Notes" />
+	<fmt:message key="pmmodule.admin.programEdit.queue.titleNotes" var="titleNotes"/>
+<display:column property="notes" sortable="true" title="${carlos:forHtmlAttribute(titleNotes)}" />
 </display:table>
 
 <c:if test="${remoteQueue!=null}">
@@ -69,20 +77,26 @@ function removeFromRemoteQueue(remoteReferralId) {
 	<div class="tabs" id="tabs">
 		<table cellpadding="3" cellspacing="0" border="0">
 			<tr>
-				<th title="Programs">Remote Queue</th>
+				<fmt:message key="pmmodule.admin.programEdit.queue.titlePrograms" var="titlePrograms"/>
+<th title="${carlos:forHtmlAttribute(titlePrograms)}"><fmt:message key="pmmodule.admin.programEdit.queue.thRemoteQueue"/></th>
 			</tr>
 		</table>
 	</div>
 	<!--  show current clients -->
 	<display:table class="simple" cellspacing="2" cellpadding="3" id="queue_entry" name="remoteQueue" export="false" pagesize="0" requestURI="/PMmodule/ProgramManager">
 		<display:setProperty name="paging.banner.placement" value="bottom" />
-		<display:setProperty name="basic.msg.empty_list" value="Queue is empty." />
+		<fmt:message key="pmmodule.admin.programEdit.queue.emptyList" var="emptyListMsg"/>
+<display:setProperty name="basic.msg.empty_list" value="${emptyListMsg}"/>
 		<display:column sortable="false" title="">
-			<a href="javascript:void(0);" onclick="removeFromRemoteQueue('${carlos:forJavaScript(queue_entry.remoteReferral.remoteReferralId)}');return false;"> Remove </a>
+			<a href="javascript:void(0);" onclick="removeFromRemoteQueue('${carlos:forJavaScript(queue_entry.remoteReferral.remoteReferralId)}');return false;"><fmt:message key="pmmodule.admin.programEdit.queue.aRemove"/></a>
 		</display:column>
-		<display:column property="clientName" sortable="true" title="Client Name" />
-		<display:column property="remoteReferral.referralDate" sortable="true" title="Referral Date" />
-		<display:column property="providerName" sortable="true" title="Referring Provider" />
-		<display:column property="remoteReferral.reasonForReferral" sortable="true" title="Notes" />
+		<fmt:message key="pmmodule.admin.programEdit.queue.titleClientName" var="titleClientName"/>
+<display:column property="clientName" sortable="true" title="${carlos:forHtmlAttribute(titleClientName)}" />
+		<fmt:message key="pmmodule.admin.programEdit.queue.titleReferralDate" var="titleReferralDate"/>
+<display:column property="remoteReferral.referralDate" sortable="true" title="${carlos:forHtmlAttribute(titleReferralDate)}" />
+		<fmt:message key="pmmodule.admin.programEdit.queue.titleReferringProvider" var="titleReferringProvider"/>
+<display:column property="providerName" sortable="true" title="${carlos:forHtmlAttribute(titleReferringProvider)}" />
+		<fmt:message key="pmmodule.admin.programEdit.queue.titleNotes" var="titleNotes"/>
+<display:column property="remoteReferral.reasonForReferral" sortable="true" title="${carlos:forHtmlAttribute(titleNotes)}" />
 	</display:table>
 </c:if>

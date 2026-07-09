@@ -30,8 +30,15 @@
 
 
 <%@ include file="/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="java.util.ResourceBundle" %>
+<%
+    java.util.ResourceBundle oscarResources = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
+%>
 <c:url var="programManagerViewClientsUri" value="/PMmodule/ProgramManagerView">
     <c:param name="id" value="${requestScope.id}"/>
     <c:param name="tab" value="Clients"/>
@@ -88,7 +95,7 @@
                 var programId = programBox.options[programBox.selectedIndex].value;
                 programName = programBox.options[programBox.selectedIndex].text;
                 if (programId == 0) {
-                    alert('Please choose a Community Program from the list');
+                    alert('<%= SafeEncode.forJavaScript(oscarResources.getString("pmmodule.admin.programView.clients.alertChooseCommunity")) %>');
                     return;
                 }
             }
@@ -97,7 +104,7 @@
         }
 
         if (numClients == 0) {
-            alert('You have to select the clients');
+            alert('<%= SafeEncode.forJavaScript(oscarResources.getString("pmmodule.admin.programView.clients.alertSelectClients")) %>');
             return;
         }
 
@@ -124,7 +131,8 @@
 <div class="tabs" id="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="Programs">Clients</th>
+            <fmt:message key="pmmodule.admin.programView.clients.titlePrograms" var="titlePrograms"/>
+<th title="${carlos:forHtmlAttribute(titlePrograms)}"><fmt:message key="pmmodule.admin.programView.clients.thClients"/></th>
         </tr>
     </table>
 </div>
@@ -133,24 +141,29 @@
                id="admission" name="admissions" export="false" pagesize="0"
                requestURI="${programManagerViewClientsUri}">
     <display:setProperty name="paging.banner.placement" value="bottom"/>
-    <display:setProperty name="basic.msg.empty_list"
-                         value="No clients currently admitted to this program."/>
+    <fmt:message key="pmmodule.admin.programView.clients.emptyList" var="emptyListMsg"/>
+<display:setProperty name="basic.msg.empty_list" value="${emptyListMsg}"/>
     <display:column>
         <input type="checkbox" name="checked_${carlos:forHtmlAttribute(admission.id)}">
     </display:column>
-    <display:column property="client.formattedName" sortable="true"
-                    title="Name"/>
-    <display:column property="admissionDate" sortable="true"
-                    title="Admission Date"/>
+    <fmt:message key="pmmodule.admin.programView.clients.titleName" var="titleName"/>
+<display:column property="client.formattedName" sortable="true"
+                    title="${carlos:forHtmlAttribute(titleName)}"/>
+    <fmt:message key="pmmodule.admin.programView.clients.titleAdmissionDate" var="titleAdmissionDate"/>
+<display:column property="admissionDate" sortable="true"
+                    title="${carlos:forHtmlAttribute(titleAdmissionDate)}"/>
 
     <caisi:isModuleLoad moduleName="pmm.refer.temporaryAdmission.enabled">
-        <display:column property="temporaryAdmission" sortable="true"
-                        title="Temporary Admission"/>
+        <fmt:message key="pmmodule.admin.programView.clients.titleTemporaryAdmission" var="titleTemporaryAdmission"/>
+<display:column property="temporaryAdmission" sortable="true"
+                        title="${carlos:forHtmlAttribute(titleTemporaryAdmission)}"/>
     </caisi:isModuleLoad>
-    <display:column property="admissionNotes" sortable="true"
-                    title="Admission Notes"/>
+    <fmt:message key="pmmodule.admin.programView.clients.titleAdmissionNotes" var="titleAdmissionNotes"/>
+<display:column property="admissionNotes" sortable="true"
+                    title="${carlos:forHtmlAttribute(titleAdmissionNotes)}"/>
 
-    <display:column property="teamName" sortable="true" title="Team"/>
+    <fmt:message key="pmmodule.admin.programView.clients.titleTeam" var="titleTeam"/>
+<display:column property="teamName" sortable="true" title="${carlos:forHtmlAttribute(titleTeam)}"/>
 
     <display:column sortable="false" title="">
         <select name="x"
@@ -169,7 +182,8 @@
         </select>
     </display:column>
 
-    <display:column sortable="false" title="Status">
+    <fmt:message key="pmmodule.admin.programView.clients.titleStatus" var="titleStatus"/>
+<display:column sortable="false" title="${carlos:forHtmlAttribute(titleStatus)}">
         <select name="y"
                 onchange="assignStatus('${carlos:forJavaScript(admission.id)}',this);">
             <option value="0">&nbsp;</option>
@@ -191,11 +205,11 @@
 
 <c:if
         test="${requestScope.allowBatchDischarge == true and program.type eq 'Service'}">
-    <input type="button" value="Batch Discharge"
+    <input type="button" value="<fmt:message key='pmmodule.admin.programView.clients.btnBatchDischarge'/>"
            onclick="do_batch_discharge(false)"/>
 
     <!--
-    <input type="button" value="Batch Discharge To CAISI Service Program" onclick="do_batch_discharge(false,false)" />
+    <input type="button" value="<fmt:message key='pmmodule.admin.programView.clients.btnBatchDischargeCaisi'/>" onclick="do_batch_discharge(false,false)" />
     <select name="batch_discharge_program">
     <option value="0"></option>
     <c:forEach var="program" items="${servicePrograms}">
@@ -206,7 +220,7 @@
     </select>
     <br />
 
-    <input type="button" value="Batch Discharge To Community Program" onclick="do_batch_discharge(true,false)" />
+    <input type="button" value="<fmt:message key='pmmodule.admin.programView.clients.btnBatchDischargeCommunity'/>" onclick="do_batch_discharge(true,false)" />
     <select name="batch_discharge_community_program">
     <option value="0"></option>
     <c:forEach var="program" items="${communityPrograms}">

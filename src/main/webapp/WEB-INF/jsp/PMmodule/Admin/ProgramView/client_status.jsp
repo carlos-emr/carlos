@@ -23,10 +23,12 @@
  -->
 
 <%@ include file="/taglibs.jsp"%>
+<fmt:setBundle basename="oscarResources"/>
 <div class="tabs" id="tabs">
 <table cellpadding="3" cellspacing="0" border="0">
 	<tr>
-		<th title="Programs">Client Status Management</th>
+		<fmt:message key="pmmodule.admin.programView.clientStatus.titlePrograms" var="titlePrograms"/>
+<th title="${carlos:forHtmlAttribute(titlePrograms)}"><fmt:message key="pmmodule.admin.programView.clientStatus.thClientStatusManagement"/></th>
 	</tr>
 </table>
 </div>
@@ -35,7 +37,8 @@
 	id="status" name="client_statuses" export="false" pagesize="0"
 	requestURI="/PMmodule/ProgramManagerView">
 	<display:setProperty name="paging.banner.placement" value="bottom" />
-	<display:setProperty name="basic.msg.empty_list"
-		value="No statuses are currently defined for this program." />
-	<display:column property="name" sortable="true" title="Name" />
+	<fmt:message key="pmmodule.admin.programView.clientStatus.emptyList" var="emptyListMsg"/>
+<display:setProperty name="basic.msg.empty_list" value="${emptyListMsg}"/>
+	<fmt:message key="pmmodule.admin.programView.clientStatus.titleName" var="titleName"/>
+<display:column property="name" sortable="true" title="${carlos:forHtmlAttribute(titleName)}" />
 </display:table>

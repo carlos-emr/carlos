@@ -1,4 +1,10 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
+
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="java.util.ResourceBundle" %>
+<%
+    java.util.ResourceBundle oscarResources = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
+%>
 <%--
 
 
@@ -29,16 +35,17 @@
 
 --%>
 <%@ include file="/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 <script type="text/javascript">
     function saveProgram() {
         var maxAllowed = document.getElementById("program-maxAllowed").value;
         if (isNaN(maxAllowed) || Number(maxAllowed) <= 0) {
-            alert("Maximum participants must be a positive integer");
+            alert('<%= SafeEncode.forJavaScript(oscarResources.getString("pmmodule.admin.programEdit.general.alertMaxParticipants")) %>');
             return false;
         }
         var programName = document.getElementById("program-name").value;
         if (!programName || !programName.trim()) {
-            alert("The program name can not be blank.");
+            alert('<%= SafeEncode.forJavaScript(oscarResources.getString("pmmodule.admin.programEdit.general.alertNameBlank")) %>');
             return false;
         }
         return true;
@@ -94,17 +101,18 @@
     <div class="tabs">
         <table cellpadding="3" cellspacing="0" border="0">
             <tr>
-                <th title="Programs">General Information</th>
+                <fmt:message key="pmmodule.admin.programEdit.general.titlePrograms" var="titlePrograms"/>
+<th title="${carlos:forHtmlAttribute(titlePrograms)}"><fmt:message key="pmmodule.admin.programEdit.general.thGeneralInfo"/></th>
             </tr>
         </table>
     </div>
     <table width="100%" border="1" cellspacing="2" cellpadding="3">
         <tr class="b">
-            <td width="20%">Name:</td>
+            <td width="20%"><fmt:message key='pmmodule.admin.programEdit.general.tdName'/></td>
             <td><input type="text" name="program.name" id="program-name" size="30" maxlength="70" value="${carlos:forHtmlAttribute(program.name)}"/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Facility:</td>
+            <td width="20%"><fmt:message key='pmmodule.admin.programEdit.general.tdFacility'/></td>
             <td>
                 <select name="program.facilityId">
                     <c:forEach var="facility" items="${facilities}">
@@ -116,11 +124,11 @@
             </td>
         </tr>
         <tr class="b">
-            <td width="20%">Description:</td>
+            <td width="20%"><fmt:message key='pmmodule.admin.programEdit.general.tdDescription'/></td>
             <td><input type="text" name="program.description" size="30" maxlength="255" value="${carlos:forHtmlAttribute(program.description)}"/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Functional Centre:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.programEdit.general.tdFunctionalCentre"/></td>
             <td>
                 <select name="program.functionalCentreId">
                     <option value="">&nbsp;</option>
@@ -133,35 +141,35 @@
             </td>
         </tr>
         <tr class="b">
-            <td width="20%">HIC:</td>
+            <td width="20%"><fmt:message key='pmmodule.admin.programEdit.general.tdHic'/></td>
             <td><input type="checkbox" name="program.hic" <c:if test="${program.hic}">checked</c:if>/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Address:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.programEdit.general.tdAddress"/></td>
             <td><input type="text" name="program.address" size="30" maxlength="255" value="${carlos:forHtmlAttribute(program.address)}"/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Phone:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.programEdit.general.tdPhone"/></td>
             <td><input type="text" name="program.phone" size="30" maxlength="25" value="${carlos:forHtmlAttribute(program.phone)}"/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Fax:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.programEdit.general.tdFax"/></td>
             <td><input type="text" name="program.fax" size="30" maxlength="25" value="${carlos:forHtmlAttribute(program.fax)}"/></td>
         </tr>
         <tr class="b">
-            <td width="20%">URL:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.programEdit.general.tdUrl"/></td>
             <td><input type="text" name="program.url" size="30" maxlength="100" value="${carlos:forHtmlAttribute(program.url)}"/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Email:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.programEdit.general.tdEmail"/></td>
             <td><input type="text" name="program.email" size="30" maxlength="50" value="${carlos:forHtmlAttribute(program.email)}"/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Emergency Number:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.programEdit.general.tdEmergencyNumber"/></td>
             <td><input type="text" name="program.emergencyNumber" size="30" maxlength="25" value="${carlos:forHtmlAttribute(program.emergencyNumber)}"/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Type:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.programEdit.general.tdType"/></td>
             <td>
                 <select name="program.type">
                     <option value="Bed" <c:if test="${program.type == 'Bed'}">selected</c:if>>Bed</option>
@@ -174,7 +182,7 @@
             </td>
         </tr>
         <tr class="b">
-            <td width="20%">Status:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.programEdit.general.tdStatus"/></td>
             <td>
                 <select name="program.programStatus">
                     <option value="active" <c:if test="${program.programStatus == 'active'}">selected</c:if>>active</option>
@@ -183,27 +191,27 @@
             </td>
         </tr>
         <tr class="b">
-            <td width="20%">Location:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.programEdit.general.tdLocation"/></td>
             <td><input type="text" name="program.location" size="30" maxlength="70" value="${carlos:forHtmlAttribute(program.location)}"/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Max Participants:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.programEdit.general.tdMaxParticipants"/></td>
             <td><input type="text" name="program.maxAllowed" id="program-maxAllowed" size="8" maxlength="8" value="${carlos:forHtmlAttribute(program.maxAllowed)}"/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Holding Tank:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.programEdit.general.tdHoldingTank"/></td>
             <td><input type="checkbox" name="program.holdingTank" <c:if test="${program.holdingTank}">checked</c:if>/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Allow Batch Admissions:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.programEdit.general.tdAllowBatchAdmissions"/></td>
             <td><input type="checkbox" name="program.allowBatchAdmission" <c:if test="${program.allowBatchAdmission}">checked</c:if>/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Allow Batch Discharges:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.programEdit.general.tdAllowBatchDischarges"/></td>
             <td><input type="checkbox" name="program.allowBatchDischarge" <c:if test="${program.allowBatchDischarge}">checked</c:if>/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Man or Woman:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.programEdit.general.tdManOrWoman"/></td>
             <td>
                 <select name="program.manOrWoman">
                     <option value="" <c:if test="${empty program.manOrWoman}">selected</c:if>>&nbsp;</option>
@@ -213,19 +221,19 @@
             </td>
         </tr>
         <tr class="b">
-            <td width="20%">Transgender:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.programEdit.general.tdTransgender"/></td>
             <td><input type="checkbox" name="program.transgender" <c:if test="${program.transgender}">checked</c:if>/></td>
         </tr>
         <tr class="b">
-            <td width="20%">First Nation:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.programEdit.general.tdFirstNation"/></td>
             <td><input type="checkbox" name="program.firstNation" <c:if test="${program.firstNation}">checked</c:if>/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Alcohol:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.programEdit.general.tdAlcohol"/></td>
             <td><input type="checkbox" name="program.alcohol" <c:if test="${program.alcohol}">checked</c:if>/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Abstinence Support?</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.programEdit.general.tdAbstinenceSupport"/></td>
             <td>
                 <select name="program.abstinenceSupport">
                     <option value="" <c:if test="${empty program.abstinenceSupport}">selected</c:if>>&nbsp;</option>
@@ -236,19 +244,19 @@
             </td>
         </tr>
         <tr class="b">
-            <td width="20%">Physical Health:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.programEdit.general.tdPhysicalHealth"/></td>
             <td><input type="checkbox" name="program.physicalHealth" <c:if test="${program.physicalHealth}">checked</c:if>/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Mental Health:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.programEdit.general.tdMentalHealth"/></td>
             <td><input type="checkbox" name="program.mentalHealth" <c:if test="${program.mentalHealth}">checked</c:if>/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Housing:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.programEdit.general.tdHousing"/></td>
             <td><input type="checkbox" name="program.housing" <c:if test="${program.housing}">checked</c:if>/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Exclusive View:</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.programEdit.general.tdExclusiveView"/></td>
             <td>
                 <select name="program.exclusiveView">
                     <option value="no" <c:if test="${program.exclusiveView == 'no'}">selected</c:if>>No</option>
@@ -259,24 +267,24 @@
             </td>
         </tr>
         <tr class="b">
-            <td width="20%">Minimum Age (inclusive):</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.programEdit.general.tdMinAge"/></td>
             <td><input type="text" name="program.ageMin" size="8" maxlength="8" value="${carlos:forHtmlAttribute(program.ageMin)}"/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Maximum Age (inclusive):</td>
+            <td width="20%"><fmt:message key="pmmodule.admin.programEdit.general.tdMaxAge"/></td>
             <td><input type="text" name="program.ageMax" size="8" maxlength="8" value="${carlos:forHtmlAttribute(program.ageMax)}"/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Enable Mandatory Encounter Time in Encounter:</td>
+            <td width="20%"><fmt:message key='pmmodule.admin.programEdit.general.tdEnableMandatoryEncounter'/></td>
             <td><input type="checkbox" name="program.enableEncounterTime" <c:if test="${program.enableEncounterTime}">checked</c:if>/></td>
         </tr>
         <tr class="b">
-            <td width="20%">Enable Mandatory Transportation Time in Encounter:</td>
+            <td width="20%"><fmt:message key='pmmodule.admin.programEdit.general.tdEnableMandatoryTransportation'/></td>
             <td><input type="checkbox" name="program.enableEncounterTransportationTime" <c:if test="${program.enableEncounterTransportationTime}">checked</c:if>/></td>
         </tr>
         <tr>
             <td colspan="2">
-                <input type="submit" value="Save" onclick="return saveProgram();"/>
+                <input type="submit" value="<fmt:message key='pmmodule.admin.programEdit.general.btnSave'/>" onclick="return saveProgram();"/>
                 <button type="button" onclick="window.location.href='${pageContext.request.contextPath}/PMmodule/ProgramManager?method=list';">Return to program list</button>
             </td>
         </tr>
@@ -287,16 +295,17 @@
     <div class="tabs">
         <table cellpadding="3" cellspacing="0" border="0">
             <tr>
-                <th title="signatures">Signature</th>
+                <fmt:message key="pmmodule.admin.programEdit.general.titleSignatures" var="titleSignatures"/>
+<th title="${carlos:forHtmlAttribute(titleSignatures)}"><fmt:message key="pmmodule.admin.programEdit.general.thSignature"/></th>
             </tr>
         </table>
     </div>
     <table width="100%" border="1" cellspacing="2" cellpadding="3">
         <tr class="b">
             <td>&nbsp;</td>
-            <td>Provider Name</td>
-            <td>Role</td>
-            <td>Date</td>
+            <td><fmt:message key="pmmodule.admin.programEdit.general.tdProviderName"/></td>
+            <td><fmt:message key="pmmodule.admin.programEdit.general.tdRole"/></td>
+            <td><fmt:message key="pmmodule.admin.programEdit.general.tdDate"/></td>
         </tr>
         <tr class="b">
             <td>

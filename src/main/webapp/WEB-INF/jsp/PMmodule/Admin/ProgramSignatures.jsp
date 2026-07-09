@@ -28,6 +28,7 @@
 
 --%>
 <%@ include file="/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ page import="java.util.List" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <c:url var="programSignaturesUri" value="/PMmodule/ProgramManager">
@@ -35,7 +36,7 @@
     <c:param name="programId" value="${param.programId}"/>
 </c:url>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
-<html>
+<html lang="${pageContext.request.locale.language}">
     <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -48,28 +49,31 @@
                    name="programSignatures" export="false" pagesize="0"
                    requestURI="${programSignaturesUri}">
 
-        <display:column property="providerName" style="white-space: nowrap;"
-                        sortable="true" title="Provider Name"></display:column>
-        <display:column property="caisiRoleName" style="white-space: nowrap;"
-                        sortable="true" title="Role"></display:column>
-        <display:column property="updateDate" style="white-space: nowrap;"
-                        sortable="true" title="Date"></display:column>
+        <fmt:message key="pmmodule.admin.programSignatures.titleProviderName" var="titleProviderName"/>
+<display:column property="providerName" style="white-space: nowrap;"
+                        sortable="true" title="${carlos:forHtmlAttribute(titleProviderName)}"></display:column>
+        <fmt:message key="pmmodule.admin.programSignatures.titleRole" var="titleRole"/>
+<display:column property="caisiRoleName" style="white-space: nowrap;"
+                        sortable="true" title="${carlos:forHtmlAttribute(titleRole)}"></display:column>
+        <fmt:message key="pmmodule.admin.programSignatures.titleDate" var="titleDate"/>
+<display:column property="updateDate" style="white-space: nowrap;"
+                        sortable="true" title="${carlos:forHtmlAttribute(titleDate)}"></display:column>
     </display:table>
 
     </body>
 </html>
 <!--
-<input type="button" value="Back" onClick="history.go(-1)"/>
+<input type="button" value="<fmt:message key='pmmodule.admin.programSignatures.btnBack'/>" onClick="history.go(-1)"/>
 -->
 </br>
-<input type="button" value="Close" onClick="self.close()"/>
+<input type="button" value="<fmt:message key='pmmodule.admin.programSignatures.btnClose'/>" onClick="self.close()"/>
 <!--
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
 <tr class="b">
 <td>&nbsp;</td>
-<td>Provider Name</td>
-<td>Role</td>
-<td>Date</td>
+<td><fmt:message key="pmmodule.admin.programSignatures.tdProviderName"/></td>
+<td><fmt:message key="pmmodule.admin.programSignatures.tdRole"/></td>
+<td><fmt:message key="pmmodule.admin.programSignatures.tdDate"/></td>
 </tr>
 
 

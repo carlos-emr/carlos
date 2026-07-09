@@ -24,10 +24,12 @@
  -->
 
 <%@ include file="/taglibs.jsp"%>
+<fmt:setBundle basename="oscarResources"/>
 <div class="tabs" id="tabs">
 <table cellpadding="3" cellspacing="0" border="0">
 	<tr>
-		<th title="Programs">Access</th>
+		<fmt:message key="pmmodule.admin.programView.access.titlePrograms" var="titlePrograms"/>
+<th title="${carlos:forHtmlAttribute(titlePrograms)}"><fmt:message key="pmmodule.admin.programView.access.thAccess"/></th>
 	</tr>
 </table>
 </div>
@@ -35,12 +37,16 @@
 	id="access" name="accesses" export="false" pagesize="0"
 	requestURI="/PMmodule/ProgramManagerView">
 	<display:setProperty name="paging.banner.placement" value="bottom" />
-	<display:setProperty name="basic.msg.empty_list"
-		value="No access currently defined for this program." />
-	<display:column property="accessType.name" sortable="true" title="Name" />
-	<display:column property="accessType.type" sortable="true" title="Type" />
-	<display:column property="allRoles" sortable="true" title="All Roles" />
-	<display:column sortable="true" title="Role(s)">
+	<fmt:message key="pmmodule.admin.programView.access.emptyList" var="emptyListMsg"/>
+<display:setProperty name="basic.msg.empty_list" value="${emptyListMsg}"/>
+	<fmt:message key="pmmodule.admin.programView.access.titleName" var="titleName"/>
+<display:column property="accessType.name" sortable="true" title="${carlos:forHtmlAttribute(titleName)}" />
+	<fmt:message key="pmmodule.admin.programView.access.titleType" var="titleType"/>
+<display:column property="accessType.type" sortable="true" title="${carlos:forHtmlAttribute(titleType)}" />
+	<fmt:message key="pmmodule.admin.programView.access.titleAllRoles" var="titleAllRoles"/>
+<display:column property="allRoles" sortable="true" title="${carlos:forHtmlAttribute(titleAllRoles)}" />
+	<fmt:message key="pmmodule.admin.programView.access.titleRoles" var="titleRoles"/>
+<display:column sortable="true" title="${carlos:forHtmlAttribute(titleRoles)}">
 		<ul>
 			<c:forEach var="role" items="${access.roles}">
 				<li>${carlos:forHtml(role.name)}</li>

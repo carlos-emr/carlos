@@ -1,4 +1,10 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
+
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="java.util.ResourceBundle" %>
+<%
+    java.util.ResourceBundle oscarResources = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
+%>
 <%--
 
 
@@ -29,6 +35,7 @@
 
 --%>
 <%@ include file="/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ include file="/WEB-INF/jsp/common/messages.jsp" %>
 <c:url var="programListUri" value="/PMmodule/ProgramManager">
     <c:param name="method" value="list"/>
@@ -44,14 +51,15 @@
 </c:url>
 <script type="text/javascript">
     function confirmDelete(name) {
-        return confirm("Are you sure you want to delete " + name + " ?");
+        return confirm('<%= SafeEncode.forJavaScript(oscarResources.getString("pmmodule.admin.programManagerList.confirmDelete")) %>' + " " + name + " ?");
     }
 </script>
 
 <div class="tabs" id="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="Programs">Programs</th>
+            <fmt:message key="pmmodule.admin.programManagerList.titlePrograms" var="titlePrograms"/>
+<th title="${carlos:forHtmlAttribute(titlePrograms)}"><fmt:message key="pmmodule.admin.programManagerList.thPrograms"/></th>
         </tr>
     </table>
 </div>
@@ -61,9 +69,9 @@
     <table class="simple" cellspacing="2" cellpadding="3" width="100%">
         <thead>
             <tr>
-                <th>Status</th>
-                <th>Type</th>
-                <th>Facility</th>
+                <th><fmt:message key="pmmodule.admin.programManagerList.thStatus"/></th>
+                <th><fmt:message key="pmmodule.admin.programManagerList.thType"/></th>
+                <th><fmt:message key="pmmodule.admin.programManagerList.thFacility"/></th>
                 <th>&nbsp;</th>
             </tr>
         </thead>
@@ -97,7 +105,7 @@
                         </c:forEach>
                     </select>
                 </td>
-                <td><input type="submit" value="Search"/></td>
+                <td><input type="submit" value="<fmt:message key='pmmodule.admin.programManagerList.btnSearch'/>"/></td>
             </tr>
         </tbody>
     </table>
@@ -109,35 +117,42 @@
     <display:setProperty name="paging.banner.placement" value="bottom"/>
     <display:setProperty name="paging.banner.item_name" value="program"/>
     <display:setProperty name="paging.banner.items_name" value="programs"/>
-    <display:setProperty name="basic.msg.empty_list" value="No programs found."/>
+    <fmt:message key="pmmodule.admin.programManagerList.emptyList" var="emptyListMsg"/>
+<display:setProperty name="basic.msg.empty_list" value="${emptyListMsg}"/>
 
     <display:column sortable="false" title="">
         <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=delete&amp;id=${carlos:forUriComponent(program.id)}&amp;name=${carlos:forUriComponent(program.name)}"
-           onclick="return confirmDelete('${carlos:forJavaScript(program.name)}');">Delete</a>
+           onclick="return confirmDelete('${carlos:forJavaScript(program.name)}');"><fmt:message key="pmmodule.admin.programManagerList.aDelete"/></a>
     </display:column>
     <display:column sortable="false" title="">
         <c:choose>
             <c:when test="${program.programStatus == 'active'}">
-                <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=${carlos:forUriComponent(program.id)}">Edit</a>
+                <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=${carlos:forUriComponent(program.id)}"><fmt:message key="pmmodule.admin.programManagerList.aEdit"/></a>
             </c:when>
             <c:otherwise>Edit</c:otherwise>
         </c:choose>
     </display:column>
-    <display:column sortable="true" title="Name">
+    <fmt:message key="pmmodule.admin.programManagerList.titleName" var="titleName"/>
+<display:column sortable="true" title="${carlos:forHtmlAttribute(titleName)}">
         <a href="${pageContext.request.contextPath}/PMmodule/ProgramManagerView?id=${carlos:forUriComponent(program.id)}">
             ${carlos:forHtml(program.name)}
         </a>
     </display:column>
-    <display:column property="description" sortable="true" title="Description"/>
-    <display:column property="type" sortable="true" title="Type"/>
-    <display:column property="programStatus" sortable="true" title="Status"/>
-    <display:column property="location" sortable="true" title="Location"/>
-    <display:column sortable="true" title="Participation">
+    <fmt:message key="pmmodule.admin.programManagerList.titleDescription" var="titleDescription"/>
+<display:column property="description" sortable="true" title="${carlos:forHtmlAttribute(titleDescription)}"/>
+    <fmt:message key="pmmodule.admin.programManagerList.titleType" var="titleType"/>
+<display:column property="type" sortable="true" title="${carlos:forHtmlAttribute(titleType)}"/>
+    <fmt:message key="pmmodule.admin.programManagerList.titleStatus" var="titleStatus"/>
+<display:column property="programStatus" sortable="true" title="${carlos:forHtmlAttribute(titleStatus)}"/>
+    <fmt:message key="pmmodule.admin.programManagerList.titleLocation" var="titleLocation"/>
+<display:column property="location" sortable="true" title="${carlos:forHtmlAttribute(titleLocation)}"/>
+    <fmt:message key="pmmodule.admin.programManagerList.titleParticipation" var="titleParticipation"/>
+<display:column sortable="true" title="${carlos:forHtmlAttribute(titleParticipation)}">
         ${carlos:forHtml(program.numOfMembers)}/${carlos:forHtml(program.maxAllowed)}
         (${carlos:forHtml(program.queueSize)} waiting)
     </display:column>
 </display:table>
 
 <div>
-    <p><a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=add">Add new program</a></p>
+    <p><a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=add"><fmt:message key="pmmodule.admin.programManagerList.aAddNewProgram"/></a></p>
 </div>

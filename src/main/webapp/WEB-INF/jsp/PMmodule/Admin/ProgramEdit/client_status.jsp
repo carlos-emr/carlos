@@ -1,4 +1,10 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
+
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="java.util.ResourceBundle" %>
+<%
+    java.util.ResourceBundle oscarResources = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
+%>
 <!-- 
 /*
 * 
@@ -24,9 +30,10 @@
  -->
 
 <%@ include file="/taglibs.jsp"%>
+<fmt:setBundle basename="oscarResources"/>
 <script>
 function deleteStatus(id) {
-	if(!confirm("Are you sure you want to delete the status entry?")) {
+	if(!confirm('<%= SafeEncode.forJavaScript(oscarResources.getString("pmmodule.admin.programEdit.clientStatus.confirmDelete")) %>')) {
 		return;
 	}
 	document.programManagerForm.elements['client_status.id'].value=id;
@@ -42,7 +49,7 @@ function editStatus(id) {
 
 function add_status(form) {
 	if (form.elements['client_status.name'].value == '') {
-		alert('You must choose a status name');
+		alert('<%= SafeEncode.forJavaScript(oscarResources.getString("pmmodule.admin.programEdit.clientStatus.alertChooseName")) %>');
 		return false;
 	}
 	
@@ -54,29 +61,32 @@ function add_status(form) {
 <div class="tabs">
 <table cellpadding="3" cellspacing="0" border="0">
 	<tr>
-		<th title="Programs">Client Status</th>
+		<fmt:message key="pmmodule.admin.programEdit.clientStatus.titlePrograms" var="titlePrograms"/>
+<th title="${carlos:forHtmlAttribute(titlePrograms)}"><fmt:message key="pmmodule.admin.programEdit.clientStatus.thClientStatus"/></th>
 	</tr>
 </table>
 </div>
 <!--  show current staff -->
 <display:table class="simple" cellspacing="2" cellpadding="3" id="status" name="client_statuses" export="false" pagesize="0" requestURI="/PMmodule/ProgramManager">
 	<display:setProperty name="paging.banner.placement" value="bottom" />
-	<display:setProperty name="basic.msg.empty_list" value="No statuses are currently defined for this program." />
+	<fmt:message key="pmmodule.admin.programEdit.clientStatus.emptyList" var="emptyListMsg"/>
+<display:setProperty name="basic.msg.empty_list" value="${emptyListMsg}"/>
 	<display:column sortable="false" title="">
-		<a onclick="deleteStatus('${carlos:forJavaScript(status.id)}');return false;" href="javascript:void(0);"> Delete </a>
+		<a onclick="deleteStatus('${carlos:forJavaScript(status.id)}');return false;" href="javascript:void(0);"><fmt:message key="pmmodule.admin.programEdit.clientStatus.aDelete"/></a>
 	</display:column>
-	<display:column property="name" sortable="true" title="Name" />	
+	<fmt:message key="pmmodule.admin.programEdit.clientStatus.titleName" var="titleName"/>
+<display:column property="name" sortable="true" title="${carlos:forHtmlAttribute(titleName)}" />
 </display:table>
 <br />
 <html:hidden property="client_status.id" />
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
 	<tr class="b">
-		<td width="20%">Name:</td>
+		<td width="20%"><fmt:message key='pmmodule.admin.programEdit.clientStatus.tdName'/></td>
 		<td><html:text property="client_status.name" size="50" maxlength="255"/></td>
 	</tr>
 	<tr>
 		<td colspan="2">
-			<input type="button" value="Save" onclick="add_status(this.form)" /> <html:cancel />
+			<input type="button" value="<fmt:message key='pmmodule.admin.programEdit.clientStatus.btnSave'/>" onclick="add_status(this.form)" /> <html:cancel />
 		</td>
 	</tr>
 </table>

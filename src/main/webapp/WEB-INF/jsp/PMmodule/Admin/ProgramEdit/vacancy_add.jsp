@@ -40,6 +40,7 @@
 <%@page import="org.apache.commons.lang3.time.DateFormatUtils" %>
 <%@page import="java.text.SimpleDateFormat" %>
 <%@ include file="/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%
     List<Criteria> criterias = new ArrayList<Criteria>();
@@ -115,7 +116,8 @@
 <div class="tabs" id="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="Templates">Vacancies</th>
+            <fmt:message key="pmmodule.admin.programEdit.vacancyAdd.titleTemplates" var="titleTemplates"/>
+<th title="${carlos:forHtmlAttribute(titleTemplates)}"><fmt:message key="pmmodule.admin.programEdit.vacancyAdd.thVacancies"/></th>
         </tr>
     </table>
 </div>
@@ -123,7 +125,7 @@
 <input type="hidden" name="vacancyId" id="vacancyId" value="<%=vacancyId%>"/>
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
     <tr class="b">
-        <td width="30%" class="beright">Requirement Template:</td>
+        <td width="30%" class="beright"><fmt:message key="pmmodule.admin.programEdit.vacancyAdd.tdRequirementTemplate"/></td>
         <td><select name="requiredVacancyTemplateId" onchange="chooseTemplate(this);" <%=dontSave ? "disabled" : "" %>>
             <option value="0">&nbsp;</option>
             <%
@@ -144,7 +146,7 @@
         </select></td>
     </tr>
     <tr class="b">
-        <td class="beright">Vacancy Name:</td>
+        <td class="beright"><fmt:message key="pmmodule.admin.programEdit.vacancyAdd.tdVacancyName"/></td>
         <td><input type="text" name="vacancyName" value="<%= vacancyName %>" size="40" <%=dontSave ? "disabled" : "" %>/></td>
     </tr>
 </table>
@@ -161,7 +163,7 @@
 
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
     <tr class="b">
-        <td width="30%" class="beright">Status:</td>
+        <td width="30%" class="beright"><fmt:message key="pmmodule.admin.programEdit.vacancyAdd.tdStatus"/></td>
         <td><select name="vacancyStatus">
             <option value="Active" <%=(vacancyStatus.equalsIgnoreCase("Active")) ? "selected" : "" %>>Active</option>
             <option value="Withdrawn" <%=(vacancyStatus.equalsIgnoreCase("Withdrawn")) ? "selected" : "" %>>Withdrawn</option>
@@ -169,7 +171,7 @@
         </select></td>
     </tr>
     <tr class="b">
-        <td class="beright">Date Closed:</td>
+        <td class="beright"><fmt:message key="pmmodule.admin.programEdit.vacancyAdd.tdDateClosed"/></td>
         <td><input type="text" name="dateClosed" id="dateClosed" value="<%= dateClosed %>" size="10"><img
                 src="<%=request.getContextPath()%>/images/cal.gif" id="dateClosed_cal"></td>
         <script type="text/javascript">
@@ -184,7 +186,7 @@
         </script>
     </tr>
     <tr class="b">
-        <td class="beright">Reason Closed:</td>
+        <td class="beright"><fmt:message key="pmmodule.admin.programEdit.vacancyAdd.tdReasonClosed"/></td>
         <td><input type="text" name="reasonClosed" size="100" value="<%= reasonClosed %>"/></td>
     </tr>
 </table>
@@ -192,8 +194,8 @@
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
     <tr>
         <td colspan="2">
-            <input type="button" value="Save" onclick="return save()"/>
-            <input type="button" value="Cancel" onclick="return cancel2()"/>
+            <input type="button" value="<fmt:message key='pmmodule.admin.programEdit.vacancyAdd.btnSave'/>" onclick="return save()"/>
+            <input type="button" value="<fmt:message key='pmmodule.admin.programEdit.vacancyAdd.btnCancel'/>" onclick="return cancel2()"/>
         </td>
     </tr>
 </table>

@@ -28,6 +28,7 @@
 
 --%>
 <%@ include file="/taglibs.jsp" %>
+<fmt:setBundle basename="oscarResources"/>
 <c:url var="programManagerViewFunctionUsersUri" value="/PMmodule/ProgramManagerView">
     <c:param name="id" value="${requestScope.id}"/>
     <c:param name="tab" value="Function User"/>
@@ -35,7 +36,8 @@
 <div class="tabs" id="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="Programs">Function User</th>
+            <fmt:message key="pmmodule.admin.programView.functionUser.titlePrograms" var="titlePrograms"/>
+<th title="${carlos:forHtmlAttribute(titlePrograms)}"><fmt:message key="pmmodule.admin.programView.functionUser.thFunctionUser"/></th>
         </tr>
     </table>
 </div>
@@ -43,10 +45,12 @@
                id="functional" name="functional_users" export="false" pagesize="0"
                requestURI="${programManagerViewFunctionUsersUri}">
     <display:setProperty name="paging.banner.placement" value="bottom"/>
-    <display:setProperty name="basic.msg.empty_list"
-                         value="No functional users defined for this program"/>
-    <display:column property="userType.name" sortable="true"
-                    title="User Type"/>
-    <display:column property="provider.formattedName" sortable="true"
-                    title="Provider Name"/>
+    <fmt:message key="pmmodule.admin.programView.functionUser.emptyList" var="emptyListMsg"/>
+<display:setProperty name="basic.msg.empty_list" value="${emptyListMsg}"/>
+    <fmt:message key="pmmodule.admin.programView.functionUser.titleUserType" var="titleUserType"/>
+<display:column property="userType.name" sortable="true"
+                    title="${carlos:forHtmlAttribute(titleUserType)}"/>
+    <fmt:message key="pmmodule.admin.programView.functionUser.titleProviderName" var="titleProviderName"/>
+<display:column property="provider.formattedName" sortable="true"
+                    title="${carlos:forHtmlAttribute(titleProviderName)}"/>
 </display:table>

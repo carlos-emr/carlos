@@ -1,4 +1,10 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
+
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="java.util.ResourceBundle" %>
+<%
+    java.util.ResourceBundle oscarResources = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
+%>
 <!-- 
 /*
 * 
@@ -23,9 +29,10 @@
 */
  -->
 <%@ include file="/taglibs.jsp"%>
+<fmt:setBundle basename="oscarResources"/>
 <script>
 function deleteTeam(id) {
-	if(!confirm("Are you sure you want to delete the team entry?")) {
+	if(!confirm('<%= SafeEncode.forJavaScript(oscarResources.getString("pmmodule.admin.programEdit.teams.confirmDelete")) %>')) {
 		return;
 	}
 	document.programManagerForm.elements['team.id'].value=id;
@@ -41,7 +48,7 @@ function editTeam(id) {
 
 function add_team(form) {
 	if (form.elements['team.name'].value == '') {
-		alert('You must choose a team name');
+		alert('<%= SafeEncode.forJavaScript(oscarResources.getString("pmmodule.admin.programEdit.teams.alertChooseName")) %>');
 		return false;
 	}
 	
@@ -53,26 +60,31 @@ function add_team(form) {
 <div class="tabs">
 <table cellpadding="3" cellspacing="0" border="0">
 	<tr>
-		<th title="Programs">Team Management</th>
+		<fmt:message key="pmmodule.admin.programEdit.teams.titlePrograms" var="titlePrograms"/>
+<th title="${carlos:forHtmlAttribute(titlePrograms)}"><fmt:message key="pmmodule.admin.programEdit.teams.thTeamManagement"/></th>
 	</tr>
 </table>
 </div>
 <!--  show current staff -->
 <display:table class="simple" cellspacing="2" cellpadding="3" id="team" name="teams" export="false" pagesize="0" requestURI="/PMmodule/ProgramManager">
 	<display:setProperty name="paging.banner.placement" value="bottom" />
-	<display:setProperty name="basic.msg.empty_list" value="No teams are currently defined for this program." />
+	<fmt:message key="pmmodule.admin.programEdit.teams.emptyList" var="emptyListMsg"/>
+<display:setProperty name="basic.msg.empty_list" value="${emptyListMsg}"/>
 	<display:column sortable="false" title="">
-		<a onclick="deleteTeam('${carlos:forJavaScript(team.id)}');return false;" href="javascript:void(0);"> Delete </a>
+		<a onclick="deleteTeam('${carlos:forJavaScript(team.id)}');return false;" href="javascript:void(0);"><fmt:message key="pmmodule.admin.programEdit.teams.aDelete"/></a>
 	</display:column>
-	<display:column property="name" sortable="true" title="Name" />
-	<display:column sortable="true" title="Staff">
+	<fmt:message key="pmmodule.admin.programEdit.teams.titleName" var="titleName"/>
+<display:column property="name" sortable="true" title="${carlos:forHtmlAttribute(titleName)}" />
+	<fmt:message key="pmmodule.admin.programEdit.teams.titleStaff" var="titleStaff"/>
+<display:column sortable="true" title="${carlos:forHtmlAttribute(titleStaff)}">
 		<ul>
 			<c:forEach var="provider" items="${team.providers}">
 				<li>${carlos:forHtml(provider.provider.formattedName)} (${carlos:forHtml(provider.role.name)})</li>
 			</c:forEach>
 		</ul>
 	</display:column>
-	<display:column sortable="true" title="Clients">
+	<fmt:message key="pmmodule.admin.programEdit.teams.titleClients" var="titleClients"/>
+<display:column sortable="true" title="${carlos:forHtmlAttribute(titleClients)}">
 		<ul>
 			<c:forEach var="admission" items="${team.admissions}">
 				<li>${carlos:forHtml(admission.client.formattedName)}</li>
@@ -84,10 +96,10 @@ function add_team(form) {
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
 	<html:hidden property="team.id" />
 	<tr class="b">
-		<td width="20%">Name:</td>
+		<td width="20%"><fmt:message key='pmmodule.admin.programEdit.teams.tdName'/></td>
 		<td><html:text property="team.name" size="50" maxlength="255"/></td>
 	</tr>
 	<tr>
-		<td colspan="2"><input type="button" value="Save" onclick="add_team(this.form)" /> <html:cancel /></td>
+		<td colspan="2"><input type="button" value="<fmt:message key='pmmodule.admin.programEdit.teams.btnSave'/>" onclick="add_team(this.form)" /> <html:cancel /></td>
 	</tr>
 </table>
