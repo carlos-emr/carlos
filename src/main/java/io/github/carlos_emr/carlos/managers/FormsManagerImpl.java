@@ -34,6 +34,7 @@ package io.github.carlos_emr.carlos.managers;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -56,6 +57,8 @@ import org.springframework.stereotype.Service;
 
 import io.github.carlos_emr.carlos.documentManager.ConvertToEdoc;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
+import io.github.carlos_emr.carlos.form.data.FrmData;
+import io.github.carlos_emr.carlos.form.gate.FormViewRoutes;
 import io.github.carlos_emr.carlos.form.util.FormTransportContainer;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
@@ -304,6 +307,7 @@ public class FormsManagerImpl implements FormsManager {
                 : form.getFormName();
         String demographicNo = request.getParameter("demographicNo") != null ? request.getParameter("demographicNo")
                 : form.getDemoNo();
+        assertFormForwardPathResolvable(demographicNo, formName);
         String formPath = "/form/forwardshortcutname?method=fetch&formname=" + formName + "&demographic_no="
                 + demographicNo + "&formId=" + formId;
         FormTransportContainer formTransportContainer = null;
@@ -319,6 +323,25 @@ public class FormsManagerImpl implements FormsManager {
                     e);
         }
         return formTransportContainer;
+    }
+
+    private void assertFormForwardPathResolvable(String demographicNo, String formName) throws PDFGenerationException {
+        try {
+            String[] formPath = new FrmData().getShortcutFormValue(demographicNo, formName);
+            if (formPath == null || formPath.length == 0 || FormViewRoutes.resolveActionPath(formPath[0]) == null) {
+                throw unrenderableFormException(formName, null);
+            }
+        } catch (SQLException | IllegalArgumentException e) {
+            throw unrenderableFormException(formName, e);
+        }
+    }
+
+    private PDFGenerationException unrenderableFormException(String formName, Exception cause) {
+        String message = "Error Details: Form [" + formName + "] could not be converted into a PDF";
+        if (cause == null) {
+            return new PDFGenerationException(message);
+        }
+        return new PDFGenerationException(message, cause);
     }
 
     /**

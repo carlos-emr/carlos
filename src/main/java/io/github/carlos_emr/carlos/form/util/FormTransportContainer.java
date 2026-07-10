@@ -34,12 +34,17 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 
 import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.WriteListener;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletRequestWrapper;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpServletResponseWrapper;
 
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
+import org.apache.struts2.ActionContext;
+import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.documentManager.ConvertToEdoc.DocumentType;
 
@@ -51,7 +56,7 @@ import io.github.carlos_emr.carlos.documentManager.ConvertToEdoc.DocumentType;
  */
 public class FormTransportContainer {
 
-    private HttpServletResponseWrapper responseWrapper;
+    private CapturingResponseWrapper responseWrapper;
 
     private HttpServletRequestWrapper requestWrapper;
     private final static DocumentType documentType = DocumentType.form;
@@ -63,7 +68,7 @@ public class FormTransportContainer {
     private String providerNo;
     private String demographicNo;
     private String formName;
-    private static String FORM_FORWARD_PATH = "/form/forwardshortcutname";
+    private static final String FORM_FORWARD_PATH = "/form/forwardshortcutname";
 
 //	private final Map<String, String[]> modifiableParameters;
 //	private Map<String, String[]> allParameters = new TreeMap<>();
@@ -71,26 +76,24 @@ public class FormTransportContainer {
     public FormTransportContainer(HttpServletResponse response,
                                   HttpServletRequest request, final String formPath) throws ServletException, IOException {
 
-        responseWrapper = new HttpServletResponseWrapper(response) {
-            private final StringWriter stringWriter = new StringWriter();
+        responseWrapper = new CapturingResponseWrapper(response);
 
-            @Override
-            public PrintWriter getWriter() throws IOException {
-                return new PrintWriter(stringWriter);
-            }
-
-            @Override
-            public String toString() {
-                return stringWriter.toString();
-            }
-
-        };
-
-        if (formPath != null) {
-            FORM_FORWARD_PATH = formPath;
+        String forwardPath = formPath != null ? formPath : FORM_FORWARD_PATH;
+        ActionContext actionContext = ActionContext.getContext();
+        HttpServletResponse previousResponse = actionContext == null ? null : ServletActionContext.getResponse();
+        if (actionContext != null) {
+            ServletActionContext.setResponse(responseWrapper);
         }
-
-        request.getRequestDispatcher(FORM_FORWARD_PATH).forward(request, responseWrapper);
+        try {
+            request.getRequestDispatcher(forwardPath).forward(request, responseWrapper);
+        } finally {
+            if (actionContext != null) {
+                ServletActionContext.setResponse(previousResponse);
+            }
+        }
+        if (responseWrapper.isErrorStatus()) {
+            throw new ServletException("Form rendering failed with HTTP status " + responseWrapper.getStatus());
+        }
 
         this.HTML = responseWrapper.toString();
         this.loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -161,6 +164,156 @@ public class FormTransportContainer {
 
     public String toString() {
         return ReflectionToStringBuilder.toString(this);
+    }
+
+    private static final class CapturingResponseWrapper extends HttpServletResponseWrapper {
+        private final StringWriter stringWriter = new StringWriter();
+        private final PrintWriter writer = new PrintWriter(stringWriter);
+        private final ServletOutputStream outputStream = new ServletOutputStream() {
+            @Override
+            public boolean isReady() {
+                return true;
+            }
+
+            @Override
+            public void setWriteListener(WriteListener writeListener) {
+            }
+
+            @Override
+            public void write(int value) {
+            }
+        };
+        private int status = HttpServletResponse.SC_OK;
+        private String contentType;
+        private String characterEncoding;
+
+        CapturingResponseWrapper(HttpServletResponse response) {
+            super(response);
+        }
+
+        @Override
+        public PrintWriter getWriter() throws IOException {
+            return writer;
+        }
+
+        @Override
+        public ServletOutputStream getOutputStream() {
+            return outputStream;
+        }
+
+        @Override
+        public void sendError(int statusCode) {
+            this.status = statusCode;
+        }
+
+        @Override
+        public void sendError(int statusCode, String message) {
+            this.status = statusCode;
+        }
+
+        @Override
+        public void sendRedirect(String location) {
+            this.status = HttpServletResponse.SC_FOUND;
+        }
+
+        @Override
+        public void setStatus(int statusCode) {
+            this.status = statusCode;
+        }
+
+        @Override
+        public int getStatus() {
+            return status;
+        }
+
+        @Override
+        public void flushBuffer() {
+            writer.flush();
+        }
+
+        @Override
+        public void resetBuffer() {
+            stringWriter.getBuffer().setLength(0);
+        }
+
+        @Override
+        public void reset() {
+            resetBuffer();
+            status = HttpServletResponse.SC_OK;
+            contentType = null;
+            characterEncoding = null;
+        }
+
+        @Override
+        public boolean isCommitted() {
+            return false;
+        }
+
+        @Override
+        public void addCookie(Cookie cookie) {
+        }
+
+        @Override
+        public void setHeader(String name, String value) {
+        }
+
+        @Override
+        public void addHeader(String name, String value) {
+        }
+
+        @Override
+        public void setDateHeader(String name, long date) {
+        }
+
+        @Override
+        public void addDateHeader(String name, long date) {
+        }
+
+        @Override
+        public void setIntHeader(String name, int value) {
+        }
+
+        @Override
+        public void addIntHeader(String name, int value) {
+        }
+
+        @Override
+        public void setContentLength(int length) {
+        }
+
+        @Override
+        public void setContentLengthLong(long length) {
+        }
+
+        @Override
+        public void setContentType(String contentType) {
+            this.contentType = contentType;
+        }
+
+        @Override
+        public String getContentType() {
+            return contentType;
+        }
+
+        @Override
+        public void setCharacterEncoding(String characterEncoding) {
+            this.characterEncoding = characterEncoding;
+        }
+
+        @Override
+        public String getCharacterEncoding() {
+            return characterEncoding != null ? characterEncoding : super.getCharacterEncoding();
+        }
+
+        boolean isErrorStatus() {
+            return status >= HttpServletResponse.SC_BAD_REQUEST;
+        }
+
+        @Override
+        public String toString() {
+            writer.flush();
+            return stringWriter.toString();
+        }
     }
 
 }

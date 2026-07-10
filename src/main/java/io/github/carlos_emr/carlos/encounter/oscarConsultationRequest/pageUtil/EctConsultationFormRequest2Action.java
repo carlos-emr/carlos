@@ -56,9 +56,16 @@ import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 
 import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.WriteListener;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponseWrapper;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -560,7 +567,15 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                     if (signatureImageOverride != null && signatureImageOverride.length > 0) {
                         request.setAttribute(ConsultationSignatureService.SIGNATURE_IMAGE_OVERRIDE_ATTRIBUTE, signatureImageOverride);
                     }
-                    renderConsultationFormWithAttachments(request, response, requestId, demographicNo);
+                    request.setAttribute(DocumentAttachmentManager.SKIP_FORM_ATTACHMENT_RENDERING_ATTRIBUTE, Boolean.TRUE);
+                    HttpServletResponse renderResponse = createRenderOnlyResponse(response);
+                    HttpServletResponse previousResponse = ServletActionContext.getResponse();
+                    ServletActionContext.setResponse(renderResponse);
+                    try {
+                        renderConsultationFormWithAttachments(request, renderResponse, requestId, demographicNo);
+                    } finally {
+                        ServletActionContext.setResponse(previousResponse);
+                    }
                 }
             } catch (RuntimeException e) {
                 // Log the full exception server-side only; do not surface e.getMessage() to the
@@ -759,10 +774,13 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
             if (!response.isCommitted()) {
                 response.resetBuffer();
             }
+            response.setStatus(HttpServletResponse.SC_OK);
             response.setCharacterEncoding("UTF-8");
             response.setContentType("application/json;charset=UTF-8");
-            response.getWriter().write(json.toString());
-            response.getWriter().flush();
+            byte[] jsonBytes = json.toString().getBytes(StandardCharsets.UTF_8);
+            response.setContentLength(jsonBytes.length);
+            response.getOutputStream().write(jsonBytes);
+            response.getOutputStream().flush();
         } catch (IOException | IllegalStateException e) {
             // IOException: write/flush failed (often a client disconnect). IllegalStateException:
             // a response-pipeline state bug or a post-commit client disconnect.
@@ -776,6 +794,150 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                     logger.error("Unable to send error response for consultation print preview", sendErrorException);
                 }
             }
+        }
+    }
+
+    private HttpServletResponse createRenderOnlyResponse(HttpServletResponse response) {
+        return new RenderOnlyResponseWrapper(response);
+    }
+
+    private static final class RenderOnlyResponseWrapper extends HttpServletResponseWrapper {
+        private final StringWriter body = new StringWriter();
+        private final PrintWriter writer = new PrintWriter(body);
+        private final ServletOutputStream outputStream = new ServletOutputStream() {
+            @Override
+            public boolean isReady() {
+                return true;
+            }
+
+            @Override
+            public void setWriteListener(WriteListener writeListener) {
+            }
+
+            @Override
+            public void write(int value) {
+            }
+        };
+        private int status = HttpServletResponse.SC_OK;
+        private String contentType;
+        private String characterEncoding;
+
+        RenderOnlyResponseWrapper(HttpServletResponse response) {
+            super(response);
+        }
+
+        @Override
+        public PrintWriter getWriter() {
+            return writer;
+        }
+
+        @Override
+        public ServletOutputStream getOutputStream() {
+            return outputStream;
+        }
+
+        @Override
+        public void sendError(int statusCode) {
+            status = statusCode;
+        }
+
+        @Override
+        public void sendError(int statusCode, String message) {
+            status = statusCode;
+        }
+
+        @Override
+        public void sendRedirect(String location) {
+            status = HttpServletResponse.SC_FOUND;
+        }
+
+        @Override
+        public void setStatus(int statusCode) {
+            status = statusCode;
+        }
+
+        @Override
+        public int getStatus() {
+            return status;
+        }
+
+        @Override
+        public void flushBuffer() {
+            writer.flush();
+        }
+
+        @Override
+        public void resetBuffer() {
+            body.getBuffer().setLength(0);
+        }
+
+        @Override
+        public void reset() {
+            resetBuffer();
+            status = HttpServletResponse.SC_OK;
+            contentType = null;
+            characterEncoding = null;
+        }
+
+        @Override
+        public boolean isCommitted() {
+            return false;
+        }
+
+        @Override
+        public void addCookie(Cookie cookie) {
+        }
+
+        @Override
+        public void setHeader(String name, String value) {
+        }
+
+        @Override
+        public void addHeader(String name, String value) {
+        }
+
+        @Override
+        public void setDateHeader(String name, long date) {
+        }
+
+        @Override
+        public void addDateHeader(String name, long date) {
+        }
+
+        @Override
+        public void setIntHeader(String name, int value) {
+        }
+
+        @Override
+        public void addIntHeader(String name, int value) {
+        }
+
+        @Override
+        public void setContentLength(int length) {
+        }
+
+        @Override
+        public void setContentLengthLong(long length) {
+        }
+
+        @Override
+        public void setContentType(String contentType) {
+            this.contentType = contentType;
+        }
+
+        @Override
+        public String getContentType() {
+            return contentType;
+        }
+
+        @Override
+        public void setCharacterEncoding(String characterEncoding) {
+            this.characterEncoding = characterEncoding;
+        }
+
+        @Override
+        public String getCharacterEncoding() {
+            return characterEncoding != null ? characterEncoding : super.getCharacterEncoding();
         }
     }
 

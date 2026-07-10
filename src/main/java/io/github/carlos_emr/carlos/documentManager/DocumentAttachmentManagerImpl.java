@@ -700,6 +700,14 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         if (attachedForms == null) {
             return;
         }
+        if (Boolean.TRUE.equals(request.getAttribute(SKIP_FORM_ATTACHMENT_RENDERING_ATTRIBUTE))) {
+            for (EctFormData.PatientForm form : attachedForms) {
+                String formId = form == null ? null : form.getFormId();
+                recordSkippedAttachment(attachmentWarnings, DocumentType.FORM, formId,
+                        "form attachment rendering skipped for consultation AJAX preview");
+            }
+            return;
+        }
         for (EctFormData.PatientForm form : attachedForms) {
             if (form == null) {
                 recordSkippedAttachment(attachmentWarnings, DocumentType.FORM, null, MISSING_ATTACHMENT_METADATA);
