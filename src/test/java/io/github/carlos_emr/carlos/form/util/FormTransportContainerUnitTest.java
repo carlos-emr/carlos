@@ -27,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import jakarta.servlet.RequestDispatcher;
@@ -189,6 +190,81 @@ class FormTransportContainerUnitTest {
 
         assertThat(outerResponse.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
         assertThat(outerResponse.getRedirectedUrl()).isNull();
+    }
+
+    @Test
+    @DisplayName("rejects nested form redirects sent through the clear-buffer overload")
+    void shouldRejectNestedRedirectClearBufferOverload_withoutMutatingCallerResponse() {
+        MockHttpServletResponse outerResponse = new MockHttpServletResponse();
+        MockHttpServletRequest request = requestForwardingTo((servletRequest, servletResponse) ->
+                ((HttpServletResponse) servletResponse).sendRedirect("/carlos/form/annual", true));
+
+        assertThatThrownBy(() -> new FormTransportContainer(outerResponse, request, "/form/forwardshortcutname"))
+                .isInstanceOf(ServletException.class)
+                .hasMessageContaining("HTTP status 302");
+
+        assertThat(outerResponse.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        assertThat(outerResponse.getRedirectedUrl()).isNull();
+    }
+
+    @Test
+    @DisplayName("rejects nested form redirects sent through the status-code overload")
+    void shouldRejectNestedRedirectStatusOverload_withoutMutatingCallerResponse() {
+        MockHttpServletResponse outerResponse = new MockHttpServletResponse();
+        MockHttpServletRequest request = requestForwardingTo((servletRequest, servletResponse) ->
+                ((HttpServletResponse) servletResponse).sendRedirect("/carlos/form/annual",
+                        HttpServletResponse.SC_MOVED_PERMANENTLY));
+
+        assertThatThrownBy(() -> new FormTransportContainer(outerResponse, request, "/form/forwardshortcutname"))
+                .isInstanceOf(ServletException.class)
+                .hasMessageContaining("HTTP status 301");
+
+        assertThat(outerResponse.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        assertThat(outerResponse.getRedirectedUrl()).isNull();
+    }
+
+    @Test
+    @DisplayName("rejects nested form redirects sent through the status-code and clear-buffer overload")
+    void shouldRejectNestedRedirectStatusAndClearBufferOverload_withoutMutatingCallerResponse() {
+        MockHttpServletResponse outerResponse = new MockHttpServletResponse();
+        MockHttpServletRequest request = requestForwardingTo((servletRequest, servletResponse) ->
+                ((HttpServletResponse) servletResponse).sendRedirect("/carlos/form/annual",
+                        HttpServletResponse.SC_TEMPORARY_REDIRECT, false));
+
+        assertThatThrownBy(() -> new FormTransportContainer(outerResponse, request, "/form/forwardshortcutname"))
+                .isInstanceOf(ServletException.class)
+                .hasMessageContaining("HTTP status 307");
+
+        assertThat(outerResponse.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        assertThat(outerResponse.getRedirectedUrl()).isNull();
+    }
+
+    @Test
+    @DisplayName("keeps nested trailer fields local to the form render")
+    void shouldKeepNestedTrailerFieldsLocal_whenForwardSetsTrailerFields() throws Exception {
+        AtomicBoolean outerTrailerFieldsSet = new AtomicBoolean(false);
+        MockHttpServletResponse outerResponse = new MockHttpServletResponse() {
+            @Override
+            public void setTrailerFields(java.util.function.Supplier<java.util.Map<String, String>> supplier) {
+                outerTrailerFieldsSet.set(true);
+            }
+        };
+        AtomicReference<java.util.function.Supplier<java.util.Map<String, String>>> nestedTrailerFields =
+                new AtomicReference<>();
+        MockHttpServletRequest request = requestForwardingTo((servletRequest, servletResponse) -> {
+            HttpServletResponse httpResponse = (HttpServletResponse) servletResponse;
+            httpResponse.setTrailerFields(() -> java.util.Map.of("X-Form-Trace", "nested"));
+            nestedTrailerFields.set(httpResponse.getTrailerFields());
+            servletResponse.getWriter().write("<html>trailer form</html>");
+        });
+
+        FormTransportContainer container = new FormTransportContainer(outerResponse, request, "/form/trailer");
+
+        assertThat(container.getHTML()).contains("<html>trailer form</html>");
+        assertThat(nestedTrailerFields.get()).isNotNull();
+        assertThat(nestedTrailerFields.get().get()).containsEntry("X-Form-Trace", "nested");
+        assertThat(outerTrailerFieldsSet).isFalse();
+        assertThat(outerResponse.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
     }
 
     @Test
