@@ -27,6 +27,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.io.File;
@@ -235,6 +236,23 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
                 stream.close();
             }
         }
+    }
+
+    @Test
+    @DisplayName("should skip eForms when the consultation demographic is invalid")
+    void shouldSkipEForms_whenConsultationDemographicInvalid() {
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        EFormData eFormData = new EFormData();
+        eFormData.setId(915);
+        ArrayList<Object> attachments = new ArrayList<>();
+        ArrayList<InputStream> streams = new ArrayList<>();
+
+        ReflectionTestUtils.invokeMethod(action, "appendEFormAttachments",
+                loggedInInfo, attachments, streams, List.of(eFormData), "bad-demo");
+
+        assertThat(attachments).isEmpty();
+        assertThat(streams).isEmpty();
+        verifyNoInteractions(faxManager);
     }
 
     private void appendDocumentAttachments(ArrayList<Object> attachments, ArrayList<InputStream> streams, List<EDoc> docs) {
