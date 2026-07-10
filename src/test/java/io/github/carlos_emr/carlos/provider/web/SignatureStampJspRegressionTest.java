@@ -71,8 +71,13 @@ class SignatureStampJspRegressionTest {
         assertThat(normalizedJsp)
                 .contains("var OSCAR_PROVIDER_SIGNATURE_IMG_SRC = \"../provider/providerSignatureImage\";")
                 .contains("var src = getSignatureStampPreviewSrc();")
-                .contains("$img.on(\"error\", function() {")
                 .contains("function getSignatureStampPreviewSrc(){")
+                // Palette template: on load failure the stamp is hidden and a warning shown
+                // (the blank-stamp fallback was replaced by the missing-signature warning).
+                .contains("$stampImg.on(\"error\", showNoSignatureStampWarning);")
+                .contains("EFORM_I18N.textNoSignatureStamp")
+                // Stamps already placed on a saved eForm keep the blank-stamp fallback so they
+                // still resolve to the signing provider's signature at render time.
                 .contains("this.src = getBlankSignatureStampSrc();")
                 .contains("if (this.src.indexOf(\"BNK.png\") === -1)")
                 .doesNotContain("error: function() {");

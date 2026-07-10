@@ -4191,7 +4191,7 @@ var EFORM_I18N = {
                     $tab.append($("<div>", {
                         text: EFORM_I18N.textNoSignatureStamp,
                         class: "noSignatureStampWarning",
-                        style: 'font-size:12px; color:#b00; margin-top:6px;'
+                        style: 'font-size:14px; color:#b00; margin-top:6px;'
                     }));
                 }
             };
@@ -4229,7 +4229,7 @@ var EFORM_I18N = {
                     $tab.append($("<div>", {
                         text: EFORM_I18N.textWetSignatureSignHint,
                         id: "padSignHint",
-                        style: 'font-size:12px; color:#555; margin-top:4px;'
+                        style: 'font-size:14px; color:#555; margin-top:4px;'
                     }));
                 }
             }
