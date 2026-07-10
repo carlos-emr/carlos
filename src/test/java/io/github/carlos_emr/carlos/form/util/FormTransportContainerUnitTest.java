@@ -86,6 +86,23 @@ class FormTransportContainerUnitTest {
     }
 
     @Test
+    @DisplayName("surfaces the nested form error message in the thrown exception")
+    void shouldSurfaceNestedErrorMessage_whenForwardSendsErrorWithMessage() {
+        MockHttpServletResponse outerResponse = new MockHttpServletResponse();
+        MockHttpServletRequest request = requestForwardingTo((servletRequest, servletResponse) ->
+                ((HttpServletResponse) servletResponse).sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                        "Failed to query form data"));
+
+        assertThatThrownBy(() -> new FormTransportContainer(outerResponse, request, "/form/bad"))
+                .isInstanceOf(ServletException.class)
+                .hasMessageContaining("HTTP status 500")
+                .hasMessageContaining("Failed to query form data");
+
+        assertThat(outerResponse.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        assertThat(outerResponse.getErrorMessage()).isNull();
+    }
+
+    @Test
     @DisplayName("captures nested flushBuffer without committing the caller response")
     void shouldCaptureNestedFlushBuffer_withoutCommittingCallerResponse() throws Exception {
         MockHttpServletResponse outerResponse = new MockHttpServletResponse();
