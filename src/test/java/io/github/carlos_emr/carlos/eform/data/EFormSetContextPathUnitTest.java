@@ -68,6 +68,33 @@ class EFormSetContextPathUnitTest {
     }
 
     @Test
+    @DisplayName("should rewrite legacy relative jquery references to the displayImage asset route")
+    void shouldRewriteLegacyRelativeJqueryReference_whenContextPathSet() {
+        EForm eform = new EForm();
+        eform.setFormHtml("<script src=\"jquery-1.12.0.min.js\"></script><script src=\"/eform/jquery-1.12.0.min.js\"></script>");
+
+        eform.setContextPath("/carlos");
+
+        assertThat(eform.getFormHtml())
+                .doesNotContain("src=\"jquery-1.12.0.min.js\"")
+                .doesNotContain("src=\"/eform/jquery-1.12.0.min.js\"")
+                .contains("src=\"/carlos/eform/displayImage?imagefile=jquery-1.12.0.min.js\"");
+    }
+
+    @Test
+    @DisplayName("should inject a loadSig fallback when the form calls it but does not define it")
+    void shouldInjectLoadSigFallback_whenBodyOnloadCallsLoadSigWithoutDefinition() {
+        EForm eform = new EForm();
+        eform.setFormHtml("<html><body onload=\"startUp(); loadSig();\"><script>function startUp(){}</script></body></html>");
+
+        eform.setContextPath("/carlos");
+
+        assertThat(eform.getFormHtml())
+                .contains("window.loadSig = window.loadSig || function loadSig() {};")
+                .contains("body onload=\"startUp(); loadSig();\"");
+    }
+
+    @Test
     @DisplayName("should leave the form HTML unchanged when the context path is blank")
     void shouldLeaveHtmlUnchanged_whenContextPathBlank() {
         EForm eform = formWithMarker();

@@ -23,6 +23,7 @@
 package io.github.carlos_emr.carlos.eform;
 
 import java.io.File;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.AtomicMoveNotSupportedException;
@@ -98,6 +99,18 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
 
     /** Path inside the WAR where bundled assets are stored (not web-accessible). */
     private static final String BUNDLED_ASSETS_PATH = "/WEB-INF/eform-assets/";
+    private static final String SHARED_JAVASCRIPT_PATH = "/share/javascript/";
+    private static final byte[] BLANK_SIGNATURE_PNG = new byte[] {
+        (byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
+        0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
+        0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+        0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, (byte) 0x15, (byte) 0xC4, (byte) 0x89,
+        0x00, 0x00, 0x00, 0x0D, 0x49, 0x44, 0x41, 0x54,
+        0x78, (byte) 0x9C, 0x63, 0x60, 0x60, 0x60, 0x00, 0x00,
+        0x00, 0x05, 0x00, 0x01, (byte) 0xA5, (byte) 0xF6, 0x45, 0x40,
+        0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44,
+        (byte) 0xAE, 0x42, 0x60, (byte) 0x82
+    };
 
     /**
      * Assets to deploy. These filenames must match exactly what the RTL eForm's
@@ -107,6 +120,10 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
         "editControl2.js",
         "blank.rtl",
         "editor_help.html"
+    };
+
+    private static final String[] LEGACY_SIGNATURE_ASSETS = {
+        "signature_pad.min.js"
     };
 
     /** Injected by Spring via {@link ServletContextAware} before {@link #afterPropertiesSet()}. */
@@ -147,6 +164,10 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
         for (String asset : ASSETS) {
             deployAsset(asset, targetDir);
         }
+        for (String asset : LEGACY_SIGNATURE_ASSETS) {
+            deploySharedJavascriptAsset(asset, targetDir);
+        }
+        deployGeneratedAsset("BNK.png", targetDir, BLANK_SIGNATURE_PNG);
     }
 
     /**
@@ -242,6 +263,37 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
     // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     private void deployAsset(String filename, File targetDir) {
+        deployAssetFromPath(filename, BUNDLED_ASSETS_PATH + filename, targetDir);
+    }
+
+    private void deploySharedJavascriptAsset(String filename, File targetDir) {
+        deployAssetFromPath(filename, SHARED_JAVASCRIPT_PATH + filename, targetDir);
+    }
+
+    private void deployGeneratedAsset(String filename, File targetDir, byte[] content) {
+        deployAssetFromStream(filename, targetDir, new ByteArrayInputStream(content), "generated:" + filename);
+    }
+
+    private void deployAssetFromPath(String filename, String resourcePath, File targetDir) {
+        File targetFile = new File(targetDir, filename);
+        if (targetFile.exists()) {
+            logger.debug("eForm asset already exists, skipping: {}", targetFile.getAbsolutePath());
+            return;
+        }
+
+        InputStream resourceStream = servletContext.getResourceAsStream(resourcePath);
+        if (resourceStream == null) {
+            logger.warn("Bundled eForm asset not found in WAR: {}", resourcePath);
+            return;
+        }
+        try (InputStream is = resourceStream) {
+            deployAssetFromStream(filename, targetDir, is, resourcePath);
+        } catch (IOException e) {
+            logger.error("Failed to deploy eForm asset: {}", filename, e);
+        }
+    }
+
+    private void deployAssetFromStream(String filename, File targetDir, InputStream is, String sourceLabel) {
         File targetFile = new File(targetDir, filename);
         Path targetPath = targetFile.toPath();
         Path tempFile = null;
@@ -250,16 +302,11 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
             return;
         }
 
-        String resourcePath = BUNDLED_ASSETS_PATH + filename;
-        try (InputStream is = servletContext.getResourceAsStream(resourcePath)) {
-            if (is == null) {
-                logger.warn("Bundled eForm asset not found in WAR: {}", resourcePath);
-                return;
-            }
+        try {
             tempFile = Files.createTempFile(targetDir.toPath(), filename + ".", ".tmp");
             Files.copy(is, tempFile, StandardCopyOption.REPLACE_EXISTING);
             moveTempFile(tempFile, targetPath);
-            logger.info("Deployed eForm asset: {} -> {}", resourcePath, targetFile.getAbsolutePath());
+            logger.info("Deployed eForm asset: {} -> {}", sourceLabel, targetFile.getAbsolutePath());
         } catch (FileAlreadyExistsException e) {
             logger.debug("eForm asset was created concurrently, skipping: {}", targetFile.getAbsolutePath());
         } catch (IOException e) {

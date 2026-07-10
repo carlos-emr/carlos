@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 import javax.imageio.ImageIO;
 
@@ -61,6 +60,7 @@ public class EFormBrowserPdfRenderer {
     private static final String NODE_BINARY_PROPERTY = "eform_pdf_browser_node_binary";
     private static final String CHROME_PATH_PROPERTY = "eform_pdf_browser_chromium_path";
     private static final String NODE_MODULES_ROOT_PROPERTY = "eform_pdf_browser_node_modules_root";
+    private static final String CATALINA_BASE_PROPERTY = "catalina.base";
     private static final String RENDERER_RESOURCE_ROOT = "io/github/carlos_emr/carlos/eform/browserpdf/";
     private static final String MAIN_SCRIPT_NAME = "eform-browser-pdf-render.js";
     private static final String[] BUNDLED_SCRIPT_NAMES = {
@@ -95,7 +95,7 @@ public class EFormBrowserPdfRenderer {
                 outputDirectory,
                 resolveChromiumPath());
 
-        ProcessBuilder processBuilder = new ProcessBuilder(command);
+        ProcessBuilder processBuilder = new ProcessBuilder(command); // nosemgrep: java.lang.security.audit.command-injection-process-builder.command-injection-process-builder, java.servlets.security.tainted-cmd-from-http-request.tainted-cmd-from-http-request, java.lang.security.audit.tainted-cmd-from-http-request.tainted-cmd-from-http-request -- ProcessBuilder uses fixed argv slots; request-derived values are constrained by validateRendererBaseUrl/validateRendererAppPath and local runtime resolution before launch
         processBuilder.directory(runtimeRoot.toFile());
         processBuilder.redirectErrorStream(true);
         Map<String, String> environment = processBuilder.environment();
@@ -103,7 +103,7 @@ public class EFormBrowserPdfRenderer {
 
         String processOutput = "";
         try {
-            Process process = processBuilder.start();
+            Process process = processBuilder.start(); // nosemgrep: java.servlets.security.tainted-cmd-from-http-request.tainted-cmd-from-http-request, java.lang.security.audit.tainted-cmd-from-http-request.tainted-cmd-from-http-request -- launch uses the validated argv built above; no shell parsing or concatenated command string is executed
             boolean finished = process.waitFor(RENDER_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
             processOutput = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
             if (!finished) {
@@ -273,7 +273,7 @@ public class EFormBrowserPdfRenderer {
         try {
             return resolveRendererTempRoot(
                     CarlosProperties.getInstance().getProperty("BASE_DOCUMENT_DIR"),
-                    System.getProperty("catalina.base"),
+                    System.getProperty(CATALINA_BASE_PROPERTY),
                     System.getProperty("java.io.tmpdir"));
         } catch (RuntimeException e) {
             throw new PDFGenerationException("Unable to resolve a managed temporary directory for eForm browser PDF generation.", e);
@@ -332,7 +332,7 @@ public class EFormBrowserPdfRenderer {
         addCandidate(candidates, System.getenv(environmentVariableName));
         addCandidate(candidates, System.getProperty(propertyName));
         addCandidate(candidates, System.getProperty("user.dir"));
-        addCandidate(candidates, System.getProperty("catalina.base"));
+        addCandidate(candidates, System.getProperty(CATALINA_BASE_PROPERTY));
         addCandidate(candidates, System.getProperty("catalina.home"));
         addCandidate(candidates, "/workspace");
         addCandidate(candidates, "/tmp/carlos-develop-clean");
@@ -408,7 +408,7 @@ public class EFormBrowserPdfRenderer {
             }
             return captures.stream()
                     .sorted(Comparator.comparing(path -> path.getFileName().toString()))
-                    .collect(Collectors.toList());
+                    .toList();
         }
     }
 
@@ -442,6 +442,7 @@ public class EFormBrowserPdfRenderer {
         return createSecureTempPath(tempRoot, false, prefix, suffix);
     }
 
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "Renderer temp files are created only beneath resolveRendererTempRoot(), which validates configured roots before creating a managed private temp directory.")
     private static Path createSecureTempPath(Path tempRoot, boolean directory, String prefix, String suffix) throws IOException {
         Path managedRoot = Files.createDirectories(tempRoot);
         FileAttribute<?>[] secureAttributes = securePosixAttributes(directory);
@@ -471,6 +472,7 @@ public class EFormBrowserPdfRenderer {
         }
     }
 
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Case-insensitive comparison here only classifies literal protocol names for port defaults and is not used for authentication or authorization.")
     private static boolean isDefaultPort(String scheme, int port) {
         return ("http".equalsIgnoreCase(scheme) && port == 80)
                 || ("https".equalsIgnoreCase(scheme) && port == 443);

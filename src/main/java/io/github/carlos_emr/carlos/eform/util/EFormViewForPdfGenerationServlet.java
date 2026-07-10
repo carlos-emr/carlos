@@ -16,7 +16,6 @@ package io.github.carlos_emr.carlos.eform.util;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.charset.Charset;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -32,8 +31,11 @@ import io.github.carlos_emr.carlos.commn.dao.EFormValueDao;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.commn.model.EFormValue;
 import io.github.carlos_emr.carlos.eform.data.EForm;
+import io.github.carlos_emr.carlos.utility.HtmlResponse;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * The purpose of this servlet is to allow a local process to convert an eform html page into a pdf file.
@@ -79,8 +81,7 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
 
             String html = buildPdfHtmlForFdid(formDataId, request.getContextPath(), request.getHeader("User-Agent"), providerId, prepareForFax);
 
-            response.setContentType("text/html;charset=UTF-8");
-            response.getOutputStream().write(html.getBytes(Charset.forName("UTF-8")));
+            HtmlResponse.of(HtmlResponse.DEFAULT_HTML_CONTENT_TYPE_WITH_CHARSET, html).writeTo(response);
         } catch (IOException e) {
             throw e;
         } catch (Exception e) {
@@ -104,6 +105,7 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
         return buildPdfHtml(eForm, eFormValues, contextPath, projectHome, prepareForFax);
     }
 
+    @SuppressFBWarnings(value = "MODIFICATION_AFTER_VALIDATION", justification = "normalizePdfSignatureUrl constrains the signature URL to a local servlet path with a numeric id, and buildSignatureImageMarkup HTML-attribute-encodes it before insertion.")
     static String buildPdfHtml(EForm eForm, List<EFormValue> eFormValues, String contextPath, String projectHome, boolean prepareForFax) {
         for (EFormValue value : eFormValues) {
             if ("Letter".equals(value.getVarName())) {
@@ -135,9 +137,9 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
         }
 
         String html = eForm.getFormHtml();
-        html = html.replace("../eform/displayImage", "/" + projectHome + "/EFormImageViewForPdfGenerationServlet");
-        html = html.replace("${oscar_image_path}", "/" + projectHome + "/EFormImageViewForPdfGenerationServlet?imagefile=");
-        html = html.replace("$%7Boscar_image_path%7D", "/" + projectHome + "/EFormImageViewForPdfGenerationServlet?imagefile=");
+        html = html.replace("../eform/displayImage", imageViewServletBase(projectHome));
+        html = html.replace("${oscar_image_path}", imageViewServletImagePrefix(projectHome));
+        html = html.replace("$%7Boscar_image_path%7D", imageViewServletImagePrefix(projectHome));
         html = html.replace("<div class=\"DoNotPrint\" style=\"", "<div class=\"DoNotPrint\" style=\"display:none;");
         eForm.setFormHtml(html);
         eForm.setImagePath(contextPath);
@@ -154,6 +156,14 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
             return "default-src 'self'; script-src 'none'; object-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data:";
         }
         return "default-src 'self' data:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; object-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'";
+    }
+
+    private static String imageViewServletBase(String projectHome) {
+        return "/" + projectHome + "/EFormImageViewForPdfGenerationServlet";
+    }
+
+    private static String imageViewServletImagePrefix(String projectHome) {
+        return imageViewServletBase(projectHome) + "?imagefile=";
     }
 
     static String normalizePdfSignatureUrl(String rawUrl, String contextPath) {

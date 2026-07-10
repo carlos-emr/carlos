@@ -75,6 +75,7 @@ public class EForm extends EFormBase {
     private HashMap<String, String> fieldValues = new HashMap<String, String>();
     private int needValueInForm = 0;
     private boolean setAP2nd = false;
+    private String runtimeContextPath;
 
     private static final String EFORM_DEMOGRAPHIC = "eform_demographic";
     private static final String VAR_NAME = "var_name";
@@ -379,7 +380,80 @@ public class EForm extends EFormBase {
         String normalizedContextPath = contextPath.endsWith("/")
                 ? contextPath.substring(0, contextPath.length() - 1)
                 : contextPath;
+        this.runtimeContextPath = normalizedContextPath;
         this.formHtml = this.formHtml.replace(jsMarker, normalizedContextPath + "/library/");
+        this.formHtml = rewriteLegacyRelativeJqueryReferences(this.formHtml, normalizedContextPath);
+        this.formHtml = injectLoadSigFallback(this.formHtml);
+        this.formHtml = rewriteLegacyStringTimers(this.formHtml);
+    }
+
+    private String rewriteLegacyRelativeJqueryReferences(String html, String contextPath) {
+        if (StringUtils.isBlank(html)) return html;
+
+        String assetUrl = contextPath + "/eform/displayImage?imagefile=jquery-1.12.0.min.js";
+        return html
+                .replace("src=\"jquery-1.12.0.min.js\"", "src=\"" + assetUrl + "\"")
+                .replace("src=\"/eform/jquery-1.12.0.min.js\"", "src=\"" + assetUrl + "\"");
+    }
+
+    private String injectLoadSigFallback(String html) {
+        if (StringUtils.isBlank(html)) return html;
+        if (!html.contains("loadSig()")) return html;
+        if (html.contains("function loadSig(") || html.contains("window.loadSig")) return html;
+
+        String fallback = "<script>window.loadSig = window.loadSig || function loadSig() {};</script>";
+        int bodyClose = StringUtils.lastIndexOfIgnoreCase(html, "</body>");
+        if (bodyClose >= 0) {
+            return html.substring(0, bodyClose) + fallback + html.substring(bodyClose);
+        }
+        return html + fallback;
+    }
+
+
+    private String rewriteLegacyStringTimers(String html) {
+        if (StringUtils.isBlank(html)) return html;
+
+        String rewritten = html.replaceAll("setTimeout\\(\\s*'([^']+)'\\s*,\\s*([^)]+)\\)", "setTimeout(function(){ $1 }, $2)");
+        rewritten = rewritten.replaceAll("setInterval\\(\\s*'([^']+)'\\s*,\\s*([^)]+)\\)", "setInterval(function(){ $1 }, $2)");
+        return rewritten;
+    }
+
+    @Override
+    public String getFormHtml() {
+        if (!StringUtils.isBlank(runtimeContextPath)) {
+            try {
+                normalizeLegacyRuntimeAssetsInDocument(runtimeContextPath);
+            } catch (RuntimeException | LinkageError e) {
+                log.debug("Skipping DOM-based eForm runtime normalization; falling back to string-level HTML", e);
+            }
+        }
+        return super.getFormHtml();
+    }
+
+    private void normalizeLegacyRuntimeAssetsInDocument(String contextPath) {
+        Element head = getDocument().head();
+        if (head == null) return;
+
+        String assetUrl = contextPath + "/eform/displayImage?imagefile=jquery-1.12.0.min.js";
+        for (Element script : getDocument().select("script[src]")) {
+            String src = script.attr("src").trim();
+            if ("jquery-1.12.0.min.js".equals(src) || "/eform/jquery-1.12.0.min.js".equals(src)) {
+                script.attr("src", assetUrl);
+            }
+        }
+        for (Element script : getDocument().select("script:not([src])")) {
+            script.text(rewriteLegacyStringTimers(script.data()));
+        }
+
+        Element body = getDocument().body();
+        if (body == null || !body.attr("onload").contains("loadSig()")) return;
+
+        boolean hasLoadSigDefinition = getDocument().select("script:not([src])").stream()
+                .map(Element::data)
+                .anyMatch(scriptContent -> scriptContent.contains("function loadSig(") || scriptContent.contains("window.loadSig"));
+        if (!hasLoadSigDefinition) {
+            body.appendElement("script").append("window.loadSig = window.loadSig || function loadSig() {};");
+        }
     }
 
     public void setFdid(String fdid) {

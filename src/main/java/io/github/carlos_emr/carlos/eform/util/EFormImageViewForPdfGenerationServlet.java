@@ -26,12 +26,12 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.Logger;
 
 import io.github.carlos_emr.carlos.eform.actions.DisplayImage2Action;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 /**
  * The purpose of this servlet is to allow a local process to access eform images.
@@ -40,6 +40,7 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
 
     private static final Logger logger = MiscUtils.getLogger();
     private static final String IMAGE_JPEG = "image/jpeg";
+    private static final String HTML_CONTENT_TYPE = "text/html";
     private static final Map<String, String> CONTENT_TYPES = Map.ofEntries(
             Map.entry("png", "image/png"),
             Map.entry("jpeg", IMAGE_JPEG),
@@ -67,9 +68,9 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
             Map.entry("js", "text/javascript"),
             Map.entry("css", "text/css"),
             Map.entry("json", "application/json"),
-            Map.entry("rtl", "text/html"),
-            Map.entry("html", "text/html"),
-            Map.entry("htm", "text/html")
+            Map.entry("rtl", HTML_CONTENT_TYPE),
+            Map.entry("html", HTML_CONTENT_TYPE),
+            Map.entry("htm", HTML_CONTENT_TYPE)
     );
 
     @Override
@@ -77,15 +78,14 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
         String remoteAddress = request.getRemoteAddr();
         logger.debug("EFormImageViewForPdfGenerationServlet request from : {}", remoteAddress);
 
-        if (!"127.0.0.1".equals(remoteAddress) && !"0:0:0:0:0:0:0:1".equals(remoteAddress) && !"::1".equals(remoteAddress)) {
+        if (!isLocalRequest(remoteAddress)) {
             logger.warn("Unauthorised request made to EFormImageViewForPdfGenerationServlet from address : {}", remoteAddress);
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
 
         try {
-            String fileName = request.getParameter("imagefile");
-            validateRequestedFileName(fileName);
+            String fileName = validateRequestedFileName(request.getParameter("imagefile"));
 
             File file = DisplayImage2Action.getImageFile(fileName);
             if (!file.exists() || !file.isFile()) {
@@ -103,35 +103,21 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
             throw e;
         } catch (IllegalArgumentException | SecurityException e) {
             logger.warn("Rejected EFormImageViewForPdfGenerationServlet request", e);
-            if (!response.isCommitted()) {
-                try {
-                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
-                } catch (IOException ioException) {
-                    logger.debug("Unable to send bad-request response for EFormImageViewForPdfGenerationServlet", ioException);
-                }
-            }
+            sendErrorQuietly(response, HttpServletResponse.SC_BAD_REQUEST, e.getMessage(),
+                    "Unable to send bad-request response for EFormImageViewForPdfGenerationServlet");
         } catch (Exception e) {
             logger.error("Unexpected error in EFormImageViewForPdfGenerationServlet", e);
-            if (!response.isCommitted()) {
-                try {
-                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
-                        "An internal error occurred. Please try again or contact your system administrator.");
-                } catch (IOException ioException) {
-                    logger.debug("Unable to send internal-error response for EFormImageViewForPdfGenerationServlet", ioException);
-                }
-            }
+            sendErrorQuietly(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    "An internal error occurred. Please try again or contact your system administrator.",
+                    "Unable to send internal-error response for EFormImageViewForPdfGenerationServlet");
         }
     }
 
-    private static void validateRequestedFileName(String fileName) {
-        if (fileName == null || fileName.isEmpty()) {
-            throw new IllegalArgumentException("imagefile parameter is required");
-        }
-        if (fileName.indexOf('\u0000') >= 0) {
-            throw new SecurityException("NUL byte detected in imagefile parameter");
-        }
-        if (!fileName.equals(FilenameUtils.getName(fileName))) {
-            throw new SecurityException("Path traversal detected in imagefile parameter");
+    private static String validateRequestedFileName(String fileName) {
+        try {
+            return PathValidationUtils.validateStrictFileName(fileName);
+        } catch (IllegalArgumentException e) {
+            throw new SecurityException("Invalid imagefile parameter", e);
         }
     }
 
@@ -156,12 +142,31 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
 
         String sanitized = value
                 .replaceAll("[\r\n\u0000-\u001F\u007F-\u009F]", "")
-                .replaceAll("[\"';]", "");
+                .replace("\"", "")
+                .replace(";", "")
+                .replace("'", "");
 
         if (sanitized.trim().isEmpty()) {
             return "image";
         }
 
         return sanitized;
+    }
+
+    private static boolean isLocalRequest(String remoteAddress) {
+        return "127.0.0.1".equals(remoteAddress)
+                || "0:0:0:0:0:0:0:1".equals(remoteAddress)
+                || "::1".equals(remoteAddress);
+    }
+
+    private static void sendErrorQuietly(HttpServletResponse response, int statusCode, String message, String logMessage) {
+        if (response.isCommitted()) {
+            return;
+        }
+        try {
+            response.sendError(statusCode, message);
+        } catch (IOException ioException) {
+            logger.debug(logMessage, ioException);
+        }
     }
 }

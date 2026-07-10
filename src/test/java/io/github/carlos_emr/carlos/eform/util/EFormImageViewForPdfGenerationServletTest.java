@@ -24,6 +24,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
@@ -102,7 +103,9 @@ class EFormImageViewForPdfGenerationServletTest extends CarlosUnitTestBase {
         request.setParameter("imagefile", "../bg.png");
         MockHttpServletResponse response = new SendErrorFailingResponse();
 
-        new EFormImageViewForPdfGenerationServlet().doGet(request, response);
+        assertThatCode(() -> new EFormImageViewForPdfGenerationServlet().doGet(request, response))
+                .doesNotThrowAnyException();
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
     }
 
     @Test

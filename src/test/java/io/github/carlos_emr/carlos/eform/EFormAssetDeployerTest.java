@@ -63,6 +63,7 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
     private static final String RESOURCE_EDITCONTROL = "/WEB-INF/eform-assets/editControl2.js";
     private static final String RESOURCE_BLANK = "/WEB-INF/eform-assets/blank.rtl";
     private static final String RESOURCE_HELP = "/WEB-INF/eform-assets/editor_help.html";
+    private static final String RESOURCE_SIGNATURE_PAD = "/share/javascript/signature_pad.min.js";
 
     private MockedStatic<CarlosProperties> carlosPropertiesMock;
 
@@ -106,6 +107,7 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
         when(mockServletContext.getResourceAsStream(RESOURCE_EDITCONTROL)).thenReturn(toStream("js content"));
         when(mockServletContext.getResourceAsStream(RESOURCE_BLANK)).thenReturn(toStream("blank content"));
         when(mockServletContext.getResourceAsStream(RESOURCE_HELP)).thenReturn(toStream("help content"));
+        when(mockServletContext.getResourceAsStream(RESOURCE_SIGNATURE_PAD)).thenReturn(toStream("signature pad"));
     }
 
     @Nested
@@ -125,6 +127,24 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
             assertThat(new File(tempDir.toFile(), "editControl2.js")).exists();
             assertThat(new File(tempDir.toFile(), "blank.rtl")).exists();
             assertThat(new File(tempDir.toFile(), "editor_help.html")).exists();
+            assertThat(new File(tempDir.toFile(), "signature_pad.min.js")).exists();
+            assertThat(new File(tempDir.toFile(), "BNK.png")).exists();
+        }
+
+        @Test
+        @DisplayName("Should deploy legacy signature compatibility assets for older eForms")
+        void shouldDeployLegacySignatureCompatibilityAssets_forOlderEforms() throws Exception {
+            when(mockProperties.getEformImageDirectory()).thenReturn(tempDir.toString());
+            stubAllAssets();
+
+            deployer.afterPropertiesSet();
+
+            File deployedSignaturePad = new File(tempDir.toFile(), "signature_pad.min.js");
+            File deployedBlankImage = new File(tempDir.toFile(), "BNK.png");
+            assertThat(deployedSignaturePad).exists();
+            assertThat(Files.readString(deployedSignaturePad.toPath())).isEqualTo("signature pad");
+            assertThat(deployedBlankImage).exists();
+            assertThat(Files.size(deployedBlankImage.toPath())).isGreaterThan(0L);
         }
 
         @Test
@@ -334,8 +354,10 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
 
             assertThatCode(() -> deployer.afterPropertiesSet()).doesNotThrowAnyException();
 
-            // No files should have been created
-            assertThat(tempDir.toFile().listFiles()).isEmpty();
+            // Only the built-in blank signature placeholder should be created when WAR assets are absent
+            assertThat(tempDir.toFile().listFiles())
+                .extracting(File::getName)
+                .containsExactly("BNK.png");
         }
 
         @Test
