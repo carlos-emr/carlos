@@ -227,11 +227,11 @@ public class NioFileManagerImpl implements NioFileManager {
             try {
                 sourceFile = PathValidationUtils.validateExistingPath(sourceFile.toFile(), normalizedSourceDir.toFile()).toPath();
                 if (sourceDirectoryInAllowedTemp && !PathValidationUtils.isInAllowedTempDirectory(sourceFile.toFile())) {
-                    log.error("Source file is outside allowed temp path: {}", LogSafe.sanitize(filename, 1024));
+                    log.error("Source file is outside allowed temp path");
                     return null;
                 }
             } catch (SecurityException e) {
-                log.error("Path traversal attempt in source file: {}", LogSafe.sanitize(filename, 1024));
+                log.error("Path traversal attempt in source file");
                 return null;
             }
             

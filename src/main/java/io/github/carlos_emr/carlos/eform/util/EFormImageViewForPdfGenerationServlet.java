@@ -114,8 +114,13 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
         } catch (Exception e) {
             logger.error("Unexpected error in EFormImageViewForPdfGenerationServlet", e);
             if (!response.isCommitted()) {
-                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
-                    "An internal error occurred. Please try again or contact your system administrator.");
+                try {
+                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                        "An internal error occurred. Please try again or contact your system administrator.");
+                } catch (IOException ioException) {
+                    logger.debug("Unable to send internal-error response for EFormImageViewForPdfGenerationServlet", ioException);
+                    throw ioException;
+                }
             }
         }
     }
