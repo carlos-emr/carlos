@@ -169,6 +169,14 @@ class ConsultationPDFCreatorUnitTest {
     }
 
     @Test
+    @DisplayName("formats blank appointment time when the hour is missing")
+    void shouldFormatAppointmentTime_whenHourMissing() {
+        String result = ConsultationPDFCreator.formatAppointmentTime(null, "05", "pm");
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
     @DisplayName("formats blank appointment time when all parts are null")
     void shouldFormatAppointmentTime_whenAllPartsNull() {
         String result = ConsultationPDFCreator.formatAppointmentTime(null, null, null);
