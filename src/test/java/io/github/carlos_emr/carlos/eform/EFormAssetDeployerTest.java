@@ -25,6 +25,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
 import jakarta.servlet.ServletContext;
+import javax.imageio.ImageIO;
 import org.apache.commons.io.FileUtils;
 import org.junit.jupiter.api.*;
 import org.mockito.*;
@@ -144,7 +145,10 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
             assertThat(deployedSignaturePad).exists();
             assertThat(Files.readString(deployedSignaturePad.toPath())).isEqualTo("signature pad");
             assertThat(deployedBlankImage).exists();
-            assertThat(Files.size(deployedBlankImage.toPath())).isGreaterThan(0L);
+            var blankImage = ImageIO.read(deployedBlankImage);
+            assertThat(blankImage).isNotNull();
+            assertThat(blankImage.getWidth()).isEqualTo(1);
+            assertThat(blankImage.getHeight()).isEqualTo(1);
         }
 
         @Test

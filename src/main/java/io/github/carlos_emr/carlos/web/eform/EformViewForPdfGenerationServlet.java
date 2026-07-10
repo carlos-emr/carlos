@@ -35,6 +35,7 @@ import java.io.IOException;
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequestWrapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -69,8 +70,9 @@ public final class EformViewForPdfGenerationServlet extends HttpServlet {
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing required parameter: providerId");
                 return;
             }
+            String canonicalProviderNo = providerNo.trim();
 
-            if (!hasAuthorizedRendererSession(request, providerNo.trim())) {
+            if (!hasAuthorizedRendererSession(request, canonicalProviderNo)) {
                 response.sendError(HttpServletResponse.SC_FORBIDDEN, "Renderer request requires an authenticated matching provider session");
                 return;
             }
@@ -80,7 +82,7 @@ public final class EformViewForPdfGenerationServlet extends HttpServlet {
             request.setAttribute(SKIP_HTML_INJECTION_ATTRIBUTE, Boolean.TRUE);
 
             RequestDispatcher requestDispatcher = request.getRequestDispatcher("/eform/efmshowform_data");
-            requestDispatcher.forward(request, response);
+            requestDispatcher.forward(wrapRequestWithCanonicalProviderId(request, canonicalProviderNo), response);
         } catch (ServletException | IOException e) {
             throw e;
         } catch (Exception e) {
@@ -106,6 +108,19 @@ public final class EformViewForPdfGenerationServlet extends HttpServlet {
         }
 
         return true;
+    }
+
+
+    private static HttpServletRequest wrapRequestWithCanonicalProviderId(HttpServletRequest request, String canonicalProviderNo) {
+        return new HttpServletRequestWrapper(request) {
+            @Override
+            public String getParameter(String name) {
+                if ("providerId".equals(name)) {
+                    return canonicalProviderNo;
+                }
+                return super.getParameter(name);
+            }
+        };
     }
 
     private static boolean isLocalRequest(String remoteAddress) {

@@ -18,8 +18,8 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -32,7 +32,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("Fax2Action authorization unit tests")
 @Tag("unit")
 @Tag("fast")
-class Fax2ActionAuthorizationUnitTest {
+class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should reject getPageCount when fax read privilege is missing")
@@ -48,11 +48,11 @@ class Fax2ActionAuthorizationUnitTest {
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        try (MockedStatic<SpringUtils> springUtilsMock = mockStatic(SpringUtils.class);
-             MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
-            springUtilsMock.when(() -> SpringUtils.getBean(FaxManager.class)).thenReturn(faxManager);
-            springUtilsMock.when(() -> SpringUtils.getBean(DocumentAttachmentManager.class)).thenReturn(documentAttachmentManager);
-            springUtilsMock.when(() -> SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(securityInfoManager);
+        registerMock(FaxManager.class, faxManager);
+        registerMock(DocumentAttachmentManager.class, documentAttachmentManager);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
             servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
             servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
 

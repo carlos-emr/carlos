@@ -38,6 +38,7 @@ import java.util.UUID;
 
 import jakarta.servlet.ServletContext;
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -55,7 +56,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 @Tag("unit")
 @Tag("manager")
-class NioFileManagerImplUnitTest {
+class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
 
     private NioFileManagerImpl nioFileManager;
     private SecurityInfoManager securityInfoManager;

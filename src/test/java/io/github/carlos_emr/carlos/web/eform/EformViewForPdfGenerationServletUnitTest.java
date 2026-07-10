@@ -18,6 +18,8 @@ import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
@@ -39,14 +41,14 @@ class EformViewForPdfGenerationServletUnitTest {
             }
         };
         request.setRemoteAddr("127.0.0.1");
-        request.setParameter("providerId", "999998");
+        request.setParameter("providerId", " 999998 ");
         request.setParameter("fdid", "250");
         installLoggedInInfo(request, "999998");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         new EformViewForPdfGenerationServlet().doGet(request, response);
 
-        verify(dispatcher).forward(request, response);
+        verify(dispatcher).forward(argThat(forwardedRequest -> "999998".equals(forwardedRequest.getParameter("providerId"))), eq(response));
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(response.getHeader("Content-Security-Policy")).contains("script-src 'self'");
     }

@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -26,7 +27,7 @@ import static org.mockito.Mockito.never;
 @Tag("unit")
 @Tag("fast")
 @DisplayName("DocumentAttachmentManagerImpl single eForm fax handling")
-class DocumentAttachmentManagerImplUnitTest {
+class DocumentAttachmentManagerImplUnitTest extends CarlosUnitTestBase {
 
     @Spy
     private DocumentAttachmentManagerImpl manager;
