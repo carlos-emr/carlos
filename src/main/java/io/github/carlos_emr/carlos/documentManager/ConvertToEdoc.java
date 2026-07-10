@@ -236,7 +236,7 @@ public final class ConvertToEdoc {
         return execute(eformString, filename);
     }
 
-    public synchronized static Path saveAsTempPDF(String htmlString, String filename) {
+    public static synchronized Path saveAsTempPDF(String htmlString, String filename) {
         return execute(htmlString, filename);
     }
 

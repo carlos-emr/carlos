@@ -80,7 +80,7 @@ function createRecorder() {
 
 function isExpectedMissingAsset(status, responseUrl) {
   return status === 404 && (
-    /\/favicon\.ico$/.test(responseUrl)
+    responseUrl.endsWith('/favicon.ico')
     || /\/imageRenderingServlet\?/.test(responseUrl)
     || /\/eform\/displayImage\?imagefile=signature_pad\.min\.js(?:$|&)/.test(responseUrl)
     || /\/eform\/displayImage\?imagefile=BNK\.png(?:$|&)/.test(responseUrl)
@@ -189,12 +189,12 @@ async function findLibraryEform(page, formName) {
   await row.waitFor({ state: 'visible', timeout: 15000 });
   const previewOnclick = await row.locator('a[onclick*="efmshowform_data?fid="]').first().getAttribute('onclick');
   const editHref = await row.locator('a[href*="efmformmanageredit?fid="]').first().getAttribute('href');
-  const previewMatch = previewOnclick && previewOnclick.match(/fid=([^&'"]+)/);
-  const editMatch = editHref && editHref.match(/fid=([^&'"]+)/);
+  const previewMatch = previewOnclick?.match(/fid=([^&'"]+)/);
+  const editMatch = editHref?.match(/fid=([^&'"]+)/);
   assert(previewMatch?.[1] ?? editMatch?.[1], `Could not extract fid for ${formName}`);
   return {
     row,
-    fid: decodeURIComponent((previewMatch && previewMatch[1]) || editMatch[1]),
+    fid: decodeURIComponent(previewMatch?.[1] || editMatch[1]),
   };
 }
 
