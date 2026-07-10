@@ -35,6 +35,72 @@ import static org.mockito.Mockito.when;
 class FormForward2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
+    @DisplayName("should resolve legacy form routes before adding the request context path")
+    void shouldResolveLegacyFormRoute_beforeAddingContextPath() throws Exception {
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
+        registerMock(EncounterFormDao.class, mock(EncounterFormDao.class));
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/form/forward");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        request.setContextPath("/carlos");
+        request.addParameter("demographic_no", "123");
+        request.addParameter("formname", "Annual");
+        when(securityInfoManager.hasPrivilege(any(), eq("_form"), eq(SecurityInfoManager.READ), eq("123")))
+                .thenReturn(true);
+
+        try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class);
+                MockedConstruction<FrmData> frmDataConstruction = mockConstruction(FrmData.class,
+                        (frmData, context) -> when(frmData.getShortcutFormValue("123", "Annual"))
+                                .thenReturn(new String[]{"/form/formannual.jsp?demographic_no=", "3"}))) {
+            servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
+
+            FormForward2Action action = new FormForward2Action();
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(302);
+            assertThat(response.getRedirectedUrl())
+                    .isEqualTo("/carlos/form/formannual?demographic_no=123&formId=3");
+            assertThat(frmDataConstruction.constructed()).hasSize(1);
+        }
+    }
+
+    @Test
+    @DisplayName("should use the execution-time Struts response")
+    void shouldUseExecutionTimeResponse_whenActionWasConstructedWithStaleResponse() throws Exception {
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
+        registerMock(EncounterFormDao.class, mock(EncounterFormDao.class));
+        MockHttpServletRequest staleRequest = new MockHttpServletRequest("GET", "/form/forward");
+        MockHttpServletResponse staleResponse = new MockHttpServletResponse();
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/form/forward");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        request.setContextPath("/carlos");
+        request.addParameter("demographic_no", "123");
+        request.addParameter("formname", "Annual");
+        when(securityInfoManager.hasPrivilege(any(), eq("_form"), eq(SecurityInfoManager.READ), eq("123")))
+                .thenReturn(true);
+
+        try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class);
+                MockedConstruction<FrmData> frmDataConstruction = mockConstruction(FrmData.class,
+                        (frmData, context) -> when(frmData.getShortcutFormValue("123", "Annual"))
+                                .thenReturn(new String[]{"/form/formannual.jsp?demographic_no=", "3"}))) {
+            servletActionContext.when(ServletActionContext::getRequest).thenReturn(staleRequest);
+            servletActionContext.when(ServletActionContext::getResponse).thenReturn(staleResponse);
+            FormForward2Action action = new FormForward2Action();
+
+            servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(staleResponse.getRedirectedUrl()).isNull();
+            assertThat(response.getRedirectedUrl())
+                    .isEqualTo("/carlos/form/formannual?demographic_no=123&formId=3");
+            assertThat(frmDataConstruction.constructed()).hasSize(1);
+        }
+    }
+
+    @Test
     @DisplayName("should omit form name when action path cannot be resolved")
     void shouldOmitFormName_whenActionPathCannotBeResolved() throws Exception {
         SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);

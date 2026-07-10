@@ -60,6 +60,7 @@ import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
@@ -251,6 +252,61 @@ class DocumentAttachmentManagerImplUnitTest extends CarlosUnitTestBase {
                             "eForm attachment 915 is unavailable and was not included.",
                             "Lab attachment 20 is unavailable and was not included.");
             verify(consultDocsDao).findUnavailableActiveConsultAttachments(9);
+        }
+    }
+
+    @Test
+    @DisplayName("warns and skips form attachments that cannot be rendered")
+    void shouldWarnAndSkipForm_whenFormRenderingFails() throws Exception {
+        request.setAttribute("reqId", "9");
+        request.setAttribute("demographicId", "1");
+        EctFormData.PatientForm form = new EctFormData.PatientForm("Annual", 3, 1, null, null);
+        when(consultationManager.getAttachedForms(loggedInInfo, 9, 1)).thenReturn(List.of(form));
+        when(formsManager.renderForm(request, response, form))
+                .thenThrow(new PDFGenerationException("form route unavailable"));
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
+                MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class);
+                MockedConstruction<CommonLabResultData> ignored = mockCommonLabResultData(List.of())) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            eDocUtilMock.when(() -> EDocUtil.listDocs(loggedInInfo, "1", "9", EDocUtil.ATTACHED))
+                    .thenReturn(new ArrayList<>());
+
+            Path result = manager.renderConsultationFormWithAttachments(request, response);
+
+            assertThat(result).isEqualTo(outputPdf);
+            assertThat(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE))
+                    .asList()
+                    .containsExactly("Form attachment 3 is unavailable and was not included.");
+            verify(formsManager).renderForm(request, response, form);
+        }
+    }
+
+    @Test
+    @DisplayName("warns and skips form rendering when AJAX preview suppresses legacy form actions")
+    void shouldWarnAndSkipFormRendering_whenAjaxPreviewSuppressesLegacyFormActions() throws Exception {
+        request.setAttribute("reqId", "9");
+        request.setAttribute("demographicId", "1");
+        request.setAttribute(DocumentAttachmentManager.SKIP_FORM_ATTACHMENT_RENDERING_ATTRIBUTE, Boolean.TRUE);
+        EctFormData.PatientForm form = new EctFormData.PatientForm("Annual", 3, 1, null, null);
+        when(consultationManager.getAttachedForms(loggedInInfo, 9, 1)).thenReturn(List.of(form));
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
+                MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class);
+                MockedConstruction<CommonLabResultData> ignored = mockCommonLabResultData(List.of())) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            eDocUtilMock.when(() -> EDocUtil.listDocs(loggedInInfo, "1", "9", EDocUtil.ATTACHED))
+                    .thenReturn(new ArrayList<>());
+
+            Path result = manager.renderConsultationFormWithAttachments(request, response);
+
+            assertThat(result).isEqualTo(outputPdf);
+            assertThat(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE))
+                    .asList()
+                    .containsExactly("Form attachment 3 is unavailable and was not included.");
+            verify(formsManager, never()).renderForm(request, response, form);
         }
     }
 

@@ -68,6 +68,8 @@ public class FormForward2Action extends ActionSupport {
     @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "UNVALIDATED_REDIRECT"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     @Override
     public String execute() throws ServletException, IOException {
+        request = ServletActionContext.getRequest();
+        response = ServletActionContext.getResponse();
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String demographicNo = request.getParameter("demographic_no");
@@ -100,8 +102,6 @@ public class FormForward2Action extends ActionSupport {
             if (formPath[0].startsWith("../")) {
                 formPath[0] = formPath[0].replace("../", "/");
             }
-
-            formPath[0] = request.getContextPath() + formPath[0];
 
             if (formPath[0].endsWith("?demographic_no=")) {
                 formPath[0] = formPath[0].replace("?demographic_no=", "");
