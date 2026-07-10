@@ -103,6 +103,37 @@ class FormTransportContainerUnitTest {
     }
 
     @Test
+    @DisplayName("does not carry a stale error message when a later sendError omits one")
+    void shouldClearErrorMessage_whenLaterSendErrorOmitsMessage() {
+        MockHttpServletResponse outerResponse = new MockHttpServletResponse();
+        MockHttpServletRequest request = requestForwardingTo((servletRequest, servletResponse) -> {
+            HttpServletResponse httpResponse = (HttpServletResponse) servletResponse;
+            httpResponse.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Failed to query form data");
+            httpResponse.sendError(HttpServletResponse.SC_BAD_REQUEST);
+        });
+
+        assertThatThrownBy(() -> new FormTransportContainer(outerResponse, request, "/form/bad"))
+                .isInstanceOf(ServletException.class)
+                .hasMessageContaining("HTTP status 400")
+                .hasMessageNotContaining("Failed to query form data");
+    }
+
+    @Test
+    @DisplayName("decodes captured bytes using the charset supplied via setContentType")
+    void shouldDecodeCapturedBytes_withCharsetFromContentType() throws Exception {
+        MockHttpServletResponse outerResponse = new MockHttpServletResponse();
+        outerResponse.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        MockHttpServletRequest request = requestForwardingTo((servletRequest, servletResponse) -> {
+            servletResponse.setContentType("text/html; charset=ISO-8859-1");
+            servletResponse.getOutputStream().write("café".getBytes(StandardCharsets.ISO_8859_1));
+        });
+
+        FormTransportContainer container = new FormTransportContainer(outerResponse, request, "/form/charset");
+
+        assertThat(container.getHTML()).contains("café");
+    }
+
+    @Test
     @DisplayName("captures nested flushBuffer without committing the caller response")
     void shouldCaptureNestedFlushBuffer_withoutCommittingCallerResponse() throws Exception {
         MockHttpServletResponse outerResponse = new MockHttpServletResponse();

@@ -236,6 +236,7 @@ public class FormTransportContainer {
         @Override
         public void sendError(int statusCode) {
             this.status = statusCode;
+            this.errorMessage = null;
         }
 
         @Override
@@ -350,6 +351,13 @@ public class FormTransportContainer {
         @Override
         public void setContentType(String contentType) {
             this.contentType = contentType;
+            // A content type may carry the response charset (e.g. "text/html; charset=UTF-8").
+            // Honour it locally so captured output-stream bytes decode with the form's charset
+            // instead of the inherited caller encoding.
+            String charsetFromContentType = extractCharset(contentType);
+            if (charsetFromContentType != null) {
+                this.characterEncoding = charsetFromContentType;
+            }
         }
 
         @Override
@@ -425,6 +433,26 @@ public class FormTransportContainer {
                 return "";
             }
             return new String(outputBytes.toByteArray(), resolveCharacterEncoding());
+        }
+
+        private static String extractCharset(String contentType) {
+            if (contentType == null) {
+                return null;
+            }
+            for (String parameter : contentType.split(";")) {
+                String trimmed = parameter.trim();
+                // Case-insensitive prefix match on the "charset=" parameter name (HTTP tokens are
+                // case-insensitive); regionMatches avoids locale-sensitive case folding.
+                if (trimmed.regionMatches(true, 0, "charset=", 0, "charset=".length())) {
+                    String charset = trimmed.substring("charset=".length()).trim();
+                    if (charset.length() >= 2 && charset.charAt(0) == '"'
+                            && charset.charAt(charset.length() - 1) == '"') {
+                        charset = charset.substring(1, charset.length() - 1).trim();
+                    }
+                    return charset.isEmpty() ? null : charset;
+                }
+            }
+            return null;
         }
 
         private void resetMetadata() {
