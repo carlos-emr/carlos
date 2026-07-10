@@ -108,7 +108,6 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
                     response.sendError(HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
                 } catch (IOException ioException) {
                     logger.debug("Unable to send bad-request response for EFormImageViewForPdfGenerationServlet", ioException);
-                    throw ioException;
                 }
             }
         } catch (Exception e) {
@@ -119,7 +118,6 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
                         "An internal error occurred. Please try again or contact your system administrator.");
                 } catch (IOException ioException) {
                     logger.debug("Unable to send internal-error response for EFormImageViewForPdfGenerationServlet", ioException);
-                    throw ioException;
                 }
             }
         }
@@ -128,6 +126,9 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
     private static void validateRequestedFileName(String fileName) {
         if (fileName == null || fileName.isEmpty()) {
             throw new IllegalArgumentException("imagefile parameter is required");
+        }
+        if (fileName.indexOf('\u0000') >= 0) {
+            throw new SecurityException("NUL byte detected in imagefile parameter");
         }
         if (!fileName.equals(FilenameUtils.getName(fileName))) {
             throw new SecurityException("Path traversal detected in imagefile parameter");
