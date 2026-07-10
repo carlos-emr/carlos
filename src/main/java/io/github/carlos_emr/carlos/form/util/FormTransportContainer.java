@@ -189,7 +189,11 @@ public class FormTransportContainer {
 
             @Override
             public void setWriteListener(WriteListener writeListener) {
-                // Intentionally ignored; this wrapper captures forwarded form output synchronously.
+                if (writeListener == null) {
+                    throw new IllegalArgumentException("writeListener must not be null");
+                }
+                throw new IllegalStateException(
+                        "FormTransportContainer captures forwarded form output synchronously and does not support asynchronous writes");
             }
 
             @Override
