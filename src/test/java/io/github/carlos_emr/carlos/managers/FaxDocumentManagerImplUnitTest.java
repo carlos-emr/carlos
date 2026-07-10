@@ -32,7 +32,7 @@ class FaxDocumentManagerImplUnitTest extends CarlosUnitTestBase {
     private FaxDocumentManagerImpl manager;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         mocks = MockitoAnnotations.openMocks(this);
         manager = new FaxDocumentManagerImpl();
         injectDependency(manager, "securityInfoManager", securityInfoManager);

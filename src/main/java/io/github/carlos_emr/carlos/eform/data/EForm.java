@@ -75,6 +75,16 @@ public class EForm extends EFormBase {
     private HashMap<String, String> fieldValues = new HashMap<String, String>();
     private int needValueInForm = 0;
     private boolean setAP2nd = false;
+    private static final String SCRIPT_TAG = "script";
+    private static final String LEGACY_JQUERY_SOURCE = "jquery-1.12.0.min.js";
+    private static final String LEGACY_JQUERY_DISPLAY_PATH = "/eform/jquery-1.12.0.min.js";
+    private static final String LOAD_SIG_CALL = "loadSig()";
+    private static final String LOAD_SIG_FUNCTION = "function loadSig(";
+    private static final String LOAD_SIG_WINDOW = "window.loadSig";
+    private static final String LOAD_SIG_FALLBACK = "window.loadSig = window.loadSig || function loadSig() {};";
+    private static final Pattern LEGACY_SET_TIMEOUT_PATTERN = Pattern.compile("setTimeout\\(\\s*'([^']+)'\\s*,\\s*([^)]++)\\)");
+    private static final Pattern LEGACY_SET_INTERVAL_PATTERN = Pattern.compile("setInterval\\(\\s*'([^']+)'\\s*,\\s*([^)]++)\\)");
+
     private String runtimeContextPath;
 
     private static final String EFORM_DEMOGRAPHIC = "eform_demographic";
@@ -398,10 +408,10 @@ public class EForm extends EFormBase {
 
     private String injectLoadSigFallback(String html) {
         if (StringUtils.isBlank(html)) return html;
-        if (!html.contains("loadSig()")) return html;
-        if (html.contains("function loadSig(") || html.contains("window.loadSig")) return html;
+        if (!html.contains(LOAD_SIG_CALL)) return html;
+        if (html.contains(LOAD_SIG_FUNCTION) || html.contains(LOAD_SIG_WINDOW)) return html;
 
-        String fallback = "<script>window.loadSig = window.loadSig || function loadSig() {};</script>";
+        String fallback = "<" + SCRIPT_TAG + ">" + LOAD_SIG_FALLBACK + "</" + SCRIPT_TAG + ">";
         int bodyClose = StringUtils.lastIndexOfIgnoreCase(html, "</body>");
         if (bodyClose >= 0) {
             return html.substring(0, bodyClose) + fallback + html.substring(bodyClose);
@@ -413,9 +423,7 @@ public class EForm extends EFormBase {
     private String rewriteLegacyStringTimers(String html) {
         if (StringUtils.isBlank(html)) return html;
 
-        String rewritten = html.replaceAll("setTimeout\\(\\s*'([^']+)'\\s*,\\s*([^)]+)\\)", "setTimeout(function(){ $1 }, $2)");
-        rewritten = rewritten.replaceAll("setInterval\\(\\s*'([^']+)'\\s*,\\s*([^)]+)\\)", "setInterval(function(){ $1 }, $2)");
-        return rewritten;
+        return rewriteLegacyTimerCalls(rewriteLegacyTimerCalls(html, LEGACY_SET_TIMEOUT_PATTERN, "setTimeout"), LEGACY_SET_INTERVAL_PATTERN, "setInterval");
     }
 
     @Override
@@ -431,29 +439,37 @@ public class EForm extends EFormBase {
     }
 
     private void normalizeLegacyRuntimeAssetsInDocument(String contextPath) {
-        Element head = getDocument().head();
-        if (head == null) return;
-
         String assetUrl = contextPath + "/eform/displayImage?imagefile=jquery-1.12.0.min.js";
         for (Element script : getDocument().select("script[src]")) {
             String src = script.attr("src").trim();
-            if ("jquery-1.12.0.min.js".equals(src) || "/eform/jquery-1.12.0.min.js".equals(src)) {
+            if (LEGACY_JQUERY_SOURCE.equals(src) || LEGACY_JQUERY_DISPLAY_PATH.equals(src)) {
                 script.attr("src", assetUrl);
             }
         }
-        for (Element script : getDocument().select("script:not([src])")) {
+        for (Element script : getDocument().select(SCRIPT_TAG + ":not([src])")) {
             script.text(rewriteLegacyStringTimers(script.data()));
         }
 
         Element body = getDocument().body();
-        if (body == null || !body.attr("onload").contains("loadSig()")) return;
+        if (!body.attr("onload").contains(LOAD_SIG_CALL)) return;
 
-        boolean hasLoadSigDefinition = getDocument().select("script:not([src])").stream()
+        boolean hasLoadSigDefinition = getDocument().select(SCRIPT_TAG + ":not([src])").stream()
                 .map(Element::data)
-                .anyMatch(scriptContent -> scriptContent.contains("function loadSig(") || scriptContent.contains("window.loadSig"));
+                .anyMatch(scriptContent -> scriptContent.contains(LOAD_SIG_FUNCTION) || scriptContent.contains(LOAD_SIG_WINDOW));
         if (!hasLoadSigDefinition) {
-            body.appendElement("script").append("window.loadSig = window.loadSig || function loadSig() {};");
+            body.appendElement(SCRIPT_TAG).append(LOAD_SIG_FALLBACK);
         }
+    }
+
+    private static String rewriteLegacyTimerCalls(String html, Pattern pattern, String timerFunction) {
+        Matcher matcher = pattern.matcher(html);
+        StringBuffer rewritten = new StringBuffer();
+        while (matcher.find()) {
+            String replacement = timerFunction + "(function(){ " + matcher.group(1) + " }, " + matcher.group(2) + ")";
+            matcher.appendReplacement(rewritten, Matcher.quoteReplacement(replacement));
+        }
+        matcher.appendTail(rewritten);
+        return rewritten.toString();
     }
 
     public void setFdid(String fdid) {

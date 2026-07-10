@@ -144,8 +144,9 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
         eForm.setFormHtml(html);
         eForm.setImagePath(contextPath);
         html = eForm.getFormHtml();
-        html = html.replace(contextPath + "/eform/displayImage", contextPath + "/EFormImageViewForPdfGenerationServlet");
-        html = html.replace("/eform/displayImage", contextPath + "/EFormImageViewForPdfGenerationServlet");
+        String imageViewServletPath = contextPath + "/EFormImageViewForPdfGenerationServlet";
+        html = html.replace(contextPath + "/eform/displayImage", imageViewServletPath);
+        html = html.replace("/eform/displayImage", imageViewServletPath);
         eForm.setFormHtml(html);
         eForm.setNowDateTime();
         return eForm.getFormHtml();

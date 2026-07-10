@@ -97,7 +97,7 @@ class EFormImageViewForPdfGenerationServletTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should not throw when sendError fails while rejecting invalid imagefile input")
-    void shouldNotThrowWhenSendErrorFails_forInvalidImagefileInput() throws Exception {
+    void shouldNotThrowWhenSendErrorFails_forInvalidImagefileInput() {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormImageViewForPdfGenerationServlet");
         request.setRemoteAddr("127.0.0.1");
         request.setParameter("imagefile", "../bg.png");

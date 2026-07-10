@@ -59,6 +59,7 @@ class NioFileManagerImplUnitTest {
     private NioFileManagerImpl nioFileManager;
     private SecurityInfoManager securityInfoManager;
     private LoggedInInfo loggedInInfo;
+    private Path allowedTempDir;
     private Path outsideDir;
     private Path outsideFile;
     private Path symlink;
@@ -83,6 +84,10 @@ class NioFileManagerImplUnitTest {
 
     @AfterEach
     void tearDown() throws IOException {
+        if (allowedTempDir != null) {
+            Files.deleteIfExists(allowedTempDir.resolve("fax-preview.pdf"));
+            Files.deleteIfExists(allowedTempDir);
+        }
         if (symlink != null) {
             Files.deleteIfExists(symlink);
         }
@@ -178,10 +183,13 @@ class NioFileManagerImplUnitTest {
     @Test
     @DisplayName("Creates preview images for approved temp PDFs used by fax rendering")
     void shouldCreateCacheVersion_whenSourcePdfIsInAllowedTempDirectory() throws IOException {
-        Path sourcePdf = tempDir.resolve("fax-preview.pdf");
+        allowedTempDir = Files.createTempDirectory(Path.of(System.getProperty("java.io.tmpdir")), "nio-cache-preview-");
+        assumeTrue(PathValidationUtils.isInAllowedTempDirectory(allowedTempDir.toFile()),
+                "test temp directory must resolve inside an allowed temp directory");
+        Path sourcePdf = allowedTempDir.resolve("fax-preview.pdf");
         createSinglePagePdf(sourcePdf);
 
-        Path cacheVersion = nioFileManager.createCacheVersion2(loggedInInfo, tempDir.toString(), sourcePdf.getFileName().toString(), 1);
+        Path cacheVersion = nioFileManager.createCacheVersion2(loggedInInfo, allowedTempDir.toString(), sourcePdf.getFileName().toString(), 1);
 
         assertThat(cacheVersion).isNotNull();
         assertThat(cacheVersion).exists();

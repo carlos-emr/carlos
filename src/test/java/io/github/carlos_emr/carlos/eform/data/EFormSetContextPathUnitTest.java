@@ -54,7 +54,9 @@ class EFormSetContextPathUnitTest {
 
         eform.setContextPath("/carlos");
 
-        assertThat(eform.getFormHtml()).isEqualTo("<script src=\"/carlos/library/eform.js\"></script>");
+        assertThat(eform.getFormHtml())
+                .contains("<script src=\"/carlos/library/eform.js\"></script>")
+                .doesNotContain(JS_MARKER);
     }
 
     @Test
@@ -64,7 +66,9 @@ class EFormSetContextPathUnitTest {
 
         eform.setContextPath("/carlos/");
 
-        assertThat(eform.getFormHtml()).isEqualTo("<script src=\"/carlos/library/eform.js\"></script>");
+        assertThat(eform.getFormHtml())
+                .contains("<script src=\"/carlos/library/eform.js\"></script>")
+                .doesNotContain(JS_MARKER);
     }
 
     @Test

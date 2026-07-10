@@ -286,7 +286,7 @@ public class EFormBrowserPdfRenderer {
             return Path.of(baseDir.getPath(), "eform", "browser-pdf-temp");
         }
         if (catalinaBase != null && !catalinaBase.isBlank()) {
-            File catalinaDir = PathValidationUtils.resolveConfiguredDirectory(catalinaBase.trim(), "catalina.base");
+            File catalinaDir = PathValidationUtils.resolveConfiguredDirectory(catalinaBase.trim(), CATALINA_BASE_PROPERTY);
             return Path.of(catalinaDir.getPath(), "work", "carlos", "eform-browser-pdf-temp");
         }
         File tempDir = PathValidationUtils.validateConfiguredDirectory(javaTmpDir, "java.io.tmpdir");
