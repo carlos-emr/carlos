@@ -4,6 +4,12 @@ import io.github.carlos_emr.carlos.commn.model.converter.EmailAttachmentDocument
 import jakarta.persistence.*;
 
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+/**
+ * Entity representing a file attachment associated with an email message.
+ * Links a stored document or generated report to an outgoing email record.
+ *
+ * @since 2026-07-09
+ */
 
 @Entity
 @Table(name = "emailAttachment")
@@ -33,6 +39,7 @@ public class EmailAttachment extends AbstractModel<Integer> {
     }
 
     public EmailAttachment(String fileName, String filePath, DocumentType documentType, int documentId) {
+        // Link this attachment instance to a specific email message ID
         this.fileName = fileName;
         this.filePath = filePath;
         this.documentType = documentType;

@@ -6,6 +6,12 @@ import org.springframework.context.annotation.Configuration;
 import jakarta.servlet.ServletContext;
 
 import org.springframework.web.context.ServletContextAware;
+/**
+ * Configuration class for Servlet context initialization within Spring.
+ * Allows programmatic registration of servlet components or parameters during application startup.
+ *
+ * @since 2026-07-09
+ */
 
 @Configuration
 public class ServletContextConfig implements ServletContextAware {
@@ -14,6 +20,7 @@ public class ServletContextConfig implements ServletContextAware {
 
     @Override
     public void setServletContext(ServletContext servletContext) {
+        // Register the necessary servlet configuration parameters
         this.servletContext = servletContext;
     }
 

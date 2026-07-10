@@ -14,6 +14,12 @@ import org.springframework.mail.javamail.JavaMailSenderImpl;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+/**
+ * Helper class designed to send emails via a locally configured SMTP server.
+ * Manages the construction, connection, and transmission of email messages using local properties.
+ *
+ * @since 2026-07-09
+ */
 
 public class LocalSMTPEmailSender extends SMTPEmailSender {
 

@@ -2,6 +2,12 @@ package io.github.carlos_emr.carlos.commn.model.enumerator;
 
 import java.util.ArrayList;
 import java.util.List;
+/**
+ * Enumeration representing CPP (Cumulative Patient Profile) codes.
+ * Standardized codes used to categorize various clinical, demographic, or historical patient data points.
+ *
+ * @since 2026-07-09
+ */
 
 public enum CppCode {
     OMEDS("OMeds"),
@@ -21,6 +27,7 @@ public enum CppCode {
     }
 
     public String getCode() {
+        // Return the standardized code value for clinical mapping
         return code;
     }
 

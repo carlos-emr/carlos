@@ -1,4 +1,10 @@
 package io.github.carlos_emr.carlos.commn.model.enumerator;
+/**
+ * Enumeration of keys used in Consultation Request extensions.
+ * These keys define specific metadata fields or additional attributes attached to consultation requests.
+ *
+ * @since 2026-07-09
+ */
 
 public enum ConsultationRequestExtKey {
     EREFERRAL_REF("ereferral_ref"),
@@ -12,6 +18,7 @@ public enum ConsultationRequestExtKey {
     }
 
     public String getKey() {
+        // Return the string key used in extension maps
         return key;
     }
 }

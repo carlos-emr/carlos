@@ -4,6 +4,12 @@ import io.github.carlos_emr.carlos.commn.model.converter.EmailConfigProviderConv
 import io.github.carlos_emr.carlos.commn.model.converter.EmailConfigTypeConverter;
 import jakarta.persistence.*;
 import java.util.List;
+/**
+ * Entity representing configuration settings for email communication.
+ * Stores SMTP server details, credentials, and default sender addresses for automated emails.
+ *
+ * @since 2026-07-09
+ */
 
 @Entity
 @Table(name = "emailConfig")

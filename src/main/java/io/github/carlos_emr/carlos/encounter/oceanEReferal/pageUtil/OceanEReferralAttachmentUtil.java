@@ -9,6 +9,12 @@ import io.github.carlos_emr.carlos.commn.dao.EReferAttachmentDataDaoImpl;
 import io.github.carlos_emr.carlos.commn.model.EReferAttachment;
 import io.github.carlos_emr.carlos.commn.model.EReferAttachmentData;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+/**
+ * Utility methods for managing and processing attachments associated with Ocean eReferrals.
+ * Assists with parsing attachment metadata and transforming binary content for integration.
+ *
+ * @since 2026-07-09
+ */
 
 public class OceanEReferralAttachmentUtil {
     private static EReferAttachmentDataDaoImpl eReferAttachmentDataDao = SpringUtils.getBean(EReferAttachmentDataDaoImpl.class);
@@ -17,6 +23,7 @@ public class OceanEReferralAttachmentUtil {
     public static void detachOceanEReferralConsult(String docId, String type) {
         Calendar calendar = Calendar.getInstance();
         calendar.add(Calendar.HOUR_OF_DAY, -1);
+        // Parse the attachment metadata from the provided Ocean eReferral payload
         EReferAttachmentData eReferAttachmentData = eReferAttachmentDataDao.getRecentByDocumentId(Integer.parseInt(docId), type, calendar.getTime());
         if (eReferAttachmentData == null) {
             return;

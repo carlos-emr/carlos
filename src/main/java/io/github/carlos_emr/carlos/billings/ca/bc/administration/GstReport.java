@@ -17,12 +17,19 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import java.util.Properties;
 import java.util.Vector;
+/**
+ * Report generator for GST (Goods and Services Tax) calculations in the BC billing module.
+ * Provides methods to extract and aggregate GST values for medical billing records.
+ *
+ * @since 2026-07-09
+ */
 
 public class GstReport {
 
     public Vector<Properties> getGST(LoggedInInfo loggedInInfo, String[] providerNos, String startDate, String endDate) {
         Properties props;
         Vector<Properties> list = new Vector<Properties>();
+        // Retrieve BillingDao to execute GST queries against the database
         BillingDao dao = SpringUtils.getBean(BillingDao.class);
         DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
         ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);

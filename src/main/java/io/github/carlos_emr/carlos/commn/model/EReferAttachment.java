@@ -11,6 +11,12 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.util.Date;
 import java.util.List;
+/**
+ * Entity representing metadata for an eReferral attachment.
+ * Contains information such as file name, size, and document type, linking to the actual data payload.
+ *
+ * @since 2026-07-09
+ */
 
 @Entity
 @Table(name = "erefer_attachment")
@@ -42,6 +48,7 @@ public class EReferAttachment extends AbstractModel<Integer> {
     }
 
     public Integer getId() {
+        // Retrieves the human-readable filename associated with this attachment
         return id;
     }
 

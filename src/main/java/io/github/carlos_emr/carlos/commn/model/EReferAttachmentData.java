@@ -7,6 +7,12 @@ import jakarta.persistence.IdClass;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+/**
+ * Entity representing the binary data payload of an eReferral attachment.
+ * Typically mapped to a database BLOB or file reference holding the actual document content.
+ *
+ * @since 2026-07-09
+ */
 
 @Entity
 @IdClass(EReferAttachmentDataCompositeKey.class)

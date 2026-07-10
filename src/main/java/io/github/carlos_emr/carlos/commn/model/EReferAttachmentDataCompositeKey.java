@@ -5,6 +5,12 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import java.io.Serializable;
 import java.util.Objects;
+/**
+ * Composite key identifier for the EReferAttachmentData entity.
+ * Ensures unique identification based on multiple key columns when composite primary keys are required.
+ *
+ * @since 2026-07-09
+ */
 
 public class EReferAttachmentDataCompositeKey implements Serializable {
     @ManyToOne
@@ -21,6 +27,7 @@ public class EReferAttachmentDataCompositeKey implements Serializable {
     }
 
     public EReferAttachmentDataCompositeKey(EReferAttachment eReferAttachment, Integer labId, String labType) {
+        // Combines multiple IDs to form a unique composite primary key
         this.eReferAttachment = eReferAttachment;
         this.labId = labId;
         this.labType = labType;

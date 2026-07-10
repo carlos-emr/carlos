@@ -1,4 +1,10 @@
 package io.github.carlos_emr.carlos.commn.model.enumerator;
+/**
+ * Enumeration of various document types supported by the system.
+ * Used for categorizing and applying specific processing rules to uploaded or generated documents.
+ *
+ * @since 2026-07-09
+ */
 
 public enum DocumentType {
     EFORM("E", "eForm"),
@@ -16,6 +22,7 @@ public enum DocumentType {
     }
 
     public String getType() {
+        // Return the string value used in legacy database tables
         return this.type;
     }
 

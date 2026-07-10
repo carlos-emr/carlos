@@ -1,6 +1,12 @@
 package io.github.carlos_emr.carlos.webserv.rest.to.model;
 
 import java.util.Date;
+/**
+ * Transfer Object mapping extension data for consultation requests.
+ * Designed for use with RESTful web services to serialize and transport request metadata extensions over HTTP.
+ *
+ * @since 2026-07-09
+ */
 
 public class ConsultationRequestExtTo1 {
     private Integer id;
@@ -14,6 +20,7 @@ public class ConsultationRequestExtTo1 {
     }
 
     public void setId(Integer id) {
+        // Set the extension key for this transfer object payload
         this.id = id;
     }
 

@@ -13,6 +13,12 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
+/**
+ * Base action class or constant holder for Struts actions that return JSON responses.
+ * Establishes the structural baseline for actions handling AJAX requests.
+ *
+ * @since 2026-07-09
+ */
 
 public class JSONAction extends ActionSupport {
 

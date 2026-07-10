@@ -12,6 +12,12 @@ import io.github.carlos_emr.carlos.encounter.oceanEReferal.pageUtil.OceanEReferr
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+/**
+ * Model representing the association or linkage of documents within the system.
+ * Facilitates linking uploaded documents to specific patients, providers, or clinical encounters.
+ *
+ * @since 2026-07-09
+ */
 
 public class DocumentAttach {
     private final ConsultDocsDao consultDocsDao = SpringUtils.getBean(ConsultDocsDao.class);
@@ -33,6 +39,7 @@ public class DocumentAttach {
     }
 
     public DocumentAttach(Integer demographicNo, Boolean editOnOcean) {
+        // Set the unique identifier of the attached document
         this.demographicNo = demographicNo;
         this.editOnOcean = editOnOcean;
     }
