@@ -26,15 +26,15 @@ fi
 LIVE_TABLES="$(mktemp)"
 trap 'rm -f "$LIVE_TABLES"' EXIT
 
-# Live tables = the CREATE TABLE names across the baseline schema files (common + both provinces).
-# Deliberately the ON∪BC union even though the devcontainer loads the result into an Ontario-only
-# schema: the demo snapshot is Ontario-sourced, so BC-only names never match in practice, and the
-# broader keep-set means a future BC devcontainer needs no filter change.
-grep -hoE 'CREATE TABLE +`[^`]+`' \
-  "${SCRIPT_DIR}/migration/common/V1__baseline_schema.sql" \
-  "${SCRIPT_DIR}/migration/on/V1.0.1__on_schema.sql" \
-  "${SCRIPT_DIR}/migration/bc/V1.0.1__bc_schema.sql" \
-  | sed -E 's/CREATE TABLE +`([^`]+)`/\1/' | LC_ALL=C sort -u > "$LIVE_TABLES"
+# Live tables = every CREATE TABLE name across the full migration set (common + both provinces).
+# Include forward migrations and CREATE TABLE IF NOT EXISTS forms so restored/adopted tables added
+# after the genesis baseline are not stripped from the demo snapshot.
+for schema in "${SCRIPT_DIR}/migration/common/"V*.sql \
+              "${SCRIPT_DIR}/migration/on/"V*.sql \
+              "${SCRIPT_DIR}/migration/bc/"V*.sql; do
+  [ -f "$schema" ] || continue
+  sed -nE 's/^[[:space:]]*CREATE[[:space:]]+TABLE([[:space:]]+IF[[:space:]]+NOT[[:space:]]+EXISTS)?[[:space:]]+`?([A-Za-z0-9_]+)`?[[:space:]].*/\2/p' "$schema"
+done | LC_ALL=C sort -u > "$LIVE_TABLES"
 
 awk '
 function table_target(line, rest) {

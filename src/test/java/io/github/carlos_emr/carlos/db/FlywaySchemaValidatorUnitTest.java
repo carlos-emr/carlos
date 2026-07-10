@@ -86,6 +86,14 @@ class FlywaySchemaValidatorUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("shouldTreatUnsupportedBillregionAsUnknown")
+    void shouldTreatUnsupportedBillregionAsUnknown() {
+        assertThat(FlywaySchemaValidator.resolveLocations("", "AB")).isEmpty();
+        assertThat(FlywaySchemaValidator.resolveLocations(ON_LOCATIONS, "AB"))
+                .containsExactly("classpath:db/migration/common", "classpath:db/migration/on");
+    }
+
+    @Test
     @DisplayName("shouldDefaultToOff_forNullMode")
     void shouldDefaultToOff_forNullMode() {
         DataSource dataSource = mock(DataSource.class);

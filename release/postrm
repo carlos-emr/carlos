@@ -91,21 +91,40 @@ case "$1" in
         # delete patient data!!
         # SANITY CHECK FOR PRODUCTION PURGE
         if [ -n "${db_password}" ]; then
+            patientCount=""
+            prompt_for_purge=false
             if [ -n "${DB_CLIENT}" ]; then
-                patientCount=$( MYSQL_PWD="${db_password}" ${DB_CLIENT} -u root oscar_15 -s -e "SELECT COUNT(*) FROM demographic;" 2>/dev/null)
+                patientCount=$( MYSQL_PWD="${db_password}" ${DB_CLIENT} -u root oscar_15 -s -e "SELECT COUNT(*) FROM demographic;" 2>/dev/null) || patientCount=""
             else
-                patientCount=0
-                echo "mariadb client not available; skipping patient count check" >>$LOG_FILE
+                echo "mariadb client not available; assuming production data may exist for purge confirmation" >>$LOG_FILE
+                prompt_for_purge=true
             fi
-            if [ "${patientCount:-0}" -gt "3" ]; then
-                    # the demo sql installs 2 patients purging that is not an issue
+            case "${patientCount}" in
+                ''|*[!0-9]*)
+                    if [ -n "${DB_CLIENT}" ]; then
+                        echo "patient count unavailable; assuming production data may exist for purge confirmation" >>$LOG_FILE
+                    fi
+                    prompt_for_purge=true
+                    ;;
+                *)
+                    if [ "${patientCount}" -gt "3" ]; then
+                        prompt_for_purge=true
+                    fi
+                    ;;
+            esac
+            if [ "${prompt_for_purge}" = "true" ]; then
+                    # the demo sql installs 2 patients; purging that is not an issue when count is known.
                     echo "Purging will delete YOUR data and settings"
-                    echo "Do you REALLY want to delete ALL the data on ${patientCount} patients? "
+                    echo "Do you REALLY want to delete ALL the data on ${patientCount:-an unknown number of} patients? "
                     echo "*** LAST CHANCE TO HIT [CTRL] + [C] to abort ***"
                     countdown "00:00:20"
             fi
         else
-            echo "db_password not available; skipping patient count check" >>$LOG_FILE
+            echo "db_password not available; assuming production data may exist for purge confirmation" >>$LOG_FILE
+            echo "Purging will delete YOUR data and settings"
+            echo "Do you REALLY want to delete ALL the data on an unknown number of patients? "
+            echo "*** LAST CHANCE TO HIT [CTRL] + [C] to abort ***"
+            countdown "00:00:20"
         fi
         # drugref already removed by prerm
    fi

@@ -175,8 +175,10 @@ public class FlywaySchemaValidator implements InitializingBean {
         if ("ON".equals(billregion) || "BC".equals(billregion)) {
             return billregion;
         }
-        throw new IllegalArgumentException("billregion must be ON or BC for Flyway schema validation but was '"
-                + raw + "'");
+        // Other billing regions exist in legacy CARLOS config, but this WAR only ships common,
+        // Ontario, and BC migration locations. Treat unsupported regions as unknown so off mode
+        // remains a no-op and validate/migrate require explicit carlos.flyway.locations.
+        return null;
     }
 
     private static String[] locationsForBillregion(String billregion) {
