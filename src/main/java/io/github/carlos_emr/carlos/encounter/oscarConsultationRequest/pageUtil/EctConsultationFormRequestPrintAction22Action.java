@@ -261,9 +261,9 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             } catch (SecurityException e) {
                 throw e;
             } catch (DocumentException e) {
-                logSkippedAttachment(ATTACHMENT_TYPE_DOC, documentId(doc), "document PDF conversion failed");
+                logSkippedAttachment(ATTACHMENT_TYPE_DOC, documentId(doc), "document PDF conversion failed", e);
             } catch (IOException | RuntimeException e) {
-                logSkippedAttachment(ATTACHMENT_TYPE_DOC, documentId(doc), e.getClass().getName());
+                logSkippedAttachment(ATTACHMENT_TYPE_DOC, documentId(doc), e);
             }
         }
     }
@@ -344,7 +344,7 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
         } catch (SecurityException e) {
             throw e;
         } catch (IOException | RuntimeException e) {
-            logSkippedAttachment(ATTACHMENT_TYPE_LAB, lab.segmentID, e.getClass().getName());
+            logSkippedAttachment(ATTACHMENT_TYPE_LAB, lab.segmentID, e);
         } finally {
             deleteTemporaryLabPDF(tempLabPDF);
         }
@@ -381,7 +381,7 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             } catch (SecurityException e) {
                 throw e;
             } catch (RuntimeException e) {
-                logSkippedAttachment(ATTACHMENT_TYPE_HRM, hrmDocumentId, e.getClass().getName());
+                logSkippedAttachment(ATTACHMENT_TYPE_HRM, hrmDocumentId, e);
             }
         }
     }
@@ -404,7 +404,7 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             } catch (SecurityException e) {
                 throw e;
             } catch (IOException | RuntimeException e) {
-                logSkippedAttachment(ATTACHMENT_TYPE_EFORM, eFormItem.getId(), e.getClass().getName());
+                logSkippedAttachment(ATTACHMENT_TYPE_EFORM, eFormItem.getId(), e);
             }
         }
     }
@@ -421,7 +421,7 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             } catch (SecurityException e) {
                 throw e;
             } catch (IOException | ServletException | RuntimeException e) {
-                logSkippedAttachment(ATTACHMENT_TYPE_FORM, formItem.getFormId(), e.getClass().getName());
+                logSkippedAttachment(ATTACHMENT_TYPE_FORM, formItem.getFormId(), e);
             }
         }
     }
@@ -454,9 +454,23 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
     }
 
     private void logSkippedAttachment(String attachmentType, Object attachmentId, String reason) {
+        logSkippedAttachment(attachmentType, attachmentId, reason, null);
+    }
+
+    private void logSkippedAttachment(String attachmentType, Object attachmentId, Throwable cause) {
+        String reason = cause == null ? "unknown error" : cause.getClass().getName();
+        logSkippedAttachment(attachmentType, attachmentId, reason, cause);
+    }
+
+    private void logSkippedAttachment(String attachmentType, Object attachmentId, String reason, Throwable cause) {
         if (logger.isWarnEnabled()) {
-            logger.warn("Skipped consultation print attachment type={} id={} while rendering PDF package: {}",
-                    LogSafe.sanitize(attachmentType), LogSafe.sanitize(String.valueOf(attachmentId)), LogSafe.sanitize(reason));
+            if (cause == null) {
+                logger.warn("Skipped consultation print attachment type={} id={} while rendering PDF package: {}",
+                        LogSafe.sanitize(attachmentType), LogSafe.sanitize(String.valueOf(attachmentId)), LogSafe.sanitize(reason));
+            } else {
+                logger.warn("Skipped consultation print attachment type={} id={} while rendering PDF package: {}",
+                        LogSafe.sanitize(attachmentType), LogSafe.sanitize(String.valueOf(attachmentId)), LogSafe.sanitize(reason), cause);
+            }
         }
     }
 
