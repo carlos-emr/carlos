@@ -8,14 +8,14 @@ CREATE TABLE IF NOT EXISTS demographicstudy (
   provider_no varchar(6) NOT NULL default '',
   timestamp timestamp NOT NULL,
   PRIMARY KEY  (demographic_no,study_no)
-) ;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- rehabStudy2004
 CREATE TABLE IF NOT EXISTS rehabStudy2004(
   studyID int(10) NOT NULL,
   demographic_no int(10) NOT NULL,
   PRIMARY KEY  (studyID)
-) ;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- study
 CREATE TABLE IF NOT EXISTS study (
@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS study (
   provider_no varchar(6) NOT NULL default '',
   timestamp timestamp NOT NULL,
   PRIMARY KEY  (study_no)
-) ;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- studydata
 CREATE TABLE IF NOT EXISTS studydata (
@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS studydata (
   content text,
   keyname varchar(32),
   PRIMARY KEY  (studydata_no)
-) ;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- studylogin
 CREATE TABLE IF NOT EXISTS studylogin (
@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS studylogin (
   creator varchar(6) NOT NULL default '',
   timestamp timestamp NOT NULL,
   PRIMARY KEY  (id)
-) ;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- form_hsfo2_visit
 CREATE TABLE IF NOT EXISTS form_hsfo2_visit (
@@ -183,7 +183,7 @@ CREATE TABLE IF NOT EXISTS form_hsfo2_visit (
   ASA_RxDecToday enum('Same', 'Increase', 'Decrease', 'Stop', 'Start', 'InClassSwitch', 'null') ,
  
   PRIMARY KEY  (ID)
-) ;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- hsfo2_patient
 CREATE TABLE IF NOT EXISTS hsfo2_patient (
@@ -223,14 +223,14 @@ CREATE TABLE IF NOT EXISTS hsfo2_patient (
   
   
   PRIMARY KEY  (ID)
-) ;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- hsfo2_system
 CREATE TABLE IF NOT EXISTS hsfo2_system (
   ID int(10) NOT NULL auto_increment,
   LastUploadDate date NOT NULL,
   PRIMARY KEY  (ID)
-) ;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- hsfo_recommit_schedule
 CREATE TABLE IF NOT EXISTS `hsfo_recommit_schedule` (   
@@ -241,7 +241,7 @@ CREATE TABLE IF NOT EXISTS `hsfo_recommit_schedule` (
   `user_no` varchar(6) ,      
   `check_flag` tinyint(1) ,   
    PRIMARY KEY  (`id`)                     
-   ) ;
+   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- providerstudy
 CREATE TABLE IF NOT EXISTS providerstudy (
@@ -249,7 +249,37 @@ CREATE TABLE IF NOT EXISTS providerstudy (
         provider_no varchar(6),
         creator varchar(6),
         `timestamp` timestamp
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+
+-- Normalize restored legacy tables for adopted databases that already had older copies.
+ALTER TABLE demographicstudy ENGINE=InnoDB, CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+ALTER TABLE rehabStudy2004 ENGINE=InnoDB, CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+ALTER TABLE study ENGINE=InnoDB, CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+ALTER TABLE studydata ENGINE=InnoDB, CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+ALTER TABLE studylogin ENGINE=InnoDB, CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+ALTER TABLE form_hsfo2_visit ENGINE=InnoDB, CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+ALTER TABLE form_hsfo2_visit ADD COLUMN IF NOT EXISTS depression bool;
+ALTER TABLE form_hsfo2_visit ADD COLUMN IF NOT EXISTS famHx_depression bool;
+ALTER TABLE form_hsfo2_visit ADD COLUMN IF NOT EXISTS assessActivity int(3);
+ALTER TABLE form_hsfo2_visit ADD COLUMN IF NOT EXISTS assessSmoking int(3);
+ALTER TABLE form_hsfo2_visit ADD COLUMN IF NOT EXISTS assessAlcohol int(3);
+ALTER TABLE form_hsfo2_visit ADD COLUMN IF NOT EXISTS nextVisitInMonths int(3);
+ALTER TABLE form_hsfo2_visit ADD COLUMN IF NOT EXISTS nextVisitInWeeks int(3);
+ALTER TABLE form_hsfo2_visit ADD COLUMN IF NOT EXISTS monitor bool;
+ALTER TABLE form_hsfo2_visit ADD COLUMN IF NOT EXISTS egfrDate date;
+ALTER TABLE form_hsfo2_visit ADD COLUMN IF NOT EXISTS egfr int(3);
+ALTER TABLE form_hsfo2_visit ADD COLUMN IF NOT EXISTS acr double(5, 1);
+ALTER TABLE form_hsfo2_visit ADD COLUMN IF NOT EXISTS lastBaseLineRecord bool NOT NULL DEFAULT 0;
+ALTER TABLE form_hsfo2_visit ADD COLUMN IF NOT EXISTS A1C double(3, 3);
+ALTER TABLE form_hsfo2_visit ADD COLUMN IF NOT EXISTS fbs double(3, 1);
+ALTER TABLE form_hsfo2_visit ADD COLUMN IF NOT EXISTS ASA_rx bool NOT NULL DEFAULT 0;
+ALTER TABLE form_hsfo2_visit ADD COLUMN IF NOT EXISTS ASA_SideEffects bool NOT NULL DEFAULT 0;
+ALTER TABLE form_hsfo2_visit ADD COLUMN IF NOT EXISTS ASA_RxDecToday enum('Same', 'Increase', 'Decrease', 'Stop', 'Start', 'InClassSwitch', 'null');
+ALTER TABLE hsfo2_patient ENGINE=InnoDB, CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+ALTER TABLE hsfo2_system ENGINE=InnoDB, CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+ALTER TABLE hsfo_recommit_schedule ENGINE=InnoDB, CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+ALTER TABLE providerstudy ENGINE=InnoDB, CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 
 -- Restored live lookup target tables and ICD-10 reference data omitted from generated baseline.
 -- These tables are referenced by app_lookuptable rows and runtime lookup DAO paths.
@@ -329,7 +359,7 @@ CREATE TABLE IF NOT EXISTS `icd10` (
   `icd10` varchar(7) NOT NULL default '',
   `description` varchar(255) NOT NULL default '',
   PRIMARY KEY  (`id`)
-) ;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `icd10`

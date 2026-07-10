@@ -93,6 +93,7 @@ export DB_PASSWORD="${db_password}"
 
 # --- prevent *.enc to be run through if there are no files in the directory
 shopt -s nullglob
+PROCESSED_DIR="${SCRIPT_DIR}/restored-inputs"
 
 for f in "${SCRIPT_DIR}"/*.tar.gz.enc
 do
@@ -109,6 +110,10 @@ do
 	tar -pxzf "$decrypted" -C "$extract_target" && echo "Extraction successful." || { echo "Extraction failed." >> /dev/stderr; exit 1; }
 	echo "Cleanup, deleting decrypted file - $decrypted"
 	rm "$decrypted"
+	mkdir -p "$PROCESSED_DIR"
+	processed_input="${PROCESSED_DIR}/$(date +%Y%m%d%H%M%S)-$$-$(basename "$f")"
+	echo "Moving processed encrypted input to $processed_input"
+	mv "$f" "$processed_input"
 done
 
 echo "Changing directories to ${DOCS}"

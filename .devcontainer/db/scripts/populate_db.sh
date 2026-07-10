@@ -29,16 +29,17 @@ FORWARD=$(for f in "${MIG}/common/"V*.sql "${MIG}/on/"V*.sql; do
   | awk -F'/V1\\.0\\.' '{ n=$2; sub(/__.*/,"",n); print n "\t" $0 }' \
   | sort -n | cut -f2)
 if [ -z "${FORWARD}" ]; then
-  echo "ERROR: no forward migrations (V1.0.3+) discovered under ${MIG} — layout changed?" >&2
-  exit 1
+  echo "No forward migrations (V1.0.3+) discovered under ${MIG}; loading genesis baseline only." >&2
 fi
 # Flyway rejects duplicate versions across co-applied locations (common + on); fail fast the same
 # way instead of silently loading both files. The repo's migration hook blocks duplicates at
 # authoring time — this guards files that bypass the hook (plain git add, external tools).
-DUP_VERSIONS=$(echo "${FORWARD}" | awk -F'/V1\\.0\\.' '{ n=$2; sub(/__.*/,"",n); print n }' | sort -n | uniq -d)
-if [ -n "${DUP_VERSIONS}" ]; then
-  echo "ERROR: duplicate forward migration version(s) across common+on: $(printf '%s\n' "${DUP_VERSIONS}" | sed 's/^/V1.0./')" >&2
-  exit 1
+if [ -n "${FORWARD}" ]; then
+  DUP_VERSIONS=$(echo "${FORWARD}" | awk -F'/V1\\.0\\.' '{ n=$2; sub(/__.*/,"",n); print n }' | sort -n | uniq -d)
+  if [ -n "${DUP_VERSIONS}" ]; then
+    echo "ERROR: duplicate forward migration version(s) across common+on: $(printf '%s\n' "${DUP_VERSIONS}" | sed 's/^/V1.0./')" >&2
+    exit 1
+  fi
 fi
 # Assemble the load into a temp file first: /bin/sh has no pipefail, so `cat ... | mariadb`
 # would mask a missing migration file (mariadb exits 0 on the truncated stream) — a redirect
@@ -50,10 +51,12 @@ trap 'rm -f "${LOAD_SQL}"' EXIT
   cat "${MIG}/common/V1__baseline_schema.sql" \
       "${MIG}/on/V1.0.1__on_schema.sql" \
       "${MIG}/on/V1.0.2__on_data.sql"
-  for f in ${FORWARD}; do
-    echo "-- including $(basename "$f")" >&2
-    cat "$f"
-  done
+  if [ -n "${FORWARD}" ]; then
+    for f in ${FORWARD}; do
+      echo "-- including $(basename "$f")" >&2
+      cat "$f"
+    done
+  fi
   echo "SET FOREIGN_KEY_CHECKS=1;"
 } > "${LOAD_SQL}"
 for DB in oscar oscar_test; do

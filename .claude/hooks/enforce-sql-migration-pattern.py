@@ -36,12 +36,6 @@ PROTECTED_SQL_FILES = [
     "V1.0.2__bc_data.sql",
 ]
 
-# Protected directories (cannot create ad-hoc raw SQL files directly here)
-PROTECTED_DIRECTORIES = [
-    "database/mysql",
-    "database/mysql/SnomedCore",
-]
-
 # Allowed directories for new migrations: the legacy dated-patch dir (frozen, still read by
 # a few tests) and the Flyway forward-migration locations.
 PATCH_DIRECTORY = "database/mysql/updates"
@@ -185,12 +179,6 @@ def is_creating_sql_in_protected_dir(tool_name: str, file_path: str) -> bool:
 
     if "database/mysql/" in file_path and not is_valid_patch_file(file_path):
         return True
-
-    path = Path(file_path)
-    for protected_dir in PROTECTED_DIRECTORIES:
-        parent_str = str(path.parent)
-        if parent_str == protected_dir or parent_str.endswith(f"/{protected_dir}"):
-            return True
 
     return False
 

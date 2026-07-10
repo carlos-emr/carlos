@@ -165,6 +165,7 @@ ensure_application_db_user() {
 	ncecho " [x] Ensuring ${db_username} database user "
 	$MYSQL 2>>$LOG_FILE <<SQL &
 CREATE USER IF NOT EXISTS '${sql_db_username}'@'localhost' IDENTIFIED BY '${sql_db_password}';
+ALTER USER '${sql_db_username}'@'localhost' IDENTIFIED BY '${sql_db_password}';
 GRANT SELECT, INSERT, UPDATE, DELETE, EXECUTE, CREATE TEMPORARY TABLES, LOCK TABLES ON ${db_name}.* TO '${sql_db_username}'@'localhost';
 FLUSH PRIVILEGES;
 SQL

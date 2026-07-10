@@ -510,6 +510,11 @@ curl -o ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/OscarDocument/${PROGRAM}/ef
 
 echo "now invoking dpkg -b ${RELEASE_DIR}/${DEBNAME}"
 
+# Update Installed-Size after all payload files are staged; the value is KiB and is used by apt
+# for disk-space checks. Keep release/control as a template and stamp the real size here.
+INSTALLED_SIZE=$(du -sk "${RELEASE_DIR}/${DEBNAME}" | cut -f1)
+sed -i "s/^Installed-Size:.*/Installed-Size: ${INSTALLED_SIZE}/" "${RELEASE_DIR}/${DEBNAME}/DEBIAN/control"
+
 # Build the .deb package from the assembled directory tree.
 # Output: ${RELEASE_DIR}/${DEBNAME}.deb
 dpkg -b "${RELEASE_DIR}/${DEBNAME}"

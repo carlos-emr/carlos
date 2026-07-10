@@ -1912,7 +1912,7 @@ CREATE TABLE `formRourke2009` (
   `p4_nippisingattained` text DEFAULT NULL,
   PRIMARY KEY (`ID`),
   KEY `formRourke2009_demographic_no` (`demographic_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=Aria DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `frm_labreq_preset`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
