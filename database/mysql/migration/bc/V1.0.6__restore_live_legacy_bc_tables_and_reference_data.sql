@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS billing_history (
   payee_practitioner_no int(10) unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY (id)
 ) ROW_FORMAT=DYNAMIC;
+CREATE INDEX IF NOT EXISTS `billing_history_master_payment_idx` ON `billing_history` (`billingmaster_no`, `payment_type_id`);
 
 -- billing_msp_servicecode_times
 CREATE TABLE IF NOT EXISTS billing_msp_servicecode_times (
@@ -63,6 +64,7 @@ CREATE TABLE IF NOT EXISTS billing_private_transactions (
   payment_type_id int(10) unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY (id)
 );
+CREATE INDEX IF NOT EXISTS `billing_private_transactions_master_payment_idx` ON `billing_private_transactions` (`billingmaster_no`, `payment_type_id`);
 
 -- billing_service_code_conditions
 CREATE TABLE IF NOT EXISTS billing_service_code_conditions (
@@ -3523,6 +3525,7 @@ CREATE TABLE IF NOT EXISTS teleplanS00 (
   PRIMARY KEY  (s00_id),
   KEY t_officeno (t_officeno)
 ) ;
+CREATE INDEX IF NOT EXISTS `teleplanS00_s21_type_practitioner_idx` ON `teleplanS00` (`s21_id`, `t_s00type`, `t_practitionerno`, `s00_id`);
 
 -- teleplanS21
 CREATE TABLE IF NOT EXISTS teleplanS21 (
@@ -3544,6 +3547,7 @@ CREATE TABLE IF NOT EXISTS teleplanS21 (
   status char(1) default NULL,
   PRIMARY KEY  (s21_id)
 ) ;
+CREATE INDEX IF NOT EXISTS `teleplanS21_filename_payment_payee_idx` ON `teleplanS21` (`filename`, `t_payment`, `t_payeeno`);
 
 -- teleplanS22
 CREATE TABLE IF NOT EXISTS teleplanS22 (
@@ -3564,6 +3568,7 @@ CREATE TABLE IF NOT EXISTS teleplanS22 (
   t_filler varchar(83) default NULL,
   PRIMARY KEY  (s22_id)
 ) ;
+CREATE INDEX IF NOT EXISTS `teleplanS22_s21_type_practitioner_idx` ON `teleplanS22` (`s21_id`, `t_s22type`, `t_practitionerno`, `s22_id`);
 
 -- teleplanS23
 CREATE TABLE IF NOT EXISTS teleplanS23 (
@@ -3706,6 +3711,7 @@ CREATE TABLE IF NOT EXISTS wcb_side (
 -- BC reference data restored from legacy seed sources.
 
 -- billingreferral
+CREATE UNIQUE INDEX IF NOT EXISTS `billingreferral_referral_no_unique` ON `billingreferral` (`referral_no`);
 INSERT IGNORE INTO `billingreferral` (`referral_no`, `last_name`, `first_name`, `specialty`, `address1`, `address2`, `city`, `province`, `country`, `postal`, `phone`, `fax`)
 VALUES
 	('06061', 'Abbey', 'Mark Douglas', 'Family M', '2768 BroadwayW', NULL, 'Vancouver', 'BC', 'Canada', 'V6K4P4', '604-681-5338', NULL),
@@ -9725,7 +9731,9 @@ VALUES
 	('25392', 'Maguire', 'John Anthony Ciaran', 'Neuropat', '855 12 Ave W', NULL, 'Vancouver', 'BC', 'Canada', 'V5Z1M9', '604-875-4577', NULL),
 	('05649', 'Mah', 'Elaine', 'Obstetri', '201 - 22314 Fraser Hwy', NULL, 'Langley', 'BC', 'Canada', 'V3A8M6', '604-534-4441', '604-534-4491'),
 	('26235', 'Mah', 'Franky', 'Family M', 'PO Box 879', NULL, '100 Mile House', 'BC', 'Canada', 'V0K2E0', '250-395-2271', '250-395-2599'),
-	('23852', 'Mah', 'John Fee', 'Family M', '407 - 1669 Victoria St', NULL, 'Prince George', 'BC', 'Canada', 'V2L2L5', '250-562-2776;
+	('23852', 'Mah', 'John Fee', 'Family M', '407 - 1669 Victoria St', NULL, 'Prince George', 'BC', 'Canada', 'V2L2L5', '250-562-2776; 25', '250-562-2752'),
+	('09837', 'Mah', 'Larry K.', 'Family M', '14 - 3170 Tillicum Rd', NULL, 'Victoria', 'BC', 'Canada', 'V9A7C5', '250-381-8112', '250-381-8252'),
+	('03346', 'Mah', 'Linda', 'Family M', '7391 Sunnymede CRES', NULL, 'Richmond', 'BC', 'Canada', 'V6Y1H3', '604-275-0463', NULL);
 INSERT IGNORE INTO `billingreferral` (`referral_no`, `last_name`, `first_name`, `specialty`, `address1`, `address2`, `city`, `province`, `country`, `postal`, `phone`, `fax`)
 VALUES
 	('29926', 'Malhotra', 'Unjali', 'Family M', '330 - 507 West Broadway', NULL, 'Vancouver', 'BC', 'Canada', 'V5Z1E6', '604-872-5484', '604-708-0748'),
@@ -14982,19 +14990,29 @@ INSERT IGNORE INTO billing_payment_type (payment_type) VALUES ('OTHER');
 INSERT IGNORE INTO billing_payment_type (payment_type) VALUES ('NYD');
 INSERT IGNORE INTO billing_payment_type (payment_type) VALUES ('INT. ADJ.');
 
--- BC practitioner-number type lookup.
-DELETE FROM LookupListItem WHERE lookupListId IN (SELECT id FROM LookupList WHERE name = 'practitionerNoType');
-DELETE FROM LookupList WHERE name = 'practitionerNoType';
-INSERT INTO LookupList VALUES (NULL,'practitionerNoType','Practitioner No Type List','Select list for disambiguating practitionerNo in provider record',NULL,1,'oscar',CURRENT_TIMESTAMP);
-INSERT INTO LookupListItem (lookupListId, value, label, displayOrder, active, createdBy, dateCreated) VALUES
-((SELECT id FROM LookupList WHERE name = 'practitionerNoType'), 'CPSBC', 'College of Physicians and Surgeons of British Columbia',3,1,'oscar',CURRENT_TIMESTAMP),
-((SELECT id FROM LookupList WHERE name = 'practitionerNoType'), 'CNPBC', 'College of Naturopathic Physicians of BC',3,1,'oscar',CURRENT_TIMESTAMP),
-((SELECT id FROM LookupList WHERE name = 'practitionerNoType'), 'CRNBC', 'College of Registered Nurses of BC',3,1,'oscar',CURRENT_TIMESTAMP),
-((SELECT id FROM LookupList WHERE name = 'practitionerNoType'), 'CPBC', 'College of Psychologists BC',3,1,'oscar',CURRENT_TIMESTAMP),
-((SELECT id FROM LookupList WHERE name = 'practitionerNoType'), 'CMBC', 'College of Midwives of BC',3,1,'oscar',CURRENT_TIMESTAMP);
+-- BC practitioner-number type lookup. Preserve site-customized lists/items and add only missing canonical values.
+INSERT INTO LookupList (`name`, `listTitle`, `description`, `categoryId`, `active`, `createdBy`, `dateCreated`)
+SELECT 'practitionerNoType', 'Practitioner No Type List', 'Select list for disambiguating practitionerNo in provider record', NULL, 1, 'oscar', CURRENT_TIMESTAMP
+WHERE NOT EXISTS (SELECT 1 FROM LookupList WHERE `name` = 'practitionerNoType');
+
+INSERT INTO LookupListItem (`lookupListId`, `value`, `label`, `displayOrder`, `active`, `createdBy`, `dateCreated`)
+SELECT ll.id, v.value, v.label, 3, 1, 'oscar', CURRENT_TIMESTAMP
+FROM LookupList ll
+JOIN (
+  SELECT 'CPSBC' AS value, 'College of Physicians and Surgeons of British Columbia' AS label
+  UNION ALL SELECT 'CNPBC', 'College of Naturopathic Physicians of BC'
+  UNION ALL SELECT 'CRNBC', 'College of Registered Nurses of BC'
+  UNION ALL SELECT 'CPBC', 'College of Psychologists BC'
+  UNION ALL SELECT 'CMBC', 'College of Midwives of BC'
+) v
+WHERE ll.`name` = 'practitionerNoType'
+  AND NOT EXISTS (
+    SELECT 1 FROM LookupListItem lli
+    WHERE lli.lookupListId = ll.id AND lli.`value` = v.value
+  );
 
 -- pharmacyInfo
-INSERT IGNORE INTO `pharmacyInfo` VALUES (5, 5, 'B.C. CANCER AGENCY PHARMACY', '600 West 10th Ave.', 'Vancouver', 'BC', 'V5Z4E6', '(604) 707-5989', '',
+INSERT IGNORE INTO `pharmacyInfo` (`uid`, `recordID`, `name`, `address`, `city`, `province`, `postalCode`, `phone1`, `phone2`, `fax`, `serviceLocationIdentifier`, `email`, `notes`, `addDate`, `status`) VALUES (5, 5, 'B.C. CANCER AGENCY PHARMACY', '600 West 10th Ave.', 'Vancouver', 'BC', 'V5Z4E6', '(604) 707-5989', '',
         '(604) 877-6132', '@METRO_VAN', NULL, 'Manager: Dr. Lynne Nakashima', '2012-02-25 16:47:35', '1'),
 (6, 6, 'B.C.\'S CHILDREN\'S HOSP. AMBULATORY CARE PHARMACY', '4500 Oak St.', 'Vancouver', 'BC', 'V6H3N1',
         '(604) 875-2205', '', '(604) 875-3735', '@METRO_VAN', NULL, 'Manager: Ms. Susan Rudolph', '2012-02-25 16:47:35',
@@ -30868,14 +30886,18 @@ INSERT IGNORE INTO `professionalSpecialists` (specId,fName,lName,proLetters,addr
 (14284, 'Charles Vincent', 'Zwirewich', 'MD', 'Vancouver General Hospital Rm.G786 Dept. of Radiology 899 12 Ave W , Vancouver, BC, V5Z 1M9, Canada', '604-875-4111 ext. 63705', '604-875-4806', NULL, NULL, 'Diagnostic Radiology', NULL, NULL, NULL, NULL, '2023-10-02 21:33:40', NULL, '07175', NULL, NULL, NULL, NULL, 0, 0, NULL, 0, 0, 'BC'),
 (14285, 'Leslie Nicole', 'Zypchen', 'MD', 'Vancouver General Hospital Division of Hematology 10 Floor-2775 Laurel St , Vancouver, BC, V5Z 1M9, Canada', '604-875-4863', '(604) 675-3883', NULL, NULL, 'Internal Medicine, Hematology', NULL, NULL, NULL, NULL, '2023-10-02 21:33:40', NULL, '27320', NULL, NULL, NULL, NULL, 0, 0, NULL, 0, 0, 'BC');
 
-INSERT IGNORE INTO serviceSpecialists
-SELECT specType, specId
-FROM professionalSpecialists
-WHERE specType is not null
-AND specType <> "";
+INSERT INTO serviceSpecialists (`serviceId`, `specId`)
+SELECT DISTINCT ps.specType, ps.specId
+FROM professionalSpecialists ps
+WHERE ps.specType IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM serviceSpecialists ss
+    WHERE ss.serviceId <=> ps.specType AND ss.specId <=> ps.specId
+  )
+  AND ps.specType <> "";
 
 -- BC CareConnect privileges omitted from generated baseline.
 INSERT IGNORE INTO secObjectName (objectName, description, orgapplicable) VALUES ('_careconnect', 'Restrict visibility and access to BC Care Connect', 0);
 INSERT IGNORE INTO secObjPrivilege (roleUserGroup, objectName, privilege, priority, provider_no) VALUES ('doctor', '_careconnect', 'o', 0, '999998');
 INSERT IGNORE INTO secObjPrivilege (roleUserGroup, objectName, privilege, priority, provider_no) VALUES ('Pharmacist', '_careconnect', 'o', 0, '999998');
-INSERT IGNORE INTO secObjPrivilege (roleUserGroup, objectName, privilege, priority, provider_no) VALUES ('doctor', '_admin.reporting', 'x', 0, '999998');
+INSERT IGNORE INTO secObjPrivilege (roleUserGroup, objectName, privilege, priority, provider_no) VALUES ('doctor', '_admin.reporting', 'o', 0, '999998');

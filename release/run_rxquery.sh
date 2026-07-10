@@ -22,8 +22,11 @@ PASSWORD="${DB_PASSWORD}"
 rm -f results.txt
 
 #run query
-# mariadb client preferred (MariaDB 11.x has no mysql symlink); fall back to mysql.
-command -v mariadb >/dev/null 2>&1 && DB_CLIENT=mariadb || DB_CLIENT=mysql
+if ! command -v mariadb >/dev/null 2>&1 ; then
+    echo "ERROR: mariadb client is required but was not found; install mariadb-client." >&2
+    exit 1
+fi
+DB_CLIENT=mariadb
 echo "SELECT count(*) from drugs where create_date >= DATE_SUB(NOW(), INTERVAL 30 day) and customName is not NULL;" | MYSQL_PWD="${PASSWORD}" "${DB_CLIENT}" -u "${USERNAME}" "${DBNAME}" | tail -1 > results.txt
 
 DATA=$(cat results.txt)

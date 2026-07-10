@@ -3,7 +3,7 @@
 # a script file for CARLOS that copies compressed archives
 # that have been date stamped for easy sorting
 # to the backup folder usually where a browser can access
-# from a given MySQL database and documents folder
+# from a given MariaDB database and documents folder
 
 # Modified from a script by Jay Gallagher by Thom Luxford
 # Adapted for CARLOS by Peter Hutten-Czapski
@@ -87,25 +87,22 @@ if [ -z "$BWLIMIT" ]; then
 fi
 
 # TOMCAT is used to find and archive the war and to set ownership of the backup
-TOMCAT=$(ps aux | grep org.apache.catalina.startup.Bootstrap | grep -v grep | awk '{ print $1 }')
-if [ -f /usr/share/tomcat10/bin/version.sh ] ; then
-        TOMCAT=tomcat10
-        TOMCAT_USER=tomcat
-        else
-        if [ -f /usr/share/tomcat9/bin/version.sh ] ; then
-                TOMCAT=tomcat9
-                TOMCAT_USER=tomcat
-            else
-            if [ -f /usr/share/tomcat8/bin/version.sh ] ; then
-                TOMCAT=tomcat8
-                TOMCAT_USER=tomcat8
-                else
-                if [ -f /usr/share/tomcat7/bin/version.sh ] ; then
-                    TOMCAT=tomcat7
-                    TOMCAT_USER=tomcat7
-                fi
-            fi
-        fi
+TOMCAT=
+TOMCAT_USER=
+for TOMCAT_CANDIDATE in tomcat11 tomcat10 tomcat9 tomcat8 tomcat7; do
+  if [ -f "/usr/share/${TOMCAT_CANDIDATE}/bin/version.sh" ] ; then
+    TOMCAT=${TOMCAT_CANDIDATE}
+    if [[ "${TOMCAT_CANDIDATE}" == "tomcat11" || "${TOMCAT_CANDIDATE}" == "tomcat10" || "${TOMCAT_CANDIDATE}" == "tomcat9" ]]; then
+      TOMCAT_USER=tomcat
+    else
+      TOMCAT_USER=${TOMCAT_CANDIDATE}
+    fi
+    break
+  fi
+done
+if [ -z "${TOMCAT}" ]; then
+  echo "No supported Tomcat installation found (expected tomcat11, tomcat10, tomcat9, tomcat8, or tomcat7)." >&2
+  exit 1
 fi
 
 TMPBACKDIR=/root/backuptmp
@@ -170,12 +167,10 @@ LOG_ERR="${LOG_PATH}/${LOG_FILE}"
 
 confirmVar ${db_password}
 export DB_PASSWORD_6606913a="${db_password}"
-# MariaDB 11.x dropped the mysql* client symlinks; prefer mariadb/mariadb-dump but fall back to
-# the mysql names (the package control file still accepts mysql-server as an alternative).
-if command -v mariadb >/dev/null 2>&1 ; then
+if command -v mariadb >/dev/null 2>&1 && command -v mariadb-dump >/dev/null 2>&1 ; then
   DB_CLIENT=mariadb ; DB_DUMP=mariadb-dump
 else
-  DB_CLIENT=mysql ; DB_DUMP=mysqldump
+  errorExit "mariadb and mariadb-dump clients are required; install mariadb-client"
 fi
 MyISAM_TABLES=$(MYSQL_PWD="${db_password}" ${DB_CLIENT} -s -u"${db_username}" -e "SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA='${DATABASE}' AND ENGINE='MyISAM';")
 
@@ -341,12 +336,14 @@ if [ ${COMPLETE_BACKUP} = 1 ]; then
   echo "NEW Full.CarlosBackup" >> $LOG_ERR
   OUTFILE=${BACKUPDIR}/Full.CarlosBackup.${DATABASE}.${DATE_TIME}.tar.gz.enc 2>> $LOG_ERR
   cd "$BASE_DOCUMENT_DIR" 2>> $LOG_ERR || { echo "Failed to cd to $BASE_DOCUMENT_DIR" >> $LOG_ERR; exit 1; }
-  tar --exclude-caches -c carlos 2>> $LOG_ERR | gzip -v -c -9 2>> $LOG_ERR | openssl enc $ENC_OPTIONS -pass env:DB_PASSWORD_6606913a > $OUTFILE 2>> $LOG_ERR
+  tar --exclude-caches -c carlos 2>> $LOG_ERR | gzip -v -c -9 2>> $LOG_ERR | openssl enc $ENC_OPTIONS -pass env:DB_PASSWORD_6606913a > $OUTFILE 2>> $LOG_ERR \
+    || errorExit "full backup archive/encryption failed — aborting before upload/purge"
   ls -l $OUTFILE --time-style=long-iso | awk '{ print  "<OUTFILE SIZE=\""$5 "\" filename=\""  $8 "\" /> "}' >> $LOG_ERR
 	if [ ${REMOTE_UPLOAD_FLAG} == 1 ]; then
 		for REMOTE_SERVER in "${BACKUPSERVERS[@]}"
 		do
-		nice rsync -t $RSYNC_OPTIONS --bwlimit=${BWLIMIT} --rsh="$SSH_OPTIONS -p $COMMON_BACKUPSERVER_PORT" $OUTFILE $REMOTE_SERVER >> $LOG_ERR 2>&1
+		nice rsync -t $RSYNC_OPTIONS --bwlimit=${BWLIMIT} --rsh="$SSH_OPTIONS -p $COMMON_BACKUPSERVER_PORT" $OUTFILE $REMOTE_SERVER >> $LOG_ERR 2>&1 \
+		  || errorExit "upload of $OUTFILE to $REMOTE_SERVER failed — aborting before purge"
 		done
 	fi
   chown $TOMCAT_OWNER $OUTFILE 2>> $LOG_ERR
@@ -358,19 +355,23 @@ else
   OUTFILE="${BACKUPDIR}/CarlosBackup.${DATABASE}.${DATE_TIME}.Document.tar.gz.enc" 2>> $LOG_ERR
   DB_OUTFILE="${BACKUPDIR}/CarlosBackup.${DATABASE}.${DATE_TIME}.Database.tar.gz.enc" 2>> $LOG_ERR
   cd "$BASE_DOCUMENT_DIR/carlos" 2>> $LOG_ERR || { echo "Failed to cd to $BASE_DOCUMENT_DIR/carlos" >> $LOG_ERR; exit 1; }
-  tar -c CarlosBackup.sql* MyISAMBackup.sql* 2>> $LOG_ERR | gzip -v -c -9 2>> $LOG_ERR | openssl enc $ENC_OPTIONS -pass env:DB_PASSWORD_6606913a > $DB_OUTFILE 2>> $LOG_ERR
+  tar -c CarlosBackup.sql* MyISAMBackup.sql* 2>> $LOG_ERR | gzip -v -c -9 2>> $LOG_ERR | openssl enc $ENC_OPTIONS -pass env:DB_PASSWORD_6606913a > $DB_OUTFILE 2>> $LOG_ERR \
+    || errorExit "database backup archive/encryption failed — aborting before upload/purge"
   find . -type f -newer $LAST_FULL_BACKUP_FILE -print|grep -Ev "^\./document_cache|^\./CarlosBackup.sql$|^\./CarlosBackup.sql.gz$|^\./carlos.war" > filelist.txt 2>> $LOG_ERR
-  tar -c -T filelist.txt 2>> $LOG_ERR | gzip -v -c -9 2>> $LOG_ERR | openssl enc $ENC_OPTIONS -pass env:DB_PASSWORD_6606913a > $OUTFILE 2>> $LOG_ERR
+  tar -c -T filelist.txt 2>> $LOG_ERR | gzip -v -c -9 2>> $LOG_ERR | openssl enc $ENC_OPTIONS -pass env:DB_PASSWORD_6606913a > $OUTFILE 2>> $LOG_ERR \
+    || errorExit "document backup archive/encryption failed — aborting before upload/purge"
 
   getTimeStamp >> $LOG_ERR 2>&1
   if [ ${REMOTE_UPLOAD_FLAG} == 1 ]; then
     for REMOTE_SERVER in ${BACKUPSERVERS[@]} 
 		do
 		  ls -l $DB_OUTFILE --time-style=long-iso | awk '{ print  "<DB_OUTFILE SIZE=\""$5 "\" filename=\""  $8 "\" /> "}' >> $LOG_ERR
-		  nice rsync $RSYNC_OPTIONS --bwlimit=${BWLIMIT} --rsh="$SSH_OPTIONS -p $COMMON_BACKUPSERVER_PORT" $DB_OUTFILE $REMOTE_SERVER >> $LOG_ERR 2>&1
+		  nice rsync $RSYNC_OPTIONS --bwlimit=${BWLIMIT} --rsh="$SSH_OPTIONS -p $COMMON_BACKUPSERVER_PORT" $DB_OUTFILE $REMOTE_SERVER >> $LOG_ERR 2>&1 \
+		    || errorExit "upload of $DB_OUTFILE to $REMOTE_SERVER failed — aborting before purge"
 		  getTimeStamp >> $LOG_ERR 2>&1
 		  ls -l $OUTFILE --time-style=long-iso | awk '{ print  "<OUTFILE SIZE=\""$5 "\" filename=\""  $8 "\" /> "}' >> $LOG_ERR
-		  nice rsync $RSYNC_OPTIONS --bwlimit=${BWLIMIT} --rsh="$SSH_OPTIONS -p $COMMON_BACKUPSERVER_PORT" $OUTFILE $REMOTE_SERVER >> $LOG_ERR 2>&1
+		  nice rsync $RSYNC_OPTIONS --bwlimit=${BWLIMIT} --rsh="$SSH_OPTIONS -p $COMMON_BACKUPSERVER_PORT" $OUTFILE $REMOTE_SERVER >> $LOG_ERR 2>&1 \
+		    || errorExit "upload of $OUTFILE to $REMOTE_SERVER failed — aborting before purge"
 		  getTimeStamp >> $LOG_ERR 2>&1
     done
     for REMOTE_SERVER in ${BACKUPSERVERS[@]} 
@@ -378,7 +379,8 @@ else
       ls -l $LAST_FULL_BACKUP_FILE --time-style=long-iso | awk '{ print  "<LAST_FULL_BACKUP_FILE SIZE=\""$5 "\" filename=\""  $8 "\" /> "}' >> $LOG_ERR
       killall -q -v -u $BACKUP_SCRIPT_USER -o 1h rsync - >> $LOG_ERR 2>&1 && sleep 60 >> $LOG_ERR 2>&1  
       test ${BWLIMIT} -gt 1 && BWLIMIT=$(($BWLIMIT * 3 / 4))
-      nice rsync --append-verify --backup -t $RSYNC_OPTIONS --bwlimit=${BWLIMIT} --rsh="$SSH_OPTIONS -p $COMMON_BACKUPSERVER_PORT" $LAST_FULL_BACKUP_FILE $REMOTE_SERVER >> $LOG_ERR 2>&1
+      nice rsync --append-verify --backup -t $RSYNC_OPTIONS --bwlimit=${BWLIMIT} --rsh="$SSH_OPTIONS -p $COMMON_BACKUPSERVER_PORT" $LAST_FULL_BACKUP_FILE $REMOTE_SERVER >> $LOG_ERR 2>&1 \
+        || errorExit "upload of $LAST_FULL_BACKUP_FILE to $REMOTE_SERVER failed — aborting before purge"
       getTimeStamp >> $LOG_ERR 2>&1
     done
   else

@@ -21,6 +21,9 @@
  */
 package io.github.carlos_emr.carlos.db;
 
+import java.util.Arrays;
+import java.util.Locale;
+
 import javax.sql.DataSource;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -67,6 +70,7 @@ import org.springframework.beans.factory.InitializingBean;
  * </ul>
  *
  * <p>The bean reads migrations from the classpath location(s) in {@code carlos.flyway.locations}
+ * when configured, otherwise it derives the common + province locations from {@code billregion}
  * (the WAR ships them at {@code db/migration}). It is deliberately import-light and holds no
  * Hibernate/JPA dependency so it can run before the {@code EntityManagerFactory} is touched.</p>
  */
@@ -81,6 +85,10 @@ public class FlywaySchemaValidator implements InitializingBean {
     /** Apply pending migrations on boot (dev/single-node only). */
     static final String MODE_MIGRATE = "migrate";
 
+    private static final String COMMON_LOCATION = "classpath:db/migration/common";
+    private static final String ON_LOCATION = "classpath:db/migration/on";
+    private static final String BC_LOCATION = "classpath:db/migration/bc";
+
     private final DataSource dataSource;
     private final String mode;
     private final String[] locations;
@@ -94,12 +102,22 @@ public class FlywaySchemaValidator implements InitializingBean {
      *                   downgrading to {@code off} would disable the schema gate without anyone
      *                   noticing, which is worse than failing loud on the typo.
      * @param locations  comma-separated Flyway locations (e.g. {@code classpath:db/migration/common,
-     *                   classpath:db/migration/on}); blank is only legal in {@code off} mode.
+     *                   classpath:db/migration/on}); blank derives from {@code billregion}.
      */
     public FlywaySchemaValidator(DataSource dataSource, String mode, String locations) {
+        this(dataSource, mode, locations, null);
+    }
+
+    /**
+     * @param dataSource the application {@code DataSource}
+     * @param mode       one of {@code off} / {@code validate} / {@code migrate}
+     * @param locations  comma-separated Flyway locations; blank derives from {@code billregion}
+     * @param billregion deployment billing region used to derive or verify province migrations
+     */
+    public FlywaySchemaValidator(DataSource dataSource, String mode, String locations, String billregion) {
         this.dataSource = dataSource;
         this.mode = normalizeMode(mode);
-        this.locations = splitLocations(locations);
+        this.locations = resolveLocations(locations, billregion);
     }
 
     // IMPROPER_UNICODE flags any case folding regardless of Locale; this is an intended
@@ -110,7 +128,7 @@ public class FlywaySchemaValidator implements InitializingBean {
         if (raw == null || raw.isBlank()) {
             return MODE_OFF;
         }
-        String m = raw.trim().toLowerCase(java.util.Locale.ROOT);
+        String m = raw.trim().toLowerCase(Locale.ROOT);
         if (MODE_OFF.equals(m) || MODE_VALIDATE.equals(m) || MODE_MIGRATE.equals(m)) {
             return m;
         }
@@ -123,10 +141,44 @@ public class FlywaySchemaValidator implements InitializingBean {
         if (raw == null || raw.isBlank()) {
             return new String[0];
         }
-        return java.util.Arrays.stream(raw.split(","))
+        return Arrays.stream(raw.split(","))
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
                 .toArray(String[]::new);
+    }
+
+    static String[] resolveLocations(String rawLocations, String rawBillregion) {
+        String[] configured = splitLocations(rawLocations);
+        String billregion = normalizeBillregion(rawBillregion);
+        if (billregion == null) {
+            return configured;
+        }
+        String[] expected = locationsForBillregion(billregion);
+        if (configured.length == 0) {
+            return expected;
+        }
+        if (!Arrays.equals(configured, expected)) {
+            throw new IllegalArgumentException("carlos.flyway.locations "
+                    + Arrays.toString(configured) + " does not match billregion=" + billregion
+                    + "; expected " + Arrays.toString(expected));
+        }
+        return configured;
+    }
+
+    private static String normalizeBillregion(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        String billregion = raw.trim().toUpperCase(Locale.ROOT);
+        if ("ON".equals(billregion) || "BC".equals(billregion)) {
+            return billregion;
+        }
+        throw new IllegalArgumentException("billregion must be ON or BC for Flyway schema validation but was '"
+                + raw + "'");
+    }
+
+    private static String[] locationsForBillregion(String billregion) {
+        return new String[] { COMMON_LOCATION, "BC".equals(billregion) ? BC_LOCATION : ON_LOCATION };
     }
 
     @Override
@@ -139,7 +191,7 @@ public class FlywaySchemaValidator implements InitializingBean {
             // An empty location set in validate/migrate mode is a broken configuration, not a
             // reason to silently skip the gate the operator explicitly turned on.
             throw new IllegalStateException("carlos.flyway.onBoot=" + mode
-                    + " requires carlos.flyway.locations to be set — refusing to boot with the "
+                    + " requires carlos.flyway.locations or billregion to be set — refusing to boot with the "
                     + "schema gate enabled but nothing to validate against");
         }
         // Deliberately NO baselineOnMigrate: auto-stamping a non-empty pre-Flyway datadir on boot
@@ -164,13 +216,10 @@ public class FlywaySchemaValidator implements InitializingBean {
         }
 
         // MODE_VALIDATE: fail fast when the running schema does not match the deployed WAR.
-        // validate() covers checksum drift and applied-but-not-shipped migrations; the explicit
-        // pending check below makes "database is BEHIND the WAR" a hard failure too — Flyway's
-        // treatment of pending migrations during validate has varied across versions, so the
-        // contract is enforced here rather than assumed.
-        flyway.validate();
-        // Resolve migration state once and reuse it for both the pending check and the current
-        // version log — flyway.info() rescans the migration set + history table on each call.
+        // Resolve migration state once and make "database is BEHIND the WAR" a hard failure before
+        // validate(); Flyway's validation exception can otherwise obscure the more actionable
+        // operator instruction when pending migrations exist. validate() then covers checksum drift
+        // and applied-but-not-shipped migrations.
         MigrationInfoService info = flyway.info();
         MigrationInfo[] pending = info.pending();
         if (pending.length > 0) {
@@ -185,6 +234,7 @@ public class FlywaySchemaValidator implements InitializingBean {
                     + pending.length + " pending migration(s) [" + versions
                     + "] — run `carlos-ctl db migrate` (after a backup) before starting the app");
         }
+        flyway.validate();
         MigrationInfo current = info.current();
         logger.info("Flyway schema validation passed; database at version {}",
                 current != null ? current.getVersion() : "(none)");

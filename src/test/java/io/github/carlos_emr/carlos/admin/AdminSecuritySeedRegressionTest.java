@@ -39,6 +39,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 class AdminSecuritySeedRegressionTest {
 
     private static final Path SEED = Path.of("database", "mysql", "migration", "on", "V1.0.2__on_data.sql");
+    private static final Path ON_REPORTING_MIGRATION = Path.of("database", "mysql", "migration", "on",
+            "V1.0.6__restore_reporting_privilege.sql");
+    private static final Path BC_REPORTING_MIGRATION = Path.of("database", "mysql", "migration", "bc",
+            "V1.0.6__restore_live_legacy_bc_tables_and_reference_data.sql");
 
     /** The seed dump is a multi-MB mysqldump — read once per class, not per test. */
     private static String seedSql;
@@ -61,6 +65,20 @@ class AdminSecuritySeedRegressionTest {
                 .as("existing production databases should receive the same admin privilege")
                 .contains("('_site_access_privacy', 'restrict access to only the assigned sites of a provider', 0)")
                 .contains("('admin', '_site_access_privacy', 'x', 0, '999998')");
+    }
+
+    @Test
+    @DisplayName("should grant doctor reporting as option-only privilege")
+    void shouldGrantDoctorReportingAsOptionOnlyPrivilege() throws IOException {
+        String onMigration = Files.readString(ON_REPORTING_MIGRATION, StandardCharsets.UTF_8);
+        String bcMigration = Files.readString(BC_REPORTING_MIGRATION, StandardCharsets.UTF_8);
+
+        assertThat(onMigration)
+                .contains("('doctor', '_admin.reporting', 'o', 0, '999998')")
+                .doesNotContain("'doctor', '_admin.reporting', 'x'");
+        assertThat(bcMigration)
+                .contains("('doctor', '_admin.reporting', 'o', 0, '999998')")
+                .doesNotContain("'doctor', '_admin.reporting', 'x'");
     }
 
     @Test

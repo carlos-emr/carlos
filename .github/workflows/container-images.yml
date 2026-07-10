@@ -124,17 +124,20 @@ jobs:
             echo "Checking container: $name"
             echo "========================================="
 
-            # Calculate hash of Dockerfile and relevant context files only
+            # Calculate hash from every file in the Docker build inputs, not just selected
+            # extensions. Dockerfile COPY sources include extensionless scripts, .properties, .xml,
+            # .jsp, and .ico files; filtering by suffix can leave stale images in the registry.
+            # Note: extra_context is expected to be a space-separated list of paths. Paths
+            # containing spaces are not supported here.
+            local hash_paths=("$context_path")
             if [ -n "$extra_context" ]; then
-              # Note: extra_context is expected to be a space-separated list of paths.
-              # Paths containing spaces are not supported here.
-              local extra_context_array=()
               # Intentionally rely on word splitting to support multiple paths.
-              extra_context_array=($extra_context)
-              HASH=$(find "$context_path" "${extra_context_array[@]}" \( -name 'Dockerfile' -o -name 'Dockerfile.*' -o -name '*.dockerfile' -o -name '*.sh' -o -name '*.sql' -o -name '*.yml' -o -name '*.yaml' -o -name '*.conf' -o -name '*.cnf' \) -type f -exec sha256sum {} \; 2>/dev/null | sort | sha256sum | cut -d' ' -f1)
-            else
-              HASH=$(find "$context_path" \( -name 'Dockerfile' -o -name 'Dockerfile.*' -o -name '*.dockerfile' -o -name '*.sh' -o -name '*.sql' -o -name '*.yml' -o -name '*.yaml' -o -name '*.conf' -o -name '*.cnf' \) -type f -exec sha256sum {} \; 2>/dev/null | sort | sha256sum | cut -d' ' -f1)
+              local extra_context_array=($extra_context)
+              hash_paths+=("${extra_context_array[@]}")
             fi
+            HASH=$(find "${hash_paths[@]}" \
+              -path '*/db_data/*' -prune -o \
+              -type f -exec sha256sum {} \; 2>/dev/null | sort | sha256sum | cut -d' ' -f1)
             echo "Content hash: $HASH"
             echo "${output_name}_hash=$HASH" >> "$GITHUB_OUTPUT"
 
@@ -171,7 +174,7 @@ jobs:
 
           # Check each container (name, output_name, context_path, extra_context)
           check_container "tomcat-dev" "tomcat" ".devcontainer/development" ""
-          check_container "mariadb-dev" "mariadb" ".devcontainer/db" "database .devcontainer/development/config/shared"
+          check_container "mariadb-dev" "mariadb" ".devcontainer/db" "database .devcontainer/development/config/shared/my.cnf"
           check_container "drugref" "drugref" ".devcontainer/drugref" ""
 
   # ===========================================================================
@@ -329,7 +332,7 @@ jobs:
         run: |
           echo "Testing container starts correctly..."
           docker run -d --name test-mariadb \
-            -e MYSQL_ROOT_PASSWORD=testpassword \
+            -e MARIADB_ROOT_PASSWORD=testpassword \
             carlos-mariadb-dev:test
 
           echo "Waiting for MariaDB to start..."

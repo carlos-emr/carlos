@@ -283,15 +283,15 @@ fi
 
 # --- Optional helper scripts (not all may be present in every build) ---
 
-# reOscar.sh → reCarlos.sh: the Tomcat restart helper; patched with PROGRAM name.
+# reOscar.sh -> recarlos.sh: the Tomcat restart helper; patched with PROGRAM name.
 if [ -f "release/reOscar.sh" ]; then
     sed -e 's/^PROGRAM.*/PROGRAM='"$PROGRAM"'/' \
-    release/reOscar.sh > ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/reCarlos.sh
+    release/reOscar.sh > ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/recarlos.sh
     # Note: the original scripts keep the .sh extension; end users should rename to
     # prevent the packager from overwriting customised copies on upgrade.
-    chmod 711 ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/reCarlos.sh
+    chmod 711 ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/recarlos.sh
 else
-    echo "WARNING: release/reOscar.sh not found, reCarlos.sh will be absent from package"
+    echo "WARNING: release/reOscar.sh not found, recarlos.sh will be absent from package"
 fi
 
 # gateway.sh: optional HTTPS-redirect/reverse-proxy helper.
@@ -340,7 +340,7 @@ fi
 
 # --- Pull carlos.properties from source ---
 # For new installs and OSCAR 19 migrations the postinst config step will substitute
-# the correct MySQL credentials into this file using the debconf answers.
+# the correct database credentials into this file using the debconf answers.
 # Source path is relative to the repo root (current dir after the cd .. above).
 if [ -f "./src/main/resources/carlos.properties" ]; then
     cp ./src/main/resources/carlos.properties ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/carlos.properties
@@ -364,8 +364,10 @@ cp -R release/bc_billing_dashboard.sql ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKA
 # Tomcat server.xml configuration templates.
 # tomcat9server.xml   → plain HTTP + self-signed TLS (development/internal use).
 # tomcat9LEserver.xml → Let's Encrypt signed TLS (production use).
-cp -R release/tomcat9server.xml ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/
-cp -R release/tomcat9LEserver.xml ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/
+for TOMCAT_TEMPLATE_VERSION in tomcat10 tomcat11; do
+    cp -R release/tomcat9server.xml ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/${TOMCAT_TEMPLATE_VERSION}server.xml
+    cp -R release/tomcat9LEserver.xml ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/${TOMCAT_TEMPLATE_VERSION}LEserver.xml
+done
 
 # run_rxquery.sh: cron helper that queries the DrugRef web service for drug interaction data.
 cp -R release/run_rxquery.sh ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/

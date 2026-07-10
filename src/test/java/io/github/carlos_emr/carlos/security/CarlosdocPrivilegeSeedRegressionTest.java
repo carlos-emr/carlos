@@ -47,15 +47,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 class CarlosdocPrivilegeSeedRegressionTest {
 
     private static final Path SEED = Path.of("database", "mysql", "migration", "on", "V1.0.2__on_data.sql");
+    private static final Path BC_SEED = Path.of("database", "mysql", "migration", "bc", "V1.0.2__bc_data.sql");
     private static final Path MIGRATION = Path.of("database", "mysql", "updates",
             "update-2026-05-21-carlosdoc-schedule-group-privilege.sql");
 
     /** The seed dump is a multi-MB mysqldump — read once per class, not per test. */
     private static String seedSql;
+    private static String bcSeedSql;
 
     @BeforeAll
     static void loadSeed() throws IOException {
         seedSql = Files.readString(SEED, StandardCharsets.UTF_8);
+        bcSeedSql = Files.readString(BC_SEED, StandardCharsets.UTF_8);
     }
 
     @Test
@@ -75,6 +78,17 @@ class CarlosdocPrivilegeSeedRegressionTest {
                 "('_admin.schedule.groupCreate','Create schedule provider groups',0)",
                 "('admin','_admin.schedule.groupCreate','x',0,'999998')",
                 "('999998','_admin.schedule.groupCreate','o',1,'999998')");
+    }
+
+    @Test
+    @DisplayName("should force password reset for default carlosdoc seed")
+    void shouldForcePasswordResetForDefaultCarlosdocSeed() {
+        assertThat(seedSql)
+                .contains("(128,'carlosdoc'")
+                .contains(",'999998','2026',1,'2100-01-01'");
+        assertThat(bcSeedSql)
+                .contains("(128,'carlosdoc'")
+                .contains(",'999998','2026',1,'2100-01-01'");
     }
 
     @Test

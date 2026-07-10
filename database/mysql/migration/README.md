@@ -10,18 +10,21 @@ loop. Dead tables from removed modules are pruned (see `pruned-tables.txt`).
 migration/
   flyway.conf                     # non-secret defaults (locations, baseline); creds passed at run time
   pruned-tables.txt               # dead tables excluded from the baseline (removed-module cruft)
-  common/  V1__baseline_schema.sql        # province-neutral tables (structure)
+  common/  V1__baseline_schema.sql          # province-neutral tables (structure)
            V1.0.3__performance_indexes.sql  # forward delta: shared performance indexes
-  on/      V1.0.1__on_schema.sql          # Ontario-only tables (structure)
-           V1.0.2__on_data.sql            # Ontario reference data (rows)
-           V1.0.4__on_performance_indexes.sql  # forward delta: Ontario performance indexes
-  bc/      V1.0.1__bc_schema.sql          # British Columbia-only tables (structure)
-           V1.0.2__bc_data.sql            # British Columbia reference data (rows)
+           V1.0.5__restore_live_legacy_common_tables.sql
+  on/      V1.0.1__on_schema.sql            # Ontario-only tables (structure)
+           V1.0.2__on_data.sql              # Ontario reference data (rows)
+           V1.0.4__on_performance_indexes.sql
+           V1.0.6__restore_reporting_privilege.sql
+  bc/      V1.0.1__bc_schema.sql            # British Columbia-only tables (structure)
+           V1.0.2__bc_data.sql              # British Columbia reference data (rows)
+           V1.0.6__restore_live_legacy_bc_tables_and_reference_data.sql
 ```
 
 The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen). Everything from
-`V1.0.3` onward is a forward delta. The **highest version currently shipped is `V1.0.4`**, so the
-next free number for a new migration is `V1.0.5` (the version line is global across `common` + the
+`V1.0.3` onward is a forward delta. The **highest version currently shipped is `V1.0.6`**, so the
+next free number for a new migration is `V1.0.7` (the version line is global across `common` + the
 selected province — see below).
 
 A database applies **`common` + exactly one province** location, selected by `flyway.locations`:
@@ -34,7 +37,9 @@ A database applies **`common` + exactly one province** location, selected by `fl
 Versions order globally across the selected locations: `V1` (common schema) → `V1.0.1` (province
 schema) → `V1.0.2` (province data). Because a run only ever combines `common` + one province, the two
 provinces' `V1.0.x` files never collide. The province data file carries the full reference rows
-(shared + province), so `common` holds structure only.
+(shared + province). Later forward migrations restore live lookup/reference tables, ICD-10 data,
+performance indexes, and corrected reporting grants that were missing from the first generated
+baseline.
 
 Demo/patient data is **not** in this baseline — it belongs in a dev-only `demo` location (see
 `docs/database-schema-management.md`).

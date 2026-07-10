@@ -31,6 +31,7 @@ permissions:
 jobs:
   flyway-baseline:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -106,7 +107,7 @@ jobs:
           # Fresh install path: exactly what production runs via `carlos-ctl db migrate` and the
           # .deb postinst — common + province locations, baselineOnMigrate for the empty schema.
           $MYSQL -e "CREATE DATABASE carlos_${PROV};"
-          flyway -url="$JDBC" -user=root \
+          timeout 30m flyway -url="$JDBC" -user=root \
             -locations="filesystem:migration/common,filesystem:migration/${PROV}" \
             -baselineOnMigrate=true migrate
 
@@ -114,7 +115,7 @@ jobs:
           # DB this is NOT an independent proof against a hand-edited baseline (migrate computed
           # the checksums from these same files moments ago) — the explicit history + content
           # assertions below carry that weight.
-          flyway -url="$JDBC" -user=root \
+          timeout 10m flyway -url="$JDBC" -user=root \
             -locations="filesystem:migration/common,filesystem:migration/${PROV}" validate
 
           # Every expected migration must actually have applied — catches a silently-empty or
@@ -178,4 +179,39 @@ jobs:
               exit 1
             fi
           fi
-          echo "Flyway baseline verified for province ${PROV}: ${TABLES} tables, reference data present"
+
+          # Existing install adoption path: load the genesis schema/data without Flyway history,
+          # baseline it at the operator-approved V1.0.2 cutover point, then migrate forward.
+          # This catches installer regressions that a fresh baselineOnMigrate-only check misses.
+          ADOPT_DB="carlos_${PROV}_adopt"
+          ADOPT_JDBC="jdbc:mariadb://127.0.0.1:3306/${ADOPT_DB}?allowPublicKeyRetrieval=true&useSSL=false"
+          $MYSQL -e "CREATE DATABASE ${ADOPT_DB};"
+          {
+            echo "SET FOREIGN_KEY_CHECKS=0;"
+            cat "migration/common/V1__baseline_schema.sql" \
+                "migration/${PROV}/V1.0.1__${PROV}_schema.sql" \
+                "migration/${PROV}/V1.0.2__${PROV}_data.sql"
+            echo "SET FOREIGN_KEY_CHECKS=1;"
+          } | $MYSQL "${ADOPT_DB}"
+
+          timeout 10m flyway -url="$ADOPT_JDBC" -user=root \
+            -locations="filesystem:migration/common,filesystem:migration/${PROV}" \
+            -baselineVersion=1.0.2 \
+            -baselineDescription="CARLOS full genesis (V1 + province V1.0.1/V1.0.2)" baseline
+          BASELINE_OK=$($MYSQL -N "${ADOPT_DB}" -e "SELECT COUNT(*) FROM flyway_schema_history WHERE version='1.0.2' AND type='BASELINE' AND success=1")
+          if [ "${BASELINE_OK}" != "1" ]; then
+            echo "::error::adoption baseline V1.0.2 missing for ${PROV}"
+            exit 1
+          fi
+          timeout 30m flyway -url="$ADOPT_JDBC" -user=root \
+            -locations="filesystem:migration/common,filesystem:migration/${PROV}" migrate
+          timeout 10m flyway -url="$ADOPT_JDBC" -user=root \
+            -locations="filesystem:migration/common,filesystem:migration/${PROV}" validate
+
+          ADOPT_TABLES=$($MYSQL -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${ADOPT_DB}' AND table_name<>'flyway_schema_history'")
+          if [ "${ADOPT_TABLES}" -lt 300 ]; then
+            echo "::error::Only ${ADOPT_TABLES} tables after adopted migrate for ${PROV}"
+            exit 1
+          fi
+
+          echo "Flyway baseline verified for province ${PROV}: ${TABLES} fresh tables, ${ADOPT_TABLES} adopted tables, reference data present"

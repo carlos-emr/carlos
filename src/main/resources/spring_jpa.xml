@@ -59,10 +59,11 @@
 		<constructor-arg ref="dataSource" />
 		<!-- Defaults inline so a rendered carlos.properties that predates these keys still boots
 		     (falls back to the no-op 'off' mode) instead of failing placeholder resolution.
-		     The locations default is the Ontario set; a BC deployment that enables the gate MUST
-		     also set carlos.flyway.locations=classpath:db/migration/common,classpath:db/migration/bc. -->
+		     When locations are absent, the validator derives common + province migrations from
+		     billregion; when locations are present, it verifies they match billregion. -->
 		<constructor-arg value="${carlos.flyway.onBoot:off}" />
-		<constructor-arg value="${carlos.flyway.locations:classpath:db/migration/common,classpath:db/migration/on}" />
+		<constructor-arg value="${carlos.flyway.locations:}" />
+		<constructor-arg value="${billregion:ON}" />
 	</bean>
 
 	<!-- JPA -->

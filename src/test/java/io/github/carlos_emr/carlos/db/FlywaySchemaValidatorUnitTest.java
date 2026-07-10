@@ -8,6 +8,7 @@
  */
 package io.github.carlos_emr.carlos.db;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
@@ -45,6 +46,31 @@ class FlywaySchemaValidatorUnitTest extends CarlosUnitTestBase {
 
     private static final String ON_LOCATIONS =
             "classpath:db/migration/common,classpath:db/migration/on";
+    private static final String BC_LOCATIONS =
+            "classpath:db/migration/common,classpath:db/migration/bc";
+
+    @Test
+    @DisplayName("shouldDeriveLocationsFromBillregion_whenLocationsBlank")
+    void shouldDeriveLocationsFromBillregion_whenLocationsBlank() {
+        assertThat(FlywaySchemaValidator.resolveLocations("", " bc "))
+                .containsExactly("classpath:db/migration/common", "classpath:db/migration/bc");
+    }
+
+    @Test
+    @DisplayName("shouldRejectLocationsThatDoNotMatchBillregion")
+    void shouldRejectLocationsThatDoNotMatchBillregion() {
+        assertThatThrownBy(() -> FlywaySchemaValidator.resolveLocations(ON_LOCATIONS, "BC"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("billregion=BC")
+                .hasMessageContaining("db/migration/bc");
+    }
+
+    @Test
+    @DisplayName("shouldAcceptLocationsThatMatchBillregion")
+    void shouldAcceptLocationsThatMatchBillregion() {
+        assertThat(FlywaySchemaValidator.resolveLocations(BC_LOCATIONS, "BC"))
+                .containsExactly("classpath:db/migration/common", "classpath:db/migration/bc");
+    }
 
     @Test
     @DisplayName("shouldDefaultToOff_forNullMode")

@@ -15,16 +15,22 @@ then
         exit 1
 fi
 
-# --- pick your tomcat
-if [ -f /usr/share/tomcat9/bin/version.sh ] ; then
-        TOMCAT=tomcat9
-        TOMCAT_USER=tomcat
-elif [ -f /usr/share/tomcat8/bin/version.sh ] ; then
-        TOMCAT=tomcat8
-        TOMCAT_USER=tomcat8
-else
-    echo "No supported Tomcat installation found" 1>&2
-    exit 1
+# --- pick your highest supported Tomcat
+TOMCAT=
+TOMCAT_USER=
+for TOMCAT_CANDIDATE in tomcat11 tomcat10 tomcat9 tomcat8 tomcat7; do
+        if [ -f "/usr/share/${TOMCAT_CANDIDATE}/bin/version.sh" ] ; then
+                TOMCAT=${TOMCAT_CANDIDATE}
+                case "${TOMCAT_CANDIDATE}" in
+                        tomcat11|tomcat10|tomcat9) TOMCAT_USER=tomcat ;;
+                        *) TOMCAT_USER=${TOMCAT_CANDIDATE} ;;
+                esac
+                break
+        fi
+done
+if [ -z "${TOMCAT}" ]; then
+        echo "No supported Tomcat installation found (expected tomcat11, tomcat10, tomcat9, tomcat8, or tomcat7)." 1>&2
+        exit 1
 fi
 
 data_path=/usr/share/oscar-emr

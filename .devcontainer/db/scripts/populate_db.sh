@@ -3,9 +3,10 @@ set -e
 echo 'Setting up all databases...'
 
 MIG=/database/mysql/migration
-# Use MYSQL_ROOT_PASSWORD environment variable, fallback to 'password' for development.
-# The password travels via MYSQL_PWD (off-argv — -p<pw> would be visible in the process list).
-export MYSQL_PWD="${MYSQL_ROOT_PASSWORD:-password}"
+# Use the MariaDB image's native root-password variable, with MYSQL_ROOT_PASSWORD retained
+# as a compatibility fallback for older local.env files. The password travels via MYSQL_PWD
+# (off-argv: -p<pw> would be visible in the process list).
+export MYSQL_PWD="${MARIADB_ROOT_PASSWORD:-${MYSQL_ROOT_PASSWORD:-password}}"
 # MariaDB 11.x dropped the mysql* client symlinks (mysql/mysqladmin/mysqldump); use mariadb.
 SQL="mariadb -u root"
 
@@ -18,10 +19,10 @@ SQL="mariadb -u root"
 # version order — mirroring Flyway's scan — so a newly added migration can never be silently
 # missed here. V1.0.1/V1.0.2 are the Ontario genesis files, loaded explicitly after V1 below.
 # (Filenames contain no whitespace — the repo's migration hook enforces V1.0.N__desc.sql.)
-FORWARD=$(for f in "${MIG}/common/"V1.0.*__*.sql "${MIG}/on/"V1.0.*__*.sql; do
+FORWARD=$(for f in "${MIG}/common/"V*.sql "${MIG}/on/"V*.sql; do
     [ -f "$f" ] || continue
     case "$f" in
-      */V1.0.1__*|*/V1.0.2__*) continue ;;
+      */V1__*|*/V1.0.1__*|*/V1.0.2__*) continue ;;
     esac
     printf '%s\n' "$f"
   done \

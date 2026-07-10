@@ -52,7 +52,6 @@ bed_check_time
 bed_demographic
 bed_demographic_historical
 bed_demographic_status
-bed_type
 caisi_form_instance_tmpsave
 caisi_form_question
 cr_cert
@@ -77,11 +76,6 @@ intake_node_js
 intake_node_label
 intake_node_template
 intake_node_type
-lst_admission_status
-lst_discharge_reason
-lst_organization
-lst_program_type
-lst_sector
 mdsZCL
 mdsZCT
 msgIntegratorDemoMap

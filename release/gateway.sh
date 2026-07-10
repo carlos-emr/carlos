@@ -11,25 +11,27 @@
 # v 19.0
 
 # --- pick your highest tomcat that is supported
-if [ -f /usr/share/tomcat9/bin/version.sh ] ; then
-  TOMCAT=tomcat9
-  TOMCAT_USER=tomcat
-  TMP=$(find /tmp -type d -wholename "*tomcat*/tmp")           
-else
-  if [ -f /usr/share/tomcat8/bin/version.sh ] ; then
-    TOMCAT=tomcat8
-    TOMCAT_USER=tomcat8
-  else
-    if [ -f /usr/share/tomcat7/bin/version.sh ] ; then
-      TOMCAT=tomcat7
-      TOMCAT_USER=tomcat7
-    fi
+TOMCAT=
+TOMCAT_USER=
+for TOMCAT_CANDIDATE in tomcat11 tomcat10 tomcat9 tomcat8 tomcat7; do
+  if [ -f "/usr/share/${TOMCAT_CANDIDATE}/bin/version.sh" ] ; then
+    TOMCAT=${TOMCAT_CANDIDATE}
+    case "${TOMCAT_CANDIDATE}" in
+      tomcat11|tomcat10|tomcat9) TOMCAT_USER=tomcat ;;
+      *) TOMCAT_USER=${TOMCAT_CANDIDATE} ;;
+    esac
+    break
   fi
-  TMP=/tmp/${TOMCAT}-${TOMCAT}-tmp
+done
+if [ -z "${TOMCAT}" ]; then
+  echo "No supported Tomcat installation found (expected tomcat11, tomcat10, tomcat9, tomcat8, or tomcat7)." >&2
+  exit 1
 fi
+TMP=$(find /tmp -type d -wholename "*tomcat*/tmp" 2>/dev/null | head -1)
+TMP="${TMP:-/tmp/${TOMCAT}-${TOMCAT}-tmp}"
 
 
-if test -n "$(find ${TMP} -maxdepth 1 -name '*.txt' -print -quit)"; then
+if test -n "$(find ${TMP} -maxdepth 1 -name '*.txt' -print -quit 2>/dev/null)"; then
 	echo "Faxes found to be sent"
 	for f in $(ls "${TMP}"*.txt); do
 		t=$(echo "$f" | sed -e s"/${TMP}\////" -e s"/[._][0-9]*.txt//" -e s"/prescription_/Rx-/")

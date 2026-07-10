@@ -73,6 +73,22 @@ CO_APPLIED_LOCATIONS = {
 }
 
 
+
+def migration_location_for(file_path: str) -> str | None:
+    """Return the common|on|bc migration location containing file_path, if any."""
+    normalized = Path(file_path).as_posix()
+    for loc in MIGRATION_DIRECTORIES:
+        if normalized == loc or normalized.startswith(f"{loc}/") or f"/{loc}/" in normalized:
+            return loc
+    return None
+
+
+def is_direct_child_of_migration_location(file_path: str) -> bool:
+    """Migrations must be direct children of common/on/bc, not nested descendants."""
+    parent = Path(file_path).parent.as_posix()
+    loc = migration_location_for(file_path)
+    return loc is not None and (parent == loc or parent.endswith(f"/{loc}"))
+
 def get_file_path_from_input(tool_input: dict) -> str:
     """Extracts the file path from the given tool input."""
     return tool_input.get("file_path", "")
@@ -150,9 +166,8 @@ def is_valid_patch_file(file_path: str) -> bool:
 
     # Flyway forward migration under common/on/bc. Reject if the version collides with an existing
     # migration in the co-applied set (Flyway would otherwise fail at migrate time).
-    if any(f"{loc}/" in file_path for loc in MIGRATION_DIRECTORIES) and \
-            MIGRATION_PATTERN.match(path.name) is not None:
-        return not has_duplicate_version(file_path)
+    if migration_location_for(file_path) is not None and MIGRATION_PATTERN.match(path.name) is not None:
+        return is_direct_child_of_migration_location(file_path) and not has_duplicate_version(file_path)
 
     return False
 
@@ -266,8 +281,9 @@ def main():
 
         # Well-shaped V1.0.N name but the version already exists in the co-applied set — Flyway
         # would fail at migrate time. Give a precise message (distinct from the bad-name case).
-        if any(f"{loc}/" in file_path for loc in MIGRATION_DIRECTORIES) and \
+        if migration_location_for(file_path) is not None and \
                 MIGRATION_PATTERN.match(Path(file_path).name) is not None and \
+                is_direct_child_of_migration_location(file_path) and \
                 has_duplicate_version(file_path):
             print("\n=== SQL Migration Pattern Enforcer ===", file=sys.stderr)
             print("BLOCKED: duplicate Flyway migration version", file=sys.stderr)
@@ -279,14 +295,19 @@ def main():
 
         # Block badly-versioned SQL under the migration location dirs: anything that reached
         # here is neither a protected baseline nor a valid V1.0.N forward migration (date-style
-        # V2026.07.08 or new-major V2.x names land here too).
-        if any(f"{loc}/" in file_path for loc in MIGRATION_DIRECTORIES):
+        # V2026.07.08 or new-major V2.x names land here too). Nested descendants are also
+        # rejected: migrations must be direct children of common/on/bc so every verifier sees the
+        # same files Flyway is expected to apply.
+        if migration_location_for(file_path) is not None:
             print("\n=== SQL Migration Pattern Enforcer ===", file=sys.stderr)
-            print("BLOCKED: invalid Flyway migration name for this location", file=sys.stderr)
+            if not is_direct_child_of_migration_location(file_path):
+                print("BLOCKED: nested Flyway migrations are not allowed", file=sys.stderr)
+            else:
+                print("BLOCKED: invalid Flyway migration name for this location", file=sys.stderr)
             print(f"File: {file_path}\n", file=sys.stderr)
-            print("Forward migrations must be named V1.0.N__short_description.sql", file=sys.stderr)
+            print("Forward migrations must be direct children named V1.0.N__short_description.sql", file=sys.stderr)
             print("  (sequential; use the next free version number; make it idempotent)", file=sys.stderr)
-            print("  Example: V1.0.5__add_provider_type_column.sql", file=sys.stderr)
+            print("  Example: database/mysql/migration/common/V1.0.7__add_provider_type_column.sql", file=sys.stderr)
             sys.exit(2)
 
         # Block creation of new SQL files in protected directories

@@ -180,8 +180,8 @@ docker-compose down -v
 # Remove all unused Docker resources
 docker system prune -f
 
-# Remove specific volumes if they persist
-docker volume rm carlos_mariadb-11-flyway-files carlos_m2-volume
+# Remove specific volumes if they persist (Compose prefixes names by project)
+docker volume ls --format '{{.Name}}' | grep -E '(mariadb-11-flyway-files|m2-volume)$' | xargs -r docker volume rm
 ```
 
 **Note:** Complete cleanup removes both database data AND Maven cache, requiring full dependency re-download on next build (~15-30 minutes).
@@ -201,7 +201,7 @@ docker-compose up --build -d
 docker exec carlos-tomcat-dev du -sh /root/.m2
 
 # Clear Maven cache (forces fresh download of all dependencies)
-docker volume rm carlos_m2-volume
+docker volume ls --format '{{.Name}}' | grep -E 'm2-volume$' | xargs -r docker volume rm
 
 # Or clear cache while container is running
 docker exec carlos-tomcat-dev rm -rf /root/.m2/repository
@@ -220,7 +220,7 @@ docker exec -e MYSQL_PWD=password carlos-mariadb-dev mariadb -u root oscar -e "S
 
 # Reset database only (keeps app container and Maven cache)
 docker-compose stop db
-docker volume rm carlos_mariadb-11-flyway-files
+docker volume ls --format '{{.Name}}' | grep -E 'mariadb-11-flyway-files$' | xargs -r docker volume rm
 docker-compose up db -d
 ```
 
@@ -233,7 +233,7 @@ docker exec -e MYSQL_PWD=password carlos-mariadb-dev mariadb -u root oscar -e "S
 
 # Force complete database rebuild from SQL files
 docker-compose stop db
-docker volume rm carlos_mariadb-11-flyway-files
+docker volume ls --format '{{.Name}}' | grep -E 'mariadb-11-flyway-files$' | xargs -r docker volume rm
 docker-compose up db -d
 
 # Wait for initialization, then verify clean state
@@ -258,8 +258,8 @@ Several important fixes have been applied to ensure stable database initializati
 
 **Hibernate Schema Management:**
 - Changed from `update` to `validate` mode to prevent automatic schema modifications
-- Database schema is now managed entirely through SQL initialization files
-- Configuration in `src/main/resources/spring_hibernate.xml`
+- Database schema is now managed through the Flyway migration set loaded by the DB initializer
+- Runtime schema validation is controlled by `carlos.flyway.onBoot` in `src/main/resources/spring_jpa.xml`
 
 **Application Startup Dependencies:**
 - Added health checks to ensure database is fully ready before application starts
