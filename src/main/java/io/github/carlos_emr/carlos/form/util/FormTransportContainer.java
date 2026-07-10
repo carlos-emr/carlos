@@ -98,7 +98,12 @@ public class FormTransportContainer {
             }
         }
         if (responseWrapper.isUnrenderableStatus()) {
-            throw new ServletException("Form rendering failed with HTTP status " + responseWrapper.getStatus());
+            String failureMessage = "Form rendering failed with HTTP status " + responseWrapper.getStatus();
+            String nestedError = responseWrapper.getErrorMessage();
+            if (nestedError != null && !nestedError.isBlank()) {
+                failureMessage += ": " + nestedError;
+            }
+            throw new ServletException(failureMessage);
         }
 
         this.HTML = responseWrapper.toString();
@@ -207,6 +212,7 @@ public class FormTransportContainer {
         private Locale locale;
         private int bufferSize;
         private Supplier<Map<String, String>> trailerFields;
+        private String errorMessage;
 
         CapturingResponseWrapper(HttpServletResponse response) {
             super(response);
@@ -235,6 +241,11 @@ public class FormTransportContainer {
         @Override
         public void sendError(int statusCode, String message) {
             this.status = statusCode;
+            this.errorMessage = message;
+        }
+
+        String getErrorMessage() {
+            return errorMessage;
         }
 
         @Override
@@ -282,6 +293,7 @@ public class FormTransportContainer {
         public void reset() {
             resetBuffer();
             status = HttpServletResponse.SC_OK;
+            errorMessage = null;
             resetMetadata();
         }
 
