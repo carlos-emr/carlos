@@ -35,6 +35,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.clinic.ClinicData;
 import io.github.carlos_emr.carlos.prescript.data.RxProviderData;
@@ -492,7 +493,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
             Integer programNo = Integer.parseInt(reqFrm.letterheadName.substring(5));
             letterheadName = programDao.getProgramName(programNo);
 
-        } else if (!"-1".equals(reqFrm.letterheadName) && !safe(reqFrm.letterheadName).equals(clinic.getClinicName())) {
+        } else if (!"-1".equals(reqFrm.letterheadName) && !StringUtils.noNull(reqFrm.letterheadName).equals(clinic.getClinicName())) {
 
             Provider letterheadNameProvider = null;
 
@@ -785,9 +786,12 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
     }
 
     static String formatAppointmentTime(String appointmentHour, String appointmentMinute, String appointmentPm) {
-        String safeHour = appointmentHour == null ? "" : appointmentHour;
-        String safeMinute = appointmentMinute == null ? "" : appointmentMinute;
-        String safePm = appointmentPm == null ? "" : appointmentPm;
+        String safeHour = StringUtils.noNull(appointmentHour);
+        String safeMinute = StringUtils.noNull(appointmentMinute);
+        String safePm = StringUtils.noNull(appointmentPm);
+        if (safeHour.isEmpty()) {
+            return "";
+        }
         String separator = safeMinute.isEmpty() ? "" : ":";
         return String.format("%s%s%s %s", safeHour, separator, safeMinute, safePm).trim();
     }
@@ -957,10 +961,6 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
             return 0;
         }
         return str.length();
-    }
-
-    private String safe(String str) {
-        return str == null ? "" : str;
     }
 
     /**

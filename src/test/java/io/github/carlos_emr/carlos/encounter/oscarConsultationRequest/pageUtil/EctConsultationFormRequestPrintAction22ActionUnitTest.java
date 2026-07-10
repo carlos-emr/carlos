@@ -80,6 +80,7 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
+    private FaxManager originalFaxManager;
     private FaxManager faxManager;
     private EctConsultationFormRequestPrintAction22Action action;
 
@@ -99,11 +100,14 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
         registerMock(FaxManager.class, faxManager);
 
         action = new EctConsultationFormRequestPrintAction22Action();
+        originalFaxManager = (FaxManager) ReflectionTestUtils.getField(
+                EctConsultationFormRequestPrintAction22Action.class, "faxManager");
         ReflectionTestUtils.setField(EctConsultationFormRequestPrintAction22Action.class, "faxManager", faxManager);
     }
 
     @AfterEach
     void tearDown() {
+        ReflectionTestUtils.setField(EctConsultationFormRequestPrintAction22Action.class, "faxManager", originalFaxManager);
         if (servletActionContextMock != null) {
             servletActionContextMock.close();
         }
