@@ -2358,22 +2358,9 @@ var EFORM_I18N = {
                 class: "stamp",
                 onclick: "toggleMe(this);"
             });
-            $img.on("error", function() {
-                /* The provider signature stamp image is unavailable: providerSignatureImage
-                   returns 404 when the logged-in provider has no signature stamp on file.
-                   Hide the broken stamp and show the warning in the palette frame ($parent),
-                   NOT inside the draggable widget: the widget can be cloned/serialized onto an
-                   eForm, so mutating it would risk baking a broken/non-printing element into a
-                   saved template. Leaving the <img> in place (hidden) keeps the widget intact. */
-                $widget.hide();
-                if ($parent.find(".noSignatureStampWarning").length === 0) {
-                    $parent.append($("<span>", {
-                        text: EFORM_I18N.textNoSignatureStamp,
-                        class: "noSignatureStampWarning",
-                        style: 'font-size:9px; color:#b00; display:inline-block; padding:2px 4px;'
-                    }));
-                }
-            });
+            /* No onerror fallback here: when the provider signature image 404s, the caller
+               (initSignatureTemplateTab) hides the whole stamp frame and shows a warning. The
+               <img> stays in the DOM so nothing broken is placeable/serializable onto an eForm. */
             $widget.append($img);
             $parent.append($widget);
             makeDraggable($widget, true, ".gen-layer1, .gen-layer2");
@@ -4189,10 +4176,25 @@ var EFORM_I18N = {
             var src = getSignatureStampPreviewSrc();
             addDraggableStamp($dragFrame51, "signatureStamp", 255, 50, src, "signatureStamp");
             $tab.append($dragFrame51);
-            var $label = $("<label>").text('  Add Signature Stamp: ');
-            $label.css("fontSize", 12);
-            $label.attr('id', "stampLabel");
-            $dragFrame51.before($label);
+            var $stampLabel = $("<label>").text('  Add Signature Stamp: ');
+            $stampLabel.css("fontSize", 12);
+            $stampLabel.attr('id', "stampLabel");
+            $dragFrame51.before($stampLabel);
+            /* When the provider has no signature stamp on file the stamp image 404s. Hide the
+               now-empty stamp label and render a larger warning at the BOTTOM of the tab (in
+               the palette, never inside a draggable/serialized widget). Guard against a
+               duplicate if the tab is initialised more than once. */
+            $dragFrame51.find("img.stamp").on("error", function() {
+                $stampLabel.hide();
+                $dragFrame51.hide();
+                if ($tab.find(".noSignatureStampWarning").length === 0) {
+                    $tab.append($("<div>", {
+                        text: EFORM_I18N.textNoSignatureStamp,
+                        class: "noSignatureStampWarning",
+                        style: 'font-size:12px; color:#b00; margin-top:6px;'
+                    }));
+                }
+            });
 
             if (!signaturePadLoaded) {
                 $tab.append($("<span>", {
@@ -4204,10 +4206,10 @@ var EFORM_I18N = {
                 var $dragFrame52 = createStitchFrame();
                 addDraggableSignaturePad($dragFrame52, "signaturePad", 255, 50, "signaturePad");
                 $tab.append($dragFrame52);
-                $label = $("<label>").text('  Add Wet Signature: ');
-                $label.css("fontSize", 12);
-                $label.attr('id', "padLabel");
-                $dragFrame52.before($label);
+                var $padLabel = $("<label>").text('  Add Wet Signature: ');
+                $padLabel.css("fontSize", 12);
+                $padLabel.attr('id', "padLabel");
+                $dragFrame52.before($padLabel);
                 /* The wet-signature pad can only be drawn on in interact mode. While the
                    Form Building panel is open the editor is in drag/build mode (widgets carry
                    a transparent overlay so they can be positioned), which blocks drawing.
@@ -4217,7 +4219,7 @@ var EFORM_I18N = {
                     $tab.append($("<div>", {
                         text: EFORM_I18N.textWetSignatureSignHint,
                         id: "padSignHint",
-                        style: 'font-size:9px; color:#555; margin-top:2px;'
+                        style: 'font-size:12px; color:#555; margin-top:4px;'
                     }));
                 }
             }
