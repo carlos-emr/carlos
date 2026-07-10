@@ -2092,8 +2092,13 @@ if (userAgent != null) {
             if (btn) btn.disabled = disabled;
         }
 
+        <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgPreviewAttachmentsUnavailable" var="previewAttachmentsUnavailableMessage"/>
+        <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgPreviewRequestFailed" var="previewRequestFailedMessage"/>
+
         // If the user clicks the 'Print Preview' button, ensure that their unsaved changes are preserved, allowing them to stay on the same page. Achieve this by making an AJAX call.
         function getConsultFormPrintPreview(form) {
+            var previewAttachmentsUnavailableMessage = '${carlos:forJavaScript(previewAttachmentsUnavailableMessage)}';
+            var previewRequestFailedMessage = '${carlos:forJavaScript(previewRequestFailedMessage)}';
             form.submission.value = "And Print Preview";
             jQuery.ajax({
                 type: "POST",
@@ -2108,12 +2113,12 @@ if (userAgent != null) {
                     }
                     showPreview(data.consultPDF, data.consultPDFName);
                     if (data.attachmentWarnings && data.attachmentWarnings.length > 0) {
-                        alert("The preview was generated, but some attachments were unavailable and were not included:\n\n" + data.attachmentWarnings.join("\n"));
+                        alert(previewAttachmentsUnavailableMessage + "\n\n" + data.attachmentWarnings.join("\n"));
                     }
                 },
                 error: function (xhr, status, error) {
                     HideSpin();
-                    alert("Preview request failed: " + status + ", " + error);
+                    alert(previewRequestFailedMessage + " " + status + ", " + error);
                 }
             });
         }

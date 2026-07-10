@@ -81,11 +81,10 @@ public final class ConsultationDemographicResolver {
 
         String consultationDemographicId = String.valueOf(consultationRequest.getDemographicId());
         String submittedDemographic = Objects.toString(submittedDemographicId, null);
-        if (StringUtils.isNotBlank(submittedDemographic) && !consultationDemographicId.equals(submittedDemographic)) {
-            if (logger != null && logger.isWarnEnabled()) {
-                logger.warn("Ignoring mismatched consultation {} demographic requestId={} consultationDemographic={}",
-                        safeContext(context), parsedRequestId, consultationDemographicId);
-            }
+        if (StringUtils.isNotBlank(submittedDemographic) && !consultationDemographicId.equals(submittedDemographic)
+                && logger != null && logger.isWarnEnabled()) {
+            logger.warn("Ignoring mismatched consultation {} demographic requestId={} consultationDemographic={}",
+                    safeContext(context), parsedRequestId, consultationDemographicId);
         }
 
         return Resolution.resolved(consultationDemographicId);
