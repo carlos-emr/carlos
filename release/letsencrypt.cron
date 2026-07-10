@@ -15,19 +15,33 @@ then
         exit 1
 fi
 
-# --- pick your highest supported Tomcat
+# --- pick the Tomcat service that is actually running CARLOS, then fall back to installed versions.
+set_tomcat_user() {
+        case "$1" in
+                tomcat11|tomcat10|tomcat9) TOMCAT_USER=tomcat ;;
+                *) TOMCAT_USER=$1 ;;
+        esac
+}
+
+_TOMCAT_CMD=$(ps -eo args= | grep org.apache.catalina.startup.Bootstrap | grep -v grep || true)
 TOMCAT=
 TOMCAT_USER=
 for TOMCAT_CANDIDATE in tomcat11 tomcat10 tomcat9 tomcat8 tomcat7; do
-        if [ -f "/usr/share/${TOMCAT_CANDIDATE}/bin/version.sh" ] ; then
+        if echo "$_TOMCAT_CMD" | grep -q "${TOMCAT_CANDIDATE}"; then
                 TOMCAT=${TOMCAT_CANDIDATE}
-                case "${TOMCAT_CANDIDATE}" in
-                        tomcat11|tomcat10|tomcat9) TOMCAT_USER=tomcat ;;
-                        *) TOMCAT_USER=${TOMCAT_CANDIDATE} ;;
-                esac
+                set_tomcat_user "${TOMCAT_CANDIDATE}"
                 break
         fi
 done
+if [ -z "${TOMCAT}" ]; then
+        for TOMCAT_CANDIDATE in tomcat11 tomcat10 tomcat9 tomcat8 tomcat7; do
+                if [ -f "/usr/share/${TOMCAT_CANDIDATE}/bin/version.sh" ] ; then
+                        TOMCAT=${TOMCAT_CANDIDATE}
+                        set_tomcat_user "${TOMCAT_CANDIDATE}"
+                        break
+                fi
+        done
+fi
 if [ -z "${TOMCAT}" ]; then
         echo "No supported Tomcat installation found (expected tomcat11, tomcat10, tomcat9, tomcat8, or tomcat7)." 1>&2
         exit 1
@@ -59,7 +73,7 @@ chown ${TOMCAT_USER}:${TOMCAT_USER} /etc/${TOMCAT}/*.pem >> $LOG_FILE 2>&1
 
 # --- reload Tomcat
 tomcat_pid() {
-        echo `ps aux | grep org.apache.catalina.startup.Bootstrap | grep -v grep | awk '{ print $2 }'`
+        ps -eo pid=,args= | grep org.apache.catalina.startup.Bootstrap | grep "${TOMCAT}" | grep -v grep | awk '{ print $1 }' | head -1
 }
 pid=$(tomcat_pid)
 if [ -n "$pid" ]; then

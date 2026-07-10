@@ -117,7 +117,9 @@ public class FlywaySchemaValidator implements InitializingBean {
     public FlywaySchemaValidator(DataSource dataSource, String mode, String locations, String billregion) {
         this.dataSource = dataSource;
         this.mode = normalizeMode(mode);
-        this.locations = resolveLocations(locations, billregion);
+        this.locations = MODE_OFF.equals(this.mode)
+                ? new String[0]
+                : resolveLocations(locations, billregion);
     }
 
     // IMPROPER_UNICODE flags any case folding regardless of Locale; this is an intended

@@ -208,6 +208,17 @@ jobs:
           timeout 10m flyway -url="$ADOPT_JDBC" -user=root \
             -locations="filesystem:migration/common,filesystem:migration/${PROV}" validate
 
+          for v in ${EXPECTED}; do
+            case "${v}" in
+              1|1.0.1|1.0.2) continue ;;
+            esac
+            ok=$($MYSQL -N "${ADOPT_DB}" -e "SELECT COUNT(*) FROM flyway_schema_history WHERE version='${v}' AND success=1")
+            if [ "${ok}" != "1" ]; then
+              echo "::error::adopted migration version ${v} missing from flyway_schema_history for ${PROV}"
+              exit 1
+            fi
+          done
+
           ADOPT_TABLES=$($MYSQL -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${ADOPT_DB}' AND table_name<>'flyway_schema_history'")
           if [ "${ADOPT_TABLES}" -lt 300 ]; then
             echo "::error::Only ${ADOPT_TABLES} tables after adopted migrate for ${PROV}"

@@ -80,8 +80,17 @@ def migration_location_for(file_path: str) -> str | None:
 def is_direct_child_of_migration_location(file_path: str) -> bool:
     """Migrations must be direct children of common/on/bc, not nested descendants."""
     parent = Path(file_path).parent.as_posix()
-    loc = migration_location_for(file_path)
-    return loc is not None and (parent == loc or parent.endswith(f"/{loc}"))
+    for loc in MIGRATION_DIRECTORIES:
+        if parent == loc:
+            return True
+        suffix = f"/{loc}"
+        if parent.endswith(suffix):
+            prefix = parent[: -len(suffix)]
+            return (
+                "database/mysql/migration/" not in prefix
+                and not prefix.endswith("database/mysql/migration")
+            )
+    return False
 
 def get_file_path_from_input(tool_input: dict) -> str:
     """Extracts the file path from the given tool input."""

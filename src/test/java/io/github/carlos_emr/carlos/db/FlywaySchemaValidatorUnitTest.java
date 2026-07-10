@@ -117,6 +117,16 @@ class FlywaySchemaValidatorUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("shouldNotValidateBillregion_whenModeOff")
+    void shouldNotValidateBillregion_whenModeOff() {
+        DataSource dataSource = mock(DataSource.class);
+        FlywaySchemaValidator validator = new FlywaySchemaValidator(dataSource, "off", "", "future-province");
+
+        assertThatCode(validator::afterPropertiesSet).doesNotThrowAnyException();
+        verifyNoInteractions(dataSource);
+    }
+
+    @Test
     @DisplayName("shouldNormalizeMode_withMixedCaseAndWhitespace")
     void shouldNormalizeMode_withMixedCaseAndWhitespace() {
         DataSource dataSource = mock(DataSource.class);

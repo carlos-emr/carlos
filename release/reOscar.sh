@@ -33,21 +33,29 @@ fi
 
 
 # --- determine supported Tomcat service name and tmp directory
-# Detect highest installed version first (service name is reliable unlike process owner)
+# Prefer the running CARLOS Tomcat process; fall back to installed-version checks if Tomcat is down.
+_TOMCAT_CMD=$(ps -eo args= | grep org.apache.catalina.startup.Bootstrap | grep -v grep || true)
 TOMCAT=
 for TOMCAT_CANDIDATE in tomcat11 tomcat10 tomcat9 tomcat8 tomcat7; do
-    if [ -f "/usr/share/${TOMCAT_CANDIDATE}/bin/version.sh" ] ; then
+    if echo "$_TOMCAT_CMD" | grep -q "${TOMCAT_CANDIDATE}"; then
         TOMCAT=${TOMCAT_CANDIDATE}
         break
     fi
 done
 if [ -z "${TOMCAT}" ]; then
+    for TOMCAT_CANDIDATE in tomcat11 tomcat10 tomcat9 tomcat8 tomcat7; do
+        if [ -f "/usr/share/${TOMCAT_CANDIDATE}/bin/version.sh" ] ; then
+            TOMCAT=${TOMCAT_CANDIDATE}
+            break
+        fi
+    done
+fi
+if [ -z "${TOMCAT}" ]; then
     echo "No supported Tomcat installation found (expected tomcat11, tomcat10, tomcat9, tomcat8, or tomcat7)." 1>&2
     exit 1
 fi
-TMP=$(find /tmp -type d -wholename "*tomcat*/tmp" 2>/dev/null | head -1)
+TMP=$(find /tmp -type d -wholename "*${TOMCAT}*/tmp" 2>/dev/null | head -1)
 TMP="${TMP:-/tmp/${TOMCAT}-${TOMCAT}-tmp}"
-TOMCAT_PID=$(ps aux | grep org.apache.catalina.startup.Bootstrap | grep -v grep | awk '{ print $2 }')
 
 
 
@@ -63,7 +71,7 @@ fi
 
 # --- reload Tomcat
 tomcat_pid() {
-        echo `ps aux | grep org.apache.catalina.startup.Bootstrap | grep -v grep | awk '{ print $2 }'`
+        ps -eo pid=,args= | grep org.apache.catalina.startup.Bootstrap | grep "${TOMCAT}" | grep -v grep | awk '{ print $1 }' | head -1
 }
 
 if [ -f ${TMP}/restartOscar.action ] || [ ${RUNNING_STATUS} != '0' ]; then
