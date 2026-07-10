@@ -95,7 +95,7 @@ class EFormBrowserPdfRendererUnitTest {
         Path directory = EFormBrowserPdfRenderer.createSecureTempDirectory(root, "eform-browser-render-test-");
         try {
             assertThat(Files.isDirectory(directory)).isTrue();
-            assertThat(directory.getParent()).isEqualTo(root);
+            assertThat(directory).hasParentRaw(root);
             if (Files.getFileStore(directory).supportsFileAttributeView("posix")) {
                 assertThat(Files.getPosixFilePermissions(directory))
                         .containsExactlyInAnyOrder(
@@ -116,7 +116,7 @@ class EFormBrowserPdfRendererUnitTest {
         Path file = EFormBrowserPdfRenderer.createSecureTempFile(root, "eform-browser-render-test-", ".pdf");
         try {
             assertThat(Files.isRegularFile(file)).isTrue();
-            assertThat(file.getParent()).isEqualTo(root);
+            assertThat(file).hasParentRaw(root);
             if (Files.getFileStore(file).supportsFileAttributeView("posix")) {
                 Set<PosixFilePermission> permissions = Files.getPosixFilePermissions(file);
                 assertThat(permissions)
@@ -147,13 +147,7 @@ class EFormBrowserPdfRendererUnitTest {
     @Test
     @DisplayName("should reject non-local base URLs for the Playwright renderer")
     void shouldRejectNonLocalBaseUrl_whenBuildingRendererCommand() {
-        assertThatThrownBy(() -> EFormBrowserPdfRenderer.buildCommand(
-                "node",
-                Path.of("/tmp/carlos-develop-clean/scripts/eform-browser-pdf-render.js"),
-                "https://evil.example/steal",
-                "/eformViewForPdfGenerationServlet?fdid=187",
-                Path.of("/tmp/rendered-output"),
-                null))
+        assertThatThrownBy(EFormBrowserPdfRendererUnitTest::buildCommandWithInvalidBaseUrl)
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("base URL");
     }
@@ -161,13 +155,7 @@ class EFormBrowserPdfRendererUnitTest {
     @Test
     @DisplayName("should reject non-root-relative app paths for the Playwright renderer")
     void shouldRejectNonRootRelativeAppPath_whenBuildingRendererCommand() {
-        assertThatThrownBy(() -> EFormBrowserPdfRenderer.buildCommand(
-                "node",
-                Path.of("/tmp/carlos-develop-clean/scripts/eform-browser-pdf-render.js"),
-                "http://127.0.0.1:8080/carlos",
-                "https://evil.example/steal",
-                Path.of("/tmp/rendered-output"),
-                null))
+        assertThatThrownBy(EFormBrowserPdfRendererUnitTest::buildCommandWithInvalidAppPath)
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Application path");
     }
@@ -195,4 +183,24 @@ class EFormBrowserPdfRendererUnitTest {
                 "--chrome-path",
                 "/root/.cache/ms-playwright/chromium-1223/chrome-linux64/chrome");
     }
+    private static List<String> buildCommandWithInvalidBaseUrl() {
+        return EFormBrowserPdfRenderer.buildCommand(
+                "node",
+                Path.of("/tmp/carlos-develop-clean/scripts/eform-browser-pdf-render.js"),
+                "https://evil.example/steal",
+                "/eformViewForPdfGenerationServlet?fdid=187",
+                Path.of("/tmp/rendered-output"),
+                null);
+    }
+
+    private static List<String> buildCommandWithInvalidAppPath() {
+        return EFormBrowserPdfRenderer.buildCommand(
+                "node",
+                Path.of("/tmp/carlos-develop-clean/scripts/eform-browser-pdf-render.js"),
+                "http://127.0.0.1:8080/carlos",
+                "https://evil.example/steal",
+                Path.of("/tmp/rendered-output"),
+                null);
+    }
+
 }

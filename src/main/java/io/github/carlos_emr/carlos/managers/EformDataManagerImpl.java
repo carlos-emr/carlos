@@ -190,7 +190,6 @@ public class EformDataManagerImpl implements EformDataManager {
             throw new RuntimeException("missing required sec object (_eform)");
         }
 
-        EFormData eformData = eFormDataDao.find(fdid);
         Path path;
         try {
             path = eFormBrowserPdfRenderer.renderSavedEformPdf(fdid, loggedInInfo.getLoggedInProviderNo());

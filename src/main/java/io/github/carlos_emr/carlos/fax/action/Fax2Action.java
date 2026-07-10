@@ -69,6 +69,10 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class Fax2Action extends ActionSupport {
+
+    private static final String ACCESS_DENIED = "Access denied";
+    private static final String FAX_FILE_PATH_PARAM = "faxFilePath";
+    private static final String ERROR_SENDING_ERROR_RESPONSE = "Error sending error response";
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -270,13 +274,13 @@ public class Fax2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", "r", null)) {
             try {
-                response.sendError(HttpServletResponse.SC_FORBIDDEN, "Access denied");
+                response.sendError(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
             } catch (IOException e) {
                 logger.error("Error sending forbidden response in getPreview", e);
             }
             return;
         }
-        String faxFilePath = request.getParameter("faxFilePath");
+        String requestedFaxFilePath = request.getParameter(FAX_FILE_PATH_PARAM);
         String pageNumber = request.getParameter("pageNumber");
         String showAs = request.getParameter("showAs");
         Path outfile = null;
@@ -289,7 +293,7 @@ public class Fax2Action extends ActionSupport {
         }
 
         if (faxJob != null) {
-            faxFilePath = faxJob.getFile_name();
+            requestedFaxFilePath = faxJob.getFile_name();
         }
 
         if (pageNumber != null && !pageNumber.isEmpty()) {
@@ -300,10 +304,10 @@ public class Fax2Action extends ActionSupport {
          * Displaying the entire PDF using the default browser's view before faxing an EForm (in CoverPage.jsp),
          * and when viewing it in the fax records (Manage Faxes), it is shown as images.
          */
-        if (faxFilePath != null && !faxFilePath.isEmpty()) {
+        if (requestedFaxFilePath != null && !requestedFaxFilePath.isEmpty()) {
             if (showAs != null && showAs.equals("image")) {
                 // The faxManager.getFaxPreviewImage method already handles path validation
-                outfile = faxManager.getFaxPreviewImage(loggedInInfo, faxFilePath, page);
+                outfile = faxManager.getFaxPreviewImage(loggedInInfo, requestedFaxFilePath, page);
                 if (outfile != null && outfile.getFileName() != null) {
                     response.setContentType("image/png");
                     String sanitizedFilename = FilenameUtils.getName(outfile.getFileName().toString());
@@ -315,22 +319,22 @@ public class Fax2Action extends ActionSupport {
             } else {
                 // Validate and resolve the PDF path using FaxManager
                 try {
-                    outfile = faxManager.resolveAndValidateFilePath(faxFilePath);
+                    outfile = faxManager.resolveAndValidateFilePath(requestedFaxFilePath);
                     response.setContentType("application/pdf");
                 } catch (SecurityException e) {
-                    logger.error("Security validation failed for file path: " + faxFilePath, e);
+                    logger.error("Security validation failed for file path: {}", requestedFaxFilePath, e);
                     try {
-                        response.sendError(HttpServletResponse.SC_FORBIDDEN, "Access denied");
+                        response.sendError(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
                     } catch (IOException ex) {
-                        logger.error("Error sending error response", ex);
+                        logger.error(ERROR_SENDING_ERROR_RESPONSE, ex);
                     }
                     return;
                 } catch (IOException e) {
-                    logger.error("File not found or error processing file path: " + faxFilePath, e);
+                    logger.error("File not found or error processing file path: {}", requestedFaxFilePath, e);
                     try {
                         response.sendError(HttpServletResponse.SC_NOT_FOUND, "File not found");
                     } catch (IOException ex) {
-                        logger.error("Error sending error response", ex);
+                        logger.error(ERROR_SENDING_ERROR_RESPONSE, ex);
                     }
                     return;
                 }
@@ -428,31 +432,31 @@ public class Fax2Action extends ActionSupport {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String jobId = request.getParameter("jobId");
-        String faxFilePath = request.getParameter("faxFilePath");
+        String requestedFaxFilePath = request.getParameter(FAX_FILE_PATH_PARAM);
         int pageCount = 0;
 
         if (jobId != null && !jobId.isEmpty()) {
             pageCount = faxManager.getPageCount(loggedInInfo, Integer.parseInt(jobId));
-        } else if (faxFilePath != null && !faxFilePath.isEmpty()) {
+        } else if (requestedFaxFilePath != null && !requestedFaxFilePath.isEmpty()) {
             try {
-                Path resolvedPath = faxManager.resolveAndValidateFilePath(faxFilePath);
+                Path resolvedPath = faxManager.resolveAndValidateFilePath(requestedFaxFilePath);
                 try (PDDocument pdf = Loader.loadPDF(resolvedPath.toFile())) {
                     pageCount = pdf.getNumberOfPages();
                 }
             } catch (SecurityException e) {
-                logger.error("Security validation failed for page count path: " + faxFilePath, e);
+                logger.error("Security validation failed for page count path: {}", requestedFaxFilePath, e);
                 try {
-                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "Access denied");
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
                 } catch (IOException ex) {
-                    logger.error("Error sending error response", ex);
+                    logger.error(ERROR_SENDING_ERROR_RESPONSE, ex);
                 }
                 return;
             } catch (IOException e) {
-                logger.error("File not found or error processing page count path: " + faxFilePath, e);
+                logger.error("File not found or error processing page count path: {}", requestedFaxFilePath, e);
                 try {
                     response.sendError(HttpServletResponse.SC_NOT_FOUND, "File not found");
                 } catch (IOException ex) {
-                    logger.error("Error sending error response", ex);
+                    logger.error(ERROR_SENDING_ERROR_RESPONSE, ex);
                 }
                 return;
             }

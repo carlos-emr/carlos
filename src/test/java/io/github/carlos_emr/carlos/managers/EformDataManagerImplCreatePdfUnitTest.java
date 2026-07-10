@@ -40,7 +40,7 @@ class EformDataManagerImplCreatePdfUnitTest extends CarlosUnitTestBase {
     private EformDataManagerImpl manager;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         mocks = MockitoAnnotations.openMocks(this);
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(NioFileManager.class, org.mockito.Mockito.mock(NioFileManager.class));

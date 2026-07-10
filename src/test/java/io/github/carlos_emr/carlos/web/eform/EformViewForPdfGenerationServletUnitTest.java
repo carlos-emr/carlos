@@ -122,7 +122,7 @@ class EformViewForPdfGenerationServletUnitTest {
 
         new EformViewForPdfGenerationServlet().doGet(request, response);
 
-        verify(dispatcher).forward(eq(request), eq(response));
+        verify(dispatcher).forward(request, response);
         assertThat(response.getStatus()).isEqualTo(200);
     }
 

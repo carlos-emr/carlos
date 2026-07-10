@@ -141,7 +141,7 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
         }
 
         String sanitized = value
-                .replaceAll("[\r\n\u0000-\u001F\u007F-\u009F]", "")
+                .replaceAll("[\u0000-\u001F\u007F-\u009F]", "")
                 .replace("\"", "")
                 .replace(";", "")
                 .replace("'", "");

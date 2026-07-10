@@ -193,8 +193,7 @@ class NioFileManagerImplUnitTest {
 
         Path cacheVersion = nioFileManager.createCacheVersion2(loggedInInfo, allowedTempDir.toString(), sourcePdf.getFileName().toString(), 1);
 
-        assertThat(cacheVersion).isNotNull();
-        assertThat(cacheVersion).exists();
+        assertThat(cacheVersion).isNotNull().exists();
         assertThat(cacheVersion.getFileName().toString()).endsWith("_1.png");
         assertThat(Files.size(cacheVersion)).isPositive();
     }

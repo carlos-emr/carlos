@@ -170,7 +170,9 @@ public class EFormBrowserPdfRenderer {
         if (!normalizedContextPath.isEmpty() && !normalizedContextPath.startsWith("/")) {
             normalizedContextPath = "/" + normalizedContextPath;
         }
-        normalizedContextPath = normalizedContextPath.replaceAll("/$", "");
+        if (normalizedContextPath.endsWith("/")) {
+            normalizedContextPath = normalizedContextPath.substring(0, normalizedContextPath.length() - 1);
+        }
         StringBuilder baseUrl = new StringBuilder(normalizedScheme).append("://127.0.0.1");
         if (port > 0 && !isDefaultPort(normalizedScheme, port)) {
             baseUrl.append(":").append(port);

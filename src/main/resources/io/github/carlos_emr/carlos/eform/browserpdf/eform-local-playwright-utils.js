@@ -12,8 +12,8 @@
  * https://github.com/carlos-emr/carlos
  */
 
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const SAFE_ARTIFACT_BASENAME_RE = /^[A-Za-z0-9._-]+$/;
 const SAFE_ARTIFACT_EXTENSION_RE = /^\.[A-Za-z0-9]+$/;
@@ -46,7 +46,7 @@ function validateBaseUrl(rawBaseUrl) {
   }
 
   const host = parsed.hostname.toLowerCase();
-  const normalizedHost = host.replace(/^\[(.*)]$/, '$1');
+  const normalizedHost = host.startsWith('[') && host.endsWith(']') ? host.slice(1, -1) : host;
   const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
   const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(normalizedHost);
   if (!localHosts.has(normalizedHost) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
@@ -191,7 +191,7 @@ async function findLibraryEform(page, formName) {
   const editHref = await row.locator('a[href*="efmformmanageredit?fid="]').first().getAttribute('href');
   const previewMatch = previewOnclick && previewOnclick.match(/fid=([^&'"]+)/);
   const editMatch = editHref && editHref.match(/fid=([^&'"]+)/);
-  assert(previewMatch?.[1] || editMatch?.[1], `Could not extract fid for ${formName}`);
+  assert(previewMatch?.[1] ?? editMatch?.[1], `Could not extract fid for ${formName}`);
   return {
     row,
     fid: decodeURIComponent((previewMatch && previewMatch[1]) || editMatch[1]),
@@ -249,6 +249,7 @@ async function invokeFetchAttached(page) {
   const hasFunction = await page.evaluate(() => typeof fetchAttached === 'function'); // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- fixed helper code executed without interpolating user-controlled input
   if (!hasFunction) {
     return { hasFunction: false, text: '', html: '' };
+
   }
 
   const target = page.locator('#tdAttachedDocs');

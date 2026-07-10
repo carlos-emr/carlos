@@ -71,11 +71,8 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
                 return;
             }
 
-            int formDataId;
-            try {
-                formDataId = Integer.parseInt(id);
-            } catch (NumberFormatException e) {
-                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid parameter: fdid must be a valid number");
+            Integer formDataId = parseFormDataId(id, response);
+            if (formDataId == null) {
                 return;
             }
 
@@ -205,6 +202,15 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
             return contextScopedPath + "?" + DIGITAL_SIGNATURE_ID_PARAM + "=" + digitalSignatureId;
         }
         return PDF_SIGNATURE_SERVLET_PATH + "?" + DIGITAL_SIGNATURE_ID_PARAM + "=" + digitalSignatureId;
+    }
+
+    private static Integer parseFormDataId(String id, HttpServletResponse response) throws IOException {
+        try {
+            return Integer.parseInt(id);
+        } catch (NumberFormatException e) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid parameter: fdid must be a valid number");
+            return null;
+        }
     }
 
     static String buildSignatureImageMarkup(String signatureUrl, String left, String top, String width, String height) {

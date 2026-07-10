@@ -12,8 +12,8 @@
  * https://github.com/carlos-emr/carlos
  */
 
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 const { chromium } = require('playwright');
 const { appUrl, assert, getLaunchOptions, validateBaseUrl } = require('./eform-local-playwright-utils');
 
@@ -89,19 +89,21 @@ async function preparePageForCapture(page) {
   });
 }
 
+function rectFromElement(el) {
+  const rect = el.getBoundingClientRect();
+  return {
+    left: rect.left + window.scrollX,
+    top: rect.top + window.scrollY,
+    right: rect.right + window.scrollX,
+    bottom: rect.bottom + window.scrollY,
+    width: rect.width,
+    height: rect.height,
+  };
+}
+
 async function computeCaptureRegions(page) {
-  return page.evaluate(() => {
-    function rectFromElement(el) {
-      const rect = el.getBoundingClientRect();
-      return {
-        left: rect.left + window.scrollX,
-        top: rect.top + window.scrollY,
-        right: rect.right + window.scrollX,
-        bottom: rect.bottom + window.scrollY,
-        width: rect.width,
-        height: rect.height,
-      };
-    }
+  return page.evaluate((rectFromElementSource) => {
+    const rectFromElement = new Function(`return (${rectFromElementSource})`)();
 
     function unionRects(elements) {
       let left = Number.POSITIVE_INFINITY;
@@ -152,7 +154,7 @@ async function computeCaptureRegions(page) {
 
     const fallback = unionRects(Array.from(document.body.querySelectorAll('*')));
     return fallback ? [fallback] : [];
-  });
+  }, rectFromElement.toString());
 }
 
 async function capturePages(page, outputDir) {
@@ -197,7 +199,7 @@ async function main() {
     }
   });
   page.on('pageerror', (error) => {
-    pageErrors.push(error.stack || error.message);
+    pageErrors.push(error.stack ?? error.message);
   });
 
   let captureFiles = [];

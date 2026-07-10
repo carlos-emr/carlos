@@ -82,8 +82,8 @@ public class EForm extends EFormBase {
     private static final String LOAD_SIG_FUNCTION = "function loadSig(";
     private static final String LOAD_SIG_WINDOW = "window.loadSig";
     private static final String LOAD_SIG_FALLBACK = "window.loadSig = window.loadSig || function loadSig() {};";
-    private static final Pattern LEGACY_SET_TIMEOUT_PATTERN = Pattern.compile("setTimeout\\(\\s*'([^']+)'\\s*,\\s*([^)]++)\\)");
-    private static final Pattern LEGACY_SET_INTERVAL_PATTERN = Pattern.compile("setInterval\\(\\s*'([^']+)'\\s*,\\s*([^)]++)\\)");
+    private static final Pattern LEGACY_SET_TIMEOUT_PATTERN = Pattern.compile("setTimeout\\(\\s*+\'([^\'\\r\\n]++)\'\\s*+,\\s*+([^)]++)\\)");
+    private static final Pattern LEGACY_SET_INTERVAL_PATTERN = Pattern.compile("setInterval\\(\\s*+\'([^\'\\r\\n]++)\'\\s*+,\\s*+([^)]++)\\)");
 
     private String runtimeContextPath;
 
@@ -1082,7 +1082,7 @@ public class EForm extends EFormBase {
      * Add path to Javascript resource in OSCAR source code.
      */
     public void addHeadJavascript(String javascriptPath) {
-        Element script = getDocument().createElement("script");
+        Element script = getDocument().createElement(SCRIPT_TAG);
         script.attr("type", "text/javascript");
         script.attr("src", javascriptPath);
         addHeadElement(script);
@@ -1093,7 +1093,7 @@ public class EForm extends EFormBase {
      * Useful if there is a dependency on previous javascript in the window load
      */
     public void addBodyJavascript(String javascriptPath) {
-        Element script = getDocument().createElement("script");
+        Element script = getDocument().createElement(SCRIPT_TAG);
         script.attr("type", "text/javascript");
         script.attr("src", javascriptPath);
         addBodyElement(script);
