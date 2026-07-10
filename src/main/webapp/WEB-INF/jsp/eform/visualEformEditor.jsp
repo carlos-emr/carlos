@@ -4191,6 +4191,8 @@ var EFORM_I18N = {
                     $tab.append($("<div>", {
                         text: EFORM_I18N.textNoSignatureStamp,
                         class: "noSignatureStampWarning",
+                        // role=alert so screen readers announce this dynamically inserted warning
+                        role: "alert",
                         style: 'font-size:14px; color:#b00; margin-top:6px;'
                     }));
                 }
