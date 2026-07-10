@@ -79,6 +79,7 @@ class SignatureStampJspRegressionTest {
                 .contains("$stampImg.on(\"error\", warnIfMissingSignature);")
                 .contains("if (resp.status === 404)")
                 .contains("EFORM_I18N.textNoSignatureStamp")
+                .contains("role: \"alert\"")
                 // The wet-signature sign hint is wired through the same i18n path.
                 .contains("EFORM_I18N.textWetSignatureSignHint")
                 // Stamps already placed on a saved eForm keep the blank-stamp fallback so they
