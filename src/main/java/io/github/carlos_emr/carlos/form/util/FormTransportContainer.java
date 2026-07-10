@@ -29,9 +29,12 @@
 package io.github.carlos_emr.carlos.form.util;
 
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletOutputStream;
@@ -169,6 +172,7 @@ public class FormTransportContainer {
     private static final class CapturingResponseWrapper extends HttpServletResponseWrapper {
         private final StringWriter stringWriter = new StringWriter();
         private final PrintWriter writer = new PrintWriter(stringWriter);
+        private final ByteArrayOutputStream outputBytes = new ByteArrayOutputStream();
         private final ServletOutputStream outputStream = new ServletOutputStream() {
             @Override
             public boolean isReady() {
@@ -182,7 +186,12 @@ public class FormTransportContainer {
 
             @Override
             public void write(int value) {
-                // Intentionally ignored; form rendering uses the PrintWriter capture path.
+                outputBytes.write(value);
+            }
+
+            @Override
+            public void write(byte[] bytes, int offset, int length) {
+                outputBytes.write(bytes, offset, length);
             }
         };
         private int status = HttpServletResponse.SC_OK;
@@ -236,6 +245,7 @@ public class FormTransportContainer {
         @Override
         public void resetBuffer() {
             stringWriter.getBuffer().setLength(0);
+            outputBytes.reset();
         }
 
         @Override
@@ -323,7 +333,26 @@ public class FormTransportContainer {
         @Override
         public String toString() {
             writer.flush();
-            return stringWriter.toString();
+            return stringWriter.toString() + decodeOutputBytes();
+        }
+
+        private Charset resolveCharacterEncoding() {
+            String encoding = getCharacterEncoding();
+            if (encoding == null || encoding.isBlank()) {
+                return StandardCharsets.UTF_8;
+            }
+            try {
+                return Charset.forName(encoding);
+            } catch (IllegalArgumentException e) {
+                return StandardCharsets.UTF_8;
+            }
+        }
+
+        private String decodeOutputBytes() {
+            if (outputBytes.size() == 0) {
+                return "";
+            }
+            return new String(outputBytes.toByteArray(), resolveCharacterEncoding());
         }
     }
 

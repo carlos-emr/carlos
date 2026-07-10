@@ -25,6 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicReference;
 
 import jakarta.servlet.RequestDispatcher;
@@ -95,6 +96,21 @@ class FormTransportContainerUnitTest {
 
         assertThat(container.getHTML()).contains("<html>form</html>");
         assertThat(outerResponse.isCommitted()).isFalse();
+        assertThat(outerResponse.getContentAsString()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("captures nested form output stream bytes without mutating the caller response")
+    void shouldCaptureNestedOutputStream_withoutMutatingCallerResponse() throws Exception {
+        MockHttpServletResponse outerResponse = new MockHttpServletResponse();
+        MockHttpServletRequest request = requestForwardingTo((servletRequest, servletResponse) -> {
+            servletResponse.setCharacterEncoding(StandardCharsets.UTF_8.name());
+            servletResponse.getOutputStream().write("<html>stream form</html>".getBytes(StandardCharsets.UTF_8));
+        });
+
+        FormTransportContainer container = new FormTransportContainer(outerResponse, request, "/form/output");
+
+        assertThat(container.getHTML()).contains("<html>stream form</html>");
         assertThat(outerResponse.getContentAsString()).isEmpty();
     }
 
