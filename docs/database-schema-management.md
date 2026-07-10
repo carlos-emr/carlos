@@ -54,10 +54,9 @@ CARLOS targets **MariaDB** (11.8.x LTS is what dev, CI, and the container/podman
 all run). The migrations rely on MariaDB-only idempotent DDL (`CREATE INDEX IF NOT EXISTS`,
 `ALTER TABLE ... DROP INDEX IF EXISTS`) — the repo's established idiom — and the dev/CI tooling
 uses the `mariadb`/`mariadb-dump` clients (MariaDB 11.x no longer ships the `mysql` symlinks). The
-`mariadb`→`mysql` client fallbacks in the release scripts, and the `.deb` `control` alternative
-that still admits `mysql-server`, remain only so package **upgrades** on legacy MySQL-hosted
-installs keep working; whether to drop MySQL from the dependency alternatives entirely is an
-operator/roadmap decision, not something a schema PR should change.
+`.deb` package now depends on `mariadb-server`, `mariadb-client`, and `libmariadb-java`; any
+remaining script compatibility shims are for legacy local environments, not an advertised MySQL
+runtime target.
 
 ### Dead-table pruning
 
