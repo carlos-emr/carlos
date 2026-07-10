@@ -76,7 +76,7 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
             Map.entry("html", HTML_CONTENT_TYPE),
             Map.entry("htm", HTML_CONTENT_TYPE)
     );
-    private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private transient SecurityInfoManager securityInfoManager;
 
     @Override
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
@@ -129,6 +129,7 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
     }
 
     private void enforceAssetReadPrivilege(LoggedInInfo loggedInInfo, String fileName) {
+        SecurityInfoManager securityInfoManager = getSecurityInfoManager();
         boolean hasEformRead = securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, null);
         if (VACCINE_BRANDS_FILE.equals(fileName)) {
             if (!hasEformRead && !securityInfoManager.hasPrivilege(loggedInInfo, "_prevention", SecurityInfoManager.READ, null)) {
@@ -196,5 +197,12 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
         } catch (IOException ioException) {
             logger.debug(logMessage, ioException);
         }
+    }
+
+    private SecurityInfoManager getSecurityInfoManager() {
+        if (securityInfoManager == null) {
+            securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+        }
+        return securityInfoManager;
     }
 }

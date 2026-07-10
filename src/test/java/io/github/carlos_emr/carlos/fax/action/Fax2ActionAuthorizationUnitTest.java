@@ -5,7 +5,6 @@
  */
 package io.github.carlos_emr.carlos.fax.action;
 
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.struts2.ServletActionContext;

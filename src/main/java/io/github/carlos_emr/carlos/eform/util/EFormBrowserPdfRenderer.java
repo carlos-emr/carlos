@@ -73,6 +73,7 @@ public class EFormBrowserPdfRenderer {
     };
     private static final float CSS_PIXEL_TO_POINTS = 72f / 96f;
 
+    @SuppressFBWarnings(value = "COMMAND_INJECTION", justification = "The renderer command uses fixed argv slots, validates request-derived URL fragments, and launches a local Node script without shell expansion.")
     public Path renderSavedEformPdf(int fdid, String providerId) throws PDFGenerationException {
         HttpServletRequest currentRequest = ServletActionContext.getRequest();
         String projectHome = CarlosProperties.getInstance().getProperty("project_home", "");
@@ -190,9 +191,7 @@ public class EFormBrowserPdfRenderer {
     private static String awaitProcessOutput(CompletableFuture<String> outputFuture) throws InterruptedException {
         try {
             return outputFuture.get(5, TimeUnit.SECONDS);
-        } catch (ExecutionException e) {
-            return "";
-        } catch (java.util.concurrent.TimeoutException e) {
+        } catch (ExecutionException | java.util.concurrent.TimeoutException e) {
             return "";
         }
     }
