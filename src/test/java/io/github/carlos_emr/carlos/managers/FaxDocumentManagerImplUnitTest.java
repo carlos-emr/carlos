@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ */
 package io.github.carlos_emr.carlos.managers;
 
 import java.nio.file.Path;
@@ -48,7 +53,7 @@ class FaxDocumentManagerImplUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should return the created eForm PDF path for fax rendering")
-    void shouldReturnCreatedEformPdfPath() throws Exception {
+    void shouldReturnCreatedEformPdfPath_whenPdfGenerationSucceeds() throws Exception {
         Path expectedPath = Path.of("/tmp/fax-eform.pdf");
         when(eformDataManager.createEformPDF(loggedInInfo, 77)).thenReturn(expectedPath);
 
@@ -60,7 +65,7 @@ class FaxDocumentManagerImplUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should return null when eForm PDF generation fails")
-    void shouldReturnNullWhenPdfGenerationFails() throws Exception {
+    void shouldReturnNull_whenPdfGenerationFails() throws Exception {
         when(eformDataManager.createEformPDF(loggedInInfo, 77))
                 .thenThrow(new PDFGenerationException("boom"));
 

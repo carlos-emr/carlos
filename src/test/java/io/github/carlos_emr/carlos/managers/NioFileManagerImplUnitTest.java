@@ -87,6 +87,9 @@ class NioFileManagerImplUnitTest {
     void tearDown() throws IOException {
         if (allowedTempDir != null) {
             Files.deleteIfExists(allowedTempDir.resolve("fax-preview.pdf"));
+            Files.deleteIfExists(allowedTempDir.resolve("fax-preview-unique.pdf"));
+            Files.deleteIfExists(getDocumentCacheDirectory().resolve("fax-preview.pdf_1.png"));
+            Files.deleteIfExists(getDocumentCacheDirectory().resolve("fax-preview-unique.pdf_1.png"));
             Files.deleteIfExists(allowedTempDir);
         }
         if (symlink != null) {
@@ -188,14 +191,20 @@ class NioFileManagerImplUnitTest {
         assumeTrue(PathValidationUtils.isInAllowedTempDirectory(allowedTempDir.toFile()),
                 "test temp directory must resolve inside an allowed temp directory");
         Files.createDirectories(getDocumentCacheDirectory());
-        Path sourcePdf = allowedTempDir.resolve("fax-preview.pdf");
+        Path sourcePdf = allowedTempDir.resolve("fax-preview-unique.pdf");
+        Path expectedCache = getDocumentCacheDirectory().resolve("fax-preview-unique.pdf_1.png");
+        Files.deleteIfExists(expectedCache);
         createSinglePagePdf(sourcePdf);
 
-        Path cacheVersion = nioFileManager.createCacheVersion2(loggedInInfo, allowedTempDir.toString(), sourcePdf.getFileName().toString(), 1);
+        try {
+            Path cacheVersion = nioFileManager.createCacheVersion2(loggedInInfo, allowedTempDir.toString(), sourcePdf.getFileName().toString(), 1);
 
-        assertThat(cacheVersion).isNotNull().exists();
-        assertThat(cacheVersion.getFileName().toString()).endsWith("_1.png");
-        assertThat(Files.size(cacheVersion)).isPositive();
+            assertThat(cacheVersion).isNotNull().exists();
+            assertThat(cacheVersion.getFileName().toString()).endsWith("_1.png");
+            assertThat(Files.size(cacheVersion)).isPositive();
+        } finally {
+            Files.deleteIfExists(expectedCache);
+        }
     }
 
     private Path createOutsideAllowedTempDirectory() throws IOException {

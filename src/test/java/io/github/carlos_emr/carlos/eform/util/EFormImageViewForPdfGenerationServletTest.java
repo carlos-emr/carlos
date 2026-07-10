@@ -78,6 +78,40 @@ class EFormImageViewForPdfGenerationServletTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject authenticated requests without eform read privilege")
+    void shouldRejectAuthenticatedRequest_whenEformReadPrivilegeMissing() throws Exception {
+        Path tempDir = Files.createTempDirectory("eform-image-view-servlet-test-");
+        try {
+            Path image = tempDir.resolve("bg.png");
+            Files.write(image, new byte[] {1, 2, 3, 4});
+
+            CarlosProperties mockProperties = mock(CarlosProperties.class);
+            when(mockProperties.getEformImageDirectory()).thenReturn(tempDir.toString());
+
+            SecurityInfoManager securityInfoManager = createAndRegisterMock(SecurityInfoManager.class);
+            when(securityInfoManager.hasPrivilege(any(), eq("_eform"), eq(SecurityInfoManager.READ), isNull())).thenReturn(false);
+            when(securityInfoManager.hasPrivilege(any(), eq("_prevention"), eq(SecurityInfoManager.READ), isNull())).thenReturn(false);
+
+            try (MockedStatic<CarlosProperties> carlosPropertiesMock = mockStatic(CarlosProperties.class)) {
+                carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(mockProperties);
+
+                MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormImageViewForPdfGenerationServlet");
+                request.setRemoteAddr("127.0.0.1");
+                request.setParameter("imagefile", "bg.png");
+                installLoggedInInfo(request, "999998");
+                MockHttpServletResponse response = new MockHttpServletResponse();
+
+                new EFormImageViewForPdfGenerationServlet().doGet(request, response);
+
+                assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+                assertThat(response.getContentAsByteArray()).isEmpty();
+            }
+        } finally {
+            deleteTree(tempDir);
+        }
+    }
+
+    @Test
     @DisplayName("should reject imagefile parameters containing NUL bytes")
     void shouldRejectImagefileContainingNullBytes() throws Exception {
         registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));

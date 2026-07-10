@@ -1,5 +1,6 @@
 package io.github.carlos_emr.carlos.managers;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 
 import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
@@ -17,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -81,8 +83,25 @@ class EformDataManagerImplCreatePdfUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should delegate to browser renderer for saved eForm PDFs")
-    void shouldDelegateToBrowserRenderer_whenCreatingPdf() throws Exception {
+    @DisplayName("should return the readable PDF path from the browser renderer")
+    void shouldReturnReadablePdfPath_whenBrowserRendererSucceeds() throws Exception {
+        Path pdfPath = Files.createTempFile("eform-rendered-", ".pdf");
+        try {
+            Files.write(pdfPath, new byte[] {1, 2, 3, 4});
+            when(eFormBrowserPdfRenderer.renderSavedEformPdf(77, "999998")).thenReturn(pdfPath);
+
+            Path actualPath = manager.createEformPDF(loggedInInfo, 77);
+
+            assertThat(actualPath).isEqualTo(pdfPath);
+            verify(eFormBrowserPdfRenderer).renderSavedEformPdf(77, "999998");
+        } finally {
+            Files.deleteIfExists(pdfPath);
+        }
+    }
+
+    @Test
+    @DisplayName("should throw PDFGenerationException when browser renderer returns an unreadable path")
+    void shouldThrowPdfGenerationException_whenBrowserRendererReturnsUnreadablePath() throws Exception {
         Path pdfPath = Path.of("/tmp/eform-rendered.pdf");
         when(eFormBrowserPdfRenderer.renderSavedEformPdf(77, "999998")).thenReturn(pdfPath);
 

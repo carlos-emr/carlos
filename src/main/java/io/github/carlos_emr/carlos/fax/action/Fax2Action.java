@@ -454,7 +454,13 @@ public class Fax2Action extends ActionSupport {
 
     private int resolvePageCount(LoggedInInfo loggedInInfo, String jobId, String requestedFaxFilePath) {
         if (jobId != null && !jobId.isEmpty()) {
-            return faxManager.getPageCount(loggedInInfo, Integer.parseInt(jobId));
+            try {
+                return faxManager.getPageCount(loggedInInfo, Integer.parseInt(jobId));
+            } catch (NumberFormatException e) {
+                logger.warn("Invalid jobId supplied for fax page count: {}", jobId, e);
+                sendPageCountError(HttpServletResponse.SC_BAD_REQUEST, "Invalid jobId");
+                return 0;
+            }
         }
         if (requestedFaxFilePath == null || requestedFaxFilePath.isEmpty()) {
             return 0;

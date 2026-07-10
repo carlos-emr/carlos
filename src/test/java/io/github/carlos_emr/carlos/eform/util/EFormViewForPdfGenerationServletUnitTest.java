@@ -124,10 +124,11 @@ class EFormViewForPdfGenerationServletUnitTest {
                 "carlos",
                 true);
 
-        assertThat(html).contains("position:absolute; margin-top:35px;");
-        assertThat(html).contains("/carlos/EFormImageViewForPdfGenerationServlet?imagefile=bg.png");
-        assertThat(html).contains("<div class=\"DoNotPrint\" style=\"display:none;color:red\"");
-        assertThat(html).contains("<body style='width:640px;'>");
+        assertThat(html)
+                .contains("position:absolute; margin-top:35px;")
+                .contains("/carlos/EFormImageViewForPdfGenerationServlet?imagefile=bg.png")
+                .contains("<div class=\"DoNotPrint\" style=\"display:none;color:red\"")
+                .contains("<body style='width:640px;'>");
     }
 
     @Test
