@@ -43,6 +43,7 @@ import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
 
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
+import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.form.util.FormTransportContainer;
@@ -78,6 +79,7 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
+    private FaxManager faxManager;
     private EctConsultationFormRequestPrintAction22Action action;
 
     @BeforeEach
@@ -92,9 +94,11 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
         registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
         registerMock(ConsultationManager.class, mock(ConsultationManager.class));
         registerMock(ConsultationRequestDao.class, mock(ConsultationRequestDao.class));
-        registerMock(FaxManager.class, mock(FaxManager.class));
+        faxManager = mock(FaxManager.class);
+        registerMock(FaxManager.class, faxManager);
 
         action = new EctConsultationFormRequestPrintAction22Action();
+        ReflectionTestUtils.setField(EctConsultationFormRequestPrintAction22Action.class, "faxManager", faxManager);
     }
 
     @AfterEach
@@ -187,7 +191,7 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
 
     @Test
     @DisplayName("should URL encode form attachment forward parameters")
-    void shouldUrlEncodeFormAttachmentForwardParameters() throws Exception {
+    void shouldUrlEncodeFormAttachmentForwardParameters_whenCreatingTransportContainer() throws Exception {
         AtomicReference<String> forwardedPath = new AtomicReference<>();
         MockHttpServletRequest encodedRequest = requestRecordingForwardPath(forwardedPath);
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
@@ -204,6 +208,33 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
         assertThat(forwardedPath).hasValue("/form/forwardshortcutname?method=fetch"
                 + "&formname=Annual+Review+%26+Care%2B&demographic_no=456&formId=123");
         assertThat(formTransportContainer.getProviderNo()).isEqualTo("999998");
+    }
+
+    @Test
+    @DisplayName("should render patient-independent eForms with the consultation demographic")
+    void shouldUseConsultationDemographic_whenEFormHasNoDemographic() throws Exception {
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        Path eFormPath = Files.write(tempDir.resolve("patient-independent-eform.pdf"),
+                "%PDF-1.4".getBytes(StandardCharsets.US_ASCII));
+        EFormData eFormData = new EFormData();
+        eFormData.setId(915);
+        eFormData.setDemographicId(null);
+        ArrayList<Object> attachments = new ArrayList<>();
+        ArrayList<InputStream> streams = new ArrayList<>();
+        when(faxManager.renderFaxDocument(loggedInInfo, FaxManager.TransactionType.EFORM, 915, 456))
+                .thenReturn(eFormPath);
+
+        try {
+            ReflectionTestUtils.invokeMethod(action, "appendEFormAttachments",
+                    loggedInInfo, attachments, streams, List.of(eFormData), "456");
+
+            assertThat(attachments).hasSize(1);
+            assertThat(streams).hasSize(1);
+        } finally {
+            for (InputStream stream : streams) {
+                stream.close();
+            }
+        }
     }
 
     private void appendDocumentAttachments(ArrayList<Object> attachments, ArrayList<InputStream> streams, List<EDoc> docs) {

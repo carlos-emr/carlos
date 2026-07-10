@@ -99,6 +99,21 @@ class ConsultationPDFCreatorUnitTest {
     }
 
     @Test
+    @DisplayName("does not render a stored signature when preview rendering suppresses signatures")
+    void shouldNotRenderSignature_whenSuppressed() {
+        assertThat(ConsultationPDFCreator.shouldRenderSignature(true, null, "5")).isFalse();
+        assertThat(ConsultationPDFCreator.shouldRenderSignature(true, OVERRIDE_BYTES, "")).isFalse();
+    }
+
+    @Test
+    @DisplayName("renders either override bytes or a stored signature id when not suppressed")
+    void shouldRenderSignature_whenOverrideOrStoredIdPresentAndNotSuppressed() {
+        assertThat(ConsultationPDFCreator.shouldRenderSignature(false, OVERRIDE_BYTES, "")).isTrue();
+        assertThat(ConsultationPDFCreator.shouldRenderSignature(false, null, "5")).isTrue();
+        assertThat(ConsultationPDFCreator.shouldRenderSignature(false, new byte[0], "")).isFalse();
+    }
+
+    @Test
     @DisplayName("returns null when the stored signature id contains only whitespace")
     void shouldReturnNull_whenStoredIdWhitespaceOnly() {
         DigitalSignatureManager mgr = mock(DigitalSignatureManager.class);

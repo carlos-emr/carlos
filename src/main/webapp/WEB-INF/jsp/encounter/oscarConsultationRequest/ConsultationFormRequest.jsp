@@ -2096,10 +2096,10 @@ if (userAgent != null) {
         <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgPreviewRequestFailed" var="previewRequestFailedMessage"/>
 
         // If the user clicks the 'Print Preview' button, ensure that their unsaved changes are preserved, allowing them to stay on the same page. Achieve this by making an AJAX call.
-        function getConsultFormPrintPreview(form) {
-            var previewAttachmentsUnavailableMessage = '${carlos:forJavaScript(previewAttachmentsUnavailableMessage)}';
-            var previewRequestFailedMessage = '${carlos:forJavaScript(previewRequestFailedMessage)}';
-            form.submission.value = "And Print Preview";
+	        function getConsultFormPrintPreview(form) {
+	            var previewAttachmentsUnavailableMessage = '${carlos:forJavaScript(previewAttachmentsUnavailableMessage)}';
+	            var previewRequestFailedMessage = '${carlos:forJavaScript(previewRequestFailedMessage)}';
+	            form.submission.value = "And Print Preview";
             jQuery.ajax({
                 type: "POST",
                 url: "${ pageContext.request.contextPath }/encounter/RequestConsultation",
@@ -2111,17 +2111,43 @@ if (userAgent != null) {
                         alert(data.errorMessage.replace(/\\n/g, '\n'));
                         return;
                     }
-                    showPreview(data.consultPDF, data.consultPDFName);
-                    if (data.attachmentWarnings && data.attachmentWarnings.length > 0) {
-                        alert(previewAttachmentsUnavailableMessage + "\n\n" + data.attachmentWarnings.join("\n"));
-                    }
-                },
-                error: function (xhr, status, error) {
-                    HideSpin();
-                    alert(previewRequestFailedMessage + " " + status + ", " + error);
-                }
-            });
-        }
+                    if (data.signatureImg && isStoredSignatureId(data.signatureImg)) {
+                        var signatureImg = document.getElementById('signatureImg');
+                        var newSignature = document.getElementById('newSignature');
+                        if (signatureImg) {
+                            signatureImg.value = data.signatureImg;
+                        }
+                        if (newSignature) {
+                            newSignature.value = 'false';
+                        }
+	                        isSignatureSaved = true;
+	                    }
+	                    showPreview(data.consultPDF, data.consultPDFName);
+	                    if (data.attachmentWarnings && data.attachmentWarnings.length > 0) {
+	                        alert(formatPreviewMessage(previewAttachmentsUnavailableMessage, data.attachmentWarnings.join("\n")));
+	                    }
+	                    if (data.warningMessage) {
+	                        alert(data.warningMessage.replace(/\\n/g, '\n'));
+	                    }
+	                },
+	                error: function (xhr, status, error) {
+	                    HideSpin();
+	                    alert(formatPreviewMessage(previewRequestFailedMessage, status, error));
+	                }
+	            });
+	        }
+
+	        function formatPreviewMessage(template) {
+	            var formatted = template;
+	            for (var i = 1; i < arguments.length; i++) {
+	                var value = arguments[i];
+	                if (value === null || typeof value === 'undefined') {
+	                    value = '';
+	                }
+	                formatted = formatted.split('{' + (i - 1) + '}').join(value);
+	            }
+	            return formatted.replace(/\\n/g, '\n');
+	        }
 
         function showPreview(base64PDF, pdfName) {
             const pdfData = new Uint8Array(atob(base64PDF).split('').map(char => char.charCodeAt(0)));
