@@ -45,11 +45,8 @@ import org.springframework.stereotype.Repository;
 public class ConsultDocsDaoImpl extends AbstractDaoImpl<ConsultDocs> implements ConsultDocsDao {
     private static final String DEMOGRAPHIC_MODULE = "demographic";
 
-    private static final String STALE_ACTIVE_CONSULT_ATTACHMENTS_WHERE_CLAUSE =
-            "WHERE cd.deleted IS NULL "
-                    + "AND EXISTS (SELECT cr.id FROM ConsultationRequest cr WHERE cr.id = cd.requestId) "
-                    + "AND ("
-                    + "(cd.docType = :eformType AND ("
+    private static final String EFORM_OR_DOCUMENT_UNAVAILABLE_CONDITION =
+            "(cd.docType = :eformType AND ("
                     + "NOT EXISTS (SELECT e.id FROM EFormData e WHERE e.id = cd.documentNo) "
                     + "OR EXISTS (SELECT e.id FROM EFormData e, ConsultationRequest cr "
                     + "WHERE e.id = cd.documentNo AND cr.id = cd.requestId AND (e.patientIndependent IS NULL OR e.patientIndependent = false) "
@@ -64,8 +61,12 @@ public class ConsultDocsDaoImpl extends AbstractDaoImpl<ConsultDocs> implements 
                     + "WHERE ctl.id.documentNo = cd.documentNo AND d.documentNo = cd.documentNo AND cr.id = cd.requestId "
                     + "AND d.status = ctl.status AND d.status <> :deletedDocumentStatus "
                     + "AND ctl.id.module = :demographicModule AND ctl.id.moduleId = cr.demographicId)"
-                    + "))"
-                    + ")";
+                    + "))";
+
+    private static final String STALE_ACTIVE_CONSULT_ATTACHMENTS_WHERE_CLAUSE =
+            "WHERE cd.deleted IS NULL "
+                    + "AND EXISTS (SELECT cr.id FROM ConsultationRequest cr WHERE cr.id = cd.requestId) "
+                    + "AND (" + EFORM_OR_DOCUMENT_UNAVAILABLE_CONDITION + ")";
 
     private static final String STALE_ACTIVE_CONSULT_ATTACHMENTS_QUERY =
             "SELECT cd FROM ConsultDocs cd " + STALE_ACTIVE_CONSULT_ATTACHMENTS_WHERE_CLAUSE;
@@ -81,24 +82,7 @@ public class ConsultDocsDaoImpl extends AbstractDaoImpl<ConsultDocs> implements 
                     + "WHERE cd.deleted IS NULL "
                     + "AND cd.requestId = :requestId "
                     + "AND EXISTS (SELECT cr.id FROM ConsultationRequest cr WHERE cr.id = cd.requestId) "
-                    + "AND ("
-                    + "(cd.docType = :eformType AND ("
-                    + "NOT EXISTS (SELECT e.id FROM EFormData e WHERE e.id = cd.documentNo) "
-                    + "OR EXISTS (SELECT e.id FROM EFormData e, ConsultationRequest cr "
-                    + "WHERE e.id = cd.documentNo AND cr.id = cd.requestId AND (e.patientIndependent IS NULL OR e.patientIndependent = false) "
-                    + "AND (e.demographicId IS NULL OR e.demographicId <> cr.demographicId))"
-                    + ")) "
-                    + "OR "
-                    + "(cd.docType = :documentType AND ("
-                    + "NOT EXISTS (SELECT d.documentNo FROM Document d WHERE d.documentNo = cd.documentNo) "
-                    + "OR EXISTS (SELECT d.documentNo FROM Document d "
-                    + "WHERE d.documentNo = cd.documentNo AND d.status = :deletedDocumentStatus) "
-                    + "OR NOT EXISTS (SELECT ctl.id.documentNo FROM CtlDocument ctl, Document d, ConsultationRequest cr "
-                    + "WHERE ctl.id.documentNo = cd.documentNo AND d.documentNo = cd.documentNo AND cr.id = cd.requestId "
-                    + "AND d.status = ctl.status AND d.status <> :deletedDocumentStatus "
-                    + "AND ctl.id.module = :demographicModule AND ctl.id.moduleId = cr.demographicId)"
-                    + ")) "
-                    + "OR "
+                    + "AND (" + EFORM_OR_DOCUMENT_UNAVAILABLE_CONDITION + " OR "
                     + "(cd.docType = :labType AND NOT EXISTS (SELECT plr.id FROM PatientLabRouting plr, ConsultationRequest cr "
                     + "WHERE cr.id = cd.requestId AND plr.labNo = cd.documentNo AND plr.demographicNo = cr.demographicId))"
                     + ")";
