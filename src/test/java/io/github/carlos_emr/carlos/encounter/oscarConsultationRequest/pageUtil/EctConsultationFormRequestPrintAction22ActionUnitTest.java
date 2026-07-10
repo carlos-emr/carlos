@@ -27,6 +27,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.when;
 
 import java.io.File;
 import java.io.InputStream;
@@ -35,14 +36,22 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
+
+import jakarta.servlet.RequestDispatcher;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
 
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
+import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
+import io.github.carlos_emr.carlos.form.util.FormTransportContainer;
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
@@ -56,6 +65,7 @@ import org.mockito.MockedStatic;
 import org.openpdf.text.DocumentException;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.mock.web.MockServletContext;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @DisplayName("EctConsultationFormRequestPrintAction22Action")
@@ -175,6 +185,27 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
         }
     }
 
+    @Test
+    @DisplayName("should URL encode form attachment forward parameters")
+    void shouldUrlEncodeFormAttachmentForwardParameters() throws Exception {
+        AtomicReference<String> forwardedPath = new AtomicReference<>();
+        MockHttpServletRequest encodedRequest = requestRecordingForwardPath(forwardedPath);
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        servletActionContextMock.when(ServletActionContext::getServletContext).thenReturn(new MockServletContext());
+        action.request = encodedRequest;
+        action.response = response;
+        EctFormData.PatientForm formItem = new EctFormData.PatientForm("form_table",
+                "Annual Review & Care+", 123, 456);
+
+        FormTransportContainer formTransportContainer = ReflectionTestUtils.invokeMethod(action,
+                "createFormTransportContainer", loggedInInfo, formItem, "456");
+
+        assertThat(forwardedPath).hasValue("/form/forwardshortcutname?method=fetch"
+                + "&formname=Annual+Review+%26+Care%2B&demographic_no=456&formId=123");
+        assertThat(formTransportContainer.getProviderNo()).isEqualTo("999998");
+    }
+
     private void appendDocumentAttachments(ArrayList<Object> attachments, ArrayList<InputStream> streams, List<EDoc> docs) {
         ReflectionTestUtils.invokeMethod(action, "appendDocumentAttachments", attachments, streams, docs, tempDir.toString() + File.separator);
     }
@@ -190,5 +221,27 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
         doc.setContentType(contentType);
         doc.setDescription("Consult attachment " + docId);
         return doc;
+    }
+
+    private MockHttpServletRequest requestRecordingForwardPath(AtomicReference<String> forwardedPath) {
+        MockHttpServletRequest forwardingRequest = new MockHttpServletRequest() {
+            @Override
+            public RequestDispatcher getRequestDispatcher(String path) {
+                forwardedPath.set(path);
+                return new RequestDispatcher() {
+                    @Override
+                    public void forward(ServletRequest servletRequest, ServletResponse servletResponse) {
+                        // No rendered body is required; this test only asserts the internal forward URL.
+                    }
+
+                    @Override
+                    public void include(ServletRequest servletRequest, ServletResponse servletResponse) {
+                        throw new UnsupportedOperationException("include is not used by this test");
+                    }
+                };
+            }
+        };
+        forwardingRequest.setContextPath("/carlos");
+        return forwardingRequest;
     }
 }

@@ -789,6 +789,10 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         } catch (SecurityException e) {
             throw e;
         } catch (PDFGenerationException | RuntimeException e) {
+            if (logger.isDebugEnabled()) {
+                logger.debug("Attachment rendering failed for type={} id={}", documentType,
+                        LogSafe.sanitize(String.valueOf(documentId)), e);
+            }
             recordSkippedAttachment(attachmentWarnings, documentType, documentId, e.getClass().getName());
         }
     }

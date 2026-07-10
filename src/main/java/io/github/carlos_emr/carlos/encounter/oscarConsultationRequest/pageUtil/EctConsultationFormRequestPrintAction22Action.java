@@ -25,6 +25,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URLEncoder;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -37,6 +38,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.apache.commons.codec.CharEncoding;
 import org.openpdf.text.DocumentException;
 
 import org.apache.logging.log4j.Logger;
@@ -430,17 +432,21 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
         FormTransportContainer formTransportContainer = new FormTransportContainer(
                 response, request, "/form/forwardshortcutname"
                 + "?method=fetch&formname="
-                + formItem.getFormName()
+                + encodeQueryValue(formItem.getFormName())
                 + "&demographic_no="
-                + formItem.getDemoNo()
+                + encodeQueryValue(formItem.getDemoNo())
                 + "&formId="
-                + formItem.getFormId());
+                + encodeQueryValue(formItem.getFormId()));
         formTransportContainer.setDemographicNo(demoNo);
         formTransportContainer.setProviderNo(loggedInInfo.getLoggedInProviderNo());
         formTransportContainer.setSubject(formItem.getFormName() + " Form ID " + formItem.getFormId());
         formTransportContainer.setFormName(formItem.getFormName());
         formTransportContainer.setRealPath(ServletActionContext.getServletContext().getRealPath(File.separator));
         return formTransportContainer;
+    }
+
+    private String encodeQueryValue(String value) throws IOException {
+        return URLEncoder.encode(String.valueOf(value), CharEncoding.UTF_8);
     }
 
     private String resolveConsultationDemographicNo(String requestId, String submittedDemographicNo) {
