@@ -72,8 +72,10 @@ class SignatureStampJspRegressionTest {
                 .contains("var OSCAR_PROVIDER_SIGNATURE_IMG_SRC = \"../provider/providerSignatureImage\";")
                 .contains("var src = getSignatureStampPreviewSrc();")
                 .contains("function getSignatureStampPreviewSrc(){")
-                // Palette template: on load failure the stamp is hidden and a warning shown
-                // (the blank-stamp fallback was replaced by the missing-signature warning).
+                // Palette template: the stamp stays hidden until its image loads (so it can't
+                // be dragged mid-load) and, on load failure, a warning replaces it (the
+                // blank-stamp fallback was replaced by the missing-signature warning).
+                .contains("$stampImg.on(\"load\", showSignatureStamp);")
                 .contains("$stampImg.on(\"error\", showNoSignatureStampWarning);")
                 .contains("EFORM_I18N.textNoSignatureStamp")
                 // The wet-signature sign hint is wired through the same i18n path.

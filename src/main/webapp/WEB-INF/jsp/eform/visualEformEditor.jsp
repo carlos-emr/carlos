@@ -4180,10 +4180,19 @@ var EFORM_I18N = {
             $stampLabel.css("fontSize", 12);
             $stampLabel.attr('id', "stampLabel");
             $dragFrame51.before($stampLabel);
-            /* When the provider has no signature stamp on file the stamp image 404s. Hide the
-               now-empty stamp label/frame and render a larger warning at the BOTTOM of the tab
-               (in the palette, never inside a draggable/serialized widget). Guard against a
-               duplicate if the tab is initialised more than once. */
+            /* The stamp is only usable once its provider-signature image has loaded. Keep the
+               stamp label/frame hidden until the load result is known so it cannot be dragged
+               onto a form while still loading — a dropped clone would otherwise show a broken
+               image if the provider signature then 404s. Reveal it on success; on failure keep
+               it hidden and show a warning at the BOTTOM of the tab (in the palette, never
+               inside a draggable/serialized widget). Guard the warning against a duplicate if
+               the tab is initialised more than once. */
+            $stampLabel.hide();
+            $dragFrame51.hide();
+            var showSignatureStamp = function() {
+                $stampLabel.show();
+                $dragFrame51.show();
+            };
             var showNoSignatureStampWarning = function() {
                 $stampLabel.hide();
                 $dragFrame51.hide();
@@ -4198,6 +4207,7 @@ var EFORM_I18N = {
                 }
             };
             var $stampImg = $dragFrame51.find("img.stamp");
+            $stampImg.on("load", showSignatureStamp);
             $stampImg.on("error", showNoSignatureStampWarning);
 
             if (!signaturePadLoaded) {
@@ -4228,14 +4238,20 @@ var EFORM_I18N = {
                 }
             }
 
-            /* addDraggableStamp set the src before the error handler above was attached, so a
-               stamp that already failed (e.g. a cached 404) may have fired its error event
-               first. Detect that case explicitly — run last, AFTER the wet-signature hint has
-               been added, so the synchronous warning is still appended below the hint, matching
-               the async error-event ordering. */
+            /* addDraggableStamp set the src before the load/error handlers above were attached,
+               so the image may have already resolved (e.g. a cached response) and fired its
+               event before we were listening. Apply the outcome explicitly. Run last — AFTER
+               the wet-signature hint — so a synchronous warning is still appended below the
+               hint, matching the async error-event ordering. Both branches are idempotent
+               (show is a no-op if already shown; the warning is de-duplicated). */
             $stampImg.each(function() {
-                if (this.getAttribute("src") && this.complete && this.naturalWidth === 0) {
+                if (!this.getAttribute("src") || !this.complete) {
+                    return;
+                }
+                if (this.naturalWidth === 0) {
                     showNoSignatureStampWarning();
+                } else {
+                    showSignatureStamp();
                 }
             });
         }
