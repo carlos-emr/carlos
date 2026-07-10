@@ -395,7 +395,13 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
     }
 
     private void appendEFormAttachments(LoggedInInfo loggedInInfo, ArrayList<Object> alist, ArrayList<InputStream> streams, List<EFormData> eForms, String demoNo) {
-        int renderDemographicNo = Integer.parseInt(demoNo);
+        int renderDemographicNo;
+        try {
+            renderDemographicNo = Integer.parseInt(demoNo);
+        } catch (NumberFormatException e) {
+            logSkippedAttachment(ATTACHMENT_TYPE_EFORM, demoNo, "invalid consultation demographic number", e);
+            return;
+        }
         for (EFormData eFormItem : emptyIfNull(eForms)) {
             if (eFormItem == null) {
                 logSkippedAttachment(ATTACHMENT_TYPE_EFORM, null, MISSING_ATTACHMENT_METADATA);
