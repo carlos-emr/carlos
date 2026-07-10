@@ -4181,10 +4181,10 @@ var EFORM_I18N = {
             $stampLabel.attr('id', "stampLabel");
             $dragFrame51.before($stampLabel);
             /* When the provider has no signature stamp on file the stamp image 404s. Hide the
-               now-empty stamp label and render a larger warning at the BOTTOM of the tab (in
-               the palette, never inside a draggable/serialized widget). Guard against a
+               now-empty stamp label/frame and render a larger warning at the BOTTOM of the tab
+               (in the palette, never inside a draggable/serialized widget). Guard against a
                duplicate if the tab is initialised more than once. */
-            $dragFrame51.find("img.stamp").on("error", function() {
+            var showNoSignatureStampWarning = function() {
                 $stampLabel.hide();
                 $dragFrame51.hide();
                 if ($tab.find(".noSignatureStampWarning").length === 0) {
@@ -4193,6 +4193,16 @@ var EFORM_I18N = {
                         class: "noSignatureStampWarning",
                         style: 'font-size:12px; color:#b00; margin-top:6px;'
                     }));
+                }
+            };
+            var $stampImg = $dragFrame51.find("img.stamp");
+            $stampImg.on("error", showNoSignatureStampWarning);
+            /* addDraggableStamp set the src before this handler was attached, so if the image
+               already failed (e.g. a cached 404) the error event may have fired first — detect
+               that case explicitly rather than relying solely on a future error event. */
+            $stampImg.each(function() {
+                if (this.getAttribute("src") && this.complete && this.naturalWidth === 0) {
+                    showNoSignatureStampWarning();
                 }
             });
 
