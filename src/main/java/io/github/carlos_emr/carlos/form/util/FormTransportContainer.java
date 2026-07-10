@@ -36,6 +36,8 @@ import java.io.StringWriter;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
+import java.util.Map;
+import java.util.function.Supplier;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletOutputStream;
@@ -204,6 +206,7 @@ public class FormTransportContainer {
         private String characterEncoding;
         private Locale locale;
         private int bufferSize;
+        private Supplier<Map<String, String>> trailerFields;
 
         CapturingResponseWrapper(HttpServletResponse response) {
             super(response);
@@ -237,6 +240,21 @@ public class FormTransportContainer {
         @Override
         public void sendRedirect(String location) {
             this.status = HttpServletResponse.SC_FOUND;
+        }
+
+        @Override
+        public void sendRedirect(String location, boolean clearBuffer) {
+            this.status = HttpServletResponse.SC_FOUND;
+        }
+
+        @Override
+        public void sendRedirect(String location, int statusCode) {
+            this.status = statusCode;
+        }
+
+        @Override
+        public void sendRedirect(String location, int statusCode, boolean clearBuffer) {
+            this.status = statusCode;
         }
 
         @Override
@@ -355,6 +373,17 @@ public class FormTransportContainer {
         @Override
         public int getBufferSize() {
             return bufferSize;
+        }
+
+        @Override
+        public void setTrailerFields(Supplier<Map<String, String>> supplier) {
+            // Captured locally; nested trailer fields must not leak to the caller response.
+            this.trailerFields = supplier;
+        }
+
+        @Override
+        public Supplier<Map<String, String>> getTrailerFields() {
+            return trailerFields;
         }
 
         boolean isUnrenderableStatus() {
