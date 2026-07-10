@@ -90,6 +90,16 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
         }
     }
 
+    /**
+     * Builds the stored eForm HTML used by the browser PDF renderer.
+     *
+     * @param formDataId saved eForm data identifier
+     * @param contextPath current servlet context path used for local asset URLs
+     * @param userAgent renderer user agent used by existing signature setup logic
+     * @param providerId provider number used for provider-scoped signature rendering
+     * @param prepareForFax true when fax preview positioning wrappers are required
+     * @return normalized HTML ready for the browser renderer
+     */
     public static String buildPdfHtmlForFdid(int formDataId, String contextPath, String userAgent, String providerId, boolean prepareForFax) {
         EForm eForm = new EForm(String.valueOf(formDataId));
         eForm.setSignatureCode(contextPath, userAgent, eForm.getDemographicNo(), providerId);
@@ -102,36 +112,11 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
         return buildPdfHtml(eForm, eFormValues, contextPath, projectHome, prepareForFax);
     }
 
+    // normalizePdfSignatureUrl constrains signature URLs to local servlet paths with numeric ids before markup insertion.
     @SuppressFBWarnings(value = "MODIFICATION_AFTER_VALIDATION", justification = "normalizePdfSignatureUrl constrains the signature URL to a local servlet path with a numeric id, and buildSignatureImageMarkup HTML-attribute-encodes it before insertion.")
     static String buildPdfHtml(EForm eForm, List<EFormValue> eFormValues, String contextPath, String projectHome, boolean prepareForFax) {
-        for (EFormValue value : eFormValues) {
-            if ("Letter".equals(value.getVarName())) {
-                String html = value.getVarValue();
-                html = html.replace(IMAGE_RENDERING_SERVLET_PATH, PDF_SIGNATURE_SERVLET_PATH);
-                if (prepareForFax) {
-                    html = "<div style=\"position:relative\"><div style=\"position:absolute; margin-top:35px;\">" + html + "</div></div>";
-                }
-                html = "<html><body style='width:640px;'>" + html + "</body></html>";
-                eForm.setFormHtml(html);
-            }
-            if ("signatureValue".equals(value.getVarName())) {
-                String html = eForm.getFormHtml();
-                String signatureInit = "signatureControl.initialize\\s*\\(\\s*\\{\\s*eform:true,\\s+height:(\\d+),\\s+width:(\\d+),\\s+top:(\\d+),\\s+left:(\\d+)\\s*\\}\\s*\\)";
-                Pattern pattern = Pattern.compile(signatureInit);
-                Matcher matcher = pattern.matcher(html);
-                boolean matchFound = matcher.find();
-                if (matchFound && matcher.groupCount() == 4) {
-                    String sign = normalizePdfSignatureUrl(value.getVarValue(), contextPath);
-                    if (sign == null) {
-                        logger.warn("Skipping invalid signature URL while preparing eForm PDF");
-                        continue;
-                    }
-                    String left = matcher.group(4), top = matcher.group(3), width = matcher.group(2), height = matcher.group(1);
-                    eForm.setFormHtml(html.replace("<div id=\"signatureDisplay\"></div>",
-                            buildSignatureImageMarkup(sign, left, top, width, height)));
-                }
-            }
-        }
+        applyLetterHtml(eForm, eFormValues, prepareForFax);
+        applySignatureHtml(eForm, eFormValues, contextPath);
 
         String html = eForm.getFormHtml();
         html = html.replace("../eform/displayImage", imageViewServletBase(projectHome));
@@ -147,6 +132,44 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
         eForm.setFormHtml(html);
         eForm.setNowDateTime();
         return eForm.getFormHtml();
+    }
+
+    private static void applyLetterHtml(EForm eForm, List<EFormValue> eFormValues, boolean prepareForFax) {
+        for (EFormValue value : eFormValues) {
+            if (!"Letter".equals(value.getVarName())) {
+                continue;
+            }
+            String html = value.getVarValue();
+            html = html.replace(IMAGE_RENDERING_SERVLET_PATH, PDF_SIGNATURE_SERVLET_PATH);
+            if (prepareForFax) {
+                html = "<div style=\"position:relative\"><div style=\"position:absolute; margin-top:35px;\">" + html + "</div></div>";
+            }
+            eForm.setFormHtml("<html><body style='width:640px;'>" + html + "</body></html>");
+            return;
+        }
+    }
+
+    private static void applySignatureHtml(EForm eForm, List<EFormValue> eFormValues, String contextPath) {
+        for (EFormValue value : eFormValues) {
+            if (!"signatureValue".equals(value.getVarName())) {
+                continue;
+            }
+            String html = eForm.getFormHtml();
+            String signatureInit = "signatureControl.initialize\\s*\\(\\s*\\{\\s*eform:true,\\s+height:(\\d+),\\s+width:(\\d+),\\s+top:(\\d+),\\s+left:(\\d+)\\s*\\}\\s*\\)";
+            Pattern pattern = Pattern.compile(signatureInit);
+            Matcher matcher = pattern.matcher(html);
+            boolean matchFound = matcher.find();
+            if (matchFound && matcher.groupCount() == 4) {
+                String sign = normalizePdfSignatureUrl(value.getVarValue(), contextPath);
+                if (sign == null) {
+                    logger.warn("Skipping invalid signature URL while preparing eForm PDF");
+                    continue;
+                }
+                String left = matcher.group(4), top = matcher.group(3), width = matcher.group(2), height = matcher.group(1);
+                eForm.setFormHtml(html.replace("<div id=\"signatureDisplay\"></div>",
+                        buildSignatureImageMarkup(sign, left, top, width, height)));
+            }
+        }
     }
 
     static String buildContentSecurityPolicy(boolean browserRender) {

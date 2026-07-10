@@ -164,14 +164,16 @@ public class NioFileManagerImpl implements NioFileManager {
         return cacheDir;
     }
 
-    /**
-     * First checks to see if a cache version is already available.  If one is not available then a
-     * new cached version is created.
-     * <p>
-     * Returns a file path to the cached version of the given PDF
+        /**
+     * Creates or returns a cached PNG preview for a page in a source PDF.
+     *
+     * @param loggedInInfo current authenticated user used to resolve the document cache directory
+     * @param sourceDirectory directory containing the source PDF; must resolve under the document root or an approved temporary directory
+     * @param filename source PDF filename; path components are stripped by legacy filename sanitization before resolution
+     * @param pageNum one-based PDF page number to render
+     * @return cached PNG path, or {@code null} when inputs are missing, paths are unauthorized, source paths traverse outside
+     *         the validated directory, the source PDF is missing, or the requested page is out of range
      */
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public Path createCacheVersion2(LoggedInInfo loggedInInfo, String sourceDirectory, String filename, Integer pageNum) {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.WRITE, "")) {

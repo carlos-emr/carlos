@@ -49,12 +49,11 @@ class EformDataManagerImplCreatePdfUnitTest extends CarlosUnitTestBase {
         registerMock(DocumentAttachmentManager.class, documentAttachmentManager);
         registerMock(FormsManager.class, formsManager);
 
-        manager = new EformDataManagerImpl(securityInfoManager);
+        manager = new EformDataManagerImpl(securityInfoManager, eFormBrowserPdfRenderer);
         injectDependency(manager, "eFormDataDao", eFormDataDao);
         injectDependency(manager, "documentManager", documentManager);
         injectDependency(manager, "documentAttachmentManager", documentAttachmentManager);
         injectDependency(manager, "formsManager", formsManager);
-        injectDependency(manager, "eFormBrowserPdfRenderer", eFormBrowserPdfRenderer);
 
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_eform"), eq(SecurityInfoManager.UPDATE), isNull())).thenReturn(true);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");

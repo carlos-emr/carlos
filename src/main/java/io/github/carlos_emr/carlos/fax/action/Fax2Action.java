@@ -322,7 +322,7 @@ public class Fax2Action extends ActionSupport {
                     outfile = faxManager.resolveAndValidateFilePath(requestedFaxFilePath);
                     response.setContentType("application/pdf");
                 } catch (SecurityException e) {
-                    logger.error("Security validation failed for file path: {}", requestedFaxFilePath, e);
+                    logger.error("Security validation failed for file path: {}", LogSafe.sanitize(requestedFaxFilePath, 1024), e);
                     try {
                         response.sendError(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
                     } catch (IOException ex) {
@@ -330,7 +330,7 @@ public class Fax2Action extends ActionSupport {
                     }
                     return;
                 } catch (IOException e) {
-                    logger.error("File not found or error processing file path: {}", requestedFaxFilePath, e);
+                    logger.error("File not found or error processing file path: {}", LogSafe.sanitize(requestedFaxFilePath, 1024), e);
                     try {
                         response.sendError(HttpServletResponse.SC_NOT_FOUND, "File not found");
                     } catch (IOException ex) {
@@ -376,7 +376,7 @@ public class Fax2Action extends ActionSupport {
         Path pdfPath = null;
         List<FaxConfig> accounts = faxManager.getFaxGatewayAccounts(loggedInInfo);
         logger.info("prepareFax start: transactionType={} transactionId={} demographicNo={} accounts={} recipient={} faxFilePath={}",
-                transactionType, transactionId, demographicNo, accounts.size(), recipient, faxFilePath);
+                transactionType, transactionId, demographicNo, accounts.size(), LogSafe.sanitize(recipient, 1024), LogSafe.sanitize(faxFilePath, 1024));
 
         /*
          * No fax accounts - No Fax.
@@ -457,7 +457,7 @@ public class Fax2Action extends ActionSupport {
             try {
                 return faxManager.getPageCount(loggedInInfo, Integer.parseInt(jobId));
             } catch (NumberFormatException e) {
-                logger.warn("Invalid jobId supplied for fax page count: {}", jobId, e);
+                logger.warn("Invalid jobId supplied for fax page count: {}", LogSafe.sanitize(jobId, 1024), e);
                 sendPageCountError(HttpServletResponse.SC_BAD_REQUEST, "Invalid jobId");
                 return 0;
             }
@@ -471,10 +471,10 @@ public class Fax2Action extends ActionSupport {
                 return pdf.getNumberOfPages();
             }
         } catch (SecurityException e) {
-            logger.error("Security validation failed for page count path: {}", requestedFaxFilePath, e);
+            logger.error("Security validation failed for page count path: {}", LogSafe.sanitize(requestedFaxFilePath, 1024), e);
             sendPageCountError(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
         } catch (IOException e) {
-            logger.error("File not found or error processing page count path: {}", requestedFaxFilePath, e);
+            logger.error("File not found or error processing page count path: {}", LogSafe.sanitize(requestedFaxFilePath, 1024), e);
             sendPageCountError(HttpServletResponse.SC_NOT_FOUND, "File not found");
         }
         return 0;

@@ -36,8 +36,6 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -173,15 +171,13 @@ public class EFormPDFServlet extends HttpServlet {
                 }
             }
             String filename = "filename_.pdf";
-            String encodedFilename = URLEncoder.encode(filename, StandardCharsets.UTF_8).replace("+", "%20");
 
             // set the Cache-Control header
             res.setHeader("Cache-Control", "max-age=0");
             res.setDateHeader("Expires", 0);
             res.setContentType("application/pdf");
 
-            // The Content-disposition value will be inline
-            res.setHeader("Content-disposition", "inline; filename=\"" + encodedFilename + "\"");
+            res.setHeader("Content-disposition", "inline; filename=\"" + filename + "\"");
             res.setContentLength((int) tmpFile.length());
 
             ServletOutputStream sout = res.getOutputStream();

@@ -196,6 +196,12 @@ public class LogoutBroadcastFilter implements Filter {
         chain.doFilter(request, delegatingResponse);
         delegatingResponse.markChainComplete();
 
+        if (Boolean.TRUE.equals(httpRequest.getAttribute(EformViewForPdfGenerationServlet.SKIP_HTML_INJECTION_ATTRIBUTE))) {
+            delegatingResponse.discardDeferredContentLength();
+            delegatingResponse.completeWithoutInjection();
+            return;
+        }
+
         if (Boolean.TRUE.equals(httpRequest.getAttribute(SCRIPT_INJECTED_REQUEST_ATTRIBUTE))) {
             delegatingResponse.discardDeferredContentLength();
             delegatingResponse.completeWithoutInjection();

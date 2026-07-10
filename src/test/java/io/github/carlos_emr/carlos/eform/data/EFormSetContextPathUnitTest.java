@@ -109,4 +109,24 @@ class EFormSetContextPathUnitTest {
         assertThat(eform.getFormHtml()).isEqualTo(original);
         assertThat(eform.getFormHtml()).contains(JS_MARKER);
     }
+
+    @Test
+    @DisplayName("should rewrite legacy string timers only inside inline script content")
+    void shouldRewriteLegacyStringTimers_onlyInsideInlineScripts() {
+        EForm eform = new EForm();
+        eform.setFormHtml("<html><body>"
+                + "<textarea>setTimeout('literal textarea', 100)</textarea>"
+                + "<div data-timer=\"setInterval('literal attribute', 200)\"></div>"
+                + "<script>setTimeout('loadSig()', 300); setInterval('tick()', 400);</script>"
+                + "</body></html>");
+
+        eform.setContextPath("/carlos");
+
+        assertThat(eform.getFormHtml())
+                .contains("<textarea>setTimeout('literal textarea', 100)</textarea>")
+                .contains("data-timer=\"setInterval('literal attribute', 200)\"")
+                .contains("setTimeout(function(){ loadSig() }, 300)")
+                .contains("setInterval(function(){ tick() }, 400)");
+    }
+
 }

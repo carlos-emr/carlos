@@ -131,6 +131,39 @@ class EFormViewForPdfGenerationServletUnitTest {
                 .contains("<body style='width:640px;'>");
     }
 
+
+    @Test
+    @DisplayName("should apply stored signature when signature value appears before letter content")
+    void shouldApplySignature_whenSignatureValuePrecedesLetter() {
+        EForm eForm = mock(EForm.class);
+        AtomicReference<String> htmlRef = new AtomicReference<>("");
+        when(eForm.getDemographicNo()).thenReturn("1");
+        when(eForm.getFormHtml()).thenAnswer(invocation -> htmlRef.get());
+        doAnswer(invocation -> {
+            htmlRef.set(invocation.getArgument(0));
+            return null;
+        }).when(eForm).setFormHtml(anyString());
+
+        EFormValue signature = new EFormValue();
+        signature.setVarName("signatureValue");
+        signature.setVarValue("/carlos/imageRenderingServlet?source=signature_stored&digitalSignatureId=42");
+        EFormValue letter = new EFormValue();
+        letter.setVarName("Letter");
+        letter.setVarValue("<script>signatureControl.initialize({eform:true, height:40, width:120, top:10, left:20})</script><div id=\"signatureDisplay\"></div>");
+
+        String html = EFormViewForPdfGenerationServlet.buildPdfHtml(
+                eForm,
+                List.of(signature, letter),
+                "/carlos",
+                "carlos",
+                false);
+
+        assertThat(html)
+                .contains("/carlos/EFormSignatureViewForPdfGenerationServlet?digitalSignatureId=42")
+                .contains("position:absolute;left:20;top:10;width:120;height:40;")
+                .doesNotContain("<div id=\"signatureDisplay\"></div>");
+    }
+
     @Test
     @DisplayName("should keep scripts blocked for legacy server-side PDF rendering")
     void shouldBuildStrictCsp_whenNotBrowserRendering() {

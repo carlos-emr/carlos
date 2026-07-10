@@ -179,18 +179,23 @@ async function capturePages(page, outputDir) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  assert(args['base-url'], 'Missing --base-url');
-  assert(args['app-path'], 'Missing --app-path');
+  const rawBaseUrl = process.env.CARLOS_EFORM_RENDER_BASE_URL || args['base-url'];
+  const rawAppPath = process.env.CARLOS_EFORM_RENDER_APP_PATH || args['app-path'];
+  const rawCookieHeader = process.env.CARLOS_EFORM_RENDER_COOKIE_HEADER || args['cookie-header'];
+  const rawChromePath = process.env.CARLOS_EFORM_RENDER_CHROME_PATH || args['chrome-path'];
+
+  assert(rawBaseUrl, 'Missing renderer base URL');
+  assert(rawAppPath, 'Missing renderer application path');
   assert(args['output-dir'], 'Missing --output-dir');
 
-  const baseUrl = validateBaseUrl(args['base-url']);
+  const baseUrl = validateBaseUrl(rawBaseUrl);
   const outputDir = path.resolve(args['output-dir']);
   fs.mkdirSync(outputDir, { recursive: true });
 
-  const browser = await chromium.launch(getLaunchOptions(args['chrome-path']));
+  const browser = await chromium.launch(getLaunchOptions(rawChromePath));
   const page = await browser.newPage({ viewport: { width: 1800, height: 3200 } });
-  if (args['cookie-header']) {
-    await page.setExtraHTTPHeaders({ Cookie: args['cookie-header'] });
+  if (rawCookieHeader) {
+    await page.setExtraHTTPHeaders({ Cookie: rawCookieHeader });
   }
   const consoleIssues = [];
   const pageErrors = [];
@@ -206,7 +211,7 @@ async function main() {
   let captureFiles = [];
   try {
     await page.emulateMedia({ media: 'screen' });
-    await page.goto(appUrl(baseUrl, args['app-path']), { waitUntil: 'domcontentloaded', timeout: 30000 }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- validateBaseUrl restricts hosts to local/private by default and appUrl rejects non-root-relative or protocol-relative paths
+    await page.goto(appUrl(baseUrl, rawAppPath), { waitUntil: 'domcontentloaded', timeout: 30000 }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- validateBaseUrl restricts hosts to local/private by default and appUrl rejects non-root-relative or protocol-relative paths
     await waitForStableRender(page);
     await preparePageForCapture(page);
     captureFiles = await capturePages(page, outputDir);

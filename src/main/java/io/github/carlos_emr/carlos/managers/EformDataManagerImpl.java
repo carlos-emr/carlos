@@ -77,13 +77,13 @@ public class EformDataManagerImpl implements EformDataManager {
     @Autowired
     private FormsManager formsManager;
 
-    
-    @Autowired
-    private EFormBrowserPdfRenderer eFormBrowserPdfRenderer;
+
+    private final EFormBrowserPdfRenderer eFormBrowserPdfRenderer;
 
     @Autowired
-    public EformDataManagerImpl(SecurityInfoManager securityInfoManager) {
+    public EformDataManagerImpl(SecurityInfoManager securityInfoManager, EFormBrowserPdfRenderer eFormBrowserPdfRenderer) {
         this.securityInfoManager = securityInfoManager;
+        this.eFormBrowserPdfRenderer = eFormBrowserPdfRenderer;
     }
 
     // @Autowired
@@ -180,9 +180,9 @@ public class EformDataManagerImpl implements EformDataManager {
     }
 
     /**
-     * Saves an form as PDF in a temp directory.
-     * <p>
-     * Path to a temp file is returned. Remember to change the .tmp filetype and to delete the tmp file when finished.
+     * Saves an eForm as a browser-rendered PDF in a managed temporary location.
+     *
+     * @return readable path to an {@code eform-browser-render-*.pdf} file; callers are responsible for cleanup
      */
     public Path createEformPDF(LoggedInInfo loggedInInfo, int fdid) throws PDFGenerationException {
 

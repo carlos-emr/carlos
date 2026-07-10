@@ -7,7 +7,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.attribute.PosixFilePermission;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
@@ -146,64 +148,68 @@ class EFormBrowserPdfRendererUnitTest {
 
     @Test
     @DisplayName("should reject non-local base URLs for the Playwright renderer")
-    void shouldRejectNonLocalBaseUrl_whenBuildingRendererCommand() {
-        assertThatThrownBy(EFormBrowserPdfRendererUnitTest::buildCommandWithInvalidBaseUrl)
+    void shouldRejectNonLocalBaseUrl_whenApplyingRendererEnvironment() {
+        assertThatThrownBy(EFormBrowserPdfRendererUnitTest::applyEnvironmentWithInvalidBaseUrl)
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("base URL");
     }
 
     @Test
     @DisplayName("should reject non-root-relative app paths for the Playwright renderer")
-    void shouldRejectNonRootRelativeAppPath_whenBuildingRendererCommand() {
-        assertThatThrownBy(EFormBrowserPdfRendererUnitTest::buildCommandWithInvalidAppPath)
+    void shouldRejectNonRootRelativeAppPath_whenApplyingRendererEnvironment() {
+        assertThatThrownBy(EFormBrowserPdfRendererUnitTest::applyEnvironmentWithInvalidAppPath)
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Application path");
     }
 
     @Test
-    @DisplayName("should build the node command for the Playwright renderer")
+    @DisplayName("should build the node command for the Playwright renderer without request-derived argv")
     void shouldBuildCommand_whenLaunchingRenderer() {
         List<String> command = EFormBrowserPdfRenderer.buildCommand(
                 "node",
                 Path.of("/tmp/carlos-develop-clean/scripts/eform-browser-pdf-render.js"),
-                "http://127.0.0.1:8080/carlos",
-                "/eformViewForPdfGenerationServlet?fdid=187&providerId=999998",
-                Path.of("/tmp/rendered-output"),
-                "/root/.cache/ms-playwright/chromium-1223/chrome-linux64/chrome",
-                "JSESSIONID=abc123");
+                Path.of("/tmp/rendered-output"));
 
         assertThat(command).containsExactly(
                 "node",
                 "/tmp/carlos-develop-clean/scripts/eform-browser-pdf-render.js",
-                "--base-url",
-                "http://127.0.0.1:8080/carlos",
-                "--app-path",
-                "/eformViewForPdfGenerationServlet?fdid=187&providerId=999998",
                 "--output-dir",
-                "/tmp/rendered-output",
-                "--cookie-header",
-                "JSESSIONID=abc123",
-                "--chrome-path",
-                "/root/.cache/ms-playwright/chromium-1223/chrome-linux64/chrome");
+                "/tmp/rendered-output");
     }
-    private static List<String> buildCommandWithInvalidBaseUrl() {
-        return EFormBrowserPdfRenderer.buildCommand(
-                "node",
-                Path.of("/tmp/carlos-develop-clean/scripts/eform-browser-pdf-render.js"),
+
+    @Test
+    @DisplayName("should apply validated renderer settings to the child process environment")
+    void shouldApplyRendererEnvironment_whenLaunchingRenderer() {
+        Map<String, String> environment = new HashMap<>();
+
+        EFormBrowserPdfRenderer.applyRendererEnvironment(
+                environment,
+                "http://127.0.0.1:8080/carlos/",
+                "/eformViewForPdfGenerationServlet?fdid=187&providerId=999998",
+                "JSESSIONID=abc123",
+                "/root/.cache/ms-playwright/chromium-1223/chrome-linux64/chrome");
+
+        assertThat(environment)
+                .containsEntry("CARLOS_EFORM_RENDER_BASE_URL", "http://127.0.0.1:8080/carlos")
+                .containsEntry("CARLOS_EFORM_RENDER_APP_PATH", "/eformViewForPdfGenerationServlet?fdid=187&providerId=999998")
+                .containsEntry("CARLOS_EFORM_RENDER_COOKIE_HEADER", "JSESSIONID=abc123")
+                .containsEntry("CARLOS_EFORM_RENDER_CHROME_PATH", "/root/.cache/ms-playwright/chromium-1223/chrome-linux64/chrome");
+    }
+
+    private static void applyEnvironmentWithInvalidBaseUrl() {
+        EFormBrowserPdfRenderer.applyRendererEnvironment(
+                new HashMap<>(),
                 "https://evil.example/steal",
                 "/eformViewForPdfGenerationServlet?fdid=187",
-                Path.of("/tmp/rendered-output"),
                 null,
                 null);
     }
 
-    private static List<String> buildCommandWithInvalidAppPath() {
-        return EFormBrowserPdfRenderer.buildCommand(
-                "node",
-                Path.of("/tmp/carlos-develop-clean/scripts/eform-browser-pdf-render.js"),
+    private static void applyEnvironmentWithInvalidAppPath() {
+        EFormBrowserPdfRenderer.applyRendererEnvironment(
+                new HashMap<>(),
                 "http://127.0.0.1:8080/carlos",
                 "https://evil.example/steal",
-                Path.of("/tmp/rendered-output"),
                 null,
                 null);
     }

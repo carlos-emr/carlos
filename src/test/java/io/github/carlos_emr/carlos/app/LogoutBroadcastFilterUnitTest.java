@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.app;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.utility.ResponseSanitizationFilter;
+import io.github.carlos_emr.carlos.web.eform.EformViewForPdfGenerationServlet;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.FilterConfig;
@@ -114,6 +115,27 @@ class LogoutBroadcastFilterUnitTest {
         assertThat(forwardResponse.getContentAsString()).contains("<html><body>schedule</body></html>");
         assertThat(forwardResponse.getContentAsString()).doesNotContain("window.__carlosLogoutActive=true;");
     }
+
+    @Test
+    @DisplayName("should skip injection when renderer servlet marks the request during the chain")
+    void shouldSkipInjection_whenRendererServletMarksRequestDuringChain() throws Exception {
+        MockHttpServletRequest request = authenticatedRequest("/eformViewForPdfGenerationServlet");
+        request.setContextPath("/carlos");
+        request.setDispatcherType(DispatcherType.REQUEST);
+        TrackingMockHttpServletResponse response = new TrackingMockHttpServletResponse();
+
+        FilterChain rendererChain = (servletRequest, servletResponse) -> {
+            servletRequest.setAttribute(EformViewForPdfGenerationServlet.SKIP_HTML_INJECTION_ATTRIBUTE, Boolean.TRUE);
+            servletResponse.setContentType("text/html;charset=UTF-8");
+            servletResponse.getWriter().write("<html><body>renderer output</body></html>");
+        };
+
+        filter.doFilter(request, response, rendererChain);
+
+        assertThat(response.getContentAsString()).contains("<html><body>renderer output</body></html>");
+        assertThat(response.getContentAsString()).doesNotContain("window.__carlosLogoutActive=true;");
+    }
+
 
     private String scriptInjectedRequestAttribute() throws Exception {
         Field field = LogoutBroadcastFilter.class.getDeclaredField("SCRIPT_INJECTED_REQUEST_ATTRIBUTE");

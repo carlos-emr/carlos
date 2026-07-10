@@ -41,6 +41,7 @@ import org.apache.logging.log4j.Logger;
 import org.jsoup.nodes.Element;
 import org.jsoup.parser.TokenQueue;
 import org.jsoup.select.Elements;
+import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.commn.OtherIdManager;
 import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
@@ -49,7 +50,7 @@ import io.github.carlos_emr.carlos.ui.servlet.ImageRenderingServlet;
 import io.github.carlos_emr.carlos.utility.DigitalSignatureUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import org.owasp.encoder.Encode;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.eform.EFormLoader;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
@@ -84,6 +85,7 @@ public class EForm extends EFormBase {
     private static final String LOAD_SIG_FALLBACK = "window.loadSig = window.loadSig || function loadSig() {};";
     private static final Pattern LEGACY_SET_TIMEOUT_PATTERN = Pattern.compile("setTimeout\\(\\s*+\'([^\'\\r\\n]++)\'\\s*+,\\s*+([^)]++)\\)");
     private static final Pattern LEGACY_SET_INTERVAL_PATTERN = Pattern.compile("setInterval\\(\\s*+\'([^\'\\r\\n]++)\'\\s*+,\\s*+([^)]++)\\)");
+    private static final Pattern INLINE_SCRIPT_PATTERN = Pattern.compile("(?is)<script\\b(?![^>]*\\bsrc\\s*=)([^>]*)>(.*?)</script>");
 
     private String runtimeContextPath;
 
@@ -394,7 +396,7 @@ public class EForm extends EFormBase {
         this.formHtml = this.formHtml.replace(jsMarker, normalizedContextPath + "/library/");
         this.formHtml = rewriteLegacyRelativeJqueryReferences(this.formHtml, normalizedContextPath);
         this.formHtml = injectLoadSigFallback(this.formHtml);
-        this.formHtml = rewriteLegacyStringTimers(this.formHtml);
+        this.formHtml = rewriteLegacyStringTimersInInlineScripts(this.formHtml);
     }
 
     private String rewriteLegacyRelativeJqueryReferences(String html, String contextPath) {
@@ -420,10 +422,24 @@ public class EForm extends EFormBase {
     }
 
 
-    private String rewriteLegacyStringTimers(String html) {
+    private String rewriteLegacyStringTimersInInlineScripts(String html) {
         if (StringUtils.isBlank(html)) return html;
 
-        return rewriteLegacyTimerCalls(rewriteLegacyTimerCalls(html, LEGACY_SET_TIMEOUT_PATTERN, "setTimeout"), LEGACY_SET_INTERVAL_PATTERN, "setInterval");
+        Matcher matcher = INLINE_SCRIPT_PATTERN.matcher(html);
+        StringBuffer rewritten = new StringBuffer();
+        while (matcher.find()) {
+            String scriptBody = rewriteLegacyStringTimers(matcher.group(2));
+            String replacement = "<script" + matcher.group(1) + ">" + scriptBody + "</script>";
+            matcher.appendReplacement(rewritten, Matcher.quoteReplacement(replacement));
+        }
+        matcher.appendTail(rewritten);
+        return rewritten.toString();
+    }
+
+    private String rewriteLegacyStringTimers(String scriptBody) {
+        if (StringUtils.isBlank(scriptBody)) return scriptBody;
+
+        return rewriteLegacyTimerCalls(rewriteLegacyTimerCalls(scriptBody, LEGACY_SET_TIMEOUT_PATTERN, "setTimeout"), LEGACY_SET_INTERVAL_PATTERN, "setInterval");
     }
 
     @Override
@@ -798,7 +814,7 @@ public class EForm extends EFormBase {
         //put values into according controls
         if (type.equals("textarea")) {
             pointer = html.indexOf(">", pointer) + 1;
-            html.insert(pointer, Encode.forHtml(output));
+            html.insert(pointer, SafeEncode.forHtml(output));
         } else if (type.equals("select")) {
             int selectEnd = StringBuilderUtils.indexOfIgnoreCase(html, "</select>", pointer);
             if (selectEnd >= 0) {
@@ -808,7 +824,7 @@ public class EForm extends EFormBase {
                 html = html.insert(pointer, " selected");
             }
         } else { //type=input
-            html.insert(pointer, " value=\"" + Encode.forHtmlAttribute(output) + "\"");
+            html.insert(pointer, " value=\"" + SafeEncode.forHtmlAttribute(output) + "\"");
         }
         return (html);
     }
