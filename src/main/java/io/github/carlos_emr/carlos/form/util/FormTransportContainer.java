@@ -94,7 +94,7 @@ public class FormTransportContainer {
                 ServletActionContext.setResponse(previousResponse);
             }
         }
-        if (responseWrapper.isErrorStatus()) {
+        if (responseWrapper.isUnrenderableStatus()) {
             throw new ServletException("Form rendering failed with HTTP status " + responseWrapper.getStatus());
         }
 
@@ -326,8 +326,8 @@ public class FormTransportContainer {
             return characterEncoding != null ? characterEncoding : super.getCharacterEncoding();
         }
 
-        boolean isErrorStatus() {
-            return status >= HttpServletResponse.SC_BAD_REQUEST;
+        boolean isUnrenderableStatus() {
+            return status >= HttpServletResponse.SC_MULTIPLE_CHOICES;
         }
 
         @Override
