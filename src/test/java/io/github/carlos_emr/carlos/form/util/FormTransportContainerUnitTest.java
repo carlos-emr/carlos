@@ -32,8 +32,10 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
+import jakarta.servlet.WriteListener;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.struts2.ActionContext;
@@ -161,6 +163,35 @@ class FormTransportContainerUnitTest {
         FormTransportContainer container = new FormTransportContainer(outerResponse, request, "/form/output");
 
         assertThat(container.getHTML()).contains("<html>stream form</html>");
+        assertThat(outerResponse.getContentAsString()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("rejects async write listeners for synchronous form capture")
+    void shouldRejectAsyncWriteListener_forSynchronousCapture() throws Exception {
+        MockHttpServletResponse outerResponse = new MockHttpServletResponse();
+        MockHttpServletRequest request = requestForwardingTo((servletRequest, servletResponse) -> {
+            ServletOutputStream outputStream = servletResponse.getOutputStream();
+
+            assertThat(outputStream.isReady()).isTrue();
+            assertThatThrownBy(() -> outputStream.setWriteListener(new WriteListener() {
+                @Override
+                public void onWritePossible() {
+                    throw new AssertionError("Async callback should not run");
+                }
+
+                @Override
+                public void onError(Throwable throwable) {
+                    throw new AssertionError("Async error callback should not run", throwable);
+                }
+            }))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("does not support asynchronous writes");
+        });
+
+        FormTransportContainer container = new FormTransportContainer(outerResponse, request, "/form/output");
+
+        assertThat(container.getHTML()).isEmpty();
         assertThat(outerResponse.getContentAsString()).isEmpty();
     }
 
