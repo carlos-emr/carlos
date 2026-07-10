@@ -26,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.util.concurrent.atomic.AtomicReference;
 
 import jakarta.servlet.RequestDispatcher;
@@ -112,6 +113,44 @@ class FormTransportContainerUnitTest {
 
         assertThat(container.getHTML()).contains("<html>stream form</html>");
         assertThat(outerResponse.getContentAsString()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("keeps nested response metadata local to the form render")
+    void shouldKeepNestedResponseMetadataLocal_whenForwardMutatesResponseMetadata() throws Exception {
+        MockHttpServletResponse outerResponse = new MockHttpServletResponse();
+        outerResponse.setLocale(Locale.CANADA);
+        outerResponse.setCharacterEncoding(StandardCharsets.ISO_8859_1.name());
+        outerResponse.setContentType("text/plain");
+        outerResponse.setBufferSize(8192);
+        String outerContentType = outerResponse.getContentType();
+        AtomicReference<Locale> nestedLocale = new AtomicReference<>();
+        AtomicReference<String> nestedCharacterEncoding = new AtomicReference<>();
+        AtomicReference<String> nestedContentType = new AtomicReference<>();
+        AtomicReference<Integer> nestedBufferSize = new AtomicReference<>();
+        MockHttpServletRequest request = requestForwardingTo((servletRequest, servletResponse) -> {
+            servletResponse.setLocale(Locale.FRANCE);
+            servletResponse.setCharacterEncoding(StandardCharsets.UTF_8.name());
+            servletResponse.setContentType("text/html");
+            servletResponse.setBufferSize(1024);
+            nestedLocale.set(servletResponse.getLocale());
+            nestedCharacterEncoding.set(servletResponse.getCharacterEncoding());
+            nestedContentType.set(servletResponse.getContentType());
+            nestedBufferSize.set(servletResponse.getBufferSize());
+            servletResponse.getWriter().write("<html>metadata form</html>");
+        });
+
+        FormTransportContainer container = new FormTransportContainer(outerResponse, request, "/form/metadata");
+
+        assertThat(container.getHTML()).contains("<html>metadata form</html>");
+        assertThat(nestedLocale).hasValue(Locale.FRANCE);
+        assertThat(nestedCharacterEncoding).hasValue(StandardCharsets.UTF_8.name());
+        assertThat(nestedContentType).hasValue("text/html");
+        assertThat(nestedBufferSize).hasValue(1024);
+        assertThat(outerResponse.getLocale()).isEqualTo(Locale.CANADA);
+        assertThat(outerResponse.getCharacterEncoding()).isEqualTo(StandardCharsets.ISO_8859_1.name());
+        assertThat(outerResponse.getContentType()).isEqualTo(outerContentType);
+        assertThat(outerResponse.getBufferSize()).isEqualTo(8192);
     }
 
     @Test
