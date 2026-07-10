@@ -412,7 +412,7 @@ public class Fax2Action extends ActionSupport {
             request.setAttribute("documents", documents);
             request.setAttribute("transactionType", transactionType.name());
             request.setAttribute("transactionId", transactionId);
-            request.setAttribute("faxFilePath", pdfPath);
+            request.setAttribute(FAX_FILE_PATH_PARAM, pdfPath);
             request.setAttribute("letterheadFax", letterheadFax);
             request.setAttribute("professionalSpecialistName", recipient);
             request.setAttribute("fax", recipientFaxNumber);
