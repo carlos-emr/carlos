@@ -431,6 +431,14 @@ public class Fax2Action extends ActionSupport {
     public void getPageCount() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)) {
+            try {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
+            } catch (IOException e) {
+                logger.error("Error sending forbidden response in getPageCount", e);
+            }
+            return;
+        }
         String jobId = request.getParameter("jobId");
         String requestedFaxFilePath = request.getParameter(FAX_FILE_PATH_PARAM);
         int pageCount = 0;

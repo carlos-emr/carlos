@@ -30,8 +30,11 @@ import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.Logger;
 
 import io.github.carlos_emr.carlos.eform.actions.DisplayImage2Action;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * The purpose of this servlet is to allow a local process to access eform images.
@@ -39,6 +42,7 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
 
     private static final Logger logger = MiscUtils.getLogger();
+    private static final String VACCINE_BRANDS_FILE = "vaccine-brands.json";
     private static final String IMAGE_JPEG = "image/jpeg";
     private static final String HTML_CONTENT_TYPE = "text/html";
     private static final Map<String, String> CONTENT_TYPES = Map.ofEntries(
@@ -72,6 +76,7 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
             Map.entry("html", HTML_CONTENT_TYPE),
             Map.entry("htm", HTML_CONTENT_TYPE)
     );
+    private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     @Override
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
@@ -86,6 +91,12 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
 
         try {
             String fileName = validateRequestedFileName(request.getParameter("imagefile"));
+            LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+            if (loggedInInfo == null) {
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+                return;
+            }
+            enforceAssetReadPrivilege(loggedInInfo, fileName);
 
             File file = DisplayImage2Action.getImageFile(fileName);
             if (!file.exists() || !file.isFile()) {
@@ -101,15 +112,32 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
             }
         } catch (ServletException | IOException e) {
             throw e;
-        } catch (IllegalArgumentException | SecurityException e) {
+        } catch (IllegalArgumentException e) {
             logger.warn("Rejected EFormImageViewForPdfGenerationServlet request", e);
             sendErrorQuietly(response, HttpServletResponse.SC_BAD_REQUEST, e.getMessage(),
                     "Unable to send bad-request response for EFormImageViewForPdfGenerationServlet");
+        } catch (SecurityException e) {
+            logger.warn("Rejected EFormImageViewForPdfGenerationServlet request", e);
+            sendErrorQuietly(response, HttpServletResponse.SC_FORBIDDEN, e.getMessage(),
+                    "Unable to send forbidden response for EFormImageViewForPdfGenerationServlet");
         } catch (Exception e) {
             logger.error("Unexpected error in EFormImageViewForPdfGenerationServlet", e);
             sendErrorQuietly(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                     "An internal error occurred. Please try again or contact your system administrator.",
                     "Unable to send internal-error response for EFormImageViewForPdfGenerationServlet");
+        }
+    }
+
+    private void enforceAssetReadPrivilege(LoggedInInfo loggedInInfo, String fileName) {
+        boolean hasEformRead = securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, null);
+        if (VACCINE_BRANDS_FILE.equals(fileName)) {
+            if (!hasEformRead && !securityInfoManager.hasPrivilege(loggedInInfo, "_prevention", SecurityInfoManager.READ, null)) {
+                throw new SecurityException("missing required sec object (_eform or _prevention)");
+            }
+            return;
+        }
+        if (!hasEformRead) {
+            throw new SecurityException("missing required sec object (_eform)");
         }
     }
 

@@ -25,11 +25,14 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import javax.imageio.ImageIO;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -44,6 +47,7 @@ import org.springframework.stereotype.Service;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
@@ -70,9 +74,11 @@ public class EFormBrowserPdfRenderer {
     private static final float CSS_PIXEL_TO_POINTS = 72f / 96f;
 
     public Path renderSavedEformPdf(int fdid, String providerId) throws PDFGenerationException {
+        HttpServletRequest currentRequest = ServletActionContext.getRequest();
         String projectHome = CarlosProperties.getInstance().getProperty("project_home", "");
-        String baseUrl = resolveBaseUrl(projectHome, ServletActionContext.getRequest());
+        String baseUrl = resolveBaseUrl(projectHome, currentRequest);
         String appPath = buildAppPath(fdid, providerId);
+        String cookieHeader = buildRendererSessionCookieHeader(currentRequest);
         Path tempRoot = resolveRendererTempRoot();
         Path runtimeRoot = prepareRendererRuntime(tempRoot);
         Path scriptPath = runtimeRoot.resolve(MAIN_SCRIPT_NAME);
@@ -93,7 +99,8 @@ public class EFormBrowserPdfRenderer {
                 baseUrl,
                 appPath,
                 outputDirectory,
-                resolveChromiumPath());
+                resolveChromiumPath(),
+                cookieHeader);
 
         ProcessBuilder processBuilder = new ProcessBuilder(command); // nosemgrep: java.lang.security.audit.command-injection-process-builder.command-injection-process-builder, java.servlets.security.tainted-cmd-from-http-request.tainted-cmd-from-http-request, java.lang.security.audit.tainted-cmd-from-http-request.tainted-cmd-from-http-request -- ProcessBuilder uses fixed argv slots; request-derived values are constrained by validateRendererBaseUrl/validateRendererAppPath and local runtime resolution before launch
         processBuilder.directory(runtimeRoot.toFile());
@@ -104,8 +111,9 @@ public class EFormBrowserPdfRenderer {
         String processOutput = "";
         try {
             Process process = processBuilder.start(); // nosemgrep: java.servlets.security.tainted-cmd-from-http-request.tainted-cmd-from-http-request, java.lang.security.audit.tainted-cmd-from-http-request.tainted-cmd-from-http-request -- launch uses the validated argv built above; no shell parsing or concatenated command string is executed
+            CompletableFuture<String> outputFuture = CompletableFuture.supplyAsync(() -> readProcessOutput(process));
             boolean finished = process.waitFor(RENDER_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
-            processOutput = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            processOutput = awaitProcessOutput(outputFuture);
             if (!finished) {
                 process.destroyForcibly();
                 deleteRecursivelyQuietly(outputDirectory);
@@ -153,6 +161,42 @@ public class EFormBrowserPdfRenderer {
         return path.toString();
     }
 
+
+    static String buildRendererSessionCookieHeader(HttpServletRequest request) throws PDFGenerationException {
+        if (request == null) {
+            throw new PDFGenerationException("Browser rendering requires an active authenticated request context.");
+        }
+
+        HttpSession session = request.getSession(false);
+        if (session == null || LoggedInInfo.getLoggedInInfoFromSession(request) == null) {
+            throw new PDFGenerationException("Browser rendering requires an active authenticated session.");
+        }
+
+        String cookieName = request.getServletContext().getSessionCookieConfig().getName();
+        if (cookieName == null || cookieName.isBlank()) {
+            cookieName = "JSESSIONID";
+        }
+        return cookieName + "=" + session.getId();
+    }
+
+    private static String readProcessOutput(Process process) {
+        try {
+            return new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            return "";
+        }
+    }
+
+    private static String awaitProcessOutput(CompletableFuture<String> outputFuture) throws InterruptedException {
+        try {
+            return outputFuture.get(5, TimeUnit.SECONDS);
+        } catch (ExecutionException e) {
+            return "";
+        } catch (java.util.concurrent.TimeoutException e) {
+            return "";
+        }
+    }
+
     static String buildDefaultBaseUrl(String projectHome) {
         if (projectHome == null || projectHome.isBlank()) {
             return "http://127.0.0.1:8080";
@@ -181,7 +225,7 @@ public class EFormBrowserPdfRenderer {
         return baseUrl.toString();
     }
 
-    static List<String> buildCommand(String nodeBinary, Path scriptPath, String baseUrl, String appPath, Path outputDirectory, String chromePath) {
+    static List<String> buildCommand(String nodeBinary, Path scriptPath, String baseUrl, String appPath, Path outputDirectory, String chromePath, String cookieHeader) {
         String validatedBaseUrl = validateRendererBaseUrl(baseUrl);
         String validatedAppPath = validateRendererAppPath(appPath);
 
@@ -194,6 +238,10 @@ public class EFormBrowserPdfRenderer {
         command.add(validatedAppPath);
         command.add("--output-dir");
         command.add(outputDirectory.toAbsolutePath().toString());
+        if (cookieHeader != null && !cookieHeader.isBlank()) {
+            command.add("--cookie-header");
+            command.add(cookieHeader);
+        }
         if (chromePath != null && !chromePath.isBlank()) {
             command.add("--chrome-path");
             command.add(chromePath);

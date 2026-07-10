@@ -12,8 +12,8 @@
  * https://github.com/carlos-emr/carlos
  */
 
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 const { chromium } = require('playwright');
 const { appUrl, assert, getLaunchOptions, validateBaseUrl } = require('./eform-local-playwright-utils');
 
@@ -189,6 +189,9 @@ async function main() {
 
   const browser = await chromium.launch(getLaunchOptions(args['chrome-path']));
   const page = await browser.newPage({ viewport: { width: 1800, height: 3200 } });
+  if (args['cookie-header']) {
+    await page.setExtraHTTPHeaders({ Cookie: args['cookie-header'] });
+  }
   const consoleIssues = [];
   const pageErrors = [];
   page.on('console', (message) => {
@@ -197,7 +200,7 @@ async function main() {
     }
   });
   page.on('pageerror', (error) => {
-    pageErrors.push(error.stack || error.message);
+    pageErrors.push(error.stack ?? error.message);
   });
 
   let captureFiles = [];
@@ -225,6 +228,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(error && error.stack ? error.stack : String(error));
+  console.error(error?.stack ? error.stack : String(error));
   process.exitCode = 1;
 });

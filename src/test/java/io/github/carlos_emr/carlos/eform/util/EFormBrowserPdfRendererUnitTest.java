@@ -169,7 +169,8 @@ class EFormBrowserPdfRendererUnitTest {
                 "http://127.0.0.1:8080/carlos",
                 "/eformViewForPdfGenerationServlet?fdid=187&providerId=999998",
                 Path.of("/tmp/rendered-output"),
-                "/root/.cache/ms-playwright/chromium-1223/chrome-linux64/chrome");
+                "/root/.cache/ms-playwright/chromium-1223/chrome-linux64/chrome",
+                "JSESSIONID=abc123");
 
         assertThat(command).containsExactly(
                 "node",
@@ -180,6 +181,8 @@ class EFormBrowserPdfRendererUnitTest {
                 "/eformViewForPdfGenerationServlet?fdid=187&providerId=999998",
                 "--output-dir",
                 "/tmp/rendered-output",
+                "--cookie-header",
+                "JSESSIONID=abc123",
                 "--chrome-path",
                 "/root/.cache/ms-playwright/chromium-1223/chrome-linux64/chrome");
     }
@@ -190,6 +193,7 @@ class EFormBrowserPdfRendererUnitTest {
                 "https://evil.example/steal",
                 "/eformViewForPdfGenerationServlet?fdid=187",
                 Path.of("/tmp/rendered-output"),
+                null,
                 null);
     }
 
@@ -200,6 +204,7 @@ class EFormBrowserPdfRendererUnitTest {
                 "http://127.0.0.1:8080/carlos",
                 "https://evil.example/steal",
                 Path.of("/tmp/rendered-output"),
+                null,
                 null);
     }
 

@@ -189,6 +189,9 @@ async function main() {
 
   const browser = await chromium.launch(getLaunchOptions(args['chrome-path']));
   const page = await browser.newPage({ viewport: { width: 1800, height: 3200 } });
+  if (args['cookie-header']) {
+    await page.setExtraHTTPHeaders({ Cookie: args['cookie-header'] });
+  }
   const consoleIssues = [];
   const pageErrors = [];
   page.on('console', (message) => {
