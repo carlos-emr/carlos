@@ -4189,11 +4189,21 @@ var EFORM_I18N = {
                the tab is initialised more than once. */
             $stampLabel.hide();
             $dragFrame51.hide();
+            var stampResolved = false;
             var showSignatureStamp = function() {
+                stampResolved = true;
                 $stampLabel.show();
                 $dragFrame51.show();
             };
             var showNoSignatureStampWarning = function() {
+                /* Once a valid signature stamp has loaded, a later image error must NOT revert
+                   to the missing-signature warning. toggleMe() swaps the stamp src to a blank
+                   placeholder (BNK.png) when the user clicks a loaded stamp; if that placeholder
+                   is unavailable the resulting error event would otherwise wrongly re-show the
+                   warning and hide the provider's real signature. */
+                if (stampResolved) {
+                    return;
+                }
                 $stampLabel.hide();
                 $dragFrame51.hide();
                 if ($tab.find(".noSignatureStampWarning").length === 0) {
