@@ -4189,21 +4189,11 @@ var EFORM_I18N = {
                the tab is initialised more than once. */
             $stampLabel.hide();
             $dragFrame51.hide();
-            var stampResolved = false;
             var showSignatureStamp = function() {
-                stampResolved = true;
                 $stampLabel.show();
                 $dragFrame51.show();
             };
             var showNoSignatureStampWarning = function() {
-                /* Once a valid signature stamp has loaded, a later image error must NOT revert
-                   to the missing-signature warning. toggleMe() swaps the stamp src to a blank
-                   placeholder (BNK.png) when the user clicks a loaded stamp; if that placeholder
-                   is unavailable the resulting error event would otherwise wrongly re-show the
-                   warning and hide the provider's real signature. */
-                if (stampResolved) {
-                    return;
-                }
                 $stampLabel.hide();
                 $dragFrame51.hide();
                 if ($tab.find(".noSignatureStampWarning").length === 0) {
@@ -4217,8 +4207,29 @@ var EFORM_I18N = {
                 }
             };
             var $stampImg = $dragFrame51.find("img.stamp");
+            /* Capture the provider-signature endpoint up front: toggleMe() rewrites img.src to a
+               blank placeholder when a loaded stamp is clicked, so img.src is not reliable later. */
+            var stampSrc = $stampImg.attr("src");
+            /* The <img> "error" event carries no HTTP status, so a transient/permission/server
+               failure (401/403/500) is indistinguishable from a missing signature (404). Probe
+               the provider-signature endpoint to classify: only a 404 means "no signature on
+               file" — for any other failure leave the stamp hidden without the misleading
+               message. Checking stampSrc (not the current img.src) also means a click that
+               toggles the stamp to a missing blank placeholder never reverts a real signature
+               to the warning. */
+            var warnIfMissingSignature = function() {
+                fetch(stampSrc, { credentials: "same-origin" })
+                    .then(function(resp) {
+                        if (resp.status === 404) {
+                            showNoSignatureStampWarning();
+                        }
+                    })
+                    .catch(function() {
+                        /* network/CSP error: leave the stamp hidden, do not guess a reason */
+                    });
+            };
             $stampImg.on("load", showSignatureStamp);
-            $stampImg.on("error", showNoSignatureStampWarning);
+            $stampImg.on("error", warnIfMissingSignature);
 
             if (!signaturePadLoaded) {
                 $tab.append($("<span>", {
@@ -4259,7 +4270,7 @@ var EFORM_I18N = {
                     return;
                 }
                 if (this.naturalWidth === 0) {
-                    showNoSignatureStampWarning();
+                    warnIfMissingSignature();
                 } else {
                     showSignatureStamp();
                 }

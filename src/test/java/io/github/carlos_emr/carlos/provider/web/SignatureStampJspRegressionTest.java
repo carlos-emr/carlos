@@ -73,10 +73,11 @@ class SignatureStampJspRegressionTest {
                 .contains("var src = getSignatureStampPreviewSrc();")
                 .contains("function getSignatureStampPreviewSrc(){")
                 // Palette template: the stamp stays hidden until its image loads (so it can't
-                // be dragged mid-load) and, on load failure, a warning replaces it (the
-                // blank-stamp fallback was replaced by the missing-signature warning).
+                // be dragged mid-load); on load failure the endpoint status is probed and the
+                // warning is only shown for a 404 (missing signature), not 401/403/500.
                 .contains("$stampImg.on(\"load\", showSignatureStamp);")
-                .contains("$stampImg.on(\"error\", showNoSignatureStampWarning);")
+                .contains("$stampImg.on(\"error\", warnIfMissingSignature);")
+                .contains("if (resp.status === 404)")
                 .contains("EFORM_I18N.textNoSignatureStamp")
                 // The wet-signature sign hint is wired through the same i18n path.
                 .contains("EFORM_I18N.textWetSignatureSignHint")
