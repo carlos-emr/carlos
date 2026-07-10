@@ -2839,6 +2839,11 @@ var EFORM_I18N = {
 					}
 					if ($(this).is('#Stamp')){
                         $(this).attr("src", getSignatureStampPreviewSrc());
+                        /* A stamp already placed on a saved eForm keeps the blank-stamp
+                           fallback (rather than the hide/warn behaviour used for the palette
+                           template in addDraggableStamp): a placed stamp is meant to resolve
+                           to the signing provider's signature at render time, so the <img>
+                           must stay in the form and must not be hidden or warned on here. */
                         $(this).on("error", function() {
                             if (this.src.indexOf("BNK.png") === -1) {
                                 this.src = getBlankSignatureStampSrc();
@@ -4208,7 +4213,7 @@ var EFORM_I18N = {
                    a transparent overlay so they can be positioned), which blocks drawing.
                    Tell the user to open another panel to actually sign. Guard against a
                    duplicate id if the tab is ever initialised more than once. */
-                if ($("#padSignHint").length === 0) {
+                if ($tab.find("#padSignHint").length === 0) {
                     $tab.append($("<div>", {
                         text: EFORM_I18N.textWetSignatureSignHint,
                         id: "padSignHint",
