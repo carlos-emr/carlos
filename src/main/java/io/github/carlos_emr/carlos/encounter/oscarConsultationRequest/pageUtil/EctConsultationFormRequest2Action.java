@@ -57,12 +57,15 @@ import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.persistence.PersistenceException;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.springframework.dao.DataAccessException;
+import org.springframework.transaction.TransactionException;
 
 /**
  * Struts2 action that handles creating, updating, printing, faxing, and electronically
@@ -111,6 +114,11 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
     private static final ObjectMapper objectMapper = new ObjectMapper();
     private static final String ATTR_SIGNATURE_NOT_APPLIED = "signatureNotApplied";
     private static final String ATTR_ERROR_MESSAGE = "errorMessage";
+    private static final String ATTR_WARNING_MESSAGE = "warningMessage";
+    private static final String ATTR_SIGNATURE_IMG = "signatureImg";
+    private static final String ATTR_PREVIEW_SIGNATURE_IMG = "consultPreviewSignatureImg";
+    private static final String SIGNATURE_NOT_APPLIED_WARNING = "The captured signature could not be saved and will not appear on the PDF.";
+    private static final String INVALID_DEMOGRAPHIC_NUMBER = "Invalid demographic number";
 
     private Integer parseUpdateInteger(String rawValue, String logMessage, String actionErrorMessage) {
         try {
@@ -200,7 +208,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                     demographicId = Integer.parseInt(demographicNo);
                 } catch (NumberFormatException e) {
                     MiscUtils.getLogger().error("Invalid demographic number for new consultation: {}", demographicNo);
-                    addActionError("Invalid demographic number");
+                    addActionError(INVALID_DEMOGRAPHIC_NUMBER);
                     return INPUT;
                 }
 
@@ -373,7 +381,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 
             Integer parsedDemographicId = parseUpdateInteger(demographicNo,
                     "Invalid demographic number for consultation update: {}",
-                    "Invalid demographic number");
+                    INVALID_DEMOGRAPHIC_NUMBER);
             if (parsedDemographicId == null) {
                 return INPUT;
             }
@@ -552,11 +560,15 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
             try {
                 if (StringUtils.isBlank(requestId)) {
                     request.setAttribute(ATTR_ERROR_MESSAGE, "A print preview of this consultation could not be generated. \n\nMissing consultation request id.");
-                } else {
-                    byte[] signatureImageOverride = consultationSignatureService.resolvePreviewSignatureImage(
-                            loggedInInfo, newSignature, trimmedSignatureImg, newSignatureImg, signatureProviderNo);
-                    if (signatureImageOverride != null && signatureImageOverride.length > 0) {
-                        request.setAttribute(ConsultationSignatureService.SIGNATURE_IMAGE_OVERRIDE_ATTRIBUTE, signatureImageOverride);
+                } else if (persistManualSignatureForRendering(loggedInInfo, requestId, demographicNo,
+                            newSignature, trimmedSignatureImg, manualSignatureRequestId,
+                            signatureProviderNo)) {
+                    if (!newSignature) {
+                        byte[] signatureImageOverride = consultationSignatureService.resolvePreviewSignatureImage(
+                                loggedInInfo, false, trimmedSignatureImg, newSignatureImg, signatureProviderNo);
+                        if (signatureImageOverride != null && signatureImageOverride.length > 0) {
+                            request.setAttribute(ConsultationSignatureService.SIGNATURE_IMAGE_OVERRIDE_ATTRIBUTE, signatureImageOverride);
+                        }
                     }
                     renderConsultationFormWithAttachments(request, response, requestId, demographicNo);
                 }
@@ -669,6 +681,68 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return NONE;
     }
 
+    private boolean persistManualSignatureForRendering(LoggedInInfo loggedInInfo, String requestId, String demographicNo,
+                                                       boolean newSignature, String submittedSignatureImg,
+                                                       String manualSignatureRequestId, String signatureProviderNo) {
+        if (!newSignature) {
+            return true;
+        }
+
+        Integer demographicId = parseUpdateInteger(demographicNo,
+                "Invalid demographic number for consultation print preview signature: {}",
+                INVALID_DEMOGRAPHIC_NUMBER);
+        if (demographicId == null) {
+            request.setAttribute(ATTR_ERROR_MESSAGE, "A print preview of this consultation could not be generated. \n\nInvalid demographic number.");
+            return false;
+        }
+
+        Integer parsedConsultationRequestId = parseUpdateInteger(requestId,
+                "Invalid consultation request id for print preview signature update: {}",
+                "Invalid consultation request id");
+        if (parsedConsultationRequestId == null) {
+            request.setAttribute(ATTR_ERROR_MESSAGE, "A print preview of this consultation could not be generated. \n\nInvalid consultation request id.");
+            return false;
+        }
+        int consultationRequestId = parsedConsultationRequestId;
+
+        ConsultationPreviewSignatureOutcome outcome;
+        try {
+            outcome = consultationSignatureService.saveManualSignatureForPreview(
+                    loggedInInfo, consultationRequestId, demographicId, submittedSignatureImg,
+                    manualSignatureRequestId, signatureProviderNo);
+        } catch (DataAccessException | PersistenceException | TransactionException e) {
+            logger.error("Unable to persist captured consultation signature before print preview (requestId={}, provider={})",
+                    consultationRequestId, LogSafe.sanitize(signatureProviderNo), e);
+            warnSignatureNotApplied();
+            return true;
+        }
+        if (outcome.isSaved()) {
+            this.setSignatureImg(outcome.signatureId());
+            request.setAttribute(ATTR_PREVIEW_SIGNATURE_IMG, outcome.signatureId());
+            return true;
+        }
+        if (outcome.status() == ConsultationPreviewSignatureOutcome.Status.PERSIST_FAILED) {
+            warnSignatureNotApplied();
+            return true;
+        }
+        if (outcome.status() == ConsultationPreviewSignatureOutcome.Status.NOT_CAPTURED) {
+            return true;
+        }
+        if (outcome.status() == ConsultationPreviewSignatureOutcome.Status.REQUEST_NOT_FOUND) {
+            request.setAttribute(ATTR_ERROR_MESSAGE, "A print preview of this consultation could not be generated. \n\nConsultation request not found.");
+            return false;
+        }
+
+        request.setAttribute(ATTR_ERROR_MESSAGE, "A print preview of this consultation could not be generated. \n\nConsultation request does not match the selected patient.");
+        return false;
+    }
+
+    private void warnSignatureNotApplied() {
+        request.setAttribute(ATTR_SIGNATURE_NOT_APPLIED, Boolean.TRUE);
+        request.setAttribute(ATTR_WARNING_MESSAGE, SIGNATURE_NOT_APPLIED_WARNING);
+        request.setAttribute(ConsultationSignatureService.SUPPRESS_SIGNATURE_ATTRIBUTE, Boolean.TRUE);
+    }
+
     /**
      * Creates a consultation request extension entry for storing custom form fields.
      *
@@ -739,6 +813,8 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         json.put("consultPDF", (String) request.getAttribute("consultPDF"));
         json.put("consultPDFName", (String) request.getAttribute("consultPDFName"));
         json.put(ATTR_ERROR_MESSAGE, (String) request.getAttribute(ATTR_ERROR_MESSAGE));
+        json.put(ATTR_WARNING_MESSAGE, (String) request.getAttribute(ATTR_WARNING_MESSAGE));
+        json.put(ATTR_SIGNATURE_IMG, (String) request.getAttribute(ATTR_PREVIEW_SIGNATURE_IMG));
         try {
             if (!response.isCommitted()) {
                 response.resetBuffer();

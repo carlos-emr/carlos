@@ -47,6 +47,7 @@ import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
+import io.github.carlos_emr.carlos.managers.ConsultationPreviewSignatureOutcome;
 import io.github.carlos_emr.carlos.managers.ConsultationSignatureService;
 import io.github.carlos_emr.carlos.managers.ConsultationStampOutcome;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
@@ -65,6 +66,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -73,7 +75,6 @@ import org.springframework.test.util.ReflectionTestUtils;
 @Tag("unit")
 class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
 
-    private static final byte[] SIGNATURE_BYTES = new byte[]{1, 2, 3};
     private static final String PDF_BASE64 = "JVBERi0xLjQK";
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
@@ -133,8 +134,6 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
                 .thenReturn("sig-request");
         when(consultationSignatureService.resolveSignatureProviderNo("999998", "999998", "999998"))
                 .thenReturn("999998");
-        when(consultationSignatureService.resolvePreviewSignatureImage(loggedInInfo, false, "", "sig-request", "999998"))
-                .thenReturn(SIGNATURE_BYTES);
         when(demographicManager.getDemographicFormattedName(loggedInInfo, 1)).thenReturn("Patient, Test");
 
         pdfPath = Files.createTempFile("consult-preview", ".pdf");
@@ -172,17 +171,128 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("returns the base64 PDF JSON and sets the signature override for a direct print preview")
-    void shouldReturnJsonPdfWithSignatureOverride_forDirectPrintPreview() throws Exception {
+    @DisplayName("persists a captured manual signature before direct print preview")
+    void shouldPersistManualSignature_beforeDirectPrintPreview() throws Exception {
+        action.setSignatureImg("9999981000");
+        request.setParameter("newSignature", "true");
+        request.setParameter("newSignatureImg", "9999981000");
+        when(consultationSignatureService.resolveManualSignatureRequestId("9999981000", "9999981000"))
+                .thenReturn("9999981000");
+        when(consultationSignatureService.saveManualSignatureForPreview(
+                loggedInInfo, 9, 1, "9999981000", "9999981000", "999998"))
+                .thenReturn(new ConsultationPreviewSignatureOutcome(ConsultationPreviewSignatureOutcome.Status.SAVED, "77"));
+
         String result = action.execute();
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getContentType()).isEqualTo("application/json;charset=UTF-8");
         assertThat(response.getContentAsString()).contains("\"consultPDF\":\"" + PDF_BASE64 + "\"");
         assertThat(response.getContentAsString()).contains("\"errorMessage\":null");
-        assertThat(request.getAttribute(ConsultationSignatureService.SIGNATURE_IMAGE_OVERRIDE_ATTRIBUTE))
-                .isEqualTo(SIGNATURE_BYTES);
+        assertThat(response.getContentAsString()).contains("\"warningMessage\":null");
+        assertThat(response.getContentAsString()).contains("\"signatureImg\":\"77\"");
+        verify(consultationSignatureService).saveManualSignatureForPreview(
+                loggedInInfo, 9, 1, "9999981000", "9999981000", "999998");
         verify(documentAttachmentManager).renderConsultationFormWithAttachments(request, response);
+    }
+
+    @Test
+    @DisplayName("returns the base64 PDF JSON without creating a duplicate signature for direct print preview")
+    void shouldReturnJsonPdfWithoutDuplicateSignature_forDirectPrintPreview() throws Exception {
+        action.setSignatureImg("123");
+        request.setParameter("newSignature", "false");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentType()).isEqualTo("application/json;charset=UTF-8");
+        assertThat(response.getContentAsString()).contains("\"consultPDF\":\"" + PDF_BASE64 + "\"");
+        assertThat(response.getContentAsString()).contains("\"errorMessage\":null");
+        assertThat(response.getContentAsString()).contains("\"warningMessage\":null");
+        assertThat(response.getContentAsString()).contains("\"signatureImg\":null");
+        verify(digitalSignatureManager, never()).processAndSaveDigitalSignature(any(), any(), any(), any());
+        verify(consultationRequestDao, never()).merge(any());
+    }
+
+    @Test
+    @DisplayName("warns but still returns unsigned PDF JSON when a submitted manual signature cannot be persisted")
+    void shouldWarnButReturnPdf_whenManualSignatureCannotBePersistedForDirectPrintPreview() throws Exception {
+        action.setSignatureImg("9999981000");
+        request.setParameter("newSignature", "true");
+        request.setParameter("newSignatureImg", "9999981000");
+        when(consultationSignatureService.resolveManualSignatureRequestId("9999981000", "9999981000"))
+                .thenReturn("9999981000");
+        when(consultationSignatureService.saveManualSignatureForPreview(
+                loggedInInfo, 9, 1, "9999981000", "9999981000", "999998"))
+                .thenReturn(new ConsultationPreviewSignatureOutcome(ConsultationPreviewSignatureOutcome.Status.PERSIST_FAILED, ""));
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentAsString()).contains("\"consultPDF\":\"" + PDF_BASE64 + "\"");
+        assertThat(response.getContentAsString()).contains("The captured signature could not be saved and will not appear on the PDF.");
+        assertThat(response.getContentAsString()).contains("\"signatureImg\":null");
+        assertThat(request.getAttribute(ConsultationSignatureService.SUPPRESS_SIGNATURE_ATTRIBUTE)).isEqualTo(Boolean.TRUE);
+        verify(consultationRequestDao, never()).merge(any());
+        verify(documentAttachmentManager).renderConsultationFormWithAttachments(request, response);
+    }
+
+    @Test
+    @DisplayName("warns but returns unsigned PDF JSON when preview signature persistence throws")
+    void shouldReturnUnsignedPdfWithWarning_whenManualSignaturePersistenceThrowsForDirectPrintPreview() throws Exception {
+        action.setSignatureImg("9999981000");
+        request.setParameter("newSignature", "true");
+        request.setParameter("newSignatureImg", "9999981000");
+        when(consultationSignatureService.resolveManualSignatureRequestId("9999981000", "9999981000"))
+                .thenReturn("9999981000");
+        when(consultationSignatureService.saveManualSignatureForPreview(
+                loggedInInfo, 9, 1, "9999981000", "9999981000", "999998"))
+                .thenThrow(new DataIntegrityViolationException("database commit failed"));
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentAsString()).contains("\"consultPDF\":\"" + PDF_BASE64 + "\"");
+        assertThat(response.getContentAsString()).contains("The captured signature could not be saved and will not appear on the PDF.");
+        assertThat(request.getAttribute(ConsultationSignatureService.SUPPRESS_SIGNATURE_ATTRIBUTE)).isEqualTo(Boolean.TRUE);
+        verify(documentAttachmentManager).renderConsultationFormWithAttachments(request, response);
+    }
+
+    @Test
+    @DisplayName("returns an error without rendering when direct print preview targets a missing consultation")
+    void shouldReturnErrorWithoutRendering_whenDirectPrintPreviewTargetMissing() throws Exception {
+        action.setSignatureImg("9999981000");
+        request.setParameter("newSignature", "true");
+        request.setParameter("newSignatureImg", "9999981000");
+        when(consultationSignatureService.resolveManualSignatureRequestId("9999981000", "9999981000"))
+                .thenReturn("9999981000");
+        when(consultationSignatureService.saveManualSignatureForPreview(
+                loggedInInfo, 9, 1, "9999981000", "9999981000", "999998"))
+                .thenReturn(new ConsultationPreviewSignatureOutcome(ConsultationPreviewSignatureOutcome.Status.REQUEST_NOT_FOUND, ""));
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentAsString()).contains("Consultation request not found.");
+        verify(documentAttachmentManager, never()).renderConsultationFormWithAttachments(any(), any());
+    }
+
+    @Test
+    @DisplayName("returns an error without rendering when direct print preview demographic does not match the consultation")
+    void shouldReturnErrorWithoutRendering_whenDirectPrintPreviewDemographicMismatches() throws Exception {
+        action.setSignatureImg("9999981000");
+        request.setParameter("newSignature", "true");
+        request.setParameter("newSignatureImg", "9999981000");
+        when(consultationSignatureService.resolveManualSignatureRequestId("9999981000", "9999981000"))
+                .thenReturn("9999981000");
+        when(consultationSignatureService.saveManualSignatureForPreview(
+                loggedInInfo, 9, 1, "9999981000", "9999981000", "999998"))
+                .thenReturn(new ConsultationPreviewSignatureOutcome(ConsultationPreviewSignatureOutcome.Status.DEMOGRAPHIC_MISMATCH, ""));
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentAsString()).contains("Consultation request does not match the selected patient.");
+        verify(documentAttachmentManager, never()).renderConsultationFormWithAttachments(any(), any());
     }
 
     @Test
