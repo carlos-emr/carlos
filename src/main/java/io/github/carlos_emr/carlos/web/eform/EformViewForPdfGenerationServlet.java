@@ -47,7 +47,6 @@ import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.managers.FacilityManager;
-import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SessionConstants;
@@ -106,7 +105,7 @@ public final class EformViewForPdfGenerationServlet extends HttpServlet {
         Provider provider = providerDao.getProvider(providerNo);
         Security security = securityDao.getByProviderNo(providerNo);
         if (provider == null || security == null) {
-            logger.warn("Renderer session initialization failed for providerNo={}", LogSafe.sanitize(providerNo, 128));
+            logger.warn("Renderer session initialization failed: provider or security record not found");
             return false;
         }
 

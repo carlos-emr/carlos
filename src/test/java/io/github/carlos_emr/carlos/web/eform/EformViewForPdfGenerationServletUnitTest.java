@@ -24,6 +24,7 @@ import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.managers.FacilityManager;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SessionConstants;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -123,5 +124,27 @@ class EformViewForPdfGenerationServletUnitTest {
 
         verify(dispatcher).forward(eq(request), eq(response));
         assertThat(response.getStatus()).isEqualTo(200);
+    }
+
+    @Test
+    @DisplayName("should not include provider input in renderer-session failure logs")
+    void shouldNotIncludeProviderInputInFailureLogs_whenRendererSessionCannotBeEstablished() {
+        when(providerDao.getProvider("999998\r\ninjected")).thenReturn(null);
+        when(securityDao.getByProviderNo("999998\r\ninjected")).thenReturn(null);
+
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/eformViewForPdfGenerationServlet");
+        request.setRemoteAddr("127.0.0.1");
+
+        try (LogCapture logCapture = LogCapture.forLogger(EformViewForPdfGenerationServlet.class)) {
+            boolean established =
+                new EformViewForPdfGenerationServlet().establishRendererSession(request, "999998\r\ninjected");
+
+            String lastMessage = logCapture.messages().getLast();
+
+            assertThat(established).isFalse();
+            assertThat(lastMessage).contains("Renderer session initialization failed");
+            assertThat(lastMessage).doesNotContain("999998");
+            assertThat(lastMessage).doesNotContain("injected");
+        }
     }
 }
