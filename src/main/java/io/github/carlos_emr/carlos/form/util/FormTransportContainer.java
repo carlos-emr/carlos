@@ -35,6 +35,7 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletOutputStream;
@@ -194,12 +195,23 @@ public class FormTransportContainer {
                 outputBytes.write(bytes, offset, length);
             }
         };
+        private final String initialContentType;
+        private final String initialCharacterEncoding;
+        private final Locale initialLocale;
+        private final int initialBufferSize;
         private int status = HttpServletResponse.SC_OK;
         private String contentType;
         private String characterEncoding;
+        private Locale locale;
+        private int bufferSize;
 
         CapturingResponseWrapper(HttpServletResponse response) {
             super(response);
+            initialContentType = response.getContentType();
+            initialCharacterEncoding = response.getCharacterEncoding();
+            initialLocale = response.getLocale();
+            initialBufferSize = response.getBufferSize();
+            resetMetadata();
         }
 
         @Override
@@ -252,8 +264,7 @@ public class FormTransportContainer {
         public void reset() {
             resetBuffer();
             status = HttpServletResponse.SC_OK;
-            contentType = null;
-            characterEncoding = null;
+            resetMetadata();
         }
 
         @Override
@@ -323,7 +334,27 @@ public class FormTransportContainer {
 
         @Override
         public String getCharacterEncoding() {
-            return characterEncoding != null ? characterEncoding : super.getCharacterEncoding();
+            return characterEncoding;
+        }
+
+        @Override
+        public void setLocale(Locale locale) {
+            this.locale = locale;
+        }
+
+        @Override
+        public Locale getLocale() {
+            return locale;
+        }
+
+        @Override
+        public void setBufferSize(int bufferSize) {
+            this.bufferSize = bufferSize;
+        }
+
+        @Override
+        public int getBufferSize() {
+            return bufferSize;
         }
 
         boolean isUnrenderableStatus() {
@@ -353,6 +384,13 @@ public class FormTransportContainer {
                 return "";
             }
             return new String(outputBytes.toByteArray(), resolveCharacterEncoding());
+        }
+
+        private void resetMetadata() {
+            contentType = initialContentType;
+            characterEncoding = initialCharacterEncoding;
+            locale = initialLocale;
+            bufferSize = initialBufferSize;
         }
     }
 
