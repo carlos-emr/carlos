@@ -33,6 +33,8 @@ package io.github.carlos_emr.carlos.managers;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -308,8 +310,7 @@ public class FormsManagerImpl implements FormsManager {
         String demographicNo = request.getParameter("demographicNo") != null ? request.getParameter("demographicNo")
                 : form.getDemoNo();
         assertFormForwardPathResolvable(demographicNo, formName);
-        String formPath = "/form/forwardshortcutname?method=fetch&formname=" + formName + "&demographic_no="
-                + demographicNo + "&formId=" + formId;
+        String formPath = buildFormForwardPath(formName, demographicNo, formId);
         FormTransportContainer formTransportContainer = null;
         try {
             formTransportContainer = new FormTransportContainer(response, request, formPath);
@@ -323,6 +324,16 @@ public class FormsManagerImpl implements FormsManager {
                     e);
         }
         return formTransportContainer;
+    }
+
+    static String buildFormForwardPath(String formName, String demographicNo, String formId) {
+        return "/form/forwardshortcutname?method=fetch&formname=" + encodeQueryValue(formName)
+                + "&demographic_no=" + encodeQueryValue(demographicNo)
+                + "&formId=" + encodeQueryValue(formId);
+    }
+
+    private static String encodeQueryValue(String value) {
+        return URLEncoder.encode(String.valueOf(value), StandardCharsets.UTF_8);
     }
 
     private void assertFormForwardPathResolvable(String demographicNo, String formName) throws PDFGenerationException {

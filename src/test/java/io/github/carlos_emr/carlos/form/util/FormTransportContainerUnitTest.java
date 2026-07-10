@@ -138,13 +138,15 @@ class FormTransportContainerUnitTest {
     }
 
     @Test
-    @DisplayName("captures nested form redirects without mutating the caller response")
-    void shouldCaptureNestedRedirect_withoutMutatingCallerResponse() throws Exception {
+    @DisplayName("rejects nested form redirects without mutating the caller response")
+    void shouldRejectNestedRedirect_withoutMutatingCallerResponse() {
         MockHttpServletResponse outerResponse = new MockHttpServletResponse();
         MockHttpServletRequest request = requestForwardingTo((servletRequest, servletResponse) ->
                 ((HttpServletResponse) servletResponse).sendRedirect("/carlos/form/annual"));
 
-        new FormTransportContainer(outerResponse, request, "/form/forwardshortcutname");
+        assertThatThrownBy(() -> new FormTransportContainer(outerResponse, request, "/form/forwardshortcutname"))
+                .isInstanceOf(ServletException.class)
+                .hasMessageContaining("HTTP status 302");
 
         assertThat(outerResponse.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
         assertThat(outerResponse.getRedirectedUrl()).isNull();
