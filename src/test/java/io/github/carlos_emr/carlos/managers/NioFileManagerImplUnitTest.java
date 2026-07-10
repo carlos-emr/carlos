@@ -37,6 +37,7 @@ import java.nio.file.Path;
 import java.util.UUID;
 
 import jakarta.servlet.ServletContext;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -186,6 +187,7 @@ class NioFileManagerImplUnitTest {
         allowedTempDir = Files.createTempDirectory(Path.of(System.getProperty("java.io.tmpdir")), "nio-cache-preview-");
         assumeTrue(PathValidationUtils.isInAllowedTempDirectory(allowedTempDir.toFile()),
                 "test temp directory must resolve inside an allowed temp directory");
+        Files.createDirectories(getDocumentCacheDirectory());
         Path sourcePdf = allowedTempDir.resolve("fax-preview.pdf");
         createSinglePagePdf(sourcePdf);
 
@@ -199,6 +201,10 @@ class NioFileManagerImplUnitTest {
 
     private Path createOutsideAllowedTempDirectory() throws IOException {
         return Files.createTempDirectory(Path.of(System.getProperty("user.dir")), "nio-delete-outside-" + UUID.randomUUID());
+    }
+
+    private static Path getDocumentCacheDirectory() {
+        return Path.of(CarlosProperties.getInstance().getProperty("BASE_DOCUMENT_DIR"), "carlos", "document_cache");
     }
 
     private static void createSinglePagePdf(Path path) throws IOException {
