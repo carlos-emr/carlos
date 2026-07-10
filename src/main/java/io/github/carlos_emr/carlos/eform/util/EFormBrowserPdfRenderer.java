@@ -211,7 +211,7 @@ public class EFormBrowserPdfRenderer {
         String normalizedScheme = (scheme == null || scheme.isBlank()) ? "http" : scheme.trim();
         String normalizedContextPath = contextPath == null ? "" : contextPath.trim();
         if (!normalizedContextPath.isEmpty() && !normalizedContextPath.startsWith("/")) {
-            normalizedContextPath = "/" + normalizedContextPath;
+            normalizedContextPath = Path.of("/", normalizedContextPath).toString();
         }
         if (normalizedContextPath.endsWith("/")) {
             normalizedContextPath = normalizedContextPath.substring(0, normalizedContextPath.length() - 1);

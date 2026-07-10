@@ -440,34 +440,9 @@ public class Fax2Action extends ActionSupport {
             return;
         }
         String jobId = request.getParameter("jobId");
-        String requestedFaxFilePath = request.getParameter(FAX_FILE_PATH_PARAM);
-        int pageCount = 0;
-
-        if (jobId != null && !jobId.isEmpty()) {
-            pageCount = faxManager.getPageCount(loggedInInfo, Integer.parseInt(jobId));
-        } else if (requestedFaxFilePath != null && !requestedFaxFilePath.isEmpty()) {
-            try {
-                Path resolvedPath = faxManager.resolveAndValidateFilePath(requestedFaxFilePath);
-                try (PDDocument pdf = Loader.loadPDF(resolvedPath.toFile())) {
-                    pageCount = pdf.getNumberOfPages();
-                }
-            } catch (SecurityException e) {
-                logger.error("Security validation failed for page count path: {}", requestedFaxFilePath, e);
-                try {
-                    response.sendError(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
-                } catch (IOException ex) {
-                    logger.error(ERROR_SENDING_ERROR_RESPONSE, ex);
-                }
-                return;
-            } catch (IOException e) {
-                logger.error("File not found or error processing page count path: {}", requestedFaxFilePath, e);
-                try {
-                    response.sendError(HttpServletResponse.SC_NOT_FOUND, "File not found");
-                } catch (IOException ex) {
-                    logger.error(ERROR_SENDING_ERROR_RESPONSE, ex);
-                }
-                return;
-            }
+        int pageCount = resolvePageCount(loggedInInfo, jobId, request.getParameter(FAX_FILE_PATH_PARAM));
+        if (response.isCommitted()) {
+            return;
         }
 
         ObjectNode jsonObject = objectMapper.createObjectNode();
@@ -475,6 +450,36 @@ public class Fax2Action extends ActionSupport {
         jsonObject.put("pageCount", pageCount);
 
         JSONUtil.jsonResponse(response, jsonObject);
+    }
+
+    private int resolvePageCount(LoggedInInfo loggedInInfo, String jobId, String requestedFaxFilePath) {
+        if (jobId != null && !jobId.isEmpty()) {
+            return faxManager.getPageCount(loggedInInfo, Integer.parseInt(jobId));
+        }
+        if (requestedFaxFilePath == null || requestedFaxFilePath.isEmpty()) {
+            return 0;
+        }
+        try {
+            Path resolvedPath = faxManager.resolveAndValidateFilePath(requestedFaxFilePath);
+            try (PDDocument pdf = Loader.loadPDF(resolvedPath.toFile())) {
+                return pdf.getNumberOfPages();
+            }
+        } catch (SecurityException e) {
+            logger.error("Security validation failed for page count path: {}", requestedFaxFilePath, e);
+            sendPageCountError(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
+        } catch (IOException e) {
+            logger.error("File not found or error processing page count path: {}", requestedFaxFilePath, e);
+            sendPageCountError(HttpServletResponse.SC_NOT_FOUND, "File not found");
+        }
+        return 0;
+    }
+
+    private void sendPageCountError(int statusCode, String message) {
+        try {
+            response.sendError(statusCode, message);
+        } catch (IOException ex) {
+            logger.error(ERROR_SENDING_ERROR_RESPONSE, ex);
+        }
     }
 
     private String faxFilePath;

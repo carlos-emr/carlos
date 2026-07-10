@@ -62,8 +62,7 @@ import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 @Service
 public class EformDataManagerImpl implements EformDataManager {
 
-    @Autowired
-    SecurityInfoManager securityInfoManager;
+    private final SecurityInfoManager securityInfoManager;
 
     @Autowired
     EFormDataDao eFormDataDao;
@@ -82,8 +81,9 @@ public class EformDataManagerImpl implements EformDataManager {
     @Autowired
     private EFormBrowserPdfRenderer eFormBrowserPdfRenderer;
 
-    public EformDataManagerImpl() {
-        // Default
+    @Autowired
+    public EformDataManagerImpl(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
     }
 
     // @Autowired

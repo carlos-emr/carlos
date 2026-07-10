@@ -47,8 +47,7 @@ class EformDataManagerImplCreatePdfUnitTest extends CarlosUnitTestBase {
         registerMock(DocumentAttachmentManager.class, documentAttachmentManager);
         registerMock(FormsManager.class, formsManager);
 
-        manager = new EformDataManagerImpl();
-        injectDependency(manager, "securityInfoManager", securityInfoManager);
+        manager = new EformDataManagerImpl(securityInfoManager);
         injectDependency(manager, "eFormDataDao", eFormDataDao);
         injectDependency(manager, "documentManager", documentManager);
         injectDependency(manager, "documentAttachmentManager", documentAttachmentManager);

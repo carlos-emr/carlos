@@ -76,7 +76,6 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
             Map.entry("html", HTML_CONTENT_TYPE),
             Map.entry("htm", HTML_CONTENT_TYPE)
     );
-    private transient SecurityInfoManager securityInfoManager;
 
     @Override
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
@@ -129,10 +128,10 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
     }
 
     private void enforceAssetReadPrivilege(LoggedInInfo loggedInInfo, String fileName) {
-        SecurityInfoManager securityInfoManager = getSecurityInfoManager();
-        boolean hasEformRead = securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, null);
+        SecurityInfoManager manager = SpringUtils.getBean(SecurityInfoManager.class);
+        boolean hasEformRead = manager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, null);
         if (VACCINE_BRANDS_FILE.equals(fileName)) {
-            if (!hasEformRead && !securityInfoManager.hasPrivilege(loggedInInfo, "_prevention", SecurityInfoManager.READ, null)) {
+            if (!hasEformRead && !manager.hasPrivilege(loggedInInfo, "_prevention", SecurityInfoManager.READ, null)) {
                 throw new SecurityException("missing required sec object (_eform or _prevention)");
             }
             return;
@@ -199,10 +198,4 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
         }
     }
 
-    private SecurityInfoManager getSecurityInfoManager() {
-        if (securityInfoManager == null) {
-            securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-        }
-        return securityInfoManager;
-    }
 }
