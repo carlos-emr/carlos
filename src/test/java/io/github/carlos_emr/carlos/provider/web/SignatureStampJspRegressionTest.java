@@ -76,10 +76,14 @@ class SignatureStampJspRegressionTest {
                 // (the blank-stamp fallback was replaced by the missing-signature warning).
                 .contains("$stampImg.on(\"error\", showNoSignatureStampWarning);")
                 .contains("EFORM_I18N.textNoSignatureStamp")
+                // The wet-signature sign hint is wired through the same i18n path.
+                .contains("EFORM_I18N.textWetSignatureSignHint")
                 // Stamps already placed on a saved eForm keep the blank-stamp fallback so they
                 // still resolve to the signing provider's signature at render time.
                 .contains("this.src = getBlankSignatureStampSrc();")
                 .contains("if (this.src.indexOf(\"BNK.png\") === -1)")
+                // The removed inline template fallback must not be reintroduced.
+                .doesNotContain("$img.on(\"error\", function() {")
                 .doesNotContain("error: function() {");
     }
 

@@ -4197,14 +4197,6 @@ var EFORM_I18N = {
             };
             var $stampImg = $dragFrame51.find("img.stamp");
             $stampImg.on("error", showNoSignatureStampWarning);
-            /* addDraggableStamp set the src before this handler was attached, so if the image
-               already failed (e.g. a cached 404) the error event may have fired first — detect
-               that case explicitly rather than relying solely on a future error event. */
-            $stampImg.each(function() {
-                if (this.getAttribute("src") && this.complete && this.naturalWidth === 0) {
-                    showNoSignatureStampWarning();
-                }
-            });
 
             if (!signaturePadLoaded) {
                 $tab.append($("<span>", {
@@ -4233,6 +4225,17 @@ var EFORM_I18N = {
                     }));
                 }
             }
+
+            /* addDraggableStamp set the src before the error handler above was attached, so a
+               stamp that already failed (e.g. a cached 404) may have fired its error event
+               first. Detect that case explicitly — run last, AFTER the wet-signature hint has
+               been added, so the synchronous warning is still appended below the hint, matching
+               the async error-event ordering. */
+            $stampImg.each(function() {
+                if (this.getAttribute("src") && this.complete && this.naturalWidth === 0) {
+                    showNoSignatureStampWarning();
+                }
+            });
         }
 
         function init_input_controls($element) {
