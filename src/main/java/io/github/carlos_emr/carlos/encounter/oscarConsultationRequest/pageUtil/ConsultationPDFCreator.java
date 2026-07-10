@@ -84,6 +84,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
     private Font heading;
     private EctConsultationFormRequestUtil reqFrm;
     private byte[] signatureImageOverride;
+    private boolean suppressSignature;
     private CarlosProperties props;
     private ClinicData clinic;
     private ResourceBundle oscarR;
@@ -118,6 +119,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         if (signatureOverride instanceof byte[] byteArray) {
             signatureImageOverride = byteArray;
         }
+        suppressSignature = Boolean.TRUE.equals(request.getAttribute(ConsultationSignatureService.SUPPRESS_SIGNATURE_ATTRIBUTE));
         props = CarlosProperties.getInstance();
         clinic = new ClinicData();
         oscarR = ResourceBundle.getBundle("oscarResources", request.getLocale());
@@ -228,7 +230,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         addTable(border, createConsultDetailTable());
 
         // Add the provider's signature.
-        if ((signatureImageOverride != null && signatureImageOverride.length > 0) || getlen(reqFrm.signatureImg) > 0) {
+        if (shouldRenderSignature(suppressSignature, signatureImageOverride, reqFrm.signatureImg)) {
             addSignature(border);
         }
 
@@ -837,6 +839,14 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
             logger.error("Error loading consultation digital signature {}", parsedId, e);
             return null;
         }
+    }
+
+    static boolean shouldRenderSignature(boolean suppressSignature, byte[] signatureImageOverride, String signatureImageId) {
+        if (suppressSignature) {
+            return false;
+        }
+        return (signatureImageOverride != null && signatureImageOverride.length > 0)
+                || (signatureImageId != null && !signatureImageId.isEmpty());
     }
 
     /**

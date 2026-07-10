@@ -178,7 +178,7 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
 
             // attached eForms
             List<EFormData> eForms = consultationManager.getAttachedEForms(reqId);
-            appendEFormAttachments(loggedInInfo, alist, streams, eForms);
+            appendEFormAttachments(loggedInInfo, alist, streams, eForms, demoNo);
 
             //attached docs
             appendDocumentAttachments(alist, streams, docs, path);
@@ -394,14 +394,15 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
         alist.add(inputStream);
     }
 
-    private void appendEFormAttachments(LoggedInInfo loggedInInfo, ArrayList<Object> alist, ArrayList<InputStream> streams, List<EFormData> eForms) {
+    private void appendEFormAttachments(LoggedInInfo loggedInInfo, ArrayList<Object> alist, ArrayList<InputStream> streams, List<EFormData> eForms, String demoNo) {
+        int renderDemographicNo = Integer.parseInt(demoNo);
         for (EFormData eFormItem : emptyIfNull(eForms)) {
             if (eFormItem == null) {
                 logSkippedAttachment(ATTACHMENT_TYPE_EFORM, null, MISSING_ATTACHMENT_METADATA);
                 continue;
             }
             try {
-                Path attachedForm = faxManager.renderFaxDocument(loggedInInfo, FaxManager.TransactionType.EFORM, eFormItem.getId(), eFormItem.getDemographicId());
+                Path attachedForm = faxManager.renderFaxDocument(loggedInInfo, FaxManager.TransactionType.EFORM, eFormItem.getId(), renderDemographicNo);
                 addRenderedFaxAttachment(alist, streams, attachedForm, ATTACHMENT_TYPE_EFORM, eFormItem.getId());
             } catch (SecurityException e) {
                 throw e;

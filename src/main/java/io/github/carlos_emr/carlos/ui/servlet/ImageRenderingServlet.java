@@ -30,7 +30,6 @@ package io.github.carlos_emr.carlos.ui.servlet;
 import io.github.carlos_emr.carlos.casemgmt.model.ClientImage;
 import io.github.carlos_emr.carlos.utility.*;
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.casemgmt.dao.ClientImageDAO;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
@@ -115,6 +114,24 @@ public final class ImageRenderingServlet extends HttpServlet {
         if (image != null)
             bos.write(image); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary image stream
         bos.flush();
+    }
+
+    static String detectImageType(byte[] image) {
+        if (image != null && image.length >= 8
+                && (image[0] & 0xff) == 0x89 && image[1] == 'P' && image[2] == 'N' && image[3] == 'G'
+                && image[4] == 0x0d && image[5] == 0x0a && image[6] == 0x1a && image[7] == 0x0a) {
+            return "png";
+        }
+        if (image != null && image.length >= 3
+                && (image[0] & 0xff) == 0xff && (image[1] & 0xff) == 0xd8 && (image[2] & 0xff) == 0xff) {
+            return "jpeg";
+        }
+        if (image != null && image.length >= 6
+                && image[0] == 'G' && image[1] == 'I' && image[2] == 'F'
+                && image[3] == '8' && (image[4] == '7' || image[4] == '9') && image[5] == 'a') {
+            return "gif";
+        }
+        return "jpeg";
     }
 
     private static void renderLocalClient(HttpServletRequest request, HttpServletResponse response) throws IOException {
@@ -208,7 +225,6 @@ public final class ImageRenderingServlet extends HttpServlet {
 
         try {
             // get image
-            FileInputStream fileInputStream = null;
             try {
                 String signatureRequestId = request.getParameter(DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY);
                 
@@ -235,22 +251,16 @@ public final class ImageRenderingServlet extends HttpServlet {
 
                 // Re-validate at point of use for static analysis visibility
                 File validatedTargetFile = PathValidationUtils.validateUpload(targetFile);
-                fileInputStream = new FileInputStream(validatedTargetFile);
-                byte[] imageBytes = new byte[1024 * 256];
-                fileInputStream.read(imageBytes);
-                renderImage(response, imageBytes, "jpeg");
+                byte[] imageBytes = FileUtils.readFileToByteArray(validatedTargetFile);
+                renderImage(response, imageBytes, detectImageType(imageBytes));
                 return;
             } catch (FileNotFoundException e) {
                 // no image, render a blank gif, yes this breaks the concept
                 // of the image already exists, but it's difficult to implement the preview otherwise
                 String tempFilePath = getServletContext().getRealPath("/images/1x1.gif");
-                fileInputStream = new FileInputStream(PathValidationUtils.validateConfiguredFile(tempFilePath, "default preview image"));
-                byte[] imageBytes = new byte[1024 * 32];
-                fileInputStream.read(imageBytes);
-                renderImage(response, imageBytes, "gif");
+                byte[] imageBytes = FileUtils.readFileToByteArray(PathValidationUtils.validateConfiguredFile(tempFilePath, "default preview image"));
+                renderImage(response, imageBytes, detectImageType(imageBytes));
                 return;
-            } finally {
-                IOUtils.closeQuietly(fileInputStream);
             }
         } catch (Exception e) {
             logger.error("Unexpected error.", e);
@@ -278,7 +288,8 @@ public final class ImageRenderingServlet extends HttpServlet {
 				DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
 				DigitalSignature digitalSignature = digitalSignatureManager.getDigitalSignature(Integer.parseInt(digitalSignatureId));
                 if (digitalSignature != null) {
-                    renderImage(response, digitalSignature.getSignatureImage(), "jpeg");
+                    byte[] imageBytes = digitalSignature.getSignatureImage();
+                    renderImage(response, imageBytes, detectImageType(imageBytes));
                     return;
                 }
             } catch (Exception e) {
