@@ -177,10 +177,12 @@ public class FormTransportContainer {
 
             @Override
             public void setWriteListener(WriteListener writeListener) {
+                // Intentionally ignored; this wrapper captures forwarded form output synchronously.
             }
 
             @Override
             public void write(int value) {
+                // Intentionally ignored; form rendering uses the PrintWriter capture path.
             }
         };
         private int status = HttpServletResponse.SC_OK;
@@ -251,38 +253,47 @@ public class FormTransportContainer {
 
         @Override
         public void addCookie(Cookie cookie) {
+            // Intentionally ignored; nested cookies must not leak to the caller response.
         }
 
         @Override
         public void setHeader(String name, String value) {
+            // Intentionally ignored; nested headers must not leak to the caller response.
         }
 
         @Override
         public void addHeader(String name, String value) {
+            // Intentionally ignored; nested headers must not leak to the caller response.
         }
 
         @Override
         public void setDateHeader(String name, long date) {
+            // Intentionally ignored; nested headers must not leak to the caller response.
         }
 
         @Override
         public void addDateHeader(String name, long date) {
+            // Intentionally ignored; nested headers must not leak to the caller response.
         }
 
         @Override
         public void setIntHeader(String name, int value) {
+            // Intentionally ignored; nested headers must not leak to the caller response.
         }
 
         @Override
         public void addIntHeader(String name, int value) {
+            // Intentionally ignored; nested headers must not leak to the caller response.
         }
 
         @Override
         public void setContentLength(int length) {
+            // Intentionally ignored; nested content length must not leak to the caller.
         }
 
         @Override
         public void setContentLengthLong(long length) {
+            // Intentionally ignored; nested content length must not leak to the caller.
         }
 
         @Override

@@ -812,10 +812,12 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 
             @Override
             public void setWriteListener(WriteListener writeListener) {
+                // Intentionally ignored; this wrapper discards nested render output.
             }
 
             @Override
             public void write(int value) {
+                // Intentionally ignored; the final AJAX response is written separately.
             }
         };
         private int status = HttpServletResponse.SC_OK;
@@ -886,38 +888,47 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 
         @Override
         public void addCookie(Cookie cookie) {
+            // Intentionally ignored; nested cookies must not leak to the caller response.
         }
 
         @Override
         public void setHeader(String name, String value) {
+            // Intentionally ignored; nested headers must not leak to the caller response.
         }
 
         @Override
         public void addHeader(String name, String value) {
+            // Intentionally ignored; nested headers must not leak to the caller response.
         }
 
         @Override
         public void setDateHeader(String name, long date) {
+            // Intentionally ignored; nested headers must not leak to the caller response.
         }
 
         @Override
         public void addDateHeader(String name, long date) {
+            // Intentionally ignored; nested headers must not leak to the caller response.
         }
 
         @Override
         public void setIntHeader(String name, int value) {
+            // Intentionally ignored; nested headers must not leak to the caller response.
         }
 
         @Override
         public void addIntHeader(String name, int value) {
+            // Intentionally ignored; nested headers must not leak to the caller response.
         }
 
         @Override
         public void setContentLength(int length) {
+            // Intentionally ignored; nested content length must not leak to JSON output.
         }
 
         @Override
         public void setContentLengthLong(long length) {
+            // Intentionally ignored; nested content length must not leak to JSON output.
         }
 
         @Override
