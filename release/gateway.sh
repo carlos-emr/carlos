@@ -27,7 +27,7 @@ if [ -z "${TOMCAT}" ]; then
   echo "No supported Tomcat installation found (expected tomcat11, tomcat10, tomcat9, tomcat8, or tomcat7)." >&2
   exit 1
 fi
-TMP=$(find /tmp -type d -wholename "*tomcat*/tmp" 2>/dev/null | head -1)
+TMP=$(find /tmp -type d -wholename "*${TOMCAT}*/tmp" 2>/dev/null | head -1)
 TMP="${TMP:-/tmp/${TOMCAT}-${TOMCAT}-tmp}"
 
 
