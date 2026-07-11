@@ -44,7 +44,8 @@ import io.github.carlos_emr.carlos.entities.Billactivity;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
- * @author jay
+ * Data Access Object for BillActivityDAO, providing database interactions.
+ * Ensures encapsulation of related state and behavior.
  */
 public class BillActivityDAO {
 

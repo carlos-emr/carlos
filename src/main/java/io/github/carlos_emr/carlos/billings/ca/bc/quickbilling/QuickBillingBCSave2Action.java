@@ -39,7 +39,6 @@ import jakarta.servlet.http.HttpServletResponse;
 
 
 /**
- * @author Dennis Warren
  * Company Colcamex Resources
  * Date Jun 4, 2012
  * Revised Jun 6, 2012
@@ -57,6 +56,10 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Struts Action class handling HTTP requests for QuickBillingBCSave2Action workflow.
+ * Ensures encapsulation of related state and behavior.
+ */
 public class QuickBillingBCSave2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 

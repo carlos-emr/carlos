@@ -45,7 +45,8 @@ import io.github.carlos_emr.CarlosProperties;
 
 
 /**
- * @author jay
+ * Service or helper class TeleplanCodesManager coordinating business logic.
+ * Ensures encapsulation of related state and behavior.
  */
 public class TeleplanCodesManager {
 

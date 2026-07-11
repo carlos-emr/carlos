@@ -37,10 +37,11 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.LogTeleplanTx;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-/**
- * @author jay
- */
 
+/**
+ * Data Access Object for TeleplanLogDAO, providing database interactions.
+ * Ensures encapsulation of related state and behavior.
+ */
 public class TeleplanLogDAO {
 
     private LogTeleplanTxDao dao = SpringUtils.getBean(LogTeleplanTxDao.class);

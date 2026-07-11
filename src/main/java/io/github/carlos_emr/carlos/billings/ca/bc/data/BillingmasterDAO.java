@@ -51,7 +51,8 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
- * @author jay
+ * Data Access Object for BillingmasterDAO, providing database interactions.
+ * Ensures encapsulation of related state and behavior.
  */
 @Repository
 @SuppressWarnings("unchecked")

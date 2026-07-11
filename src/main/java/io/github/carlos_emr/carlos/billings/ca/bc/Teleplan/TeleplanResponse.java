@@ -47,7 +47,8 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.CarlosProperties;
 
 /**
- * @author jay
+ * Domain model or utility entity representing TeleplanResponse.
+ * Ensures encapsulation of related state and behavior.
  */
 public class TeleplanResponse {
     static Logger log = MiscUtils.getLogger();

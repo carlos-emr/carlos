@@ -38,7 +38,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
- * @author Jay Gallagher
+ * Service or helper class WcbHelper coordinating business logic.
+ * Ensures encapsulation of related state and behavior.
  */
 public class WcbHelper {
 

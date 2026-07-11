@@ -38,10 +38,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 
+/**
+ * Domain model or utility entity representing QuickBillingBCFormBean.
+ * Ensures encapsulation of related state and behavior.
+ */
 public class QuickBillingBCFormBean {
 
     /**
-     * @author Dennis Warren
      * Company Colcamex Resources
      * Date Jun 4, 2012
      */

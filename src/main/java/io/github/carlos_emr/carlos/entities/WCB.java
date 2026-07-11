@@ -46,7 +46,8 @@ import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
 /**
- * @author jaygallagher
+ * Domain model or utility entity representing WCB.
+ * Ensures encapsulation of related state and behavior.
  */
 @Entity
 @Table(name = "wcb")

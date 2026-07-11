@@ -39,7 +39,6 @@ import org.springframework.stereotype.Repository;
 /**
  * Responsible for CRUD operation a user Billing Module Preferences
  *
- * @author not attributable
  * @version 1.0
  */
 @Repository

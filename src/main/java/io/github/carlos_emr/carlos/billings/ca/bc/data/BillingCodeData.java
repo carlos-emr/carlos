@@ -40,7 +40,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.SqlUtils;
 
 /**
- * @author root
+ * Data Access Object for BillingCodeData, providing database interactions.
+ * Ensures encapsulation of related state and behavior.
  */
 public final class BillingCodeData implements Comparable {
     /**
