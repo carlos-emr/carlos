@@ -64,7 +64,7 @@
 <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title>Billing Summary</title>
+    <title><fmt:message key="billing.billingReferCodeUpdate.titleBillingsummary"/></title>
     <script LANGUAGE="JavaScript">
         <!--
         <%
@@ -162,7 +162,7 @@
 <%
 %>
 <p>
-<h1>Successful Addition of a billing Record.</h1>
+<h1><fmt:message key="billing.billingReferCodeUpdate.h1Successfuladdit"/></h1>
 </p>
 <script LANGUAGE="JavaScript">
     history.go(-1);

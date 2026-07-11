@@ -47,7 +47,7 @@
 <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
-    <title>UPDATE INR BILLING</title>
+    <title><fmt:message key="billing.updateINRbilling.titleUpdateinrbillin"/></title>
     <script language="JavaScript">
         <!--
         var remote = null;

@@ -58,7 +58,7 @@
 <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title>Service Code Price Search</title>
+    <title><fmt:message key="billing.billingGetPriceCode.titleServicecodepric"/></title>
     <script LANGUAGE="JavaScript">
         function CodeAttach(cost) {
             <%if (formName == null || formName.isEmpty() || formElementPrice == null || formElementPrice.isEmpty()) {%>
