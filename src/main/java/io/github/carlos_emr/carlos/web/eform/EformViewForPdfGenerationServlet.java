@@ -72,7 +72,8 @@ public final class EformViewForPdfGenerationServlet extends HttpServlet {
             }
             String canonicalProviderNo = providerNo.trim();
 
-            if (!hasAuthorizedRendererSession(request, canonicalProviderNo)) {
+            String sessionProviderNo = authorizedRendererProviderNo(request, canonicalProviderNo);
+            if (sessionProviderNo == null) {
                 response.sendError(HttpServletResponse.SC_FORBIDDEN, "Renderer request requires an authenticated matching provider session");
                 return;
             }
@@ -82,7 +83,7 @@ public final class EformViewForPdfGenerationServlet extends HttpServlet {
             request.setAttribute(SKIP_HTML_INJECTION_ATTRIBUTE, Boolean.TRUE);
 
             RequestDispatcher requestDispatcher = request.getRequestDispatcher("/eform/efmshowform_data");
-            requestDispatcher.forward(wrapRequestWithCanonicalProviderId(request, canonicalProviderNo), response);
+            requestDispatcher.forward(wrapRequestWithCanonicalProviderId(request, sessionProviderNo), response);
         } catch (ServletException | IOException e) {
             throw e;
         } catch (Exception e) {
@@ -94,20 +95,20 @@ public final class EformViewForPdfGenerationServlet extends HttpServlet {
         }
     }
 
-    boolean hasAuthorizedRendererSession(HttpServletRequest request, String providerNo) {
+    String authorizedRendererProviderNo(HttpServletRequest request, String providerNo) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null || loggedInInfo.getLoggedInProvider() == null || loggedInInfo.getLoggedInSecurity() == null) {
             logger.warn("Renderer request rejected: no authenticated session was present");
-            return false;
+            return null;
         }
 
         String sessionProviderNo = loggedInInfo.getLoggedInProviderNo();
         if (sessionProviderNo == null || !sessionProviderNo.equals(providerNo)) {
             logger.warn("Renderer request rejected: provider mismatch for authenticated session");
-            return false;
+            return null;
         }
 
-        return true;
+        return sessionProviderNo;
     }
 
 
