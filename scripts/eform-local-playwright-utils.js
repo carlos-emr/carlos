@@ -12,8 +12,8 @@
  * https://github.com/carlos-emr/carlos
  */
 
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const SAFE_ARTIFACT_BASENAME_RE = /^[A-Za-z0-9._-]+$/;
 const SAFE_ARTIFACT_EXTENSION_RE = /^\.[A-Za-z0-9]+$/;
@@ -46,15 +46,30 @@ function validateBaseUrl(rawBaseUrl) {
   }
 
   const host = parsed.hostname.toLowerCase();
-  const normalizedHost = host.replace(/^\[(.*)]$/, '$1');
+  const normalizedHost = host.startsWith('[') && host.endsWith(']') ? host.slice(1, -1) : host;
   const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(normalizedHost);
+  const privateIpv4 = isPrivateIpv4Literal(normalizedHost);
   if (!localHosts.has(normalizedHost) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
 
   parsed.pathname = parsed.pathname.replace(/\/$/, '');
   return parsed;
+}
+
+// Only complete numeric IPv4 literals in RFC 1918 ranges qualify; DNS names such as
+// 10.attacker.example must not pass the private-network check.
+function isPrivateIpv4Literal(host) {
+  if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
+    return false;
+  }
+  const octets = host.split('.').map(Number);
+  if (octets.some((octet) => octet > 255)) {
+    return false;
+  }
+  return octets[0] === 10
+    || (octets[0] === 192 && octets[1] === 168)
+    || (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31);
 }
 
 function appUrl(baseUrl, appPath) {
@@ -80,7 +95,7 @@ function createRecorder() {
 
 function isExpectedMissingAsset(status, responseUrl) {
   return status === 404 && (
-    /\/favicon\.ico$/.test(responseUrl)
+    responseUrl.endsWith('/favicon.ico')
     || /\/imageRenderingServlet\?/.test(responseUrl)
     || /\/eform\/displayImage\?imagefile=signature_pad\.min\.js(?:$|&)/.test(responseUrl)
     || /\/eform\/displayImage\?imagefile=BNK\.png(?:$|&)/.test(responseUrl)
@@ -189,12 +204,12 @@ async function findLibraryEform(page, formName) {
   await row.waitFor({ state: 'visible', timeout: 15000 });
   const previewOnclick = await row.locator('a[onclick*="efmshowform_data?fid="]').first().getAttribute('onclick');
   const editHref = await row.locator('a[href*="efmformmanageredit?fid="]').first().getAttribute('href');
-  const previewMatch = previewOnclick && previewOnclick.match(/fid=([^&'"]+)/);
-  const editMatch = editHref && editHref.match(/fid=([^&'"]+)/);
-  assert(previewMatch?.[1] || editMatch?.[1], `Could not extract fid for ${formName}`);
+  const previewMatch = previewOnclick?.match(/fid=([^&'"]+)/);
+  const editMatch = editHref?.match(/fid=([^&'"]+)/);
+  assert(previewMatch?.[1] ?? editMatch?.[1], `Could not extract fid for ${formName}`);
   return {
     row,
-    fid: decodeURIComponent((previewMatch && previewMatch[1]) || editMatch[1]),
+    fid: decodeURIComponent(previewMatch?.[1] || editMatch[1]),
   };
 }
 
@@ -249,6 +264,7 @@ async function invokeFetchAttached(page) {
   const hasFunction = await page.evaluate(() => typeof fetchAttached === 'function'); // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- fixed helper code executed without interpolating user-controlled input
   if (!hasFunction) {
     return { hasFunction: false, text: '', html: '' };
+
   }
 
   const target = page.locator('#tdAttachedDocs');
@@ -301,9 +317,16 @@ function getLatestRequest(recorder, predicate) {
 }
 
 function getLaunchOptions(chromePath) {
+  // --no-sandbox is required when Chromium runs as root (the devcontainer/CI default).
+  // Set EFORM_RENDER_ENABLE_CHROMIUM_SANDBOX=true to keep the Chromium sandbox enabled
+  // on deployments that run the renderer as an unprivileged user.
+  const args = ['--disable-dev-shm-usage'];
+  if (process.env.EFORM_RENDER_ENABLE_CHROMIUM_SANDBOX !== 'true') {
+    args.unshift('--no-sandbox');
+  }
   const launchOptions = {
     headless: true,
-    args: ['--no-sandbox', '--disable-dev-shm-usage'],
+    args,
   };
   if (chromePath) {
     launchOptions.executablePath = chromePath;

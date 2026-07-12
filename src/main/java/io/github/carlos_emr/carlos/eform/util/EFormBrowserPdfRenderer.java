@@ -106,13 +106,14 @@ public class EFormBrowserPdfRenderer {
         RendererRuntime rendererRuntime = prepareRendererRuntime(tempRoot);
         Path runtimeRoot = rendererRuntime.runtimeRoot();
         Path scriptPath = runtimeRoot.resolve(MAIN_SCRIPT_NAME);
-        Path nodeModulesRoot = resolveNodeModulesRoot(runtimeRoot);
         Path outputDirectory = null;
         Path outputPdfPath = null;
         Process process = null;
         boolean success = false;
 
         try {
+            // Resolved inside the try block so a discovery failure still cleans up any staged runtime directory.
+            Path nodeModulesRoot = resolveNodeModulesRoot(runtimeRoot);
             outputDirectory = createSecureTempDirectory(tempRoot, "eform-browser-render-");
             outputPdfPath = createSecureTempFile(tempRoot, "eform-browser-render-", ".pdf");
 
@@ -307,7 +308,29 @@ public class EFormBrowserPdfRenderer {
         if (Set.of("localhost", "127.0.0.1", "::1", "0:0:0:0:0:0:0:1", "0.0.0.0", "host.docker.internal", "carlos").contains(host)) {
             return true;
         }
-        return host.matches("^(10\\.|192\\.168\\.|172\\.(1[6-9]|2\\d|3[0-1])\\.).*");
+        return isPrivateIpv4Literal(host);
+    }
+
+    /**
+     * Returns true only for complete numeric IPv4 literals inside the RFC 1918 private ranges.
+     * DNS names that merely start with a private-looking prefix (for example
+     * {@code 10.attacker.example}) must not pass this check.
+     */
+    static boolean isPrivateIpv4Literal(String host) {
+        if (host == null || !host.matches("^\\d{1,3}(\\.\\d{1,3}){3}$")) {
+            return false;
+        }
+        String[] octets = host.split("\\.");
+        int[] values = new int[4];
+        for (int index = 0; index < 4; index++) {
+            values[index] = Integer.parseInt(octets[index]);
+            if (values[index] > 255) {
+                return false;
+            }
+        }
+        return values[0] == 10
+                || (values[0] == 192 && values[1] == 168)
+                || (values[0] == 172 && values[1] >= 16 && values[1] <= 31);
     }
 
     private String resolveBaseUrl(String projectHome, HttpServletRequest request) {
@@ -340,7 +363,6 @@ public class EFormBrowserPdfRenderer {
     private Path resolveRendererTempRoot() throws PDFGenerationException {
         try {
             return resolveRendererTempRoot(
-                    CarlosProperties.getInstance().getProperty("BASE_DOCUMENT_DIR"),
                     System.getProperty(CATALINA_BASE_PROPERTY),
                     System.getProperty("java.io.tmpdir"));
         } catch (RuntimeException e) {
@@ -348,11 +370,17 @@ public class EFormBrowserPdfRenderer {
         }
     }
 
-    static Path resolveRendererTempRoot(String baseDocumentDir, String catalinaBase, String javaTmpDir) {
-        if (baseDocumentDir != null && !baseDocumentDir.isBlank()) {
-            File baseDir = PathValidationUtils.resolveConfiguredDirectory(baseDocumentDir.trim(), "BASE_DOCUMENT_DIR");
-            return Path.of(baseDir.getPath(), "eform", "browser-pdf-temp");
-        }
+    /**
+     * Resolves the managed temp root for renderer artifacts.
+     *
+     * <p>The rendered PDF is later reused by the fax flow as {@code faxFilePath}, and
+     * {@code FaxManagerImpl.validateFilePath}/{@code resolveAndValidateFilePath} only accept files
+     * under {@code DOCUMENT_DIR} or {@link PathValidationUtils#isInAllowedTempDirectory(File)}
+     * (java.io.tmpdir and the Tomcat work directories). The renderer therefore must keep its
+     * output inside those already-whitelisted temp locations; do not add roots (such as
+     * {@code BASE_DOCUMENT_DIR}) that fax path validation rejects.</p>
+     */
+    static Path resolveRendererTempRoot(String catalinaBase, String javaTmpDir) {
         if (catalinaBase != null && !catalinaBase.isBlank()) {
             File catalinaDir = PathValidationUtils.resolveConfiguredDirectory(catalinaBase.trim(), CATALINA_BASE_PROPERTY);
             return Path.of(catalinaDir.getPath(), "work", "carlos", "eform-browser-pdf-temp");
@@ -495,14 +523,19 @@ public class EFormBrowserPdfRenderer {
     private static Path createSecureTempPath(Path tempRoot, boolean directory, String prefix, String suffix) throws IOException {
         Path managedRoot = Files.createDirectories(tempRoot);
         FileAttribute<?>[] secureAttributes = securePosixAttributes(directory);
-        if (directory) {
-            return secureAttributes.length == 0
-                    ? Files.createTempDirectory(managedRoot, prefix)
-                    : Files.createTempDirectory(managedRoot, prefix, secureAttributes);
+        if (secureAttributes.length > 0) {
+            try {
+                return directory
+                        ? Files.createTempDirectory(managedRoot, prefix, secureAttributes)
+                        : Files.createTempFile(managedRoot, prefix, suffix, secureAttributes);
+            } catch (UnsupportedOperationException e) {
+                // Non-POSIX filesystem: fall back to the platform's default secure temp-file behavior.
+                logger.debug("POSIX attributes unsupported for renderer temp path under {}; falling back to defaults", managedRoot);
+            }
         }
-        return secureAttributes.length == 0
-                ? Files.createTempFile(managedRoot, prefix, suffix)
-                : Files.createTempFile(managedRoot, prefix, suffix, secureAttributes);
+        return directory
+                ? Files.createTempDirectory(managedRoot, prefix)
+                : Files.createTempFile(managedRoot, prefix, suffix);
     }
 
     private static FileAttribute<?>[] securePosixAttributes(boolean directory) {

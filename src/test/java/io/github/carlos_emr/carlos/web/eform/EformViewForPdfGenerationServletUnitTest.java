@@ -48,9 +48,15 @@ class EformViewForPdfGenerationServletUnitTest {
 
         new EformViewForPdfGenerationServlet().doGet(request, response);
 
-        verify(dispatcher).forward(argThat(forwardedRequest -> "999998".equals(forwardedRequest.getParameter("providerId"))), eq(response));
+        verify(dispatcher).forward(argThat(forwardedRequest -> {
+            jakarta.servlet.http.HttpServletRequest forwarded = (jakarta.servlet.http.HttpServletRequest) forwardedRequest;
+            return "999998".equals(forwarded.getParameter("providerId"))
+                    && java.util.Arrays.equals(new String[] {"999998"}, forwarded.getParameterValues("providerId"))
+                    && java.util.Arrays.equals(new String[] {"999998"}, forwarded.getParameterMap().get("providerId"));
+        }), eq(response));
         assertThat(response.getStatus()).isEqualTo(200);
-        assertThat(response.getHeader("Content-Security-Policy")).contains("script-src 'self'");
+        // The forwarded efmshowform_data view owns the CSP; the gate servlet must not set one.
+        assertThat(response.getHeader("Content-Security-Policy")).isNull();
     }
 
     @Test
@@ -64,6 +70,8 @@ class EformViewForPdfGenerationServletUnitTest {
         new EformViewForPdfGenerationServlet().doGet(request, response);
 
         assertThat(response.getStatus()).isEqualTo(403);
+        // Rejected renderer probes must not create a new HTTP session.
+        assertThat(request.getSession(false)).isNull();
     }
 
     @Test

@@ -32,7 +32,6 @@ class EFormBrowserPdfRendererUnitTest {
         assertThat(appPath)
                 .startsWith("/eformViewForPdfGenerationServlet?")
                 .contains("fdid=187")
-                .contains("providerId=999998")
                 .contains("providerId=999998");
     }
 
@@ -55,22 +54,9 @@ class EFormBrowserPdfRendererUnitTest {
     }
 
     @Test
-    @DisplayName("should resolve the renderer temp root under base document directory when configured")
-    void shouldResolveRendererTempRoot_underBaseDocumentDirectoryWhenConfigured() {
+    @DisplayName("should resolve the renderer temp root under catalina base so fax path validation accepts the output")
+    void shouldResolveRendererTempRoot_underCatalinaBaseWhenConfigured() {
         Path root = EFormBrowserPdfRenderer.resolveRendererTempRoot(
-                "/var/lib/carlos/documents",
-                "/var/lib/tomcat10",
-                "/tmp");
-
-        assertThat(root)
-                .isEqualTo(Paths.get("/var/lib/carlos/documents", "eform", "browser-pdf-temp"));
-    }
-
-    @Test
-    @DisplayName("should resolve the renderer temp root under catalina base when base document directory is missing")
-    void shouldResolveRendererTempRoot_underCatalinaBaseWhenBaseDocumentDirectoryMissing() {
-        Path root = EFormBrowserPdfRenderer.resolveRendererTempRoot(
-                null,
                 "/var/lib/tomcat10",
                 "/tmp");
 
@@ -83,11 +69,38 @@ class EFormBrowserPdfRendererUnitTest {
     void shouldResolveRendererTempRoot_underNamespacedSystemTempFallback() {
         Path root = EFormBrowserPdfRenderer.resolveRendererTempRoot(
                 null,
-                null,
                 "/tmp");
 
         assertThat(root)
                 .isEqualTo(Paths.get("/tmp", "carlos-eform-browser-pdf-temp"));
+    }
+
+    @Test
+    @DisplayName("should accept only complete private IPv4 literals for the renderer host check")
+    void shouldAcceptOnlyPrivateIpv4Literals_forRendererHostCheck() {
+        assertThat(EFormBrowserPdfRenderer.isLocalRendererHost("10.0.0.5")).isTrue();
+        assertThat(EFormBrowserPdfRenderer.isLocalRendererHost("192.168.1.20")).isTrue();
+        assertThat(EFormBrowserPdfRenderer.isLocalRendererHost("172.16.0.1")).isTrue();
+        assertThat(EFormBrowserPdfRenderer.isLocalRendererHost("10.attacker.example")).isFalse();
+        assertThat(EFormBrowserPdfRenderer.isLocalRendererHost("192.168.evil.example")).isFalse();
+        assertThat(EFormBrowserPdfRenderer.isLocalRendererHost("10.0.0.999")).isFalse();
+        assertThat(EFormBrowserPdfRenderer.isLocalRendererHost("172.32.0.1")).isFalse();
+    }
+
+    @Test
+    @DisplayName("should keep the bundled renderer scripts identical to the checkout scripts")
+    void shouldKeepBundledRendererScripts_identicalToCheckoutScripts() throws IOException {
+        for (String scriptName : List.of("eform-browser-pdf-render.js", "eform-local-playwright-utils.js")) {
+            try (InputStream inputStream = getClass().getClassLoader().getResourceAsStream(
+                    "io/github/carlos_emr/carlos/eform/browserpdf/" + scriptName)) {
+                assertThat(inputStream).as("bundled resource %s", scriptName).isNotNull();
+                String bundled = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
+                String checkout = Files.readString(Paths.get("scripts", scriptName));
+                assertThat(bundled)
+                        .as("bundled %s must stay in sync with scripts/%s", scriptName, scriptName)
+                        .isEqualTo(checkout);
+            }
+        }
     }
 
     @Test

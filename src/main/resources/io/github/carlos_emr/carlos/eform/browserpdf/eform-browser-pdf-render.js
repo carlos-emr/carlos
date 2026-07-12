@@ -193,10 +193,26 @@ async function main() {
   fs.mkdirSync(outputDir, { recursive: true });
 
   const browser = await chromium.launch(getLaunchOptions(rawChromePath));
-  const page = await browser.newPage({ viewport: { width: 1800, height: 3200 } });
+  const context = await browser.newContext({ viewport: { width: 1800, height: 3200 } });
   if (rawCookieHeader) {
-    await page.setExtraHTTPHeaders({ Cookie: rawCookieHeader });
+    // Scope the session cookie to the renderer origin instead of a page-wide extra header,
+    // so it can never be sent to other hosts referenced by the rendered page.
+    const cookies = rawCookieHeader.split(';')
+      .map((pair) => pair.trim())
+      .filter((pair) => pair.includes('='))
+      .map((pair) => {
+        const separator = pair.indexOf('=');
+        return {
+          name: pair.slice(0, separator).trim(),
+          value: pair.slice(separator + 1).trim(),
+          url: `${baseUrl.origin}/`,
+        };
+      });
+    if (cookies.length) {
+      await context.addCookies(cookies);
+    }
   }
+  const page = await context.newPage();
   const consoleIssues = [];
   const pageErrors = [];
   page.on('console', (message) => {
@@ -222,9 +238,6 @@ async function main() {
   if (captureFiles.length === 0) {
     throw new Error('Playwright completed without creating any page captures');
   }
-
-  const manifestPath = path.join(outputDir, 'manifest.json');
-  fs.writeFileSync(manifestPath, JSON.stringify({ captureFiles }, null, 2));
 
   if (consoleIssues.length || pageErrors.length) {
     const details = { consoleIssues, pageErrors };

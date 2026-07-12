@@ -273,11 +273,7 @@ public class Fax2Action extends ActionSupport {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", "r", null)) {
-            try {
-                response.sendError(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
-            } catch (IOException e) {
-                logger.error("Error sending forbidden response in getPreview", e);
-            }
+            sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
             return;
         }
         String requestedFaxFilePath = request.getParameter(FAX_FILE_PATH_PARAM);
@@ -323,19 +319,11 @@ public class Fax2Action extends ActionSupport {
                     response.setContentType("application/pdf");
                 } catch (SecurityException e) {
                     logger.error("Security validation failed for file path: {}", LogSafe.sanitize(requestedFaxFilePath, 1024), e);
-                    try {
-                        response.sendError(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
-                    } catch (IOException ex) {
-                        logger.error(ERROR_SENDING_ERROR_RESPONSE, ex);
-                    }
+                    sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
                     return;
                 } catch (IOException e) {
                     logger.error("File not found or error processing file path: {}", LogSafe.sanitize(requestedFaxFilePath, 1024), e);
-                    try {
-                        response.sendError(HttpServletResponse.SC_NOT_FOUND, "File not found");
-                    } catch (IOException ex) {
-                        logger.error(ERROR_SENDING_ERROR_RESPONSE, ex);
-                    }
+                    sendErrorQuietly(HttpServletResponse.SC_NOT_FOUND, "File not found");
                     return;
                 }
             }
@@ -431,11 +419,7 @@ public class Fax2Action extends ActionSupport {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)) {
-            try {
-                response.sendError(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
-            } catch (IOException e) {
-                logger.error("Error sending forbidden response in getPageCount", e);
-            }
+            sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
             return;
         }
         String jobId = request.getParameter("jobId");
@@ -457,7 +441,7 @@ public class Fax2Action extends ActionSupport {
                 return faxManager.getPageCount(loggedInInfo, Integer.parseInt(jobId));
             } catch (NumberFormatException e) {
                 logger.warn("Invalid jobId supplied for fax page count: {}", LogSafe.sanitize(jobId, 1024), e);
-                sendPageCountError(HttpServletResponse.SC_BAD_REQUEST, "Invalid jobId");
+                sendErrorQuietly(HttpServletResponse.SC_BAD_REQUEST, "Invalid jobId");
                 return 0;
             }
         }
@@ -471,15 +455,18 @@ public class Fax2Action extends ActionSupport {
             }
         } catch (SecurityException e) {
             logger.error("Security validation failed for page count path: {}", LogSafe.sanitize(requestedFaxFilePath, 1024), e);
-            sendPageCountError(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
+            sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
         } catch (IOException e) {
             logger.error("File not found or error processing page count path: {}", LogSafe.sanitize(requestedFaxFilePath, 1024), e);
-            sendPageCountError(HttpServletResponse.SC_NOT_FOUND, "File not found");
+            sendErrorQuietly(HttpServletResponse.SC_NOT_FOUND, "File not found");
         }
         return 0;
     }
 
-    private void sendPageCountError(int statusCode, String message) {
+    /**
+     * Sends an HTTP error response, quietly logging (rather than propagating) any IO failure.
+     */
+    private void sendErrorQuietly(int statusCode, String message) {
         try {
             response.sendError(statusCode, message);
         } catch (IOException ex) {

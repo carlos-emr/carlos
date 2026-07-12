@@ -101,7 +101,10 @@ class EformDataManagerImplCreatePdfUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should throw PDFGenerationException when browser renderer returns an unreadable path")
     void shouldThrowPdfGenerationException_whenBrowserRendererReturnsUnreadablePath() throws Exception {
-        Path pdfPath = Path.of("/tmp/eform-rendered.pdf");
+        // Create a unique temp path and delete it so the renderer result is guaranteed unreadable,
+        // regardless of any files other processes may have left in the shared temp directory.
+        Path pdfPath = Files.createTempFile("eform-rendered-missing-", ".pdf");
+        Files.deleteIfExists(pdfPath);
         when(eFormBrowserPdfRenderer.renderSavedEformPdf(77, "999998")).thenReturn(pdfPath);
 
         assertThatThrownBy(() -> manager.createEformPDF(loggedInInfo, 77))

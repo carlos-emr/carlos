@@ -31,6 +31,9 @@
 package io.github.carlos_emr.carlos.web.eform;
 
 import java.io.IOException;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.ServletException;
@@ -38,6 +41,7 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequestWrapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
 import org.apache.logging.log4j.Logger;
 
@@ -52,7 +56,6 @@ public final class EformViewForPdfGenerationServlet extends HttpServlet {
     public static final String SKIP_HTML_INJECTION_ATTRIBUTE = EformViewForPdfGenerationServlet.class.getName() + ".skipHtmlInjection";
 
     private static final Logger logger = MiscUtils.getLogger();
-    private static final String BROWSER_RENDER_CSP = "default-src 'self' data:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; object-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'";
 
     @Override
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
@@ -79,7 +82,9 @@ public final class EformViewForPdfGenerationServlet extends HttpServlet {
             }
 
             response.setHeader("X-Content-Type-Options", "nosniff");
-            response.setHeader("Content-Security-Policy", BROWSER_RENDER_CSP);
+            // Content-Security-Policy is intentionally NOT set here: the forwarded
+            // /eform/efmshowform_data view (efmshowform_data.jsp) owns and sets the effective
+            // CSP for the rendered form surface, and any header set here would be overwritten.
             request.setAttribute(SKIP_HTML_INJECTION_ATTRIBUTE, Boolean.TRUE);
 
             RequestDispatcher requestDispatcher = request.getRequestDispatcher("/eform/efmshowform_data");
@@ -96,7 +101,9 @@ public final class EformViewForPdfGenerationServlet extends HttpServlet {
     }
 
     String authorizedRendererProviderNo(HttpServletRequest request, String providerNo) {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        // Use getSession(false) so rejected renderer probes never create a new HTTP session.
+        HttpSession session = request.getSession(false);
+        LoggedInInfo loggedInInfo = session == null ? null : LoggedInInfo.getLoggedInInfoFromSession(session);
         if (loggedInInfo == null || loggedInInfo.getLoggedInProvider() == null || loggedInInfo.getLoggedInSecurity() == null) {
             logger.warn("Renderer request rejected: no authenticated session was present");
             return null;
@@ -120,6 +127,21 @@ public final class EformViewForPdfGenerationServlet extends HttpServlet {
                     return canonicalProviderNo;
                 }
                 return super.getParameter(name);
+            }
+
+            @Override
+            public String[] getParameterValues(String name) {
+                if ("providerId".equals(name)) {
+                    return new String[] {canonicalProviderNo};
+                }
+                return super.getParameterValues(name);
+            }
+
+            @Override
+            public Map<String, String[]> getParameterMap() {
+                Map<String, String[]> parameterMap = new HashMap<>(super.getParameterMap());
+                parameterMap.put("providerId", new String[] {canonicalProviderNo});
+                return Collections.unmodifiableMap(parameterMap);
             }
         };
     }

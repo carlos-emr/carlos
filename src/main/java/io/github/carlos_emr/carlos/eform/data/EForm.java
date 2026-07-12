@@ -83,8 +83,8 @@ public class EForm extends EFormBase {
     private static final String LOAD_SIG_FUNCTION = "function loadSig(";
     private static final String LOAD_SIG_WINDOW = "window.loadSig";
     private static final String LOAD_SIG_FALLBACK = "window.loadSig = window.loadSig || function loadSig() {};";
-    private static final Pattern LEGACY_SET_TIMEOUT_PATTERN = Pattern.compile("setTimeout\\(\\s*+\'([^\'\\r\\n]++)\'\\s*+,\\s*+([^)]++)\\)");
-    private static final Pattern LEGACY_SET_INTERVAL_PATTERN = Pattern.compile("setInterval\\(\\s*+\'([^\'\\r\\n]++)\'\\s*+,\\s*+([^)]++)\\)");
+    private static final Pattern LEGACY_SET_TIMEOUT_PATTERN = Pattern.compile("setTimeout\\(\\s*+(['\"])((?:(?!\\1)[^\\r\\n])*+)\\1\\s*+,\\s*+([^)]++)\\)");
+    private static final Pattern LEGACY_SET_INTERVAL_PATTERN = Pattern.compile("setInterval\\(\\s*+(['\"])((?:(?!\\1)[^\\r\\n])*+)\\1\\s*+,\\s*+([^)]++)\\)");
     private static final Pattern INLINE_SCRIPT_PATTERN = Pattern.compile("(?is)<script\\b(?![^>]*\\bsrc\\s*=)([^>]*)>(.*?)</script>");
 
     private String runtimeContextPath;
@@ -481,7 +481,7 @@ public class EForm extends EFormBase {
         Matcher matcher = pattern.matcher(html);
         StringBuffer rewritten = new StringBuffer();
         while (matcher.find()) {
-            String replacement = timerFunction + "(function(){ " + matcher.group(1) + " }, " + matcher.group(2) + ")";
+            String replacement = timerFunction + "(function(){ " + matcher.group(2) + " }, " + matcher.group(3) + ")";
             matcher.appendReplacement(rewritten, Matcher.quoteReplacement(replacement));
         }
         matcher.appendTail(rewritten);

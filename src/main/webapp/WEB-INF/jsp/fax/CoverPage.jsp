@@ -513,6 +513,7 @@
             var image = $("<img />")
                 .attr("src", ctx + "/fax/faxAction?method=getPreview&showAs=image&faxFilePath=" + encodeURIComponent(faxFilePath) + "&pageNumber=" + i)
                 .attr("alt", "Fax preview page " + i)
+                .attr("loading", "lazy")
                 .addClass("img-fluid border rounded bg-white")
                 .css("background-image", "url('" + ctx + "/images/loader.gif')")
                 .css("background-position", "50% 50%")

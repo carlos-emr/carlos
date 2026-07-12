@@ -129,4 +129,19 @@ class EFormSetContextPathUnitTest {
                 .contains("setInterval(function(){ tick() }, 400)");
     }
 
+    @Test
+    @DisplayName("should rewrite legacy string timers with double-quoted code bodies")
+    void shouldRewriteLegacyStringTimers_withDoubleQuotedCodeBodies() {
+        EForm eform = new EForm();
+        eform.setFormHtml("<html><body>"
+                + "<script>setTimeout(\"loadSig()\", 300); setInterval(\"say('hi')\", 400);</script>"
+                + "</body></html>");
+
+        eform.setContextPath("/carlos");
+
+        assertThat(eform.getFormHtml())
+                .contains("setTimeout(function(){ loadSig() }, 300)")
+                .contains("setInterval(function(){ say('hi') }, 400)");
+    }
+
 }
