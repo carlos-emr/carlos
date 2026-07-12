@@ -375,8 +375,8 @@ public class Fax2Action extends ActionSupport {
         String actionForward = ERROR;
         Path pdfPath = null;
         List<FaxConfig> accounts = faxManager.getFaxGatewayAccounts(loggedInInfo);
-        logger.info("prepareFax start: transactionType={} transactionId={} demographicNo={} accounts={} recipient={} faxFilePath={}",
-                transactionType, transactionId, demographicNo, accounts.size(), LogSafe.sanitize(recipient, 1024), LogSafe.sanitize(faxFilePath, 1024));
+        logger.debug("prepareFax start: transactionType={} transactionId={} accounts={}",
+                transactionType, transactionId, accounts.size());
 
         /*
          * No fax accounts - No Fax.
@@ -389,8 +389,7 @@ public class Fax2Action extends ActionSupport {
 
                 try {
                     pdfPath = documentAttachmentManager.renderEFormWithAttachments(request, response);
-                    logger.info("prepareFax renderEFormWithAttachments returned path={} readable={} exists={}",
-                            pdfPath,
+                    logger.debug("prepareFax renderEFormWithAttachments returned readable={} exists={}",
                             pdfPath != null && Files.isReadable(pdfPath),
                             pdfPath != null && Files.exists(pdfPath));
                 } catch (PDFGenerationException e) {
@@ -419,8 +418,8 @@ public class Fax2Action extends ActionSupport {
             actionForward = "preview";
         }
 
-        logger.info("prepareFax end: transactionId={} actionForward={} pdfPath={} responseCommitted={}",
-                transactionId, actionForward, pdfPath, response.isCommitted());
+        logger.debug("prepareFax end: transactionId={} actionForward={} responseCommitted={}",
+                transactionId, actionForward, response.isCommitted());
         return actionForward;
     }
 

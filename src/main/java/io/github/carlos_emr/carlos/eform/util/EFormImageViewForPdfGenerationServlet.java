@@ -160,6 +160,9 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
 
     private static String extension(String fileName) {
         int dot = fileName.lastIndexOf('.');
+        if (dot < 0 || dot == fileName.length() - 1) {
+            return "";
+        }
         return fileName.substring(dot + 1);
     }
 
