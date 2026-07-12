@@ -322,11 +322,15 @@ public class EFormBrowserPdfRenderer {
         }
         String[] octets = host.split("\\.");
         int[] values = new int[4];
-        for (int index = 0; index < 4; index++) {
-            values[index] = Integer.parseInt(octets[index]);
-            if (values[index] > 255) {
-                return false;
+        try {
+            for (int index = 0; index < 4; index++) {
+                values[index] = Integer.parseInt(octets[index]);
+                if (values[index] > 255) {
+                    return false;
+                }
             }
+        } catch (NumberFormatException e) {
+            return false;
         }
         return values[0] == 10
                 || (values[0] == 192 && values[1] == 168)
