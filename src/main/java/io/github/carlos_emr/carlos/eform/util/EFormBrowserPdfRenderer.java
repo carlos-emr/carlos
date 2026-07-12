@@ -378,7 +378,7 @@ public class EFormBrowserPdfRenderer {
      * under {@code DOCUMENT_DIR} or {@link PathValidationUtils#isInAllowedTempDirectory(File)}
      * (java.io.tmpdir and the Tomcat work directories). The renderer therefore must keep its
      * output inside those already-whitelisted temp locations; do not add roots (such as
-     * {@code BASE_DOCUMENT_DIR}) that fax path validation rejects.</p>
+     * {@code BASE_DOCUMENT_DIR}, removed for exactly this reason) that fax path validation rejects.</p>
      */
     static Path resolveRendererTempRoot(String catalinaBase, String javaTmpDir) {
         if (catalinaBase != null && !catalinaBase.isBlank()) {

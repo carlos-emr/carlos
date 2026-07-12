@@ -264,7 +264,6 @@ async function invokeFetchAttached(page) {
   const hasFunction = await page.evaluate(() => typeof fetchAttached === 'function'); // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- fixed helper code executed without interpolating user-controlled input
   if (!hasFunction) {
     return { hasFunction: false, text: '', html: '' };
-
   }
 
   const target = page.locator('#tdAttachedDocs');
