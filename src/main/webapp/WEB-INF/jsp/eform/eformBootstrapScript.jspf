@@ -1,0 +1,54 @@
+<%--
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    CARLOS EMR Project
+    https://github.com/carlos-emr/carlos
+--%>
+<%--
+  Fragment role: Loads the Bootstrap bundle for eForm admin pages, but ONLY when it
+  is not already present on the page.
+
+  Why the guard: these eForm pages render two ways. Standalone (direct URL / pop-out
+  window) they need their own Bootstrap. But administration/index.jsp also injects them
+  into #dynamic-content via jQuery .load(), and that shell already loads bootstrap.bundle.
+  jQuery executes the fragment's <script src> tags, so an unguarded include runs Bootstrap
+  a second time, which registers its data-api dropdown click handler twice — one click then
+  opens and immediately closes the "Create eForm" caret, so the menu never stays open.
+
+  When bootstrap is already loaded (window.bootstrap defined), skip the second copy.
+
+  Otherwise load it, but choose the method by document.readyState: during initial parse of a
+  standalone page (readyState "loading") document.write emits the tag synchronously so it is
+  ready before the page's own Bootstrap-dependent scripts run. If the fragment ever runs after
+  parsing has finished (e.g. injected via AJAX into a shell that has not provided Bootstrap),
+  document.write would implicitly call document.open() and wipe the page, so fall back to
+  appending a <script> element instead.
+--%>
+<script type="text/javascript">
+    if (typeof window.bootstrap === "undefined") {
+        var carlosBootstrapSrc = "<%= request.getContextPath() %>/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js";
+        if (document.readyState === "loading") {
+            document.write('<script type="text/javascript" src="' + carlosBootstrapSrc + '"><\/script>');
+        } else {
+            var carlosBootstrapScript = document.createElement("script");
+            carlosBootstrapScript.type = "text/javascript";
+            carlosBootstrapScript.src = carlosBootstrapSrc;
+            document.head.appendChild(carlosBootstrapScript);
+        }
+    }
+</script>
