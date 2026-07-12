@@ -4,10 +4,17 @@ import io.github.carlos_emr.carlos.commn.model.converter.EmailAttachmentDocument
 import jakarta.persistence.*;
 
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+/**
+ * Represents a file attached to an outbound email.
+ *
+ * <p>Tracks the file path, MIME type, and association to a specific
+ * email log entry for audit purposes.</p>
+ */
 
 @Entity
 @Table(name = "emailAttachment")
 public class EmailAttachment extends AbstractModel<Integer> {
+    // Validate file paths using PathValidationUtils to prevent directory traversal
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -7,11 +7,18 @@ import jakarta.persistence.IdClass;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+/**
+ * Represents the binary payload of an electronic referral attachment.
+ *
+ * <p>Stores the actual file content separately from metadata to optimize
+ * database performance during standard queries.</p>
+ */
 
 @Entity
 @IdClass(EReferAttachmentDataCompositeKey.class)
 @Table(name = "erefer_attachment_data")
 public class EReferAttachmentData extends AbstractModel<EReferAttachmentDataCompositeKey> {
+    // Stream binary data directly to the response to minimize memory consumption
     @Id
     @ManyToOne
     @JoinColumn(name = "erefer_attachment_id", referencedColumnName = "id")

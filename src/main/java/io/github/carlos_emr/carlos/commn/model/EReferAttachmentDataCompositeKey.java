@@ -5,8 +5,15 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import java.io.Serializable;
 import java.util.Objects;
+/**
+ * Composite primary key for the eReferral attachment data entity.
+ *
+ * <p>Uniquely identifies the binary blob associated with a specific
+ * referral transmission.</p>
+ */
 
 public class EReferAttachmentDataCompositeKey implements Serializable {
+    // Ensure the composite key fields are immutable once set
     @ManyToOne
     @JoinColumn(name = "erefer_attachment_id", referencedColumnName = "id")
     private EReferAttachment eReferAttachment;

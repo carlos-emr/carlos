@@ -11,10 +11,17 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.util.Date;
 import java.util.List;
+/**
+ * Represents the metadata for an electronic referral attachment.
+ *
+ * <p>Links a specific file (e.g., PDF, image) to an outgoing eReferral,
+ * tracking its transmission status and file type.</p>
+ */
 
 @Entity
 @Table(name = "erefer_attachment")
 public class EReferAttachment extends AbstractModel<Integer> {
+    // Verify MIME types against an allowed list before attaching
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	@Column(name = "id")

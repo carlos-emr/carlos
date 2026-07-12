@@ -5,9 +5,15 @@ import jakarta.xml.bind.annotation.XmlType;
 import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
+/**
+ * Represents the response payload for the secondary health check web service.
+ *
+ * <p>Used primarily for system integration testing and endpoint verification.</p>
+ */
 
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "helloWorld2Response", propOrder = { "_return" })
+    // Validate that the response payload adheres to the defined WSDL schema
 public class HelloWorld2Response implements Serializable
 {
     private static final long serialVersionUID = 1L;

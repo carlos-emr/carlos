@@ -13,8 +13,15 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
+/**
+ * Base class or marker for actions that return JSON responses.
+ *
+ * <p>Ensures that the Struts framework properly configures the response
+ * headers and avoids rendering JSP views for these endpoints.</p>
+ */
 
 public class JSONAction extends ActionSupport {
+    // Ensure the Content-Type header is strictly set to application/json
 
     private final String ENCODING = "UTF-8";
     private final String CONTENT_TYPE = "application/json";

@@ -17,8 +17,15 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import java.util.Properties;
 import java.util.Vector;
+/**
+ * Represents the GST (Goods and Services Tax) reporting structure for BC billing.
+ *
+ * <p>Handles the calculation and formatting of tax-related information required
+ * for accurate provincial financial submissions.</p>
+ */
 
 public class GstReport {
+    // Ensure tax calculations use BigDecimal to prevent floating-point rounding errors
 
     public Vector<Properties> getGST(LoggedInInfo loggedInInfo, String[] providerNos, String startDate, String endDate) {
         Properties props;

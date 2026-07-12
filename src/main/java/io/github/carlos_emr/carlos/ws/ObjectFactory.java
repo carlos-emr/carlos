@@ -4,10 +4,16 @@ import jakarta.xml.bind.annotation.XmlElementDecl;
 import jakarta.xml.bind.JAXBElement;
 import javax.xml.namespace.QName;
 import jakarta.xml.bind.annotation.XmlRegistry;
+/**
+ * Auto-generated factory class for instantiating web service model objects.
+ *
+ * <p>Provides standardized creation of XML-bound types used in SOAP communication.</p>
+ */
 
 @XmlRegistry
 public class ObjectFactory
 {
+    // Maintain precise XML namespace mappings to prevent SOAP unmarshalling errors
     private static final QName _HelloWorld_QNAME;
     private static final QName _HelloWorld2_QNAME;
     private static final QName _HelloWorld2Response_QNAME;

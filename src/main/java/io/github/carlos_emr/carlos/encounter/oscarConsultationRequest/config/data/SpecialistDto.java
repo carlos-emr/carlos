@@ -1,6 +1,13 @@
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.data;
+/**
+ * Data Transfer Object representing a specialist provider.
+ *
+ * <p>Encapsulates the contact and professional details needed when generating
+ * an outgoing consultation request or referral.</p>
+ */
 
 public class SpecialistDto {
+    // Ensure the specialist's billing number is included for referral tracking
     private Integer specId;
     private String name;
     private String phone;

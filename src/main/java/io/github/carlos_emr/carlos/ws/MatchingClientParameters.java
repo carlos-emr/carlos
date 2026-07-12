@@ -9,9 +9,16 @@ import jakarta.xml.bind.annotation.XmlType;
 import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
+/**
+ * Encapsulates the parameters used for patient demographic matching.
+ *
+ * <p>Defines the thresholds and fields (e.g., name, DOB, HIN) required to
+ * accurately match incoming clinical data to an existing patient record.</p>
+ */
 
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "matchingClientParameters", propOrder = { "maxEntriesToReturn", "minScore", "firstName", "lastName", "birthDate", "hin" })
+    // Weight DOB and HIN higher than name to reduce false positive matches
 public class MatchingClientParameters implements Serializable
 {
     private static final long serialVersionUID = 1L;

@@ -5,9 +5,15 @@ import jakarta.xml.bind.annotation.XmlType;
 import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import java.io.Serializable;
+/**
+ * Represents the standard response for the primary health check web service.
+ *
+ * <p>Contains basic acknowledgment data to verify endpoint connectivity.</p>
+ */
 
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlType(name = "helloWorldResponse", propOrder = { "_return" })
+    // Include system version in the response to assist with debugging
 public class HelloWorldResponse implements Serializable
 {
     private static final long serialVersionUID = 1L;

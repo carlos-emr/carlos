@@ -4,10 +4,17 @@ import io.github.carlos_emr.carlos.commn.model.converter.EmailConfigProviderConv
 import io.github.carlos_emr.carlos.commn.model.converter.EmailConfigTypeConverter;
 import jakarta.persistence.*;
 import java.util.List;
+/**
+ * Configuration entity for SMTP and email server settings.
+ *
+ * <p>Stores the credentials, host, and port information required for the
+ * system to dispatch outbound notifications and reports.</p>
+ */
 
 @Entity
 @Table(name = "emailConfig")
 public class EmailConfig extends AbstractModel<Integer> {
+    // Never log SMTP passwords or authentication tokens
 
     public enum EmailType {
         SMTP,

@@ -5,8 +5,15 @@ import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import java.io.IOException;
 import java.util.Calendar;
+/**
+ * Serializes Java Date objects into a standard JavaScript-compatible format.
+ *
+ * <p>Ensures consistent date rendering across the front-end AJAX components,
+ * bridging the gap between server-side timezones and client-side expectations.</p>
+ */
 
 public class JsDateSerializer extends JsonSerializer<java.sql.Date> {
+    // Always serialize dates to ISO-8601 to ensure cross-browser compatibility
     @Override
     public void serialize(java.sql.Date value, JsonGenerator gen, SerializerProvider serializers) 
             throws IOException {

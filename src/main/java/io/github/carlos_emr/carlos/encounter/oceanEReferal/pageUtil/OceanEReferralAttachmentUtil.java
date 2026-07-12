@@ -9,8 +9,15 @@ import io.github.carlos_emr.carlos.commn.dao.EReferAttachmentDataDaoImpl;
 import io.github.carlos_emr.carlos.commn.model.EReferAttachment;
 import io.github.carlos_emr.carlos.commn.model.EReferAttachmentData;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+/**
+ * Utility for processing and attaching documents to Ocean eReferrals.
+ *
+ * <p>Handles the extraction, conversion, and packaging of clinical notes
+ * and lab results for secure electronic transmission.</p>
+ */
 
 public class OceanEReferralAttachmentUtil {
+    // Compress large attachments before encoding to prevent transmission timeouts
     private static EReferAttachmentDataDaoImpl eReferAttachmentDataDao = SpringUtils.getBean(EReferAttachmentDataDaoImpl.class);
     private static EReferAttachmentDaoImpl eReferAttachmentDao = SpringUtils.getBean(EReferAttachmentDaoImpl.class);
 
