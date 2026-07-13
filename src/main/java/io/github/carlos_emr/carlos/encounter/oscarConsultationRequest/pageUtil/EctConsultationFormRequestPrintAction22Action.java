@@ -26,6 +26,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -38,7 +39,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import org.apache.commons.codec.CharEncoding;
 import org.openpdf.text.DocumentException;
 
 import org.apache.logging.log4j.Logger;
@@ -452,8 +452,8 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
         return formTransportContainer;
     }
 
-    private String encodeQueryValue(String value) throws IOException {
-        return URLEncoder.encode(String.valueOf(value), CharEncoding.UTF_8);
+    private String encodeQueryValue(String value) {
+        return URLEncoder.encode(String.valueOf(value), StandardCharsets.UTF_8);
     }
 
     private String resolveConsultationDemographicNo(String requestId, String submittedDemographicNo) {
