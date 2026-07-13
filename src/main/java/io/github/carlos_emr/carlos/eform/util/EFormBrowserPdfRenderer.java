@@ -171,13 +171,13 @@ public class EFormBrowserPdfRenderer {
     }
 
     static String buildAppPath(int fdid, String providerId) {
-        StringBuilder path = new StringBuilder("/eformViewForPdfGenerationServlet?fdid=")
+        StringBuilder path = new StringBuilder("/EFormViewForPdfGenerationServlet?fdid=")
                 .append(fdid);
         if (providerId != null && !providerId.isBlank()) {
             path.append("&providerId=")
                     .append(URLEncoder.encode(providerId, StandardCharsets.UTF_8));
         }
-        return path.toString();
+        return path.append("&browserRender=true").toString();
     }
 
 

@@ -30,9 +30,10 @@ class EFormBrowserPdfRendererUnitTest {
         String appPath = EFormBrowserPdfRenderer.buildAppPath(187, "999998");
 
         assertThat(appPath)
-                .startsWith("/eformViewForPdfGenerationServlet?")
+                .startsWith("/EFormViewForPdfGenerationServlet?")
                 .contains("fdid=187")
-                .contains("providerId=999998");
+                .contains("providerId=999998")
+                .contains("browserRender=true");
     }
 
 
@@ -199,13 +200,13 @@ class EFormBrowserPdfRendererUnitTest {
         EFormBrowserPdfRenderer.applyRendererEnvironment(
                 environment,
                 "http://127.0.0.1:8080/carlos/",
-                "/eformViewForPdfGenerationServlet?fdid=187&providerId=999998",
+                "/EFormViewForPdfGenerationServlet?fdid=187&providerId=999998&browserRender=true",
                 "JSESSIONID=abc123",
                 "/root/.cache/ms-playwright/chromium-1223/chrome-linux64/chrome");
 
         assertThat(environment)
                 .containsEntry("CARLOS_EFORM_RENDER_BASE_URL", "http://127.0.0.1:8080/carlos")
-                .containsEntry("CARLOS_EFORM_RENDER_APP_PATH", "/eformViewForPdfGenerationServlet?fdid=187&providerId=999998")
+                .containsEntry("CARLOS_EFORM_RENDER_APP_PATH", "/EFormViewForPdfGenerationServlet?fdid=187&providerId=999998&browserRender=true")
                 .containsEntry("CARLOS_EFORM_RENDER_COOKIE_HEADER", "JSESSIONID=abc123")
                 .containsEntry("CARLOS_EFORM_RENDER_CHROME_PATH", "/root/.cache/ms-playwright/chromium-1223/chrome-linux64/chrome");
     }
@@ -214,7 +215,7 @@ class EFormBrowserPdfRendererUnitTest {
         EFormBrowserPdfRenderer.applyRendererEnvironment(
                 new HashMap<>(),
                 "https://evil.example/steal",
-                "/eformViewForPdfGenerationServlet?fdid=187",
+                "/EFormViewForPdfGenerationServlet?fdid=187&browserRender=true",
                 null,
                 null);
     }
