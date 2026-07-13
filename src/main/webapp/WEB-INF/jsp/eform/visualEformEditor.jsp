@@ -3217,7 +3217,7 @@ var EFORM_I18N = {
             }).append($custDimensionX).append($custDimensionY);
 
             var labels = [EFORM_I18N.optPortrait, EFORM_I18N.optLandscape, EFORM_I18N.optCustom];
-            var $orinetationRadioGroup = addRadioGroup($element, "gen-orientation", "Orientation", labels);
+            var $orinetationRadioGroup = addRadioGroup($element, "gen-orientation", "<fmt:message key="eFormGenerator.imageOrientation"/>", labels);
             $orinetationRadioGroup.on("change", function(e) {
                 var value = parseInt($(e.target).val());
                 setPageOrientation(value);
@@ -5316,7 +5316,7 @@ var EFORM_I18N = {
                 <form id="inputForm" action="get">
                     <div id="BottomButtons" class="DoNotPrint">
                         <!-- Form Control Buttons -->
-						<label for="subject"><fmt:message key="eform.visual.editor.label.subject"/></label>
+                        <label for="subject"><fmt:message key="eform.visual.editor.label.subject"/></label>
                         <input id="subject" name="subject" style="width: 220px;" type="text">
                         <input id="SubmitButton" name="SubmitButton" onclick="onEformSubmit();" type="button" value="<fmt:message key="eform.visual.editor.button.submit"/>">
                         <input id="PrintButton" name="PrintButton" onclick="onEformPrint()" type="button" value="<fmt:message key="eform.visual.editor.button.print"/>">
