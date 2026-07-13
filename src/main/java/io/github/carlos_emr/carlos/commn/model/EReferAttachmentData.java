@@ -7,6 +7,9 @@ import jakarta.persistence.IdClass;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+/**
+ * JPA Entity representing the physical binary payload or the reference URI for a document attached to an eReferral.
+ */
 
 @Entity
 @IdClass(EReferAttachmentDataCompositeKey.class)

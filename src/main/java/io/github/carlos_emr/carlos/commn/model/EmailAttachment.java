@@ -4,6 +4,9 @@ import io.github.carlos_emr.carlos.commn.model.converter.EmailAttachmentDocument
 import jakarta.persistence.*;
 
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+/**
+ * JPA Entity linking physical binary document data to an outbound email log record to maintain audit trails for attachments.
+ */
 
 @Entity
 @Table(name = "emailAttachment")

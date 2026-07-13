@@ -1,4 +1,7 @@
 package io.github.carlos_emr.carlos.integration.ebs;
+/**
+ * Main initialization and entry point for the Electronic Biller System (EBS) integration and lifecycle hooks.
+ */
 
 public class App
 {

@@ -1,4 +1,7 @@
 package io.github.carlos_emr.carlos.commn.model.enumerator;
+/**
+ * Enumeration of supported clinical and administrative document formats and MIME types within the CARLOS system.
+ */
 
 public enum DocumentType {
     EFORM("E", "eForm"),

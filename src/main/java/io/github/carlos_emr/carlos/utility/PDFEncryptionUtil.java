@@ -8,6 +8,9 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.encryption.AccessPermission;
 import org.apache.pdfbox.pdmodel.encryption.StandardProtectionPolicy;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+/**
+ * Utility for encrypting and securing PDF documents using BouncyCastle, ensuring data remains confidential before transit or storage.
+ */
 
 public class PDFEncryptionUtil {
     // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input

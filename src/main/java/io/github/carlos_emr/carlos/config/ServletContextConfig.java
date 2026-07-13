@@ -6,6 +6,9 @@ import org.springframework.context.annotation.Configuration;
 import jakarta.servlet.ServletContext;
 
 import org.springframework.web.context.ServletContextAware;
+/**
+ * Configures global servlet context parameters and application startup configurations for the CARLOS Struts/Spring web application.
+ */
 
 @Configuration
 public class ServletContextConfig implements ServletContextAware {

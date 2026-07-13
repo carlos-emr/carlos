@@ -5,6 +5,9 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import io.github.carlos_emr.carlos.utility.DateUtils;
+/**
+ * Data transfer object linking structured laboratory result datasets to their corresponding physical attachments.
+ */
 
 public class AttachmentLabResultData {
     private String segmentID;

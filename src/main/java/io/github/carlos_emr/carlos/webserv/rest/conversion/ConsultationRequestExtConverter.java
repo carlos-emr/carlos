@@ -3,6 +3,9 @@ package io.github.carlos_emr.carlos.webserv.rest.conversion;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequestExt;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationRequestExtTo1;
+/**
+ * Converter responsible for transforming domain consultation request entities into their external DTO representations.
+ */
 
 public class ConsultationRequestExtConverter extends AbstractConverter<ConsultationRequestExt, ConsultationRequestExtTo1> {
     @Override

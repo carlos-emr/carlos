@@ -5,6 +5,9 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import java.io.Serializable;
 import java.util.Objects;
+/**
+ * Composite primary key class resolving compound identity constraints for the EReferAttachmentData entity.
+ */
 
 public class EReferAttachmentDataCompositeKey implements Serializable {
     @ManyToOne

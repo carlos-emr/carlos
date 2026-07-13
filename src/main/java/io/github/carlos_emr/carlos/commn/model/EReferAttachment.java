@@ -11,6 +11,9 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.util.Date;
 import java.util.List;
+/**
+ * JPA Entity representing the metadata, linking demographics, and timestamping for a referral document attachment payload.
+ */
 
 @Entity
 @Table(name = "erefer_attachment")

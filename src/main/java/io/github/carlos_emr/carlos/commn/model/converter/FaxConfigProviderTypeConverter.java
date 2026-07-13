@@ -2,6 +2,9 @@ package io.github.carlos_emr.carlos.commn.model.converter;
 
 import io.github.carlos_emr.carlos.commn.model.FaxConfig.ProviderType;
 import jakarta.persistence.Converter;
+/**
+ * JPA AttributeConverter for fax configuration provider enumerations.
+ */
 
 @Converter
 public class FaxConfigProviderTypeConverter extends NullSafeEnumConverter<ProviderType> {

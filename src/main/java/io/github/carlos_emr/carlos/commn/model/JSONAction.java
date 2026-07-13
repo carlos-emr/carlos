@@ -13,6 +13,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
+/**
+ * Abstract base Struts action providing standardized serialization methods for returning JSON-formatted asynchronous responses to the client.
+ */
 
 public class JSONAction extends ActionSupport {
 

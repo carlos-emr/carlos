@@ -2,6 +2,9 @@ package io.github.carlos_emr.carlos.commn.model.enumerator;
 
 import java.util.ArrayList;
 import java.util.List;
+/**
+ * Enumeration of standard Comprehensive Patient Profile (CPP) categorization codes used for billing and chart classification.
+ */
 
 public enum CppCode {
     OMEDS("OMeds"),

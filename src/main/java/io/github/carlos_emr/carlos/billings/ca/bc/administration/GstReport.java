@@ -17,6 +17,9 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import java.util.Properties;
 import java.util.Vector;
+/**
+ * Handles the generation of GST reports, querying billing and provider records to calculate total taxable amounts within specific date ranges.
+ */
 
 public class GstReport {
 

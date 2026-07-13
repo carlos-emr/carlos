@@ -4,6 +4,9 @@ import io.github.carlos_emr.carlos.commn.model.converter.EmailConfigProviderConv
 import io.github.carlos_emr.carlos.commn.model.converter.EmailConfigTypeConverter;
 import jakarta.persistence.*;
 import java.util.List;
+/**
+ * JPA Entity storing configuration profiles for external email providers (e.g., SMTP configurations, API keys) and sender default details.
+ */
 
 @Entity
 @Table(name = "emailConfig")

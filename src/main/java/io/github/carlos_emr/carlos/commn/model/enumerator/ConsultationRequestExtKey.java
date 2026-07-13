@@ -1,4 +1,7 @@
 package io.github.carlos_emr.carlos.commn.model.enumerator;
+/**
+ * Enumeration of keys defining external integrations and metadata tags for consultation requests.
+ */
 
 public enum ConsultationRequestExtKey {
     EREFERRAL_REF("ereferral_ref"),
