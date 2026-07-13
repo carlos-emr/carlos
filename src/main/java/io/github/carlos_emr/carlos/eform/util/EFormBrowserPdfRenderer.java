@@ -527,19 +527,13 @@ public class EFormBrowserPdfRenderer {
     private static Path createSecureTempPath(Path tempRoot, boolean directory, String prefix, String suffix) throws IOException {
         Path managedRoot = Files.createDirectories(tempRoot);
         FileAttribute<?>[] secureAttributes = securePosixAttributes(directory);
-        if (secureAttributes.length > 0) {
-            try {
-                return directory
-                        ? Files.createTempDirectory(managedRoot, prefix, secureAttributes)
-                        : Files.createTempFile(managedRoot, prefix, suffix, secureAttributes);
-            } catch (UnsupportedOperationException e) {
-                // Non-POSIX filesystem: fall back to the platform's default secure temp-file behavior.
-                logger.debug("POSIX attributes unsupported for renderer temp path under {}; falling back to defaults", managedRoot);
-            }
+        try {
+            return directory
+                    ? Files.createTempDirectory(managedRoot, prefix, secureAttributes)
+                    : Files.createTempFile(managedRoot, prefix, suffix, secureAttributes);
+        } catch (UnsupportedOperationException e) {
+            throw new IOException("Renderer temp path requires POSIX filesystem permissions under " + managedRoot, e);
         }
-        return directory
-                ? Files.createTempDirectory(managedRoot, prefix)
-                : Files.createTempFile(managedRoot, prefix, suffix);
     }
 
     private static FileAttribute<?>[] securePosixAttributes(boolean directory) {

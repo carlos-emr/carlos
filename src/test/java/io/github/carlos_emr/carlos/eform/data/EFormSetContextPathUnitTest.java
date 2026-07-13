@@ -144,4 +144,19 @@ class EFormSetContextPathUnitTest {
                 .contains("setInterval(function(){ say('hi') }, 400)");
     }
 
+    @Test
+    @DisplayName("should rewrite legacy string timers when the code body contains escaped matching quotes")
+    void shouldRewriteLegacyStringTimers_withEscapedMatchingQuotesInCodeBody() {
+        EForm eform = new EForm();
+        eform.setFormHtml("<html><body>"
+                + "<script>setTimeout(\"$('#field').val(\\\"done\\\")\", 100); setInterval('say(\\'hi\\')', 200);</script>"
+                + "</body></html>");
+
+        eform.setContextPath("/carlos");
+
+        assertThat(eform.getFormHtml())
+                .contains("setTimeout(function(){ $('#field').val(\\\"done\\\") }, 100)")
+                .contains("setInterval(function(){ say(\\'hi\\') }, 200)");
+    }
+
 }

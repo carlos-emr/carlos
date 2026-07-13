@@ -195,8 +195,8 @@ async function main() {
   const browser = await chromium.launch(getLaunchOptions(rawChromePath));
   const context = await browser.newContext({ viewport: { width: 1800, height: 3200 } });
   if (rawCookieHeader) {
-    // Scope the session cookie to the renderer origin instead of a page-wide extra header,
-    // so it can never be sent to other hosts referenced by the rendered page.
+    // Scope the session cookie to the validated renderer application URL instead of a page-wide
+    // extra header, so it stays confined to the intended host and app context.
     const cookies = rawCookieHeader.split(';')
       .map((pair) => pair.trim())
       .filter((pair) => pair.includes('='))
@@ -205,7 +205,7 @@ async function main() {
         return {
           name: pair.slice(0, separator).trim(),
           value: pair.slice(separator + 1).trim(),
-          url: `${baseUrl.origin}/`,
+          url: baseUrl.href,
         };
       });
     if (cookies.length) {

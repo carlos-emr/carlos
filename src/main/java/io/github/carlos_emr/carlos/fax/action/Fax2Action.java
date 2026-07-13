@@ -377,9 +377,11 @@ public class Fax2Action extends ActionSupport {
 
                 try {
                     pdfPath = documentAttachmentManager.renderEFormWithAttachments(request, response);
-                    logger.debug("prepareFax renderEFormWithAttachments returned readable={} exists={}",
-                            pdfPath != null && Files.isReadable(pdfPath),
-                            pdfPath != null && Files.exists(pdfPath));
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("prepareFax renderEFormWithAttachments returned readable={} exists={}",
+                                pdfPath != null && Files.isReadable(pdfPath),
+                                pdfPath != null && Files.exists(pdfPath));
+                    }
                 } catch (PDFGenerationException e) {
                     logger.error(e.getMessage(), e);
                     String errorMessage = "This eForm (and attachments, if applicable) cannot be faxed. \\n\\n" + e.getMessage();

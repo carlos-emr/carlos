@@ -84,10 +84,10 @@ public class EForm extends EFormBase {
     private static final String LOAD_SIG_WINDOW = "window.loadSig";
     private static final String LOAD_SIG_FALLBACK = "window.loadSig = window.loadSig || function loadSig() {};";
     // Matches legacy string-argument timer calls with either quote style. The backreference \1 pins
-    // the closing quote to the opening one, and (?:(?!\1)[^\r\n])*+ possessively consumes the quoted
-    // code body while refusing the delimiter quote and line breaks inside it.
-    private static final Pattern LEGACY_SET_TIMEOUT_PATTERN = Pattern.compile("setTimeout\\(\\s*+(['\"])((?:(?!\\1)[^\\r\\n])*+)\\1\\s*+,\\s*+([^)]++)\\)");
-    private static final Pattern LEGACY_SET_INTERVAL_PATTERN = Pattern.compile("setInterval\\(\\s*+(['\"])((?:(?!\\1)[^\\r\\n])*+)\\1\\s*+,\\s*+([^)]++)\\)");
+    // the closing quote to the opening one, while the body consumes either escaped characters or
+    // any non-delimiter, non-line-break content so escaped quotes do not terminate the match early.
+    private static final Pattern LEGACY_SET_TIMEOUT_PATTERN = Pattern.compile("setTimeout\\(\\s*+(['\"])((?:\\\\.|(?!\\1)[^\\r\\n])*+)\\1\\s*+,\\s*+([^)]++)\\)");
+    private static final Pattern LEGACY_SET_INTERVAL_PATTERN = Pattern.compile("setInterval\\(\\s*+(['\"])((?:\\\\.|(?!\\1)[^\\r\\n])*+)\\1\\s*+,\\s*+([^)]++)\\)");
     private static final Pattern INLINE_SCRIPT_PATTERN = Pattern.compile("(?is)<script\\b(?![^>]*\\bsrc\\s*=)([^>]*)>(.*?)</script>");
 
     private String runtimeContextPath;
