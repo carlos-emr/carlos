@@ -229,7 +229,7 @@ async function main() {
 
   const baseUrl = validateBaseUrl(rawBaseUrl);
   const outputDir = path.resolve(args['output-dir']);
-  fs.mkdirSync(outputDir, { recursive: true });
+  assert(fs.existsSync(outputDir) && fs.statSync(outputDir).isDirectory(), `Renderer output directory must already exist, got ${outputDir}`);
 
   const browser = await chromium.launch(getLaunchOptions(rawChromePath));
   const context = await browser.newContext({ viewport: { width: 1800, height: 3200 } });
