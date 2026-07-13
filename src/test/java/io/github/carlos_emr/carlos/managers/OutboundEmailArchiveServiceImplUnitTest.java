@@ -22,6 +22,7 @@
 
 package io.github.carlos_emr.carlos.managers;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.EmailLogDao;
 import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
@@ -44,12 +45,17 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -168,6 +174,43 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         verify(documentManager).createDocument(eq(loggedInInfo), documentCaptor.capture(), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES));
         assertThat(documentCaptor.getValue().getDocfilename()).startsWith("outbound-email-44-").endsWith(".eml");
         assertThat(archive.getOriginalFileName()).isEqualTo("Jane-Smith-1970-01-01-referral.eml");
+    }
+
+    @Test
+    @DisplayName("should delete generated eDoc file when createDocument fails after file write")
+    void shouldDeleteGeneratedEdocFile_whenCreateDocumentFailsAfterFileWrite(@TempDir Path documentDir) throws Exception {
+        CarlosProperties props = CarlosProperties.getInstance();
+        boolean hadDocumentDir = props.containsKey("DOCUMENT_DIR");
+        Object originalDocumentDir = props.get("DOCUMENT_DIR");
+        props.setProperty("DOCUMENT_DIR", documentDir.toString());
+
+        try {
+            EmailLog emailLog = emailLog();
+            OutboundEmailArchiveDto request = archiveRequest(emailLog);
+            AtomicReference<Path> createdFile = new AtomicReference<>();
+            doAnswer(invocation -> {
+                Document documentToCreate = invocation.getArgument(1);
+                Path file = documentDir.resolve(documentToCreate.getDocfilename());
+                Files.write(file, RFC822_BYTES);
+                createdFile.set(file);
+                throw new IOException("document creation failed");
+            }).when(documentManager).createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES));
+
+            assertThatThrownBy(() -> service.archive(loggedInInfo, request))
+                    .isInstanceOf(IOException.class)
+                    .hasMessageContaining("document creation failed");
+
+            Path file = createdFile.get();
+            assertThat(file).isNotNull();
+            assertThat(file).doesNotExist();
+            verify(outboundEmailArchiveDao, never()).persist(any(OutboundEmailArchive.class));
+        } finally {
+            if (hadDocumentDir) {
+                props.put("DOCUMENT_DIR", originalDocumentDir);
+            } else {
+                props.remove("DOCUMENT_DIR");
+            }
+        }
     }
 
     @Test

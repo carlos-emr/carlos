@@ -138,7 +138,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
                     providerNo,
                     artifactBytes);
         } catch (IOException | RuntimeException e) {
-            deleteCreatedDocumentFile(document, fileName);
+            deleteArchivedDocumentFile(fileName);
             throw e;
         }
         registerRollbackCleanup(savedDocument);
@@ -498,20 +498,13 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         });
     }
 
-    private void deleteCreatedDocumentFile(Document document, String originalFileName) {
-        if (document == null || document.getDocfilename() == null || document.getDocfilename().equals(originalFileName)) {
-            return;
-        }
-        deleteArchivedDocumentFile(document.getDocfilename());
-    }
-
     private void deleteArchivedDocumentFile(String fileName) {
         try {
             File documentDirectory = PathValidationUtils.resolveConfiguredDirectory(
                     CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"),
                     "DOCUMENT_DIR");
-            String safeFileName = PathValidationUtils.validateStrictFileName(fileName);
-            File archiveFile = PathValidationUtils.validatePath(safeFileName, documentDirectory);
+            String safeFileName = PathValidationUtils.validatePathComponent(fileName, "archive eDoc filename");
+            File archiveFile = PathValidationUtils.validateExistingPath(new File(documentDirectory, safeFileName), documentDirectory);
             Files.deleteIfExists(archiveFile.toPath());
         } catch (IOException | SecurityException e) {
             MiscUtils.getLogger().warn("Failed to delete rolled back outbound email archive eDoc file: {}", e.getClass().getSimpleName());
