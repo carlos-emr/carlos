@@ -102,13 +102,53 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         this.securityInfoManager = securityInfoManager;
     }
 
-    private record ArchiveBuildContext(
-            Document savedDocument,
-            byte[] artifactBytes,
-            String contentType,
-            String archiveFileName,
-            List<OutboundEmailArchiveAttachment> attachments,
-            String providerNo) {
+    private static final class ArchiveBuildContext {
+
+        private final Document savedDocument;
+        private final byte[] artifactBytes;
+        private final String contentType;
+        private final String archiveFileName;
+        private final List<OutboundEmailArchiveAttachment> attachments;
+        private final String providerNo;
+
+        private ArchiveBuildContext(
+                Document savedDocument,
+                byte[] artifactBytes,
+                String contentType,
+                String archiveFileName,
+                List<OutboundEmailArchiveAttachment> attachments,
+                String providerNo) {
+            this.savedDocument = savedDocument;
+            this.artifactBytes = artifactBytes;
+            this.contentType = contentType;
+            this.archiveFileName = archiveFileName;
+            this.attachments = attachments;
+            this.providerNo = providerNo;
+        }
+
+        private Document savedDocument() {
+            return savedDocument;
+        }
+
+        private byte[] artifactBytes() {
+            return artifactBytes;
+        }
+
+        private String contentType() {
+            return contentType;
+        }
+
+        private String archiveFileName() {
+            return archiveFileName;
+        }
+
+        private List<OutboundEmailArchiveAttachment> attachments() {
+            return attachments;
+        }
+
+        private String providerNo() {
+            return providerNo;
+        }
     }
 
     @Override
