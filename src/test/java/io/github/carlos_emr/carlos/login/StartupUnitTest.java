@@ -466,6 +466,97 @@ class StartupUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    @Tag("read")
+    @DisplayName("should treat a key-only property set as insufficient config for the WEB-INF merge")
+    void shouldFlagKeyOnlyStub_asInsufficientConfigForWebInfMerge() {
+        //#2969 fix: only a lone encryption key counts as a
+        // "stub" that must not suppress the WEB-INF load.
+        Properties keyOnly = new Properties();
+        keyOnly.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, "AAAA");
+        assertThat(Startup.containsOnlyGeneratedEncryptionKey(keyOnly)).isTrue();
+
+        // Empty is handled by the separate p.isEmpty() branch, so the predicate itself is false here.
+        assertThat(Startup.containsOnlyGeneratedEncryptionKey(new Properties())).isFalse();
+
+        // Real config alongside the key (the common user-home deployment) must NOT trigger a re-read.
+        Properties keyPlusConfig = new Properties();
+        keyPlusConfig.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, "AAAA");
+        keyPlusConfig.setProperty("db_username", "carlos_test_user");
+        assertThat(Startup.containsOnlyGeneratedEncryptionKey(keyPlusConfig)).isFalse();
+
+        // Config present but no key (e.g. user-home config awaiting first key generation).
+        Properties configNoKey = new Properties();
+        configNoKey.setProperty("db_username", "carlos_test_user");
+        assertThat(Startup.containsOnlyGeneratedEncryptionKey(configNoKey)).isFalse();
+    }
+
+    @Test
+    @Tag("create")
+    @DisplayName("should preserve WEB-INF config when a second startup sees a key-only user-home stub")
+    void shouldPreserveWebInfConfig_whenSecondStartupSeesKeyOnlyUserHomeStub(@TempDir Path tempDir) throws Exception {
+        // Regression for issue #2969, the exact two-startup scenario the maintainer asked to cover.
+        Field keySpecField = EncryptionUtils.class.getDeclaredField("SECRET_KEY_SPEC");
+        keySpecField.setAccessible(true);
+        Object originalKeySpec = keySpecField.get(null);
+
+        CarlosProperties props = CarlosProperties.getInstance();
+        String originalUserHome = System.getProperty("user.home");
+
+        // CarlosProperties is a process-wide singleton pre-populated from /carlos.properties. Snapshot
+        // and clear it so each simulated boot starts from a known-empty set (a fresh JVM). Restored
+        // in finally so other tests in the JVM are unaffected.
+        Properties snapshot = new Properties();
+        snapshot.putAll(props);
+
+        // Context "carlosmerge" -> propName "carlosmerge.properties" -> WEB-INF resource
+        // /WEB-INF/carlosmerge.properties (src/test/resources). The unique name keeps this test from
+        // colliding with shouldAbortStartup_whenNoConfigFileExists, which drives "carlos" and relies
+        // on the WEB-INF read failing.
+        ServletContextEvent event = newStartupEvent(tempDir, "carlosmerge");
+        Path userHomeStub = tempDir.resolve("carlosmerge.properties");
+
+        try {
+            System.setProperty("user.home", tempDir.toString()); // no carlosmerge.properties here yet
+
+            // --- Boot 1: user-home empty; config comes from WEB-INF (no key) -> key generated+persisted.
+            props.clear();
+            keySpecField.set(null, null);
+
+            new Startup().contextInitialized(event);
+
+            assertThat(props.getProperty("db_username")).isEqualTo("carlos_test_user");
+            String generatedKey = props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR);
+            assertThat(generatedKey).isNotBlank();
+
+            // The persisted user-home file is a stub containing ONLY the key - the shadowing hazard.
+            assertThat(userHomeStub).exists();
+            Properties stub = new Properties();
+            try (var in = Files.newInputStream(userHomeStub)) {
+                stub.load(in);
+            }
+            assertThat(stub).containsOnlyKeys(EncryptionUtils.SECRET_KEY_ENV_VAR);
+
+            // --- Boot 2: fresh JVM (clear singleton). user-home now holds the key-only stub.
+            props.clear();
+            keySpecField.set(null, null);
+
+            new Startup().contextInitialized(event);
+
+            // The fix: the key-only stub must NOT suppress the WEB-INF config. Before the fix, the
+            // p.isEmpty()==false guard skipped WEB-INF and the app booted with a key but no DB config.
+            assertThat(props.getProperty("db_username")).isEqualTo("carlos_test_user");
+            assertThat(props.getProperty("db_name")).isEqualTo("carlos_test_db");
+            // The previously generated key is reused as-is (not rotated).
+            assertThat(props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR)).isEqualTo(generatedKey);
+        } finally {
+            restoreUserHome(originalUserHome);
+            props.clear();
+            props.putAll(snapshot);
+            keySpecField.set(null, originalKeySpec);
+        }
+    }
+
     /**
      * Drives {@code Startup.contextInitialized} with an invalid existing key and asserts a fail-fast
      * abort. The abort is raised as an {@link IllegalStateException} but re-wrapped by the method's
@@ -504,7 +595,16 @@ class StartupUnitTest extends CarlosUnitTestBase {
     }
 
     private static ServletContextEvent newStartupEvent(Path tempDir) throws Exception {
-        Path webappRoot = tempDir.resolve("webapps").resolve("carlos");
+        return newStartupEvent(tempDir, "carlos");
+    }
+
+    /**
+     * Builds a startup event whose webapp context resolves to {@code contextName}. Startup derives the
+     * properties file name ({@code <contextName>.properties}) from the webapp directory name, which in
+     * turn selects the {@code /WEB-INF/<contextName>.properties} resource read on the fallback path.
+     */
+    private static ServletContextEvent newStartupEvent(Path tempDir, String contextName) throws Exception {
+        Path webappRoot = tempDir.resolve("webapps").resolve(contextName);
         Files.createDirectories(webappRoot);
         ServletContextEvent event = mock(ServletContextEvent.class);
         ServletContext servletContext = mock(ServletContext.class);

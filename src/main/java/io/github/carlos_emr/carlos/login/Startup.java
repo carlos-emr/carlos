@@ -47,6 +47,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Objects;
+import java.util.Properties;
 
 /**
  * This ContextListener is used to Initialize classes at startup - Initialize the DBConnection Pool.
@@ -97,7 +98,7 @@ public class Startup implements ServletContextListener {
             } catch (java.io.FileNotFoundException ex) {
                 logger.info(propFileName + " not found");
             }
-            if (p.isEmpty()) {
+            if (p.isEmpty() || containsOnlyGeneratedEncryptionKey(p)) {
                 /* if the file not found in the user root, look in the WEB-INF directory */
                 try {
                     logger.info("looking up  /WEB-INF/" + propName);
@@ -198,6 +199,13 @@ public class Startup implements ServletContextListener {
             logger.error("Unexpected error.", e);
             throw (new RuntimeException(e));
         }
+    }
+
+    // Returns true if the properties contain only the generated encryption key. A key-only stub
+    // is not a complete configuration, so /WEB-INF/ must still be loaded and merged.
+    // Package-private for unit testing.
+    static boolean containsOnlyGeneratedEncryptionKey(Properties props) {
+        return props.size() == 1 && props.containsKey(EncryptionUtils.SECRET_KEY_ENV_VAR);
     }
 
     // Checks for default property with name propName. If the property does not exist,
