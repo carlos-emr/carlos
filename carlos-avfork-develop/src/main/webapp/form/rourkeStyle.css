@@ -1,0 +1,126 @@
+/*
+ * 
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved. *
+ * This software is published under the GPL GNU General Public License. 
+ * This program is free software; you can redistribute it and/or 
+ * modify it under the terms of the GNU General Public License 
+ * as published by the Free Software Foundation; either version 2 
+ * of the License, or (at your option) any later version. * 
+ * This program is distributed in the hope that it will be useful, 
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of 
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the 
+ * GNU General Public License for more details. * * You should have received a copy of the GNU General Public License 
+ * along with this program; if not, write to the Free Software 
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. * 
+ * 
+ * <OSCAR TEAM>
+ * 
+ * This software was written for the 
+ * Department of Family Medicine 
+ * McMaster University 
+ * Hamilton 
+ * Ontario, Canada 
+ */
+.contain {
+    table-layout: fixed;
+}
+
+BODY {
+    font-size: 10pt;
+    /*background-color: #DAEBFC;*/
+    /*   #c1ddf9; */
+}
+
+html, TABLE {
+    font-size: 10pt;
+}
+
+/**************************************/
+A:link {
+    color: #486EBD;
+
+}
+
+.Header {
+    padding-top: 3px;
+    padding-bottom: 3px;
+    /*    width:937px; */
+    width: 100%;
+}
+
+.Header INPUT {
+    width: 100px;
+}
+
+.column { /*   background-color:#FFF0FF; */
+    width: 15%;
+    background-color: #486EBD;
+    color: #FFFFFF;
+    vertical-align: top;
+    text-align: center;
+}
+
+.column a {
+    color: white;
+}
+
+.column TABLE {
+    /*background-color: #486EBD;*/
+    color: #FFFFFF;
+    vertical-align: top;
+    font-weight: bold;
+}
+
+.row {
+    color: black;
+    width: 22.5%;
+    padding-top: 5px;
+    padding-bottom: 5px;
+}
+
+
+.titleBar {
+    background-color: #486ebd;
+    font-size: 12pt;
+    color: #FFFFFF;
+    text-align: center;
+    padding-top: 2px;
+    padding-bottom: 2px;
+}
+
+.wide {
+    width: 100%;
+}
+
+.data {
+    font-size: 10pt;
+}
+
+tr {
+    vertical-align: top;
+}
+
+textarea {
+    font-size: 10pt;
+}
+
+input, select, textarea {
+    background-color: #F4EaD7;
+    border: 1px solid #0097cf;
+}
+
+.edcol {
+    font-size: 8pt;
+    padding-right: 5pt;
+    padding-left: 5pt;
+}
+
+.delete {
+    font-size: 8pt;
+}
+
+table.division {
+    border-style: solid;
+    border-width: 1px;
+    border-color: grey;
+}

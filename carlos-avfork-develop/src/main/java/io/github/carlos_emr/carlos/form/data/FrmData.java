@@ -1,0 +1,325 @@
+/**
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ */
+
+
+package io.github.carlos_emr.carlos.form.data;
+
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+
+import io.github.carlos_emr.Misc;
+import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
+import io.github.carlos_emr.carlos.commn.model.EncounterForm;
+import io.github.carlos_emr.carlos.encounter.data.EctFormData;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+
+public class FrmData {
+    private static final Logger _log = MiscUtils.getLogger();
+    private static final String FORM_TABLE_IDENTIFIER_PATTERN = "[a-zA-Z]\\w*";
+    private static EncounterFormDao encounterFormDao = (EncounterFormDao) SpringUtils.getBean(EncounterFormDao.class);
+
+    public class Form {
+        private String formName;
+        private String formPage;
+        private String formTable;
+
+        public Form(String formName, String formPage, String formTable) {
+            this.formName = formName;
+            this.formPage = formPage;
+            this.formTable = formTable;
+        }
+
+        public String getFormName() {
+            return formName;
+        }
+
+        public String getFormPage() {
+            return formPage;
+        }
+
+        public String getFormTable() {
+            return formTable;
+        }
+    }
+
+    public Form[] getForms() {
+
+        List<EncounterForm> results = encounterFormDao.findAll();
+
+        ArrayList<Form> forms = new ArrayList<Form>();
+        for (EncounterForm encounterForm : results) {
+            if (EctFormData.isRemovedCaisiForm(encounterForm.getFormName())) {
+                continue;
+            }
+
+            Form frm = new Form(encounterForm.getFormName(), encounterForm.getFormValue(), encounterForm.getFormTable());
+            forms.add(frm);
+        }
+
+        return (forms.toArray(new Form[0]));
+    }
+
+    public class PatientForm {
+        private String formId;
+        private String demoNo;
+        private String created;
+        private String edited;
+
+        public PatientForm(String formId, String demoNo, String created, String edited) {
+            this.formId = formId;
+            this.demoNo = demoNo;
+            this.created = created;
+            this.edited = edited;
+        }
+
+        public String getFormId() {
+            return formId;
+        }
+
+        public String getDemoNo() {
+            return demoNo;
+        }
+
+        public String getCreated() {
+            return created;
+        }
+
+        public String getEdited() {
+            return edited;
+        }
+    }
+
+    public PatientForm[] getPatientForms(String demoNo, String table) throws SQLException {
+        ArrayList<PatientForm> forms = new ArrayList<PatientForm>();
+
+        // Validate table name: must be an alphanumeric identifier (no SQL-special characters)
+        if (table == null || !table.matches(FORM_TABLE_IDENTIFIER_PATTERN)) {
+            throw new IllegalArgumentException("Invalid form table name");
+        }
+        // Build query with validated table identifier and parameterized demoNo
+        String selectClause = "SELECT ID, demographic_no, formCreated, formEdited FROM ";
+        String whereClause = " WHERE demographic_no=? ORDER BY ID DESC";
+        String sql = selectClause + table + whereClause;
+        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(LegacyJdbcQuery.trustedSelectSql(sql), demoNo)) {
+            while (rs.next()) {
+                PatientForm frm = new PatientForm(Misc.getString(rs, "ID"), Misc.getString(rs, "demographic_no"),
+                        UtilDateUtilities.DateToString(rs.getDate("formCreated"), "yy/MM/dd"), UtilDateUtilities.DateToString(rs.getDate("formEdited"), "yy/MM/dd"));
+                forms.add(frm);
+            }
+        }
+
+        PatientForm[] ret = {};
+        ret = forms.toArray(ret);
+        return ret;
+    }
+
+    public PatientForm getCurrentPatientForm(String demoNo, String studyNo) throws SQLException {
+        PatientForm frm = null;
+
+        // Parameterize studyNo to prevent SQL injection
+        String sql = "SELECT e.form_table from encounterForm e, study s where e.form_name = s.form_name and s.study_no = ?";
+        String table = "";
+        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, studyNo)) {
+            while (rs.next()) {
+                table = Misc.getString(rs, "form_table");
+            }
+        }
+
+        // table comes from DB (trusted source); validate identifier and parameterize demoNo
+        if (table.isEmpty()) {
+            return null;
+        }
+        if (!table.matches(FORM_TABLE_IDENTIFIER_PATTERN)) {
+            throw new IllegalArgumentException("Invalid form table name returned from database");
+        }
+        String selectClause = "SELECT ID, demographic_no, formCreated, formEdited FROM ";
+        String whereClause = " WHERE demographic_no=? ORDER BY ID DESC limit 0,1";
+        sql = selectClause + table + whereClause;
+        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(LegacyJdbcQuery.trustedSelectSql(sql), demoNo)) {
+            while (rs.next()) {
+                frm = new PatientForm(Misc.getString(rs, "ID"), Misc.getString(rs, "demographic_no"),
+                        UtilDateUtilities.DateToString(rs.getDate("formCreated"), "yy/MM/dd"), UtilDateUtilities.DateToString(rs.getDate("formEdited"), "yy/MM/dd"));
+            }
+        }
+
+        return frm;
+    }
+
+    public String[] getStudyNameLink(String studyNo) throws java.sql.SQLException {
+        String[] ret = new String[2];
+
+        // Parameterize studyNo to prevent SQL injection
+        String sql = "SELECT study_name, study_link FROM study WHERE study_no=?";
+        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, studyNo)) {
+            while (rs.next()) {
+                ret[0] = Misc.getString(rs, "study_name");
+                ret[1] = Misc.getString(rs, "study_link");
+            }
+        }
+
+        return ret;
+    }
+
+    //ret[0] = form path;   ret[1] = formId
+    public String[] getShortcutFormValue(String demoNo, String formName) throws java.sql.SQLException {
+        String[] ret = new String[2];
+        String table = null;
+
+        EncounterFormDao encounterFormDao = (EncounterFormDao) SpringUtils.getBean(EncounterFormDao.class);
+        List<EncounterForm> forms = encounterFormDao.findByFormName(formName);
+
+        for (EncounterForm encounterForm : forms) {
+            ret[0] = encounterForm.getFormValue();
+            table = encounterForm.getFormTable();
+        }
+
+        // No matching EncounterForm found — return safe defaults so callers don't NPE
+        if (table == null) {
+            ret[0] = "";
+            ret[1] = "0";
+            return ret;
+        }
+
+        // Defense-in-depth: validate table name from DB (consistent with getPatientForms / getCurrentPatientForm)
+        if (!table.isEmpty() && !table.matches(FORM_TABLE_IDENTIFIER_PATTERN)) {
+            throw new IllegalArgumentException("Invalid form table name returned from database");
+        }
+
+        ret[1] = "0";
+        if ("form".equals(table)) {
+            String searchFormName = formName;
+            if (searchFormName.equals("AR1"))
+                searchFormName = "ar1_99_12"; // quick hack for ease of migration from old forms to new
+            if (searchFormName.equals("AR2")) searchFormName = "ar2_99_08"; // ditto
+            String sql = "SELECT form_no FROM " + table + " WHERE demographic_no=? AND form_name=? order by form_no desc limit 0,1";
+            try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(LegacyJdbcQuery.trustedSelectSql(sql), demoNo,
+                    searchFormName)) {
+                while (rs.next()) {
+                    ret[1] = Misc.getString(rs, "form_no");
+                }
+            }
+            String[] xmlForm = ret.clone();
+
+            if (formName.equals("AR1")) {
+                //First check to see if there are records for 2005
+
+                ret = getShortcutFormValue(demoNo, "AR2005");
+                MiscUtils.getLogger().debug("ret[0] is: " + ret[0]);
+                String[] foo = ret[0].split(".jsp");
+                ret[0] = foo[0] + "pg1.jsp" + foo[1];
+                MiscUtils.getLogger().debug("getShortcutFormValue forwarding new AR1 to: " + ret[0]);
+                String[] first_pick = ret.clone();
+
+                //Check if AR has any forms
+                if (ret[1].equals("0")) {
+                    ret = getShortcutFormValue(demoNo, "AR");
+                    MiscUtils.getLogger().debug("ret[0] is: " + ret[0]);
+                    foo = ret[0].split(".jsp");
+                    ret[0] = foo[0] + "pg1.jsp" + foo[1];
+                    MiscUtils.getLogger().debug("getShortcutFormValue forwarding new AR1 to: " + ret[0]);
+
+                    if (ret[1].equals("0") && !xmlForm[1].equals("0")) { // Nothing found in AR but there are records in the old xml form
+                        ret = xmlForm;
+                    } else if (ret[1].equals("0")) {  // Nothing in either old form Go with new one
+                        ret = first_pick;
+                    }
+                }
+
+            } else if (formName.equals("AR2")) {
+                ret = getShortcutFormValue(demoNo, "AR");
+                String[] foo = ret[0].split(".jsp");
+                ret[0] = foo[0] + "pg2.jsp" + foo[1];
+                MiscUtils.getLogger().debug("getShortcutFormValue forwarding new AR2 to: " + ret[0]);
+                String[] first_pick = ret.clone();
+                if (ret[1].equals("0")) {
+                    ret = getShortcutFormValue(demoNo, "AR");
+                    foo = ret[0].split(".jsp");
+                    ret[0] = foo[0] + "pg2.jsp" + foo[1];
+                    MiscUtils.getLogger().debug("getShortcutFormValue forwarding new AR2 to: " + ret[0]);
+                    if (ret[1].equals("0") && !xmlForm[1].equals("0")) { // Nothing found in AR but there are records in the old xml form
+                        ret = xmlForm;
+                    } else if (ret[1].equals("0")) {  // Nothing in either old form Go with new one
+                        ret = first_pick;
+                    }
+                }
+            }
+
+
+        } else if ("".equals(table)) {
+            ret[1] = "0";
+        } else {
+            String sql = "SELECT ID FROM " + table + " WHERE demographic_no=? order by formEdited desc limit 0,1";
+            try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(LegacyJdbcQuery.trustedSelectSql(sql), demoNo)) {
+                while (rs.next()) {
+                    ret[1] = Misc.getString(rs, "ID");
+                }
+            }
+        }
+
+        _log.debug("RETURNING " + ret[0] + " = " + ret[1]);
+        return ret;
+    }
+
+    public String getResource() throws java.sql.SQLException {
+        String ret = "";
+
+
+        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet("SELECT value FROM property WHERE name=?", "resource")) {
+            while (rs.next()) {
+                ret = Misc.getString(rs, "value");
+            }
+        }
+
+        if (ret.compareTo("") == 0)
+            ret = "http://resource.oscarmcmaster.org/oscarResource/";
+        return ret;
+
+    }
+
+    public String getResource(String name) throws java.sql.SQLException {
+        String ret = "";
+
+
+        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet("SELECT value FROM property WHERE name=?", name)) {
+            while (rs.next()) {
+                ret = Misc.getString(rs, "value");
+            }
+        }
+
+        return ret;
+    }
+
+}

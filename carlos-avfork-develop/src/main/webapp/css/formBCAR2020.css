@@ -1,0 +1,363 @@
+#maincontent {
+    margin: auto 10px;
+    margin-bottom: 10px;
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+.alignTop {
+    vertical-align: top;
+}
+
+* table tr td:not(.sectionHeader *, .alignTop) {
+    vertical-align: text-top;
+    padding: 2px !important;
+}
+
+* table tr td {
+    text-align: left;
+}
+
+.borderRight {
+    border-right: 1px solid black;
+}
+
+.sectionHeader {
+    background-color: #BBBBBB;
+    padding-top: 3px;
+    padding-bottom: 3px;
+    width: 100%;
+    font-size: 12pt;
+}
+
+.sectionHeader INPUT {
+    width: 100px;
+}
+
+* {
+    font-family: Helvetica, Arial, Verdana, Tahoma, sans-serif;
+    font-size: 10pt;
+}
+
+body {
+    background-color: #BBCCFF;
+    top: 0px;
+    left: 0px;
+}
+
+input:read-only:not([type="submit"]) {
+    background-color: lightgrey;
+}
+
+input:disabled {
+    background-color: lightgrey !important;
+    border-color: lightgrey !important;
+}
+
+.shrinkMe {
+    font-size: 9pt;
+}
+
+.small9 {
+    font-size: 10pt;
+}
+
+.small9 table td {
+    font-size: 10pt;
+}
+
+.small8 {
+    font-size: 8pt;
+}
+
+.small10 {
+    font-size: 10pt;
+}
+
+.spe {
+    background-color: #CCCCFF;
+}
+
+.prenatalVisits {
+    font-size: 8pt;
+}
+
+.prenatalVisits th {
+    text-align: center;
+}
+
+.prenatalVisits th:nth-child(1) {
+    text-align: left;
+}
+
+.div-left {
+    float: left;
+    padding-left: 1px;
+}
+
+.div-right {
+    float: right;
+    padding-right: 1px;
+}
+
+.div-center {
+    text-align: center;
+}
+
+.sub-text {
+    font-size: 7pt;
+    color: #777;
+}
+
+.th-small {
+    font-size: 8pt;
+    text-align: center;
+}
+
+.title {
+    font-size: 10pt;
+    font-weight: bold;
+}
+
+.sub-title {
+    font-size: 9pt;
+    font-weight: bold;
+}
+
+.allergy {
+    background-color: #f00;
+    color: #fff;
+    font-weight: bold;
+}
+
+.text-style {
+    width: 100%;
+}
+
+.noLink {
+    color: #000;
+    text-decoration: underline;
+}
+
+.noColumn tr td:nth-child(1) {
+    background-color: #ccc;
+}
+
+.noColumn tr th:nth-child(1) {
+    background-color: #ccc;
+}
+
+.no-border tr td:nth-child(1) {
+    padding-left: 2px;
+}
+
+table.ar-table-border {
+    border-bottom: 1px solid black;
+}
+
+.ar-table-border td {
+    border-right: 1px solid black;
+    padding-top: 2px;
+    padding-bottom: 2px;
+}
+
+table.ar-table-border tr td:nth-child(1) {
+    padding-left: 2px;
+}
+
+table.regular-border {
+    border: 1px solid black;
+}
+
+table.regular-border tr td {
+    border: 1px solid black;
+    padding-top: 2px;
+    padding-bottom: 2px;
+}
+
+table.regular-border tr td:nth-child(1) {
+    padding-left: 2px;
+}
+
+table.outside-border {
+    border: 1px solid black;
+}
+
+table.outside-border tr td {
+    padding-top: 2px;
+    padding-bottom: 2px;
+}
+
+table.outside-border tr td:nth-child(1) {
+    padding-left: 2px;
+}
+
+table.outside-border-alt {
+    border: 1px solid black;
+}
+
+table.outside-border-alt tr td {
+    border-top: 1px solid black;
+    border-bottom: 1px solid black;
+    padding-top: 2px;
+    padding-bottom: 2px;
+}
+
+table.outside-border-alt tr td:nth-child(1) {
+    border-right: 1px solid black;
+    padding-left: 2px;
+}
+
+table.outside-border-alt tr td:nth-child(3) {
+    border-right: 1px solid black;
+}
+
+tr.noBorderTopBottom td {
+    border-top: 0 !important;
+    border-bottom: 0 !important;
+}
+
+.flex-justify {
+    justify-content: space-between
+}
+
+.flex-row {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    width: 100%;
+}
+
+.flex-stack {
+    display: flex;
+    flex-direction: column;
+}
+
+.flex-column-title {
+    flex: 1;
+    min-width: 80px;
+}
+
+.flex-column-title-alt {
+    flex: 1;
+    min-width: 110px;
+}
+
+.flex-column {
+    flex: 1;
+    min-width: 60px;
+}
+
+.flex-double-column {
+    flex: 2;
+}
+
+.flex-triple-column {
+    flex: 3;
+}
+
+.flex-quad-column {
+    flex: 4;
+}
+
+.middleAlign {
+    vertical-align: middle;
+    align-items: center;
+}
+
+.divFlex {
+    display: flex;
+    align-items: baseline;
+}
+
+.divFlex input[type=checkbox] {
+    margin-left: 0;
+    margin-right: 3px;
+}
+
+.divFlex * {
+    margin-left: 3px;
+}
+
+.divFlex input[type=text] {
+    flex: 1;
+}
+
+div.data-list-input {
+    position: relative;
+    height: 20px;
+    display: inline-flex;
+    padding: 5px 0 5px 0;
+}
+
+.data-list-input select {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    height: 20px;
+}
+
+.data-list-input input {
+    position: absolute;
+    top: 2px;
+    left: 0px;
+    height: 16px;
+}
+
+.btn.dropdown-toggle.btn-light {
+    font-size: 8pt;
+    height: 18px;
+    padding: 0px 6px 0px 0px;
+    margin-bottom: 2px;
+}
+
+td.button.nav {
+    display: table-cell;
+}
+
+table.reference-table tr td {
+    background-color: white;
+    vertical-align: top;
+}
+
+.reference-header-1 {
+    color: white;
+    background-color: black;
+    font-family: Helvetica, Arial, Verdana, Tahoma, sans-serif;
+    font-size: 16pt;
+    font-weight: bold;
+    text-align: center;
+    vertical-align: middle;
+    padding-top: 4px;
+    padding-bottom: 4px;
+}
+
+.reference-header-2 {
+    color: black;
+    background-color: lightgrey;
+    font-family: Helvetica, Arial, Verdana, Tahoma, sans-serif;
+    font-size: 12pt;
+    font-weight: bold;
+    text-align: center;
+    vertical-align: middle;
+    padding-top: 2px;
+    padding-bottom: 2px;
+}
+
+.reference-pad {
+    padding-bottom: 3px;
+}
+
+.calcField {
+    background-color: #CCCCFF;
+}
+
+p {
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 18px;
+    margin: 6px 2px 6px 2px
+}

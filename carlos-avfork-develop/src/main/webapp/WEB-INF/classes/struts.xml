@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE struts PUBLIC "-//Apache Software Foundation//DTD Struts Configuration 6.5//EN" "https://struts.apache.org/dtds/struts-6.5.dtd">
+<!--
+  Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+
+  This software is published under the GPL GNU General Public License.
+  This program is free software; you can redistribute it and/or
+  modify it under the terms of the GNU General Public License
+  as published by the Free Software Foundation; either version 2
+  of the License, or (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+  CARLOS EMR Project
+  https://github.com/carlos-emr/carlos
+-->
+<!--
+    CARLOS EMR - Struts Configuration
+    This file contains global constants and includes module-specific action configurations.
+    Each struts-*.xml file defines actions for a specific functional domain.
+-->
+<struts>
+    <!-- Global constants -->
+    <constant name="struts.mapper.action.prefix.enabled" value="false"/>
+    <constant name="struts.action.extension" value="" />
+    <constant name="struts.devMode" value="false"/>
+    <constant name="struts.objectFactory" value="spring"/>
+    <constant name="struts.enable.SlashesInActionNames" value="true" />
+    <constant name="struts.mapper.alwaysSelectFullNamespace" value="false" />
+    <constant name="struts.actionConfig.fallbackToEmptyNamespace" value="true" />
+    <constant name="struts.serve.static" value="true" />
+    <constant name="struts.serve.static.browserCache" value="true" />
+    <constant name="struts.allowlist.enable" value="true" />
+    <constant name="struts.allowlist.packageNames" value="io.github.carlos_emr.carlos" />
+    <!-- Exclude pattern structure:
+         1. Exclude extension-based static/direct view requests, except the one legacy
+            Rich Text Letter template endpoint that still needs to reach Struts.
+            Examples: /styles/app.css => excluded, /eform/other.jsp => excluded,
+            /eform/efmformrtl_templates.jsp => allowed through to Struts.
+         2. Exclude internal WEB-INF resources.
+         3. Exclude non-Struts servlet and CSRFGuard endpoints handled elsewhere,
+            including rendering servlets that must reach their web.xml mappings. -->
+    <constant name="struts.action.excludePattern" value="^(?!(/[^/]+)?/eform/efmformrtl_templates\.jsp$).*\.(css|js|json|png|jpg|gif|svg|ico|map|woff|woff2|ttf|eot|html|htm|jsp|jspf)$|^(/[^/]+)?/WEB-INF/.*|^/ws/.*|^/servlet/.*|^(/[^/]+)?/(imageRenderingServlet|contentRenderingServlet(?:/.*)?|EFormSignatureViewForPdfGenerationServlet|EFormImageViewForPdfGenerationServlet|EFormViewForPdfGenerationServlet|eformViewForPdfGenerationServlet)$|^/csrfguard$" />
+    <constant name="struts.custom.i18n.resources" value="oscarResources,MessageResources_mcedt"/>
+    <constant name="struts.multipart.maxSize" value="52428800" />
+    <!-- Use stream-based multipart parser (reads from getInputStream()) instead of the default
+         jakarta parser (reads from getParts()). Required because CarlosCsrfGuardFilter wraps
+         multipart requests with MultiReadHttpServletRequest for CSRF token extraction, and
+         getParts() on the wrapped request fails since the underlying stream was consumed. -->
+    <constant name="struts.multipart.parser" value="jakarta-stream" />
+
+    <!-- Module configurations (alphabetical) -->
+    <include file="struts-admin.xml"/>
+    <include file="struts-billing.xml"/>
+    <include file="struts-clinical.xml"/>
+    <include file="struts-demographic.xml"/>
+    <include file="struts-document.xml"/>
+    <include file="struts-eform.xml"/>
+    <include file="struts-encounter.xml"/>
+    <include file="struts-form.xml"/>
+    <include file="struts-integration.xml"/>
+    <include file="struts-lab.xml"/>
+    <include file="struts-login.xml"/>
+    <include file="struts-messenger.xml"/>
+    <include file="struts-pmmodule.xml"/>
+    <include file="struts-prescription.xml"/>
+    <include file="struts-provider.xml"/>
+    <include file="struts-report.xml"/>
+    <include file="struts-scheduling.xml"/>
+</struts>

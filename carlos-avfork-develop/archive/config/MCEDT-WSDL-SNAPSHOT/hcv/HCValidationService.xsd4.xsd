@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema targetNamespace="http://ebs.health.ontario.ca/" version="1.0" xmlns:tns="http://ebs.health.ontario.ca/" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="EBS" type="tns:ebs_header"/>
+  <xs:simpleType name="key">
+    <xs:restriction base="xs:string">
+      <xs:maxLength value="36"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="uid">
+    <xs:restriction base="xs:string">
+      <xs:maxLength value="128"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:complexType name="ebs_header">
+    <xs:sequence>
+      <xs:element minOccurs="1" name="SoftwareConformanceKey" type="tns:key"/>
+      <xs:element minOccurs="1" name="AuditId" type="tns:uid"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>

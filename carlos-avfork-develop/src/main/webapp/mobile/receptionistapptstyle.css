@@ -1,0 +1,422 @@
+/*
+ *
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved. *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version. *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details. * * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. *
+ *
+ * <OSCAR TEAM>
+ *
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster Unviersity
+ * Hamilton
+ * Ontario, Canada
+ */
+html {
+    -webkit-text-size-adjust: none; /* doesn't allow text-changing on orientation */
+}
+
+body {
+    padding: 0;
+    margin: 0;
+    background: #c8c8c8;
+}
+
+body, body > div {
+    font-family: "Helvetica";
+}
+
+form {
+    margin: 0px;
+}
+
+li {
+    padding: 0px;
+    margin: 0;
+    list-style: none;
+}
+
+A {
+    text-decoration: none;
+    font-weight: bold;
+    color: black;
+    cursor: pointer;
+}
+
+td {
+    font-size: 15px;
+}
+
+.adhour {
+    text-align: center;
+}
+
+span.dateAppointment {
+    font-family: "Arial";
+    font-size: 15px;
+    color: black;
+    font-weight: bold;
+}
+
+/* Adjustments made to prevent further additions to jsp's from being displayed in the mobile version */
+#navlist > *:not(#today):not(#menu),
+table#firstTable td:not(#firstMenu):not(#userSettings),
+table#providerSchedule td:not(.scheduleTime00):not(.scheduleTimeNot00):not(.appt):not(.noGrid),
+.appt a:not(.apptLink):not(.encounterBtn):not(.masterBtn):not(.apptStatus),
+.infirmaryView, #calendarLinkBottom, #group, #expandReason {
+    display: none;
+}
+table {
+  width: 100%;
+}
+#userSettings {
+  text-align:right;
+  vertical-align: top;
+  padding-right: 6px;
+}
+
+#userSettingsMenu {
+  display: none !important;
+}
+
+table#firstTable td#userSettings > div {
+  display: block;
+}
+
+a.encounterBtn, a.masterBtn {
+    margin-left: 15px;
+}
+
+#calendarLink {
+    float: left;
+    margin-left: 10px;
+}
+
+.title {
+    position: absolute;
+    width: 100%;
+    text-align: center;
+    padding: 0;
+    font-weight: bold;
+    color: #FFFFFF;
+    text-shadow: rgba(0, 0, 0, 0.4) 0px -1px 0;
+    text-align: center;
+    font-size: 17px;
+    top: 10px;
+    background-color: transparent;
+    left: 0px;
+}
+
+.scheduleTime00 {
+    width: 25%;
+    height: 23px;
+    background-color: #E5E3E3;
+    color: black;
+    border-right: 1px solid #CCC;
+}
+
+.scheduleTimeNot00 {
+    width: 25%;
+    height: 23px;
+    background-color: #F3F3F3;
+    border-right: 1px solid #CCC;
+}
+
+.scheduleTimeNot00 a, .scheduleTime00 a {
+    display: block;
+}
+
+#firstMenu, #navlist {
+    margin: 0px;
+    padding: 0px;
+}
+.rightButton {
+    right: 30px;
+}
+
+.leftButton {
+    left: 30px;
+}
+
+.top {
+    position: absolute !important;
+}
+
+.button, .leftButton, .rightButton {
+    position: relative;
+    overflow: hidden;
+    margin: 3px;
+    border-width: 0 5px;
+    padding: 0 3px;
+    width: auto;
+    min-width: 30px;
+    min-height: 30px;
+    line-height: 30px;
+    font-size: 12px;
+    font-weight: bold;
+    top: -3px;
+    color: #FFFFFF;
+    text-shadow: rgba(0, 0, 0, 0.6) 0px -1px 0;
+    text-overflow: ellipsis;
+    text-decoration: none;
+    text-align: center;
+    white-space: nowrap;
+    z-index: 1;
+    border-style: solid;
+    border-color: transparent;
+    border-width: 0 5px;
+    border-image: url(../mobile/toolButton.png) 0 5 0 5 fill stretch;
+}
+
+.blueButton {
+    -webkit-border-image: url(../mobile/blueButton.png) 0 5 0 5;
+    -moz-border-image: url(../mobile/blueButton.png) 0 5 0 5;
+}
+
+.redButton {
+    -webkit-border-image: url(../mobile/redButton.png) 0 5 0 5;
+    -moz-border-image: url(../mobile/redButton.png) 0 5 0 5;
+}
+
+.redArrow {
+    position: relative;
+    top: 1px;
+}
+
+#navlist li {
+    height: 25px;
+    line-height: 25px;
+    list-style: none;
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+#navlist ul li {
+    border-bottom: 1px solid silver;
+}
+
+#navlist ul li:hover {
+    background: #3ea4e1;
+}
+
+#navlistcontents {
+    position: absolute;
+    left: 85px;
+    top: 5px;
+    border: 1px silver solid;
+    background-color: #eeeeff;
+    padding: 0px;
+    margin: 0px;
+    z-index: 1;
+}
+
+#dateAndCalendar {
+    width: 100%;
+    vertical-align: middle;
+    text-align: center;
+}
+
+#providerSchedule {
+    background-color: #fff;
+    padding: 0px;
+    width: 100%;
+}
+
+#providerSchedule td {
+    border-bottom: 1px solid #ccc;
+}
+/* ===== Quick Patient Search Bar ===== */
+.quick-search-wrapper {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+    margin-right: 4px;
+}
+
+.quick-search-input-wrapper {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+#quickSearch {
+    width: 170px;
+    height: 24px;
+    padding: 2px 26px 2px 6px;
+    font-size: 0.8rem;
+    border: 1px solid #adb5bd;
+    border-radius: 4px;
+    background: #fff;
+    box-sizing: border-box;
+}
+
+#quickSearch:focus {
+    outline: none;
+    border-color: #4a90d9;
+    box-shadow: 0 0 0 2px rgba(74, 144, 217, 0.2);
+}
+
+.quick-search-clear {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    padding: 0 2px;
+    cursor: pointer;
+    color: #6c757d;
+    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+.quick-search-clear:hover {
+    color: #343a40;
+}
+
+/* Dropdown container - floats over schedule */
+.quick-search-dropdown {
+    position: absolute;
+    top: calc(100% + 2px);
+    left: 0;
+    z-index: 9999;
+    min-width: 280px;
+    max-width: calc(100vw - 10px);
+    max-height: 420px;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+}
+
+/* Result rows */
+.qs-result-row {
+    padding: 6px 10px;
+    cursor: pointer;
+    border-bottom: 1px solid #f0f0f0;
+    background-color: #ffffff;
+}
+
+.qs-result-row.qs-alt {
+    background-color: #f7f9fb;
+}
+
+.qs-result-row:hover,
+.qs-result-row.qs-active {
+    background-color: #dce8f5;
+}
+
+/* Line 1: patient name + badges */
+.qs-line1 {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+}
+
+.qs-patient-name {
+    font-size: 0.875rem;
+    color: #212529;
+    font-weight: 700;
+}
+
+.qs-status-label {
+    font-weight: 400;
+    color: #6c757d;
+    font-size: 0.78rem;
+}
+
+/* Badge strip */
+.qs-badges {
+    display: flex;
+    gap: 3px;
+    flex-shrink: 0;
+}
+
+.qs-badge {
+    display: inline-block;
+    padding: 1px 5px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    border-radius: 3px;
+    text-decoration: none;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.qs-badge:hover {
+    text-decoration: none;
+    filter: brightness(0.85);
+}
+
+.qs-badge-m  { background: #6c757d; color: #fff; }
+.qs-badge-e  { background: #0d6efd; color: #fff; }
+.qs-badge-rx { background: #198754; color: #fff; }
+.qs-badge-appt { background: #fd7e14; color: #fff; }
+
+/* Lines 2-4: muted detail rows */
+.qs-line2,
+.qs-line3,
+.qs-line4 {
+    font-size: 0.775rem;
+    margin-top: 2px;
+}
+
+.qs-line2 {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.qs-muted {
+    color: #6c757d;
+}
+
+/* No-results and add-link rows */
+.qs-no-results {
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    color: #6c757d;
+    font-style: italic;
+}
+
+.qs-add-link {
+    padding: 6px 10px;
+    border-top: 1px solid #dee2e6;
+    text-align: center;
+}
+
+.qs-add-link a {
+    font-size: 0.8rem;
+    color: #0d6efd;
+    text-decoration: none;
+}
+
+.qs-add-link a:hover {
+    text-decoration: underline;
+}
+
+.quick-btn {
+  display: none;
+}
+.multiplier-input {
+  display: none;
+}
+
+.quick-search-wrapper img {
+  width: 30px !important;
+}

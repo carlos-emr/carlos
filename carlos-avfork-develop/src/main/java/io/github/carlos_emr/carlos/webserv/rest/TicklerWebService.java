@@ -1,0 +1,456 @@
+/**
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ */
+package io.github.carlos_emr.carlos.webserv.rest;
+
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.JsonNode;
+
+import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
+import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
+import io.github.carlos_emr.carlos.commn.model.CustomFilter;
+import io.github.carlos_emr.carlos.commn.model.Tickler;
+import io.github.carlos_emr.carlos.commn.model.TicklerTextSuggest;
+import io.github.carlos_emr.carlos.managers.ProgramManager2;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.managers.TicklerManager;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.webserv.rest.conversion.TicklerConverter;
+import io.github.carlos_emr.carlos.webserv.rest.conversion.TicklerTextSuggestConverter;
+import io.github.carlos_emr.carlos.webserv.rest.to.AbstractSearchResponse;
+import io.github.carlos_emr.carlos.webserv.rest.to.RestResponse;
+import io.github.carlos_emr.carlos.webserv.rest.to.TicklerResponse;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.TicklerTextSuggestTo1;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
+@Path("/tickler")
+@Component("ticklerWebService")
+@Consumes(MediaType.APPLICATION_JSON)
+public class TicklerWebService extends AbstractServiceImpl {
+
+    @Autowired
+    private TicklerManager ticklerManager;
+
+    @Autowired
+    private SecurityInfoManager securityInfoManager;
+
+    @Autowired
+    private ProgramManager2 programManager;
+
+
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    @POST
+    @Path("/search")
+    @Produces("application/json")
+    @Consumes("application/json")
+    public TicklerResponse search(JsonNode json, @QueryParam("startIndex") int startIndex, @QueryParam("limit") int limit) {
+
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "r", null)) {
+            throw new RuntimeException("Access Denied");
+        }
+
+        CustomFilter cf = new CustomFilter(true);
+
+        if (json.has("status")) {
+            cf.setStatus(json.get("status").asText());
+        }
+        if (json.has("priority")) {
+            cf.setPriority(json.get("priority").asText());
+        }
+        if (json.has("assignee")) {
+            cf.setAssignee(json.get("assignee").asText());
+        }
+        if (json.has("demographicNo")) {
+            cf.setDemographicNo(json.get("demographicNo").asText());
+        }
+
+        //this will need refactor...needs a manager layer and some useful methods.
+        //basically if overdueOnly='property', I check Persona for what to return, this
+        //avoids cliend needing to know their preferences and passing them back.
+        if (json.has("overdueOnly") && "property".equals(json.get("overdueOnly").asText())) {
+            UserPropertyDAO propDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
+            String strVal = propDao.getStringValue(getCurrentProvider().getProviderNo(), "dashboard.expiredTicklersOnly");
+            if (strVal != null && "true".equalsIgnoreCase(strVal)) {
+                cf.setEndDate(new Date());
+            }
+            if (strVal != null && "false".equalsIgnoreCase(strVal)) {
+                cf.setEndDate(null);
+            }
+
+            if (strVal == null) {
+                cf.setEndDate(new Date());
+            }
+
+        }
+
+
+        List<Tickler> ticklers = ticklerManager.getTicklers(getLoggedInInfo(), cf, startIndex, limit);
+
+        TicklerResponse result = new TicklerResponse();
+
+        if (ticklers.size() == limit) {
+            result.setTotal(ticklerManager.getNumTicklers(getLoggedInInfo(), cf));
+        } else {
+            result.setTotal(ticklers.size());
+        }
+
+        TicklerConverter converter = new TicklerConverter();
+        result.getContent().addAll(converter.getAllAsTransferObjects(getLoggedInInfo(), ticklers));
+
+
+        return result;
+    }
+
+    @GET
+    @Path("/mine")
+    @Produces("application/json")
+    public TicklerResponse getMyTicklers(@QueryParam("limit") int limit) {
+
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "r", null)) {
+            throw new RuntimeException("Access Denied");
+        }
+
+        CustomFilter cf = new CustomFilter(true);
+        cf.setAssignee(getLoggedInInfo().getLoggedInProviderNo());
+        cf.setStatus("A");
+
+        List<Tickler> ticklers = ticklerManager.getTicklers(getLoggedInInfo(), cf, 0, limit);
+
+        TicklerResponse result = new TicklerResponse();
+        result.setTotal(ticklers.size());
+        TicklerConverter converter = new TicklerConverter();
+        result.getContent().addAll(converter.getAllAsTransferObjects(getLoggedInInfo(), ticklers));
+
+
+        return result;
+    }
+
+    @GET
+    @Path("/ticklers")
+    @Produces("application/json")
+    public TicklerResponse getTicklerList() {
+
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "r", null)) {
+            throw new RuntimeException("Access Denied");
+        }
+
+        HttpServletRequest req = this.getHttpServletRequest();
+
+        String strCount = req.getParameter("count");
+        String strPage = req.getParameter("page");
+
+        String serviceStartDate = req.getParameter("serviceStartDate");
+        String serviceEndDate = req.getParameter("serviceEndDate");
+        String status = req.getParameter("status");
+        String taskAssignedTo = req.getParameter("taskAssignedTo");
+        String mrp = req.getParameter("mrp");
+        String creator = req.getParameter("creator");
+        String priority = req.getParameter("priority");
+
+        boolean includeLinks = Boolean.valueOf(req.getParameter("includeLinks"));
+        boolean includeComments = Boolean.valueOf(req.getParameter("includeComments"));
+        boolean includeUpdates = Boolean.valueOf(req.getParameter("includeUpdates"));
+        boolean includeProgram = Boolean.valueOf(req.getParameter("includeProgram"));
+
+
+        int count = Integer.parseInt(strCount);
+        int page = Integer.parseInt(strPage);
+
+
+        CustomFilter cf = new CustomFilter(true);
+
+        if (serviceStartDate != null && !"".equals(serviceStartDate)) {
+            serviceStartDate = serviceStartDate.startsWith("\"") ? serviceStartDate.substring(1, serviceStartDate.length() - 1) : serviceStartDate;
+            try {
+                cf.setStartDate(jakarta.xml.bind.DatatypeConverter.parseDateTime(serviceStartDate).getTime());
+            } catch (Exception e) {
+                MiscUtils.getLogger().warn("Error parsing start date - " + serviceStartDate);
+            }
+        }
+        if (serviceEndDate != null && !"".equals(serviceEndDate)) {
+            serviceEndDate = serviceEndDate.startsWith("\"") ? serviceEndDate.substring(1, serviceEndDate.length() - 1) : serviceEndDate;
+            try {
+                cf.setEndDate(jakarta.xml.bind.DatatypeConverter.parseDateTime(serviceEndDate).getTime());
+            } catch (Exception e) {
+                MiscUtils.getLogger().warn("Error parsing end date - " + serviceEndDate);
+            }
+        }
+
+        cf.setStatus(status);
+
+        cf.setPriority(priority);
+
+
+        if (taskAssignedTo != null && !"".equals(taskAssignedTo)) {
+            cf.setAssignee(taskAssignedTo);
+        }
+
+        if (creator != null && !"".equals(creator)) {
+            cf.setProviderNo(creator);
+        }
+
+        if (mrp != null && !"".equals(mrp)) {
+            cf.setMrp(mrp);
+        }
+
+        if (req.getParameter("demographicNo") != null) {
+            cf.setDemographicNo(req.getParameter("demographicNo"));
+        }
+
+        TicklerResponse result = new TicklerResponse();
+
+
+        int total = ticklerManager.getNumTicklers(getLoggedInInfo(), cf);
+        result.setTotal(total);
+
+
+        List<Tickler> ticklers = ticklerManager.getTicklers(getLoggedInInfo(), cf, ((page - 1) * count), count,
+                includeComments, includeUpdates, false, false);
+
+        TicklerConverter converter = new TicklerConverter();
+        converter.setIncludeLinks(includeLinks);
+        converter.setIncludeComments(includeComments);
+        converter.setIncludeUpdates(includeUpdates);
+        converter.setIncludeProgram(includeProgram);
+
+        result.getContent().addAll(converter.getAllAsTransferObjects(getLoggedInInfo(), ticklers));
+
+        return result;
+    }
+
+    @POST
+    @Path("/complete")
+    @Produces("application/json")
+    @Consumes("application/json")
+    public RestResponse<String> completeTicklers(JsonNode json) {
+
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "u", null)) {
+            throw new RuntimeException("Access Denied");
+        }
+
+
+        MiscUtils.getLogger().debug("completeTicklers called, count={}", json != null && json.has("ticklers") ? json.get("ticklers").size() : 0);
+
+        List<Integer> ticklerIds;
+        try {
+            ticklerIds = extractTicklerIds(json);
+        } catch (IllegalArgumentException e) {
+            return RestResponse.errorResponse(e.getMessage());
+        }
+
+        for (Integer ticklerNo : ticklerIds) {
+            ticklerManager.completeTickler(getLoggedInInfo(), ticklerNo, getLoggedInInfo().getLoggedInProviderNo());
+        }
+
+        return RestResponse.successResponse(null);
+    }
+
+    @POST
+    @Path("/delete")
+    @Produces("application/json")
+    @Consumes("application/json")
+    public RestResponse<String> deleteTicklers(JsonNode json) {
+
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "u", null)) {
+            throw new RuntimeException("Access Denied");
+        }
+
+        MiscUtils.getLogger().debug("deleteTicklers called, count={}", json != null && json.has("ticklers") ? json.get("ticklers").size() : 0);
+
+        List<Integer> ticklerIds;
+        try {
+            ticklerIds = extractTicklerIds(json);
+        } catch (IllegalArgumentException e) {
+            return RestResponse.errorResponse(e.getMessage());
+        }
+
+        for (Integer ticklerNo : ticklerIds) {
+            ticklerManager.deleteTickler(getLoggedInInfo(), ticklerNo, getLoggedInInfo().getLoggedInProviderNo());
+        }
+
+        return RestResponse.successResponse(null);
+    }
+
+    /**
+     * Extracts and validates the {@code ticklers} id array from a bulk request body.
+     *
+     * <p>The field must be present, a JSON array, and contain only integral values that
+     * fit a 32-bit int. Reading ids with {@link JsonNode#asInt()} alone would let a missing
+     * field NPE and silently coerce non-numeric values to {@code 0}, so malformed input
+     * is rejected here with a clear message instead. {@link JsonNode#canConvertToInt()}
+     * alone is not enough: it returns {@code true} for fractional values in int range
+     * (e.g. {@code 1.9}), which {@link JsonNode#intValue()} would silently truncate to
+     * {@code 1}, so {@link JsonNode#isIntegralNumber()} is checked first to reject
+     * non-integral numbers.</p>
+     *
+     * @param json the request body
+     * @return the parsed tickler ids (possibly empty)
+     * @throws IllegalArgumentException if the field is missing, not an array, or holds a non-integer id
+     */
+    private List<Integer> extractTicklerIds(JsonNode json) {
+        JsonNode ticklerIds = json.get("ticklers");
+        if (ticklerIds == null || !ticklerIds.isArray()) {
+            throw new IllegalArgumentException("ticklers must be an array of integer ids");
+        }
+        List<Integer> ids = new ArrayList<>();
+        for (JsonNode id : ticklerIds) {
+            if (!id.isIntegralNumber() || !id.canConvertToInt()) {
+                throw new IllegalArgumentException("ticklers must contain only integer ids");
+            }
+            ids.add(id.intValue());
+        }
+        return ids;
+    }
+
+    @POST
+    @Path("/update")
+    @Produces("application/json")
+    @Consumes("application/json")
+    public RestResponse<String> updateTickler(JsonNode json) {
+
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "u", null)) {
+            throw new RuntimeException("Access Denied");
+        }
+
+        MiscUtils.getLogger().debug("updateTickler called, id={}", LogSafe.sanitize(json != null && json.has("id") ? json.get("id").asText() : "null"));
+
+        Tickler tickler = ticklerManager.getTickler(getLoggedInInfo(), json.get("id") != null ? json.get("id").asInt() : null);
+
+        if (tickler == null) {
+            throw new RuntimeException("Tickler not found");
+        }
+
+        //TODO: verify it's good data associations
+        tickler.setTaskAssignedTo(json.get("taskAssignedTo").asText());
+
+        tickler.setStatusAsChar(json.get("status").asText().charAt(0));
+
+        tickler.setPriorityAsString(json.get("priority").asText());
+
+        tickler.setMessage(json.get("message").asText());
+
+        //tickler.setUpdateDate(new Date());
+
+        String dt = json.get("serviceDate").asText();
+        tickler.setServiceDate(jakarta.xml.bind.DatatypeConverter.parseDateTime(dt).getTime());
+
+        boolean success = ticklerManager.updateTickler(getLoggedInInfo(), tickler);
+
+        if (success) {
+
+            if (json.has("ticklerComments")) {
+                ArrayNode arr = (ArrayNode) json.get("ticklerComments");
+                for (int x = 0; x < arr.size(); x++) {
+                    ObjectNode c = (ObjectNode) arr.get(x);
+
+                    if (c.has("newComment")) {
+                        ticklerManager.addComment(getLoggedInInfo(), tickler.getId(), c.get("providerNo").asText(), c.get("message").asText());
+                    }
+                }
+            }
+            return RestResponse.successResponse(null);
+        }
+
+        return RestResponse.errorResponse("Failed to update tickler");
+    }
+
+    @GET
+    @Path("/textSuggestions")
+    @Produces("application/json")
+    public AbstractSearchResponse<TicklerTextSuggestTo1> getTextSuggestions() {
+
+        AbstractSearchResponse<TicklerTextSuggestTo1> response = new AbstractSearchResponse<TicklerTextSuggestTo1>();
+
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "r", null)) {
+            throw new RuntimeException("Access Denied");
+        }
+        List<TicklerTextSuggest> suggestions = ticklerManager.getActiveTextSuggestions(getLoggedInInfo());
+
+        response.setContent(new TicklerTextSuggestConverter().getAllAsTransferObjects(getLoggedInInfo(), suggestions));
+        response.setTotal(response.getContent().size());
+
+        return response;
+    }
+
+    @POST
+    @Path("/add")
+    @Produces("application/json")
+    @Consumes("application/json")
+    public RestResponse<String> addTickler(Tickler tickler) {
+
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "w", null)) {
+            throw new RuntimeException("Access Denied");
+        }
+
+        tickler.setUpdateDate(new Date());
+        tickler.setCreator(getLoggedInInfo().getLoggedInProviderNo());
+
+        ProgramProvider pp = programManager.getCurrentProgramInDomain(getLoggedInInfo(), getLoggedInInfo().getLoggedInProviderNo());
+
+        if (pp != null) {
+            tickler.setProgramId(pp.getProgramId().intValue());
+        }
+
+        if (ticklerManager.addTickler(getLoggedInInfo(), tickler)) {
+            return RestResponse.successResponse(null);
+        }
+        return RestResponse.errorResponse("Failed to add tickler");
+    }
+
+    @GET
+    @Path("/{demographicNo}/count/overdue")
+    @Produces("application/json")
+    public int getTicklerOverdueCount(@PathParam("demographicNo") Integer demographicNo) {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "r", null)) {
+            throw new RuntimeException("Access Denied");
+        }
+
+        int count = ticklerManager.getActiveTicklerByDemoCount(getLoggedInInfo(), demographicNo);
+        return count;
+    }
+}

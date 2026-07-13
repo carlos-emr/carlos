@@ -1,0 +1,49 @@
+
+BODY {
+    background-color: white;
+    color: black;
+    width: 600px;
+    font-size: 7pt;
+    margin-top: 0px;
+    margin-right: 0px;
+    margin-bottom: 0px;
+    margin-left: 0px
+}
+
+.detailHeader {
+    font-weight: bold;
+    text-decoration: underline;
+    text-align: center;
+}
+
+.header {
+    display: none;
+}
+
+.header INPUT {
+    display: none;
+}
+
+.header A {
+    display: none;
+}
+
+input {
+    border: none;
+}
+
+select {
+    border: none;
+}
+
+.totals_cell {
+    text-align: right;
+}
+
+.rcvPayment, .billingTo {
+    display: none;
+}
+
+.notes {
+    display: none;
+}

@@ -1,0 +1,6 @@
+<persistence xmlns="https://jakarta.ee/xml/ns/jakartaee" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="https://jakarta.ee/xml/ns/jakartaee https://jakarta.ee/xml/ns/jakartaee/persistence_3_0.xsd" version="3.0">
+
+	<persistence-unit name="persistenceUnit" transaction-type="RESOURCE_LOCAL" />
+
+</persistence>

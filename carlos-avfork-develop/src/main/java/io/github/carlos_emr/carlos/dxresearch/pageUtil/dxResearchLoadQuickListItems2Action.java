@@ -1,0 +1,96 @@
+/**
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ */
+
+
+package io.github.carlos_emr.carlos.dxresearch.pageUtil;
+
+import java.io.IOException;
+
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
+
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+
+import io.github.carlos_emr.carlos.dxresearch.bean.dxQuickListItemsHandler;
+import io.github.carlos_emr.carlos.dxresearch.util.dxResearchCodingSystem;
+
+import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
+
+public class dxResearchLoadQuickListItems2Action extends ActionSupport {
+    HttpServletRequest request = ServletActionContext.getRequest();
+    HttpServletResponse response = ServletActionContext.getResponse();
+
+    private static SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
+    public String execute()
+            throws ServletException, IOException {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_dxresearch", "r", null)) {
+            throw new RuntimeException("missing required sec object (_dxresearch)");
+        }
+
+        //dxResearchLoadQuickListItemsForm frm = (dxResearchLoadQuickListItemsForm) form;
+        //request.getSession().setAttribute("dxResearchLoadQuickListItemsFrm", frm);
+        String quickListName = getQuickListName();
+
+        // CWE-501: validate quickListName at trust boundary -- reject control chars and excessive length
+        if (quickListName == null || quickListName.isEmpty() || quickListName.length() > 100
+                || !quickListName.matches("[^\\p{Cntrl}]+")) {
+            throw new RuntimeException("Invalid quick list name");
+        }
+
+        dxResearchCodingSystem codingSys = new dxResearchCodingSystem();
+
+        dxQuickListItemsHandler quicklistItemsHd = new dxQuickListItemsHandler(quickListName);
+
+        HttpSession session = request.getSession();
+        session.setAttribute("codingSystem", codingSys); // nosemgrep: tainted-session-from-http-request -- new dxResearchCodingSystem reference object, no user input
+        session.setAttribute("allQuickListItems", quicklistItemsHd); // nosemgrep: tainted-session-from-http-request -- DAO-sourced quick list items loaded by dxQuickListItemsHandler using validated quickListName
+        // nosemgrep: tainted-session-from-http-request -- quickListName validated via regex [^\\p{Cntrl}]+, length-capped to 100; action guarded by _dxresearch read privilege
+        session.setAttribute("quickListName", quickListName);
+
+        return SUCCESS;
+    }
+
+    private String quickListName;
+
+    public String getQuickListName() {
+        return quickListName;
+    }
+
+    @StrutsParameter
+    public void setQuickListName(String quickListName) {
+        this.quickListName = quickListName;
+    }
+}

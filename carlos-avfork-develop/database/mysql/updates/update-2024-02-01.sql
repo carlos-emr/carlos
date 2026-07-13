@@ -1,0 +1,1 @@
+INSERT INTO issue (`code`,`description`,`role`,`update_date`, `type`) VALUES ('ExternalNote','External Note', 'nurse', now(), 'system');

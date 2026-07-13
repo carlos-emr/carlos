@@ -1,0 +1,78 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.admin;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+/**
+ * Verifies the administration left navigation routes the Age-Sex Report through
+ * the Struts action that replaced the legacy public JSP controller.
+ *
+ * @since 2026-05-03
+ */
+@DisplayName("Administration Left Nav Age-Sex Report Tests")
+@Tag("unit")
+@Tag("fast")
+@Tag("admin")
+class AdministrationLeftNavAgeSexReportTest {
+
+    private static final Path LEFT_NAV =
+            Path.of("src/main/webapp/WEB-INF/jsp/administration/leftNav.jspf");
+
+    @Test
+    @DisplayName("should post age sex report to Struts action")
+    void shouldSubmitAgeSexReportForm_whenLinkClicked() throws Exception {
+        String jsp = Files.readString(LEFT_NAV);
+
+        assertThat(jsp)
+                .as("Age-Sex Report must no longer load the removed public JSP controller")
+                .doesNotContain("/oscarReport/dbReportAgeSex.jsp");
+
+        assertThat(jsp)
+                .as("Age-Sex Report should reference the migrated Struts action")
+                .contains("${carlos:forHtmlAttribute(ctx)}/oscarReport/DbReportAgeSex");
+
+        assertThat(jsp)
+                .as("Age-Sex Report should define a hidden POST form targeting the report iframe")
+                .contains("<form")
+                .contains("id=\"ageSexForm\"")
+                .contains("method=\"post\"")
+                .contains("action=\"${carlos:forHtmlAttribute(ctx)}/oscarReport/DbReportAgeSex\"")
+                .contains("target=\"myFrame\"")
+                .contains("class=\"visually-hidden\"");
+
+        assertThat(jsp)
+                .as("Age-Sex Report xlink handler should submit the hidden form and create an accessible iframe")
+                .contains("data-submit-form=\"ageSexForm\"")
+                .contains("data-frame-title=\"Age-Sex Report\"")
+                .contains("submitForm")
+                .contains("form.submit()")
+                .contains("iframeTitle")
+                .contains("loading")
+                .contains("\"lazy\"")
+                .contains("role")
+                .contains("\"region\"")
+                .contains("aria-live")
+                .contains("\"polite\"")
+                .doesNotContain("form.target = \"myFrame\"")
+                .doesNotContain("CSRF-TOKEN")
+                .doesNotContain("frameborder");
+    }
+}

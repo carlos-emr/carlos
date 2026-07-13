@@ -1,0 +1,242 @@
+/**
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ */
+package io.github.carlos_emr.carlos.utility;
+
+import java.text.ParseException;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.GregorianCalendar;
+import java.util.Locale;
+
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.time.DateFormatUtils;
+
+import io.github.carlos_emr.CarlosProperties;
+
+/**
+ * Date and time utility class providing formatting, parsing, and calculation functions.
+ * 
+ * <p>This class provides methods for:</p>
+ * <ul>
+ *   <li>Formatting dates and times according to system-configured formats</li>
+ *   <li>Parsing dates from various string formats</li>
+ *   <li>Converting between different date types (java.util.Date, java.sql.Date, Calendar)</li>
+ *   <li>Calculating date differences and date arithmetic</li>
+ *   <li>Validating date ranges and checking for date ordering</li>
+ * </ul>
+ * 
+ * <p>Date and time formats are configured via CarlosProperties:</p>
+ * <ul>
+ *   <li><code>DATE_FORMAT</code> - System-wide date format (e.g., "yyyy-MM-dd")</li>
+ *   <li><code>TIME_FORMAT</code> - System-wide time format (e.g., "HH:mm:ss")</li>
+ * </ul>
+ * 
+ * <p><strong>Thread Safety:</strong> All pattern-based parsing/formatting — including the ISO
+ * <em>parse</em> helpers ({@link #parseIsoDate}, {@link #parseIsoDateTime},
+ * {@link #parseJsIsoDateTimeNoTNoSeconds}) — goes through {@link CachedDateFormats}, which gives
+ * each thread its own {@link java.text.SimpleDateFormat}. The ISO <em>format</em> helpers
+ * ({@link #getIsoDate}, {@link #getIsoDateTime}, {@link #getIsoDateTimeNoT}) use Apache Commons
+ * {@code FastDateFormat}, which is itself immutable and thread-safe ({@code FastDateFormat} only
+ * formats, so it is not used on the parse paths). No mutable formatter state is shared between
+ * threads.</p>
+ *
+ * @see CachedDateFormats For the thread-local SimpleDateFormat cache used internally
+ */
+public final class DateUtils {
+    /**
+     * jQuery UI datepicker date-format pattern (NOT a {@link java.text.SimpleDateFormat} pattern).
+     * In datepicker syntax {@code yy} = 4-digit year and {@code mm} = month, so this renders
+     * ISO-style dates such as {@code 2026-05-23}. Do not "correct" {@code mm} to {@code MM}:
+     * that is {@code SimpleDateFormat} syntax (where {@code mm} = minutes, {@code MM} = month name)
+     * and is wrong for the JavaScript datepicker this value feeds.
+     */
+    public static final String JS_ISO_DATE_FORMAT = "yy-mm-dd";
+
+    /**
+     * Constructs a new DateUtils instance.
+     * Note: This is a utility class with static methods; instantiation is not typically needed.
+     */
+    public DateUtils() {
+    }
+
+    /** System-configured date format from properties */
+    private static String dateFormatString = CarlosProperties.getInstance().getProperty("DATE_FORMAT");
+    
+    /** System-configured time format from properties */
+    private static String timeFormatString = CarlosProperties.getInstance().getProperty("TIME_FORMAT");
+
+    /**
+     * Formats a date using the system date format.
+     * 
+     * @param date the date to format
+     * @param locale the locale for formatting (can be null for default locale)
+     * @return formatted date string, or empty string if date is null
+     */
+    public static String formatDate(Date date, Locale locale) {
+        return (format(dateFormatString, date, locale));
+    }
+
+    /**
+     * Formats a time using the system time format.
+     * 
+     * @param date the date/time to format
+     * @param locale the locale for formatting (can be null for default locale)
+     * @return formatted time string, or empty string if date is null
+     */
+    public static String formatTime(Date date, Locale locale) {
+        return (format(timeFormatString, date, locale));
+    }
+
+    /**
+     * Formats a date and time using the system date and time formats.
+     * 
+     * @param date the date/time to format
+     * @param locale the locale for formatting (can be null for default locale)
+     * @return formatted datetime string with date and time separated by a space
+     */
+    public static String formatDateTime(Date date, Locale locale) {
+        return (formatDate(date, locale) + ' ' + formatTime(date, locale));
+    }
+
+    /**
+     * Formats a date using a custom format string and locale.
+     * 
+     * @param format the date format pattern (e.g., "yyyy-MM-dd")
+     * @param date the date to format
+     * @param locale the locale for formatting (can be null for default locale)
+     * @return formatted date string, or empty string if date is null
+     */
+    public static String format(String format, Date date, Locale locale) {
+        if (date == null) {
+            return "";
+        }
+
+        return (locale == null)
+                ? CachedDateFormats.format(date, format)
+                : CachedDateFormats.format(date, format, locale);
+    }
+
+    public static String getIsoDateTimeNoTNoSeconds(Calendar cal) {
+        if (cal == null) {
+            return "";
+        } else {
+            String s = getIsoDateTimeNoT(cal);
+            return s.substring(0, s.length() - 3);
+        }
+    }
+
+    public static String getIsoDateTimeNoT(Calendar cal) {
+        return cal == null ? "" : DateFormatUtils.ISO_8601_EXTENDED_DATETIME_FORMAT.format(cal).replace('T', ' ');
+    }
+
+    public static String getIsoDateTime(Calendar cal) {
+        return cal == null ? "" : DateFormatUtils.ISO_8601_EXTENDED_DATETIME_FORMAT.format(cal);
+    }
+
+    public static String getIsoDate(Calendar cal) {
+        return cal == null ? "" : DateFormatUtils.ISO_8601_EXTENDED_DATE_FORMAT.format(cal);
+    }
+
+    public static Date parseIsoDate(String s) throws ParseException {
+        s = StringUtils.trimToNull(s);
+        if (s == null) {
+            return null;
+        } else {
+            return CachedDateFormats.parse(s, DateFormatUtils.ISO_8601_EXTENDED_DATE_FORMAT.getPattern());
+        }
+    }
+
+    public static GregorianCalendar parseIsoDateAsCalendar(String s) throws ParseException {
+        Date date = parseIsoDate(s);
+        if (date == null) {
+            return null;
+        } else {
+            GregorianCalendar cal = new GregorianCalendar();
+            cal.setTime(date);
+            cal.getTimeInMillis();
+            return cal;
+        }
+    }
+
+    public static Date parseIsoDateTime(String s) throws ParseException {
+        s = StringUtils.trimToNull(s);
+        if (s == null) {
+            return null;
+        } else {
+            return CachedDateFormats.parse(s, DateFormatUtils.ISO_8601_EXTENDED_DATETIME_FORMAT.getPattern());
+        }
+    }
+
+    public static GregorianCalendar parseIsoDateTimeAsCalendar(String s) throws ParseException {
+        Date date = parseIsoDateTime(s);
+        if (date == null) {
+            return null;
+        } else {
+            GregorianCalendar cal = new GregorianCalendar();
+            cal.setTime(date);
+            cal.getTimeInMillis();
+            return cal;
+        }
+    }
+
+    public static Integer yearDifference(Calendar date1, Calendar date2) {
+        if (date1 != null && date2 != null) {
+            int yearDiff = date2.get(1) - date1.get(1);
+            if (date2.get(6) > date1.get(6)) {
+                --yearDiff;
+            }
+
+            return yearDiff;
+        } else {
+            return null;
+        }
+    }
+
+    public static Integer getAge(Calendar dateOfBirth, Calendar onThisDay) {
+        return yearDifference(dateOfBirth, onThisDay);
+    }
+
+    public static Calendar setToBeginningOfDay(Calendar cal) {
+        cal.set(11, 0);
+        cal.set(12, 0);
+        cal.set(13, 0);
+        cal.set(14, 0);
+        cal.getTimeInMillis();
+        return cal;
+    }
+
+    public static Date parseJsIsoDateTimeNoTNoSeconds(String s) throws ParseException {
+        s = StringUtils.trimToNull(s);
+        if (s == null) {
+            return null;
+        } else {
+            return CachedDateFormats.parse(s, "yyyy-MM-dd HH:mm");
+        }
+    }
+}

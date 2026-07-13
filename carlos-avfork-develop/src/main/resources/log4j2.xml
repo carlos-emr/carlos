@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration>
+    <Appenders>
+<!--        <File name="File" fileName="${catalina.base}/logs/openo.log" append="true">-->
+<!--            <Log4j1XmlLayout />-->
+<!--        </File>-->
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d %-5p %C{2} (%F:%L) - %m%n"/>
+        </Console>
+<!--        <RollingFile name="rollingFile"-->
+<!--                     fileName="logs/openo.log" filePattern="logs/oscar-%d{yyyy-MM-dd-HH-mm}-%i.log">-->
+<!--            <PatternLayout>-->
+<!--                <Pattern>%d{yyyy-MM-dd-HH:mm:ss} %-5p %m%n</Pattern>-->
+<!--            </PatternLayout>-->
+<!--            <Policies>-->
+<!--                <SizeBasedTriggeringPolicy size="10KB" />-->
+<!--            </Policies>-->
+<!--        </RollingFile>-->
+        <RollingFile name="CsrfFile" fileName="${sys:catalina.base:-${sys:java.io.tmpdir}}/logs/csrf.log"
+                     filePattern="${sys:catalina.base:-${sys:java.io.tmpdir}}/logs/csrf-%d{yyyy-MM-dd}-%i.log.gz"
+                     append="true">
+            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss} %-5p %replace{%m}{[\r\n\t]}{_}%n"/>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="10 MB"/>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+            </Policies>
+            <DefaultRolloverStrategy max="7"/>
+        </RollingFile>
+        <RollingFile name="WafFile" fileName="${sys:catalina.base:-${sys:java.io.tmpdir}}/logs/waf.log"
+                     filePattern="${sys:catalina.base:-${sys:java.io.tmpdir}}/logs/waf-%d{yyyy-MM-dd}-%i.log.gz"
+                     append="true">
+            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss} %-5p %replace{%m}{[\r\n\t]}{_}%n"/>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="10 MB"/>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+            </Policies>
+            <DefaultRolloverStrategy max="7"/>
+        </RollingFile>
+    </Appenders>
+    <Loggers>
+        <Logger name="org.owasp.csrfguard" level="warn" additivity="false">
+            <AppenderRef ref="CsrfFile"/>
+            <AppenderRef ref="Console"/>
+        </Logger>
+        <Logger name="waf.ratelimit" level="warn" additivity="false">
+            <AppenderRef ref="WafFile"/>
+            <AppenderRef ref="Console"/>
+        </Logger>
+        <Logger name="org.apache.log4j.xml" level="error">
+            <AppenderRef ref="Console"/>
+        </Logger>
+        <Logger name="openjpa.jdbc.SQL" level="error">
+            <AppenderRef ref="Console"/>
+        </Logger>
+        <Root level="${env:LOG_VERBOSITY:-error}">
+            <AppenderRef ref="Console" />
+<!--            <AppenderRef ref="File" />-->
+        </Root>
+    </Loggers>
+</Configuration>

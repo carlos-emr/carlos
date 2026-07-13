@@ -1,0 +1,301 @@
+/**
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ */
+
+
+package io.github.carlos_emr.carlos.dxresearch.pageUtil;
+
+import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.commn.dao.AbstractCodeSystemDao;
+import io.github.carlos_emr.carlos.commn.dao.DxresearchDAO;
+import io.github.carlos_emr.carlos.commn.model.AbstractCodeSystemModel;
+import io.github.carlos_emr.carlos.commn.model.Dxresearch;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
+import io.github.carlos_emr.carlos.util.ConversionUtils;
+
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.Date;
+import java.util.List;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
+public class dxResearch2Action extends ActionSupport {
+    HttpServletRequest request = ServletActionContext.getRequest();
+    HttpServletResponse response = ServletActionContext.getResponse();
+
+    private static SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "UNVALIDATED_REDIRECT"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
+    public String execute()
+            throws ServletException, IOException {
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_dxresearch", "w", null)) {
+            throw new RuntimeException("missing required sec object (_dxresearch)");
+        }
+
+        //dxResearchForm frm = (dxResearchForm) form;
+        //request.getSession().setAttribute("dxResearchForm", frm);
+        String codingSystem = this.getSelectedCodingSystem();
+        String demographicNo = this.getDemographicNo();
+        String providerNo = this.getProviderNo();
+        String forward = this.getForward();
+        String[] xml_research = null;
+        String[] codingSystems = null;
+        boolean multipleCodes = false;
+
+        if (!forward.equals("")) {
+            xml_research = new String[1];
+            xml_research[0] = forward;
+            //We` have to split codingSystem from actual code value
+        } else if (request.getParameterValues("xml_research") != null) {
+            String[] values = request.getParameterValues("xml_research");
+            String[] code;
+            xml_research = new String[values.length];
+            codingSystems = new String[values.length];
+            for (int idx = 0; idx < values.length; ++idx) {
+                code = values[idx].split(",");
+                xml_research[idx] = code[1];
+                codingSystems[idx] = code[0];
+            }
+
+            if (values.length > 0)
+                multipleCodes = true;
+
+        } else {
+            xml_research = new String[5];
+            xml_research[0] = this.getXml_research1();
+            xml_research[1] = this.getXml_research2();
+            xml_research[2] = this.getXml_research3();
+            xml_research[3] = this.getXml_research4();
+            xml_research[4] = this.getXml_research5();
+        }
+        boolean valid = true;
+        DxresearchDAO dao = (DxresearchDAO) SpringUtils.getBean(DxresearchDAO.class);
+
+        for (int i = 0; i < xml_research.length; i++) {
+            int count = 0;
+            if (multipleCodes) codingSystem = codingSystems[i];
+
+            if (xml_research[i].compareTo("") != 0) {
+                List<Dxresearch> research = dao.findByDemographicNoResearchCodeAndCodingSystem(ConversionUtils.fromIntString(demographicNo), xml_research[i], codingSystem);
+
+                for (Dxresearch r : research) {
+                    count = count + 1;
+
+                    r.setUpdateDate(new Date());
+                    r.setStatus('A');
+
+                    dao.save(r);
+
+                    String ip = request.getRemoteAddr();
+                    LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.UPDATE, "DX", "" + r.getId(), ip, "");
+
+                }
+
+                if (count == 0) {
+                    Class<?> daoClass = AbstractCodeSystemDao.getDaoName(AbstractCodeSystemDao.codingSystem.valueOf(codingSystem));
+                    @SuppressWarnings("unchecked")
+                    AbstractCodeSystemDao<AbstractCodeSystemModel<?>> csDao = (AbstractCodeSystemDao<AbstractCodeSystemModel<?>>) SpringUtils.getBean(daoClass);
+
+                    AbstractCodeSystemModel<?> codingSystemEntity = csDao.findByCodingSystem(codingSystem);
+                    boolean isCodingSystemAvailable = codingSystemEntity == null;
+
+                    if (csDao.findByCode(xml_research[i]) == null) {
+                        valid = false;
+                        addActionError(getText("errors.codeNotFound", new String[]{xml_research[i], codingSystem}));
+
+                    } else {
+                        Dxresearch dr = new Dxresearch();
+                        dr.setDemographicNo(Integer.valueOf(demographicNo));
+                        dr.setStartDate(new Date());
+                        dr.setUpdateDate(new Date());
+                        dr.setStatus('A');
+                        dr.setDxresearchCode(xml_research[i]);
+                        dr.setCodingSystem(codingSystem);
+                        dr.setProviderNo(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo());
+                        dao.persist(dr);
+
+                        String ip = request.getRemoteAddr();
+                        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, "DX", "" + dr.getId(), ip, "");
+
+                    }
+                }
+            }
+
+        }
+
+        if (!valid) {
+            request.setAttribute("actionErrors", new java.util.ArrayList<>(getActionErrors()));
+            return "failure";
+        }
+
+        String forwardTo = "success";
+        if (request.getParameter("forwardTo") != null) {
+            forwardTo = request.getParameter("forwardTo");
+        }
+
+        StringBuilder actionforward = new StringBuilder();
+        if ("success".equals(forwardTo)) {
+            actionforward = new StringBuilder(request.getContextPath() + "/oscarResearch/dxresearch/setupDxResearch");
+        } else if ("codeSearch".equals(forwardTo)) {
+            actionforward = new StringBuilder(request.getContextPath() + "/oscarResearch/dxresearch/dxcodeSearch");
+        } else if ("codeList".equals(forwardTo)) {
+            actionforward = new StringBuilder(request.getContextPath() + "/oscarResearch/oscarDxResearch/ViewQuickCodeList");
+        }
+        actionforward.append("?demographicNo=").append(demographicNo);
+        actionforward.append("&providerNo=").append(providerNo);
+        actionforward.append("&quickList=");
+
+        response.sendRedirect(actionforward.toString());
+        return NONE;
+    }
+
+    private String demographicNo;
+    private String providerNo;
+    private String xml_research1;
+    private String xml_research2;
+    private String xml_research3;
+    private String xml_research4;
+    private String xml_research5;
+    private String quickList;
+    private String[] quickListItems;
+    private String forward;
+    private String curCodingSystem;
+
+    public String getDemographicNo() {
+        return demographicNo;
+    }
+
+    @StrutsParameter
+    public void setDemographicNo(String demographicNo) {
+        this.demographicNo = demographicNo;
+    }
+
+    public String getProviderNo() {
+        return providerNo;
+    }
+
+    @StrutsParameter
+    public void setProviderNo(String providerNo) {
+        this.providerNo = providerNo;
+    }
+
+    public String getXml_research1() {
+        return xml_research1;
+    }
+
+    @StrutsParameter
+    public void setXml_research1(String xml_research1) {
+        this.xml_research1 = xml_research1;
+    }
+
+    public String getXml_research2() {
+        return xml_research2;
+    }
+
+    @StrutsParameter
+    public void setXml_research2(String xml_research2) {
+        this.xml_research2 = xml_research2;
+    }
+
+    public String getXml_research3() {
+        return xml_research3;
+    }
+
+    @StrutsParameter
+    public void setXml_research3(String xml_research3) {
+        this.xml_research3 = xml_research3;
+    }
+
+    public String getXml_research4() {
+        return xml_research4;
+    }
+
+    @StrutsParameter
+    public void setXml_research4(String xml_research4) {
+        this.xml_research4 = xml_research4;
+    }
+
+    public String getXml_research5() {
+        return xml_research5;
+    }
+
+    @StrutsParameter
+    public void setXml_research5(String xml_research5) {
+        this.xml_research5 = xml_research5;
+    }
+
+    public String getQuickList() {
+        return quickList;
+    }
+
+    @StrutsParameter
+    public void setQuickList(String quickList) {
+        this.quickList = quickList;
+    }
+
+    public String[] getQuickListItems() {
+        return quickListItems;
+    }
+
+    @StrutsParameter
+    public void setQuickListItems(String[] quickListItems) {
+        this.quickListItems = quickListItems;
+    }
+
+    public String getForward() {
+        return forward;
+    }
+
+    @StrutsParameter
+    public void setForward(String forward) {
+        this.forward = forward;
+    }
+
+    public String getSelectedCodingSystem() {
+        return curCodingSystem;
+    }
+
+    @StrutsParameter
+    public void setSelectedCodingSystem(String cs) {
+        curCodingSystem = cs;
+    }
+}

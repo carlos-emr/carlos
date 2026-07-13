@@ -1,0 +1,396 @@
+# GitHub Workflow: SpotBugs + Find Security Bugs
+#
+# Description:
+# Runs SpotBugs bytecode analysis with the Find Security Bugs plugin on
+# CARLOS EMR compiled classes. SpotBugs detects common bug patterns while
+# Find Security Bugs adds 150+ security-specific detectors critical for
+# a healthcare application handling PHI.
+#
+# Security findings appear in the GitHub Security tab (SARIF upload).
+# Full SpotBugs quality results are retained as workflow artifacts and summaries.
+#
+# Container Images:
+# This workflow uses the same dev container as maven-project.yml to ensure
+# all local_repo dependencies are available for compilation.
+#
+# Usage:
+# - Triggered on pull requests targeting develop, main, experimental
+# - Triggered on pushes to develop
+# - Scheduled weekly full scan (Monday 5:30 UTC)
+# - Manual dispatch available
+#
+# Requirements:
+# - SpotBugs Maven profile defined in pom.xml
+# - Exclude filter at .github/spotbugs/spotbugs-exclude.xml
+#
+# License:
+# This GitHub Workflow file is part of the Carlos EMR project and is subject
+# to the licensing terms outlined in the repository's LICENSE file.
+#
+# Last Updated:
+# April 2026
+
+name: SpotBugs Analysis
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+      - experimental
+    paths:
+      - '**.java'
+      - 'pom.xml'
+      - '.github/spotbugs/**'
+      - '.github/workflows/spotbugs.yml'
+  push:
+    branches: [develop]
+    paths:
+      - '**.java'
+      - 'pom.xml'
+      - '.github/spotbugs/**'
+      - '.github/workflows/spotbugs.yml'
+  workflow_dispatch: {}
+  schedule:
+    - cron: '30 5 * * 1'  # Monday 5:30 UTC (weekly full scan)
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: write
+  packages: read
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}
+
+jobs:
+  spotbugs:
+    name: SpotBugs + Find Security Bugs
+    runs-on: ubuntu-latest
+    if: github.actor != 'dependabot[bot]'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Try to pull pre-built image from ghcr.io
+        id: pull-image
+        continue-on-error: true
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-tomcat-dev:latest
+        run: |
+          echo "Attempting to pull pre-built image from $IMAGE..."
+          if docker pull "$IMAGE" 2>pull-image-error.log; then
+            docker tag "$IMAGE" carlos-tomcat-dev
+            echo "pulled=true" >> "$GITHUB_OUTPUT"
+            echo "reason=success" >> "$GITHUB_OUTPUT"
+            echo "Successfully pulled pre-built image!"
+          else
+            echo "pulled=false" >> "$GITHUB_OUTPUT"
+            if grep -qiE 'manifest unknown|not found' pull-image-error.log; then
+              echo "reason=not-found" >> "$GITHUB_OUTPUT"
+              echo "Pre-built image not available (not found in registry), will build locally"
+            else
+              echo "reason=error" >> "$GITHUB_OUTPUT"
+              echo "Image pull failed due to an unexpected error:"
+              cat pull-image-error.log
+            fi
+          fi
+          rm -f pull-image-error.log
+
+      - name: Fail on unexpected image pull error
+        if: steps.pull-image.outputs.reason == 'error'
+        run: |
+          echo "::error::Failed to pull pre-built image from ${{ env.REGISTRY }} for a reason other than 'image not found'. Check network connectivity, registry permissions, or image name."
+          exit 1
+
+      - name: Cache Docker layers
+        if: steps.pull-image.outputs.pulled != 'true' && steps.pull-image.outputs.reason == 'not-found'
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ hashFiles('.devcontainer/development/**') }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Cache Maven packages
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: .m2-cache
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml', '**/dependencies-lock*.json', 'local_repo/**') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Purge stale local_repo artifacts from Maven cache
+        run: |
+          rm -rf .m2-cache/repository/com/github/openosp/ultrabuk-htmltopdf-java
+
+      - name: Build dev container (fallback)
+        if: steps.pull-image.outputs.pulled != 'true'
+        run: |
+          echo "Building container locally..."
+          docker buildx build \
+            --cache-from=type=local,src=/tmp/.buildx-cache \
+            --cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max \
+            --load \
+            -t carlos-tomcat-dev \
+            .devcontainer/development
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
+      - name: Start container
+        run: |
+          docker run -d --name carlos-tomcat-dev \
+            -v ${{ github.workspace }}:/workspace \
+            -v ${{ github.workspace }}/.m2-cache:/root/.m2 \
+            -w /workspace \
+            carlos-tomcat-dev tail -f /dev/null
+
+      - name: Configure git safe directory
+        run: |
+          docker exec carlos-tomcat-dev bash -c "
+            git config --global --add safe.directory /workspace
+          "
+
+      - name: Build and run SpotBugs
+        id: run_spotbugs
+        run: |
+          docker exec carlos-tomcat-dev bash -c "
+            echo '========================================='
+            echo 'Compiling and running SpotBugs analysis'
+            echo '========================================='
+            export MAVEN_OPTS=\"-Xmx4g\"
+            mvn -B compile spotbugs:spotbugs \
+              -Pspotbugs,skip-dependency-lock \
+              -Dspotbugs.maxHeapMb=4096 \
+              -DskipTests \
+              -T 1C
+          "
+
+      - name: Resolve SpotBugs XML report path
+        id: resolve_spotbugs_report
+        if: always()
+        run: |
+          for report in target/spotbugs-result.xml target/spotbugsTemp.xml; do
+            if [ -s "$report" ]; then
+              echo "report=$report" >> "$GITHUB_OUTPUT"
+              echo "found=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+
+          echo "report=target/spotbugs-result.xml" >> "$GITHUB_OUTPUT"
+          echo "found=false" >> "$GITHUB_OUTPUT"
+
+      - name: Convert SpotBugs security XML to SARIF
+        if: always()
+        run: |
+          export REPORT="${{ steps.resolve_spotbugs_report.outputs.report }}"
+          if [ ! -f "$REPORT" ]; then
+            echo "::error::No SpotBugs report found at $REPORT"
+            if [ "${{ steps.run_spotbugs.outcome }}" = "success" ]; then
+              exit 1
+            fi
+            exit 0
+          fi
+
+          python3 << 'PYEOF'
+          import os
+          import xml.etree.ElementTree as ET
+          import json, sys
+
+          report_path = os.environ["REPORT"]
+          sarif_path = "spotbugs-security-report.sarif"
+          metrics_path = "spotbugs-security-metrics.env"
+
+          try:
+              tree = ET.parse(report_path)
+          except ET.ParseError as e:
+              print(f"Failed to parse SpotBugs XML: {e}", file=sys.stderr)
+              sys.exit(1)
+
+          root = tree.getroot()
+          results = []
+          rules_map = {}
+          total_findings = 0
+          skipped_non_security = 0
+          skipped_no_source = 0
+
+          for bug in root.findall("BugInstance"):
+              total_findings += 1
+              bug_type = bug.get("type", "unknown")
+              category = bug.get("category", "")
+              category_normalized = category.strip().upper()
+              if category_normalized != "SECURITY":
+                  skipped_non_security += 1
+                  continue
+
+              priority = int(bug.get("priority", "3"))
+              message_elem = bug.find("LongMessage")
+              short_msg_elem = bug.find("ShortMessage")
+              message = ""
+              if message_elem is not None and message_elem.text:
+                  message = message_elem.text
+              elif short_msg_elem is not None and short_msg_elem.text:
+                  message = short_msg_elem.text
+              else:
+                  message = bug_type
+
+              level_map = {1: "error", 2: "warning", 3: "note"}
+              security_severity_map = {1: "8.0", 2: "5.0", 3: "2.0"}
+              level = level_map.get(priority, "warning")
+              security_severity = security_severity_map.get(priority, "5.0")
+
+              source_line = bug.find("SourceLine")
+              if source_line is None:
+                  for child in bug:
+                      sl = child.find("SourceLine")
+                      if sl is not None and sl.get("sourcepath"):
+                          source_line = sl
+                          break
+
+              uri = ""
+              start_line = 1
+              end_line = 1
+              if source_line is not None:
+                  sourcepath = source_line.get("sourcepath", "")
+                  if sourcepath:
+                      uri = f"src/main/java/{sourcepath}"
+                  start = source_line.get("start")
+                  end = source_line.get("end")
+                  if start:
+                      start_line = int(start)
+                  if end:
+                      end_line = int(end)
+
+              if not uri:
+                  skipped_no_source += 1
+                  print(
+                      f"Skipping SECURITY finding without source location: {bug_type}",
+                      file=sys.stderr
+                  )
+                  continue
+
+              if bug_type not in rules_map:
+                  rules_map[bug_type] = {
+                      "id": bug_type,
+                      "shortDescription": {"text": bug_type},
+                      "properties": {
+                          "category": category_normalized,
+                          "tags": ["security"],
+                          "security-severity": security_severity
+                      }
+                  }
+              else:
+                  properties = rules_map[bug_type]["properties"]
+                  if float(security_severity) > float(properties["security-severity"]):
+                      properties["security-severity"] = security_severity
+
+              result = {
+                  "ruleId": bug_type,
+                  "level": level,
+                  "message": {"text": message},
+                  "locations": [{
+                      "physicalLocation": {
+                          "artifactLocation": {"uri": uri, "uriBaseId": "%SRCROOT%"},
+                          "region": {"startLine": start_line, "endLine": end_line}
+                      }
+                  }]
+              }
+              results.append(result)
+
+          sarif = {
+              "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+              "version": "2.1.0",
+              "runs": [{
+                  "tool": {
+                      "driver": {
+                          "name": "SpotBugs + Find Security Bugs",
+                          "informationUri": "https://spotbugs.github.io/",
+                          "rules": list(rules_map.values())
+                      }
+                  },
+                  "results": results
+              }]
+          }
+
+          with open(sarif_path, "w") as f:
+              json.dump(sarif, f, indent=2)
+
+          with open(metrics_path, "w") as f:
+              f.write(f"TOTAL_FINDINGS={total_findings}\n")
+              f.write(f"SECURITY_FINDINGS_UPLOADED={len(results)}\n")
+              f.write(f"SKIPPED_NON_SECURITY={skipped_non_security}\n")
+              f.write(f"SKIPPED_NO_SOURCE={skipped_no_source}\n")
+
+          print(f"Converted {len(results)} security findings to SARIF")
+          print(f"Skipped {skipped_non_security} non-security findings from {total_findings} total findings")
+          print(f"Skipped {skipped_no_source} security findings without source locations")
+          PYEOF
+
+      - name: Upload security SARIF to GitHub Code Scanning
+        uses: github/codeql-action/upload-sarif@0daab03d71ff584ef619d027a3fd9146679c5d84
+        if: >
+          always() &&
+          hashFiles('spotbugs-security-report.sarif') != '' &&
+          (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)
+        with:
+          sarif_file: spotbugs-security-report.sarif
+          category: spotbugs
+
+      - name: Upload SpotBugs quality artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always() && steps.resolve_spotbugs_report.outputs.found == 'true'
+        with:
+          name: spotbugs-quality-xml
+          path: ${{ steps.resolve_spotbugs_report.outputs.report }}
+          retention-days: 14
+
+      - name: Report summary
+        if: always()
+        run: |
+          REPORT="${{ steps.resolve_spotbugs_report.outputs.report }}"
+          METRICS="spotbugs-security-metrics.env"
+          echo "### SpotBugs + Find Security Bugs Results" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f "$REPORT" ]; then
+            TOTAL=$(grep -c '<BugInstance' "$REPORT" 2>/dev/null || true)
+            HIGH=$(grep -c 'priority="1"' "$REPORT" 2>/dev/null || true)
+            MEDIUM=$(grep -c 'priority="2"' "$REPORT" 2>/dev/null || true)
+            LOW=$(grep -c 'priority="3"' "$REPORT" 2>/dev/null || true)
+            SECURITY=$(grep -ci 'category="security"' "$REPORT" 2>/dev/null || true)
+            echo "| Severity | Count |" >> "$GITHUB_STEP_SUMMARY"
+            echo "|----------|-------|" >> "$GITHUB_STEP_SUMMARY"
+            echo "| High | ${HIGH:-0} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Medium | ${MEDIUM:-0} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Low | ${LOW:-0} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Security** | **${SECURITY:-0}** |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| **Total** | **${TOTAL:-0}** |" >> "$GITHUB_STEP_SUMMARY"
+            if [ -f "$METRICS" ]; then
+              . "$METRICS"
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              echo "| Code Scanning upload | Count |" >> "$GITHUB_STEP_SUMMARY"
+              echo "|----------------------|-------|" >> "$GITHUB_STEP_SUMMARY"
+              echo "| Security findings selected for upload | ${SECURITY_FINDINGS_UPLOADED:-0} |" >> "$GITHUB_STEP_SUMMARY"
+              echo "| Security findings skipped without source | ${SKIPPED_NO_SOURCE:-0} |" >> "$GITHUB_STEP_SUMMARY"
+              if [ "${SKIPPED_NO_SOURCE:-0}" != "0" ]; then
+                echo "::warning::Skipped ${SKIPPED_NO_SOURCE} SpotBugs SECURITY finding(s) without usable source locations"
+                echo "" >> "$GITHUB_STEP_SUMMARY"
+                echo "**Warning:** ${SKIPPED_NO_SOURCE} security finding(s) lacked usable source locations and were not uploaded to Code Scanning." >> "$GITHUB_STEP_SUMMARY"
+              fi
+            fi
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "Only security findings are uploaded to Code Scanning; full SpotBugs results are retained as workflow artifacts." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No SpotBugs report generated." >> "$GITHUB_STEP_SUMMARY"
+          fi

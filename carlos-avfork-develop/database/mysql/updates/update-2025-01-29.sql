@@ -1,0 +1,1 @@
+ALTER TABLE emailLog ADD COLUMN IF NOT EXISTS internalComment BLOB AFTER chartDisplayOption;

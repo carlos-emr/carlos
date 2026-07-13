@@ -1,0 +1,3 @@
+INSERT INTO `secObjectName`(`objectName`, `description`, `orgapplicable`) VALUES ('_careconnect', 'Restrict visibility and access to BC Care Connect', 0);
+INSERT INTO `secObjPrivilege`(`roleUserGroup`, `objectName`, `privilege`, `priority`, `provider_no`) VALUES ('doctor', '_careconnect', 'o', 0, '999998');
+INSERT INTO `secObjPrivilege`(`roleUserGroup`, `objectName`, `privilege`, `priority`, `provider_no`) VALUES ('Pharmacist', '_careconnect', 'o', 0, '999998');

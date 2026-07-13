@@ -1,0 +1,109 @@
+{
+  "companyAnnouncements": [
+    "⚠️  DEVCONTAINER ONLY: CARLOS development defaults grant extensive permissions optimized for isolated devcontainers. Do NOT use in shared or production environments. See CLAUDE.md for details."
+  ],
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Read|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 $CLAUDE_PROJECT_DIR/.claude/hooks/inject-test-context.py",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Read|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 $CLAUDE_PROJECT_DIR/.claude/hooks/validate-sql-safety.py",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Read|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 $CLAUDE_PROJECT_DIR/.claude/hooks/validate-owasp-encoding.py",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Read(**)",
+      "Grep(**)",
+      "Glob(**)",
+      "Write(database/mysql/updates/update-*.sql)",
+      "Edit(database/mysql/updates/update-*.sql)",
+      "Bash(mysql -h db *)",
+      "Bash(curl *)",
+      "Bash(gh pr *)",
+      "Bash(gh issue view *)",
+      "Bash(gh issue list *)",
+      "Bash(gh issue comment *)",
+      "Bash(gh run view *)",
+      "Bash(gh run list *)",
+      "Bash(gh run watch *)",
+      "Bash(git status *)",
+      "Bash(git branch *)",
+      "Bash(git checkout *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git pull *)",
+      "Bash(git fetch *)",
+      "Bash(git log *)",
+      "Bash(git diff *)",
+      "Bash(git push origin *)",
+      "Bash(git push -u origin *)"
+    ],
+    "ask": [
+      "Edit(database/mysql/oscarinit*.sql)",
+      "Edit(database/mysql/oscardata*.sql)",
+      "Edit(database/mysql/icd*.sql)",
+      "Edit(database/mysql/measurementMapData.sql)",
+      "Write(database/mysql/oscarinit*.sql)",
+      "Write(database/mysql/oscardata*.sql)",
+      "Bash(gh pr close *)",
+      "Bash(gh issue close *)",
+      "Bash(gh issue edit *)",
+      "Bash(gh issue create *)",
+      "Bash(gh label *)",
+      "Bash(gh run rerun *)",
+      "Bash(git reset --soft *)",
+      "Bash(git reset --mixed *)",
+      "Bash(git stash drop *)",
+      "Bash(gh api -X PATCH repos/*/* *)",
+      "Bash(gh api -X PUT repos/*/* *)",
+      "Bash(gh api -X DELETE repos/*/* *)"
+    ],
+    "deny": [
+      "Write(.git/**)",
+      "Write(.github/**)",
+      "Write(.github/workflows/**)",
+      "Write(database/**)",
+      "Bash(rm -rf *)",
+      "Bash(rm -fr *)",
+      "Bash(rm -r *)",
+      "Bash(rm --recursive *)",
+      "Bash(sudo *)",
+      "Bash(git push --force *)",
+      "Bash(git push -f *)",
+      "Bash(git push origin --force *)",
+      "Bash(git push origin -f *)",
+      "Bash(git reset --hard *)",
+      "Bash(git clean *)",
+      "Bash(git filter-repo *)",
+      "Bash(git filter-branch *)",
+      "Bash(gh repo delete *)",
+      "Bash(gh repo fork *)"
+    ]
+  }
+}

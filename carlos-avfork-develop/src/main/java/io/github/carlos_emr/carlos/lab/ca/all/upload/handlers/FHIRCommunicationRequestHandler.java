@@ -1,0 +1,205 @@
+/**
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ */
+
+package io.github.carlos_emr.carlos.lab.ca.all.upload.handlers;
+
+import org.openpdf.text.pdf.PdfReader;
+
+import ca.uhn.fhir.context.FhirContext;
+
+import ca.uhn.fhir.parser.IParser;
+
+import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileReader;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.List;
+
+import org.apache.commons.io.IOUtils;
+import org.apache.logging.log4j.Logger;
+import org.hl7.fhir.dstu3.model.Attachment;
+import org.hl7.fhir.dstu3.model.CodeableConcept;
+import org.hl7.fhir.dstu3.model.CommunicationRequest;
+
+import org.hl7.fhir.dstu3.model.Reference;
+
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao;
+
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+
+import io.github.carlos_emr.carlos.documentManager.EDoc;
+import io.github.carlos_emr.carlos.documentManager.EDocUtil;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
+import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
+/**
+ * Handles FHIR STU3 CommunicationRequest resources containing PDF document attachments.
+ *
+ * <p>This handler parses a JSON-encoded {@link CommunicationRequest} from an uploaded file,
+ * extracts the embedded PDF attachment, saves it to the document directory via
+ * {@link Utilities#savePdfFile}, and creates an EDoc record linked to the referenced
+ * patient demographic. The document is then routed to the recipient providers specified
+ * in the CommunicationRequest.
+ *
+ * <p>File path validation is performed using {@link PathValidationUtils} to prevent
+ * path traversal attacks. Page count is determined using OpenPDF's {@link PdfReader}
+ * on the decoded attachment byte data.
+ *
+ * <p>The document type is extracted from the CommunicationRequest category coding
+ * using the {@code http://oscarehr.org/documentType} system URI.
+ *
+ * @see MessageHandler
+ * @see org.hl7.fhir.dstu3.model.CommunicationRequest
+ * @since 2019 (McMaster University)
+ */
+public class FHIRCommunicationRequestHandler implements MessageHandler {
+
+    protected static Logger logger = MiscUtils.getLogger();
+    private static FhirContext fhirContext = FhirContext.forDstu3();
+    private ProviderInboxRoutingDao providerInboxRoutingDao = (ProviderInboxRoutingDao) SpringUtils.getBean(ProviderInboxRoutingDao.class);
+    private static SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+
+
+    /**
+     * Parses a FHIR CommunicationRequest JSON file and saves the embedded PDF attachment
+     * as an EDoc, routing it to the specified recipient providers.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session info
+     * @param serviceName String the service name (unused in this handler)
+     * @param fileName String the full path to the FHIR JSON file
+     * @param fileId int the file identifier (unused in this handler)
+     * @param ipAddr String the client IP address for audit logging
+     * @return String "success" if the document was saved, or {@code null} on error
+     */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
+    @Override
+    public String parse(LoggedInInfo loggedInInfo, String serviceName, String fileName, int fileId, String ipAddr) {
+        String providerNo = "-1";
+
+        IParser parser = fhirContext.newJsonParser();
+        BufferedReader in = null;
+        try {
+            // Validate and canonicalize the file path to prevent path traversal attacks
+            // Get the base document directory from configuration
+            String baseDocDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+            if (baseDocDir == null || baseDocDir.isEmpty()) {
+                logger.error("DOCUMENT_DIR not configured");
+                return null;
+            }
+            
+            // Validate the file path using PathValidationUtils
+            File baseDir = new File(baseDocDir);
+            File targetFile = new File(fileName);
+            try {
+                targetFile = PathValidationUtils.validateExistingPath(targetFile, baseDir);
+            } catch (SecurityException e) {
+                logger.error("Path traversal attempt detected: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                return null;
+            }
+            if (!targetFile.exists() || !targetFile.isFile()) {
+                logger.error("File does not exist or is not a regular file: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                return null;
+            }
+            
+            // Use the validated canonical path
+            String validatedFilePath = targetFile.getCanonicalPath();
+            in = new BufferedReader(new FileReader(validatedFilePath));
+
+            CommunicationRequest communicationRequest = parser.parseResource(CommunicationRequest.class, in);
+            List<Reference> refs = communicationRequest.getRecipient();
+            Reference patient = communicationRequest.getSubject();
+
+            Date createDate = communicationRequest.getAuthoredOn();
+            Attachment attachment = communicationRequest.getPayloadFirstRep().getContentAttachment();
+            String title = attachment.getTitle();
+            String docType = "";
+            CodeableConcept cc = communicationRequest.getCategoryFirstRep();
+
+            if (cc.getCodingFirstRep().hasSystem() && "http://oscarehr.org/documentType".equals(cc.getCodingFirstRep().getSystem())) {
+                docType = cc.getCodingFirstRep().getCode();
+            }
+
+            byte[] document = attachment.getData();
+
+            ByteArrayInputStream is = new ByteArrayInputStream(document);
+            String incomingDocumentFilename = communicationRequest.getIdentifierFirstRep().getValue().replace('/', '-') + "_" + (new Date().getTime()) + ".pdf";
+            String filePath = Utilities.savePdfFile(is, incomingDocumentFilename);
+
+            int fileNameIdx = filePath.lastIndexOf("/");
+            filePath = filePath.substring(fileNameIdx + 1);
+
+            EDoc newDoc = new EDoc(title,
+                    docType,
+                    filePath,
+                    "",
+                    providerNo,
+                    providerNo,
+                    "",
+                    'A',
+                    sdf.format(createDate),
+                    "", "", "demographic",
+                    patient.getReference().substring("Patient/".length()), false);
+
+            newDoc.setDocPublic("0");
+            newDoc.setContentType("application/pdf");
+            int numPages;
+            try (PdfReader reader = new PdfReader(document)) {
+                numPages = reader.getNumberOfPages();
+            }
+            newDoc.setNumberOfPages(numPages);
+
+            String doc_no = EDocUtil.addDocumentSQL(newDoc);
+
+            for (Reference ref : refs) {
+                providerInboxRoutingDao.addToProviderInbox(ref.getReference().substring("Practitioner/".length()), Integer.parseInt(doc_no), "DOC");
+            }
+
+            LogAction.addLog(providerNo, LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, ipAddr, "", "DocUpload.FHIRCommunicationRequest");
+
+        } catch (Exception e) {
+            logger.error("error parsing Document Reference Document", e);
+            return null;
+        } finally {
+            IOUtils.closeQuietly(in);
+        }
+
+        return "success";
+    }
+}

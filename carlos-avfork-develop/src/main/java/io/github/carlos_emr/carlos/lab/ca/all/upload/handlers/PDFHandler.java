@@ -1,0 +1,189 @@
+/**
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ */
+
+package io.github.carlos_emr.carlos.lab.ca.all.upload.handlers;
+
+import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import org.openpdf.text.pdf.PdfReader;
+
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+
+import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao;
+import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.documentManager.EDoc;
+import io.github.carlos_emr.carlos.documentManager.EDocUtil;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
+/**
+ * Handles uploaded PDF documents by saving them as EDoc records in the CARLOS document
+ * management system.
+ *
+ * <p>This handler validates the uploaded file path using {@link PathValidationUtils},
+ * counts pages using OpenPDF's {@link PdfReader}, persists the document metadata via
+ * {@link EDocUtil}, and routes the document to the configured provider inbox.
+ *
+ * <p>Provider routing is determined by either:
+ * <ul>
+ *   <li>The {@code batch_pdf_provider_no} system property (routes to a single provider
+ *       and default queue)</li>
+ *   <li>The {@code serviceName} parameter prefixed with "providerNo" (routes to one or
+ *       more space-separated provider numbers)</li>
+ * </ul>
+ *
+ * @see MessageHandler
+ * @see EDocUtil
+ * @since 2012 (McMaster University)
+ */
+public class PDFHandler implements MessageHandler {
+    protected static Logger logger = MiscUtils.getLogger();
+
+    /**
+     * Parses an uploaded PDF file and saves it as an EDoc in the document management system.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session info
+     * @param serviceName String optional provider routing directive (e.g., "providerNo999001")
+     * @param fileName String the full path to the uploaded PDF file
+     * @param fileId int the file identifier (unused in this handler)
+     * @param ipAddr String the client IP address for audit logging
+     * @return String "success" if the document was saved, or {@code null} on error
+     */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
+    @Override
+    public String parse(LoggedInInfo loggedInInfo, String serviceName, String fileName, int fileId, String ipAddr) {
+
+        String providerNo = "-1";
+        String filePath = fileName;
+        if (fileName == null || fileName.isBlank()) {
+            logger.error("Document filename is null or empty");
+            return null;
+        }
+        if (!(fileName.endsWith(".pdf") || fileName.endsWith(".PDF"))) {
+            logger.error("Document {} does not have pdf extension", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            return null;
+        } else {
+            int fileNameIdx = fileName.lastIndexOf("/");
+            fileName = fileName.substring(fileNameIdx + 1);
+        }
+        
+        // Validate and canonicalize the file path to prevent path traversal attacks
+        try {
+            // Get the base document directory from configuration
+            String baseDocDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+            if (baseDocDir == null || baseDocDir.isEmpty()) {
+                logger.error("DOCUMENT_DIR not configured");
+                return null;
+            }
+
+            // Validate the file path using PathValidationUtils
+            File baseDir = new File(baseDocDir);
+            File targetFile = new File(filePath);
+            targetFile = PathValidationUtils.validateExistingPath(targetFile, baseDir);
+
+            // Verify the file exists and is a regular file
+            if (!targetFile.exists() || !targetFile.isFile()) {
+                logger.error("File does not exist or is not a regular file: {}", LogSafe.sanitize(filePath)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                return null;
+            }
+
+            // Use the validated canonical path
+            filePath = targetFile.getCanonicalPath();
+
+        } catch (SecurityException e) {
+            logger.error("Path traversal attempt detected: {}", LogSafe.sanitize(filePath)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            return null;
+        } catch (IOException e) {
+            logger.error("Error validating file path: {}", LogSafe.sanitize(filePath), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            return null;
+        } catch (Exception e) {
+            logger.error("Unexpected error validating file path: {}", LogSafe.sanitize(filePath), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            return null;
+        }
+
+        EDoc newDoc = new EDoc("", "", fileName, "", providerNo, providerNo, "", 'A',
+                UtilDateUtilities.getToday("yyyy-MM-dd"), "", "", "demographic", "-1", false);
+
+        newDoc.setDocPublic("0");
+
+        try {
+            newDoc.setContentType("application/pdf");
+
+            //Find the number of pages
+            int numPages;
+            try (PdfReader reader = new PdfReader(filePath)) {
+                numPages = reader.getNumberOfPages();
+            }
+            newDoc.setNumberOfPages(numPages);
+
+            String doc_no = EDocUtil.addDocumentSQL(newDoc);
+
+            LogAction.addLog(providerNo, LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, ipAddr, "", "DocUpload");
+
+            //Get providers to route document to
+            String batchPDFProviderNo = CarlosProperties.getInstance().getProperty("batch_pdf_provider_no");
+            if ((batchPDFProviderNo != null) && !batchPDFProviderNo.isEmpty()) {
+
+                ProviderInboxRoutingDao providerInboxRoutingDao = (ProviderInboxRoutingDao) SpringUtils.getBean(ProviderInboxRoutingDao.class);
+                providerInboxRoutingDao.addToProviderInbox(batchPDFProviderNo, Integer.parseInt(doc_no), "DOC");
+
+                //Add to default queue for now, not sure how or if any other queues can be used anyway (MAB)                 
+                QueueDocumentLinkDao queueDocumentLinkDAO = (QueueDocumentLinkDao) SpringUtils.getBean(QueueDocumentLinkDao.class);
+                Integer did = Integer.parseInt(doc_no.trim());
+                queueDocumentLinkDAO.addToQueueDocumentLink(1, did);
+            } else if (serviceName != null && serviceName.startsWith("providerNo")) {
+                String providerStr = serviceName.substring("providerNo".length());
+                String[] providers = providerStr.trim().split(" ");
+                ProviderInboxRoutingDao providerInboxRoutingDao = (ProviderInboxRoutingDao) SpringUtils.getBean(ProviderInboxRoutingDao.class);
+                for (String provider : providers) {
+                    providerInboxRoutingDao.addToProviderInbox(provider, Integer.parseInt(doc_no), "DOC");
+                }
+            }
+        } catch (FileNotFoundException e) {
+            logger.error("File not found: {}", LogSafe.sanitize(filePath), e);
+            return null;
+        } catch (Exception e) {
+            logger.error("Error uploading PDF: {}", LogSafe.sanitize(filePath), e);
+            return null;
+        }
+
+        return "success";
+    }
+}

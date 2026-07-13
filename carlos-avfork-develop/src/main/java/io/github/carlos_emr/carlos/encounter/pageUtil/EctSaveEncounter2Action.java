@@ -1,0 +1,368 @@
+/**
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ */
+
+
+package io.github.carlos_emr.carlos.encounter.pageUtil;
+
+import java.io.IOException;
+import java.util.Date;
+import java.util.Properties;
+import java.util.ResourceBundle;
+
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import io.github.carlos_emr.carlos.appt.ApptStatusData;
+import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
+import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao;
+import io.github.carlos_emr.carlos.commn.dao.EChartDao;
+import io.github.carlos_emr.carlos.commn.dao.EncounterWindowDao;
+import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
+import io.github.carlos_emr.carlos.commn.model.Appointment;
+import io.github.carlos_emr.carlos.commn.model.EChart;
+import io.github.carlos_emr.carlos.commn.model.EncounterWindow;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
+import io.github.carlos_emr.carlos.util.ConversionUtils;
+import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+
+import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
+public class EctSaveEncounter2Action extends ActionSupport {
+
+    static final int DEFAULT_ROW_ONE_SIZE = 60;
+    static final int DEFAULT_ROW_TWO_SIZE = 60;
+    static final int DEFAULT_ROW_THREE_SIZE = 378;
+    static final int DEFAULT_PRES_BOX_SIZE = 30;
+    private static final int MIN_LAYOUT_SIZE = 10;
+
+    HttpServletRequest httpservletrequest = ServletActionContext.getRequest();
+    HttpServletResponse httpservletresponse = ServletActionContext.getResponse();
+
+    static Logger log = MiscUtils.getLogger();
+    AppointmentArchiveDao appointmentArchiveDao = (AppointmentArchiveDao) SpringUtils.getBean(AppointmentArchiveDao.class);
+    OscarAppointmentDao appointmentDao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
+
+    /**
+     * Parses a layout size from the given request parameter string.
+     * Returns {@code defaultValue} if the parameter is null, non-numeric,
+     * or below the minimum layout size threshold ({@value MIN_LAYOUT_SIZE} px).
+     *
+     * @param param        the raw request parameter string
+     * @param defaultValue the field-specific default to apply on invalid input
+     * @return the parsed size, or {@code defaultValue} if the input is invalid or too small
+     */
+    static int parseLayoutSize(String param, int defaultValue) {
+        int value = ConversionUtils.fromIntString(param);
+        if (value >= MIN_LAYOUT_SIZE) {
+            return value;
+        }
+        log.debug("parseLayoutSize: invalid or missing layout param, using default {}", defaultValue);
+        return defaultValue;
+    }
+
+    private String getLatestID(String demoNo) {
+        EChartDao dao = SpringUtils.getBean(EChartDao.class);
+        Integer maxId = dao.getMaxIdForDemographic(ConversionUtils.fromIntString(demoNo));
+
+        if (maxId != null) {
+            return maxId.toString();
+        }
+        return null;
+    }
+
+
+    //This function will compare the most current id in the echart with the
+    // id that is stored in the session variable.  If the ID in the echart is
+    // newer, then the user is working with a old (aka dirty) copy of the encounter
+    private boolean isDirtyEncounter(String demographicNo, String userEChartID) {
+        String latestID = getLatestID(demographicNo);
+
+        //latestID should only be null if the assessed encounter is new, which
+        // means that it can't be dirty
+        if (latestID == null || latestID.equals("")) {
+            return false;
+        }
+        // if the usrCopyID is null and the latestID isn't null, then
+        // two people where probably trying to create a new encounter for
+        // the same person at the same time.
+        else if (userEChartID == null || userEChartID.equals("")) {
+            return true;
+        }
+
+        try {
+            Integer iLatestID = Integer.valueOf(latestID);
+            Integer iUsrCopyID = Integer.valueOf(userEChartID);
+            if (iLatestID.longValue() > iUsrCopyID.longValue()) {
+                return true;
+            } else {
+                return false;
+            }
+        } catch (NumberFormatException e) {
+            // already handled the null/empy string case, so shouldn't ever get this
+            // exception.
+            MiscUtils.getLogger().error("Error", e);
+            return true;
+        }
+    }
+
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    public String execute() throws
+            IOException, ServletException {
+
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(httpservletrequest), "_demographic", "w", null)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+
+        log.debug("EctSaveEncounter2Action Start");
+        //UtilDateUtilities dateutilities = new UtilDateUtilities();
+        EctSessionBean sessionbean = null;
+        sessionbean = (EctSessionBean) httpservletrequest.getSession().getAttribute(
+                "EctSessionBean");
+
+        sessionbean.socialHistory = httpservletrequest.getParameter("shTextarea");
+        sessionbean.familyHistory = httpservletrequest.getParameter("fhTextarea");
+        sessionbean.medicalHistory = httpservletrequest.getParameter("mhTextarea");
+        sessionbean.ongoingConcerns = httpservletrequest.getParameter("ocTextarea");
+        sessionbean.reminders = httpservletrequest.getParameter("reTextarea");
+        sessionbean.encounter = httpservletrequest.getParameter("enTextarea");
+        sessionbean.subject = httpservletrequest.getParameter("subject");
+        java.util.Date date = new Date();
+        sessionbean.eChartTimeStamp = date;
+
+        if (!httpservletrequest.getParameter("btnPressed").equals("Exit")) {
+            try {
+                ResourceBundle prop = ResourceBundle.getBundle("oscarResources",
+                        httpservletrequest.getLocale());
+                if (httpservletrequest.getParameter("btnPressed").equals(
+                        "Sign,Save and Bill")) {
+                    sessionbean.encounter = sessionbean.encounter + "\n" + "[" +
+                            prop.
+                                    getString("encounter.class.EctSaveEncounterAction.msgSigned") +
+                            " " +
+                            UtilDateUtilities.DateToString(date,
+                                    prop.getString("date.yyyyMMddHHmmss"),
+                                    httpservletrequest.getLocale()) +
+                            " " +
+                            prop.getString(
+                                    "encounter.class.EctSaveEncounterAction.msgSigBy") +
+                            " " + sessionbean.userName + "]";
+                }
+                if (httpservletrequest.getParameter("btnPressed").equals(
+                        "Sign,Save and Exit")) {
+                    sessionbean.encounter = sessionbean.encounter + "\n" + "[" +
+                            prop.
+                                    getString("encounter.class.EctSaveEncounterAction.msgSigned") +
+                            " " +
+                            UtilDateUtilities.DateToString(date,
+                                    prop.getString("date.yyyyMMddHHmmss"),
+                                    httpservletrequest.getLocale()) +
+                            " " +
+                            prop.getString(
+                                    "encounter.class.EctSaveEncounterAction.msgSigBy") +
+                            " " + sessionbean.userName + "]";
+                }
+                if (httpservletrequest.getParameter("btnPressed").equals(
+                        "Verify and Sign")) {
+                    sessionbean.encounter = sessionbean.encounter + "\n" + "[" +
+                            prop.
+                                    getString(
+                                            "encounter.class.EctSaveEncounterAction.msgVerAndSig") +
+                            " " +
+                            UtilDateUtilities.DateToString(date,
+                                    prop.getString("date.yyyyMMddHHmmss"),
+                                    httpservletrequest.getLocale()) +
+                            " " +
+                            prop.getString(
+                                    "encounter.class.EctSaveEncounterAction.msgSigBy") +
+                            " " + sessionbean.userName + "]";
+                }
+                if (httpservletrequest.getParameter("btnPressed").equals("Split Chart")) {
+                    sessionbean.subject = prop.getString(
+                            "encounter.class.EctSaveEncounterAction.msgSplitChart");
+                }
+                sessionbean.template = "";
+            } catch (Exception e) {
+                MiscUtils.getLogger().error("Error", e);
+            }
+
+            //This code is synchronized to ensure that only one person is modifying the same patient
+            // record at a time
+            synchronized (this) {
+                //unfortunately, can't use the echart ID stored in the session bean, because it may
+                // be overwritten when view split charts.
+                String userEChartID = (String) httpservletrequest.getSession().getAttribute("eChartID");
+                //make sure that user is trying to save the latest version of the encounter
+                if (isDirtyEncounter(sessionbean.demographicNo, userEChartID)) {
+                    //If it is an ajax submit, it should cause and exception, if it is a
+                    // regular submission, it should just forward on to an error page.
+                    if (httpservletrequest.getParameter("submitMethod") != null && httpservletrequest.getParameter("submitMethod").equals("ajax")) {
+                        httpservletresponse.sendError(HttpServletResponse.SC_PRECONDITION_FAILED,
+                                "Somebody else is currently modifying this encounter");
+                    }
+                    return "concurrencyError";
+                }
+
+
+                EChart e = new EChart();
+                e.setTimestamp(date);
+                e.setDemographicNo(Integer.parseInt(sessionbean.demographicNo));
+                e.setProviderNo(sessionbean.providerNo);
+                e.setSubject(sessionbean.subject);
+                e.setSocialHistory(sessionbean.socialHistory);
+                e.setFamilyHistory(sessionbean.familyHistory);
+                e.setMedicalHistory(sessionbean.medicalHistory);
+                e.setOngoingConcerns(sessionbean.ongoingConcerns);
+                e.setReminders(sessionbean.reminders);
+                e.setEncounter(sessionbean.encounter);
+
+                EChartDao dao = SpringUtils.getBean(EChartDao.class);
+                dao.persist(e);
+                sessionbean.eChartId = String.valueOf(e.getId());
+                httpservletrequest.getSession().setAttribute("eChartID", sessionbean.eChartId); // nosemgrep: tainted-session-from-http-request
+
+                // add log here
+                String ip = httpservletrequest.getRemoteAddr();
+                LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(httpservletrequest).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_ECHART,
+                        sessionbean.demographicNo, ip);
+
+                //change the appt status
+                if (sessionbean.status != null && !sessionbean.status.equals("")) {
+                    ApptStatusData as = new ApptStatusData();
+                    as.setApptStatus(sessionbean.status);
+
+                    if (httpservletrequest.getParameter("btnPressed").equals(
+                            "Sign,Save and Exit")) {
+                        Appointment appt = appointmentDao.find(Integer.parseInt(sessionbean.appointmentNo));
+                        appointmentArchiveDao.archiveAppointment(appt);
+                        if (appt != null) {
+                            appt.setStatus(as.signStatus());
+                            appt.setLastUpdateUser(sessionbean.providerNo);
+                            appointmentDao.merge(appt);
+                        }
+                    }
+                    if (httpservletrequest.getParameter("btnPressed").equals(
+                            "Verify and Sign")) {
+                        Appointment appt = appointmentDao.find(Integer.parseInt(sessionbean.appointmentNo));
+                        appointmentArchiveDao.archiveAppointment(appt);
+                        if (appt != null) {
+                            appt.setStatus(as.verifyStatus());
+                            appt.setLastUpdateUser(sessionbean.providerNo);
+                            appointmentDao.merge(appt);
+                        }
+                    }
+                }
+            }
+
+        }  //end of the synchronization block
+
+
+        EncounterWindowDao encounterWindowDao = SpringUtils.getBean(EncounterWindowDao.class);
+        encounterWindowDao.remove(sessionbean.providerNo);
+
+
+        EncounterWindow ew = new EncounterWindow();
+        ew.setProviderNo(sessionbean.providerNo);
+        ew.setRowOneSize(parseLayoutSize(httpservletrequest.getParameter("rowOneSize"), DEFAULT_ROW_ONE_SIZE));
+        ew.setRowTwoSize(parseLayoutSize(httpservletrequest.getParameter("rowTwoSize"), DEFAULT_ROW_TWO_SIZE));
+        ew.setRowThreeSize(parseLayoutSize(httpservletrequest.getParameter("rowThreeSize"), DEFAULT_ROW_THREE_SIZE));
+        ew.setPresBoxSize(parseLayoutSize(httpservletrequest.getParameter("presBoxSize"), DEFAULT_PRES_BOX_SIZE));
+        encounterWindowDao.persist(ew);
+
+        String forward = null;
+
+        if (httpservletrequest.getParameter("btnPressed").equals(
+                "Sign,Save and Bill")) {
+
+            String billRegion = CarlosProperties.getInstance().getProperty(
+                    "billregion");
+            //
+            BillingSessionBean bean = new BillingSessionBean();
+            bean.setApptProviderNo(sessionbean.providerNo);
+            bean.setPatientName(sessionbean.getPatientFirstName() + " " +
+                    sessionbean.getPatientLastName());
+            bean.setBillRegion(billRegion);
+            Properties oscarVariables = (Properties) httpservletrequest.getAttribute("oscarVariables");
+            String formBill = "GP";
+
+            if (oscarVariables != null) {
+                formBill = oscarVariables.getProperty("default_view", formBill);
+            }
+            bean.setBillForm(formBill);
+            bean.setPatientNo(sessionbean.demographicNo);
+            String apptNoParam = httpservletrequest.getParameter("appointment_no");
+            if ("null".equalsIgnoreCase(apptNoParam) || (apptNoParam != null && apptNoParam.isEmpty())) {
+                apptNoParam = null;
+            } else if (apptNoParam != null && !apptNoParam.matches("\\d{1,9}")) {
+                log.warn("Invalid appointment_no rejected");
+                return "failure";
+            }
+            bean.setApptNo(apptNoParam);
+            bean.setApptDate(sessionbean.appointmentDate);
+            // CWE-501: validate status against appointment status pattern before session storage
+            String statusParam = httpservletrequest.getParameter("status");
+            if (statusParam != null && !statusParam.matches("[a-zA-Z]{1,2}")) {
+                log.warn("Rejected invalid appointment status at trust boundary");
+                statusParam = null;
+            }
+            bean.setApptStatus(statusParam);
+            httpservletrequest.setAttribute("encounter", "true");
+            // nosemgrep: tainted-session-from-http-request -- appointment_no validated numeric above; apptProvider/patientName/patientNo
+            // from authenticated EctSessionBean; billRegion/billForm from server config; apptDate from session; status validated [a-zA-Z]{1,2}
+            httpservletrequest.getSession().setAttribute("billingSessionBean", bean); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): bean fields validated (appointment_no numeric, status [a-zA-Z]{1,2}); providerNo/patientNo from validated EctSessionBean
+            forward = "bill";
+        } else if (httpservletrequest.getParameter("btnPressed").equals("Sign,Save and Exit")) {
+            forward = "success";
+        } else if (httpservletrequest.getParameter("btnPressed").equals("Verify and Sign")) {
+            forward = "success";
+        } else if (httpservletrequest.getParameter("btnPressed").equals("Save") || httpservletrequest.getParameter("btnPressed").equals("AutoSave")) {
+            forward = "saveAndStay";
+        } else if (httpservletrequest.getParameter("btnPressed").equals("Split Chart")) {
+            forward = "splitchart";
+        } else if (httpservletrequest.getParameter("btnPressed").equals("Exit")) {
+            forward = "close";
+        } else {
+            forward = "failure";
+        }
+        return forward;
+    }
+}

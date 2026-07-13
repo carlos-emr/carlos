@@ -1,0 +1,3 @@
+INSERT INTO `secObjectName`(`objectName`, `description`, `orgapplicable`) VALUES ('_fax', 'Send and Receive Faxes', 0);
+INSERT INTO `secObjPrivilege`(`roleUserGroup`, `objectName`, `privilege`, `priority`, `provider_no`) VALUES ('admin', '_fax', 'x', 0, '999998');
+INSERT INTO `secObjPrivilege`(`roleUserGroup`, `objectName`, `privilege`, `priority`, `provider_no`) VALUES ('doctor', '_fax', 'x', 0, '999998');

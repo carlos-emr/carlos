@@ -1,0 +1,100 @@
+/**
+ * Copyright (c) 2013-2015. Department of Computer Science, University of Victoria. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * This software was written for the
+ * Department of Computer Science
+ * LeadLab
+ * University of Victoria
+ * Victoria, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ */
+package io.github.carlos_emr.carlos.commn.exception;
+
+public class AccessDeniedException extends RuntimeException {
+
+    private String permission;
+    private String action;
+    private String subject;
+
+    public AccessDeniedException() {
+        super();
+        this.permission = null;
+        this.action = null;
+        this.subject = null;
+    }
+
+    public AccessDeniedException(String permission, String action) {
+        super();
+        this.permission = permission;
+        this.action = action;
+        this.subject = null;
+    }
+
+    public AccessDeniedException(String permission, String action, int subject) {
+        super();
+        this.permission = permission;
+        this.action = action;
+        this.subject = Integer.toString(subject);
+    }
+
+    public AccessDeniedException(String permission, String action, String subject) {
+        super();
+        this.permission = permission;
+        this.action = action;
+        this.subject = subject;
+    }
+
+    /**
+     * Returns the security object or permission name that was denied.
+     *
+     * @return denied permission or {@code null} when not supplied
+     */
+    public String getPermission() {
+        return permission;
+    }
+
+    /**
+     * Returns the requested privilege action.
+     *
+     * @return denied action or {@code null} when not supplied
+     */
+    public String getAction() {
+        return action;
+    }
+
+    /**
+     * Returns the subject identifier associated with the denial.
+     *
+     * @return subject identifier or {@code null} when not supplied
+     */
+    public String getSubject() {
+        return subject;
+    }
+
+    public AccessDeniedException(String message) {
+        super(message);
+
+        if (this.permission != null) message += " permission: " + this.permission;
+        if (this.action != null) message += " action: " + this.action;
+        if (this.subject != null) message += " subject: " + this.subject;
+
+    }
+}

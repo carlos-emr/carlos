@@ -1,0 +1,70 @@
+# GitHub Workflow: Maven Dependency Submission
+#
+# Description:
+# This workflow validates the dependency lock file and submits a complete
+# dependency graph to GitHub for security monitoring.
+#
+# Trigger:
+# - Runs on push to main and develop branches when pom.xml or lock file changes
+# - Does NOT run on pull requests (maven-project.yml handles PR validation)
+#
+# Jobs:
+# - validate-and-submit:
+#   - Validates the dependency lock file
+#   - Submits dependency graph to GitHub
+#
+# License:
+# This GitHub Workflow file is part of the Carlos EMR project and is subject
+# to the licensing terms outlined in the repository's LICENSE file.
+#
+# Last Updated:
+# March 2026
+
+name: Maven Dependency Submission
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - experimental
+      - staging/*
+      - hotfix/*
+      - community/*/develop
+      - community/*/staging/*
+    paths:
+      - 'pom.xml'
+      - 'dependencies-lock.json'
+
+permissions:
+  contents: write  # Required for dependency graph submission
+
+jobs:
+  validate-and-submit:
+    name: Validate dependencies
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Validate lock file
+        run: |
+          echo "========================================="
+          echo "Validating dependencies"
+          echo "Lock file: dependencies-lock.json"
+          echo "========================================="
+          mvn validate
+
+      - name: Submit dependency graph
+        uses: advanced-security/maven-dependency-submission-action@3a183dc11227df3dd6351cfffb472965b9265da1  # v5
+        with:
+          snapshot-include-file-name: false
+          snapshot-dependency-file-name: pom.xml

@@ -1,0 +1,975 @@
+/**
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
+ */
+package io.github.carlos_emr.carlos.form.pdfservlet;
+
+import java.awt.*;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.sql.SQLException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.Enumeration;
+import java.util.List;
+import java.util.Optional;
+import java.util.Properties;
+
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import io.github.carlos_emr.CarlosProperties;
+import org.apache.logging.log4j.Logger;
+import org.owasp.encoder.Encode;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
+import io.github.carlos_emr.carlos.form.FrmRecord;
+import io.github.carlos_emr.carlos.form.FrmRecordFactory;
+import io.github.carlos_emr.carlos.form.graphic.FrmGraphicFactory;
+import io.github.carlos_emr.carlos.form.graphic.FrmPdfGraphic;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.util.ConcatPDF;
+
+import java.awt.Color;
+import org.openpdf.text.Document;
+import org.openpdf.text.DocumentException;
+import org.openpdf.text.Element;
+import org.openpdf.text.Font;
+import org.openpdf.text.PageSize;
+import org.openpdf.text.Phrase;
+import org.openpdf.text.Rectangle;
+import org.openpdf.text.pdf.BaseFont;
+import org.openpdf.text.pdf.ColumnText;
+import org.openpdf.text.pdf.PdfContentByte;
+import org.openpdf.text.pdf.PdfImportedPage;
+import org.openpdf.text.pdf.PdfReader;
+import org.openpdf.text.pdf.PdfWriter;
+/**
+ * Servlet that generates PDF renditions of standard medical forms (Rourke growth charts,
+ * BCAR antenatal records, and other configurable clinical forms).
+ *
+ * <p>This servlet uses a configuration-driven approach where form layout is defined in
+ * external text files (config files) that specify field positions, fonts, and formatting.
+ * It overlays patient data onto imported PDF templates using OpenPDF's
+ * {@link PdfImportedPage} and {@link PdfContentByte} direct content rendering.
+ *
+ * <p>Key features:
+ * <ul>
+ *   <li>Multi-page form support with page-specific configuration files</li>
+ *   <li>Growth chart graphing via pluggable {@link FrmPdfGraphic} implementations</li>
+ *   <li>Supports checkboxes (ZapfDingbats), single-line text, multi-line text areas,
+ *       lines, and colored rectangles for redaction</li>
+ *   <li>Configurable page sizes (Letter, Half-Letter, A6)</li>
+ *   <li>Multi-form concatenation for batch printing</li>
+ *   <li>Post-processing hook via {@link FrmPDFPostValueProcessor}</li>
+ * </ul>
+ *
+ * <p>Configuration file format (see {@link #generatePDFDocumentBytes}):
+ * <pre>
+ *   Checkboxes:    paramName : alignment, X, Y, 0, font, fontSize, textToPrint
+ *   Single-line:   paramName : alignment, X, Y, 0, font, fontSize
+ *   Multi-line:    paramName : alignment, X1, Y1, 0, font, fontSize, _, X2, Y2, lineSpacing
+ * </pre>
+ * Coordinates refer to the bottom-left corner, measured in PDF points (1/72 inch).
+ *
+ * @see FrmCustomedPDFServlet
+ * @see FrmPdfGraphic
+ * @see FrmRecordFactory
+ * @since 2001 (McMaster University)
+ */
+public class FrmPDFServlet extends HttpServlet {
+
+    Logger log = MiscUtils.getLogger();
+
+    /**
+     * Default constructor required by the servlet container.
+     */
+    public FrmPDFServlet() {
+        super();
+    }
+
+    /** Delegates all GET requests to {@link #doPost(HttpServletRequest, HttpServletResponse)}. */
+    public void doGet(HttpServletRequest req, HttpServletResponse res) throws jakarta.servlet.ServletException,
+            java.io.IOException {
+        doPost(req, res);
+    }
+
+    /**
+     * Generates one or more medical form PDFs and streams the result to the response.
+     * If the {@code multiple} request parameter is present, generates that many PDFs
+     * (one per page index) and concatenates them via {@link ConcatPDF}.
+     *
+     * @param req HttpServletRequest containing form field values and configuration parameters
+     * @param res HttpServletResponse to write the generated PDF bytes to
+     * @throws jakarta.servlet.ServletException if a servlet error occurs
+     * @throws java.io.IOException if an I/O error occurs during PDF generation
+     */
+    public void doPost(HttpServletRequest req, HttpServletResponse res) throws jakarta.servlet.ServletException,
+            java.io.IOException {
+
+        ByteArrayOutputStream baosPDF = null;
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(req);
+        List<File> tempFiles = new ArrayList<>();
+
+        try {
+            File tmpFile = null;
+
+            if (req.getParameter("multiple") != null) {
+                ArrayList<Object> files = new ArrayList<Object>();
+                for (int x = 0; x < Integer.parseInt(req.getParameter("multiple")); x++) {
+                    baosPDF = new ByteArrayOutputStream();
+                    baosPDF = generatePDFDocumentBytes(req, this.getServletContext(), baosPDF, x);
+                    File pageTmp = File.createTempFile("formpdf", ".pdf");
+                    tempFiles.add(pageTmp);
+                    try (FileOutputStream fos = new FileOutputStream(pageTmp)) {
+                        baosPDF.writeTo(fos);
+                    }
+                    files.add(pageTmp.getAbsolutePath());
+                }
+                tmpFile = File.createTempFile("formpdf", ".pdf");
+                tempFiles.add(tmpFile);
+                ConcatPDF.concat(files, tmpFile.getAbsolutePath());
+            } else {
+                baosPDF = new ByteArrayOutputStream();
+                baosPDF = generatePDFDocumentBytes(req, this.getServletContext(), baosPDF, 0);
+                tmpFile = File.createTempFile("formpdf", ".pdf");
+                tempFiles.add(tmpFile);
+                try (FileOutputStream fos = new FileOutputStream(tmpFile)) {
+                    baosPDF.writeTo(fos);
+                }
+            }
+            StringBuilder sbFilename = new StringBuilder();
+            sbFilename.append("filename_");
+            //sbFilename.append(System.currentTimeMillis());
+            sbFilename.append(".pdf");
+
+            // set the Cache-Control header
+            res.setHeader("Cache-Control", "max-age=0");
+            //res.setHeader("Cache-Control","no-cache"); //HTTP 1.1
+            res.setDateHeader("Expires", 0);
+            res.setContentType("application/pdf");
+
+            // The Content-disposition value will be inline
+
+            StringBuilder sbContentDispValue = new StringBuilder();
+            sbContentDispValue.append("inline; filename="); //inline - display
+            // the pdf file
+            // directly rather
+            // than open/save
+            // selection
+            //sbContentDispValue.append("; filename=");
+            sbContentDispValue.append(sbFilename);
+
+            res.setHeader("Content-disposition", sbContentDispValue.toString());
+
+
+            res.setContentLength((int) tmpFile.length());
+
+
+            ServletOutputStream sout = res.getOutputStream();
+            try (FileInputStream fis = new FileInputStream(tmpFile)) {
+                byte[] buffer = new byte[64000];
+                int bytesRead = 0;
+
+                while (true) {
+                    bytesRead = fis.read(buffer);
+                    if (bytesRead == -1)
+                        break;
+
+                    sout.write(buffer, 0, bytesRead);
+                }
+            }
+
+            LogAction.addLogSynchronous(loggedInInfo, "FrmPDFServlet", "formID=" + req.getParameter("formId") + ",form_class=" + req.getParameter("form_class"));
+
+        } catch (DocumentException dex) {
+            log.error("Document error generating form PDF", dex);
+            if (!res.isCommitted()) {
+                res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    "An internal error occurred. Please try again or contact your system administrator.");
+            }
+        } catch (java.io.IOException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Unexpected error in FrmPDFServlet", e);
+            if (!res.isCommitted()) {
+                res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    "An internal error occurred. Please try again or contact your system administrator.");
+            }
+        } finally {
+            if (baosPDF != null) {
+                baosPDF.reset();
+                //baosPDF.close();
+            }
+            for (File tempFile : tempFiles) {
+                if (tempFile.exists() && !tempFile.delete()) {
+                    tempFile.deleteOnExit();
+                }
+            }
+        }
+
+    }
+
+
+    /**
+     * the form txt file has lines in the form:
+     * <p>
+     * For Checkboxes:
+     * ie.  ohip : left, 76, 193, 0, BaseFont.ZAPFDINGBATS, 8, \u2713
+     * requestParamName : alignment, Xcoord, Ycoord, 0, font, fontSize, textToPrint[if empty, prints the value of the request param]
+     * NOTE: the Xcoord and Ycoord refer to the bottom-left corner of the element
+     * <p>
+     * For single-line text:
+     * ie. patientCity  : left, 242, 261, 0, BaseFont.HELVETICA, 12
+     * See checkbox explanation
+     * <p>
+     * For multi-line text (textarea)
+     * ie.  aci : left, 20, 308, 0, BaseFont.HELVETICA, 8, _, 238, 222, 10
+     * requestParamName : alignment, bottomLeftXcoord, bottomLeftYcoord, 0, font, fontSize, _, topRightXcoord, topRightYcoord, spacingBtwnLines
+     * <p>
+     * NOTE: When working on these forms in linux, it helps to load the PDF file into gimp, switch to pt. coordinate system and use the mouse to find the coordinates.
+     * Prepare to be bored!
+     */
+    protected ByteArrayOutputStream generatePDFDocumentBytes(final HttpServletRequest req, final ServletContext ctx, ByteArrayOutputStream baosPDF, int multiple)
+            throws DocumentException, java.io.IOException {
+
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(req);
+
+        final String PAGESIZE = "printPageSize";
+        Document document = new Document();
+        //document = new Document(psize, 50, 50, 50, 50);
+
+        String suffix = (multiple > 0) ? String.valueOf(multiple) : "";
+
+        PdfWriter writer = null;
+        PdfReader reader = null;
+
+        try {
+            writer = PdfWriter.getInstance(document, baosPDF);
+
+            String title = req.getParameter("__title" + suffix) != null ? req.getParameter("__title" + suffix) : "Unknown";
+
+            String template = req.getParameter("__template" + suffix) != null ? req.getParameter("__template" + suffix) + ".pdf" : "";
+
+            int numPages = 1;
+            String pages = req.getParameter("__numPages" + suffix);
+            if (pages != null) {
+                numPages = Integer.parseInt(pages);
+            }
+
+            Properties[] printCfg = null;
+            int cfgFileNo;
+            String[] cfgFile = req.getParameterValues("__cfgfile" + suffix);
+
+            cfgFileNo = cfgFile == null ? 0 : cfgFile.length;
+            if (cfgFileNo > 0) {
+                printCfg = new Properties[cfgFileNo];
+                for (int idx2 = 0; idx2 < cfgFileNo; ++idx2) {
+                    cfgFile[idx2] += ".txt";
+                    if (cfgFile[idx2].indexOf("/") > 0) {
+                        cfgFile[idx2] = "";
+                    }
+
+                    printCfg[idx2] = getCfgProp(cfgFile[idx2]);
+                }
+            }
+
+
+            Properties[][] graphicCfg = new Properties[numPages][];
+            String[] cfgGraphicFile;
+            String paramName;
+            int cfgGraphicFileNo;
+            for (int idx = 0; idx < numPages; ++idx) {
+                if (idx == 0) {
+                    cfgGraphicFile = req.getParameterValues("__cfgGraphicFile" + suffix);
+                } else {
+                    paramName = "__cfgGraphicFile" + String.valueOf(idx) + suffix;
+                    cfgGraphicFile = req.getParameterValues(paramName);
+                }
+
+                cfgGraphicFileNo = cfgGraphicFile == null ? 0 : cfgGraphicFile.length;
+                if (cfgGraphicFileNo == 0) {
+                    graphicCfg[idx] = null;
+                } else {
+                    graphicCfg[idx] = new Properties[cfgGraphicFileNo];
+                    for (int idx2 = 0; idx2 < cfgGraphicFileNo; ++idx2) {
+                        cfgGraphicFile[idx2] += ".txt";
+                        graphicCfg[idx][idx2] = getCfgProp(cfgGraphicFile[idx2]);
+                    }
+                }
+            }
+
+            String[] cfgVal = null;
+            StringBuilder tempName = null;
+            String tempValue = null;
+
+            //load from DB
+            int demoNo = Integer.parseInt(req.getParameter("demographic_no"));
+            String strFormId = req.getParameter("formId");
+            int formId = 0;
+            try {
+                formId = Integer.parseInt(strFormId);
+            } catch (NumberFormatException e) {/*ignore*/}
+
+            String formClass = req.getParameter("form_class");
+            FrmRecord record = (new FrmRecordFactory()).factory(formClass);
+            java.util.Properties props = new Properties();
+            if (record != null) {
+                try {
+                    props = record.getFormRecord(loggedInInfo, demoNo, formId);
+                } catch (SQLException e) {
+                    MiscUtils.getLogger().error("Error", e);
+                }
+            }
+
+            // get the print prop values
+            //Properties props = new Properties();
+            StringBuilder temp = new StringBuilder("");
+            for (Enumeration<String> e = req.getParameterNames(); e.hasMoreElements(); ) {
+                temp = new StringBuilder(e.nextElement().toString());
+                props.setProperty(temp.toString(), req.getParameter(temp.toString()));
+            }
+
+            String postProcessorName = req.getParameter("postProcessor" + suffix);
+            if (postProcessorName != null) {
+                Optional<FrmPDFPostValueProcessor> pp = PostProcessorRegistry.resolve(postProcessorName);
+                if (pp.isPresent()) {
+                    try {
+                        props = pp.get().process(props);
+                    } catch (Exception e) {
+                        log.warn("Post-processor {} failed during execution - form rendered without post-processing", Encode.forJava(postProcessorName), e);
+                    }
+                } else {
+                    log.warn("Post-processor '{}' is not on the allowlist and will not be applied", Encode.forJava(postProcessorName));
+                }
+            }
+
+            String currentDate = new SimpleDateFormat("yyyy-MM-dd HH:mm").format(new Date());
+            int totalPages = 1;
+            if (req.getParameter("multiple") != null)
+                totalPages = Integer.parseInt(req.getParameter("multiple"));
+            String currentUser = loggedInInfo.getLoggedInProvider().getFormattedName();
+            String pg = suffix.length() == 0 || suffix.equals("0") ? "0" : suffix;
+            String currentPage = String.valueOf(Integer.parseInt(pg) + 1);
+
+            props.setProperty("total_pages", String.valueOf(totalPages));
+            props.setProperty("current_page", currentPage);
+            props.setProperty("current_user", currentUser);
+            props.setProperty("current_date", currentDate);
+
+            props.setProperty("printer_info", "Printed on " + currentDate + " by " + currentUser + ": Page " + currentPage + " of " + totalPages);
+
+            //initialise measurement collections = a list of pages sections measurements
+            List<List<List<String>>> xMeasurementValues = new ArrayList<List<List<String>>>();
+            List<List<List<String>>> yMeasurementValues = new ArrayList<List<List<String>>>();
+            for (int idx = 0; idx < numPages; ++idx) {
+                MiscUtils.getLogger().debug("Adding page " + idx);
+                xMeasurementValues.add(new ArrayList<List<String>>());
+                yMeasurementValues.add(new ArrayList<List<String>>());
+            }
+
+            String elementNum;
+            int page;
+            int section;
+            int index, index2, index3;
+            Properties measurements = new Properties();
+
+            for (Enumeration<String> e = req.getAttributeNames(); e.hasMoreElements(); ) {
+                temp = new StringBuilder(e.nextElement().toString());
+                measurements.setProperty(temp.toString(), req.getAttribute(temp.toString()).toString());
+
+                //for graphing measurements of height and weight
+                //since we don't know how many there could be they cannot be defined in a config file
+                //save them here so they can be added to the graph vectors below
+                //naming convention of measurements is xVal_num_section_page, yVal_num_section_page
+                //num uniquely identifies value so x num should = y num
+                //section allows graphing of more than one measurement axis e.g. if top of page is different graph than bottom of page see rourke
+                //page is the pdf page it should be plotted on
+                if (temp.toString().startsWith("xVal_")) {
+                    MiscUtils.getLogger().debug("Processing " + temp.toString());
+
+                    index = temp.indexOf("_");
+                    index2 = temp.indexOf("_", index + 1);
+                    elementNum = temp.substring(index + 1, index2);
+
+                    index3 = temp.lastIndexOf("_");
+                    section = Integer.parseInt(temp.substring(index2 + 1, index3));
+                    page = Integer.parseInt(temp.substring(index3 + 1));
+
+                    //page is zero based, numPages is not
+                    if (page >= numPages) {
+                        continue;
+                    }
+
+                    //if this is the first measurement of the section init array
+                    while (xMeasurementValues.get(page).size() <= section) {
+                        MiscUtils.getLogger().debug("Adding section " + section);
+                        List<List<String>> list = xMeasurementValues.get(page);
+                        list.add(new ArrayList<String>());
+                    }
+
+                    while (yMeasurementValues.get(page).size() <= section) {
+                        List<List<String>> list = yMeasurementValues.get(page);
+                        list.add(new ArrayList<String>());
+                    }
+
+                    xMeasurementValues.get(page).get(section).add((String) req.getAttribute(temp.toString()));
+                    MiscUtils.getLogger().debug("Setting xMeasurementDate to " + (String) req.getAttribute(temp.toString()));
+
+                    temp = new StringBuilder("yVal_");
+                    temp = temp.append(elementNum);
+                    temp = temp.append("_" + section);
+                    temp = temp.append("_" + page);
+                    MiscUtils.getLogger().debug("Key " + temp);
+                    tempValue = (String) req.getAttribute(temp.toString());
+                    yMeasurementValues.get(page).get(section).add(tempValue);
+                    MiscUtils.getLogger().debug("Setting yMeasurementValue to " + tempValue);
+                } else {
+                    props.setProperty(temp.toString(), req.getAttribute(temp.toString()).toString());
+                }
+            }
+
+            document.addTitle(title);
+            document.addSubject("");
+            document.addKeywords("pdf");
+            document.addCreator("CARLOS EMR");
+            document.addAuthor("");
+            //document.addHeader("Expires", "0");
+
+            // A0-A10, LEGAL, LETTER, HALFLETTER, _11x17, LEDGER, NOTE, B0-B5, ARCH_A-ARCH_E, FLSA
+            // and FLSE
+            // the following shows a temp way to get a print page size
+            Rectangle pageSize = PageSize.LETTER;
+            if ("PageSize.HALFLETTER".equals(props.getProperty(PAGESIZE)))
+                pageSize = PageSize.HALFLETTER;
+            if ("PageSize.A6".equals(props.getProperty(PAGESIZE)))
+                pageSize = PageSize.A6;
+            document.setPageSize(pageSize);
+            document.open();
+
+            // create a reader for a certain document
+            //String propFilename = "../../OscarDocument/" + getProjectName() + "/form/" + template;
+            String propFilename = CarlosProperties.getInstance().getProperty("pdfFORMDIR", "") + "/" + template;
+            float height;
+            int n;
+            try {
+                reader = new PdfReader(propFilename);
+                log.info("Found template at {}", LogSafe.sanitize(propFilename));
+            } catch (Exception dex) {
+                log.debug("change path to inside oscar from: {}", LogSafe.sanitize(propFilename));
+                reader = new PdfReader("/oscar/form/prop/" + template);
+                log.debug("Found template at /oscar/form/prop/{}", LogSafe.sanitize(template));
+            }
+
+            // retrieve the total number of pages
+            n = reader.getNumberOfPages();
+            // retrieve the size of the first page
+            Rectangle pSize = reader.getPageSize(1);
+            height = pSize.getHeight();
+
+            PdfContentByte cb = writer.getDirectContent();
+            ColumnText ct = new ColumnText(cb);
+            int i = 0;
+            int fontFlags = 0;
+            String propValue;
+
+            while (i < n) {
+                document.newPage();
+
+                i++;
+                PdfImportedPage page1 = writer.getImportedPage(reader, i);
+                cb.addTemplate(page1, 1, 0, 0, 1, 0, 0);
+
+                BaseFont bf; // = normFont;
+                String encoding;
+
+                cb.setRGBColorStroke(0, 0, 1);
+                //cb.setFontAndSize(bf, 8);
+                // LEFT/CENTER/RIGHT, X, Y,
+                //cb.showTextAligned(PdfContentByte.ALIGN_LEFT, "Cathy
+                // Pacific", 126, height-50, 0);
+
+                if (i <= cfgFileNo) {
+
+                    String[] fontType;
+                    for (Enumeration e = printCfg[i - 1].propertyNames(); e.hasMoreElements(); ) {
+                        tempName = new StringBuilder(e.nextElement().toString());
+                        cfgVal = printCfg[i - 1].getProperty(tempName.toString()).split(",");
+                        for (int x = 0; x < cfgVal.length; x++) {
+                            cfgVal[x].trim();
+                        }
+
+                        if (cfgVal[4].indexOf(";") > -1) {
+                            fontType = cfgVal[4].split(";");
+                            if (fontType[1].trim().equals("italic"))
+                                fontFlags = Font.ITALIC;
+                            else if (fontType[1].trim().equals("bold"))
+                                fontFlags = Font.BOLD;
+                            else if (fontType[1].trim().equals("bolditalic"))
+                                fontFlags = Font.BOLDITALIC;
+                            else
+                                fontFlags = Font.NORMAL;
+                        } else {
+                            fontFlags = Font.NORMAL;
+                            fontType = new String[]{cfgVal[4].trim()};
+                        }
+
+                        if (fontType[0].trim().equals("BaseFont.HELVETICA")) {
+                            fontType[0] = BaseFont.HELVETICA;
+                            encoding = BaseFont.CP1252;  //latin1 encoding
+                        } else if (fontType[0].trim().equals("BaseFont.HELVETICA_OBLIQUE")) {
+                            fontType[0] = BaseFont.HELVETICA_OBLIQUE;
+                            encoding = BaseFont.CP1252;
+                        } else if (fontType[0].trim().equals("BaseFont.ZAPFDINGBATS")) {
+                            fontType[0] = BaseFont.ZAPFDINGBATS;
+                            encoding = BaseFont.ZAPFDINGBATS;
+                        } else {
+                            fontType[0] = BaseFont.COURIER;
+                            encoding = BaseFont.CP1252;
+                        }
+
+                        bf = BaseFont.createFont(fontType[0], encoding, BaseFont.NOT_EMBEDDED);
+                        propValue = props.getProperty(tempName.toString());
+                        //if not in regular config then check measurements
+                        if (propValue == null) {
+                            propValue = measurements.getProperty(tempName.toString(), "");
+                        }
+
+                        // write in a rectangle area
+                        if (cfgVal.length >= 9) {
+                            int fontSize = 12;
+                            try {
+                                fontSize = Integer.parseInt(cfgVal[5].trim());
+                            } catch (NumberFormatException nfe) {
+                                log.warn("Invalid font size in form print config '{}': {}", tempName, cfgVal[5]);
+                            }
+                            Font font;
+                            if (fontFlags == Font.BOLD) { // Hack to stop blue outline from bold text
+                                font = new Font(bf, fontSize, fontFlags, Color.BLACK);
+                            } else {
+                                font = new Font(bf, fontSize, fontFlags);
+                            }
+                            //ct.setSimpleColumn(60, 300, 200, 500, 10,
+                            // Element.ALIGN_LEFT);
+                            //ct.addText(new Phrase(15, "xxxx xxxxx xxxxx xxxxx xxx
+                            // xxxxx xxxxx xxxx xxxxx xxxxxx xxxx xxxxxxx xxxxx
+                            // xxxx", font));
+                            ct.setSimpleColumn(Integer.parseInt(cfgVal[1].trim()), (height - Integer.parseInt(cfgVal[2]
+                                    .trim())), Integer.parseInt(cfgVal[7].trim()), (height - Integer.parseInt(cfgVal[8]
+                                    .trim())), Integer.parseInt(cfgVal[9].trim()), (cfgVal[0].trim().equals("left") ?
+                                    Element.ALIGN_LEFT : (cfgVal[0].trim().equals("right") ? Element.ALIGN_RIGHT :
+                                    Element.ALIGN_CENTER)));
+
+                            //ct.addText(new Phrase(12, props.getProperty(tempName.toString(), ""), font)); // page
+                            ct.setText(new Phrase(12, propValue, font));
+                            // size
+                            // leading
+                            // space between two
+                            // lines
+                            ct.go();
+                            continue;
+                        }
+
+                        //adapted by DENNIS WARREN June 2012 to allow a colour rectangle
+                        // handy for covering up parts of a document
+                        if (tempName.toString().startsWith("__$rectangle")) {
+
+                            float llx = Float.parseFloat(cfgVal[0].trim());
+                            float lly = Float.parseFloat(cfgVal[1].trim());
+                            float urx = Float.parseFloat(cfgVal[2].trim());
+                            float ury = Float.parseFloat(cfgVal[3].trim());
+
+                            Rectangle rec = new Rectangle(llx, lly, urx, ury);
+                            rec.setBackgroundColor(Color.WHITE);
+                            cb.rectangle(rec);
+
+                        } else if (tempName.toString().startsWith("__$line")) {
+                            cb.setRGBColorStrokeF(0f, 0f, 0f);
+                            cb.setLineWidth(Float.parseFloat(cfgVal[4].trim()));
+                            cb.moveTo(Float.parseFloat(cfgVal[0].trim()), Float.parseFloat(cfgVal[1].trim()));
+                            cb.lineTo(Float.parseFloat(cfgVal[2].trim()), Float.parseFloat(cfgVal[3].trim()));
+                            cb.stroke();
+
+                        } else if (tempName.toString().startsWith("__")) {
+                            cb.beginText();
+                            cb.setFontAndSize(bf, Integer.parseInt(cfgVal[5].trim()));
+                            cb.showTextAligned((cfgVal[0].trim().equals("left") ? PdfContentByte.ALIGN_LEFT
+                                    : (cfgVal[0].trim().equals("right") ? PdfContentByte.ALIGN_RIGHT
+                                    : PdfContentByte.ALIGN_CENTER)), (cfgVal.length >= 7 ? (cfgVal[6]
+                                    .trim()) : propValue), Integer
+                                    .parseInt(cfgVal[1].trim()), (height - Integer.parseInt(cfgVal[2].trim())), 0);
+                            cb.endText();
+                        } else if (tempName.toString().equals("forms_promotext")) {
+//	                        if ( CarlosProperties.getInstance().getProperty("FORMS_PROMOTEXT") != null ){
+//	                            log.info("adding user placed forms_promotext");
+//	                            cb.beginText();
+//	                            cb.setFontAndSize(bf, Integer.parseInt(cfgVal[5].trim()));
+//	                            cb.showTextAligned((cfgVal[0].trim().equals("left") ? PdfContentByte.ALIGN_LEFT : (cfgVal[0].trim().equals("right") ? PdfContentByte.ALIGN_RIGHT : PdfContentByte.ALIGN_CENTER)),
+//	                                    CarlosProperties.getInstance().getProperty("FORMS_PROMOTEXT"),
+//	                                    Integer.parseInt(cfgVal[1].trim()),
+//	                                    (height - Integer.parseInt(cfgVal[2].trim())),
+//	                                    0);
+//
+//	                            cb.endText();
+//	                        }
+                        } else { // write prop text
+                            cb.beginText();
+                            cb.setFontAndSize(bf, Integer.parseInt(cfgVal[5].trim()));
+                            cb.showTextAligned((cfgVal[0].trim().equals("left") ? PdfContentByte.ALIGN_LEFT
+                                    : (cfgVal[0].trim().equals("right") ? PdfContentByte.ALIGN_RIGHT
+                                    : PdfContentByte.ALIGN_CENTER)), (cfgVal.length >= 7 ? ((propValue.equals("") ? "" : cfgVal[6].trim()))
+                                    : propValue), Integer.parseInt(cfgVal[1]
+                                    .trim()), (height - Integer.parseInt(cfgVal[2].trim())), 0);
+
+                            cb.endText();
+                        }
+
+                    }
+
+                    //----------
+                    if (CarlosProperties.getInstance().getProperty("FORMS_PROMOTEXT") != null && printCfg[i - 1].getProperty("forms_promotext") == null) {
+                        // Promo text rendering was already disabled (commented out) before the OpenPDF migration.
+                        // If needed, re-implement using PdfWriterFactory page event stampers.
+                    }
+
+
+                } //end if there are print properties
+
+                //graphic
+                //if ((graphicPageArray.contains(Integer.toString(i)) || i == 1 && graphicPageArray.size() == 0 ) && cfgGraphicFileNo > 0) {
+
+                int origX = 0;
+                int origY = 0;
+
+                String className = null;
+                Properties[] tempPropertiesArray;
+                if (i <= graphicCfg.length) {
+                    tempPropertiesArray = graphicCfg[i - 1];
+                    MiscUtils.getLogger().debug("Plotting page " + i);
+                } else {
+                    tempPropertiesArray = null;
+                    MiscUtils.getLogger().debug("Skipped Plotting page " + i);
+                }
+                String[] tempYcoords;
+
+                //if there are properties to plot
+                if (tempPropertiesArray != null) {
+                    MiscUtils.getLogger().debug("TEMP PROP LENGTH " + tempPropertiesArray.length);
+                    for (int k = 0; k < tempPropertiesArray.length; k++) {
+                        //initialise with measurement values which are mapped to config file by form get graphic function
+                        List<String> xDate, yHeight;
+                        if (xMeasurementValues.get(i - 1).size() > k && yMeasurementValues.get(i - 1).size() > k) {
+                            xDate = new ArrayList<String>(xMeasurementValues.get(i - 1).get(k));
+                            yHeight = new ArrayList<String>(yMeasurementValues.get(i - 1).get(k));
+                        } else {
+                            xDate = new ArrayList<String>();
+                            yHeight = new ArrayList<String>();
+                        }
+
+                        Properties args = new Properties();
+
+
+                        for (Enumeration e = tempPropertiesArray[k].propertyNames(); e.hasMoreElements(); ) {
+                            tempName = new StringBuilder(e.nextElement().toString());
+                            tempValue = tempPropertiesArray[k].getProperty(tempName.toString()).trim();
+
+                            if (tempName.toString().equals("__finalEDB")) {
+                                /*
+                                 * there is a certain condition when the EDD value is not in the properties
+                                 * this catches that condition before throwing a nasty NPE
+                                 * Try not to think about it too much - it will make you insane. Someone
+                                 * thought it would be cool to interchange the map.
+                                 */
+                                if (props.containsKey(tempValue)) {
+                                    args.setProperty(tempName.toString(), props.getProperty(tempValue));
+                                }
+                            } else if (tempName.toString().equals("__xDateScale")) {
+                                args.setProperty(tempName.toString(), props.getProperty(tempValue));
+                            } else if (tempName.toString().equals("__dateFormat")) {
+                                args.setProperty(tempName.toString(), tempValue);
+                            } else if (tempName.toString().equals("__nMaxPixX")) {
+                                args.setProperty(tempName.toString(), tempValue);
+                            } else if (tempName.toString().equals("__nMaxPixY")) {
+                                args.setProperty(tempName.toString(), tempValue);
+                            } else if (tempName.toString().equals("__fStartX")) {
+                                args.setProperty(tempName.toString(), tempValue);
+                            } else if (tempName.toString().equals("__fEndX")) {
+                                args.setProperty(tempName.toString(), tempValue);
+                            } else if (tempName.toString().equals("__fStartY")) {
+                                args.setProperty(tempName.toString(), tempValue);
+                            } else if (tempName.toString().equals("__fEndY")) {
+                                args.setProperty(tempName.toString(), tempValue);
+                            } else if (tempName.toString().equals("__origX")) {
+                                origX = Integer.parseInt(tempValue);
+                            } else if (tempName.toString().equals("__origY")) {
+                                origY = Integer.parseInt(tempValue);
+                            } else if (tempName.toString().equals("__className")) {
+                                className = tempValue;
+                            } else {
+                                MiscUtils.getLogger().debug("Adding xDate " + tempName.toString() + " VAL: " + props.getProperty(tempName.toString()));
+                                MiscUtils.getLogger().debug("Adding yHeight " + tempValue + " VAL: " + props.getProperty(tempValue));
+                                xDate.add(props.getProperty(tempName.toString()));
+                                yHeight.add(props.getProperty(tempValue));
+                            }
+                        } // end for read in from config file
+
+                        FrmPdfGraphic pdfGraph = FrmGraphicFactory.create(className);
+                        pdfGraph.init(args);
+
+                        Properties gProp = pdfGraph.getGraphicXYProp(xDate, yHeight);
+
+                        //draw the pic
+                        cb.setLineWidth(1.5f);
+
+                        if (k % 2 == 0) {
+                            cb.setRGBColorStrokeF(0f, 0f, 1f);
+                        } else {
+                            cb.setRGBColorStrokeF(1f, 0f, 0f);
+                        }
+
+
+                        for (Enumeration e = gProp.propertyNames(); e.hasMoreElements(); ) {
+                            tempName = new StringBuilder(e.nextElement().toString());
+                            tempValue = gProp.getProperty(tempName.toString(), "");
+
+                            if (tempValue.equals("")) {
+                                continue;
+                            }
+
+                            tempYcoords = tempValue.split(",");
+                            for (int idx = 0; idx < tempYcoords.length; ++idx) {
+                                tempValue = tempYcoords[idx];
+                                MiscUtils.getLogger().debug("COORDS: cfg_pg " + k + " : " + String.valueOf(origX + Float.parseFloat(tempName.toString())) + ", " + String.valueOf(height - origY + Float
+                                        .parseFloat(tempValue)));
+
+                                cb.circle((origX + Float.parseFloat(tempName.toString())), (height - origY + Float
+                                        .parseFloat(tempValue)), 1.5f);
+                                cb.stroke();
+                            }
+                        }
+	                        /*
+	                        if (fEDB != null && fEDB.length() >= 8) {
+	                            //make the graphic class
+	                            FrmPdfGraphicAR myClass = new FrmPdfGraphicAR();
+	                            myClass.init(nMaxPixX, nMaxPixY, fStartX, fEndX, fStartY, fEndY, dateFormat, fEDB);
+	                            Properties gProp = myClass.getGraphicXYProp(xDate, yHeight);
+
+	                            //draw the pic
+	                            cb.setLineWidth(1.5f);
+	                            //cb.setRGBColorStrokeF(0f, 1f, 0f); //cb.circle(52f,
+	                            // height - 751f, 1f);//cb.circle(52f, height - 609f,
+	                            // 1f);
+	                            for (Enumeration e = gProp.propertyNames(); e.hasMoreElements();) {
+	                                tempName = new StringBuilder(e.nextElement().toString());
+	                                tempValue = gProp.getProperty(tempName.toString(), "");
+	                                if (tempValue.equals(""))
+	                                    continue;
+
+	                                cb.circle((origX + Float.parseFloat(tempName.toString())), (height - origY + Float
+	                                        .parseFloat(tempValue)), 1.5f);
+	                                cb.stroke();
+	                            }
+	                        }
+
+	                        // general chart
+	                        if (!bFormAR) {
+	                            //make the graphic class
+	                            FrmPdfGraphicGrowthChart myClass = new FrmPdfGraphicGrowthChart();
+	                            myClass.init(nMaxPixX, nMaxPixY, fStartX, fEndX, fStartY, fEndY);
+	                            Properties gProp = myClass.getGraphicXYProp(xDate, yHeight);
+
+	                            //draw the pic
+	                            cb.setLineWidth(1.5f);
+	                            if (k % 2 == 0) {
+	                                cb.setRGBColorStrokeF(0f, 0f, 1f);
+	                            } else {
+	                                cb.setRGBColorStrokeF(1f, 0f, 0f);
+	                            }
+	                            for (Enumeration e = gProp.propertyNames(); e.hasMoreElements();) {
+	                                tempName = new StringBuilder(e.nextElement().toString());
+	                                tempValue = gProp.getProperty(tempName.toString(), "");
+	                                if (tempValue.equals(""))
+	                                    continue;
+
+	                                cb.circle((origX + Float.parseFloat(tempName.toString())), (height - origY + Float
+	                                        .parseFloat(tempValue)), 1.5f);
+	                                cb.stroke();
+	                            }
+	                        } // end of first pic */
+                    } // end of for loop
+                } //end if there are properties to process
+
+            }
+        } catch (DocumentException dex) {
+            baosPDF.reset();
+            throw dex;
+        } finally {
+            if (document.isOpen()) {
+                try {
+                    document.close();
+                }
+                catch (Exception e) {
+                    log.error("Error closing PDF document", e);
+                }
+            }
+            if (writer != null) {
+                try {
+                    writer.close();
+                }
+                catch (Exception e) {
+                    log.error("Error closing PDF writer", e);
+                }
+            }   
+            if (reader != null) {
+                try {
+                    reader.close();
+                } catch (Exception e) {
+                    log.error("Error closing PDF reader", e);
+                }
+            }
+        }
+
+        return baosPDF;
+    }
+
+    /**
+     * Loads a CSV-format property file containing PDF field layout configuration.
+     * Attempts filesystem first (under pdfFORMDIR), then falls back to webapp classpath.
+     * The filename is sanitized to prevent path traversal.
+     *
+     * @param cfgFilename String the configuration filename (e.g., "formRourke2020p1.txt")
+     * @return Properties the parsed field layout entries, or empty Properties if not found
+     */
+    protected Properties getCfgProp(String cfgFilename) {
+        Properties ret = new Properties();
+        
+        // Input validation - reject null or empty
+        if (cfgFilename == null || cfgFilename.isEmpty()) {
+            log.warn("No config filename provided");
+            return ret;
+        }
+        
+        // Sanitize user input immediately
+        // Step 1: Extract just the filename, removing any directory paths
+        String baseFilename = org.apache.commons.io.FilenameUtils.getName(cfgFilename);
+        if (baseFilename == null || baseFilename.isEmpty()) {
+            log.warn("Invalid config filename after sanitization: {}", LogSafe.sanitize(cfgFilename));
+            return ret;
+        }
+        
+        // Step 2: Remove all dangerous patterns and characters
+        String cleanFilename = baseFilename.replaceAll("\\.\\.", "")  // Remove directory traversal
+                                          .replaceAll("[/\\\\]", "")   // Remove path separators
+                                          .replaceAll("[^a-zA-Z0-9._-]", ""); // Allow only safe characters
+        
+        if (cleanFilename.isEmpty()) {
+            log.warn("Config filename contained only invalid characters");
+            return ret;
+        }
+        
+        // Now cleanFilename is safe to use
+        
+        // Try loading from file system
+        String pdfFormDir = CarlosProperties.getInstance().getProperty("pdfFORMDIR", "");
+        if (!pdfFormDir.isEmpty()) {
+            Properties fsProps = loadFromFileSystem(pdfFormDir, cleanFilename);
+            if (fsProps != null) {
+                return fsProps;
+            }
+        }
+        
+        // Try loading from classpath as fallback
+        Properties cpProps = loadFromClasspath(cleanFilename);
+        if (cpProps != null) {
+            return cpProps;
+        }
+        
+        log.warn("Config file not found: " + cleanFilename);
+        return ret;
+    }
+    
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
+    private Properties loadFromFileSystem(String baseDir, String safeFilename) {
+        try {
+            // Build and validate the full path using PathValidationUtils
+            File baseDirFile = new File(baseDir);
+            File validatedFile = PathValidationUtils.validatePath(safeFilename, baseDirFile);
+
+            // Load the properties file
+            try (InputStream is = new FileInputStream(validatedFile)) {
+                Properties props = new Properties();
+                props.load(is);
+                log.debug("Loaded config from filesystem: " + safeFilename);
+                return props;
+            }
+        } catch (SecurityException e) {
+            log.warn("Path validation failed for file: " + safeFilename);
+            return null;
+        } catch (Exception e) {
+            log.debug("Failed to load from filesystem: " + safeFilename);
+            return null;
+        }
+    }
+    
+    private Properties loadFromClasspath(String safeFilename) {
+        try {
+            // Build the resource path using only the safe filename
+            String resourceBase = "/WEB-INF/classes/oscar/form/prop/";
+            
+            // Construct full path - safeFilename is already validated
+            String fullResourcePath = resourceBase + safeFilename;
+            
+            // Additional safety check
+            if (!fullResourcePath.startsWith(resourceBase)) {
+                log.warn("Resource path validation failed");
+                return null;
+            }
+            
+            // Load from classpath
+            InputStream is = getServletContext().getResourceAsStream(fullResourcePath);
+            if (is != null) {
+                try (InputStream autoCloseIs = is) {
+                    Properties props = new Properties();
+                    props.load(autoCloseIs);
+                    log.debug("Loaded config from classpath: " + safeFilename);
+                    return props;
+                }
+            }
+        } catch (Exception e) {
+            log.debug("Failed to load from classpath: " + safeFilename);
+        }
+        return null;
+    }
+
+}

@@ -1,0 +1,98 @@
+name: Performance Issue
+description: Report slow performance or high resource usage
+title: "[Performance]: "
+labels: ["type: performance", "status: needs-triage"]
+type: Performance
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting this — performance matters, especially in clinical environments where every second counts.
+
+        **Important:** Never include real patient data (PHI) in performance reports. Scrub any patient identifiers from logs or screenshots before attaching.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What performance problem are you seeing
+      placeholder: e.g., Page takes 30 seconds to load, high CPU usage, memory leak
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: How to reproduce this issue
+      placeholder: |
+        1. Navigate to...
+        2. Load X number of records...
+        3. Perform action...
+    validations:
+      required: true
+
+  - type: input
+    id: expected_time
+    attributes:
+      label: Expected Performance
+      description: What you expect
+      placeholder: e.g., Page should load in under 2 seconds
+
+  - type: input
+    id: actual_time
+    attributes:
+      label: Actual Performance
+      description: What you're seeing
+      placeholder: e.g., Page takes 30 seconds to load
+    validations:
+      required: true
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: Module/Area
+      description: Which part is affected?
+      options:
+        - eChart
+        - Admin Panel
+        - Billing
+        - Reports
+        - Search
+        - Database Queries
+        - File Upload/Download
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Your environment details
+      placeholder: |
+        - Number of users:
+        - Database size:
+        - Server specs:
+        - Browser:
+    validations:
+      required: true
+
+  - type: textarea
+    id: metrics
+    attributes:
+      label: Metrics/Logs
+      description: Any metrics or profiling data (scrub any patient data before pasting)
+      render: shell
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: This happens consistently (not intermittent)
+          required: false
+        - label: I have tested with minimal data to rule out data volume issues
+          required: false
+        - label: I have verified no patient data (PHI) is included in this report
+          required: true

@@ -1,0 +1,250 @@
+/**
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ */
+
+
+package io.github.carlos_emr.carlos.util;
+
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
+
+import io.github.carlos_emr.Misc;
+import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+
+public class SqlUtils {
+    private static Logger logger = MiscUtils.getLogger();
+
+
+    /**
+     * Returns a List of String[] which contain the results of the specified arbitrary query.
+     *
+     * @param qry String - The String SQL Query
+     * @return List - The List of String[] results or null if no results were yielded
+     */
+    public static List<String[]> getQueryResultsList(String qry) {
+        return getQueryResultsList(qry, new Object[0]);
+    }
+
+    /**
+     * Returns a List of String[] which contain the results of the specified parameterized query.
+     *
+     * @param qry    the SQL query with {@code ?} placeholders
+     * @param params the parameter values to bind
+     * @return the List of String[] results or null if no results were yielded
+     */
+    public static List<String[]> getQueryResultsList(String qry, Object... params) {
+        ArrayList<String[]> records = null;
+        ResultSet rs = null;
+
+        try {
+            records = new ArrayList<String[]>();
+
+            rs = LegacyJdbcQuery.getPreparedResultSet(
+                    LegacyJdbcQuery.trustedReportSelectSql(qry),
+                    params != null ? params : new Object[0]);
+            int cols = rs.getMetaData().getColumnCount();
+            while (rs.next()) {
+                String[] record = new String[cols];
+                for (int i = 0; i < cols; i++) {
+                    record[i] = Misc.getString(rs, i + 1);
+                }
+                records.add(record);
+            }
+        } catch (SQLException e) {
+            records = null;
+            MiscUtils.getLogger().error("Error", e);
+        }
+
+        if (rs != null) {
+            try {
+                rs.close();
+            } catch (SQLException ex1) {
+                MiscUtils.getLogger().error("Error", ex1);
+            }
+        }
+        if (records != null) {
+            records = records.isEmpty() ? null : records;
+        }
+        return records;
+    }
+
+    /**
+     * Returns a single row from a parameterized query result.
+     *
+     * @param qry    the SQL query with {@code ?} placeholders
+     * @param params the parameter values to bind
+     * @return String[] the first result row, or null if no results
+     */
+    public static String[] getRow(String qry, Object... params) {
+        String ret[] = null;
+        List<String[]> list = getQueryResultsList(qry, params);
+        if (list != null && !list.isEmpty()) {
+            ret = list.get(0);
+        }
+        return ret;
+    }
+
+    /**
+     * Returns a single row(the first row) from a quesry result Generally should only be used with queries that return a single result Returns null if there is no result
+     *
+     * @param qry String
+     * @return String[]
+     */
+    public static String[] getRow(String qry) {
+        String ret[] = null;
+        List<String[]> list = getQueryResultsList(qry);
+        if (list != null && !list.isEmpty()) {
+            ret = list.get(0);
+        }
+        return ret;
+    }
+
+    /**
+     * Creates an 'in' clause segment of an sql query. This is handy in cases where the criteria of a query is dynamic/unknown
+     *
+     * @param criteria  String[] - he string array of criteria used to construct the query segment
+     * @param useQuotes boolean - a value of true indicates that the clause components are enclosed in quotes
+     * @return String - The constructed sql 'in' clause String
+     */
+    public static String constructInClauseString(String[] criteria, boolean useQuotes) {
+        StringBuilder ret = new StringBuilder();
+        String quote = useQuotes == true ? "'" : "";
+        if (criteria.length != 0) {
+            ret.append("in (");
+            for (int i = 0; i < criteria.length; i++) {
+                ret.append(quote + criteria[i] + quote);
+                if (i < criteria.length - 1) {
+                    ret.append(",");
+                }
+            }
+        }
+        ret.append(")");
+        return ret.toString();
+    }
+
+    /**
+     * Builds a comma-separated string of {@code ?} placeholders for use in a
+     * parameterized SQL {@code IN} clause.
+     *
+     * <p>Example: {@code buildInClausePlaceholders(3)} returns {@code "?,?,?"}.
+     * Wrap the result in parentheses when constructing the SQL:
+     * {@code "... IN (" + buildInClausePlaceholders(n) + ")"}.
+     *
+     * @param count the number of placeholders to generate (must be &gt; 0)
+     * @return String of comma-separated {@code ?} placeholders
+     * @throws IllegalArgumentException if count is less than 1
+     */
+    public static String buildInClausePlaceholders(int count) {
+        if (count < 1) {
+            throw new IllegalArgumentException("Placeholder count must be at least 1");
+        }
+        return String.join(",", java.util.Collections.nCopies(count, "?"));
+    }
+
+    /**
+     * This method will return a string similar to "(1,3,5,7)". The intent is that this method will be used to build "in clauses" like select * from foo where x in (1,3,5,7) for
+     * statements. This only works for primitives unless you pre-quote strings.
+     */
+    public static String constructInClauseForStatements(Object[] items) {
+        return (constructInClauseForStatements(items, false));
+    }
+
+    /**
+     * This method will return a string similar to "(1,3,5,7)". The intent is that this method will be used to build "in clauses" like select * from foo where x in (1,3,5,7) for
+     * statements. This only works for primitives unless you pre-quote strings.
+     */
+    public static String constructInClauseForStatements(Object[] items, boolean quoteItems) {
+        if (items.length <= 0)
+            throw (new IllegalArgumentException("Don't call this method if the items for the in clause is <1 it doesn't make sense."));
+
+        StringBuilder sb = new StringBuilder();
+        sb.append('(');
+
+        for (Object item : items) {
+            if (sb.length() > 1) sb.append(',');
+            if (quoteItems) sb.append('\'');
+            sb.append(item);
+            if (quoteItems) sb.append('\'');
+        }
+
+        sb.append(')');
+        return (sb.toString());
+    }
+
+
+    /**
+     * This method will close the resources passed in. Pass in null for anything you don't want closed. All exceptions will be logged at WARN level but not rethrown. Note that if
+     * you retrieved the connection from something like hibernate/jpa you should not close the connection, let the entityManager / sessionManager do that, just close the statement
+     * and resultset.
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    public static void closeResources(Connection c, Statement s, ResultSet rs) {
+        closeResources(s, rs);
+
+        if (c != null) {
+            try {
+                c.close();
+            } catch (Exception e) {
+                if (e.getMessage().toLowerCase().indexOf("closed") >= 0) {
+                    // I don't care.
+                } else {
+                    logger.warn("Error closing Connection.", e);
+                }
+            }
+        }
+    }
+
+    public static void closeResources(Statement s, ResultSet rs) {
+        if (rs != null) {
+            try {
+                rs.close();
+            } catch (SQLException e) {
+                logger.warn("Error closing ResultSet.", e);
+            }
+        }
+
+        if (s != null) {
+            try {
+                s.close();
+            } catch (SQLException e) {
+                logger.warn("Error closing Statement.", e);
+            }
+        }
+    }
+
+
+}

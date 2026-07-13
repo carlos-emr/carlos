@@ -1,0 +1,91 @@
+/**
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ */
+package io.github.carlos_emr.carlos.commn.web;
+
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.ArrayList;
+import java.util.List;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+
+import org.apache.commons.text.WordUtils;
+import io.github.carlos_emr.carlos.commn.dao.AbstractCodeSystemDao;
+import io.github.carlos_emr.carlos.commn.model.AbstractCodeSystemModel;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+
+/**
+ * @author marc
+ */
+import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.util.LabelValueBean;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+
+public class CodeSearchService2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
+    HttpServletRequest request = ServletActionContext.getRequest();
+    HttpServletResponse response = ServletActionContext.getResponse();
+
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
+    @Override
+    public String execute() throws Exception {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)) {
+            throw new SecurityException("missing required sec object (_admin)");
+        }
+
+        List<LabelValueBean> results = new ArrayList<LabelValueBean>();
+        String codingSystem = request.getParameter("codingSystem");
+
+        AbstractCodeSystemDao dao = (AbstractCodeSystemDao) SpringUtils.getBean(WordUtils.uncapitalize(codingSystem) + "Dao");
+
+        if (request.getParameter("term") != null && request.getParameter("term").length() > 0) {
+            List<AbstractCodeSystemModel> r = dao.searchCode(request.getParameter("term"));
+            for (AbstractCodeSystemModel result : r) {
+                results.add(new LabelValueBean(result.getDescription(), result.getCode()));
+            }
+        }
+        response.setContentType("application/json");
+        ArrayNode jsonArray = objectMapper.valueToTree(results);
+        response.getWriter().write(jsonArray.toString()); // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep -- JSON API response with application/json content-type
+
+        return null;
+    }
+
+
+}

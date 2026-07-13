@@ -1,0 +1,103 @@
+/**
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ */
+
+
+/*
+ * Created on 2005-5-19
+ *
+ */
+package io.github.carlos_emr.carlos.login;
+
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+import org.apache.logging.log4j.Logger;
+
+import io.github.carlos_emr.Misc;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+
+/**
+ * deprecated Use JPA instead, no new code should be written against this class.
+ */
+@Deprecated
+public final class DBHelp {
+    private static final Logger logger = MiscUtils.getLogger();
+    private static final String QUERY_ERROR_MESSAGE = "Error";
+
+
+    // searchDBRecord(String) removed — all callers migrated to searchDBRecord(String, Object...).
+    // See git history for the deprecated raw SQL execution wrapper.
+
+    /**
+     * Executes a parameterized query and returns a ResultSet.
+     *
+     * @param sql    the SQL query with {@code ?} placeholders
+     * @param params the parameter values to bind
+     * @return the ResultSet, or {@code null} on error
+     */
+    public static ResultSet searchDBRecord(String sql, Object... params) {
+        ResultSet ret = null;
+        try {
+            ret = LegacyJdbcQuery.getPreparedResultSet(LegacyJdbcQuery.trustedReportSelectSql(sql), params);
+        } catch (SQLException e) {
+            logger.error(QUERY_ERROR_MESSAGE, e);
+        }
+        return ret;
+    }
+
+    public static ResultSet searchDBRecord(ParameterizedSql sql) {
+        ResultSet ret = null;
+        try {
+            ret = LegacyJdbcQuery.getPreparedResultSet(sql);
+        } catch (SQLException e) {
+            logger.error(QUERY_ERROR_MESSAGE, e);
+        }
+        return ret;
+    }
+
+    public static ResultSet searchDBRecord(LegacyJdbcQuery.TrustedSql sql, Object... params) {
+        ResultSet ret = null;
+        try {
+            ret = LegacyJdbcQuery.getPreparedResultSet(sql, params);
+        } catch (SQLException e) {
+            logger.error(QUERY_ERROR_MESSAGE, e);
+        }
+        return ret;
+    }
+
+    public static String getString(ResultSet rs, String columnName) throws SQLException {
+        return Misc.getString(rs, columnName);
+    }
+
+    public static String getString(ResultSet rs, int columnIndex) throws SQLException {
+        return Misc.getString(rs, columnIndex);
+    }
+}

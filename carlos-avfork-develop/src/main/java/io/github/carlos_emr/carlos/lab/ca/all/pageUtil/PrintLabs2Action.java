@@ -1,0 +1,131 @@
+/**
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ */
+
+
+/*
+ * PrintLabs2Action.java
+ *
+ * Created on November 27, 2007, 9:42 AM
+ *
+ */
+
+package io.github.carlos_emr.carlos.lab.ca.all.pageUtil;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
+import io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory;
+import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
+/**
+ * @author wrighd
+ */
+import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
+
+public class PrintLabs2Action extends ActionSupport {
+    HttpServletRequest request = ServletActionContext.getRequest();
+    HttpServletResponse response = ServletActionContext.getResponse();
+
+
+    Logger logger = MiscUtils.getLogger();
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
+    public String execute() {
+
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_lab", "r", null)) {
+            throw new SecurityException("missing required sec object (_lab)");
+        }
+
+        String segmentID = request.getParameter("segmentID");
+        if (segmentID == null || !segmentID.matches("\\d+")) {
+            logger.warn("PrintLabs2Action called with invalid segmentID: {}", LogSafe.sanitize(segmentID)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            return "error";
+        }
+
+        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.READ, LogConst.CON_HL7_LAB, segmentID, request.getRemoteAddr(), "");
+
+        try {
+            MessageHandler handler = Factory.getHandler(segmentID);
+            // Sanitize patient name for Content-Disposition header to prevent header injection (CRLF, quotes)
+            String safeName = handler.getPatientName().replaceAll("[\\r\\n\"\\\\]", "").replaceAll("\\s", "_");
+            if (handler.getHeaders().get(0).equals("CELLPATHR")) {//if it is a VIHA RTF lab
+                response.setContentType("text/rtf");  //octet-stream
+                response.setHeader("Content-Disposition", "attachment; filename=\"" + safeName + "_LabReport.rtf\"");
+                LabPDFCreator pdf = new LabPDFCreator(request, response.getOutputStream());
+                pdf.printRtf();
+            } else {
+                response.setContentType("application/pdf");  //octet-stream
+                response.setHeader("Content-Disposition", "attachment; filename=\"" + safeName + "_LabReport.pdf\"");
+
+                //first write to a file
+                File f = File.createTempFile("labReport", ".pdf");
+                try {
+                    LabPDFCreator pdf;
+                    try (FileOutputStream fos = new FileOutputStream(f)) {
+                        pdf = new LabPDFCreator(request, fos);
+                        pdf.printPdf();
+                    }
+                    pdf.addEmbeddedDocuments(f, response.getOutputStream());
+                } finally {
+                    if (f.exists() && !f.delete()) {
+                        f.deleteOnExit();
+                        logger.warn("Failed to delete temporary lab report PDF at path [{}] for segmentID [{}]; scheduled deletion on JVM exit", LogSafe.sanitize(f.getAbsolutePath()), segmentID);
+                    }
+                }
+            }
+        } catch (IOException ioe) {
+            logger.error("IOException occurred inside PrintLabs2Action", ioe);
+            request.setAttribute("printError", Boolean.valueOf(true));
+            return "error";
+        } catch (Exception e) {
+            logger.error("Unknown Exception occurred inside PrintLabs2Action", e);
+            request.setAttribute("printError", Boolean.valueOf(true));
+            return "error";
+        }
+
+        return null;
+
+    }
+
+
+}

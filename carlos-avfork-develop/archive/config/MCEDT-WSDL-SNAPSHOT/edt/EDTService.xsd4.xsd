@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema targetNamespace="http://edt.health.ontario.ca/" version="1.0" xmlns:tns="http://edt.health.ontario.ca/" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="delete" type="tns:delete"/>
+  <xs:element name="deleteResponse" type="tns:deleteResponse"/>
+  <xs:element name="download" type="tns:download"/>
+  <xs:element name="downloadResponse" type="tns:downloadResponse"/>
+  <xs:element name="getTypeList" type="tns:getTypeList"/>
+  <xs:element name="getTypeListResponse" type="tns:getTypeListResponse"/>
+  <xs:element name="info" type="tns:info"/>
+  <xs:element name="infoResponse" type="tns:infoResponse"/>
+  <xs:element name="list" type="tns:list"/>
+  <xs:element name="listResponse" type="tns:listResponse"/>
+  <xs:element name="submit" type="tns:submit"/>
+  <xs:element name="submitResponse" type="tns:submitResponse"/>
+  <xs:element name="update" type="tns:update"/>
+  <xs:element name="updateResponse" type="tns:updateResponse"/>
+  <xs:element name="upload" type="tns:upload"/>
+  <xs:element name="uploadResponse" type="tns:uploadResponse"/>
+  <xs:simpleType name="audit">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[0-9A-F]{8}-[0-9A-F]{4}-4[0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:complexType name="upload">
+    <xs:sequence>
+      <xs:element maxOccurs="5" minOccurs="1" name="upload" type="tns:uploadData"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="uploadData">
+    <xs:sequence>
+      <xs:element minOccurs="1" name="content" type="xs:base64Binary"/>
+      <xs:element minOccurs="0" name="description" type="xs:string"/>
+      <xs:element minOccurs="1" name="resourceType" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="uploadResponse">
+    <xs:sequence>
+      <xs:element minOccurs="1" name="return" type="tns:resourceResult"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="resourceResult">
+    <xs:sequence>
+      <xs:element minOccurs="1" name="auditID" type="tns:audit"/>
+      <xs:element maxOccurs="unbounded" minOccurs="1" name="response" type="tns:responseResult"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="responseResult">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="description" type="xs:string"/>
+      <xs:element minOccurs="1" name="resourceID" type="xs:integer"/>
+      <xs:element minOccurs="1" name="result" type="tns:commonResult"/>
+      <xs:element minOccurs="1" name="status" type="tns:resourceStatus"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="commonResult">
+    <xs:sequence>
+      <xs:element minOccurs="1" name="code" type="xs:string"/>
+      <xs:element minOccurs="1" name="msg" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="getTypeList">
+    <xs:sequence/>
+  </xs:complexType>
+  <xs:complexType name="getTypeListResponse">
+    <xs:sequence>
+      <xs:element minOccurs="1" name="return" type="tns:typeListResult"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="typeListResult">
+    <xs:sequence>
+      <xs:element minOccurs="1" name="auditID" type="tns:audit"/>
+      <xs:element maxOccurs="unbounded" minOccurs="1" name="data" type="tns:typeListData"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="csnData">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="soloCsn" type="xs:string"/>
+      <xs:element minOccurs="0" name="groupCsn" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="typeListData">
+    <xs:sequence>
+      <xs:element minOccurs="1" name="access" type="tns:resourceAccess"/>
+      <xs:element minOccurs="1" name="descriptionEn" type="xs:string"/>
+      <xs:element minOccurs="1" name="descriptionFr" type="xs:string"/>
+      <xs:element minOccurs="1" name="groupRequired" type="xs:boolean"/>
+      <xs:element minOccurs="1" name="resourceType" type="xs:string"/>
+      <xs:element minOccurs="1" name="result" type="tns:commonResult"/>
+      <xs:element maxOccurs="unbounded" minOccurs="0" name="csns" type="tns:csnData"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="info">
+    <xs:sequence>
+      <xs:element maxOccurs="100" minOccurs="1" name="resourceIDs" type="xs:integer"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="infoResponse">
+    <xs:sequence>
+      <xs:element minOccurs="1" name="return" type="tns:detail"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="detail">
+    <xs:sequence>
+      <xs:element minOccurs="1" name="auditID" type="tns:audit"/>
+      <xs:element maxOccurs="50" minOccurs="0" name="data" type="tns:detailData"/>
+      <xs:element minOccurs="1" name="resultSize" type="xs:integer"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="detailData">
+    <xs:sequence>
+      <xs:element minOccurs="1" name="createTimestamp" type="xs:dateTime"/>
+      <xs:element minOccurs="0" name="description" type="xs:string"/>
+      <xs:element minOccurs="0" name="resourceType" type="xs:string"/>
+      <xs:element minOccurs="0" name="modifyTimestamp" type="xs:dateTime"/>
+      <xs:element minOccurs="1" name="resourceID" type="xs:integer"/>
+      <xs:element minOccurs="1" name="result" type="tns:commonResult"/>
+      <xs:element minOccurs="1" name="status" type="tns:resourceStatus"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="list">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="resourceType" type="xs:string"/>
+      <xs:element minOccurs="0" name="status" type="tns:resourceStatus"/>
+      <xs:element minOccurs="0" name="pageNo" type="xs:integer"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="listResponse">
+    <xs:sequence>
+      <xs:element minOccurs="1" name="return" type="tns:detail"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="update">
+    <xs:sequence>
+      <xs:element maxOccurs="5" minOccurs="1" name="updates" type="tns:updateRequest"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="updateRequest">
+    <xs:sequence>
+      <xs:element minOccurs="1" name="content" type="xs:base64Binary"/>
+      <xs:element minOccurs="1" name="resourceID" type="xs:integer"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="updateResponse">
+    <xs:sequence>
+      <xs:element minOccurs="1" name="return" type="tns:resourceResult"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="download">
+    <xs:sequence>
+      <xs:element maxOccurs="5" minOccurs="1" name="resourceIDs" type="xs:integer"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="downloadResponse">
+    <xs:sequence>
+      <xs:element minOccurs="1" name="return" type="tns:downloadResult"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="downloadResult">
+    <xs:sequence>
+      <xs:element minOccurs="1" name="auditID" type="tns:audit"/>
+      <xs:element maxOccurs="5" minOccurs="0" name="data" type="tns:downloadData"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="downloadData">
+    <xs:sequence>
+      <xs:element minOccurs="1" name="content" type="xs:base64Binary"/>
+      <xs:element minOccurs="1" name="resourceID" type="xs:integer"/>
+      <xs:element minOccurs="1" name="resourceType" type="xs:string"/>
+      <xs:element minOccurs="1" name="description" type="xs:string"/>
+      <xs:element minOccurs="1" name="result" type="tns:commonResult"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="submit">
+    <xs:sequence>
+      <xs:element maxOccurs="100" minOccurs="1" name="resourceIDs" type="xs:integer"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="submitResponse">
+    <xs:sequence>
+      <xs:element minOccurs="1" name="return" type="tns:resourceResult"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="delete">
+    <xs:sequence>
+      <xs:element maxOccurs="100" minOccurs="1" name="resourceIDs" type="xs:integer"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="deleteResponse">
+    <xs:sequence>
+      <xs:element minOccurs="1" name="return" type="tns:resourceResult"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:simpleType name="resourceStatus">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="UPLOADED"/>
+      <xs:enumeration value="SUBMITTED"/>
+      <xs:enumeration value="WIP"/>
+      <xs:enumeration value="DOWNLOADABLE"/>
+      <xs:enumeration value="DELETED"/>
+      <xs:enumeration value="APPROVED"/>
+      <xs:enumeration value="DENIED"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="resourceAccess">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="UPLOAD"/>
+      <xs:enumeration value="DOWNLOAD"/>
+      <xs:enumeration value="BOTH"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>

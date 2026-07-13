@@ -1,0 +1,440 @@
+/**
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ */
+
+
+package io.github.carlos_emr.carlos.documentManager.actions;
+
+import java.io.File;
+import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.Date;
+import java.util.Hashtable;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
+import io.github.carlos_emr.carlos.documentManager.EDoc;
+import io.github.carlos_emr.carlos.documentManager.EDocUtil;
+import io.github.carlos_emr.carlos.managers.ProgramManager2;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+
+import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+
+import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
+public class AddEditHtml2Action extends ActionSupport {
+    HttpServletRequest request = ServletActionContext.getRequest();
+    HttpServletResponse response = ServletActionContext.getResponse();
+
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
+    /**
+     * Creates a new instance of AddLinkAction
+     */
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
+    public String execute() {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
+            throw new SecurityException("missing required sec object (_edoc)");
+        }
+
+        Hashtable errors = new Hashtable();
+        String fileName = "";
+        if (!EDocUtil.getDoctypes(this.getFunction()).contains(this.getDocType())) {
+            EDocUtil.addDocTypeSQL(this.getDocType(), this.getFunction());
+        }
+        if ((this.getDocDesc().length() == 0) || (this.getDocDesc().equals("Enter Title"))) {
+            errors.put("descmissing", "dms.error.descriptionInvalid");
+            request.setAttribute("linkhtmlerrors", errors);
+            request.setAttribute("completedForm", "");
+            request.setAttribute("function", request.getParameter("function"));
+            request.setAttribute("functionid", request.getParameter("functionid"));
+            request.setAttribute("editDocumentNo", this.getMode());
+            return "failed";
+        }
+        if (this.getDocType().length() == 0) {
+            errors.put("typemissing", "dms.error.typeMissing");
+            request.setAttribute("linkhtmlerrors", errors);
+            request.setAttribute("completedForm", "");
+            request.setAttribute("function", request.getParameter("function"));
+            request.setAttribute("functionid", request.getParameter("functionid"));
+            request.setAttribute("editDocumentNo", this.getMode());
+            return "failed";
+        }
+        if (this.getHtml().length() == 0) {
+            errors.put("urlmissing", "dms.error.htmlMissing");
+            request.setAttribute("linkhtmlerrors", errors);
+            request.setAttribute("completedForm", "");
+            request.setAttribute("function", request.getParameter("function"));
+            request.setAttribute("functionid", request.getParameter("functionid"));
+
+            return "failed";
+        }
+        if (this.getMode().equals("addLink")) {
+            //the 'html' variable is the url
+            //checks for http://
+            String html = this.getHtml();
+            if (html.indexOf("http://") == -1) {
+                html = "http://" + html;
+            }
+            html = "<script type=\"text/javascript\" language=\"Javascript\">\n" +
+                    "window.location='" + html + "'\n" +
+                    "</script>";
+            this.setDocDesc(this.getDocDesc() + " (link)");
+            this.setHtml(html);
+            fileName = "link";
+        } else if (this.getMode().equals("addHtml")) {
+            fileName = "html";
+        }
+
+        String reviewerId = filled(this.getReviewerId()) ? this.getReviewerId() : "";
+        String reviewDateTime = filled(this.getReviewDateTime()) ? this.getReviewDateTime() : "";
+
+        if (!filled(reviewerId) && this.getReviewDoc()) {
+            reviewerId = (String) request.getSession().getAttribute("user");
+            reviewDateTime = UtilDateUtilities.DateToString(new Date(), EDocUtil.REVIEW_DATETIME_FORMAT);
+        }
+        EDoc currentDoc;
+        MiscUtils.getLogger().debug("mode: " + this.getMode());
+        if (this.getMode().indexOf("add") != -1) {
+            currentDoc = new EDoc(this.getDocDesc(), this.getDocType(), fileName, this.getHtml(), this.getDocCreator(), this.getResponsibleId(), this.getSource(), 'H', this.getObservationDate(), reviewerId, reviewDateTime, this.getFunction(), this.getFunctionId());
+            currentDoc.setContentType("text/html");
+            currentDoc.setDocPublic(this.getDocPublic());
+            currentDoc.setDocClass(this.getDocClass());
+            currentDoc.setDocSubClass(this.getDocSubClass());
+
+            // if the document was added in the context of a program
+            ProgramManager2 programManager = SpringUtils.getBean(ProgramManager2.class);
+            LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+            ProgramProvider pp = programManager.getCurrentProgramInDomain(loggedInInfo, loggedInInfo.getLoggedInProviderNo());
+            if (pp != null && pp.getProgramId() != null) {
+                currentDoc.setProgramId(pp.getProgramId().intValue());
+            }
+
+            String docId = EDocUtil.addDocumentSQL(currentDoc);
+        } else {
+            currentDoc = new EDoc(this.getDocDesc(), this.getDocType(), "", this.getHtml(), this.getDocCreator(), this.getResponsibleId(), this.getSource(), 'H', this.getObservationDate(), reviewerId, reviewDateTime, this.getFunction(), this.getFunctionId());
+            currentDoc.setDocId(this.getMode());
+            currentDoc.setContentType("text/html");
+            currentDoc.setDocPublic(this.getDocPublic());
+            currentDoc.setDocClass(this.getDocClass());
+            currentDoc.setDocSubClass(this.getDocSubClass());
+            EDocUtil.editDocumentSQL(currentDoc, this.getReviewDoc());
+        }
+        String contextPath = request.getContextPath();
+        StringBuffer redirect = new StringBuffer(contextPath + "/documentManager/ViewDocumentReport");
+        String functionParam = request.getParameter("function");
+        String functionIdParam = request.getParameter("functionid");
+        redirect.append("?function=").append(functionParam != null ? URLEncoder.encode(functionParam, StandardCharsets.UTF_8) : "");
+        redirect.append("&functionid=").append(functionIdParam != null ? URLEncoder.encode(functionIdParam, StandardCharsets.UTF_8) : "");
+        try {
+            response.sendRedirect(redirect.toString());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        return NONE;
+    }
+
+    private boolean filled(String s) {
+        return (s != null && s.trim().length() > 0);
+    }
+
+    private String function = "";
+    private String functionId = "";
+    private String docType = "";
+    private String docClass = "";
+    private String docSubClass = "";
+    private String docDesc = "";
+    private String docCreator = "";
+    private String responsibleId = "";
+    private String source = "";
+    private String sourceFacility = "";
+    private File docFile;
+
+    private File filedata;
+
+    private String docPublic = "";
+    private String mode = "";
+    private String observationDate = "";
+    private String reviewerId = "";
+    private String reviewDateTime = "";
+    private String contentDateTime = "";
+    private boolean reviewDoc = false;
+    private String html = "";
+
+    private String appointmentNo = "0";
+
+    private boolean restrictToProgram = false;
+    private String receivedDate = "";
+    private String abnormal = "";
+
+    private String extraReviewerId = "";
+    private boolean extraReviewDoc = false;
+
+    public String getFunction() {
+        return function;
+    }
+
+    @StrutsParameter
+    public void setFunction(String function) {
+        this.function = function;
+    }
+
+    public String getFunctionId() {
+        return functionId;
+    }
+
+    @StrutsParameter
+    public void setFunctionId(String functionId) {
+        this.functionId = functionId;
+    }
+
+    public String getDocType() {
+        return docType;
+    }
+
+    @StrutsParameter
+    public void setDocType(String docType) {
+        this.docType = docType;
+    }
+
+    public String getDocClass() {
+        return docClass;
+    }
+
+    @StrutsParameter
+    public void setDocClass(String docClass) {
+        this.docClass = docClass;
+    }
+
+    public String getDocSubClass() {
+        return docSubClass;
+    }
+
+    @StrutsParameter
+    public void setDocSubClass(String docSubClass) {
+        this.docSubClass = docSubClass;
+    }
+
+    public String getDocDesc() {
+        return docDesc;
+    }
+
+    @StrutsParameter
+    public void setDocDesc(String docDesc) {
+        this.docDesc = docDesc;
+    }
+
+    public String getDocCreator() {
+        return docCreator;
+    }
+
+    @StrutsParameter
+    public void setDocCreator(String docCreator) {
+        this.docCreator = docCreator;
+    }
+
+    public String getResponsibleId() {
+        return responsibleId;
+    }
+
+    @StrutsParameter
+    public void setResponsibleId(String responsibleId) {
+        this.responsibleId = responsibleId;
+    }
+
+    public String getSource() {
+        return source;
+    }
+
+    @StrutsParameter
+    public void setSource(String source) {
+        this.source = source;
+    }
+
+    public String getSourceFacility() {
+        return sourceFacility;
+    }
+
+    @StrutsParameter
+    public void setSourceFacility(String sourceFacility) {
+        this.sourceFacility = sourceFacility;
+    }
+
+    public File getDocFile() {
+        return docFile;
+    }
+
+    @StrutsParameter
+    public void setDocFile(File docFile) {
+        this.docFile = docFile;
+    }
+
+    public String getMode() {
+        return mode;
+    }
+
+    @StrutsParameter
+    public void setMode(String mode) {
+        this.mode = mode;
+    }
+
+    public String getDocPublic() {
+        return docPublic;
+    }
+
+    @StrutsParameter
+    public void setDocPublic(String docPublic) {
+        this.docPublic = docPublic;
+    }
+
+    public String getObservationDate() {
+        return observationDate;
+    }
+
+    @StrutsParameter
+    public void setObservationDate(String observationDate) {
+        this.observationDate = observationDate;
+    }
+
+    public String getReviewerId() {
+        return reviewerId;
+    }
+
+    @StrutsParameter
+    public void setReviewerId(String reviewerId) {
+        this.reviewerId = reviewerId;
+    }
+
+    public String getReviewDateTime() {
+        return reviewDateTime;
+    }
+
+    @StrutsParameter
+    public void setReviewDateTime(String reviewDateTime) {
+        this.reviewDateTime = reviewDateTime;
+    }
+
+    public String getContentDateTime() {
+        return contentDateTime;
+    }
+
+    @StrutsParameter
+    public void setContentDateTime(String contentDateTime) {
+        this.contentDateTime = contentDateTime;
+    }
+
+    public boolean getReviewDoc() {
+        return reviewDoc;
+    }
+
+    @StrutsParameter
+    public void setReviewDoc(boolean reviewDoc) {
+        this.reviewDoc = reviewDoc;
+    }
+
+    public String getHtml() {
+        return html;
+    }
+
+    @StrutsParameter
+    public void setHtml(String html) {
+        this.html = html;
+    }
+
+    public File getFiledata() {
+        return filedata;
+    }
+
+    @StrutsParameter
+    public void setFiledata(File Filedata) {
+        this.filedata = Filedata;
+    }
+
+    public String getAppointmentNo() {
+        return appointmentNo;
+    }
+
+    @StrutsParameter
+    public void setAppointmentNo(String appointment) {
+        this.appointmentNo = appointment;
+    }
+
+    public boolean isRestrictToProgram() {
+        return restrictToProgram;
+    }
+
+    @StrutsParameter
+    public void setRestrictToProgram(boolean restrictToProgram) {
+        this.restrictToProgram = restrictToProgram;
+    }
+
+    public String getReceivedDate() {
+        return receivedDate;
+    }
+
+    @StrutsParameter
+    public void setReceivedDate(String receivedDate) {
+        this.receivedDate = receivedDate;
+    }
+
+    public String getAbnormal() {
+        return abnormal;
+    }
+
+    @StrutsParameter
+    public void setAbnormal(String abnormal) {
+        this.abnormal = abnormal;
+    }
+
+    public String getExtraReviewerId() {
+        return extraReviewerId;
+    }
+
+    @StrutsParameter
+    public void setExtraReviewerId(String extraReviewerId) {
+        this.extraReviewerId = extraReviewerId;
+    }
+
+    public boolean isExtraReviewDoc() {
+        return extraReviewDoc;
+    }
+
+    @StrutsParameter
+    public void setExtraReviewDoc(boolean extraReviewDoc) {
+        this.extraReviewDoc = extraReviewDoc;
+    }
+}

@@ -1,0 +1,1881 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>io.github.carlos_emr</groupId>
+    <artifactId>carlos</artifactId>
+    <packaging>war</packaging>
+    <version>0-SNAPSHOT</version>
+    <name>CARLOS</name>
+    <description>CARLOS EMR (Clinical Assisting Recording Ledger Open Source) is a web-based electronic medical record system for Canadian healthcare.</description>
+    <inceptionYear>2024</inceptionYear>
+    <licenses>
+        <license>
+            <name>GPLv2</name>
+            <url>https://www.gnu.org/licenses/gpl-2.0.txt</url>
+        </license>
+    </licenses>
+    <url>https://github.com/carlos-emr/carlos</url>
+    <scm>
+        <url>https://github.com/carlos-emr/carlos</url>
+        <connection>scm:git:https://github.com/carlos-emr/carlos.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com:carlos-emr/carlos.git</developerConnection>
+        <tag>develop</tag>
+    </scm>
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <!-- SonarCloud -->
+        <sonar.organization>carlos-emr</sonar.organization>
+        <!-- Include webapp (JSP/JS/HTML) and resources in SonarCloud analysis alongside Java sources -->
+        <sonar.sources>src/main/java,src/main/resources,src/main/webapp</sonar.sources>
+        <!-- Exclude vendored/minified third-party assets to avoid inflating LOC count and generating noise -->
+        <sonar.exclusions>
+            src/main/webapp/library/**,
+            src/main/webapp/share/**,
+            src/main/webapp/**/*.min.js,
+            src/main/webapp/**/*.min.css
+        </sonar.exclusions>
+        <sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
+        <!--
+            Suppress SonarCloud S2083 (path traversal) false positives in files that use
+            PathValidationUtils for sanitization. SonarCloud's taint engine cannot trace
+            sanitization through custom utility methods, so it flags every downstream file
+            operation even when PathValidationUtils.validatePath/validateExistingPath/validateUpload
+            has already validated the path. This does NOT suppress the rule globally — any code
+            that uses raw user input in file paths without PathValidationUtils will still be caught.
+        -->
+        <sonar.issue.ignore.multicriteria>pvuSelf,pvuEform,pvuDoc,pvuLab,pvuInteg,pvuForm,pvuFax,pvuEncounter,pvuDx,pvuDemog,pvuBilling,pvuDocS6549</sonar.issue.ignore.multicriteria>
+        <!-- PathValidationUtils itself (it IS the sanitizer) -->
+        <sonar.issue.ignore.multicriteria.pvuSelf.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuSelf.ruleKey>
+        <sonar.issue.ignore.multicriteria.pvuSelf.resourceKey>**/utility/PathValidationUtils.java</sonar.issue.ignore.multicriteria.pvuSelf.resourceKey>
+        <!-- eform upload/display actions -->
+        <sonar.issue.ignore.multicriteria.pvuEform.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuEform.ruleKey>
+        <sonar.issue.ignore.multicriteria.pvuEform.resourceKey>**/eform/**/*.java</sonar.issue.ignore.multicriteria.pvuEform.resourceKey>
+        <!-- Document management actions -->
+        <sonar.issue.ignore.multicriteria.pvuDoc.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuDoc.ruleKey>
+        <sonar.issue.ignore.multicriteria.pvuDoc.resourceKey>**/documentManager/**/*.java</sonar.issue.ignore.multicriteria.pvuDoc.resourceKey>
+        <!-- Lab upload/processing -->
+        <sonar.issue.ignore.multicriteria.pvuLab.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuLab.ruleKey>
+        <sonar.issue.ignore.multicriteria.pvuLab.resourceKey>**/lab/**/*.java</sonar.issue.ignore.multicriteria.pvuLab.resourceKey>
+        <!-- Integration (MCEDT, HL7) -->
+        <sonar.issue.ignore.multicriteria.pvuInteg.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuInteg.ruleKey>
+        <sonar.issue.ignore.multicriteria.pvuInteg.resourceKey>**/integration/**/*.java</sonar.issue.ignore.multicriteria.pvuInteg.resourceKey>
+        <!-- Form PDF servlets and upload -->
+        <sonar.issue.ignore.multicriteria.pvuForm.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuForm.ruleKey>
+        <sonar.issue.ignore.multicriteria.pvuForm.resourceKey>**/form/**/*.java</sonar.issue.ignore.multicriteria.pvuForm.resourceKey>
+        <!-- Fax actions -->
+        <sonar.issue.ignore.multicriteria.pvuFax.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuFax.ruleKey>
+        <sonar.issue.ignore.multicriteria.pvuFax.resourceKey>**/fax/**/*.java</sonar.issue.ignore.multicriteria.pvuFax.resourceKey>
+        <!-- Encounter measurement actions -->
+        <sonar.issue.ignore.multicriteria.pvuEncounter.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuEncounter.ruleKey>
+        <sonar.issue.ignore.multicriteria.pvuEncounter.resourceKey>**/encounter/**/*.java</sonar.issue.ignore.multicriteria.pvuEncounter.resourceKey>
+        <!-- Dx research associations -->
+        <sonar.issue.ignore.multicriteria.pvuDx.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuDx.ruleKey>
+        <sonar.issue.ignore.multicriteria.pvuDx.resourceKey>**/dxresearch/**/*.java</sonar.issue.ignore.multicriteria.pvuDx.resourceKey>
+        <!-- Demographic utilities -->
+        <sonar.issue.ignore.multicriteria.pvuDemog.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuDemog.ruleKey>
+        <sonar.issue.ignore.multicriteria.pvuDemog.resourceKey>**/demographic/**/*.java</sonar.issue.ignore.multicriteria.pvuDemog.resourceKey>
+        <!-- Billing upload servlets -->
+        <sonar.issue.ignore.multicriteria.pvuBilling.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuBilling.ruleKey>
+        <sonar.issue.ignore.multicriteria.pvuBilling.resourceKey>**/billings/**/*.java</sonar.issue.ignore.multicriteria.pvuBilling.resourceKey>
+        <!-- S6549 (path construction) false positive — limit suppression to DocumentUpload2Action
+             so path-construction findings remain visible for other documentManager files. -->
+        <sonar.issue.ignore.multicriteria.pvuDocS6549.ruleKey>javasecurity:S6549</sonar.issue.ignore.multicriteria.pvuDocS6549.ruleKey>
+        <sonar.issue.ignore.multicriteria.pvuDocS6549.resourceKey>**/documentManager/**/DocumentUpload2Action.java</sonar.issue.ignore.multicriteria.pvuDocS6549.resourceKey>
+        <!-- Empty default so @{argLine} in surefire resolves even if JaCoCo prepare-agent hasn't run -->
+        <argLine/>
+        <!-- Log4j Version -->
+        <log4j2.version>2.25.4</log4j2.version>
+        <!-- Slf4j Version -->
+        <slf4j.version>2.0.17</slf4j.version>
+        <!-- Hapi Fhir Version -->
+        <hapifhir.version>8.4.0</hapifhir.version>
+        <!-- Apache CXF Version -->
+        <cxf.version>4.1.5</cxf.version>
+        <!-- Netty Version (for transitive dependency security fixes) -->
+        <netty.version>4.1.135.Final</netty.version>
+        <!-- Drools 10.x KIE API (upgraded from 7.74.1.Final for Jakarta EE compatibility) -->
+        <drools.version>10.1.0</drools.version>
+        <!-- Spring -->
+        <spring.version>7.0.7</spring.version>
+        <spring-security.version>7.0.5</spring-security.version>
+        <!-- Struts -->
+        <struts.version>7.1.1</struts.version>
+        <!-- Jackson -->
+        <jackson.version>2.22.0</jackson.version>
+        <!-- Apache HttpClient 5 -->
+        <httpclient5.version>5.6.1</httpclient5.version>
+        <!-- Bouncy Castle -->
+        <bouncycastle.version>1.84</bouncycastle.version>
+        <!-- JasperReports -->
+        <jasperreports.version>7.0.6</jasperreports.version>
+        <!-- Modern OpenPDF uses org.openpdf.* for handwritten PDF code.
+             JasperReports PDF still uses the legacy com.lowagie.* OpenPDF coordinate;
+             keep both coordinates distinct so Maven does not replace the JasperReports
+             runtime classes with the incompatible org.openpdf namespace. -->
+        <openpdf.version>3.0.3</openpdf.version>
+        <jasperreports.openpdf.version>1.3.43</jasperreports.openpdf.version>
+        <!-- PDFBox -->
+        <pdfbox.version>3.0.7</pdfbox.version>
+        <!-- TwelveMonkeys ImageIO -->
+        <twelvemonkeys.version>3.13.1</twelvemonkeys.version>
+        <!-- ZXing barcode -->
+        <zxing.version>3.5.4</zxing.version>
+        <!-- OWASP Encoder -->
+        <owasp-encoder.version>1.4.0</owasp-encoder.version>
+        <!-- OWASP CSRFGuard -->
+        <csrfguard.version>4.5.0-jakarta</csrfguard.version>
+        <!-- JNA: pin transitive ultrabuk-htmltopdf-java range [5.12,) to the locked version -->
+        <jna.version>5.19.0</jna.version>
+        <!-- HAPI HL7 v2 -->
+        <hapi-hl7.version>1.0.1</hapi-hl7.version>
+        <!-- Testing -->
+        <junit-jupiter.version>6.0.3</junit-jupiter.version>
+        <mockito.version>5.23.0</mockito.version>
+        <struts.devMode>false</struts.devMode>
+        <!-- Struts 7.x has migrated com.opensymphony.xwork2.* to org.apache.struts2.* -->
+        <maven.compiler.showDeprecation>false</maven.compiler.showDeprecation>
+        <!-- Dependency lock file name - can be overridden via -Ddependency.lock.filename -->
+        <dependency.lock.filename>dependencies-lock.json</dependency.lock.filename>
+    </properties>
+
+    <repositories>
+        <!-- local folder including manually installed dependencies -->
+        <repository>
+            <id>local_repo</id>
+            <url>file://${basedir}/local_repo</url>
+        </repository>
+
+        <!-- JitPack removed: ultrabuk-htmltopdf-java is now in local_repo,
+             repacked with only the Ubuntu Noble amd64 native (17MB vs 315MB).
+             This eliminates JitPack's tendency to shadow Maven Central artifacts
+             under alternate groupIds, which caused dependency-lock failures in CI. -->
+        <repository>
+            <id>central</id>
+            <url>https://repo.maven.apache.org/maven2</url>
+        </repository>
+
+        <!-- Only for com.github.openosp:ultrabuk-htmltopdf-java (not on Maven Central).
+             Listed LAST so Central resolves everything it can first, preventing jitpack
+             from shadowing Central artifacts with its own builds (different bytes/hashes). -->
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+            <releases><enabled>true</enabled></releases>
+            <snapshots><enabled>false</enabled></snapshots>
+        </repository>
+    </repositories>
+
+    <pluginRepositories>
+        <!-- local folder including manually installed dependencies -->
+        <pluginRepository>
+            <id>local_repo</id>
+            <url>file://${basedir}/local_repo</url>
+        </pluginRepository>
+    </pluginRepositories>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- JAXB dependencies for Jakarta EE (jakarta.xml.bind namespace) -->
+            <dependency>
+                <groupId>jakarta.xml.bind</groupId>
+                <artifactId>jakarta.xml.bind-api</artifactId>
+                <version>4.0.5</version>
+            </dependency>
+            <dependency>
+                <groupId>org.glassfish.jaxb</groupId>
+                <artifactId>jaxb-runtime</artifactId>
+                <version>4.0.6</version>
+            </dependency>
+            <dependency>
+                <groupId>org.glassfish.jaxb</groupId>
+                <artifactId>jaxb-core</artifactId>
+                <version>4.0.6</version>
+            </dependency>
+            <!-- Override transitive xercesImpl to fix CVE-2022-23437 and CVE-2020-14338 -->
+            <dependency>
+                <groupId>xerces</groupId>
+                <artifactId>xercesImpl</artifactId>
+                <version>2.12.2</version>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework</groupId>
+                <artifactId>spring-framework-bom</artifactId>
+                <version>${spring.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- Force Gson version to prevent any transitive 2.8.0 -->
+            <dependency>
+                <groupId>com.google.code.gson</groupId>
+                <artifactId>gson</artifactId>
+                <version>2.13.2</version>
+            </dependency>
+            <!-- Pin transitive JNA range from ultrabuk-htmltopdf-java to the dependency lock. -->
+            <dependency>
+                <groupId>net.java.dev.jna</groupId>
+                <artifactId>jna</artifactId>
+                <version>${jna.version}</version>
+            </dependency>
+            <!-- Force secure versions of ALL Netty modules to fix multiple CVEs:
+                 - HTTP/2 DDoS (MadeYouReset) in netty-codec-http2
+                 - DoS via zip bomb in netty-codec
+                 - CRLF Injection and request smuggling in netty-codec-http
+                 Transitive from apache-cxf and webdrivermanager -->
+            <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-bom</artifactId>
+                <version>${netty.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+          
+            <!-- Transitive Hibernate/JPA dependencies -->
+            <dependency>
+                <groupId>net.bytebuddy</groupId>
+                <artifactId>byte-buddy</artifactId>
+                <version>1.18.7</version>
+            </dependency>
+            <dependency>
+               <groupId>net.bytebuddy</groupId>
+               <artifactId>byte-buddy-agent</artifactId>
+               <version>1.18.7</version>
+            </dependency>
+            <!-- Hibernate 7 core (Jakarta EE 11 - JPA 3.2, jakarta.persistence namespace) -->
+            <dependency>
+                <groupId>org.hibernate.orm</groupId>
+                <artifactId>hibernate-core</artifactId>
+                <version>7.2.7.Final</version>
+            </dependency>
+            <!-- JPA API (jakarta namespace) - provided by Hibernate 7 (JPA 3.2) -->
+            <dependency>
+                <groupId>jakarta.persistence</groupId>
+                <artifactId>jakarta.persistence-api</artifactId>
+                <version>3.2.0</version>
+            </dependency>
+            <!-- JTA API (jakarta namespace) - required by Hibernate 7 at runtime -->
+            <dependency>
+                <groupId>jakarta.transaction</groupId>
+                <artifactId>jakarta.transaction-api</artifactId>
+                <version>2.0.1</version>
+            </dependency>
+            <!-- Override transitive Xalan from jakarta.servlet.jsp.jstl to fix CVE-2022-34169
+                 (integer truncation in XSLTC compiler allows arbitrary bytecode execution) -->
+            <dependency>
+                <groupId>xalan</groupId>
+                <artifactId>xalan</artifactId>
+                <version>2.7.3</version>
+            </dependency>
+            <!-- Xalan 2.7.3 requires its companion serializer artifact (provides
+                 org.apache.xml.serializer.OutputPropertiesFactory used by Struts) -->
+            <dependency>
+                <groupId>xalan</groupId>
+                <artifactId>serializer</artifactId>
+                <version>2.7.3</version>
+            </dependency>
+            <!-- Override transitive org.hl7.fhir.core (6.5.27) from hapi-fhir-structures-dstu3.
+                 Fixes: CVE-2024-45294, CVE-2024-51132, CVE-2024-52007 (all patched in 6.4.0),
+                 CVE-2026-33180 HTTP auth credential leak in redirects (patched in 6.9.0),
+                 CVE-2026-34359 credential leak via URL prefix matching on redirect (patched in 6.9.4),
+                 CVE-2026-42236 FHIRPath ReDoS in matches()/replaceMatches() (patched in 6.9.7),
+                 and XSLT transform hardening fixes patched in 6.9.10. -->
+            <dependency>
+                <groupId>ca.uhn.hapi.fhir</groupId>
+                <artifactId>org.hl7.fhir.utilities</artifactId>
+                <version>6.9.10</version>
+            </dependency>
+            <dependency>
+                <groupId>ca.uhn.hapi.fhir</groupId>
+                <artifactId>org.hl7.fhir.dstu3</artifactId>
+                <version>6.9.10</version>
+            </dependency>
+            <!-- Override Apache Neethi 3.2.1 from CXF WSN policy dependencies.
+                 Fixes GHSA-reported denial-of-service issues in policy normalization:
+                 circular policy reference detection and algorithmic complexity handling. -->
+            <dependency>
+                <groupId>org.apache.neethi</groupId>
+                <artifactId>neethi</artifactId>
+                <version>3.2.2</version>
+            </dependency>
+            <!-- Override older transitive commons-configuration2 releases flagged by Snyk
+                 for secret exposure during interpolation failures (CVE-2024-32958). -->
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-configuration2</artifactId>
+                <version>2.15.0</version>
+            </dependency>
+            <!-- Override the OpenTelemetry API family aligned by the transitive dependency tree.
+                 Addresses the Snyk/OpenTelemetry baggage-header allocation alert (CVE-2026-45292)
+                 without importing the full BOM because CARLOS does not directly depend on the
+                 OpenTelemetry module set. -->
+            <dependency>
+                <groupId>io.opentelemetry</groupId>
+                <artifactId>opentelemetry-api</artifactId>
+                <version>1.62.0</version>
+            </dependency>
+            <!-- Override transitive Artemis 2.50.0 from cxf-services-wsn-core.
+                 Security fix for missing authentication on critical functions (patched in 2.52.0);
+                 see the Dependabot alert for org.apache.artemis:artemis-server 2.50.0. -->
+            <dependency>
+                <groupId>org.apache.artemis</groupId>
+                <artifactId>artemis-server</artifactId>
+                <version>2.52.0</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <reporting>
+        <!-- Used for site.xml reports -->
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-project-info-reports-plugin</artifactId>
+                <version>3.9.0</version>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jxr-plugin</artifactId>
+                <version>3.6.0</version>
+            </plugin>
+        </plugins>
+    </reporting>
+
+    <dependencies>
+
+        <!-- ==================== Monitoring ==================== -->
+
+        <!-- JavaMelody monitoring (2.x = Jakarta EE) -->
+        <dependency>
+            <groupId>net.bull.javamelody</groupId>
+            <artifactId>javamelody-core</artifactId>
+            <version>2.6.0</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>jcl-over-slf4j</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>log4j</groupId>
+                    <artifactId>log4j</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <!-- ==================== Logging ==================== -->
+
+        <dependency>
+            <groupId>commons-logging</groupId>
+            <artifactId>commons-logging</artifactId>
+            <version>1.3.6</version>
+        </dependency>
+
+        <!-- Log4j 2 libraries -->
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
+            <version>${log4j2.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-api</artifactId>
+            <version>${log4j2.version}</version>
+        </dependency>
+        <!-- SLF4J -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>${slf4j.version}</version>
+        </dependency>
+        <!-- SLF4J 2.x to Log4j2 bridge: routes SLF4J calls (used by CSRFGuard 4.x,
+             HAPI FHIR, and other libraries) to the Log4j2 backend -->
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-slf4j2-impl</artifactId>
+            <version>${log4j2.version}</version>
+        </dependency>
+
+        <!-- ==================== Apache Commons ==================== -->
+
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-text</artifactId>
+            <version>1.15.0</version>
+        </dependency>
+        <dependency>
+            <groupId>commons-validator</groupId>
+            <artifactId>commons-validator</artifactId>
+            <version>1.10.1</version>
+            <exclusions>
+                <!-- Excluded this low version to avoid triggering security issue -->
+                <exclusion>
+                    <groupId>commons-beanutils</groupId>
+                    <artifactId>commons-beanutils</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+            <version>2.21.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-collections4</artifactId>
+            <version>4.5.0</version>
+        </dependency>
+        <!-- apache commons codec -->
+        <dependency>
+            <groupId>commons-codec</groupId>
+            <artifactId>commons-codec</artifactId>
+           <version>1.21.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>3.20.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-csv</artifactId>
+            <version>1.14.1</version>
+        </dependency>
+        <!-- ==================== HTTP Client ==================== -->
+
+        <!-- Apache HttpClient 5.x — migrated from 4.5.14 (httpclient + httpmime merged into httpclient5) -->
+        <dependency>
+            <groupId>org.apache.httpcomponents.client5</groupId>
+            <artifactId>httpclient5</artifactId>
+            <version>${httpclient5.version}</version>
+        </dependency>
+
+        <!-- ==================== Jakarta EE APIs ==================== -->
+
+        <dependency>
+            <groupId>jakarta.servlet</groupId>
+            <artifactId>jakarta.servlet-api</artifactId>
+            <version>6.1.0</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.tomcat</groupId>
+            <artifactId>tomcat-coyote</artifactId>
+            <version>11.0.20</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- ==================== HL7 / HAPI ==================== -->
+        <dependency>
+            <groupId>ca.uhn.hapi</groupId>
+            <artifactId>hapi-base</artifactId>
+            <version>${hapi-hl7.version}</version>
+            <exclusions>
+                <!-- Not being used, excluded to avoid triggering security issue -->
+                <exclusion>
+                    <groupId>xalan</groupId>
+                    <artifactId>xalan</artifactId>
+                </exclusion>
+                <!-- Excluded this low version to avoid triggering security issue -->
+                <exclusion>
+                    <groupId>org.jdom</groupId>
+                    <artifactId>jdom</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>commons-lang</groupId>
+                    <artifactId>commons-lang</artifactId>
+                </exclusion>
+                <!-- Exclude vulnerable log4j v1.2.x - default to using log4j 2.x instead -->
+                <exclusion>
+                    <groupId>log4j</groupId>
+                    <artifactId>log4j</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>ca.uhn.hapi</groupId>
+            <artifactId>hapi-structures-v25</artifactId>
+            <version>${hapi-hl7.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>ca.uhn.hapi</groupId>
+            <artifactId>hapi-structures-v231</artifactId>
+            <version>${hapi-hl7.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>ca.uhn.hapi</groupId>
+            <artifactId>hapi-structures-v22</artifactId>
+            <version>${hapi-hl7.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>ca.uhn.hapi</groupId>
+            <artifactId>hapi-structures-v23</artifactId>
+            <version>${hapi-hl7.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>ca.uhn.hapi</groupId>
+            <artifactId>hapi-structures-v26</artifactId>
+            <version>${hapi-hl7.version}</version>
+        </dependency>
+
+        <!-- Replaces jdom v1 excluded from hapi-base (security fix) -->
+        <dependency>
+            <groupId>org.jdom</groupId>
+            <artifactId>jdom2</artifactId>
+            <version>2.0.6.1</version>
+        </dependency>
+
+        <!-- ==================== Spring Framework ==================== -->
+        <!-- Jakarta EE 11 — versions managed by spring-framework-bom via ${spring.version} -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-tx</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-orm</artifactId>
+        </dependency>
+        <!-- spring-webmvc not used in production (no DispatcherServlet, no @Controller annotations).
+             Kept at test scope only for MockMvcBuilders in CarlosWebTestBase.
+             Production code uses spring-web which provides WebApplicationContext for CXF and Struts. -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-webmvc</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-web</artifactId>
+        </dependency>
+        <!-- Required for @Aspect, @Transactional, and @Cacheable proxy weaving -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-aspects</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-aop</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>cglib</groupId>
+                    <artifactId>cglib</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-crypto</artifactId>
+            <version>${spring-security.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-core</artifactId>
+            <version>${spring-security.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-config</artifactId>
+            <version>${spring-security.version}</version>
+        </dependency>
+
+        <!-- Spring Context Support (provides JavaMailSenderImpl for email) -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context-support</artifactId>
+        </dependency>
+
+        <!-- ==================== Hibernate / Database ==================== -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-dbcp2</artifactId>
+            <version>2.14.0</version>
+        </dependency>
+        <!-- MySQL JDBC driver (runtime) -->
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <version>9.6.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.hibernate.orm</groupId>
+            <artifactId>hibernate-core</artifactId>
+        </dependency>
+        <!-- JTA API - required by Hibernate 7 at runtime for transaction management -->
+        <dependency>
+            <groupId>jakarta.transaction</groupId>
+            <artifactId>jakarta.transaction-api</artifactId>
+        </dependency>
+
+        <!-- ==================== PDF & Document Generation ==================== -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>${pdfbox.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox-io</artifactId>
+            <version>${pdfbox.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.twelvemonkeys.common</groupId>
+            <artifactId>common-lang</artifactId>
+            <version>${twelvemonkeys.version}</version>
+        </dependency>
+        <!-- TwelveMonkeys ImageIO TIFF plugin - required for multi-page TIFF handling
+             after OpenPDF 3.0 removed its built-in TiffImage codec -->
+        <dependency>
+            <groupId>com.twelvemonkeys.imageio</groupId>
+            <artifactId>imageio-tiff</artifactId>
+            <version>${twelvemonkeys.version}</version>
+        </dependency>
+
+        <!-- Glassfish JSTL 3.0.1 implementation (Jakarta EE 10 - jakarta.tags namespace) -->
+        <dependency>
+            <groupId>org.glassfish.web</groupId>
+            <artifactId>jakarta.servlet.jsp.jstl</artifactId>
+            <version>3.0.1</version>
+        </dependency>
+        <!-- Xalan serializer: companion to xalan:xalan (transitive from JSTL above).
+             Provides org.apache.xml.serializer.OutputPropertiesFactory used by Struts. -->
+        <dependency>
+            <groupId>xalan</groupId>
+            <artifactId>serializer</artifactId>
+        </dependency>
+
+        <!-- Modern OpenPDF (LGPL) for application code that imports org.openpdf.*.
+             Do not use the com.github.librepdf group here; JasperReports PDF needs that
+             legacy coordinate at 1.3.x because it is compiled against com.lowagie.*. -->
+        <dependency>
+            <groupId>com.github.librepdf.openpdf</groupId>
+            <artifactId>openpdf</artifactId>
+            <version>${openpdf.version}</version>
+            <exclusions>
+                <!-- Swing GUI PDF viewer - not used (server-side app).
+                     Also eliminates discontinued org.swinglabs:pdf-renderer:1.0.5 -->
+                <exclusion>
+                    <groupId>com.github.librepdf</groupId>
+                    <artifactId>pdf-swing</artifactId>
+                </exclusion>
+                <!-- Kotlin bindings - not used (Java project) -->
+                <exclusion>
+                    <groupId>com.github.librepdf</groupId>
+                    <artifactId>openpdf-kotlin</artifactId>
+                </exclusion>
+                <!-- PDF renderer engine - not used directly (server-side PDF generation only) -->
+                <exclusion>
+                    <groupId>com.github.librepdf</groupId>
+                    <artifactId>openpdf-renderer</artifactId>
+                </exclusion>
+                <!-- CLI tools and examples - not used -->
+                <exclusion>
+                    <groupId>com.github.librepdf</groupId>
+                    <artifactId>pdf-toolbox</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <!-- openpdf-html: Flying Saucer's XhtmlRenderer integration and HTML schema resources.
+             Note: HTMLWorker (org.openpdf.text.html.simpleparser.HTMLWorker) is in the main
+             openpdf artifact, NOT in this module. This module provides org.openpdf.simple.*
+             classes for advanced HTML rendering. Retained for transitive compatibility. -->
+        <dependency>
+            <groupId>com.github.librepdf.openpdf</groupId>
+            <artifactId>openpdf-html</artifactId>
+            <version>${openpdf.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.github.openosp</groupId>
+            <artifactId>ultrabuk-htmltopdf-java</artifactId>
+            <version>1.0.11</version>
+        </dependency>
+
+        <!-- Modern RTF support via OpenRTF (actively maintained, uses org.openpdf.* namespace) -->
+        <dependency>
+            <groupId>com.github.librepdf</groupId>
+            <artifactId>openrtf</artifactId>
+            <version>3.0.0</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.github.librepdf</groupId>
+                    <artifactId>openpdf</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <!-- ==================== Rules Engine (Drools) ==================== -->
+
+        <!-- Drools 10.x KIE engine aggregator (upgraded from 7.74.1.Final for Jakarta EE). -->
+        <dependency>
+            <groupId>org.drools</groupId>
+            <artifactId>drools-engine</artifactId>
+            <version>${drools.version}</version>
+        </dependency>
+
+        <!-- Required by the standard KIE DRL compiler path used by DroolsHelper. -->
+        <dependency>
+            <groupId>org.drools</groupId>
+            <artifactId>drools-mvel</artifactId>
+            <version>${drools.version}</version>
+        </dependency>
+
+        <!-- ==================== Reporting ==================== -->
+
+        <!-- jasper reports (7.x required for Jakarta EE 10 compatibility) -->
+        <dependency>
+            <groupId>net.sf.jasperreports</groupId>
+            <artifactId>jasperreports</artifactId>
+            <version>${jasperreports.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>bouncycastle</groupId>
+                    <artifactId>bcprov-jdk14</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>bouncycastle</groupId>
+                    <artifactId>bcmail-jdk14</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.bouncycastle</groupId>
+                    <artifactId>bcprov-jdk14</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.bouncycastle</groupId>
+                    <artifactId>bctsp-jdk14</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.fasterxml.jackson.core</groupId>
+                    <artifactId>jackson-core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.fasterxml.jackson.core</groupId>
+                    <artifactId>jackson-databind</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.fasterxml.jackson.core</groupId>
+                    <artifactId>jackson-annotations</artifactId>
+                </exclusion>
+                <!-- Excluded this low version to avoid triggering security issue -->
+                <exclusion>
+                    <groupId>commons-beanutils</groupId>
+                    <artifactId>commons-beanutils</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <!-- JasperReports PDF exporter (split from core in JR7) -->
+        <dependency>
+            <groupId>net.sf.jasperreports</groupId>
+            <artifactId>jasperreports-pdf</artifactId>
+            <version>${jasperreports.version}</version>
+        </dependency>
+
+        <!-- JasperReports PDF 7.0.x is compiled against OpenPDF's legacy com.lowagie.*
+             package names. Keep this explicit so org.openpdf.* upgrades do not silently
+             remove classes such as com.lowagie.text.SplitCharacter from the webapp. -->
+        <dependency>
+            <groupId>com.github.librepdf</groupId>
+            <artifactId>openpdf</artifactId>
+            <version>${jasperreports.openpdf.version}</version>
+        </dependency>
+
+        <!-- JasperReports JDT compiler (required for runtime .jrxml compilation) -->
+        <dependency>
+            <groupId>net.sf.jasperreports</groupId>
+            <artifactId>jasperreports-jdt</artifactId>
+            <version>${jasperreports.version}</version>
+        </dependency>
+
+        <!-- JasperReports Excel/POI exporter (split from core in JR7) -->
+        <dependency>
+            <groupId>net.sf.jasperreports</groupId>
+            <artifactId>jasperreports-excel-poi</artifactId>
+            <version>${jasperreports.version}</version>
+        </dependency>
+
+        <!-- ==================== Jackson / JSON ==================== -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+
+        <!-- Jackson Jakarta XML Bind annotations support - provides JakartaXmlBindAnnotationIntrospector used in Spring configs -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.module</groupId>
+            <artifactId>jackson-module-jakarta-xmlbind-annotations</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+
+        <!-- Jackson XML support - explicit version to override older transitive from jasperreports -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.dataformat</groupId>
+            <artifactId>jackson-dataformat-xml</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+
+        <!-- ==================== Healthcare Domain (CDS, FHIR, XML) ==================== -->
+
+        <!-- CDS libraries (local_repo) -->
+        <dependency>
+            <groupId>cds</groupId>
+            <artifactId>cds</artifactId>
+            <version>5.2.3</version>
+        </dependency>
+
+        <!-- CDS Rourke (local_repo) -->
+        <dependency>
+            <groupId>cds</groupId>
+            <artifactId>cds_rourke</artifactId>
+            <version>1.0</version>
+        </dependency>
+        <!-- CDS HRM (local_repo) -->
+        <dependency>
+            <groupId>cds</groupId>
+            <artifactId>cds_hrm</artifactId>
+            <version>4.3.1</version>
+        </dependency>
+
+        <!-- apache xml beans -->
+        <dependency>
+            <groupId>org.apache.xmlbeans</groupId>
+            <artifactId>xmlbeans</artifactId>
+            <version>3.1.0</version>
+        </dependency>
+
+        <!-- ==================== Email ==================== -->
+        <!-- Jakarta Mail 2.1 via Eclipse Angus -->
+        <dependency>
+            <groupId>org.eclipse.angus</groupId>
+            <artifactId>angus-mail</artifactId>
+            <version>2.0.5</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jfree</groupId>
+            <artifactId>jfreechart</artifactId>
+            <version>1.5.6</version>
+        </dependency>
+
+        <!-- apache poi -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi</artifactId>
+            <version>5.5.1</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>jcl-over-slf4j</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <!-- UPGRADED displaytag to Jakarta EE compatible hazendaz fork -->
+        <!-- Temporary bridge solution - full DataTables migration planned for Q2 2026 -->
+        <!-- Used in JSP files: admin (6), BC billing (3), PMmodule (1), casemgmt (1) -->
+        <dependency>
+            <groupId>com.github.hazendaz</groupId>
+            <artifactId>displaytag</artifactId>
+            <version>3.7.0</version>
+            <exclusions>
+                <!-- Exclude SLF4J to use project's managed version -->
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
+                </exclusion>
+                <!-- Exclude to avoid conflicts with project's logging setup -->
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>jcl-over-slf4j</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <!-- ==================== Utilities ==================== -->
+
+        <!-- zxing / 2d bar codes -->
+        <dependency>
+            <groupId>com.google.zxing</groupId>
+            <artifactId>core</artifactId>
+            <version>${zxing.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.zxing</groupId>
+            <artifactId>javase</artifactId>
+            <version>${zxing.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jsoup</groupId>
+            <artifactId>jsoup</artifactId>
+            <version>1.22.1</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcpkix-jdk18on</artifactId>
+            <version>${bouncycastle.version}</version>
+        </dependency>
+
+        <!-- Apache Ant (security-patched version, required by JasperReports) -->
+        <dependency>
+            <groupId>org.apache.ant</groupId>
+            <artifactId>ant</artifactId>
+            <version>1.10.15</version>
+        </dependency>
+
+        <!-- ==================== Templating (Velocity) ==================== -->
+        <dependency>
+            <groupId>org.apache.velocity</groupId>
+            <artifactId>velocity-engine-core</artifactId>
+            <version>2.4.1</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.commons</groupId>
+                    <artifactId>commons-lang3</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.velocity.tools</groupId>
+            <artifactId>velocity-tools-generic</artifactId>
+            <version>3.1</version>
+            <scope>compile</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.struts</groupId>
+                    <artifactId>struts-core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.struts</groupId>
+                    <artifactId>struts-taglib</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.struts</groupId>
+                    <artifactId>struts-tiles</artifactId>
+                </exclusion>
+                <!-- Excluded this low version to avoid triggering security issue -->
+                <exclusion>
+                    <groupId>commons-beanutils</groupId>
+                    <artifactId>commons-beanutils</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>com.sun.xml.messaging.saaj</groupId>
+            <artifactId>saaj-impl</artifactId>
+            <version>3.0.4</version>
+        </dependency>
+
+        <!-- ==================== Web Services (CXF) ==================== -->
+
+        <!-- CXF (used at runtime for SOAP/REST web services) -->
+        <dependency>
+            <groupId>org.apache.cxf</groupId>
+            <artifactId>apache-cxf</artifactId>
+            <version>${cxf.version}</version>
+            <type>pom</type>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.springframework</groupId>
+                    <artifactId>spring-asm</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.geronimo.specs</groupId>
+                    <artifactId>geronimo-servlet_2.5_spec</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.geronimo.specs</groupId>
+                    <artifactId>geronimo-servlet_3.0_spec</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.cxf.services.ws-discovery</groupId>
+                    <artifactId>cxf-services-ws-discovery-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.cxf.services.ws-discovery</groupId>
+                    <artifactId>cxf-services-ws-discovery-service</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-jdk14</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.fasterxml.woodstox</groupId>
+                    <artifactId>woodstox-core</artifactId>
+                </exclusion>
+                <!-- Not being used, excluded to avoid triggering security issue -->
+                <exclusion>
+                    <groupId>org.eclipse.jetty</groupId>
+                    <artifactId>jetty-server</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.eclipse.jetty</groupId>
+                    <artifactId>jetty-http</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.undertow</groupId>
+                    <artifactId>undertow-core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-common</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-handler</artifactId>
+                </exclusion>
+                <!-- Excluded this low version to avoid triggering security issue -->
+                <exclusion>
+                    <groupId>org.codehaus.jettison</groupId>
+                    <artifactId>jettison</artifactId>
+                </exclusion>
+                <!-- 
+                    Not being used, excluded to avoid triggering security issue,
+                    these libraries are part of apache-cxf, 
+                    but excluding them won't impact our project  
+                -->
+                <exclusion>
+                    <groupId>org.apache.mina</groupId>
+                    <artifactId>mina-core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.activemq</groupId>
+                    <artifactId>activemq-openwire-legacy</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.activemq</groupId>
+                    <artifactId>activemq-client</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.cxf</groupId>
+                    <artifactId>cxf-rt-rs-security-jose</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.cxf</groupId>
+                    <artifactId>cxf-rt-rs-service-description</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.cxf</groupId>
+                    <artifactId>cxf-rt-management</artifactId>
+                </exclusion>
+                <!-- 
+                    Switched from Jettison (org.codehaus.jettison) to FasterXML Jackson 
+                    for JSON handling in CXF JAX-RS providers. 
+                    This ensures better compatibility and consistency of REST API 
+                    request/response serialization and deserialization. 
+                    Also excluded cxf-rt-rs-extension-providers to avoid Jettison being pulled in transitively.
+                -->
+                <exclusion>
+                    <groupId>org.apache.cxf</groupId>
+                    <artifactId>cxf-rt-rs-extension-providers</artifactId>
+                </exclusion>
+                <!-- Not used, excluded to fix CVE (RCE via untrusted JMS config) -->
+                <exclusion>
+                    <groupId>org.apache.cxf</groupId>
+                    <artifactId>cxf-rt-transports-jms</artifactId>
+                </exclusion>
+                <!-- Not used, excluded to fix CVE (DoS via Rhino toFixed) -->
+                <exclusion>
+                    <groupId>org.apache.cxf</groupId>
+                    <artifactId>cxf-rt-frontend-js</artifactId>
+                </exclusion>
+                <!-- Not used, excluded to avoid pulling in embedded Jetty server -->
+                <exclusion>
+                    <groupId>org.apache.cxf</groupId>
+                    <artifactId>cxf-rt-transports-http-jetty</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.cxf</groupId>
+            <artifactId>cxf-rt-frontend-jaxws</artifactId>
+            <version>${cxf.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.codehaus.woodstox</groupId>
+                    <artifactId>woodstox-core-asl</artifactId>
+                </exclusion>
+                <!-- Exclude Jettison — using Jackson instead (see apache-cxf exclusions above) -->
+                <exclusion>
+                    <groupId>org.apache.cxf</groupId>
+                    <artifactId>cxf-rt-rs-extension-providers</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.cxf</groupId>
+            <artifactId>cxf-rt-transports-http</artifactId>
+            <version>${cxf.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.cxf</groupId>
+            <artifactId>cxf-core</artifactId>
+            <version>${cxf.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.cxf</groupId>
+            <artifactId>cxf-rt-rs-client</artifactId>
+            <version>${cxf.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.commonmark</groupId>
+            <artifactId>commonmark</artifactId>
+            <version>0.27.1</version>
+        </dependency>
+
+        <!-- Jackson JAX-RS JSON provider (used at runtime by CXF REST endpoints) -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.jakarta.rs</groupId>
+            <artifactId>jackson-jakarta-rs-json-provider</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+
+        <!-- ==================== Security (OWASP, CSRFGuard) ==================== -->
+
+        <!-- OWASP Encoder (encoder-jakarta-jsp is used in JSPs via ${e:forHtml()} EL functions) -->
+        <dependency>
+            <groupId>org.owasp.encoder</groupId>
+            <artifactId>encoder-jakarta-jsp</artifactId>
+            <version>${owasp-encoder.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.owasp.encoder</groupId>
+            <artifactId>encoder</artifactId>
+            <version>${owasp-encoder.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.owasp</groupId>
+            <artifactId>csrfguard</artifactId>
+            <version>${csrfguard.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.owasp</groupId>
+            <artifactId>csrfguard-extension-session</artifactId>
+            <version>${csrfguard.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.owasp</groupId>
+            <artifactId>csrfguard-jsp-tags</artifactId>
+            <version>${csrfguard.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jetbrains</groupId>
+            <artifactId>annotations</artifactId>
+            <version>26.1.0</version>
+            <scope>compile</scope>
+        </dependency>
+
+        <!-- ==================== Testing ==================== -->
+
+        <!-- Mockito for Java 21 -->
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <version>${mockito.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Mockito JUnit Jupiter integration -->
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <version>${mockito.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- JUnit Jupiter -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit-jupiter.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- JUnit Jupiter API - explicit version to override mockito-junit-jupiter transitive -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <version>${junit-jupiter.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- JUnit Jupiter Params for parameterized tests -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-params</artifactId>
+            <version>${junit-jupiter.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- AssertJ for fluent assertions -->
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <version>3.27.7</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- H2 in-memory database for tests -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <version>2.4.240</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>33.5.0-jre</version>
+        </dependency>
+
+        <!-- Flying Saucer - HTML/CSS to PDF via OpenPDF 3.0.x (org.openpdf.* namespace) -->
+        <dependency>
+            <groupId>org.xhtmlrenderer</groupId>
+            <artifactId>flying-saucer-pdf</artifactId>
+            <version>10.0.6</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.github.librepdf</groupId>
+                    <artifactId>openpdf</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <!-- HAPI FHIR -->
+        <dependency>
+            <groupId>ca.uhn.hapi.fhir</groupId>
+            <artifactId>hapi-fhir-base</artifactId>
+            <version>${hapifhir.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>jcl-over-slf4j</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <!-- FHIR DSTU3 structure definitions (used at runtime for FHIR resource handling) -->
+        <dependency>
+            <groupId>ca.uhn.hapi.fhir</groupId>
+            <artifactId>hapi-fhir-structures-dstu3</artifactId>
+            <version>${hapifhir.version}</version>
+        </dependency>
+
+        <!-- JAX-WS RI (used at runtime for SOAP web services) -->
+        <dependency>
+           <groupId>com.sun.xml.ws</groupId>
+           <artifactId>jaxws-ri</artifactId>
+           <version>4.0.3</version>
+           <type>pom</type>
+           <exclusions>
+                <!-- Not being used, excluded to avoid triggering security issue -->
+                <exclusion>
+                    <groupId>com.fasterxml.woodstox</groupId>
+                    <artifactId>woodstox-core</artifactId>
+                </exclusion>
+           </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.annotation</groupId>
+            <artifactId>jakarta.annotation-api</artifactId>
+            <version>3.0.0</version>
+        </dependency>
+        <!-- Required for @Inject annotation in OAuth resources -->
+        <dependency>
+            <groupId>jakarta.inject</groupId>
+            <artifactId>jakarta.inject-api</artifactId>
+            <version>2.0.1</version>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.servlet.jsp</groupId>
+            <artifactId>jakarta.servlet.jsp-api</artifactId>
+            <version>4.0.0</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- JAXB runtime implementation (Jakarta EE - version managed by dependencyManagement) -->
+        <dependency>
+            <groupId>org.glassfish.jaxb</groupId>
+            <artifactId>jaxb-runtime</artifactId>
+        </dependency>
+        <!-- JAXB API (Jakarta EE) -->
+        <dependency>
+            <groupId>jakarta.xml.bind</groupId>
+            <artifactId>jakarta.xml.bind-api</artifactId>
+        </dependency>
+
+        <!-- ==================== Web Framework (Struts) ==================== -->
+
+        <dependency>
+            <groupId>org.apache.struts</groupId>
+            <artifactId>struts2-core</artifactId>
+            <version>${struts.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.struts</groupId>
+            <artifactId>struts2-spring-plugin</artifactId>
+            <version>${struts.version}</version>
+        </dependency>
+        <!-- Caffeine Cache - Required by Struts for internal caching -->
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+            <version>3.2.3</version>
+        </dependency>
+        <!-- TOTP/HOTP library for MFA -->
+        <dependency>
+            <groupId>com.eatthepath</groupId>
+            <artifactId>java-otp</artifactId>
+            <version>0.4.0</version>
+        </dependency>
+
+        <!-- SpotBugs annotations: provides edu.umd.cs.findbugs.annotations.SuppressFBWarnings for
+             per-site, justified suppression of Find Security Bugs findings (e.g. the informational
+             IMPROPER_UNICODE case-folding detector). CLASS retention, compile-only; provided scope
+             keeps it out of the WAR. Version tracks the spotbugs engine (plugin 4.9.3.0).
+             See docs/static-analysis-workflows.md. -->
+        <dependency>
+            <groupId>com.github.spotbugs</groupId>
+            <artifactId>spotbugs-annotations</artifactId>
+            <version>4.9.3</version>
+            <scope>provided</scope>
+        </dependency>
+
+    </dependencies>
+
+    <build>
+        <resources>
+            <resource>
+                <directory>${basedir}/src/main/resources</directory>
+                <filtering>true</filtering>
+            </resource>
+        </resources>
+
+        <plugins>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.14</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <version>3.5.0</version>
+                <configuration>
+                    <propertiesEncoding>ISO-8859-1</propertiesEncoding>
+                    <nonFilteredFileExtensions>
+                        <nonFilteredFileExtension>pdf</nonFilteredFileExtension>
+                        <nonFilteredFileExtension>jar</nonFilteredFileExtension>
+                        <nonFilteredFileExtension>xls</nonFilteredFileExtension>
+                        <nonFilteredFileExtension>dat</nonFilteredFileExtension>
+                        <nonFilteredFileExtension>xsd</nonFilteredFileExtension>
+                        <nonFilteredFileExtension>jasper</nonFilteredFileExtension>
+                        <nonFilteredFileExtension>doc</nonFilteredFileExtension>
+                    </nonFilteredFileExtensions>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>buildnumber-maven-plugin</artifactId>
+                <version>3.3.0</version>
+                <executions>
+                    <execution>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>create</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-site-plugin</artifactId>
+                <version>3.21.0</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.apache.maven.doxia</groupId>
+                        <artifactId>doxia-module-markdown</artifactId>
+                        <version>2.0.0</version>
+                    </dependency>
+                </dependencies>
+                <configuration>
+                    <inputEncoding>UTF-8</inputEncoding>
+                    <outputEncoding>UTF-8</outputEncoding>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.15.0</version>
+                <configuration>
+                    <source>21</source>
+                    <target>21</target>
+                    <!-- Emit MethodParameters attribute into .class files so Spring SpEL can
+                         resolve method-argument names like #providerNo in @Cacheable conditions.
+                         Without this, Spring 6+ silently fails parameter-name discovery (legacy
+                         LocalVariableTableParameterNameDiscoverer was removed), the condition
+                         evaluates to false, and no caching occurs. -->
+                    <parameters>true</parameters>
+                    <!-- Suppress framework deprecation warnings during incremental migration.
+                         Override via: mvn ... -Dmaven.compiler.showDeprecation=true -->
+                    <showDeprecation>${maven.compiler.showDeprecation}</showDeprecation>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-clean-plugin</artifactId>
+                <version>3.5.0</version>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>3.10.0</version>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>3.2.0</version>
+                <executions>
+                    <execution>
+                        <phase>process-classes</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target>
+                                <tstamp>
+                                    <format property="build.dateTime.value" pattern="yyyy-MM-dd hh:mm aa"/>
+                                </tstamp>
+                                <echo level="info" message="build time : ${build.dateTime.value}"/>
+                                <replace file="target/classes/carlos.properties" token="${build.dateTime}" value="${build.dateTime.value}"/>
+                                <property environment="env"/>
+                                <echo level="info" message="JOB_NAME - BUILD_NUMBER : ${env.JOB_NAME}-${env.BUILD_NUMBER}"/>
+                                <replace file="target/classes/carlos.properties" token="${build.JOB_NAME}" value="${env.JOB_NAME}"/>
+                                <replace file="target/classes/carlos.properties" token="${build.BUILD_NUMBER}" value="${env.BUILD_NUMBER}"/>
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-war-plugin</artifactId>
+                <version>3.5.1</version>
+                <configuration>
+                    <webResources>
+                        <resource>
+                            <directory>src/main/webapp</directory>
+                        </resource>
+                        <resource>
+                            <directory>src/main/webapp/WEB-INF/classes</directory>
+                            <filtering>true</filtering>
+                            <targetPath>WEB-INF/classes</targetPath>
+                        </resource>
+                    </webResources>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-checkstyle-plugin</artifactId>
+                <version>3.6.0</version>
+                <configuration>
+                    <configLocation>${project.basedir}/utils/checkstyle.xml</configLocation>
+                    <encoding>${project.build.sourceEncoding}</encoding>
+                    <failsOnError>true</failsOnError>
+                    <consoleOutput>true</consoleOutput>
+                    <sourceDirectories>
+                        <sourceDirectory>${project.basedir}/src/main</sourceDirectory>
+                    </sourceDirectories>
+                    <includes>**/*.java</includes>
+                    <!-- File types to exclude from checkstyle -->
+                    <excludes>
+                        **/*.jar,
+                        **/*.txt,
+                        **/*.rpt,
+                        **/*.fla,
+                        **/*.xml,
+                        **/*.dtd,
+                        **/*.xslt,
+                        **/*.doc,
+                        **/*.bak,
+                        **/*.tld,
+                        **/*.jpg,
+                        **/*.png,
+                        **/*.gif,
+                        **/*.pdf,
+                        **/*.swf,
+                        **/*.js,
+                        **/*.css,
+                        **/*svg.jsp
+                    </excludes>
+                    <!-- Specific files to exclude from checkstyle -->
+                    <exclude>src/main/webapp/casemgmt/Index2.jsp</exclude>
+                    <exclude>src/main/java/oscar/oscarMessenger/util/MsgDemoMap.java</exclude>
+                    <exclude>src/main/java/oscar/encounter/pageUtil/EctDisplayMsgAction.java</exclude>
+                    <exclude>src/main/java/oscar/encounter/data/EctPatientData.java</exclude>
+                </configuration>
+                <dependencies>
+                    <dependency>
+                        <groupId>com.puppycrawl.tools</groupId>
+                        <artifactId>checkstyle</artifactId>
+                        <version>13.3.0</version>
+                    </dependency>
+                </dependencies>
+                <executions>
+                    <execution>
+                        <id>process-sources</id>
+                        <phase>process-sources</phase>
+                        <goals>
+                            <goal>checkstyle</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-pmd-plugin</artifactId>
+                <version>3.28.0</version>
+                <configuration>
+                    <!-- Target JDK version -->
+                    <targetJdk>21</targetJdk>
+
+                    <!-- Custom ruleset -->
+                    <rulesets>
+                        <ruleset>utils/pmd_rules.xml</ruleset>
+                    </rulesets>
+
+                    <!-- Analysis configuration -->
+                    <includeTests>false</includeTests>
+                    <minimumTokens>100</minimumTokens>
+                    <printFailingErrors>true</printFailingErrors>
+                    <linkXRef>false</linkXRef>
+
+                    <!-- Performance settings -->
+                    <analysisCache>true</analysisCache>
+                    <analysisCacheLocation>${project.build.directory}/pmd/pmd.cache</analysisCacheLocation>
+
+                    <!-- Output formats -->
+                    <format>html</format>
+                    <outputDirectory>${project.build.directory}/pmd</outputDirectory>
+
+                    <!-- Exclude generated code and known legacy files -->
+                    <excludeRoots>
+                        <excludeRoot>target/generated-sources</excludeRoot>
+                    </excludeRoots>
+                    <excludes>
+                        <exclude>**/generated/**</exclude>
+                        <exclude>**/*_.java</exclude>
+                    </excludes>
+                </configuration>
+                <dependencies>
+                    <dependency>
+                        <groupId>net.sourceforge.pmd</groupId>
+                        <artifactId>pmd-core</artifactId>
+                        <version>7.22.0</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>net.sourceforge.pmd</groupId>
+                        <artifactId>pmd-java</artifactId>
+                        <version>7.22.0</version>
+                    </dependency>
+                </dependencies>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.5.5</version>
+                <configuration>
+                    <!-- Each fork is a separate JVM with its own H2 mem:testdb instance,
+                         so forks are completely isolated and safe to run in parallel. -->
+                    <forkCount>4</forkCount>
+                    <reuseForks>true</reuseForks>
+                    <!-- Keep test classes sequential within each fork. Several Spring integration
+                         tests share application-context caches or fixed seed data; fork-level
+                         parallelism still provides isolated H2 databases. -->
+                    <perCoreThreadCount>false</perCoreThreadCount>
+                    <includes>
+                        <include>**/test/**/*Test.java</include>
+                        <include>**/test/**/*Tests.java</include>
+                        <include>**/tickler/**/*Test.java</include>
+                        <include>**/messenger/**/*Test.java</include>
+                        <include>**/provider/**/*Test.java</include>
+                        <include>**/managers/**/*Test.java</include>
+                        <include>**/*IntegrationTest.java</include>
+                        <include>**/*UnitTest.java</include>
+                        <include>**/*RegressionTest.java</include>
+                    </includes>
+                    <excludes>
+                        <exclude>**/archive/**/*Test.java</exclude>
+                    </excludes>
+                    <argLine>
+                       @{argLine}
+                       -Xmx2048m
+                       -Dnet.bytebuddy.experimental=true
+                       --add-opens java.base/java.lang=ALL-UNNAMED
+                       --add-opens java.base/java.util=ALL-UNNAMED
+                       -Djdk.attach.allowAttachSelf=true
+                       -XX:+EnableDynamicAgentLoading
+                     </argLine>
+                    <!-- Test filtering by groups when specified -->
+                    <groups>${groups}</groups>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <version>3.6.0</version>
+                <executions>
+                    <execution>
+                        <id>timestamp-property</id>
+                        <goals>
+                            <goal>timestamp-property</goal>
+                        </goals>
+                        <configuration>
+                            <name>build.time</name>
+                            <pattern>yy.MM.dd-HHmmss</pattern>
+                            <locale>en_US</locale>
+                            <timeZone>Canada/Eastern</timeZone>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Update lockfile - mvn se.vandmo:dependency-lock-maven-plugin:lock -->
+            <plugin>
+                <groupId>se.vandmo</groupId>
+                <artifactId>dependency-lock-maven-plugin</artifactId>
+                <version>1.1.1</version>
+                <configuration>
+                    <!-- Can be overridden with -Ddependency.lock.filename=xxx -->
+                    <filename>${dependency.lock.filename}</filename>
+                    <!-- Skip integrity/version checks for JitPack-served artifacts.
+                         JitPack builds from source on demand and can serve different
+                         bytes (and thus different SHA512 hashes) between environments,
+                         causing spurious lock-file failures. Tracked for long-term
+                         fix (publish to a stable repo). See issue: JitPack exclusion. -->
+                    <dependencySets>
+                        <dependencySet>
+                            <includes>
+                                <include>com.github.openosp:ultrabuk-htmltopdf-java</include>
+                            </includes>
+                            <version>ignore</version>
+                            <integrity>ignore</integrity>
+                            <allowMissing>true</allowMissing>
+                            <allowExtraneous>true</allowExtraneous>
+                        </dependencySet>
+                    </dependencySets>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>check</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Javadoc HTML generation for documentation -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>3.12.0</version>
+                <configuration>
+                    <outputDirectory>${project.build.directory}/site/apidocs</outputDirectory>
+                    <reportOutputDirectory>${project.build.directory}/site/apidocs</reportOutputDirectory>
+                    <destDir>apidocs</destDir>
+                    <doclint>none</doclint>
+                    <failOnError>false</failOnError>
+                    <failOnWarnings>false</failOnWarnings>
+                    <quiet>true</quiet>
+                    <source>21</source>
+                    <additionalJOptions>
+                        <additionalJOption>-Xdoclint:none</additionalJOption>
+                    </additionalJOptions>
+                    <!-- Skip missing documentation gracefully -->
+                    <additionalparam>-Xdoclint:none</additionalparam>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>generate-javadoc</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>javadoc</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <profile>
+            <!-- Skip jsp compile, run 'mvn package -Pjspc' to compile jsps -->
+            <id>jspc</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>io.leonard.maven.plugins</groupId>
+                        <artifactId>jspc-maven-plugin</artifactId>
+                        <version>5.0.0</version>
+                        <executions>
+                            <execution>
+                                <id>jspc</id>
+                                <goals>
+                                    <goal>compile</goal>
+                                </goals>
+                                <configuration>
+                                    <sourceDirectory>src/main/webapp</sourceDirectory>
+                                    <outputDirectory>src/main/jsp</outputDirectory>
+                                    <excludes>
+                                        <exclude>**/*.jspf</exclude>
+                                        <!-- Exclude the deprecated jsp file, the file is not using now -->
+                                        <exclude>encounter/oscarConsultationRequest/attachConsultation2.jsp</exclude>
+                                        <!-- Detect html taglib related errors, exclude for now -->
+                                        <exclude>PMmodule/Admin/Bed/Bed.jsp</exclude>
+                                        <exclude>PMmodule/Admin/AgencyEdit/bed.jsp</exclude>
+                                    </excludes>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <!-- Dependency lock is already validated in the build job.
+                         Skip in jspc profile because JitPack can shadow Maven Central
+                         artifacts under alternate groupIds in CI environments with cold
+                         caches, causing false dependency-lock failures. -->
+                    <plugin>
+                        <groupId>se.vandmo</groupId>
+                        <artifactId>dependency-lock-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>check</id>
+                                <phase>none</phase>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- Skip dependency lock check in CI workflows (e.g. SonarCloud)
+             where JitPack-served artifacts produce different SHA512 hashes
+             than locally-cached ones, causing false failures.
+             Activate with: mvn ... -Pskip-dependency-lock -->
+        <profile>
+            <id>skip-dependency-lock</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>se.vandmo</groupId>
+                        <artifactId>dependency-lock-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>check</id>
+                                <phase>none</phase>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- SpotBugs + Find Security Bugs analysis.
+             Activate with: mvn compile spotbugs:spotbugs -Pspotbugs -->
+        <profile>
+            <id>spotbugs</id>
+            <properties>
+                <!-- SpotBugs analyzer heap, in megabytes. Override per-run with
+                     -Dspotbugs.maxHeapMb=<MB>. -->
+                <spotbugs.maxHeapMb>2048</spotbugs.maxHeapMb>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>com.github.spotbugs</groupId>
+                        <artifactId>spotbugs-maven-plugin</artifactId>
+                        <version>4.9.3.0</version>
+                        <configuration>
+                            <effort>Max</effort>
+                            <threshold>Low</threshold>
+                            <xmlOutput>true</xmlOutput>
+                            <xmlOutputDirectory>${project.build.directory}</xmlOutputDirectory>
+                            <spotbugsXmlOutputFilename>spotbugs-result.xml</spotbugsXmlOutputFilename>
+                            <excludeFilterFile>${project.basedir}/.github/spotbugs/spotbugs-exclude.xml</excludeFilterFile>
+                            <fork>true</fork>
+                            <maxHeap>${spotbugs.maxHeapMb}</maxHeap>
+                            <plugins>
+                                <plugin>
+                                    <groupId>com.h3xstream.findsecbugs</groupId>
+                                    <artifactId>findsecbugs-plugin</artifactId>
+                                    <version>1.14.0</version>
+                                </plugin>
+                            </plugins>
+                        </configuration>
+                    </plugin>
+                    <!-- Skip dependency lock — already validated in the build job -->
+                    <plugin>
+                        <groupId>se.vandmo</groupId>
+                        <artifactId>dependency-lock-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>check</id>
+                                <phase>none</phase>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+    </profiles>
+</project>

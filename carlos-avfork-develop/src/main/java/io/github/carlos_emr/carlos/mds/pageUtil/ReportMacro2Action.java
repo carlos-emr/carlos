@@ -1,0 +1,251 @@
+/**
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ */
+package io.github.carlos_emr.carlos.mds.pageUtil;
+
+import java.io.IOException;
+import java.util.Calendar;
+
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import org.apache.commons.lang3.StringUtils;
+import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
+import io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao;
+import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
+import io.github.carlos_emr.carlos.commn.model.Tickler;
+import io.github.carlos_emr.carlos.commn.model.TicklerLink;
+import io.github.carlos_emr.carlos.commn.model.UserProperty;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
+
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
+
+
+import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
+public class ReportMacro2Action extends ActionSupport {
+    private static final String JSON_CONTENT_TYPE = "application/json; charset=UTF-8";
+
+    HttpServletRequest request = ServletActionContext.getRequest();
+    HttpServletResponse response = ServletActionContext.getResponse();
+
+    private static Logger logger = MiscUtils.getLogger();
+
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private TicklerDao ticklerDao = SpringUtils.getBean(TicklerDao.class);
+    private TicklerLinkDao ticklerLinkDao = SpringUtils.getBean(TicklerLinkDao.class);
+
+    
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
+    public String execute() throws ServletException, IOException {
+        ObjectNode result = objectMapper.createObjectNode();
+
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_lab", "w", null)) {
+            throw new SecurityException("missing required sec object (_lab)");
+        }
+        response.setContentType(JSON_CONTENT_TYPE);
+
+        String name = request.getParameter("name");
+
+        logger.info("RunMacro called with name = {}", LogSafe.sanitize(name)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+        if (name == null) {
+            result.put("success", false);
+            result.put("error", "No macro name provided");
+            response.getWriter().write(result.toString());
+            return null;
+        }
+
+        UserPropertyDAO upDao = SpringUtils.getBean(UserPropertyDAO.class);
+        UserProperty up = upDao.getProp(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), UserProperty.LAB_MACRO_JSON);
+
+        boolean success = false;
+
+        //find and run specific macro
+        if (up != null && !StringUtils.isEmpty(up.getValue())) {
+            ArrayNode macros = (ArrayNode) objectMapper.readTree(up.getValue());
+            if (macros != null) {
+                for (int x = 0; x < macros.size(); x++) {
+                    ObjectNode macro = (ObjectNode) macros.get(x);
+                    if (name.equals(macro.get("name").asText())) {
+                        success = runMacro(macro, request);
+                    }
+                }
+            }
+        } else {
+            result.put("success", false);
+            result.put("error", "No macros defined in provider preferences");
+            response.getWriter().write(result.toString());
+            return null;
+        }
+
+
+        result.put("success", success);
+        response.getWriter().write(result.toString());
+        return null;
+    }
+
+    protected boolean runMacro(ObjectNode macro, HttpServletRequest request) {
+        logger.info("running macro {}", LogSafe.sanitize(macro.get("name").asText("")));
+        String segmentID = request.getParameter("segmentID");
+        String labType = request.getParameter("labType");
+        String demographicNo = request.getParameter("demographicNo");
+
+        // Use session-derived provider ID for security (prevent impersonation)
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
+
+        if (macro.has("acknowledge")) {
+            logger.info("Acknowledging lab {}:{}", LogSafe.sanitize(labType), LogSafe.sanitize(segmentID)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            ObjectNode jAck = (ObjectNode) macro.get("acknowledge");
+            String comment = jAck.get("comment").asText();
+            if (StringUtils.isBlank(segmentID)) {
+                logger.error("Cannot acknowledge lab: missing or empty segmentID for labType={}", LogSafe.sanitize(labType)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                return false;
+            }
+            final int segmentInt;
+            try {
+                segmentInt = Integer.parseInt(segmentID);
+            } catch (NumberFormatException e) {
+                logger.error("Cannot acknowledge lab: non-numeric segmentID='{}' for labType={}", LogSafe.sanitize(segmentID), LogSafe.sanitize(labType), e);
+                return false;
+            }
+            CommonLabResultData.updateReportStatus(segmentInt, providerNo, 'A', comment, labType, skipComment(providerNo));
+
+            // Audit log for lab acknowledgment
+            LogAction.addLogSynchronous(providerNo, LogConst.ACK,
+                "labType=" + labType + ",segmentID=" + segmentID + ",demographicNo=" + demographicNo,
+                LogConst.CON_MDS_LAB, loggedInInfo.getIp());
+        }
+        if (macro.has("tickler") && !StringUtils.isEmpty(demographicNo)) {
+            ObjectNode jTickler = (ObjectNode) macro.get("tickler");
+
+            if (jTickler.has("taskAssignedTo") && jTickler.has("message")) {
+                logger.info("Sending Tickler");
+                Tickler t = new Tickler();
+                t.setTaskAssignedTo(jTickler.get("taskAssignedTo").asText());
+                t.setDemographicNo(Integer.parseInt(demographicNo));
+                t.setMessage(jTickler.get("message").asText());
+                t.setCreator(providerNo);
+
+                // Set future service date if quantity and timeUnits are provided
+                if (jTickler.has("quantity") && jTickler.has("timeUnits")) {
+                    // Validate that quantity and timeUnits are not null
+                    if (!jTickler.get("quantity").isNull() && !jTickler.get("timeUnits").isNull()) {
+                        try {
+                            Calendar cal = Calendar.getInstance();
+                            int qty = Integer.parseInt(jTickler.get("quantity").asText());
+                            int code = Integer.parseInt(jTickler.get("timeUnits").asText());
+
+                            // Validate that quantity is positive (negative values would create past-dated ticklers)
+                            if (qty <= 0) {
+                                logger.warn("Tickler quantity must be positive. Received: {}. Skipping date calculation.", qty);
+                            } else {
+                                // Time unit codes: 1=days, 7=weeks, 30=months, 365=years
+                                boolean validCode = false;
+                                switch (code) {
+                                    case 1:  // days
+                                        cal.add(Calendar.DATE, qty);
+                                        validCode = true;
+                                        break;
+                                    case 7:  // weeks
+                                        cal.add(Calendar.WEEK_OF_YEAR, qty);
+                                        validCode = true;
+                                        break;
+                                    case 30:  // months
+                                        cal.add(Calendar.MONTH, qty);
+                                        validCode = true;
+                                        break;
+                                    case 365:  // years
+                                        cal.add(Calendar.YEAR, qty);
+                                        validCode = true;
+                                        break;
+                                    default:
+                                        logger.warn("Invalid timeUnits code. Valid values are 1 (days), 7 (weeks), 30 (months), 365 (years). Received: {}", code);
+                                        break;
+                                }
+                                // Only set service date if code was valid
+                                if (validCode) {
+                                    t.setServiceDate(cal.getTime());
+                                }
+                            }
+                        } catch (NumberFormatException e) {
+                            logger.warn("Invalid numeric value for quantity or timeUnits in tickler macro", e);
+                        }
+                    } else {
+                        logger.warn("Tickler has null quantity or timeUnits - skipping date calculation");
+                    }
+                }
+                ticklerDao.persist(t);
+
+                // Audit log for tickler creation
+                LogAction.addLogSynchronous(providerNo, LogConst.ADD,
+                    "ticklerId=" + t.getId() + ",demographicNo=" + demographicNo,
+                    LogConst.CON_MDS_LAB, loggedInInfo.getIp());
+
+                TicklerLink tl = new TicklerLink();
+                tl.setTableId(Long.valueOf(segmentID));
+                tl.setTableName(labType);
+                tl.setTicklerNo(t.getId());
+                ticklerLinkDao.persist(tl);
+            } else {
+                logger.info("Cannot sent tickler. Not enough information in macro definition. providers taskAssignedTo and message");
+            }
+
+        }
+
+        return true;
+    }
+
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    private boolean skipComment(String providerNo) {
+        UserPropertyDAO userPropertyDAO = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
+        UserProperty uProp = userPropertyDAO.getProp(providerNo, UserProperty.LAB_ACK_COMMENT);
+        boolean skipComment = false;
+        if (uProp != null && uProp.getValue().equalsIgnoreCase("yes")) {
+            skipComment = true;
+        }
+        return skipComment;
+    }
+}

@@ -1,0 +1,2 @@
+INSERT INTO `secObjectName` (`objectName`, `description`, `orgapplicable`) VALUES ('_admin.fax.restart', 'Show status and restart fax scheduler', '0');
+INSERT INTO `secObjPrivilege` VALUES ('admin','_admin.fax.restart','x',0,'999998');

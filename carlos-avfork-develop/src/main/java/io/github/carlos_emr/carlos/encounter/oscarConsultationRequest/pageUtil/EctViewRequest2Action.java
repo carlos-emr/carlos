@@ -1,0 +1,278 @@
+/**
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ */
+
+
+package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
+
+import java.io.IOException;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import org.apache.commons.lang3.time.DateFormatUtils;
+import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
+import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestExtDao;
+import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
+import io.github.carlos_emr.carlos.commn.model.ConsultationRequestExt;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.commn.model.DemographicExt;
+import io.github.carlos_emr.carlos.commn.model.DemographicExt.DemographicProperty;
+import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.commn.model.enumerator.ConsultationRequestExtKey;
+import io.github.carlos_emr.carlos.managers.ConsultationManager;
+import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+
+import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import org.owasp.encoder.Encode;
+
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
+public class EctViewRequest2Action extends ActionSupport {
+    HttpServletRequest request = ServletActionContext.getRequest();
+    HttpServletResponse response = ServletActionContext.getResponse();
+
+
+    private static final Logger logger = MiscUtils.getLogger();
+    private static SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
+    @Override
+    public String execute() throws ServletException, IOException {
+        checkPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request));
+
+        request.setAttribute("id", this.getRequestId());
+
+        logger.debug("Id:{}", LogSafe.sanitize(this.getRequestId()));
+        logger.debug("SegmentId:{}", LogSafe.sanitize(request.getParameter("segmentId")));
+
+        return SUCCESS;
+    }
+
+    private static void setAppointmentDateTime(EctConsultationFormRequest2Form thisForm, ConsultationRequest consult) {
+        Calendar cal = Calendar.getInstance();
+        Date date1 = consult.getAppointmentDate();
+        Date date2 = consult.getAppointmentTime();
+
+        if (date1 == null || date2 == null) {
+            thisForm.setAppointmentDate("");
+        } else {
+            thisForm.setAppointmentDate(DateFormatUtils.ISO_DATE_FORMAT.format(date1));
+            cal.setTime(date2);
+
+            int hour = cal.get(Calendar.HOUR_OF_DAY);
+            if (cal.get(Calendar.AM_PM) == Calendar.AM) {
+                if (hour == 0) {
+                    hour = 12;
+                }
+                thisForm.setAppointmentPm("AM");
+            } else {
+                if (hour > 12) {
+                    hour -= 12;
+                }
+                thisForm.setAppointmentPm("PM");
+            }
+
+            if (cal.get(Calendar.HOUR) == 0)
+                thisForm.setAppointmentHour("12");
+            else
+                thisForm.setAppointmentHour(String.valueOf(cal.get(Calendar.HOUR)));
+
+            thisForm.setAppointmentMinute(String.valueOf(cal.get(Calendar.MINUTE)));
+        }
+    }
+
+
+    public static void fillFormValues(LoggedInInfo loggedInInfo, EctConsultationFormRequest2Form thisForm, Integer requestId) {
+        checkPrivilege(loggedInInfo);
+
+        ConsultationManager consultationManager = SpringUtils.getBean(ConsultationManager.class);
+        ConsultationRequestExtDao consultationRequestExtDao = SpringUtils.getBean(ConsultationRequestExtDao.class);
+        List<ConsultationRequestExt> extras = consultationRequestExtDao.getConsultationRequestExts(requestId);
+        Map<String, String> extraMap = consultationManager.getExtValuesAsMap(extras);
+
+        ConsultationRequestDao consultDao = (ConsultationRequestDao) SpringUtils.getBean(ConsultationRequestDao.class);
+        ConsultationRequest consult = consultDao.find(requestId);
+
+        thisForm.setAllergies(consult.getAllergies());
+        thisForm.setReasonForConsultation(consult.getReasonForReferral());
+        thisForm.setClinicalInformation(consult.getClinicalInfo());
+        thisForm.setCurrentMedications(consult.getCurrentMeds());
+        Date date = consult.getReferralDate();
+        thisForm.setReferalDate(DateFormatUtils.ISO_DATE_FORMAT.format(date));
+        thisForm.setSendTo(consult.getSendTo());
+        thisForm.setService(consult.getServiceId().toString());
+        thisForm.setStatus(consult.getStatus());
+
+        setAppointmentDateTime(thisForm, consult);
+
+        thisForm.setConcurrentProblems(consult.getConcurrentProblems());
+        thisForm.setAppointmentNotes(consult.getStatusText());
+        thisForm.setUrgency(consult.getUrgency());
+        thisForm.setAppointmentInstructions(consult.getAppointmentInstructions());
+
+        thisForm.setPatientWillBook(String.valueOf(consult.isPatientWillBook()));
+
+        date = consult.getFollowUpDate();
+        if (date != null) {
+            thisForm.setFollowUpDate(DateFormatUtils.ISO_DATE_FORMAT.format(date));
+        } else {
+            thisForm.setFollowUpDate("");
+        }
+
+        DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
+        Demographic demo = demographicManager.getDemographic(loggedInInfo, consult.getDemographicId());
+        DemographicExt demographicExt = demographicManager.getDemographicExt(loggedInInfo, consult.getDemographicId(), DemographicProperty.demo_cell);
+        String demographicCellPhone = "";
+        if (demographicExt != null) {
+            demographicCellPhone = demographicExt.getValue();
+        }
+        StringBuilder demoAddress = new StringBuilder();
+        if (demo.getAddress() != null) demoAddress.append(Encode.forHtml(demo.getAddress())).append("<br />");
+        if (demo.getCity() != null) demoAddress.append(Encode.forHtml(demo.getCity())).append(", ");
+        if (demo.getProvince() != null) demoAddress.append(Encode.forHtml(demo.getProvince()));
+        if (demo.getPostal() != null) demoAddress.append("<br />").append(Encode.forHtml(demo.getPostal()));
+        thisForm.setPatientAddress(demoAddress.toString());
+        thisForm.setPatientDOB(demo.getFormattedDob());
+        thisForm.setPatientHealthNum(demo.getHin());
+        thisForm.setPatientHealthCardVersionCode(demo.getVer());
+        thisForm.setPatientHealthCardType(demo.getHcType());
+        thisForm.setPatientFirstName(demo.getFirstName());
+        thisForm.setPatientLastName(demo.getLastName());
+        thisForm.setPatientPhone(demo.getPhone());
+        thisForm.setPatientSex(demo.getSex());
+        thisForm.setPatientWPhone(demo.getPhone2());
+        thisForm.setPatientCellPhone(demographicCellPhone);
+        thisForm.setPatientEmail(demo.getEmail());
+        thisForm.setPatientAge(demo.getAge());
+
+        ProviderDao provDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
+        Provider prov = provDao.getProvider(consult.getProviderNo());
+        thisForm.setProviderName(prov.getFormattedName());
+
+        boolean isEReferral = extraMap.containsKey(ConsultationRequestExtKey.EREFERRAL_REF.getKey());
+        thisForm.seteReferral(isEReferral);
+        if (isEReferral) {
+            thisForm.setProfessionalSpecialistName(extraMap.getOrDefault(ConsultationRequestExtKey.EREFERRAL_DOCTOR.getKey(), ""));
+            thisForm.seteReferralService(extraMap.getOrDefault(ConsultationRequestExtKey.EREFERRAL_SERVICE.getKey(), ""));
+            thisForm.seteReferralId(extraMap.get(ConsultationRequestExtKey.EREFERRAL_REF.getKey()));
+        }
+
+        thisForm.setLetterheadName(consult.getLetterheadName());
+        thisForm.setLetterheadAddress(consult.getLetterheadAddress());
+        thisForm.setLetterheadPhone(consult.getLetterheadPhone());
+        thisForm.setLetterheadFax(consult.getLetterheadFax());
+
+        thisForm.setFdid(consult.getFdid());
+    }
+
+    public static void fillFormValues(EctConsultationFormRequest2Form thisForm, EctConsultationFormRequestUtil consultUtil) {
+        thisForm.setAllergies(consultUtil.allergies);
+        thisForm.setReasonForConsultation(consultUtil.reasonForConsultation);
+        thisForm.setClinicalInformation(consultUtil.clinicalInformation);
+        thisForm.setCurrentMedications(consultUtil.currentMedications);
+        thisForm.setReferalDate(consultUtil.referalDate);
+        thisForm.setSendTo(consultUtil.sendTo);
+        thisForm.setService(consultUtil.service);
+        thisForm.setStatus(consultUtil.status);
+        thisForm.setAppointmentDate(consultUtil.appointmentDate);
+        thisForm.setAppointmentHour(consultUtil.appointmentHour);
+        thisForm.setAppointmentMinute(consultUtil.appointmentMinute);
+        thisForm.setAppointmentPm(consultUtil.appointmentPm);
+        thisForm.setConcurrentProblems(consultUtil.concurrentProblems);
+        thisForm.setAppointmentNotes(consultUtil.appointmentNotes);
+        thisForm.setUrgency(consultUtil.urgency);
+        thisForm.setAppointmentInstructions(consultUtil.getAppointmentInstructions());
+        thisForm.setAppointmentInstructionsLabel(consultUtil.getAppointmentInstructionsLabel());
+        thisForm.setPatientWillBook(consultUtil.pwb);
+
+        if (consultUtil.sendTo != null && !consultUtil.teamVec.contains(consultUtil.sendTo)) {
+            consultUtil.teamVec.add(consultUtil.sendTo);
+        }
+
+        //---
+
+        thisForm.setPatientAddress(consultUtil.patientAddress);
+        thisForm.setPatientDOB(consultUtil.patientDOB);
+        thisForm.setPatientHealthNum(consultUtil.patientHealthNum);
+        thisForm.setPatientHealthCardVersionCode(consultUtil.patientHealthCardVersionCode);
+        thisForm.setPatientHealthCardType(consultUtil.patientHealthCardType);
+        thisForm.setPatientFirstName(consultUtil.patientFirstName);
+        thisForm.setPatientLastName(consultUtil.patientLastName);
+        thisForm.setPatientPhone(consultUtil.patientPhone);
+        thisForm.setPatientSex(consultUtil.patientSex);
+        thisForm.setPatientWPhone(consultUtil.patientWPhone);
+        thisForm.setPatientCellPhone(consultUtil.patientCellPhone);
+        thisForm.setPatientEmail(consultUtil.patientEmail);
+        thisForm.setPatientAge(consultUtil.patientAge);
+
+        thisForm.setProviderName(consultUtil.getProviderName(consultUtil.providerNo));
+
+        thisForm.setLetterheadName(consultUtil.letterheadName);
+        thisForm.setLetterheadAddress(consultUtil.letterheadAddress);
+        thisForm.setLetterheadPhone(consultUtil.letterheadPhone);
+        thisForm.setLetterheadFax(consultUtil.letterheadFax);
+
+        thisForm.seteReferral(false);
+
+        thisForm.setFdid(consultUtil.fdid);
+
+    }
+
+    private static void checkPrivilege(LoggedInInfo loggedInInfo) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", "r", null)) {
+            throw new SecurityException("missing required sec object (_con)");
+        }
+    }
+
+
+    public String getRequestId() {
+        if (requestId == null)
+            requestId = new String();
+        return requestId;
+    }
+
+    @StrutsParameter
+    public void setRequestId(String str) {
+        requestId = str;
+    }
+
+    String requestId;
+}

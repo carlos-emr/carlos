@@ -1,0 +1,199 @@
+# Struts Actions Summary
+
+## Overview
+This document provides a comprehensive summary of all Struts actions configured in the CARLOS application as of 2025-08-21.
+
+## Statistics
+- **Total Actions**: 519
+- **Action Class Pattern**: All action classes follow the `*2Action` naming convention
+- **Recent Cleanup**: Removed 12 orphaned PHR and MyOscar related actions
+
+## Major Modules by Action Count
+
+### 1. **Oscar Encounter Module** (107 actions)
+The largest module handling patient encounters, clinical documentation, and point-of-care interactions.
+- Patient encounter management
+- Clinical measurements and observations  
+- Consultation requests and referrals
+- Disease registry and diagnosis
+- Immunization tracking
+- Eye examination and ocular procedures
+- Decision support integration
+
+### 2. **Prescription (Rx) Module** (44 actions)
+Handles electronic prescribing and medication management.
+- Drug searches and interactions
+- Prescription creation and management
+- Pharmacy integration
+- Allergy and adverse reaction tracking
+- Medication history
+- Drug reference database updates
+
+### 3. **Billing Module** (43 actions)
+Manages billing operations for multiple jurisdictions.
+- Ontario (ON) billing and MOH file processing
+- British Columbia (BC) billing
+- Billing corrections and reconciliation
+- Payment tracking
+- Invoice generation
+- Billing reports
+
+### 4. **Reports Module** (37 actions)
+Combined reporting functionality across oscarReport (23) and report (14) namespaces.
+- Demographic reports
+- Clinical reports
+- Population health reports
+- Custom query reports
+- Statistical analysis
+- Export capabilities
+
+### 5. **Messaging Module** (20 actions)
+Internal messaging and communication system.
+- Provider-to-provider messaging
+- Message attachments
+- Message routing and workflows
+- Notification management
+
+### 6. **Electronic Forms Module** (20 actions)
+Digital form creation and management.
+- Form builder and editor
+- Form templates
+- Form submission and storage
+- PDF generation
+- Form import/export
+
+### 7. **Patient Management Module (PMmodule)** (18 actions)
+Core patient management and registration.
+- Client registration
+- Bed and room assignments (being removed)
+- Program enrollment
+- Intake and admission workflows
+
+### 8. **Administration Module** (18 actions)
+System administration and configuration.
+- User management
+- System preferences
+- Security settings
+- Backup operations
+- Database maintenance
+
+### 9. **Laboratory Module** (24 actions)
+Lab results and diagnostic test management.
+- Lab result viewing (14 lab actions)
+- MDS integration (10 oscarMDS actions)
+- HL7 message processing
+- Lab report acknowledgments
+- Cumulative lab reports
+
+### 10. **Document Management** (10 actions)
+Document handling and storage.
+- Document upload/download
+- Document categorization
+- HTML document creation
+- Document splitting
+- Version control
+
+## Other Notable Modules
+
+- **MCEDT** (15 actions) - Medical Claims Electronic Data Transfer
+- **Demographics** (14 actions) - Patient demographic management
+- **Forms** (12 actions) - Clinical forms processing
+- **Hospital Report Manager** (10 actions) - Hospital report integration
+- **Research** (8 actions) - Clinical research tools
+- **Provider** (5 actions) - Provider preferences and settings
+- **OLIS** (5 actions) - Ontario Laboratories Information System
+- **Appointment** (4 actions) - Appointment scheduling
+- **Consultation** (3 actions) - Consultation management
+- **Prevention** (3 actions) - Preventive care tracking
+
+## Recent Changes
+
+### Removed Orphaned Actions (2025-08-21)
+The following actions were removed as their corresponding Java classes no longer exist:
+
+**PHR (Personal Health Record) Integration** - 9 actions removed
+- All PHR login, messaging, and data sharing functionality
+- Document and prescription sending to PHR
+- Patient PHR record viewing
+
+**MyOscar Integration** - 3 actions removed  
+- MyOscar display and filtering
+- Provider MyOscar ID management
+- MyOscar measurements integration
+
+## Technical Notes
+
+1. **Naming Convention**: All action classes use the `*2Action` suffix, following the Struts 1.x to 2.x migration pattern
+2. **Package Structure**: Actions are organized by functional module under the `io.github.carlos_emr.carlos.*` package
+3. **Route Shape**: Canonical action URLs are extensionless; new code should not introduce `.do` routes
+4. **Result Mappings**: Most actions define multiple result mappings for different outcomes (success, failure, error, etc.)
+5. **JSP Integration**: User-addressable JSPs should be behind Struts and rendered from `/WEB-INF/jsp/**`, not exposed as public JSP entrypoints
+
+## Configuration Architecture
+
+As of 2026-03, the monolithic `struts.xml` has been split into a modular structure:
+
+- **`struts.xml`** — Parent file containing global constants (`struts.objectFactory`, `struts.action.extension`, etc.) and `<include>` directives for 17 domain-specific module files
+- **`struts-{module}.xml`** — Each module file contains action mappings for one functional domain, with a unique package name (e.g., `name="billing"`)
+
+### Module Files
+
+| File | Package Name | Domain |
+|------|-------------|--------|
+| `struts-admin.xml` | `admin` | Administration, system messages, lookup lists |
+| `struts-billing.xml` | `billing` | BC and Ontario billing, payments |
+| `struts-clinical.xml` | `clinical` | Diagnosis research, prevention, case management, renal care |
+| `struts-demographic.xml` | `demographic` | Patient demographics, records, import/export |
+| `struts-document.xml` | `document` | Document management, MDS, hospital reports |
+| `struts-eform.xml` | `eform` | Electronic form creation and management |
+| `struts-encounter.xml` | `encounter` | Patient encounters, consultations, measurements |
+| `struts-form.xml` | `form` | Medical forms, dashboards, flowsheets |
+| `struts-integration.xml` | `integration` | DHIR, MCEDT, health card validation |
+| `struts-lab.xml` | `lab` | Laboratory results and uploads |
+| `struts-login.xml` | `login` | Authentication, MFA, facility selection |
+| `struts-messenger.xml` | `messenger` | Internal messaging and attachments |
+| `struts-pmmodule.xml` | `pmmodule` | Program management, provider profiles |
+| `struts-prescription.xml` | `prescription` | Prescriptions, drug search, allergies |
+| `struts-provider.xml` | `provider` | Provider preferences, inbox, email, fax |
+| `struts-report.xml` | `report` | Clinical and demographic reports |
+| `struts-scheduling.xml` | `scheduling` | Appointments, ticklers, waiting lists |
+
+### Adding New Actions
+
+Add new action mappings to the appropriate domain-specific module file. Each module file uses a unique package name but shares `namespace="/"` and `extends="struts-default"`. Package names **must** be unique across all module files — Struts silently drops actions from duplicate-named packages.
+
+### Direct-Response Actions
+
+Actions that stream response content directly, including PDFs, CSV/XLS
+exports, ZIP files, images, and JSON written through
+`response.getOutputStream()` or `response.getWriter()`, must return
+`ActionSupport.NONE` after the response is written. Do not return `success`,
+another named result, or a bare `null` after streaming bytes; named results
+will forward JSP/HTML content into the same response, and CARLOS' Struts 7
+direct-response paths need the explicit `NONE` no-result code for binary
+downloads.
+
+Prefer separate action routes/classes for page navigation and
+download/direct-response behavior. The legacy mixed-action cleanup is tracked
+in GitHub issue #2064.
+
+For generated binary responses, especially PDFs, buffer and validate the bytes
+before setting response headers where practical. Non-critical side effects that
+run after streaming, such as "printed" comments or audit annotations, must be
+caught and logged so Struts cannot replace the binary response with an HTML
+error page if that side effect fails.
+
+When generation fails before streaming starts, the direct-response action still
+owns the response: set an explicit HTTP error, then return `ActionSupport.NONE`.
+Do not return an unmapped `failure`/`error` result from a download route. PR
+#2043 documents the same Struts 7 behavior in label PDFs: failed result
+resolution can render `errorpage.jsp` with `CARLOS Error: 0` because no real
+HTTP status was set.
+
+## Maintenance Recommendations
+
+1. **Orphaned Actions**: 18 additional orphaned actions remain that could be cleaned up
+2. **Module Consolidation**: Consider consolidating overlapping report modules (oscarReport vs report)
+
+---
+*Generated: 2025-08-21, updated: 2026-03-31*

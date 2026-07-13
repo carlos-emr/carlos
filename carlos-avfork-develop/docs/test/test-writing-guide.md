@@ -1,0 +1,560 @@
+# CARLOS EMR Test Writing Guide
+
+This guide contains detailed patterns and configurations for writing tests in the CARLOS EMR codebase. For a quick reference, see the summary in [CLAUDE.md](/CLAUDE.md#modern-test-framework-junit-5).
+
+## Critical Dependency Resolution Patterns
+
+The OpenO codebase has several legacy patterns that require specific handling in tests. Understanding these patterns is essential for writing working tests.
+
+### SpringUtils Anti-Pattern Resolution
+
+The codebase uses static `SpringUtils.getBean()` throughout. Modern tests handle this via reflection in `CarlosTestBase`:
+
+```java
+@BeforeEach
+void setUpSpringUtils() throws Exception {
+    // CRITICAL: Field is "beanFactory" not "applicationContext"
+    Field contextField = SpringUtils.class.getDeclaredField("beanFactory");
+    contextField.setAccessible(true);
+    contextField.set(null, applicationContext);
+}
+```
+
+**Why this matters**: Without this setup, any code that calls `SpringUtils.getBean()` will fail because the static field won't be initialized with your test's Spring context.
+
+### Mixed Hibernate/JPA Configuration
+
+**Challenge**: The legacy codebase uses both `.hbm.xml` files AND `@Entity` annotations for different entities.
+
+**Solution**: Dual configuration in test context - configure both Hibernate SessionFactory and JPA EntityManagerFactory:
+
+```xml
+<!-- Hibernate for XML mappings -->
+<bean id="sessionFactory" class="org.springframework.orm.hibernate5.LocalSessionFactoryBean">
+    <property name="mappingResources">
+        <list>
+            <value>io/github/carlos_emr/carlos/commn/model/Provider.hbm.xml</value>
+            <value>io/github/carlos_emr/carlos/commn/model/Demographic.hbm.xml</value>
+        </list>
+    </property>
+</bean>
+
+<!-- JPA for annotations -->
+<bean id="entityManagerFactory" class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
+    <property name="persistenceUnitName" value="testPersistenceUnit" />
+</bean>
+```
+
+### Manual Bean Definitions Required
+
+**Issue**: DAOs use SpringUtils in constructors causing circular dependencies during component scanning.
+
+**Solution**: Define beans manually in test context, not via component scanning:
+
+```xml
+<!-- Manual DAO definitions to avoid SpringUtils initialization issues -->
+<bean id="ticklerDao" class="io.github.carlos_emr.carlos.commn.dao.TicklerDaoImpl" autowire="byName" />
+<bean id="oscarLogDao" class="io.github.carlos_emr.carlos.commn.dao.OscarLogDaoImpl" autowire="byName" />
+```
+
+**When to add new beans**: If you're testing a new DAO that hasn't been tested before, you'll need to add its bean definition to the test context XML file.
+
+### Entity Discovery Pattern
+
+**Problem**: Entities discovered at runtime via scanning cause missing dependencies (e.g., `lst_gender` table) because the test database doesn't have all tables.
+
+**Solution**: Explicitly list only the entities you need in `persistence.xml`, disable scanning:
+
+```xml
+<persistence-unit name="testPersistenceUnit">
+    <class>io.github.carlos_emr.carlos.commn.model.Tickler</class>
+    <class>io.github.carlos_emr.carlos.commn.model.OscarLog</class>
+    <!-- Explicitly list each entity -->
+    <exclude-unlisted-classes>true</exclude-unlisted-classes>
+</persistence-unit>
+```
+
+**When to add new entities**: If your test needs an entity that isn't listed, add it to the persistence unit. Be prepared to also add any dependent entities and their corresponding database tables to the H2 schema.
+
+### Security Mock Pattern
+
+**Issue**: All operations in the codebase require SecurityInfoManager privilege checks, which will fail in tests without proper setup.
+
+**Solution**: Use MockSecurityInfoManager that always returns true for privilege checks:
+
+```xml
+<bean id="securityInfoManager" class="io.github.carlos_emr.carlos.test.mocks.MockSecurityInfoManager" />
+```
+
+---
+
+## Test Development Workflow
+
+When writing tests, follow this workflow to ensure you're testing actual methods that exist in the codebase.
+
+### Step 1: Examine the Actual Interface
+
+**CRITICAL**: Before writing any test, read the DAO/Manager interface to see what methods actually exist:
+
+```java
+// First, check the actual DAO interface:
+// src/main/java/io/github/carlos_emr/carlos/commn/dao/TicklerDao.java
+public interface TicklerDao extends AbstractDao<Tickler> {
+    public Tickler find(Integer id);  // <-- Real method to test
+    public List<Tickler> findActiveByDemographicNo(Integer demoNo); // <-- Real method
+    // ... other actual methods
+}
+```
+
+### Step 2: Write BDD-Style Tests for ACTUAL Methods
+
+```java
+@Test
+@DisplayName("should return tickler when valid ID is provided")
+void shouldReturnTickler_whenValidIdProvided() {
+    // Given
+    Tickler saved = createAndSaveTickler();
+
+    // When
+    Tickler found = ticklerDao.find(saved.getId()); // Testing real method
+
+    // Then
+    assertThat(found).isNotNull();
+    assertThat(found).isEqualTo(saved);
+}
+```
+
+### Step 3: Add Negative Test Cases
+
+Always include tests for edge cases and error conditions:
+- Null inputs
+- Invalid IDs
+- Empty results
+- Boundary conditions
+
+---
+
+## BDD Test Naming Convention (Detailed)
+
+### Method Naming Patterns
+
+1. **`should<Action>_<prepositionOrContext><Condition>`** - Testing behavior/requirements
+   - Use camelCase
+   - Exactly ONE underscore separating action from condition
+   - The segment after the underscore starts lowercase
+   - The preposition/context (`when`, `by`, `for`, `with`, `to`, `from`, etc.) should read naturally
+   - Examples: `shouldReturnTickler_whenValidIdProvided()`, `shouldReturnSpecialists_byServiceName()`, `shouldPersistMeasurement_withBloodPressureData()`
+
+2. **No zero-underscore or multi-underscore variants**
+   - Wrong: `shouldLoadSpringContext()`
+   - Correct: `shouldLoadSpringContext_forDefaultCase()`
+   - Wrong: `shouldReturnFoo_whenBar_andBaz()`
+   - Correct: `shouldReturnFoo_whenBarAndBaz()`
+
+3. **Do not use method-name-first test names**
+   - Wrong: `findActiveByDemographicNo_multipleStatuses_returnsOnlyActive()`
+   - Correct: `shouldReturnOnlyActiveRows_whenMultipleStatusesPresent()`
+
+### @DisplayName Convention
+
+- Always starts with lowercase "should"
+- Natural language description
+- Example: `@DisplayName("should return tickler when valid ID is provided")`
+
+### What NOT to Do
+
+- NO "test" prefix (e.g., ~~`testFindTickler()`~~)
+- NO test numbers (e.g., ~~`test1_findTickler()`~~)
+- NO multiple underscores or snake_case (e.g., ~~`should_return_tickler_when_valid()`~~)
+
+### BDD Test Structure Quick Reference
+
+```java
+// ✅ CORRECT BDD Test Structure
+@Test
+@DisplayName("should perform expected behavior when condition is met")  // lowercase "should"
+void shouldPerformExpectedBehavior_whenConditionIsMet() {  // camelCase with ONE underscore
+    // Given - set up test data
+    TestData data = createTestData();
+
+    // When - perform the action being tested
+    Result result = systemUnderTest.performAction(data);
+
+    // Then - verify the expected outcome
+    assertThat(result).isNotNull();
+    assertThat(result.getValue()).isEqualTo(expected);
+}
+```
+
+---
+
+## Test Base Classes
+
+### Integration Tests - CarlosTestBase
+
+All modern integration tests should extend `CarlosTestBase`:
+
+```java
+@ExtendWith(SpringExtension.class)
+@ContextConfiguration(locations = {"classpath:applicationContext-test.xml"})
+@Transactional
+public abstract class CarlosTestBase {
+
+    @Autowired
+    protected ApplicationContext applicationContext;
+
+    @PersistenceContext(unitName = "testPersistenceUnit")
+    protected EntityManager entityManager;
+
+    @BeforeEach
+    void setUpSpringUtils() throws Exception {
+        Field contextField = SpringUtils.class.getDeclaredField("beanFactory");
+        contextField.setAccessible(true);
+        contextField.set(null, applicationContext);
+    }
+}
+```
+
+### Why Extend CarlosTestBase?
+
+1. **SpringUtils handling**: Automatically sets up the static SpringUtils field
+2. **Spring context**: Provides autowired ApplicationContext
+3. **EntityManager**: Provides properly configured EntityManager
+4. **Transaction support**: Tests are transactional and roll back automatically
+
+### Unit Tests - CarlosUnitTestBase
+
+For unit tests (no database, all mocks), extend `CarlosUnitTestBase`:
+
+```java
+@Tag("unit")
+@Tag("fast")
+public abstract class CarlosUnitTestBase {
+
+    protected MockedStatic<SpringUtils> springUtilsMock;
+    protected Map<Class<?>, Object> mockedBeans = new HashMap<>();
+
+    @BeforeEach
+    void setUpSpringUtilsMocking() {
+        springUtilsMock = mockStatic(SpringUtils.class);
+        springUtilsMock.when(() -> SpringUtils.getBean(any(Class.class)))
+            .thenAnswer(invocation -> mockedBeans.get(invocation.getArgument(0)));
+    }
+
+    @AfterEach
+    void tearDownSpringUtilsMocking() {
+        if (springUtilsMock != null) springUtilsMock.close();
+        mockedBeans.clear();
+    }
+
+    protected <T> void registerMock(Class<T> clazz, T mock) {
+        mockedBeans.put(clazz, mock);
+    }
+}
+```
+
+### Capturing Log Output
+
+When a test needs to assert Log4j2 output, use the shared `LogCapture` helper
+instead of defining a local `AbstractAppender` or mutating the root logger:
+
+```java
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
+
+@Test
+void shouldWarn_whenRejectingRequest() {
+    try (LogCapture capture = LogCapture.forLogger(MyAction.class)) {
+        action.execute();
+
+        assertThat(capture.events()).anySatisfy(event -> {
+            assertThat(event.getLevel()).isEqualTo(Level.WARN);
+            assertThat(event.getMessage().getFormattedMessage())
+                    .contains("Rejected request");
+        });
+    }
+}
+```
+
+`LogCapture` attaches to the exact logger under test, stores immutable log
+events, and removes only the logger configuration it created. This keeps log
+assertions stable when Surefire runs test classes in parallel.
+
+### Domain-Specific Base Classes
+
+For complex domains (like Demographic), create a domain-specific base class:
+
+```java
+@Tag("unit")
+@Tag("fast")
+@Tag("demographic")
+public abstract class DemographicUnitTestBase extends CarlosUnitTestBase {
+
+    protected SecurityInfoManager mockSecurityInfoManager;
+    protected LoggedInInfo mockLoggedInInfo;
+
+    protected static final Integer TEST_DEMO_NO = 12345;
+
+    @BeforeEach
+    void setUpDemographicMocks() {
+        mockSecurityInfoManager = Mockito.mock(SecurityInfoManager.class);
+        mockLoggedInInfo = Mockito.mock(LoggedInInfo.class);
+        registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
+    }
+
+    // Test data builders
+    protected Demographic createTestDemographic() { /* ... */ }
+    protected DemographicExt createTestDemographicExt(Integer demoNo, String key, String value) { /* ... */ }
+}
+```
+
+---
+
+## Test Tagging System
+
+### Required Tags
+
+Every test class should have at minimum:
+- Test type: `@Tag("integration")` or `@Tag("unit")`
+- Layer: `@Tag("dao")`, `@Tag("service")`, `@Tag("controller")`
+
+### CRUD Operation Tags
+
+- `@Tag("create")` - Tests that create/persist entities
+- `@Tag("read")` - Tests that query/find entities
+- `@Tag("update")` - Tests that modify existing entities
+- `@Tag("delete")` - Tests that remove entities
+
+### Extended Tags
+
+- `@Tag("query")` - Complex query tests
+- `@Tag("search")` - Search functionality tests
+- `@Tag("filter")` - Filtering tests
+- `@Tag("aggregate")` - Aggregation/count tests
+
+### Example Test Class with Tags
+
+```java
+@Tag("integration")
+@Tag("dao")
+@Tag("tickler")
+class TicklerDaoFindIntegrationTest extends CarlosTestBase {
+
+    @Autowired
+    private TicklerDao ticklerDao;
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return tickler when valid ID is provided")
+    void shouldReturnTickler_whenValidIdProvided() {
+        // test implementation
+    }
+
+    @Test
+    @Tag("read")
+    @Tag("filter")
+    @DisplayName("should return only active ticklers for demographic")
+    void shouldReturnOnlyActiveTicklers_whenFilteringByDemographic() {
+        // test implementation
+    }
+}
+```
+
+---
+
+## Static Class Mocking for Manager Tests
+
+Manager tests often need to mock static classes like `LogAction` or `DemographicContactCreator`.
+
+### Critical Order of Operations
+
+**ALWAYS register SpringUtils mocks BEFORE creating static mocks:**
+
+```java
+@BeforeEach
+void setUp() {
+    // 1. FIRST: Register mocks for SpringUtils (static initializers may need these)
+    registerMock(OscarLogDao.class, createAndRegisterMock(OscarLogDao.class));
+    registerMock(ProfessionalSpecialistDao.class, createAndRegisterMock(ProfessionalSpecialistDao.class));
+
+    // 2. SECOND: Mock static classes (their static initializers run now)
+    logActionMock = mockStatic(LogAction.class);
+    demographicContactCreatorMock = mockStatic(DemographicContactCreator.class);
+
+    // 3. Configure static mock behavior
+    demographicContactCreatorMock.when(() ->
+        DemographicContactCreator.addContactDetailsToDemographicContact(anyList()))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+}
+
+@AfterEach
+void tearDown() {
+    // CRITICAL: Close static mocks in reverse order
+    if (demographicContactCreatorMock != null) demographicContactCreatorMock.close();
+    if (logActionMock != null) logActionMock.close();
+}
+```
+
+### Why Order Matters
+
+When `mockStatic(LogAction.class)` is called, Java loads and initializes the `LogAction` class. If `LogAction`'s static initializer calls `SpringUtils.getBean(OscarLogDao.class)`, that mock must already be registered, or you'll get a `NoClassDefFoundError` or `NullPointerException`.
+
+---
+
+## Common Issues and Solutions
+
+### "Table not found" Errors
+
+**Cause**: Entity references a table not in the H2 test schema.
+
+**Solution**: Either:
+1. Add the table to the H2 schema initialization script
+2. Or exclude the entity from the persistence unit if not needed for your test
+
+### "Bean not found" Errors
+
+**Cause**: DAO or service not defined in test context.
+
+**Solution**: Add manual bean definition to test context XML.
+
+### "SpringUtils returned null" Errors
+
+**Cause**: Test not extending CarlosTestBase, or @BeforeEach not running.
+
+**Solution**: Ensure your test class extends CarlosTestBase.
+
+### Tests Pass Individually but Fail Together
+
+**Cause**: Shared state between tests, often from SpringUtils static field.
+
+**Solution**: Ensure CarlosTestBase's @BeforeEach runs for every test. Consider test isolation.
+
+---
+
+## Hibernate/JPA Dual Persistence Context Pitfalls
+
+The test infrastructure uses **dual persistence contexts** (JPA EntityManager + Hibernate Session) sharing one JDBC connection via `TransactionAwareDataSourceProxy`. This section documents the most common issues encountered when writing integration tests.
+
+### Flush Context Mismatch (Most Common Issue)
+
+DAOs extending `HibernateDaoSupport` write through the Hibernate Session. `entityManager.flush()` only flushes the JPA context — it does NOT flush Hibernate writes.
+
+```java
+// WRONG - HibernateTemplate writes NOT flushed to DB:
+myDao.saveEntity(entity);       // Goes through HibernateTemplate
+entityManager.flush();           // Only flushes JPA context (nothing here)
+entityManager.find(Entity.class, id);  // May not find the entity!
+
+// CORRECT - Use hibernateTemplate.flush() for HibernateDaoSupport DAOs:
+myDao.saveEntity(entity);       // Goes through HibernateTemplate
+hibernateTemplate.flush();       // Flushes Hibernate Session to DB
+entityManager.find(Entity.class, id);  // Now finds the entity via shared JDBC connection
+```
+
+**Rule of thumb**: Always use `hibernateTemplate.flush()` (available from `CarlosTestBase`) when testing DAOs that extend `HibernateDaoSupport`.
+
+### DAO Methods That Override Test Data
+
+Some DAO `save*()` methods override fields like `update_date` with `new Date()`. For example, `CaseManagementIssueDAOImpl.saveIssue()` always sets `update_date` to the current time, ignoring the value you set in the test.
+
+```java
+// The DAO implementation:
+public void saveIssue(CaseManagementIssue issue) {
+    issue.setUpdate_date(new Date());  // OVERRIDES your test date!
+    getHibernateTemplate().saveOrUpdate(issue);
+}
+
+// Test fix - re-set the date after saving:
+cmi.setUpdate_date(pastDate);
+caseManagementIssueDAO.saveIssue(cmi);  // Overwritten to now()
+cmi.setUpdate_date(pastDate);            // Re-set to desired date (dirty tracking)
+hibernateTemplate.flush();               // Persists the corrected date
+```
+
+### FK Constraints from HBM `<one-to-many>` Mappings
+
+When `hbm2ddl.auto=create` generates schema, `<set>` mappings with `<one-to-many>` create FK constraints. Tests must create parent records before inserting child records:
+
+```java
+// casemgmt_note.hbm.xml creates FK on casemgmt_note_ext.note_id
+@BeforeEach
+void setUp() {
+    parentNote = createParentNote();  // Must exist before NoteExt
+    hibernateTemplate.flush();
+}
+```
+
+### H2 Reserved Words in HBM Mappings
+
+Column names like `value`, `key`, `order` are SQL reserved words in H2. Use backtick quoting in HBM XML:
+
+```xml
+<!-- WRONG: <property column="value" name="value" /> -->
+<property column="`value`" name="value" />
+```
+
+Hibernate translates backticks to the database-appropriate quoting (double-quotes for H2, backticks for MySQL).
+
+### Formula Columns Require Reference Tables
+
+HBM `<property formula="...">` subselects execute even when not directly queried. Add `CREATE TABLE IF NOT EXISTS` to `test-lookup-tables.sql` for any tables referenced by formulas.
+
+### HBM Property Names Are Case-Sensitive in HQL
+
+HQL must use the exact `name` attribute from the HBM XML mapping:
+- `Provider.hbm.xml`: PascalCase — `p.LastName`, `p.FirstName`, `p.Status`
+- `SecProvider.hbm.xml`: camelCase — `p.lastName`, `p.firstName`, `p.status`
+
+Always check the HBM file before writing HQL queries in tests.
+
+### VARCHAR Length Constraints
+
+Check HBM mappings for column length limits. For example, `provider_no` is `VARCHAR(6)`. Test data like `uniquePrefix + suffix` must fit within these limits.
+
+### Dual Entity Mappings to Same Table
+
+`Provider.hbm.xml` and `SecProvider.hbm.xml` both map to the `provider` table. When creating test data for one entity, you must satisfy NOT NULL constraints from BOTH:
+
+```java
+secProvider.setSpecialty("");  // Required by Provider.hbm.xml even when testing SecProvider
+```
+
+### H2/MySQL BOOLEAN Incompatibility
+
+H2 uses actual `BOOLEAN` type while MySQL uses `TINYINT(1)`. HQL should use boolean comparisons, not string comparisons:
+
+```java
+// WRONG (fails in H2): cmn.locked != '1'
+// CORRECT: cmn.locked = false
+```
+
+### SpringUtils Identity Across Multiple Contexts
+
+When running the full test suite, classes with `@TestPropertySource` create separate Spring contexts. `SpringUtils.getBean()` may return instances from a different context:
+
+```java
+// WRONG - fails with multiple Spring contexts:
+assertThat(springUtilsDao).isSameAs(autowiredDao);
+
+// CORRECT:
+assertThat(springUtilsDao).isInstanceOf(autowiredDao.getClass());
+```
+
+---
+
+## File Locations
+
+- **Modern tests**: `src/test-modern/java/io/github/carlos_emr/carlos/`
+- **Unit test base**: `src/test-modern/java/io/github/carlos_emr/carlos/test/unit/CarlosUnitTestBase.java`
+- **Manager tests**: `src/test-modern/java/io/github/carlos_emr/carlos/managers/`
+- **Domain bases**: `src/test-modern/java/io/github/carlos_emr/carlos/managers/DemographicUnitTestBase.java`
+- **Test resources**: `src/test-modern/resources/`
+- **Test context**: `src/test-modern/resources/applicationContext-test.xml`
+- **H2 schema**: `src/test-modern/resources/schema.sql`
+- **Persistence config**: `src/test-modern/resources/META-INF/persistence.xml`
+
+---
+
+## Related Documentation
+
+- [Modern Test Framework Complete Guide](modern-test-framework-complete.md)
+- [CLAUDE.md Test Section](/CLAUDE.md#modern-test-framework-junit-5)

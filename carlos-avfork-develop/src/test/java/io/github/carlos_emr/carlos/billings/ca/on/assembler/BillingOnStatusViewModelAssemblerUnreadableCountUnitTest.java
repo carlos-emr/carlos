@@ -1,0 +1,204 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.billings.ca.on.assembler;
+
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingErrorReportDto;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnErrorReportService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnLookupService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingRaLookupService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingStatusLoader;
+import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnStatusViewModel;
+import io.github.carlos_emr.carlos.commn.dao.SiteDao;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockHttpServletRequest;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+/**
+ * Pins round-6 P1-1/P1-5: the unreadable-row count must propagate from
+ * {@link BillingRaLookupService.AmountPaidResult#unreadableCount()} (and
+ * through {@link BillingOnStatusViewModelAssembler#assemble} into the view model
+ * via {@code unreadableTotalRowCount}, so the JSP banners
+ * "N rows excluded" instead of silently understating the grand total.
+ */
+@DisplayName("BillingOnStatusViewModelAssembler unreadable-count propagation")
+@Tag("unit")
+@Tag("billing")
+class BillingOnStatusViewModelAssemblerUnreadableCountUnitTest {
+
+    private SecurityInfoManager securityInfoManager;
+    private BillingOnLookupService lookupService;
+    private BillingStatusLoader statusPrep;
+    private BillingOnErrorReportService errorRepImpl;
+    private SiteDao siteDao;
+    private BillingRaLookupService raLookupService;
+    private LoggedInInfo loggedInInfo;
+    private BillingOnStatusViewModelAssembler assembler;
+
+    @BeforeEach
+    void setUp() {
+        securityInfoManager = mock(SecurityInfoManager.class);
+        lookupService = mock(BillingOnLookupService.class);
+        statusPrep = mock(BillingStatusLoader.class);
+        errorRepImpl = mock(BillingOnErrorReportService.class);
+        siteDao = mock(SiteDao.class);
+        raLookupService = mock(BillingRaLookupService.class);
+        loggedInInfo = mock(LoggedInInfo.class);
+
+        when(lookupService.getCurProviderStr()).thenReturn(Collections.emptyList());
+        when(lookupService.getCurTeamProviderStr(any())).thenReturn(Collections.emptyList());
+
+        assembler = new BillingOnStatusViewModelAssembler(
+                securityInfoManager, lookupService, statusPrep, errorRepImpl, siteDao, raLookupService);
+    }
+
+    private BillingClaimHeaderDto headerWithTotal(String total) {
+        BillingClaimHeaderDto h = new BillingClaimHeaderDto();
+        return h.withId("123")
+                .withTotal(total)
+                .withBillingDate("2026-04-28")
+                .withProviderOhipNo("PRV01")
+                .withPayProgram("HCP")
+                .withTransactionId("9");
+    }
+
+    private Map<String, ArrayList<HashMap<String, String>>> raBatch(BillingClaimHeaderDto header,
+                                                                    ArrayList<HashMap<String, String>> rows) {
+        return Map.of(BillingRaLookupService.RaDataRequest.key(
+                header.getId(),
+                header.billingDate().replaceAll("\\D", ""),
+                header.providerOhipNo()), rows);
+    }
+
+    @Test
+    void shouldExposeUnreadableCount_whenAmountPaidResultReportsUnreadable() {
+        // Two unreadable rows surfaced by raLookupService.getAmountPaidWithCount;
+        // assembler must add r.unreadableCount() into unreadableTotalRowCount,
+        // not silently drop the count.
+        MockHttpServletRequest req = new MockHttpServletRequest();
+        req.setParameter("billType", "OHIP");
+
+        BillingClaimHeaderDto header = headerWithTotal("100.00");
+        when(statusPrep.getBills(any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(List.of(header));
+
+        ArrayList<HashMap<String, String>> raList = new ArrayList<>();
+        raList.add(new HashMap<>());
+        when(raLookupService.getRADataInternBatch(any()))
+                .thenReturn(raBatch(header, raList));
+        when(raLookupService.getAmountPaidWithCount(any(), anyString(), anyString()))
+                .thenReturn(new BillingRaLookupService.AmountPaidResult("50.00", 2));
+        when(raLookupService.getErrorCodes(any())).thenReturn("");
+
+        BillingOnStatusViewModel vm = assembler.assemble(req, loggedInInfo);
+
+        assertThat(vm.getUnreadableTotalRowCount())
+                .as("AmountPaidResult.unreadableCount must propagate to view model")
+                .isEqualTo(2);
+        assertThat(vm.isPartialTotal()).isTrue();
+    }
+
+    @Test
+    void shouldExposeZeroUnreadableCount_whenAllRowsAreClean() {
+        MockHttpServletRequest req = new MockHttpServletRequest();
+        req.setParameter("billType", "OHIP");
+
+        BillingClaimHeaderDto header = headerWithTotal("100.00");
+        when(statusPrep.getBills(any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(List.of(header));
+
+        when(raLookupService.getRADataInternBatch(any()))
+                .thenReturn(raBatch(header, new ArrayList<>()));
+
+        BillingOnStatusViewModel vm = assembler.assemble(req, loggedInInfo);
+
+        assertThat(vm.getUnreadableTotalRowCount()).isZero();
+        assertThat(vm.isPartialTotal()).isFalse();
+    }
+
+    @Test
+    void shouldRenderDecimalRejectedBillFee_whenErrorReportStoresDecimalAmount() {
+        MockHttpServletRequest req = new MockHttpServletRequest();
+        req.setParameter("billType", "OHIP");
+        req.setParameter("statusType", "_");
+        req.setParameter("providerview", "999998");
+        when(statusPrep.getBills(any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(List.of());
+        BillingProviderDto provider = new BillingProviderDto();
+        provider.setProviderNo("999998");
+        when(lookupService.getProviderObj("999998")).thenReturn(provider);
+        BillingErrorReportDto rejected = new BillingErrorReportDto();
+        rejected.setBilling_no("123");
+        rejected.setFee("35.00");
+        when(errorRepImpl.getErrorRecords(any(BillingProviderDto.class), anyString(),
+                anyString(), anyString())).thenReturn(List.of(rejected));
+
+        BillingOnStatusViewModel vm = assembler.assemble(req, loggedInInfo);
+
+        assertThat(vm.getRejectedBillRows()).hasSize(1);
+        assertThat(vm.getRejectedBillRows().get(0).formattedFee()).isEqualTo("35.00");
+        assertThat(vm.getRejectedBillRows().get(0).feeUnreadable()).isFalse();
+    }
+
+    @Test
+    void shouldFlagRejectedBillFeeUnreadable_whenErrorReportFeeMalformed() {
+        MockHttpServletRequest req = new MockHttpServletRequest();
+        req.setParameter("billType", "OHIP");
+        req.setParameter("statusType", "_");
+        req.setParameter("providerview", "999998");
+        when(statusPrep.getBills(any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(List.of());
+        BillingProviderDto provider = new BillingProviderDto();
+        provider.setProviderNo("999998");
+        when(lookupService.getProviderObj("999998")).thenReturn(provider);
+        BillingErrorReportDto rejected = mock(BillingErrorReportDto.class);
+        when(rejected.getBilling_no()).thenReturn("123");
+        when(rejected.getFee()).thenReturn("bad-fee");
+        when(rejected.getStatus()).thenReturn("B");
+        when(errorRepImpl.getErrorRecords(any(BillingProviderDto.class), anyString(),
+                anyString(), anyString())).thenReturn(List.of(rejected));
+
+        BillingOnStatusViewModel vm = assembler.assemble(req, loggedInInfo);
+
+        assertThat(vm.getRejectedBillRows()).hasSize(1);
+        assertThat(vm.getRejectedBillRows().get(0).formattedFee()).isEqualTo("N/A");
+        assertThat(vm.getRejectedBillRows().get(0).feeUnreadable()).isTrue();
+    }
+}

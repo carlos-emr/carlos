@@ -1,0 +1,143 @@
+/**
+ * Copyright (c) 2006-. OSCARservice, OpenSoft System. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ */
+
+package io.github.carlos_emr.carlos.prescript.web;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.springframework.beans.BeanUtils;
+import org.apache.logging.log4j.Logger;
+import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.commn.dao.FavoritesDao;
+import io.github.carlos_emr.carlos.commn.dao.FavoritesPrivilegeDao;
+import io.github.carlos_emr.carlos.commn.model.Favorites;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+
+import org.apache.struts2.ActionSupport;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+
+/**
+ *
+ * @author toby
+ */
+public class CopyFavorites2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
+    HttpServletRequest request = ServletActionContext.getRequest();
+    HttpServletResponse response = ServletActionContext.getResponse();
+
+
+    private static final Logger logger = MiscUtils.getLogger();
+    FavoritesPrivilegeDao favoritesPrivilegeDao = SpringUtils.getBean(FavoritesPrivilegeDao.class);
+    FavoritesDao favoritesDao = SpringUtils.getBean(FavoritesDao.class);
+    
+    public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)) {
+            throw new SecurityException("missing required sec object (_rx)");
+        }
+
+        String method = request.getParameter("dispatch");
+        if ("update".equals(method)) {
+            return update();
+        } else if ("copy".equals(method)) {
+            return copy();
+        }
+        return refresh();
+    }
+
+
+    public String update() {
+        logger.debug("copyFavorites-update");
+        
+        //LazyValidatorForm lazyForm = (LazyValidatorForm) form;
+        String providerNo = request.getParameter("userProviderNo"); //lazyForm.get("userProviderNo").toString();
+        int share = Integer.parseInt(request.getParameter("rb_share")); //Integer.parseInt(lazyForm.get("rb_share").toString());
+        favoritesPrivilegeDao.setFavoritesPrivilege(providerNo, share==0?false:true, false);
+
+        return SUCCESS;
+    }
+
+    public String refresh() {
+        logger.debug("copyFavorites-refresh");
+
+        //LazyValidatorForm lazyForm = (LazyValidatorForm) form;
+        //String providerNo = lazyForm.get("ddl_provider").toString();
+        String providerNo = request.getParameter("ddl_provider");
+        request.setAttribute("copyProviderNo", providerNo);
+
+        return SUCCESS;
+    }
+
+    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
+    // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
+    @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
+            justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
+                    "known CARLOS types; no user-controlled property name reaches the sink")
+    public String copy() {
+        logger.debug("copyFavorites-copy");
+
+        //LazyValidatorForm lazyForm = (LazyValidatorForm) form;
+        //String providerNo = lazyForm.get("userProviderNo").toString();
+        
+        String providerNo = request.getParameter("providerNo");
+        if (request.getParameter("ddl_provider") == null || request.getParameter("ddl_provider").equals(""))
+            return SUCCESS;
+
+        //int count = Integer.parseInt(lazyForm.get("countFavorites").toString());
+        int count = Integer.parseInt(request.getParameter("countFavorites"));
+        List<Integer> favIDs = new ArrayList<Integer>();
+        for (int i = 0; i < count; i++) {
+            String search = "selected"+i;
+            //if (lazyForm.get(search)!=null){
+            if (request.getParameter(search) != null) {
+                //int id = Integer.parseInt(lazyForm.get("fldFavoriteId"+i).toString());
+                int id = Integer.parseInt(request.getParameter("fldFavoriteId"+i));
+                favIDs.add(id);
+            }
+        }
+       
+        for (Integer id:favIDs) {
+        	Favorites f = favoritesDao.find(id);
+        	Favorites copy = new Favorites();
+        	try {
+	        	BeanUtils.copyProperties(f, copy);
+	        	copy.setProviderNo(providerNo);
+	        	copy.setId(null);
+	        	favoritesDao.persist(copy);
+        	}catch (Exception e) {
+        		logger.error("error", e);
+        	}
+        }
+         
+        return SUCCESS;
+    }
+
+}

@@ -1,0 +1,122 @@
+/**
+ * Copyright (c) 2024. Magenta Health. All Rights Reserved.
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
+ * <p>
+ * Modifications made by Magenta Health in 2024.
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ */
+package io.github.carlos_emr.carlos.commn.dao;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+import jakarta.persistence.Query;
+
+import io.github.carlos_emr.carlos.commn.model.AbstractModel;
+import io.github.carlos_emr.carlos.commn.model.LookupList;
+import io.github.carlos_emr.carlos.config.CacheConfig;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public class LookupListDaoImpl extends AbstractDaoImpl<LookupList> implements LookupListDao {
+
+    public LookupListDaoImpl() {
+        super(LookupList.class);
+    }
+
+    @Cacheable(value = CacheConfig.LOOKUP_LISTS, key = "'allActive'")
+    @Override
+    public List<LookupList> findAllActive() {
+        Query q = entityManager.createQuery("select l from LookupList l where l.active=?1 order by l.name asc");
+        q.setParameter(1, true);
+
+        @SuppressWarnings("unchecked")
+        List<LookupList> result = q.getResultList();
+
+        return Collections.unmodifiableList(new ArrayList<>(result));
+    }
+
+    @Cacheable(value = CacheConfig.LOOKUP_LISTS, key = "'name:' + #name",
+               condition = "#name != null && !#name.isEmpty()",
+               unless = "#result == null")
+    @Override
+    public LookupList findByName(String name) {
+        Query q = entityManager.createQuery("select l from LookupList l where l.name=?1");
+        q.setParameter(1, name);
+
+        LookupList ll = this.getSingleResultOrNull(q);
+
+        return ll;
+    }
+
+    @CacheEvict(value = CacheConfig.LOOKUP_LISTS, allEntries = true)
+    @Override
+    public void persist(AbstractModel<?> o) { super.persist(o); }
+
+    @CacheEvict(value = CacheConfig.LOOKUP_LISTS, allEntries = true)
+    @Override
+    public void merge(AbstractModel<?> o) { super.merge(o); }
+
+    @CacheEvict(value = CacheConfig.LOOKUP_LISTS, allEntries = true)
+    @Override
+    public void remove(AbstractModel<?> o) { super.remove(o); }
+
+    @CacheEvict(value = CacheConfig.LOOKUP_LISTS, allEntries = true)
+    @Override
+    public boolean remove(Object id) { return super.remove(id); }
+
+    @CacheEvict(value = CacheConfig.LOOKUP_LISTS, allEntries = true)
+    @Override
+    public LookupList saveEntity(LookupList entity) { return super.saveEntity(entity); }
+
+    // batch* methods use a separate EntityManager and invoke persist/remove on it directly,
+    // bypassing the Spring proxy — so @CacheEvict on persist/remove never fires through this
+    // path. Override both overloads to restore eviction at the proxied boundary.
+    //
+    // beforeInvocation = true: AbstractDaoImpl.batchPersist commits sub-batches inside its
+    // loop, so a later sub-batch failure leaves earlier sub-batches persisted to the DB.
+    // Default beforeInvocation = false would skip eviction on exception, pinning stale
+    // entries in the cache until TTL.
+    @CacheEvict(value = CacheConfig.LOOKUP_LISTS, allEntries = true, beforeInvocation = true)
+    @Override
+    public void batchPersist(List<LookupList> oList) { super.batchPersist(oList); }
+
+    @CacheEvict(value = CacheConfig.LOOKUP_LISTS, allEntries = true, beforeInvocation = true)
+    @Override
+    public void batchPersist(List<LookupList> oList, int batchSize) { super.batchPersist(oList, batchSize); }
+
+    @CacheEvict(value = CacheConfig.LOOKUP_LISTS, allEntries = true, beforeInvocation = true)
+    @Override
+    public void batchRemove(List<LookupList> oList) { super.batchRemove(oList); }
+
+    @CacheEvict(value = CacheConfig.LOOKUP_LISTS, allEntries = true, beforeInvocation = true)
+    @Override
+    public void batchRemove(List<LookupList> oList, int batchSize) { super.batchRemove(oList, batchSize); }
+}

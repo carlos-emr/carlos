@@ -1,0 +1,389 @@
+/**
+ * Copyright (c) 2008-2012 Indivica Inc.
+ * <p>
+ * This software is made available under the terms of the
+ * GNU General Public License, Version 2, 1991 (GPLv2).
+ * License details are available via "indivica.ca/gplv2"
+ * and "gnu.org/licenses/gpl-2.0.html".
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ */
+package io.github.carlos_emr.carlos.documentManager.actions;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Set;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import io.github.carlos_emr.CarlosProperties;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+
+import org.apache.commons.lang3.time.DateFormatUtils;
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageTree;
+import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
+import io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao;
+import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
+import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
+import io.github.carlos_emr.carlos.commn.model.CtlDocument;
+import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
+import io.github.carlos_emr.carlos.commn.model.Document;
+import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
+import io.github.carlos_emr.carlos.commn.model.ProviderInboxItem;
+import io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.springframework.web.context.WebApplicationContext;
+import org.springframework.web.context.support.WebApplicationContextUtils;
+
+import io.github.carlos_emr.carlos.documentManager.EDoc;
+import io.github.carlos_emr.carlos.documentManager.EDocUtil;
+import io.github.carlos_emr.carlos.lab.ca.all.upload.ProviderLabRouting;
+
+
+import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+
+public class SplitDocument2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
+    HttpServletRequest request = ServletActionContext.getRequest();
+    HttpServletResponse response = ServletActionContext.getResponse();
+
+    private DocumentDao documentDao = SpringUtils.getBean(DocumentDao.class);
+
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+    private static final Set<PosixFilePermission> OWNER_RW_ONLY = PosixFilePermissions.fromString("rw-------");
+
+    public String execute() throws Exception {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "w", null)) {
+            throw new SecurityException("missing required sec object (_edoc)");
+        }
+
+        String method = request.getParameter("method");
+        if ("split".equals(method)) {
+            return split();
+        } else if ("rotate180".equals(method)) {
+            return rotate180();
+        } else if ("rotate90".equals(method)) {
+            return rotate90();
+        } else if ("removeFirstPage".equals(method)) {
+            return removeFirstPage();
+        } 
+        return SUCCESS;
+    }
+
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = {"XSS_SERVLET", "PATH_TRAVERSAL_IN"}, justification = "XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink. path validated for directory containment via PathValidationUtils before use")
+    public String split() {
+        String docNum = request.getParameter("document");
+        String[] commands = request.getParameterValues("page");
+        String queueId = request.getParameter("queueID");
+
+        /*
+         * Default Queue is always 1 if not specified
+         */
+        if (queueId == null || queueId.isEmpty()) {
+            queueId = "1";
+        }
+
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
+
+        Document doc = documentDao.getDocument(docNum);
+
+        String docdownload = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        if (!docdownload.endsWith(File.separator)) {
+            docdownload = docdownload + File.separator;
+        }
+
+        String newFilename = doc.getDocfilename();
+
+        PDDocument pdf = null;
+        PDDocument newPdf = null;
+
+        try {
+            File docDir = new File(docdownload);
+            File input = PathValidationUtils.validatePath(doc.getDocfilename(), docDir);
+            pdf = Loader.loadPDF(input);
+
+            newPdf = new PDDocument();
+
+            PDPageTree pages = pdf.getDocumentCatalog().getPages();
+
+            if (commands != null) {
+                for (String c : commands) {
+                    String[] command = c.split(",");
+                    int pageNum = Integer.parseInt(command[0]);
+                    int rotation = Integer.parseInt(command[1]);
+
+                    PDPage p = (PDPage) pages.get(pageNum - 1);
+                    p.setRotation(rotation);
+
+                    newPdf.addPage(p);
+                }
+
+            }
+
+            if (newPdf.getNumberOfPages() > 0) {
+
+
+                EDoc newDoc = new EDoc("", "", newFilename, "", providerNo, doc.getDoccreator(), "", 'A', DateFormatUtils.format(new Date(), "yyyy-MM-dd"), "", "", "demographic", "-1", 0);
+                newDoc.setDocPublic("0");
+                newDoc.setContentType("application/pdf");
+                newDoc.setNumberOfPages(newPdf.getNumberOfPages());
+
+                String newDocNo = EDocUtil.addDocumentSQL(newDoc);
+
+                // Validate the user-sourced filename component to prevent path traversal;
+                // docdownload (the base directory) comes from server-side configuration.
+                File safeFile = PathValidationUtils.validatePath(newDoc.getFileName(), docDir);
+                Path pdfPath = safeFile.toPath();
+                // Atomically create the file with owner-only permissions before writing content,
+                // eliminating the window where a new file exists with default world-readable permissions.
+                // On non-POSIX filesystems, falls back to creating without explicit permissions.
+                try {
+                    Files.createFile(pdfPath, PosixFilePermissions.asFileAttribute(OWNER_RW_ONLY));
+                } catch (UnsupportedOperationException e) {
+                    MiscUtils.getLogger().warn("POSIX file permissions not supported; creating PDF without "
+                            + "restricted permissions: " + pdfPath);
+                    Files.createFile(pdfPath);
+                }
+                newPdf.save(pdfPath.toString());
+                newPdf.close();
+
+
+                WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
+                ProviderInboxRoutingDao providerInboxRoutingDao = (ProviderInboxRoutingDao) ctx.getBean("queueDocumentLinkDao");
+                //providerInboxRoutingDao.addToProviderInbox("0", Integer.parseInt(newDocNo), "DOC");
+
+                List<ProviderInboxItem> routeList = providerInboxRoutingDao.getProvidersWithRoutingForDocument("DOC", Integer.parseInt(docNum));
+                for (ProviderInboxItem i : routeList) {
+                    providerInboxRoutingDao.addToProviderInbox(i.getProviderNo(), Integer.parseInt(newDocNo), "DOC");
+                }
+
+                providerInboxRoutingDao.addToProviderInbox(providerNo, Integer.parseInt(newDocNo), "DOC");
+
+                QueueDocumentLinkDao queueDocumentLinkDAO = (QueueDocumentLinkDao) ctx.getBean("queueDocumentLinkDao");
+                Integer did = Integer.parseInt(newDocNo.trim());
+                queueDocumentLinkDAO.addActiveQueueDocumentLink(Integer.parseInt(queueId), did);
+
+                ProviderLabRoutingDao providerLabRoutingDao = (ProviderLabRoutingDao) SpringUtils.getBean(ProviderLabRoutingDao.class);
+
+                List<ProviderLabRoutingModel> result = providerLabRoutingDao.getProviderLabRoutingDocuments(Integer.parseInt(docNum));
+                if (!result.isEmpty()) {
+                    new ProviderLabRouting().route(newDocNo,
+                            result.get(0).getProviderNo(), "DOC");
+                }
+
+                PatientLabRoutingDao patientLabRoutingDao = (PatientLabRoutingDao) SpringUtils.getBean(PatientLabRoutingDao.class);
+                List<PatientLabRouting> result2 = patientLabRoutingDao.findDocByDemographic(Integer.parseInt(docNum));
+
+                if (!result2.isEmpty()) {
+                    PatientLabRouting newPatientRoute = new PatientLabRouting();
+
+                    newPatientRoute.setDemographicNo(result2.get(0).getDemographicNo());
+                    newPatientRoute.setLabNo(Integer.parseInt(newDocNo));
+                    newPatientRoute.setLabType("DOC");
+
+                    patientLabRoutingDao.persist(newPatientRoute);
+                }
+
+                CtlDocumentDao ctlDocumentDao = SpringUtils.getBean(CtlDocumentDao.class);
+                CtlDocument result3 = ctlDocumentDao.getCtrlDocument(Integer.parseInt(docNum));
+
+                if (result3 != null) {
+                    CtlDocumentPK ctlDocumentPK = new CtlDocumentPK(Integer.parseInt(newDocNo), "demographic");
+                    CtlDocument newCtlDocument = new CtlDocument();
+                    newCtlDocument.setId(ctlDocumentPK);
+                    newCtlDocument.getId().setModuleId(result3.getId().getModuleId());
+                    newCtlDocument.setStatus(result3.getStatus());
+                    documentDao.merge(newCtlDocument);
+                }
+
+                if (result.isEmpty() || result2.isEmpty()) {
+                    ObjectNode jsonObject = objectMapper.createObjectNode();
+                    jsonObject.put("newDocNum", newDocNo);
+                    response.setContentType("application/json");
+                    PrintWriter printWriter = response.getWriter();
+                    printWriter.print(jsonObject);
+                    printWriter.flush();
+                    return null;
+
+                }
+
+
+            }
+
+        } catch (Exception e) {
+            MiscUtils.getLogger().error(e.getMessage(), e);
+            return null;
+        } finally {
+            try {
+
+                if (pdf != null) pdf.close();
+
+            } catch (IOException e) {
+                //do nothing
+            }
+        }
+
+        return SUCCESS;
+    }
+
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
+    public String rotate180() throws Exception {
+        Document doc = documentDao.getDocument(request.getParameter("document"));
+
+        String docdownload = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        File docDir = new File(docdownload);
+        File input = PathValidationUtils.validatePath(doc.getDocfilename(), docDir);
+        PDDocument pdf = Loader.loadPDF(input);
+        setFilePermissions(input);
+        int x = 1;
+        for (Object p : pdf.getDocumentCatalog().getPages()) {
+            PDPage pg = (PDPage) p;
+            int r = pg.getRotation();
+            pg.setRotation((r + 180) % 360);
+
+            ManageDocument2Action.deleteCacheVersion(doc, x);
+            x++;
+        }
+
+        saveFile(pdf, input.getPath());
+
+        return null;
+    }
+
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
+    public String rotate90() throws Exception {
+        Document doc = documentDao.getDocument(request.getParameter("document"));
+
+        String docdownload = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        File docDir = new File(docdownload);
+        File file = PathValidationUtils.validatePath(doc.getDocfilename(), docDir);
+
+        PDDocument pdf = Loader.loadPDF(file);
+        int x = 1;
+        for (Object p : pdf.getDocumentCatalog().getPages()) {
+            PDPage pg = (PDPage) p;
+            int r = pg.getRotation();
+            pg.setRotation((r + 90) % 360);
+
+            ManageDocument2Action.deleteCacheVersion(doc, x);
+            x++;
+        }
+
+        saveFile(pdf, file.getPath());
+
+        return null;
+    }
+
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
+    public String removeFirstPage() throws Exception {
+        Document doc = documentDao.getDocument(request.getParameter("document"));
+
+        String docdownload = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        File docDir = new File(docdownload);
+        File file = PathValidationUtils.validatePath(doc.getDocfilename(), docDir);
+
+        PDDocument pdf = Loader.loadPDF(file);
+
+        // Documents must have at least 2 pages, for the first page to be removed.
+        if (pdf.getNumberOfPages() <= 1) {
+            return null;
+        }
+
+        setFilePermissions(file);
+
+        int x = 1;
+        for (Object p : pdf.getDocumentCatalog().getPages()) {
+            ManageDocument2Action.deleteCacheVersion(doc, x);
+            x++;
+        }
+
+        pdf.removePage(0);
+        if (saveFile(pdf, file.getPath())) {
+            EDocUtil.subtractOnePage(request.getParameter("document"));
+        }
+
+        return null;
+    }
+
+    /**
+     * @param pdf      The pdf document
+     * @param fileName The file name string
+     * @return A boolean value indicating if the file was successfully saved without errors
+     */
+    private boolean saveFile(PDDocument pdf, String fileName) {
+        List<String> errors = new ArrayList<String>();
+        try {
+            pdf.save(fileName);
+        } catch (IOException ioe) {
+            errors.add(ioe.getMessage());
+            MiscUtils.getLogger().error("Error", ioe);
+        } finally {
+            try {
+                if (pdf != null) pdf.close();
+            } catch (IOException ioeClose) {
+                errors.add(ioeClose.getMessage());
+                MiscUtils.getLogger().error("Error", ioeClose);
+            }
+            if (errors.size() > 0) {
+                for (String errorMessage : errors) {
+                    MiscUtils.getLogger().error(errorMessage);
+                }
+                return false;
+            } else {
+                return true;
+            }
+        }
+    }
+
+    /**
+     * Sets file permissions for the file that is being modified, restricting
+     * access to the owner only (rw-------).
+     *
+     * <p>Requires a POSIX-compliant filesystem (Linux/macOS). On non-POSIX
+     * filesystems (e.g., Windows/FAT32) the call is a no-op with a warning logged.</p>
+     *
+     * @param file A file
+     */
+    private void setFilePermissions(File file) {
+        try {
+            Files.setPosixFilePermissions(file.toPath(), OWNER_RW_ONLY);
+        } catch (UnsupportedOperationException e) {
+            MiscUtils.getLogger().warn("POSIX file permissions not supported on this filesystem; "
+                    + "file permissions could not be restricted: " + file.getAbsolutePath());
+        } catch (IOException e) {
+            MiscUtils.getLogger().error("Error setting file permissions on " + file.getAbsolutePath(), e);
+        }
+    }
+}

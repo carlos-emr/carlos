@@ -1,0 +1,270 @@
+/**
+ * Copyright (c) 2024. Magenta Health. All Rights Reserved.
+ * <p>
+ * Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * This software was written for
+ * Centre for Research on Inner City Health, St. Michael's Hospital,
+ * Toronto, Ontario, Canada
+ * <p>
+ * Modifications made by Magenta Health in 2024.
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ */
+
+package io.github.carlos_emr.carlos.casemgmt.dao;
+
+import java.util.Collection;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import io.github.carlos_emr.carlos.PMmodule.model.Program;
+import io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementNoteListDTO;
+import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
+import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementSearchBean;
+import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.utility.EncounterUtil;
+
+public interface CaseManagementNoteDAO {
+
+    /**
+     * Retrieves all case management notes.
+     */
+    public List<CaseManagementNote> findAll();
+
+    /**
+     * Retrieves a list of editors associated with a given case management note.
+     *
+     * @param note the CaseManagementNote for which to retrieve editors
+     * @return a list of Provider objects representing the editors
+     */
+    public List<Provider> getEditors(CaseManagementNote note);
+
+    /**
+     * Retrieves a list of all editors associated with the given demographic number.
+     */
+    public List<Provider> getAllEditors(String demographicNo);
+
+    /**
+     * Retrieves the history of a specific case management note.
+     *
+     * @param note the CaseManagementNote for which to retrieve the history
+     * @return a list of CaseManagementNote representing the history
+     */
+    public List<CaseManagementNote> getHistory(CaseManagementNote note);
+
+    /**
+     * Retrieves the history of case management notes for the specified issue IDs.
+     *
+     * @param issueIds a string containing the issue IDs
+     * @param demoNo a string representing the demo number
+     * @return a list of CaseManagementNote objects associated with the given issue IDs
+     */
+    public List<CaseManagementNote> getIssueHistory(String issueIds, String demoNo);
+
+    /**
+     * Retrieves a case management note by its identifier.
+     *
+     * @param id the identifier of the note to retrieve; must not be null
+     * @return the CaseManagementNote associated with the given id
+     */
+    public CaseManagementNote getNote(Long id);
+
+    public List<CaseManagementNote> getNotes(List<Long> ids);
+
+    /**
+     * Retrieves the most recent case management note for the specified UUID.
+     */
+    public CaseManagementNote getMostRecentNote(String uuid);
+
+    /**
+     * Retrieves a list of case management notes associated with the specified UUID.
+     */
+    public List<CaseManagementNote> getNotesByUUID(String uuid);
+
+    /**
+     * Retrieves case management notes based on the provided demographic number, issue ID, and stale date.
+     */
+    public List<CaseManagementNote> getCPPNotes(String demoNo, long issueId, String staleDate);
+
+    public List<CaseManagementNote> getNotesByDemographic(String demographic_no, String[] issues, String staleDate);
+
+    public List<CaseManagementNote> getNotesByDemographic(String demographic_no, String staleDate);
+
+    public List<CaseManagementNote> getNotesByDemographic(String demographic_no);
+
+    /**
+     * Retrieves a list of case management notes for a specific demographic since a given date.
+     *
+     * @param demographic_no the demographic identifier; must not be null
+     * @param date the date from which to retrieve notes; must not be null
+     * @return a list of CaseManagementNote objects
+     */
+    public List<CaseManagementNote> getNotesByDemographicSince(String demographic_no, Date date);
+
+    /**
+     * Retrieves the count of notes associated with a specific demographic ID.
+     *
+     * @param demographic_no the demographic ID to filter notes
+     * @return the count of notes for the specified demographic ID
+     */
+    public long getNotesCountByDemographicId(String demographic_no);
+
+    /**
+     * Retrieves raw note information based on the specified demographic number.
+     *
+     * @param demographic_no the demographic number to filter notes
+     * @return a list of raw note information as Object arrays
+     */
+    public List<Object[]> getRawNoteInfoByDemographic(String demographic_no);
+
+    /**
+     * Retrieves a list of raw note information maps based on the specified demographic number.
+     *
+     * @param demographic_no the demographic number to filter notes
+     * @return a list of maps containing raw note information
+     */
+    public List<Map<String, Object>> getRawNoteInfoMapByDemographic(String demographic_no);
+
+    /**
+     * Retrieves a list of unsigned raw note information maps by demographic number.
+     *
+     * @param demographic_no the demographic number to filter notes
+     * @return a list of maps containing unsigned raw note information
+     */
+    public List<Map<String, Object>> getUnsignedRawNoteInfoMapByDemographic(String demographic_no);
+
+    public List<CaseManagementNote> getNotesByDemographic(String demographic_no, Integer maxNotes);
+
+    public List<CaseManagementNote> getActiveNotesByDemographic(String demographic_no, String[] issues);
+
+    public List<CaseManagementNote> getNotesByDemographic(String demographic_no, String[] issueIds, Integer maxNotes);
+
+    public List<CaseManagementNote> getNotesByDemographic(String demographic_no, String[] issueIds);
+
+    /**
+     * Retrieves case management notes based on demographic number and issue codes.
+     */
+    public Collection<CaseManagementNote> findNotesByDemographicAndIssueCode(Integer demographic_no,
+                                                                             String[] issueCodes);
+
+    /**
+     * Retrieves case management notes based on demographic and date range.
+     */
+    public List<CaseManagementNote> getNotesByDemographicDateRange(String demographic_no, Date startDate, Date endDate);
+
+    /**
+     * Retrieves a list of case management notes based on demographic criteria with pagination.
+     */
+    public List<CaseManagementNote> getNotesByDemographicLimit(String demographic_no, Integer offset,
+                                                               Integer numToReturn);
+
+    /**
+     * Updates a case management note.
+     *
+     * @param note the CaseManagementNote to update; must not be null
+     */
+    public void updateNote(CaseManagementNote note);
+
+    /**
+     * Saves a case management note.
+     *
+     * @param note CaseManagementNote the note entity to save; must not be null
+     */
+    public void saveNote(CaseManagementNote note);
+
+    /**
+     * Saves a case management note and returns the managed entity.
+     *
+     * @param note the note entity to save; must not be null
+     * @return the managed CaseManagementNote instance after persist or merge
+     */
+    public Object saveAndReturn(CaseManagementNote note);
+
+    public List<CaseManagementNote> search(CaseManagementSearchBean searchBean);
+
+    public List<Long> getAllNoteIds();
+
+    public boolean haveIssue(Long issid, String demoNo);
+
+    public boolean haveIssue(String issueCode, Integer demographicId);
+
+    public int getNoteCountForProviderForDateRange(String providerNo, Date startDate, Date endDate);
+
+    public int getNoteCountForProviderForDateRangeWithIssueId(String providerNo, Date startDate, Date endDate,
+                                                              String issueCode);
+
+    public List<CaseManagementNote> searchDemographicNotes(String demographic_no, String searchString);
+
+    public List<CaseManagementNote> getCaseManagementNoteByProgramIdAndObservationDate(Integer programId,
+                                                                                       Date minObservationDate, Date maxObservationDate);
+
+    public List<CaseManagementNote> getMostRecentNotesByAppointmentNo(int appointmentNo);
+
+    public List<CaseManagementNote> getMostRecentNotes(Integer demographicNo);
+
+    public Long findMaxNoteId();
+
+    public List<Integer> getNotesByFacilitySince(Date date, List<Program> programs);
+
+    public static class EncounterCounts {
+        public HashMap<EncounterUtil.EncounterType, Integer> uniqueCounts = new HashMap<EncounterUtil.EncounterType, Integer>();
+        public HashMap<EncounterUtil.EncounterType, Integer> nonUniqueCounts = new HashMap<EncounterUtil.EncounterType, Integer>();
+        public int totalUniqueCount = 0;
+
+        public EncounterCounts() {
+            // initialise with 0 values as 0 values won't show up in a select
+            for (EncounterUtil.EncounterType tempType : EncounterUtil.EncounterType.values()) {
+                uniqueCounts.put(tempType, 0);
+                nonUniqueCounts.put(tempType, 0);
+            }
+        }
+    }
+
+    /**
+     * Get the count of demographic Id's based on the providerId and encounterType,
+     * 2 numbers will be provided, the unique count and the non unique count (which
+     * just represents the number of encounters in general). All encounter types are
+     * represented in the resulting hashMap, even ones with 0 counts.
+     *
+     * @param programId Integer the program number, or {@code null} to span all programs
+     * @param roleId int the {@code reporter_caisi_role} to match
+     * @param startDate Date inclusive lower bound on {@code observation_date}
+     * @param endDate Date exclusive upper bound on {@code observation_date}
+     * @return EncounterCounts non-null aggregate; maps are zero-initialised for
+     *         {@link EncounterUtil.EncounterType} values that had no matching rows
+     * @throws org.springframework.dao.DataAccessException if the underlying query fails
+     * @since 2026-04-12
+     */
+    EncounterCounts getDemographicEncounterCountsByProgramAndRoleId(Integer programId, int roleId,
+                                                                    Date startDate, Date endDate);
+
+    /**
+     * Returns lightweight note DTOs with pre-joined provider name, eliminating
+     * 3 lazy=false HBM relationships (provider, issues, extend).
+     *
+     * @param demographicNo String the patient demographic number
+     * @return List of CaseManagementNoteListDTO
+     * @since 2026-04-11
+     */
+    public List<CaseManagementNoteListDTO> findNoteDTOsByDemographicNo(String demographicNo);
+}

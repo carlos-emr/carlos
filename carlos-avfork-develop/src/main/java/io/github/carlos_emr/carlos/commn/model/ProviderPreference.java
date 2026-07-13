@@ -1,0 +1,309 @@
+/**
+ * Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * This software was written for
+ * Centre for Research on Inner City Health, St. Michael's Hospital,
+ * Toronto, Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ */
+
+package io.github.carlos_emr.carlos.commn.model;
+
+import java.io.Serializable;
+import java.util.Collection;
+import java.util.Date;
+import java.util.HashSet;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Embeddable;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.PostLoad;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Temporal;
+import jakarta.persistence.TemporalType;
+import jakarta.persistence.ElementCollection;
+//import org.hibernate.annotations.CollectionOfElements;
+
+import io.github.carlos_emr.CarlosProperties;
+
+@Entity
+public class ProviderPreference extends AbstractModel<String> implements Serializable {
+
+    @Embeddable
+    public static class QuickLink {
+        private String name;
+        private String url;
+
+        public QuickLink() {
+
+        }
+
+        public QuickLink(String name, String url) {
+            this.name = name;
+            this.url = url;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public String getUrl() {
+            return url;
+        }
+
+        public void setUrl(String url) {
+            this.url = url;
+        }
+    }
+
+    @Embeddable
+    public static class EformLink {
+        private int appointmentScreenEForm;
+        private String eFormName;
+
+        public EformLink() {
+
+        }
+
+        public EformLink(int appointmentScreenEForm, String eFormName) {
+            this.appointmentScreenEForm = appointmentScreenEForm;
+            this.eFormName = eFormName;
+        }
+
+        public int getAppointmentScreenEForm() {
+            return appointmentScreenEForm;
+        }
+
+        public void setAppointmentScreenEForm(int appointmentScreenEForm) {
+            this.appointmentScreenEForm = appointmentScreenEForm;
+        }
+
+        public String geteFormName() {
+            return eFormName;
+        }
+
+        public void seteFormName(String eFormName) {
+            this.eFormName = eFormName;
+        }
+    }
+
+    @Id
+    private String providerNo;
+    private Integer startHour = 8;
+    private Integer endHour = 18;
+    private Integer everyMin = 15;
+    private String myGroupNo = null;
+    private String colourTemplate = "deepblue";
+    private String newTicklerWarningWindow = "disabled";
+    private String defaultServiceType = "no";
+    private String defaultCaisiPmm = "disabled";
+    private String defaultNewOscarCme = "disabled";
+    private boolean printQrCodeOnPrescriptions = Boolean.valueOf(CarlosProperties.getInstance().getProperty("QR_CODE_ENABLED_PROVIDER_DEFAULT"));
+    private int appointmentScreenLinkNameDisplayLength = 3;
+    private int defaultDoNotDeleteBilling = 0;
+    private String defaultDxCode = null;
+
+    private String defaultBillingLocation;
+
+
+    @ElementCollection
+    @JoinTable(name = "ProviderPreferenceAppointmentScreenForm", joinColumns = @JoinColumn(name = "providerNo"))
+    @Column(name = "appointmentScreenForm")
+    private Collection<String> appointmentScreenForms = new HashSet<>();
+
+    @ElementCollection
+    @JoinTable(name = "ProviderPreferenceAppointmentScreenEForm", joinColumns = @JoinColumn(name = "providerNo"))
+    @Column(name = "appointmentScreenEForm")
+    private Collection<EformLink> appointmentScreenEForms = new HashSet<>();
+
+    @ElementCollection
+    @JoinTable(name = "ProviderPreferenceAppointmentScreenQuickLink", joinColumns = @JoinColumn(name = "providerNo"))
+    private Collection<QuickLink> appointmentScreenQuickLinks = new HashSet<>();
+
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date lastUpdated = new Date();
+
+    @PostLoad
+    protected void hibernatePreFetchCollectionsFix() {
+        // forces eager fetching which can't be done normally as hibernate doesn't allow mulitple collection eager fetching
+        appointmentScreenForms.size();
+        appointmentScreenEForms.size();
+        appointmentScreenQuickLinks.size();
+    }
+
+    @PreUpdate
+    protected void jpaUpdateLastUpdateTime() {
+        lastUpdated = new Date();
+    }
+
+    @Override
+    public String getId() {
+        return (providerNo);
+    }
+
+    public String getProviderNo() {
+        return providerNo;
+    }
+
+    /**
+     * The providerNo is also the primarykey, as such it should not
+     * be changed on a persisted record (only set it before persistence, i.e. upon creation)
+     */
+    public void setProviderNo(String providerNo) {
+        this.providerNo = providerNo;
+    }
+
+    public Integer getStartHour() {
+        return startHour;
+    }
+
+    public void setStartHour(Integer startHour) {
+        this.startHour = startHour;
+    }
+
+    public Integer getEndHour() {
+        return endHour;
+    }
+
+    public void setEndHour(Integer endHour) {
+        this.endHour = endHour;
+    }
+
+    public Integer getEveryMin() {
+        return everyMin;
+    }
+
+    public void setEveryMin(Integer everyMin) {
+        this.everyMin = everyMin;
+    }
+
+    public String getMyGroupNo() {
+        return myGroupNo;
+    }
+
+    public void setMyGroupNo(String myGroupNo) {
+        this.myGroupNo = myGroupNo;
+    }
+
+    public String getColourTemplate() {
+        return colourTemplate;
+    }
+
+    public void setColourTemplate(String colourTemplate) {
+        this.colourTemplate = colourTemplate;
+    }
+
+    public String getNewTicklerWarningWindow() {
+        return newTicklerWarningWindow;
+    }
+
+    public void setNewTicklerWarningWindow(String newTicklerWarningWindow) {
+        this.newTicklerWarningWindow = newTicklerWarningWindow;
+    }
+
+    public String getDefaultServiceType() {
+        return defaultServiceType;
+    }
+
+    public void setDefaultServiceType(String defaultServiceType) {
+        this.defaultServiceType = defaultServiceType;
+    }
+
+    public String getDefaultBillingLocation() {
+        return defaultBillingLocation;
+    }
+
+    public void setDefaultBillingLocation(String defaultBillingLocation) {
+        this.defaultBillingLocation = defaultBillingLocation;
+    }
+
+    public String getDefaultCaisiPmm() {
+        return defaultCaisiPmm;
+    }
+
+    public void setDefaultCaisiPmm(String defaultCaisiPmm) {
+        this.defaultCaisiPmm = defaultCaisiPmm;
+    }
+
+    public String getDefaultNewOscarCme() {
+        return defaultNewOscarCme;
+    }
+
+    public void setDefaultNewOscarCme(String defaultNewOscarCme) {
+        this.defaultNewOscarCme = defaultNewOscarCme;
+    }
+
+    public boolean isPrintQrCodeOnPrescriptions() {
+        return printQrCodeOnPrescriptions;
+    }
+
+    public void setPrintQrCodeOnPrescriptions(boolean printQrCodeOnPrescriptions) {
+        this.printQrCodeOnPrescriptions = printQrCodeOnPrescriptions;
+    }
+
+    public Date getLastUpdated() {
+        return lastUpdated;
+    }
+
+    public Collection<String> getAppointmentScreenForms() {
+        return appointmentScreenForms;
+    }
+
+    public Collection<EformLink> getAppointmentScreenEForms() {
+        return appointmentScreenEForms;
+    }
+
+    public int getAppointmentScreenLinkNameDisplayLength() {
+        return appointmentScreenLinkNameDisplayLength;
+    }
+
+    public void setAppointmentScreenLinkNameDisplayLength(int appointmentScreenLinkNameDisplayLength) {
+        this.appointmentScreenLinkNameDisplayLength = appointmentScreenLinkNameDisplayLength;
+    }
+
+    public int getDefaultDoNotDeleteBilling() {
+        return defaultDoNotDeleteBilling;
+    }
+
+    public void setDefaultDoNotDeleteBilling(int defaultDoNotDeleteBilling) {
+        this.defaultDoNotDeleteBilling = defaultDoNotDeleteBilling;
+    }
+
+    public String getDefaultDxCode() {
+        return defaultDxCode;
+    }
+
+    public void setDefaultDxCode(String defaultDxCode) {
+        this.defaultDxCode = defaultDxCode;
+    }
+
+    public Collection<QuickLink> getAppointmentScreenQuickLinks() {
+        return appointmentScreenQuickLinks;
+    }
+
+}

@@ -1,0 +1,302 @@
+/**
+ * Copyright (c) 2013-2015. Department of Computer Science, University of Victoria. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * This software was written for the
+ * Department of Computer Science
+ * LeadLab
+ * University of Victoria
+ * Victoria, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ */
+
+package io.github.carlos_emr.carlos.dashboard.admin;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
+
+import io.github.carlos_emr.carlos.dashboard.handler.DemographicPatientStatusRosterStatusHandler;
+import io.github.carlos_emr.carlos.dashboard.handler.DiseaseRegistryHandler;
+import io.github.carlos_emr.carlos.dashboard.handler.ExcludeDemographicHandler;
+import io.github.carlos_emr.carlos.dashboard.handler.MessageHandler;
+import io.github.carlos_emr.carlos.managers.DashboardManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+
+import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
+public class BulkPatientDashboard2Action extends ActionSupport {
+    HttpServletRequest request = ServletActionContext.getRequest();
+    HttpServletResponse response = ServletActionContext.getResponse();
+
+
+    private static Logger logger = MiscUtils.getLogger();
+
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
+    private DashboardManager dashboardManager = SpringUtils.getBean(DashboardManager.class);
+
+    private ExcludeDemographicHandler excludeDemographicHandler = new ExcludeDemographicHandler();
+
+    private DiseaseRegistryHandler diseaseRegistryHandler = new DiseaseRegistryHandler();
+
+    private DemographicPatientStatusRosterStatusHandler demographicPatientStatusRosterStatusHandler = new DemographicPatientStatusRosterStatusHandler();
+
+    private MessageHandler messageHandler = new MessageHandler();
+
+    
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+
+    public String execute() {
+        String method = request.getParameter("method");
+        if ("addToDiseaseRegistry".equals(method)) {
+            return addToDiseaseRegistry();
+        } else if ("getICD9Description".equals(method)) {
+            return getICD9Description();
+        } else if ("setPatientsInactive".equals(method)) {
+            return setPatientsInactive();
+        }
+        return excludePatients();
+    }
+
+    public String excludePatients() {
+
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", SecurityInfoManager.WRITE, null)) {
+            logger.info("Provider {} does not have write permission on _demographic sec object", getProviderNo(loggedInInfo));
+            return "unauthorized";
+        }
+
+        excludeDemographicHandler.setLoggedinInfo(loggedInInfo);
+
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
+
+        String patientIdsParam = request.getParameter("patientIds");
+        String indicatorIdString = request.getParameter("indicatorId");
+
+        int indicatorId;
+        try {
+            indicatorId = Integer.parseInt(indicatorIdString);
+        } catch (NumberFormatException exception) {
+            logger.error("Could not parse indicator id from: {}", LogSafe.sanitize(indicatorIdString), exception);
+            return null;
+        }
+
+        String indicatorName = excludeDemographicHandler.getDrilldownIdentifier(
+                indicatorId);
+
+        List<Integer> patientIdList = parsePatientIds(patientIdsParam);
+        excludeDemographicHandler.excludeDemoIds(patientIdList, indicatorName);
+
+        String subject = "Patient exclusion report.";
+        String message = "Excluded patient demographic_no {" + patientIdList +
+                "} from indicator {" + indicatorName + "}";
+
+        messageHandler.notifyProvider(
+                subject,
+                message,
+                providerNo,
+                null //parseIntegers(patientIdsJson)
+        );
+        String mrp = getMRP(loggedInInfo);
+        if (mrp != null && !providerNo.equals(mrp)) {
+            messageHandler.notifyProvider(subject, message, mrp, null); //parseIntegers(patientIdsJson));
+        }
+
+        logger.info("Bulk exclusion notification sent for indicator {} to provider(s)", LogSafe.sanitize(indicatorName));
+
+        return null;
+    }
+
+    private String getICD9Code(HttpServletRequest request) {
+        return request.getParameter("dxUpdateICD9Code");
+    }
+
+    public String addToDiseaseRegistry() {
+
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+
+        if (!securityInfoManager.hasPrivilege(loggedInInfo,
+                "_dxresearch", SecurityInfoManager.WRITE, null)) {
+            if (loggedInInfo != null && loggedInInfo.getLoggedInProvider() != null) {
+                logger.info("Provider " + loggedInInfo.getLoggedInProvider().getProviderNo() + " does not have write permission on _dxresearch sec object");
+            }
+            return "unauthorized";
+        }
+
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
+        String icd9code = getICD9Code(request);
+
+        String patientIdsParam = request.getParameter("patientIds");
+        List<Integer> patientIdList = parsePatientIds(patientIdsParam);
+
+        String ip = request.getRemoteAddr();
+        for (int patientId : patientIdList) {
+
+            Integer drId = diseaseRegistryHandler.addToDiseaseRegistry(
+                    patientId,
+                    icd9code,
+                    providerNo
+            );
+            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, "DX", "" + drId, ip, "");
+        }
+
+        String subject = "Bulk addition to disease registry report.";
+        String message = "Added ICD9 code {" + icd9code +
+                "} to disease registry for patient demographic_no {" + patientIdList + "}" +
+                " with provider no {" + providerNo + "}";
+
+        messageHandler.notifyProvider(subject, message, providerNo, null); //patientIdList);
+        String mrp = getMRP(loggedInInfo);
+        if (mrp != null && !providerNo.equals(mrp)) { // operation done by MOA for doctor
+            messageHandler.notifyProvider(subject, message, mrp, null); //patientIdList);
+        }
+
+        logger.info("Bulk disease registry addition notification sent for ICD9 code {} to provider(s)", LogSafe.sanitize(icd9code)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+
+        return null;
+    }
+
+    public String getICD9Description() {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_dxresearch", SecurityInfoManager.READ, null)) {
+            logger.warn("Provider does not have read permission on _dxresearch sec object");
+            return "unauthorized";
+        }
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+
+        String icd9code = getICD9Code(request);
+        String description = diseaseRegistryHandler.getDescription(icd9code);
+
+        ObjectNode jsonObject = objectMapper.createObjectNode();
+        jsonObject.put("icd9code", icd9code);
+        jsonObject.put("description", description);
+
+        try {
+            objectMapper.writeValue(response.getWriter(), jsonObject);
+            response.setStatus(HttpServletResponse.SC_OK);
+        } catch (IOException e) {
+            logger.error("Error generating JSON response", e);
+            return "error";
+        }
+
+        return null;
+    }
+
+    public String setPatientsInactive() {
+
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        String providerNo = getProviderNo(loggedInInfo);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", SecurityInfoManager.WRITE, null)) {
+            logger.info("Provider " + providerNo + " does not have write permission on _demographic sec object");
+            return "unauthorized";
+        }
+
+        demographicPatientStatusRosterStatusHandler.setLoggedinInfo(loggedInInfo);
+
+        String patientIdsParam = request.getParameter("patientIds");
+        List<Integer> patientIdList = parsePatientIds(patientIdsParam);
+
+        String ip = request.getRemoteAddr();
+        for (int patientId : patientIdList) {
+            demographicPatientStatusRosterStatusHandler.setPatientStatusInactive("" + patientId);
+            LogAction.addLog(providerNo, LogConst.UPDATE, LogConst.CON_DEMOGRAPHIC, "" + patientId, ip, "" + patientId, "patient_status: IN");
+        }
+
+        String subject = "Report on bulk setting of patients to inactive.";
+        String message = "Patient charts with demographic_no(s) {" + patientIdList +
+                "} have been set inactive by: " + loggedInInfo.getLoggedInProvider().getFormattedName();
+
+        messageHandler.notifyProvider(subject, message, providerNo);
+        String mrp = getMRP(loggedInInfo);
+        if (mrp != null && !providerNo.equals(mrp)) {  // operation done by MOA for doctor
+            messageHandler.notifyProvider(subject, message, mrp);
+        }
+
+        logger.info("Bulk patient status change (inactive) notification sent to provider(s), {} patients affected", patientIdList.size());
+
+        return null;
+    }
+
+    /**
+     * Parses a comma-separated string of patient IDs into a list of integers.
+     * Accepts both bare comma-separated values (e.g. "1,2,3") and bracket-wrapped
+     * JSON-style arrays (e.g. "[1,2,3]"). Invalid (non-integer) entries are skipped.
+     *
+     * @param input the raw patient IDs string from the request parameter
+     * @return List of parsed patient IDs; empty list if input is null, empty, or unparseable
+     */
+    private static List<Integer> parsePatientIds(String input) {
+        if (input == null || input.isEmpty()) {
+            return List.of();
+        }
+
+        String stripped = input.strip();
+        if (stripped.startsWith("[")) {
+            stripped = stripped.substring(1);
+        }
+        if (stripped.endsWith("]")) {
+            stripped = stripped.substring(0, stripped.length() - 1);
+        }
+
+        List<Integer> ids = new ArrayList<>();
+        for (String token : stripped.split(",")) {
+            String trimmed = token.trim();
+            if (trimmed.isEmpty()) {
+                continue;
+            }
+            try {
+                ids.add(Integer.parseInt(trimmed));
+            } catch (NumberFormatException e) {
+                logger.warn("Skipping non-integer patient ID: {}", LogSafe.sanitize(trimmed));
+            }
+        }
+        return ids;
+    }
+
+    private String getProviderNo(LoggedInInfo loggedInInfo) {
+        String providerNo = null;
+        if (loggedInInfo != null) {
+            providerNo = loggedInInfo.getLoggedInProviderNo();
+        }
+        return providerNo;
+    }
+
+    private String getMRP(LoggedInInfo loggedInInfo) {
+        return dashboardManager.getRequestedProviderNo(loggedInInfo);
+    }
+
+}

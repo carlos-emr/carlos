@@ -1,0 +1,422 @@
+/**
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ */
+
+package io.github.carlos_emr.carlos.form.pageUtil;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.util.*;
+import java.util.regex.Pattern;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import io.github.carlos_emr.Misc;
+import io.github.carlos_emr.carlos.commn.dao.BillingDao;
+import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
+import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
+import io.github.carlos_emr.carlos.commn.model.Allergy;
+import io.github.carlos_emr.carlos.commn.model.Billing;
+import io.github.carlos_emr.carlos.commn.model.EncounterForm;
+import io.github.carlos_emr.carlos.commn.model.Measurement;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.util.ConversionUtils;
+import io.github.carlos_emr.carlos.encounter.data.EctEChartBean;
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBean;
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.EctFindMeasurementTypeUtil;
+import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
+import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
+import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
+import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+
+/*
+ * @Author: Ivy Chan
+ * @Company: iConcept Technologes Inc.
+ * @Created on: October 31, 2004
+ */
+import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
+public final class FrmSetupForm2Action extends ActionSupport {
+    private transient HttpServletRequest request = ServletActionContext.getRequest();
+    private transient HttpServletResponse response = ServletActionContext.getResponse();
+
+
+    private String _dateFormat = "yyyy-MM-dd";
+    private transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private transient EncounterFormDao encounterFormDao = SpringUtils.getBean(EncounterFormDao.class);
+    
+    // Pattern to validate form names - only alphanumeric characters and underscores allowed
+    private static final Pattern VALID_FORM_NAME_PATTERN = Pattern.compile("^[a-zA-Z0-9_]+$");
+
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN", "UNVALIDATED_REDIRECT"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; and path validated for directory containment via PathValidationUtils before use. UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
+    public String execute() throws Exception {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+
+        if (!securityInfoManager().hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "w", null)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+
+        /**
+         * To create a new form which can write to measurement, you need to ...
+         * Create a xml file with all the measurement types named <formName>.xml (check form/VTForm.xml as an example)
+         * Create a new jsp file named <formName>.jsp (check form/formVT.jsp)
+         * Create a new table named form<formName> which include the name of all the input elements in the <formName>.jsp
+         * Add the form description to encounterForm table of the database
+         **/
+        //System.gc();
+        MiscUtils.getLogger().debug("SetupFormAction is called");
+        EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
+        EctEChartBean chartBean = new EctEChartBean();
+        String contextPath = request.getContextPath();
+        String formId = request.getParameter("formId");
+        this.setValue("formId", formId == null ? "0" : formId);
+        String demo = request.getParameter("demographic_no");
+        if (demo == null || bean != null) {
+            demo = bean.getDemographicNo();
+        }
+
+        if (demo != null) {
+            chartBean.setEChartBean(demo);
+        }
+
+        String formName = request.getParameter("formName");
+        
+        // Validate formName before using it as a file stem, redirect target, or table suffix.
+        if (formName == null || !isAllowedSetupFormName(formName)) {
+            MiscUtils.getLogger().warn("Invalid form name attempted");
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid form name");
+            return NONE;
+        }
+        
+        String today = UtilDateUtilities.DateToString(new Date(), _dateFormat);
+        String visitCod = UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd");
+
+        List drugLists = getDrugList(loggedInInfo, demo);
+        List allergyList = getDrugAllegyList(loggedInInfo, demo);
+
+        Properties currentRec = getFormRecord(formName, formId, demo);
+
+        request.setAttribute("today", today);
+        //specifically for VT Form
+        request.setAttribute("drugs", drugLists);
+        request.setAttribute("allergies", allergyList);
+        request.setAttribute("ongoingConcerns", chartBean.ongoingConcerns.equalsIgnoreCase("") ? "None" : chartBean.ongoingConcerns);
+        if (currentRec != null) {
+            this.setValue("visitCod", currentRec.getProperty("visitCod", ""));
+            this.setValue("diagnosisVT", currentRec.getProperty("Diagnosis", ""));
+            this.setValue("subjective", currentRec.getProperty("Subjective", ""));
+            this.setValue("objective", currentRec.getProperty("Objective", ""));
+            this.setValue("assessment", currentRec.getProperty("Assessment", ""));
+            this.setValue("plan", currentRec.getProperty("Plan", ""));
+        } else {
+            this.setValue("visitCod", visitCod);
+        }
+
+        try {
+            MiscUtils.getLogger().debug("formId=" + formId + "opening " + formName + ".xml");
+            // Validate the form XML file path to prevent path traversal
+            String formDirPath = request.getSession().getServletContext().getRealPath("/form/");
+            if (formDirPath == null) {
+                throw new IOException("Cannot resolve form directory path — exploded WAR deployment required");
+            }
+            File formDir = new File(formDirPath);
+            File validatedForm = PathValidationUtils.validatePath(formName + ".xml", formDir);
+            try (InputStream is = new FileInputStream(validatedForm)) {
+            Vector measurementTypes = EctFindMeasurementTypeUtil.checkMeasurmentTypes(is, formName); // deepcode ignore java/XXE: XXE protection applied internally via XmlUtils.createSecureJaxbSource()
+            EctMeasurementTypesBean mt;
+
+            for (int i = 0; i < measurementTypes.size(); i++) {
+                mt = (EctMeasurementTypesBean) measurementTypes.elementAt(i);
+                request.setAttribute(mt.getType(), mt.getType());
+                request.setAttribute(mt.getType() + "Display", mt.getTypeDisplayName());
+                request.setAttribute(mt.getType() + "Desc", mt.getTypeDesc());
+                request.setAttribute(mt.getType() + "MeasuringInstrc", mt.getMeasuringInstrc());
+
+                addLastData(mt, demo);
+                request.setAttribute(mt.getType() + "LastData", mt.getLastData() == null ? "" : mt.getLastData());
+                request.setAttribute(mt.getType() + "LDDate", mt.getLastDateEntered() == null ? "" : mt.getLastDateEntered());
+
+                if (currentRec != null) {
+                    this.setValue(mt.getType() + "Value", currentRec.getProperty(mt.getType() + "Value", ""));
+                    this.setValue(mt.getType() + "Date", currentRec.getProperty(mt.getType() + "Date", ""));
+                    this.setValue(mt.getType() + "Comments", currentRec.getProperty(mt.getType() + "Comments", ""));
+                    request.setAttribute(mt.getType() + "Date", currentRec.getProperty(mt.getType() + "Date", ""));
+                    request.setAttribute(mt.getType() + "Comments", currentRec.getProperty(mt.getType() + "Comments", ""));
+                } else {
+                    // Set default values for new form entries
+                    this.setValue(mt.getType() + "Value", "");
+                    this.setValue(mt.getType() + "Date", today);
+                    request.setAttribute(mt.getType() + "Date", today);
+                    request.setAttribute(mt.getType() + "Comments", "");
+                }
+
+            }
+            } // end try-with-resources (InputStream is)
+        }
+		/*
+		catch (SQLException e) {
+		    MiscUtils.getLogger().error("Error", e);
+		}
+		/*catch (Exception e) {
+		    MiscUtils.getLogger().error("Error", e);
+		} */ catch (IOException e) {
+            MiscUtils.getLogger().debug("IO error.");
+            MiscUtils.getLogger().debug("Error, file " + formName + ".xml not found.");
+            MiscUtils.getLogger().debug("This file must be placed at www/form");
+            MiscUtils.getLogger().error("Error", e);
+        }
+        // formName already validated above, safe to use in redirect URL
+        response.sendRedirect(contextPath + "/form/form" + formName);
+        return NONE;
+    }
+
+    private List getDrugList(LoggedInInfo loggedInInfo, String demographicNo) {
+        List drugs = new LinkedList();
+        String fluShot = getFluShotBillingDate(demographicNo);
+
+        if (fluShot != null) drugs.add(fluShot + "     Flu Shot");
+
+        RxPatientData.Patient p = RxPatientData.getPatient(loggedInInfo, Integer.parseInt(demographicNo));
+        RxPrescriptionData.Prescription[] prescribedDrugs = p.getPrescribedDrugsUnique();
+        if (prescribedDrugs.length == 0 && fluShot == null) drugs = null;
+        for (int i = 0; i < prescribedDrugs.length; i++) {
+            drugs.add(prescribedDrugs[i].getRxDate().toString() + "    " + prescribedDrugs[i].getRxDisplay());
+        }
+
+        return drugs;
+    }
+
+    private List getDrugAllegyList(LoggedInInfo loggedInInfo, String demographicNo) {
+        List allergyLst = new LinkedList();
+
+        RxPatientData.Patient p = RxPatientData.getPatient(loggedInInfo, Integer.parseInt(demographicNo));
+        Allergy[] allergies = p.getActiveAllergies();
+        if (allergies.length == 0) allergyLst = null;
+        for (int i = 0; i < allergies.length; i++) {
+            Allergy allergy = allergies[i];
+            allergyLst.add(allergies[i].getEntryDate() + " " + allergy.getDescription() + " " + Allergy.getTypeDesc(allergy.getTypeCode()));
+        }
+
+        return allergyLst;
+    }
+
+    /**
+     * Retrieves the most recent flu shot billing date for a patient.
+     * Searches for billings with codes G590A (influenza vaccine) or G591A.
+     *
+     * @param demoNo the demographic number as a String
+     * @return the billing date formatted as a String if found, null otherwise
+     */
+    private String getFluShotBillingDate(String demoNo) {
+        try {
+            BillingDao dao = SpringUtils.getBean(BillingDao.class);
+            List<Object[]> billings = dao.findBillings(ConversionUtils.fromIntString(demoNo),
+                Arrays.asList(new String[]{"G590A", "G591A"}));
+            if (billings.isEmpty()) {
+                return null;
+            }
+            Object[] container = billings.get(0);
+            Billing billing = (Billing) container[0];
+            return ConversionUtils.toDateString(billing.getBillingDate());
+        } catch (Exception e) {
+            MiscUtils.getLogger().error("Error retrieving flu shot billing date for demographic " + demoNo, e);
+            return null;
+        }
+    }
+
+    private Properties getFormRecord(String formName, String formId, String demographicNo) {
+        Properties props = new Properties();
+        try {
+
+            if (formId != null) {
+                if (Integer.parseInt(formId) > 0) {
+                    String trustedFormName = validateSetupFormName(formName);
+                    if (trustedFormName == null) {
+                        MiscUtils.getLogger().warn("Invalid form name in getFormRecord");
+                        return null;
+                    }
+                    
+                    // Using parameterized values for formId and demographicNo
+                    // nosemgrep: java.lang.security.audit.formatted-sql-string-deepsemgrep.formatted-sql-string-deepsemgrep, java.lang.security.audit.sqli.tainted-sql-from-http-request.tainted-sql-from-http-request -- table suffix is allowlisted by validateSetupFormName(); values remain JDBC-bound.
+                    String sql = setupFormRecordSql(trustedFormName);
+                    try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(
+                            LegacyJdbcQuery.trustedSelectSql(sql),
+                            Integer.parseInt(formId),
+                            Integer.parseInt(demographicNo))) {
+
+                        if (rs.next()) {
+                            ResultSetMetaData md = rs.getMetaData();
+                            for (int i = 1; i <= md.getColumnCount(); i++) {
+                                String name = md.getColumnName(i);
+                                String value = Misc.getString(rs, i);
+                                if (value != null) props.setProperty(name, value);
+                            }
+                        }
+                    }
+                } else return null;
+            } else return null;
+        } catch (NumberFormatException e) {
+            MiscUtils.getLogger().warn("Non-numeric formId or demographicNo in getFormRecord");
+            return null;
+        } catch (SQLException e) {
+            MiscUtils.getLogger().error("Error", e);
+        }
+        return props;
+    }
+
+    private void addLastData(EctMeasurementTypesBean mt, String demo) {
+        MeasurementDao dao = SpringUtils.getBean(MeasurementDao.class);
+        List<Measurement> measurements = dao.findByIdTypeAndInstruction(Integer.parseInt(demo), mt.getType(), mt.getMeasuringInstrc());
+        if (!measurements.isEmpty()) {
+            Measurement measurement = measurements.iterator().next();
+            mt.setLastData(measurement.getDataField());
+            mt.setLastDateEntered(UtilDateUtilities.DateToString(measurement.getCreateDate(), "yyyy-MM-dd"));
+        }
+    }
+    private Map values = new HashMap();
+
+    public void setValue(String key, Object value) {
+        values.put(key, value);
+    }
+
+    public Object getValue(String key) {
+        return values.get(key);
+    }
+    
+    /**
+     * Validates that a form name contains only safe characters to prevent path traversal attacks.
+     * Only allows alphanumeric characters and underscores.
+     * 
+     * @param formName The form name to validate
+     * @return true if the form name is valid, false otherwise
+     */
+    private boolean isValidFormName(String formName) {
+        if (formName == null || formName.isEmpty()) {
+            return false;
+        }
+        
+        // Check for path traversal attempts
+        if (formName.contains("..") || formName.contains("/") || formName.contains("\\")) {
+            return false;
+        }
+        
+        // Only allow alphanumeric characters and underscores
+        return VALID_FORM_NAME_PATTERN.matcher(formName).matches();
+    }
+
+    private boolean isAllowedSetupFormName(String formName) {
+        return validateSetupFormName(formName) != null;
+    }
+
+    private String validateSetupFormName(String formName) {
+        if (!isValidFormName(formName)) {
+            return null;
+        }
+
+        String expectedTable = "form" + formName;
+        List<EncounterForm> configuredForms = encounterFormDao().findByFormTable(expectedTable);
+        for (EncounterForm configuredForm : configuredForms) {
+            String formValue = configuredForm.getFormValue();
+            if (isSetupFormEndpoint(formValue) && containsFormNameParameter(formValue, formName)) {
+                return formName;
+            }
+        }
+        return null;
+    }
+
+    private boolean isSetupFormEndpoint(String formValue) {
+        if (formValue == null) {
+            return false;
+        }
+
+        int index = formValue.indexOf("SetupForm");
+        while (index >= 0) {
+            boolean hasRoutePrefix = index == 0 || formValue.charAt(index - 1) == '/';
+            int next = index + "SetupForm".length();
+            boolean hasRouteSuffix = next == formValue.length()
+                    || formValue.charAt(next) == '?'
+                    || formValue.charAt(next) == '&'
+                    || formValue.charAt(next) == '#';
+            if (hasRoutePrefix && hasRouteSuffix) {
+                return true;
+            }
+            index = formValue.indexOf("SetupForm", next);
+        }
+        return false;
+    }
+
+    private String setupFormRecordSql(String trustedFormName) {
+        // Table identifiers cannot be JDBC-bound. trustedFormName comes only from
+        // validateSetupFormName(), which enforces a bare suffix and confirms the
+        // corresponding form table is registered for SetupForm; values stay bound.
+        return "SELECT * FROM form" + trustedFormName + " WHERE ID=? AND demographic_no=?";
+    }
+
+    private SecurityInfoManager securityInfoManager() {
+        if (securityInfoManager == null) {
+            securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+        }
+        return securityInfoManager;
+    }
+
+    private EncounterFormDao encounterFormDao() {
+        if (encounterFormDao == null) {
+            encounterFormDao = SpringUtils.getBean(EncounterFormDao.class);
+        }
+        return encounterFormDao;
+    }
+
+    private boolean containsFormNameParameter(String formValue, String formName) {
+        String marker = "formName=" + formName;
+        int index = formValue.indexOf(marker);
+        if (index < 0) {
+            return false;
+        }
+        if (index > 0 && formValue.charAt(index - 1) != '?' && formValue.charAt(index - 1) != '&') {
+            return false;
+        }
+        int next = index + marker.length();
+        return next == formValue.length() || formValue.charAt(next) == '&' || formValue.charAt(next) == '#';
+    }
+}

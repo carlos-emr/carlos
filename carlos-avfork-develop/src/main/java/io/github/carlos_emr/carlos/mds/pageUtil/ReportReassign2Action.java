@@ -1,0 +1,268 @@
+/**
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ */
+
+
+package io.github.carlos_emr.carlos.mds.pageUtil;
+
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.List;
+
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingFavoritesDao;
+import io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingFavorite;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+
+import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
+
+import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
+import org.owasp.encoder.Encode;
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
+public class ReportReassign2Action extends ActionSupport {
+    HttpServletRequest request = ServletActionContext.getRequest();
+    HttpServletResponse response = ServletActionContext.getResponse();
+
+    private ObjectMapper objectMapper = new ObjectMapper();
+    private final Logger logger = MiscUtils.getLogger();
+    private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
+    public ReportReassign2Action() {
+    }
+
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = {"XSS_SERVLET", "UNVALIDATED_REDIRECT"}, justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink. UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
+    public String execute()
+            throws ServletException, IOException {
+
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", "w", null)) {
+            throw new SecurityException("missing required sec object (_lab)");
+        }
+
+        String status = request.getParameter("status");
+        String ajax = request.getParameter("ajax");
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
+        String searchProviderNo = request.getParameter("searchProviderNo");
+        ArrayNode jsonArray = null;
+        String[] selectedProvidersArray = new String[0];
+        String[] arrNewFavs = new String[0];
+        ArrayList<String[]> flaggedLabsList = new ArrayList<>();
+        boolean success = Boolean.FALSE;
+        /*
+         * Group together any new favorite providers that may have been
+         * set during the forward process.
+         */
+        String newFavorites = request.getParameter("selectedFavorites");
+        if (newFavorites != null && !newFavorites.isEmpty()) {
+            try {
+                ObjectNode jsonObject = (ObjectNode) objectMapper.readTree(newFavorites);
+                jsonArray = (ArrayNode) jsonObject.get("favorites");
+            } catch (Exception e) {
+                logger.error("Failed to parse selectedFavorites JSON", e);
+            }
+        }
+
+        if (jsonArray != null) {
+            arrNewFavs = new String[jsonArray.size()];
+            for (int i = 0; i < jsonArray.size(); i++) {
+                arrNewFavs[i] = jsonArray.get(i).asText();
+            }
+        }
+
+        /*
+         * Group together the providers selected during the forward
+         * process.
+         */
+        String selectedProviders = request.getParameter("selectedProviders");
+        logger.info("selected providers to forward labs to {}", LogSafe.sanitize(selectedProviders)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+
+        if (selectedProviders != null && !selectedProviders.isEmpty()) {
+            try {
+                ObjectNode jsonObject = (ObjectNode) objectMapper.readTree(selectedProviders);
+                jsonArray = (ArrayNode) jsonObject.get("providers");
+            } catch (Exception e) {
+                logger.error("Failed to parse selectedProviders JSON", e);
+            }
+        }
+
+        if (jsonArray != null) {
+            selectedProvidersArray = new String[jsonArray.size()];
+            for (int i = 0; i < jsonArray.size(); i++) {
+                selectedProvidersArray[i] = jsonArray.get(i).asText();
+            }
+        }
+
+        /*
+         * Group together the lab ids and types checked off during the
+         * forwarding process.
+         */
+        String flaggedLabs = request.getParameter("flaggedLabs");
+        if (flaggedLabs != null && !flaggedLabs.isEmpty()) {
+            try {
+                ObjectNode jsonObject = (ObjectNode) objectMapper.readTree(flaggedLabs);
+                jsonArray = (ArrayNode) jsonObject.get("files");
+            } catch (Exception e) {
+                logger.error("Failed to parse flaggedLabs JSON", e);
+            }
+        }
+
+        if (jsonArray != null) {
+            String[] labid;
+            for (int i = 0; i < jsonArray.size(); i++) {
+                labid = jsonArray.get(i).asText().split(":");
+                flaggedLabsList.add(labid);
+            }
+        }
+
+        String newURL = "";
+        try {
+            //Only route if there are selected providers
+            if (selectedProvidersArray.length > 0) {
+                success = CommonLabResultData.updateLabRouting(flaggedLabsList, selectedProvidersArray);
+            }
+
+            //update favorites
+            ProviderLabRoutingFavoritesDao favDao = (ProviderLabRoutingFavoritesDao) SpringUtils.getBean(ProviderLabRoutingFavoritesDao.class);
+            List<ProviderLabRoutingFavorite> currentFavorites = favDao.findFavorites(providerNo);
+
+            if (arrNewFavs.length == 0) {
+                for (ProviderLabRoutingFavorite fav : currentFavorites) {
+                    favDao.remove(fav.getId());
+                }
+            } else {
+                //Check for new favorites to add
+                boolean isNew;
+                for (int idx = 0; idx < arrNewFavs.length; ++idx) {
+                    isNew = true;
+                    for (ProviderLabRoutingFavorite fav : currentFavorites) {
+                        if (fav.getRoute_to_provider_no().equals(arrNewFavs[idx])) {
+                            isNew = false;
+                            break;
+                        }
+                    }
+                    if (isNew) {
+                        ProviderLabRoutingFavorite newFav = new ProviderLabRoutingFavorite();
+                        newFav.setProvider_no(providerNo);
+                        newFav.setRoute_to_provider_no(arrNewFavs[idx]);
+                        favDao.persist(newFav);
+                    }
+                }
+
+                //check for favorites to remove
+                boolean remove;
+                for (ProviderLabRoutingFavorite fav : currentFavorites) {
+                    remove = true;
+                    for (int idx2 = 0; idx2 < arrNewFavs.length; ++idx2) {
+                        if (fav.getRoute_to_provider_no().equals(arrNewFavs[idx2])) {
+                            remove = false;
+                            break;
+                        }
+                    }
+                    if (remove) {
+                        favDao.remove(fav.getId());
+                    }
+                }
+
+            }
+
+            newURL = request.getRequestURI();
+
+            // Encode all query parameters — defense-in-depth for session-derived values,
+            // required for user-controlled searchProviderNo and status
+            String encodedProviderNo = Encode.forUriComponent(providerNo);
+            String encodedSearchProviderNo = Encode.forUriComponent(searchProviderNo != null ? searchProviderNo : "");
+            String encodedStatus = Encode.forUriComponent(status != null ? status : "");
+
+            if (newURL.contains("labDisplay.jsp")) {
+                newURL = newURL + "?providerNo=" + encodedProviderNo + "&searchProviderNo=" + encodedSearchProviderNo + "&status=" + encodedStatus;
+                // the segmentID is needed when being called from a lab display
+            } else {
+                newURL = newURL + "&providerNo=" + encodedProviderNo + "&searchProviderNo=" + encodedSearchProviderNo + "&status=" + encodedStatus;
+            }
+
+            if (!flaggedLabsList.isEmpty()) {
+                // flaggedLabsList entries are String[] from split(":")  e.g. ["labId","type"]
+                // join them back to reconstruct "labId:type" before encoding
+                String segmentId = String.join(":", flaggedLabsList.get(0));
+                newURL = newURL + "&segmentID=" + Encode.forUriComponent(segmentId);
+            }
+            
+            if (request.getParameter("lname") != null) {
+                newURL = newURL + "&lname=" + Encode.forUriComponent(request.getParameter("lname"));
+            }
+            if (request.getParameter("fname") != null) {
+                newURL = newURL + "&fname=" + Encode.forUriComponent(request.getParameter("fname"));
+            }
+            if (request.getParameter("hnum") != null) {
+                newURL = newURL + "&hnum=" + Encode.forUriComponent(request.getParameter("hnum"));
+            }
+        } catch (Exception e) {
+            logger.error("exception in ReportReassign2Action", e);
+            return "failure";
+        }
+
+        if (ajax != null && ajax.equals("yes")) {
+            ObjectNode jsonResponse = objectMapper.createObjectNode();
+            jsonResponse.put("success", success);
+            jsonResponse.set("files", jsonArray);
+            try {
+                PrintWriter out = response.getWriter();
+                response.setContentType("application/json");
+                response.setCharacterEncoding("UTF-8");
+                out.print(jsonResponse);
+                out.flush();
+            } catch (IOException e) {
+                MiscUtils.getLogger().error("Error with JSON response ", e);
+            }
+            return null;
+        } else {
+            // FP for open-redirect scanners (CodeQL java/unvalidated-url-redirection, Semgrep
+            // javasecurity:S5146): newURL is seeded from request.getRequestURI() (server-resolved
+            // path, no scheme/host) and appended parameters are all wrapped in Encode.forUriComponent.
+            // sendRedirect of a path-only URL is always same-origin.
+            response.sendRedirect(newURL); // nosemgrep: javasecurity.S5146, java.lang.security.audit.servlets.unvalidated-redirect.unvalidated-redirect-java -- see comment above
+            return NONE;
+        }
+    }
+}

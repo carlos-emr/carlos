@@ -1,0 +1,95 @@
+name: Dependency Update
+description: Track dependency updates and security patches
+title: "[Dependency]: "
+labels: ["type: maintenance", "dependencies", "status: needs-triage"]
+type: Dependency
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for flagging this — keeping dependencies current is important for security and stability.
+
+  - type: input
+    id: dependency
+    attributes:
+      label: Dependency
+      description: Name of the dependency
+      placeholder: e.g., com.fasterxml.jackson:jackson-databind
+    validations:
+      required: true
+
+  - type: input
+    id: current_version
+    attributes:
+      label: Current Version
+      description: Current version in use
+      placeholder: e.g., 2.15.2
+    validations:
+      required: true
+
+  - type: input
+    id: target_version
+    attributes:
+      label: Target Version
+      description: Version to update to
+      placeholder: e.g., 2.19.2
+    validations:
+      required: true
+
+  - type: dropdown
+    id: update_reason
+    attributes:
+      label: Reason
+      description: Why update?
+      options:
+        - Security vulnerability
+        - Bug fixes
+        - Performance improvements
+        - New features needed
+        - Compatibility with other dependencies
+        - Regular maintenance
+    validations:
+      required: true
+
+  - type: textarea
+    id: breaking_changes
+    attributes:
+      label: Breaking Changes
+      description: Any known breaking changes? Leave blank if unsure — we can investigate.
+      placeholder: |
+        - List any API changes
+        - List any configuration changes
+        - List any behavioral changes
+
+  - type: textarea
+    id: testing
+    attributes:
+      label: Testing
+      description: What might need testing? Leave blank if unsure.
+      placeholder: |
+        - Unit tests
+        - Integration tests
+        - Specific features to test manually
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How urgent?
+      options:
+        - Critical (Security fix)
+        - High (Important bug fixes)
+        - Medium (General improvements)
+        - Low (Nice to have)
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I have reviewed the changelog for breaking changes
+          required: false
+        - label: I have identified affected code areas
+          required: false

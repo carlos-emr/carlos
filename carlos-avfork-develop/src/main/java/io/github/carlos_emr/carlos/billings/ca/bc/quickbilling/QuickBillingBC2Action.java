@@ -1,0 +1,240 @@
+/**
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ */
+
+package io.github.carlos_emr.carlos.billings.ca.bc.quickbilling;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+
+import io.github.carlos_emr.carlos.commn.model.ProviderData;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+
+import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData;
+import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData.BillingVisit;
+
+/**
+ * @author Dennis Warren
+ * Company Colcamex Resources
+ * Date Jun 4, 2012
+ * Revised Jun 6, 2012
+ * Comment
+ * three actions here
+ * 1. get display
+ * 2. add entry to bean
+ * 3. remove entry from bean
+ */
+import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+
+public class QuickBillingBC2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
+    HttpServletRequest request = ServletActionContext.getRequest();
+    HttpServletResponse response = ServletActionContext.getResponse();
+
+
+    private ObjectNode billingEntry;
+    private QuickBillingBCHandler quickBillingHandler;
+
+    public QuickBillingBC2Action() {
+    }
+
+    
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+
+    public String execute() throws ServletException, IOException {
+        String creator = (String) request.getSession().getAttribute("user");
+        if (creator == null) {
+            return "Logout";
+        }
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
+        quickBillingHandler = new QuickBillingBCHandler();
+
+        if (request.getParameter("data") != null) {
+
+            billingEntry = (ObjectNode) objectMapper.readTree(request.getParameter("data"));
+            billingEntry.put("creator", creator);
+
+            // check if the main header items are set.
+            // if not then set them otherwise go on to get the other input.
+            if (!this.getHeaderSet()) {
+
+                quickBillingHandler.setHeader(billingEntry);
+                this.setHeaderSet(true);
+            }
+
+            // add data to the quick billing session form bean
+            quickBillingHandler.addBill(LoggedInInfo.getLoggedInInfoFromSession(request), this.billingEntry);
+
+            return SUCCESS;
+
+            // if request is to remove an entry.
+        } else if (request.getParameter("remove") != null) {
+
+            if (quickBillingHandler.removeBill(request.getParameter("remove"))) {
+
+                return SUCCESS;
+
+            }
+
+            // if not adding or removing data then create a fresh form.
+        } else {
+
+            // add some needed form elements to the bean
+            BillingFormData billingFormData = new BillingFormData();
+            List<BillingVisit> billingVisit = billingFormData.getVisitType(QuickBillingBCHandler.BILLING_PROV);
+
+            List<ProviderData> activeProviders = quickBillingHandler.getProviderDao().findAll(false);
+
+            quickBillingHandler.reset();
+            this.setProviderList(activeProviders);
+            this.setBillingVisitTypes(billingVisit);
+        }
+
+        return SUCCESS;
+    }
+    private ArrayList<BillingSessionBean> billingData;
+    private String billingProvider;
+    private String billingProviderNo;
+    private String serviceDate;
+    private String visitLocation;
+    private List<BillingVisit> billingVisitTypes;
+    private List<ProviderData> providerList;
+    private Boolean isHeaderSet;
+    private String creator;
+    private String halfBilling;
+
+    @StrutsParameter(depth = 1)
+    public ArrayList<BillingSessionBean> getBillingData() {
+        return billingData;
+    }
+
+    @StrutsParameter
+    public void setBillingData(ArrayList<BillingSessionBean> billingData) {
+        this.billingData = billingData;
+    }
+
+    public String getBillingProvider() {
+        return billingProvider;
+    }
+
+    @StrutsParameter
+    public void setBillingProvider(String billingProvider) {
+        this.billingProvider = billingProvider;
+    }
+
+    public String getBillingProviderNo() {
+        return billingProviderNo;
+    }
+
+    @StrutsParameter
+    public void setBillingProviderNo(String billingProviderNo) {
+        this.billingProviderNo = billingProviderNo;
+    }
+
+    public String getServiceDate() {
+        return serviceDate;
+    }
+
+    @StrutsParameter
+    public void setServiceDate(String serviceDate) {
+        this.serviceDate = serviceDate;
+    }
+
+    public String getVisitLocation() {
+        return visitLocation;
+    }
+
+    @StrutsParameter
+    public void setVisitLocation(String visitLocation) {
+        this.visitLocation = visitLocation;
+    }
+
+    @StrutsParameter(depth = 1)
+    public List<BillingVisit> getBillingVisitTypes() {
+        return billingVisitTypes;
+    }
+
+    @StrutsParameter
+    public void setBillingVisitTypes(List<BillingVisit> billingVisitTypes) {
+        this.billingVisitTypes = billingVisitTypes;
+    }
+
+    @StrutsParameter(depth = 1)
+    public List<ProviderData> getProviderList() {
+        return providerList;
+    }
+
+    @StrutsParameter
+    public void setProviderList(List<ProviderData> providerList) {
+        this.providerList = providerList;
+    }
+
+    public Boolean getHeaderSet() {
+        return isHeaderSet;
+    }
+
+    @StrutsParameter
+    public void setHeaderSet(Boolean headerSet) {
+        isHeaderSet = headerSet;
+    }
+
+    public String getCreator() {
+        return creator;
+    }
+
+    @StrutsParameter
+    public void setCreator(String creator) {
+        this.creator = creator;
+    }
+
+    public String getHalfBilling() {
+        return halfBilling;
+    }
+
+    @StrutsParameter
+    public void setHalfBilling(String halfBilling) {
+        this.halfBilling = halfBilling;
+    }
+}

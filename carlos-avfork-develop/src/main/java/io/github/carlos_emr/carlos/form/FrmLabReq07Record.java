@@ -1,0 +1,261 @@
+/**
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ */
+
+
+package io.github.carlos_emr.carlos.form;
+
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
+import java.util.Properties;
+
+import io.github.carlos_emr.Misc;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
+import io.github.carlos_emr.carlos.commn.model.Clinic;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.commn.model.Facility;
+import io.github.carlos_emr.carlos.utility.LocaleUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+
+public class FrmLabReq07Record extends FrmRecord {
+    private static Logger logger = MiscUtils.getLogger();
+
+    private ClinicDAO clinicDao = (ClinicDAO) SpringUtils.getBean(ClinicDAO.class);
+
+
+    @Override
+    public Properties getFormRecord(LoggedInInfo loggedInInfo, int demographicNo, int existingID) throws SQLException {
+        Properties props = new Properties();
+
+        if (existingID <= 0) {
+            Demographic demographic = demographicManager.getDemographic(loggedInInfo, demographicNo);
+
+            if (demographic != null) {
+                props.setProperty("demographic_no", String.valueOf(demographic.getDemographicNo()));
+                props.setProperty("patientName", demographic.getLastName() + ", " + demographic.getFirstName());
+
+                String uhipStatus = CarlosProperties.getInstance().getProperty("demo_uhip_status", "");
+                if (!uhipStatus.isEmpty() && demographic.getRosterStatus().equals(uhipStatus)) {
+                    props.setProperty("healthNumber", LocaleUtils.getMessage(Locale.getDefault(), "encounter.form.uhipLbl") + StringUtils.trimToEmpty(demographic.getChartNo()));
+                    props.setProperty("version", "");
+                } else {
+                    props.setProperty("healthNumber", StringUtils.trimToEmpty(demographic.getHin()));
+                    props.setProperty("version", StringUtils.trimToEmpty(demographic.getVer()));
+                }
+
+                props.setProperty("hcType", StringUtils.trimToEmpty(demographic.getHcType()));
+                props.setProperty("formCreated", UtilDateUtilities.DateToString(new Date(),
+                        "yyyy/MM/dd"));
+
+                //props.setProperty("formEdited",
+                // UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
+                java.util.Date dob = UtilDateUtilities.calcDate(demographic.getYearOfBirth(), demographic.getMonthOfBirth(), demographic.getDateOfBirth());
+                props.setProperty("birthDate", StringUtils.trimToEmpty(UtilDateUtilities.DateToString(dob, "yyyy/MM/dd")));
+
+                props.setProperty("phoneNumber", StringUtils.trimToEmpty(demographic.getPhone()));
+                props.setProperty("patientAddress", StringUtils.trimToEmpty(demographic.getAddress()));
+                props.setProperty("patientCity", StringUtils.trimToEmpty(demographic.getCity()));
+                props.setProperty("patientPC", StringUtils.trimToEmpty(demographic.getPostal()));
+                props.setProperty("province", StringUtils.trimToEmpty(demographic.getProvince()));
+                props.setProperty("sex", StringUtils.trimToEmpty(demographic.getSex()));
+                props.setProperty("demoProvider", StringUtils.trimToEmpty(demographic.getProviderNo()));
+                props.setProperty("patientChartNo", StringUtils.trimToEmpty(demographic.getChartNo()));
+            }
+
+            //get local clinic information
+            Clinic clinic = clinicDao.getClinic();
+            if (clinic != null) {
+                props.setProperty("clinicName", clinic.getClinicName());
+                props.setProperty("clinicProvince", clinic.getClinicProvince());
+                props.setProperty("clinicAddress", clinic.getClinicAddress());
+                props.setProperty("clinicCity", clinic.getClinicCity());
+                props.setProperty("clinicPC", clinic.getClinicPostal());
+            }
+
+        } else {
+            String sql = "SELECT * FROM formLabReq07 WHERE demographic_no = ? AND ID = ?";
+            props = (new FrmRecordHelp()).getFormRecord(sql, demographicNo, existingID);
+            String chartNo = props.getProperty("patientChartNo");
+            String chartNoLbl = LocaleUtils.getMessage(Locale.getDefault(), "encounter.form.labreq.patientChartNo") + ":";
+            int beginIdx = chartNo.lastIndexOf(chartNoLbl);
+            if (beginIdx >= 0) {
+                chartNo = chartNo.substring(beginIdx + chartNoLbl.length());
+                props.setProperty("patientChartNo", chartNo);
+            }
+
+            CarlosProperties oscarProps = CarlosProperties.getInstance();
+            if (oscarProps.getBooleanProperty("use_lab_clientreference", "true")) {
+                String additionalInfo = LocaleUtils.getMessage(Locale.getDefault(), "encounter.form.labreq.clientreference") + ":" + String.valueOf(existingID);
+                props.setProperty("clientRefNo", additionalInfo);
+            }
+        }
+
+        return props;
+    }
+
+    public Properties getFormCustRecord(LoggedInInfo loggedInInfo, Facility facility, Properties props, String provNo) throws SQLException {
+        String demoProvider = props.getProperty("demoProvider", "");
+        String xmlSpecialtyCode = "<xml_p_specialty_code>";
+        String xmlSpecialtyCode2 = "</xml_p_specialty_code>";
+
+        if (demoProvider.equals(provNo)) {
+            // from provider table
+            try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet("SELECT CONCAT(last_name, ', ', first_name) AS provName, ohip_no, comments "
+                    + "FROM provider WHERE provider_no = ?", provNo)) {
+                if (rs.next()) {
+                    String comments = Misc.getString(rs, "comments");
+                    String strSpecialtyCode = extractSpecialtyCode(comments, xmlSpecialtyCode, xmlSpecialtyCode2);
+                    String num = Misc.getString(rs, "ohip_no");
+                    props.setProperty("reqProvName", Misc.getString(rs, "provName"));
+                    props.setProperty("provName", Misc.getString(rs, "provName"));
+                    props.setProperty("practitionerNo", "0000-" + num + "-" + strSpecialtyCode);
+                }
+            }
+        } else {
+            // from provider table
+            String num = "";
+            try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet("SELECT CONCAT(last_name, ', ', first_name) AS provName, ohip_no, comments FROM provider WHERE provider_no = ?",
+                    provNo)) {
+                if (rs.next()) {
+                    String comments = Misc.getString(rs, "comments");
+                    String strSpecialtyCode = extractSpecialtyCode(comments, xmlSpecialtyCode, xmlSpecialtyCode2);
+                    num = Misc.getString(rs, "ohip_no");
+                    props.setProperty("reqProvName", Misc.getString(rs, "provName"));
+                    props.setProperty("practitionerNo", "0000-" + num + "-" + strSpecialtyCode);
+                }
+            }
+
+            if (!demoProvider.isEmpty()) {
+                // from provider table
+                try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet("SELECT CONCAT(last_name, ', ', first_name) AS provName, ohip_no FROM provider WHERE provider_no = ?",
+                        demoProvider)) {
+                    if (rs.next()) {
+                        if (num.isEmpty()) {
+                            num = Misc.getString(rs, "ohip_no");
+                            props.setProperty("practitionerNo", "0000-" + num + "-00");
+                        }
+                        props.setProperty("provName", Misc.getString(rs, "provName"));
+
+                    }
+                }
+            }
+        }
+
+        //get local clinic information
+        Clinic clinic = clinicDao.getClinic();
+        if (clinic != null) {
+            props.setProperty("clinicName", clinic.getClinicName());
+            props.setProperty("clinicProvince", clinic.getClinicProvince());
+            props.setProperty("clinicAddress", clinic.getClinicAddress());
+            props.setProperty("clinicCity", clinic.getClinicCity());
+            props.setProperty("clinicPC", clinic.getClinicPostal());
+        }
+
+        //lab_req_override=true
+        CarlosProperties oscarProps = CarlosProperties.getInstance();
+        if (oscarProps.getProperty("lab_req_provider", "").length() > 0) {
+            props.setProperty("reqProvName", oscarProps.getProperty("lab_req_provider"));
+        }
+        if (oscarProps.getProperty("lab_req_billing_no", "").length() > 0) {
+            props.setProperty("practitionerNo", oscarProps.getProperty("lab_req_billing_no"));
+        }
+
+        return props;
+    }
+
+    public int saveFormRecord(Properties props) throws SQLException {
+        String demographic_no = props.getProperty("demographic_no");
+        String sql = "SELECT * FROM formLabReq07 WHERE demographic_no=? AND ID=0";
+
+        return ((new FrmRecordHelp()).saveFormRecord(props, sql, demographic_no));
+    }
+
+    public Properties getPrintRecord(int demographicNo, int existingID) throws SQLException {
+        String sql = "SELECT * FROM formLabReq07 WHERE demographic_no = ? AND ID = ?";
+        return ((new FrmRecordHelp()).getPrintRecord(sql, demographicNo, existingID));
+    }
+
+    public static List<Properties> getPrintRecords(int demographicNo) throws SQLException {
+        String sql = "SELECT * FROM formLabReq07 WHERE demographic_no = ?";
+        return ((new FrmRecordHelp()).getPrintRecords(sql, demographicNo));
+    }
+
+    public static List<Properties> getPrintRecordsSince(int demographicNo, Date lastUpdateDate) throws SQLException {
+        SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        String sql = "SELECT * FROM formLabReq07 WHERE demographic_no = ? and formEdited > ?";
+        return ((new FrmRecordHelp()).getPrintRecords(sql, demographicNo, formatter.format(lastUpdateDate)));
+    }
+
+    public static List<Integer> getDemogaphicIdsSince(Date lastUpdateDate) throws SQLException {
+        SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        String sql = "SELECT demographic_no FROM formLabReq07 WHERE formEdited > ?";
+        return ((new FrmRecordHelp()).getDemographicIds(sql, formatter.format(lastUpdateDate)));
+    }
+
+
+    public String findActionValue(String submit) throws SQLException {
+        return ((new FrmRecordHelp()).findActionValue(submit));
+    }
+
+    public String createActionURL(String where, String action, String demoId, String formId) throws SQLException {
+        return ((new FrmRecordHelp()).createActionURL(where, action, demoId, formId));
+    }
+
+    private String extractSpecialtyCode(String comments, String startTag, String endTag) {
+        if (comments == null) {
+            return "00";
+        }
+
+        int start = comments.indexOf(startTag);
+        if (start < 0) {
+            return "00";
+        }
+
+        int valueStart = start + startTag.length();
+        int end = comments.indexOf(endTag, valueStart);
+        if (end < valueStart) {
+            return "00";
+        }
+
+        String specialtyCode = comments.substring(valueStart, end).trim();
+        return specialtyCode.isEmpty() ? "00" : specialtyCode;
+    }
+
+}

@@ -1,0 +1,62 @@
+/**
+ * Copyright (c) 2024. Magenta Health. All Rights Reserved.
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
+ * <p>
+ * Modifications made by Magenta Health in 2024.
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ */
+package io.github.carlos_emr.carlos.commn.dao;
+
+import java.util.List;
+
+import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.commn.model.ProviderSite;
+
+public interface ProviderSiteDao extends AbstractDao<ProviderSite> {
+    List<ProviderSite> findByProviderNo(String providerNo);
+
+    List<Provider> findActiveProvidersWithSites(String provider_no);
+
+    /**
+     * Finds providers with status {@code "1"} and provider numbers that do not
+     * start with {@code "-"} that share at least one site with the given provider
+     * number.
+     *
+     * <p>The source provider is included when it is active, has a non-system
+     * provider number, and is assigned to one of its own sites. A null provider
+     * number, or one with no matching site assignments, returns an empty list.
+     * Results are ordered by last name, then first name.</p>
+     *
+     * @param providerNo provider number used to determine shared sites
+     * @return matching providers, never {@code null}
+     */
+    List<Provider> findActiveProvidersBySharedSites(String providerNo);
+
+    List<String> findByProviderNoBySiteName(String siteName);
+
+    List<ProviderSite> findBySiteId(Integer siteId);
+}

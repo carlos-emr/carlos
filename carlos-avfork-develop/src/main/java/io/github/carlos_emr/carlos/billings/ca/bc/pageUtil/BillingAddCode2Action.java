@@ -1,0 +1,208 @@
+/**
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ */
+
+
+package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
+
+import java.util.List;
+
+import jakarta.servlet.http.HttpServletRequest;
+
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+
+import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingCodeData;
+
+import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+
+public final class BillingAddCode2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
+    private HttpServletRequest request = ServletActionContext.getRequest();
+
+    public String execute() {        if (request.getSession().getAttribute("user") == null) {
+            return "Logout";
+        }
+
+
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
+
+        String pCode = code;
+        String returnMessage = null;
+        boolean added = true;
+
+        if (whereTo != null && whereTo.equals("private")) {
+            code = "A" + code;
+        }
+
+        BillingCodeData bcd = new BillingCodeData();
+        List list = bcd.findBillingCodesByCode(code, 1);
+
+        if (list.size() == 0) {
+            bcd.addBillingCode(code, desc, value);
+            returnMessage = "Code Added Successfully";
+        } else {
+            added = false;
+            returnMessage = "Code Already in use";
+            request.setAttribute("code", pCode);
+            request.setAttribute("desc", desc);
+            request.setAttribute("value", value);
+
+        }
+
+        request.setAttribute("returnMessage", returnMessage);
+        String retval;
+        if (whereTo == null || whereTo.equals("")) {
+            if (added) {
+                retval = SUCCESS;
+                MiscUtils.getLogger().debug("success");
+            } else {
+                retval = "normalCodeError";
+                MiscUtils.getLogger().debug("nCE");
+            }
+        } else {
+            if (added) {
+                retval = "private";
+                MiscUtils.getLogger().debug("pri");
+            } else {
+                retval = "privateCodeError";
+                MiscUtils.getLogger().debug("privCodErr");
+            }
+        }
+
+        return retval;
+    }
+    String codeId;
+    String code;
+    String desc;
+    String value;
+    String whereTo;
+
+    /**
+     * Getter for property codeId.
+     *
+     * @return Value of property codeId.
+     */
+    public String getCodeId() {
+        return codeId;
+    }
+
+    /**
+     * Setter for property codeId.
+     *
+     * @param codeId New value of property codeId.
+     */
+    @StrutsParameter
+    public void setCodeId(String codeId) {
+        this.codeId = codeId;
+    }
+
+    /**
+     * Getter for property code.
+     *
+     * @return Value of property code.
+     */
+    public String getCode() {
+        return code;
+    }
+
+    /**
+     * Setter for property code.
+     *
+     * @param code New value of property code.
+     */
+    @StrutsParameter
+    public void setCode(String code) {
+        this.code = code;
+    }
+
+    /**
+     * Getter for property desc.
+     *
+     * @return Value of property desc.
+     */
+    public String getDesc() {
+        return desc;
+    }
+
+    /**
+     * Setter for property desc.
+     *
+     * @param desc New value of property desc.
+     */
+    @StrutsParameter
+    public void setDesc(String desc) {
+        this.desc = desc;
+    }
+
+    /**
+     * Getter for property value.
+     *
+     * @return Value of property value.
+     */
+    public String getValue() {
+        return value;
+    }
+
+    /**
+     * Setter for property value.
+     *
+     * @param value New value of property value.
+     */
+    @StrutsParameter
+    public void setValue(String value) {
+        this.value = value;
+    }
+
+    /**
+     * Getter for property whereTo.
+     *
+     * @return Value of property whereTo.
+     */
+    public String getWhereTo() {
+        return whereTo;
+    }
+
+    /**
+     * Setter for property whereTo.
+     *
+     * @param whereTo New value of property whereTo.
+     */
+    @StrutsParameter
+    public void setWhereTo(String whereTo) {
+        this.whereTo = whereTo;
+    }
+}

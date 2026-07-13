@@ -1,0 +1,2 @@
+INSERT INTO `property`(`name`, `value`, `id`, `provider_no`) VALUES ('aua_valid_duration', '2300-01-01', 118, '999998');
+INSERT INTO `property`(`name`, `value`, `id`, `provider_no`) VALUES ('aua_valid_from', '2001-01-01', 117, '999998');

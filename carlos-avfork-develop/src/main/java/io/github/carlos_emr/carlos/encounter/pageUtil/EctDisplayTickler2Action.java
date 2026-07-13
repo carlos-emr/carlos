@@ -1,0 +1,124 @@
+/**
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ */
+
+
+package io.github.carlos_emr.carlos.encounter.pageUtil;
+
+
+import io.github.carlos_emr.carlos.commn.model.Tickler;
+import io.github.carlos_emr.carlos.managers.TicklerManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.util.DateUtils;
+import io.github.carlos_emr.carlos.util.StringUtils;
+
+import jakarta.servlet.http.HttpServletRequest;
+import java.util.Date;
+import java.util.List;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
+public class EctDisplayTickler2Action extends EctDisplayAction {
+    private static final String cmd = "tickler";
+
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO Dao) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", null)) {
+            return true; //The link of tickler won't show up on new CME screen.
+        } else {
+
+
+            //Set lefthand module heading and link
+            String winName = "ViewTickler" + bean.demographicNo;
+            String pathview, pathedit;
+            pathview = request.getContextPath() + "/tickler/ViewTicklerMain?demoview=" + bean.demographicNo + "&parentAjaxId=" + cmd;
+            pathedit = request.getContextPath() + "/tickler/ViewAddTickler?bFirstDisp=false&demographic_no=" + bean.demographicNo + "&parentAjaxId=" + cmd;
+
+            Dao.setLeftHeading(getText("global.viewTickler"));
+            Dao.setLeftPopup(500, 900, winName, pathview);
+
+            //set right hand heading link
+            winName = "AddTickler" + bean.demographicNo;
+            Dao.setRightPopup(500, 600, winName, pathedit);
+            Dao.setRightHeadingID(cmd); //no menu so set div id to unique id for this action
+
+            String dateBegin = "1900-01-01";
+            String dateEnd = "8888-12-31";
+
+            TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
+            List<Tickler> ticklers = ticklerManager.findActiveByDemographicNo(loggedInInfo, Integer.parseInt(bean.demographicNo));
+
+            Date serviceDate;
+            Date today = new Date(System.currentTimeMillis());
+            String itemHeader;
+            String priority;
+            String flag;
+            String url;
+            int hash;
+            long days;
+            for (Tickler t : ticklers) {
+                NavBarDisplayDAO.Item item = NavBarDisplayDAO.Item();
+                serviceDate = t.getServiceDate();
+                priority = t.getPriorityWeb().toUpperCase();
+                item.setDate(serviceDate);
+                days = (today.getTime() - serviceDate.getTime()) / (1000 * 60 * 60 * 24);
+                if (days > 0)
+                    item.setColour("#FF0000");
+
+                itemHeader = StringUtils.maxLenString(t.getMessage(), MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES);
+                item.setLinkTitle(priority + ": " + itemHeader + " " + DateUtils.formatDate(serviceDate, request.getLocale()));
+                if (priority.equals("HIGH")) {
+                    flag = "<span style='color:red'>&#9873;</span> ";
+                    itemHeader = "<b>" + itemHeader + "</b>";
+                } else {
+                    flag = "";
+                }
+                item.setTitle(flag + itemHeader);
+                // item.setValue(String.valueOf(t.getTickler_no()));
+                winName = StringUtils.maxLenString(t.getMessage(), MAX_LEN_TITLE, MAX_LEN_TITLE, "");
+                hash = Math.abs(winName.hashCode());
+                url = "popupPage(500,900,'" + hash + "','" + request.getContextPath() + "/tickler/ViewTicklerEdit?tickler_no=" + t.getId() + "&parentAjaxId=" + cmd + "'); return false;";
+                item.setURL(url);
+                Dao.addItem(item);
+
+            }
+        }
+
+        Dao.sortItems(NavBarDisplayDAO.DATESORT);
+
+        return true;
+    }
+
+
+    public String getCmd() {
+        return cmd;
+    }
+}

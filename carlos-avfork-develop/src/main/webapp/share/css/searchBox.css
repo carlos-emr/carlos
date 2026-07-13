@@ -1,0 +1,72 @@
+/*
+ *
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved. *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version. *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details. * * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. *
+ *
+ * <OSCAR TEAM>
+ *
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
+ */
+.select-group input.form-control {
+    width: 65%
+}
+
+.select-group select.input-group-text {
+    width: 35%;
+}
+
+form {
+    padding: 0;
+    margin: 0;
+}
+
+.searchBox {
+    background-color: white;
+    margin: auto 15px;
+}
+
+.search-header {
+    width: 100%;
+    background: #f5f5f5;
+    padding: 8px;
+    border-bottom: 1px solid #ddd;
+    margin-bottom: 10px;
+}
+
+.search-header-title {
+    margin: 0;
+}
+
+.search-header-icon {
+    vertical-align: text-bottom;
+}
+
+/* Adds vertical spacing between the search input row and the button row below it.
+   Uses adjacent-sibling combinator so only the second and subsequent .input-group
+   rows get the top margin; the first row stays flush. */
+.searchBox .select-group > .input-group + .input-group {
+    margin-top: 8px;
+}
+
+/* Restores rounded right corners on the Back button inside .input-group.
+   Bootstrap's .input-group strips border-radius from all but the first/last
+   visible child; !important is required to override that specificity. */
+.searchBox .search-back-btn {
+    border-top-right-radius: var(--bs-border-radius) !important;
+    border-bottom-right-radius: var(--bs-border-radius) !important;
+}
+

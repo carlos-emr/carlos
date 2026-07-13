@@ -1,0 +1,337 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<indicatorTemplateXML>
+	<author>Colcamex Resources Inc. for Oscar EMR</author>
+	<uid></uid>
+	<heading>
+		<category>Preventive Health Care</category>
+		<subCategory>Immunization</subCategory>
+		<name>Patient Care: Childhood Immunization</name>
+		<definition>% of patients aged 30 to 42 months who have received all of the ministry-supplied immunizations as recommended by the National Advisory Committee on immunizations.</definition>
+		<framework>Based on and adapted from AFHTO D2D 3.0 Indicators: Data Dictionary version 4 (Nov 2015)</framework>
+		<frameworkVersion>11-01-2015</frameworkVersion>
+		<notes></notes>
+	</heading>
+	<indicatorQuery>
+		<version>11-24-2016</version>
+		<params>
+			<!-- 
+				Required parameter providers. Value options are:
+					[ an individual providerNo, or providers range ] ie: value="370, 1001"
+					"all" ie: value="all" including null.
+					"loggedInProvider" ie:
+				Default is "loggedInProvider"
+				Use this parameter in the query as ${providers}
+				This parameter should be used for fetching patient's assigned to a MRP.
+				ie: WHERE demographic.provider_no = ${providers}
+			-->
+			<parameter id="provider" name="provider_no" value="loggedInProvider" />
+			<parameter id="pstatus" name="Patient Status" value="'%AC%'" />	
+			<parameter id="dTaPIPVHib" name="DTaPIPVHib" value="'DTaP-IPV-Hib'" />
+			<parameter id="pneumococcal" name="Pneumococcal" value="'Pneu-C%'" />
+			<parameter id="rotavirus" name="Rotavirus" value="'Rot'" />
+			<parameter id="meningococcal" name="Meningococcal" value="'MenC-C'" />
+			<parameter id="measlesMumpsRubella" name="MeaslesMumpsRubella" value="'MMR'" />
+			<parameter id="varicella" name="Varicella" value="'VZ'" />
+		</params>
+		<range>
+			<upperLimit id="age" label="Max Age Months" name="Age" value="4.5" />
+			<lowerLimit id="age" label="Min Age Months" name="Age" value="2.5" />
+		</range>
+		<query>
+			<!-- Indicator SQL Query here -->
+			SELECT 
+				-- count patients that satisfy all 6 requirements
+				IF( COUNT(fin.patient) > 0,
+					SUM(
+						IF( fin.dtap > 0 
+							AND fin.pneu > 0 
+							AND fin.rot > 0 
+							AND fin.menc > 0
+							AND fin.mmr > 0
+							AND fin.vz > 0
+						, 1, 0 )
+					) 
+				, 0 )AS '% With Complete Immunizations',
+			
+				-- the remainder missed one of the 6 requirements.
+				IF( COUNT(fin.patient) > 0,
+					COUNT(fin.patient) -
+					SUM(
+						IF( fin.dtap > 0 
+							AND fin.pneu > 0 
+							AND fin.rot > 0 
+							AND fin.menc > 0
+							AND fin.mmr > 0
+							AND fin.vz > 0
+						, 1, 0 )
+					) 
+				, 0 ) AS '% Imunizations Not Complete'
+			
+			FROM (
+				SELECT  
+					d.demographic_no AS 'patient',
+					IFNULL( DTaP.id, 0 ) AS 'dtap',
+					IFNULL( PNEU.id, 0 ) AS 'pneu',
+					IFNULL( ROT.id, 0 ) AS 'rot',
+					IFNULL( MC.id, 0 ) AS 'menc',
+					IFNULL( MM.id, 0 ) AS 'mmr',
+					IFNULL( VZ.id, 0 ) AS 'vz'
+				FROM demographic d
+			
+				-- 4 instances of - DTaP-IPV-Hib - Diphtheria, Tetanus, Pertussis, Polio, Haemophilus influenzae type B
+				LEFT JOIN ( 
+					SELECT p.demographic_no, MAX(p.id) AS id
+					FROM preventions p		 
+					WHERE p.prevention_type LIKE ${dTaPIPVHib}
+					AND p.deleted = 0
+					AND p.refused = 0
+					GROUP BY p.demographic_no HAVING COUNT(p.id) >= 4
+				) DTaP
+				ON (d.demographic_no = DTaP.demographic_no)
+			
+				-- 3 instances of - Pneu-C-13  - Pneumococcal Conjugate 13
+				LEFT JOIN ( 
+					SELECT p.demographic_no, MAX(p.id) AS id
+					FROM preventions p		 
+					WHERE p.prevention_type LIKE ${pneumococcal}
+					AND p.deleted = 0
+					AND p.refused = 0
+					GROUP BY p.demographic_no HAVING COUNT(p.id) >= 3
+				) PNEU
+				ON (d.demographic_no = PNEU.demographic_no)
+			
+				-- 2 instances of - Rot-1  - Rotavirus
+				LEFT JOIN ( 
+					SELECT p.demographic_no, MAX(p.id) AS id
+					FROM preventions p		 
+					WHERE p.prevention_type LIKE ${rotavirus}
+					AND p.deleted = 0
+					AND p.refused = 0
+					GROUP BY p.demographic_no HAVING COUNT(p.id) >= 2
+				) ROT
+				ON (d.demographic_no = ROT.demographic_no)
+			
+				-- 1 instance of - Men-C-C  - Meningococcal Conjugate 
+				LEFT JOIN ( 
+					SELECT p.demographic_no, COUNT(p.id) AS id
+					FROM preventions p		 
+					WHERE p.prevention_type LIKE ${meningococcal}
+					AND p.deleted = 0
+					AND p.refused = 0
+					GROUP BY p.demographic_no
+				) MC
+				ON (d.demographic_no = MC.demographic_no)
+			
+				-- 1 instance of - MMR  - Measles, Mumps, Rubella
+				LEFT JOIN ( 
+					SELECT p.demographic_no, COUNT(p.id) AS id
+					FROM preventions p		 
+					WHERE p.prevention_type LIKE ${measlesMumpsRubella}
+					AND p.deleted = 0
+					AND p.refused = 0
+					GROUP BY p.demographic_no
+				) MM
+				ON (d.demographic_no = MM.demographic_no)
+			
+				-- 1 instance of - Var  - Varicella
+				LEFT JOIN ( 
+					SELECT p.demographic_no, COUNT(p.id) AS id
+					FROM preventions p		 
+					WHERE p.prevention_type LIKE ${varicella}
+					AND p.deleted = 0
+					AND p.refused = 0
+					GROUP BY p.demographic_no
+				) VZ
+				ON (d.demographic_no = VZ.demographic_no)
+			
+				-- PATIENTS BETWEEN 30 TO 42 MONTHS OLD
+				WHERE d.patient_status LIKE ${pstatus}
+				AND d.demographic_no > 0 
+				AND d.provider_no LIKE ${provider}
+				AND ABS( DATEDIFF( DATE( CONCAT(d.year_of_birth,"-",d.month_of_birth,"-",d.date_of_birth) ), NOW() ) / 365.25 ) 
+					BETWEEN ${lowerLimit.age} AND ${upperLimit.age}
+			) fin;
+		</query>
+	</indicatorQuery>
+	<drillDownQuery>
+		<version>11-24-2016</version>
+		<params>
+			<parameter id="provider" name="provider_no" value="loggedInProvider" />
+			<parameter id="pstatus" name="Patient Status" value="'%AC%'" />	
+			<parameter id="dTaPIPVHib" name="DTaPIPVHib" value="'DTaP-IPV-Hib'" />
+			<parameter id="pneumococcal" name="Pneumococcal" value="'Pneu-C%'" />
+			<parameter id="rotavirus" name="Rotavirus" value="'Rot'" />
+			<parameter id="meningococcal" name="Meningococcal" value="'MenC-C'" />
+			<parameter id="measlesMumpsRubella" name="MeaslesMumpsRubella" value="'MMR'" />
+			<parameter id="varicella" name="Varicella" value="'VZ'" />
+		</params>
+		<range>
+			<upperLimit id="age" label="Max Age Months" name="Age" value="4.5" />
+			<lowerLimit id="age" label="Min Age Months" name="Age" value="2.5" />
+		</range>
+		<displayColumns>
+			<column id="demographic" name="d.demographic_no" title="Patient Id" primary="true" />
+			<column id="name" name="CONCAT( d.last_name, ', ', d.first_name )" title="Patient Name" primary="false" />
+			<column id="dob" name="DATE_FORMAT( CONCAT(d.year_of_birth,'-',d.month_of_birth,'-',d.date_of_birth), '%m-%d-%Y' )" title="Date of Birth (mm-dd-yy)" primary="false" />
+			<column id="age" name="ROUND( ABS(DATEDIFF( DATE( CONCAT(d.year_of_birth,'-',d.month_of_birth,'-',d.date_of_birth) ), NOW() ) / 365.25), 1)" title="Age Now (years)" primary="false" />
+			
+			<column id="dtap" name="CASE
+					WHEN IFNULL(DTaP.refused, 0) > 0
+					THEN 'refused'
+					ELSE IFNULL( DTaP.id, 0 )
+				END" title="DTaP (4)" primary="false" />
+
+			<column id="pneu" name="CASE
+					WHEN IFNULL( PNEU.refused, 0) > 0
+					THEN 'refused'
+					ELSE IFNULL( PNEU.id, 0 )
+				END" title="Pneu-C (3)" primary="false" />
+		
+			<column id="rot" name="CASE
+					WHEN IFNULL( ROT.refused, 0) > 0
+					THEN 'refused'
+					ELSE IFNULL( ROT.id, 0 )
+				END" title="Rot (2)" primary="false" />
+			
+			<column id="men" name="CASE
+					WHEN IFNULL( MC.refused, 0) > 0
+					THEN 'refused'
+					ELSE IFNULL( MC.id, 0 )
+				END" title="MenC-C (1)" primary="false" />
+			
+			<column id="mmr" name="CASE
+					WHEN IFNULL( MM.refused, 0) > 0
+					THEN 'refused'
+					ELSE IFNULL( MM.id, 0 )
+				END" title="MMR (1)" primary="false" />
+			
+			<column id="vz" name="CASE
+					WHEN IFNULL( VZ.refused, 0)
+					THEN 'refused'
+					ELSE IFNULL( VZ.id, 0 )
+				END" title="VZ (1)" primary="false" />
+		</displayColumns>
+		<exportColumns>
+			<column id="demographic" name="d.demographic_no" title="Patient Id" primary="true" />
+			<column id="name" name="CONCAT( d.last_name, ', ', d.first_name )" title="Patient Name" primary="false" />
+			<column id="dob" name="DATE_FORMAT( CONCAT(d.year_of_birth,'-',d.month_of_birth,'-',d.date_of_birth), '%m-%d-%Y' )" title="Date of Birth (mm-dd-yy)" primary="false" />
+			<column id="age" name="ROUND( ABS(DATEDIFF( DATE( CONCAT(d.year_of_birth,'-',d.month_of_birth,'-',d.date_of_birth) ), NOW() ) / 365.25), 1)" title="Age Now (years)" primary="false" />
+			
+			<column id="dtap" name="CASE
+					WHEN IFNULL(DTaP.refused, 0) > 0
+					THEN 'refused'
+					ELSE IFNULL( DTaP.id, 0 )
+				END" title="DTaP (4)" primary="false" />
+
+			<column id="pneu" name="CASE
+					WHEN IFNULL( PNEU.refused, 0) > 0
+					THEN 'refused'
+					ELSE IFNULL( PNEU.id, 0 )
+				END" title="Pneu-C (3)" primary="false" />
+		
+			<column id="rot" name="CASE
+					WHEN IFNULL( ROT.refused, 0) > 0
+					THEN 'refused'
+					ELSE IFNULL( ROT.id, 0 )
+				END" title="Rot (2)" primary="false" />
+			
+			<column id="men" name="CASE
+					WHEN IFNULL( MC.refused, 0) > 0
+					THEN 'refused'
+					ELSE IFNULL( MC.id, 0 )
+				END" title="MenC-C (1)" primary="false" />
+			
+			<column id="mmr" name="CASE
+					WHEN IFNULL( MM.refused, 0) > 0
+					THEN 'refused'
+					ELSE IFNULL( MM.id, 0 )
+				END" title="MMR (1)" primary="false" />
+			
+			<column id="vz" name="CASE
+					WHEN IFNULL( VZ.refused, 0)
+					THEN 'refused'
+					ELSE IFNULL( VZ.id, 0 )
+				END" title="VZ (1)" primary="false" />
+		</exportColumns>
+		<query>
+			<!-- Drilldown SQL Query here -->				
+			SELECT  
+			*
+			FROM demographic d
+		
+			-- 4 instances of - DTaP-IPV-Hib - Diphtheria, Tetanus, Pertussis, Polio, Haemophilus influenzae type B
+			LEFT JOIN ( 
+				SELECT p.demographic_no, COUNT(p.id) AS id, MAX(p.refused) AS refused
+				FROM preventions p		 
+				WHERE p.prevention_type LIKE ${dTaPIPVHib}
+				AND p.deleted = 0
+				GROUP BY p.demographic_no
+			) DTaP
+			ON (d.demographic_no = DTaP.demographic_no)
+		
+			-- 3 instances of - Pneu-C-13  - Pneumococcal Conjugate 13
+			LEFT JOIN ( 
+				SELECT p.demographic_no, COUNT(p.id) AS id, MAX(p.refused) AS refused
+				FROM preventions p		 
+				WHERE p.prevention_type LIKE ${pneumococcal}
+				AND p.deleted = 0
+				GROUP BY p.demographic_no
+			) PNEU
+			ON (d.demographic_no = PNEU.demographic_no)
+		
+			-- 2 instances of - Rot-1  - Rotavirus
+			LEFT JOIN ( 
+				SELECT p.demographic_no, COUNT(p.id) AS id, MAX(p.refused) AS refused
+				FROM preventions p		 
+				WHERE p.prevention_type LIKE ${rotavirus}
+				AND p.deleted = 0
+				GROUP BY p.demographic_no
+			) ROT
+			ON (d.demographic_no = ROT.demographic_no)
+		
+			-- 1 instance of - Men-C-C  - Meningococcal Conjugate 
+			LEFT JOIN ( 
+				SELECT p.demographic_no, COUNT(p.id) AS id, MAX(p.refused) AS refused
+				FROM preventions p		 
+				WHERE p.prevention_type LIKE ${meningococcal}
+				AND p.deleted = 0
+				GROUP BY p.demographic_no 
+			) MC
+			ON (d.demographic_no = MC.demographic_no)
+		
+			-- 1 instance of - MMR  - Measles, Mumps, Rubella
+			LEFT JOIN ( 
+				SELECT p.demographic_no, COUNT(p.id) AS id, MAX(p.refused) AS refused
+				FROM preventions p		 
+				WHERE p.prevention_type LIKE ${measlesMumpsRubella}
+				AND p.deleted = 0
+				GROUP BY p.demographic_no
+			) MM
+			ON (d.demographic_no = MM.demographic_no)
+		
+			-- 1 instance of - Var  - Varicella
+			LEFT JOIN ( 
+				SELECT p.demographic_no, COUNT(p.id) AS id,  MAX(p.refused) AS refused
+				FROM preventions p		 
+				WHERE p.prevention_type LIKE ${varicella}
+				AND p.deleted = 0
+				GROUP BY p.demographic_no
+			) VZ
+			ON (d.demographic_no = VZ.demographic_no)
+		
+			-- PATIENTS BETWEEN 30 TO 42 MONTHS OLD
+			WHERE d.patient_status LIKE ${pstatus}
+			AND d.demographic_no > 0 
+			AND d.provider_no LIKE ${provider}
+			AND ABS( DATEDIFF( DATE( CONCAT(d.year_of_birth,"-",d.month_of_birth,"-",d.date_of_birth) ), NOW() ) / 365.25 ) 
+				BETWEEN ${lowerLimit.age} AND ${upperLimit.age};
+		</query>
+	</drillDownQuery>
+<shared>true</shared>
+	<sharedMetricSetName>OntarioMD Childhood Immunizations</sharedMetricSetName>
+	<sharedMetricDataId>Status</sharedMetricDataId>
+	<sharedMappings>
+		<sharedMapping fromLabel="% With Complete Immunizations" toLabel="Complete"/>
+		<sharedMapping fromLabel="% Imunizations Not Complete" toLabel="Incomplete"/>
+	</sharedMappings>
+</indicatorTemplateXML>

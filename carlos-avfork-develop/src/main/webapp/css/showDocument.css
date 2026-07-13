@@ -1,0 +1,127 @@
+* {
+    font: 13px/1.231 arial, helvetica, clean, sans-serif;
+    font-size: small !important;
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+}
+
+body, html {
+    height: 100%;
+}
+
+body {
+    top: 0px;
+    left: 0px;
+    margin: 0px;
+    padding: 0px;
+    background-color: #ffffff;
+}
+
+div.content {
+    display: flex;
+    flex-direction: column;
+    flex: 1 0 auto;
+    margin: auto 10px;
+    padding: 10px;
+}
+
+div.content table {
+    border-collapse: collapse;
+    width: 100% !important;
+}
+
+div.content table tr td.pdfPreviewColumn {
+    width: 66%;
+    padding: 9px 15px 9px 0px;
+    text-align: center !important;
+}
+
+div.content table tr td.pdfPreviewColumn div {
+    margin-bottom: 5px;
+    margin-top: 5px;
+}
+
+div.content table tr td.pdfAssignmentToolsColumn {
+    width: 33%;
+}
+
+div.content fieldset input[type="text"] {
+    width: 100%;
+}
+
+div.content table.docTable tr td:nth-of-type(2) fieldset table tr td:first-of-type {
+    padding: 1px 5px;
+    width: 35% !important;
+}
+
+div.content fieldset table tr td input#createNewDemo {
+    width: 100%;
+}
+
+div.content fieldset legend {
+    font-weight: bold;
+}
+
+div.content fieldset table tr td#observation-calendar a {
+    position: relative;
+    top: -20px;
+}
+
+div.content fieldset table tr td#observation-calendar {
+    width: 100%;
+    margin-bottom: 10px;
+}
+
+div.content fieldset table tr td#observation-calendar input {
+    text-align: center;
+}
+
+div.content fieldset table tr td .calendar-icon {
+    padding: 5px;
+    min-width: 40px;
+}
+
+div.content fieldset table tr td input[type="text"], fieldset table tr td select {
+    width: 100%;
+    padding: 5px;
+    text-align: left;
+}
+
+div.content table tr td.pdfPreviewColumn img {
+    max-width: 100%;
+    height: auto;
+    width: auto \9;
+    vertical-align: middle;
+    box-shadow: 0px 1px 3px #333333;
+    -webkit-box-shadow: 0px 1px 3px #333333;
+    -moz-box-shadow: 0px 1px 3px #333333;
+}
+
+.multiPage {
+    background-color: RED;
+    color: WHITE;
+    font-weight: bold;
+    padding: 0px 5px;
+    font-size: medium;
+}
+
+div.content div.provider-list-additions div a {
+    color: red;
+    float: right;
+}
+
+div.content fieldset table tr td ul li a {
+    color: red;
+    margin-left: 5px;
+}
+
+/* Macros dropdown — hover to open */
+.macro-dropdown:hover > .dropdown-menu {
+    display: block;
+}
+.macro-dropdown .dropdown-item:hover,
+.macro-dropdown .dropdown-item:focus {
+    background-color: var(--carlos-primary, #337ab7) !important;
+    color: #fff !important;
+}

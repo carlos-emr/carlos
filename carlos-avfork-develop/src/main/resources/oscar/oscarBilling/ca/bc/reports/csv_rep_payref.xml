@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport name="csv_rep_payref" columnCount="1" printOrder="Vertical" orientation="Portrait" pageWidth="535" pageHeight="842" columnWidth="535" columnSpacing="0" leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0" whenNoDataType="NoPages" isTitleNewPage="false" isSummaryNewPage="false">
+	<property name="ireport.scriptlethandling" value="0" />
+	<import value="java.util.*" />
+	<import value="net.sf.jasperreports.engine.*" />
+	<import value="net.sf.jasperreports.engine.data.*" />
+	<parameter name="startDate" isForPrompting="true" class="java.lang.String">
+		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
+	</parameter>
+	<parameter name="endDate" isForPrompting="true" class="java.lang.String">
+		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
+	</parameter>
+	<parameter name="demNoCnt" isForPrompting="true" class="java.lang.String">
+		<defaultValueExpression><![CDATA["0"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="billCnt" isForPrompting="true" class="java.lang.String">
+		<defaultValueExpression><![CDATA["0"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="billMasterCnt" isForPrompting="true" class="java.lang.String">
+		<defaultValueExpression><![CDATA["0"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="insurers" isForPrompting="true" class="java.lang.String">
+		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
+	</parameter>
+	<parameter name="account" isForPrompting="true" class="java.lang.String">
+		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
+	</parameter>
+	<parameter name="provider" isForPrompting="false" class="java.lang.String" />
+	<parameter name="payee" isForPrompting="false" class="java.lang.String" />
+	<queryString><![CDATA[select provider.first_name,provider.provider_no,provider.last_name,billing.billing_date,billing.billingtype,billingmaster.service_date, billingmaster.billingmaster_no,billing.billing_no,
+billing.demographic_name,billing.demographic_no,billingmaster.billing_unit,billingmaster.billing_code,billingmaster.bill_amount,billingmaster.billingstatus
+from provider,billing,billingmaster
+where billingmaster.billing_no=billing.billing_no 
+and billing.provider_no = provider.provider_no
+and billing.provider_no = 999993
+order by billing.billingtype;]]></queryString>
+	<field name="billingtype" class="java.lang.String" />
+	<field name="paymentDate" class="java.lang.String" />
+	<field name="demoNo" class="java.lang.String" />
+	<field name="demoName" class="java.lang.String" />
+	<field name="amount" class="java.lang.String" />
+	<field name="status" class="java.lang.String" />
+	<field name="serviceDate" class="java.lang.String" />
+	<field name="seqNum" class="java.lang.String" />
+	<field name="exp1" class="java.lang.String" />
+	<field name="exp2" class="java.lang.String" />
+	<field name="apptDoctorNo" class="java.lang.String" />
+	<field name="accountName" class="java.lang.String" />
+	<field name="payeeName" class="java.lang.String" />
+	<field name="provName" class="java.lang.String" />
+	<field name="type" class="java.lang.String" />
+	<field name="acctInit" class="java.lang.String" />
+	<field name="paymentMethod" class="java.lang.String" />
+	<field name="paymentMethodName" class="java.lang.String" />
+	<variable name="test" class="java.lang.String" resetType="None" calculation="Nothing">
+		<variableExpression><![CDATA["test"]]></variableExpression>
+		<initialValueExpression><![CDATA["test"		]]></initialValueExpression>
+	</variable>
+	<variable name="invTotal" class="java.lang.Double" resetType="Report" calculation="Sum">
+		<variableExpression><![CDATA[new Double($F{amount})]]></variableExpression>
+	</variable>
+	<variable name="methTotal" class="java.lang.Double" resetType="Group" resetGroup="payMeth" calculation="Sum">
+		<variableExpression><![CDATA[new Double($F{amount})]]></variableExpression>
+	</variable>
+	<group name="payMeth" isStartNewColumn="false" isStartNewPage="false" isResetPageNumber="false" isReprintHeaderOnEachPage="false" minHeightToStartNewPage="0">
+		<groupExpression><![CDATA[$F{paymentMethodName}]]></groupExpression>
+		<groupHeader>
+			<band height="0">
+			</band>
+		</groupHeader>
+		<groupFooter>
+			<band height="0">
+			</band>
+		</groupFooter>
+	</group>
+	<background height="0">
+		</background>
+	<title height="11">
+		<element kind="staticText" positionType="FixRelativeToTop" stretchType="NoStretch" mode="Opaque" x="0" y="0" width="63" height="10" forecolor="#000000" backcolor="#FFFFFF" key="element-90" hTextAlign="Left" vTextAlign="Middle" fontName="" fontSize="5.0" bold="false" italic="false" underline="false" strikeThrough="false" pdfFontName="Times-Roman" pdfEncoding="Cp1250" pdfEmbedded="false" rotation="None" isRemoveLineWhenBlank="false" isPrintRepeatedValues="true" isPrintInFirstWholeBand="false" isPrintWhenDetailOverflows="false" lineSpacing="Single">
+			<box topBorder="None" topBorderColor="#000000" leftBorder="None" leftBorderColor="#000000" rightBorder="None" rightBorderColor="#FFFFFF" bottomBorder="None" bottomBorderColor="#000000" />
+			<text><![CDATA[PMT Date]]></text>
+		</element>
+		<element kind="staticText" positionType="FixRelativeToTop" stretchType="NoStretch" mode="Opaque" x="101" y="0" width="35" height="10" forecolor="#000000" backcolor="#FFFFFF" key="element-90" hTextAlign="Left" vTextAlign="Middle" fontName="" fontSize="5.0" bold="false" italic="false" underline="false" strikeThrough="false" pdfFontName="Times-Roman" pdfEncoding="Cp1250" pdfEmbedded="false" rotation="None" isRemoveLineWhenBlank="false" isPrintRepeatedValues="true" isPrintInFirstWholeBand="false" isPrintWhenDetailOverflows="false" lineSpacing="Single">
+			<box topBorder="None" topBorderColor="#000000" leftBorder="None" leftBorderColor="#000000" rightBorder="None" rightBorderColor="#FFFFFF" bottomBorder="None" bottomBorderColor="#000000" />
+			<text><![CDATA[Insurer]]></text>
+		</element>
+		<element kind="staticText" positionType="FixRelativeToTop" stretchType="NoStretch" mode="Opaque" x="401" y="0" width="48" height="10" forecolor="#000000" backcolor="#FFFFFF" key="element-90" hTextAlign="Left" vTextAlign="Middle" fontName="" fontSize="5.0" bold="false" italic="false" underline="false" strikeThrough="false" pdfFontName="Times-Roman" pdfEncoding="Cp1250" pdfEmbedded="false" rotation="None" isRemoveLineWhenBlank="false" isPrintRepeatedValues="true" isPrintInFirstWholeBand="false" isPrintWhenDetailOverflows="false" lineSpacing="Single">
+			<box topBorder="None" topBorderColor="#000000" leftBorder="None" leftBorderColor="#000000" rightBorder="None" rightBorderColor="#FFFFFF" bottomBorder="None" bottomBorderColor="#000000" />
+			<text><![CDATA[ServDate]]></text>
+		</element>
+		<element kind="staticText" positionType="FixRelativeToTop" stretchType="NoStretch" mode="Opaque" x="345" y="0" width="56" height="10" forecolor="#000000" backcolor="#FFFFFF" key="element-90" hTextAlign="Left" vTextAlign="Middle" fontName="" fontSize="5.0" bold="false" italic="false" underline="false" strikeThrough="false" pdfFontName="Times-Roman" pdfEncoding="Cp1250" pdfEmbedded="false" rotation="None" isRemoveLineWhenBlank="false" isPrintRepeatedValues="true" isPrintInFirstWholeBand="false" isPrintWhenDetailOverflows="false" lineSpacing="Single">
+			<box topBorder="None" topBorderColor="#000000" leftBorder="None" leftBorderColor="#000000" rightBorder="None" rightBorderColor="#FFFFFF" bottomBorder="None" bottomBorderColor="#000000" />
+			<text><![CDATA[Line#]]></text>
+		</element>
+		<element kind="staticText" positionType="FixRelativeToTop" stretchType="NoStretch" mode="Opaque" x="169" y="0" width="105" height="10" forecolor="#000000" backcolor="#FFFFFF" key="element-90" hTextAlign="Left" vTextAlign="Middle" fontName="" fontSize="5.0" bold="false" italic="false" underline="false" strikeThrough="false" pdfFontName="Times-Roman" pdfEncoding="Cp1250" pdfEmbedded="false" rotation="None" isRemoveLineWhenBlank="false" isPrintRepeatedValues="true" isPrintInFirstWholeBand="false" isPrintWhenDetailOverflows="false" lineSpacing="Single">
+			<box topBorder="None" topBorderColor="#000000" leftBorder="None" leftBorderColor="#000000" rightBorder="None" rightBorderColor="#FFFFFF" bottomBorder="None" bottomBorderColor="#000000" />
+			<text><![CDATA[Patient]]></text>
+		</element>
+		<element kind="staticText" positionType="FixRelativeToTop" stretchType="NoStretch" mode="Opaque" x="274" y="0" width="32" height="10" forecolor="#000000" backcolor="#FFFFFF" key="element-90" hTextAlign="Center" vTextAlign="Middle" fontName="" fontSize="5.0" bold="false" italic="false" underline="false" strikeThrough="false" pdfFontName="Times-Roman" pdfEncoding="Cp1250" pdfEmbedded="false" rotation="None" isRemoveLineWhenBlank="false" isPrintRepeatedValues="true" isPrintInFirstWholeBand="false" isPrintWhenDetailOverflows="false" lineSpacing="Single">
+			<box topBorder="None" topBorderColor="#000000" leftBorder="None" leftBorderColor="#000000" rightBorder="None" rightBorderColor="#FFFFFF" bottomBorder="None" bottomBorderColor="#000000" />
+			<text><![CDATA[Amt]]></text>
+		</element>
+		<element kind="staticText" positionType="FixRelativeToTop" stretchType="NoStretch" mode="Opaque" x="449" y="0" width="25" height="10" forecolor="#000000" backcolor="#FFFFFF" key="element-92" hTextAlign="Left" vTextAlign="Middle" fontName="" fontSize="5.0" bold="false" italic="false" underline="false" strikeThrough="false" pdfFontName="Times-Roman" pdfEncoding="Cp1250" pdfEmbedded="false" rotation="None" isRemoveLineWhenBlank="false" isPrintRepeatedValues="true" isPrintInFirstWholeBand="false" isPrintWhenDetailOverflows="false" lineSpacing="Single">
+			<box topBorder="None" topBorderColor="#000000" leftBorder="None" leftBorderColor="#000000" rightBorder="None" rightBorderColor="#FFFFFF" bottomBorder="None" bottomBorderColor="#000000" />
+			<text><![CDATA[Pract]]></text>
+		</element>
+		<element kind="staticText" positionType="FixRelativeToTop" stretchType="NoStretch" mode="Opaque" x="136" y="0" width="33" height="10" forecolor="#000000" backcolor="#FFFFFF" key="element-93" hTextAlign="Left" vTextAlign="Middle" fontName="" fontSize="5.0" bold="false" italic="false" underline="false" strikeThrough="false" pdfFontName="Times-Roman" pdfEncoding="Cp1250" pdfEmbedded="false" rotation="None" isRemoveLineWhenBlank="false" isPrintRepeatedValues="true" isPrintInFirstWholeBand="false" isPrintWhenDetailOverflows="false" lineSpacing="Single">
+			<box topBorder="None" topBorderColor="#000000" leftBorder="None" leftBorderColor="#000000" rightBorder="None" rightBorderColor="#FFFFFF" bottomBorder="None" bottomBorderColor="#000000" />
+			<text><![CDATA[Account]]></text>
+		</element>
+		<element kind="staticText" positionType="FixRelativeToTop" stretchType="NoStretch" mode="Opaque" x="306" y="0" width="39" height="10" forecolor="#000000" backcolor="#FFFFFF" key="element-94" hTextAlign="Left" vTextAlign="Middle" fontName="" fontSize="5.0" bold="false" italic="false" underline="false" strikeThrough="false" pdfFontName="Times-Roman" pdfEncoding="Cp1250" pdfEmbedded="false" rotation="None" isRemoveLineWhenBlank="false" isPrintRepeatedValues="true" isPrintInFirstWholeBand="false" isPrintWhenDetailOverflows="false" lineSpacing="Single">
+			<box topBorder="None" topBorderColor="#000000" leftBorder="None" leftBorderColor="#000000" rightBorder="None" rightBorderColor="#FFFFFF" bottomBorder="None" bottomBorderColor="#000000" />
+			<text><![CDATA[Reference]]></text>
+		</element>
+		<element kind="staticText" positionType="FixRelativeToTop" stretchType="NoStretch" mode="Opaque" x="63" y="0" width="38" height="10" forecolor="#000000" backcolor="#FFFFFF" key="element-95" hTextAlign="Left" vTextAlign="Middle" fontName="" fontSize="5.0" bold="false" italic="false" underline="false" strikeThrough="false" pdfFontName="Times-Roman" pdfEncoding="Cp1250" pdfEmbedded="false" rotation="None" isRemoveLineWhenBlank="false" isPrintRepeatedValues="true" isPrintInFirstWholeBand="false" isPrintWhenDetailOverflows="false" lineSpacing="Single">
+			<box topBorder="None" topBorderColor="#000000" leftBorder="None" leftBorderColor="#000000" rightBorder="None" rightBorderColor="#FFFFFF" bottomBorder="None" bottomBorderColor="#000000" />
+			<text><![CDATA[Type]]></text>
+		</element>
+	</title>
+	<pageHeader height="0">
+		</pageHeader>
+	<columnHeader height="0">
+		</columnHeader>
+	<detail>
+		<band height="13">
+			<element kind="textField" positionType="FixRelativeToTop" stretchType="NoStretch" mode="Transparent" x="101" y="1" width="35" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Middle" fontName="Times-Roman" fontSize="8.0" bold="false" italic="false" underline="false" strikeThrough="false" pdfFontName="Times-Roman" pdfEncoding="CP1252" pdfEmbedded="false" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="" evaluationTime="Now" isRemoveLineWhenBlank="false" hyperlinkType="None" hyperlinkTarget="Self" isPrintRepeatedValues="true" isPrintInFirstWholeBand="false" isPrintWhenDetailOverflows="false" lineSpacing="Single">
+				<box topBorder="None" topBorderColor="#000000" leftBorder="None" leftBorderColor="#000000" rightBorder="None" rightBorderColor="#FFFFFF" bottomBorder="None" bottomBorderColor="#000000" />
+				<expression><![CDATA[$F{billingtype}]]></expression>
+			</element>
+			<element kind="textField" positionType="FixRelativeToTop" stretchType="NoStretch" mode="Transparent" x="401" y="1" width="48" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Middle" fontName="Times-Roman" fontSize="8.0" bold="false" italic="false" underline="false" strikeThrough="false" pdfFontName="Times-Roman" pdfEncoding="CP1252" pdfEmbedded="false" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="dd-MMM-yy" evaluationTime="Now" isRemoveLineWhenBlank="false" hyperlinkType="None" hyperlinkTarget="Self" isPrintRepeatedValues="true" isPrintInFirstWholeBand="false" isPrintWhenDetailOverflows="false" lineSpacing="Single">
+				<box topBorder="None" topBorderColor="#000000" leftBorder="None" leftBorderColor="#000000" rightBorder="None" rightBorderColor="#FFFFFF" bottomBorder="None" bottomBorderColor="#000000" />
+				<expression><![CDATA[new SimpleDateFormat("yyyyddmm").parse($F{serviceDate})]]></expression>
+			</element>
+			<element kind="textField" positionType="FixRelativeToTop" stretchType="NoStretch" mode="Transparent" x="345" y="1" width="56" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Middle" fontName="Times-Roman" fontSize="8.0" bold="false" italic="false" underline="false" strikeThrough="false" pdfFontName="Times-Roman" pdfEncoding="CP1252" pdfEmbedded="false" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="" evaluationTime="Now" isRemoveLineWhenBlank="false" hyperlinkType="None" hyperlinkTarget="Self" isPrintRepeatedValues="true" isPrintInFirstWholeBand="false" isPrintWhenDetailOverflows="false" lineSpacing="Single">
+				<box topBorder="None" topBorderColor="#000000" leftBorder="None" leftBorderColor="#000000" rightBorder="None" rightBorderColor="#FFFFFF" bottomBorder="None" bottomBorderColor="#000000" />
+				<expression><![CDATA[$F{seqNum}]]></expression>
+			</element>
+			<element kind="textField" positionType="FixRelativeToTop" stretchType="NoStretch" mode="Transparent" x="169" y="1" width="105" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Middle" fontName="Times-Roman" fontSize="8.0" bold="false" italic="false" underline="false" strikeThrough="false" pdfFontName="Times-Roman" pdfEncoding="CP1252" pdfEmbedded="false" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="" evaluationTime="Now" isRemoveLineWhenBlank="false" hyperlinkType="None" hyperlinkTarget="Self" isPrintRepeatedValues="true" isPrintInFirstWholeBand="false" isPrintWhenDetailOverflows="false" lineSpacing="Single">
+				<box topBorder="None" topBorderColor="#000000" leftBorder="None" leftBorderColor="#000000" rightBorder="None" rightBorderColor="#FFFFFF" bottomBorder="None" bottomBorderColor="#000000" />
+				<expression><![CDATA[$F{demoName} + "(" + $F{demoNo} + ")"]]></expression>
+			</element>
+			<element kind="textField" positionType="FixRelativeToTop" stretchType="NoStretch" mode="Transparent" x="274" y="1" width="32" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Middle" fontName="Times-Roman" fontSize="8.0" bold="false" italic="false" underline="false" strikeThrough="false" pdfFontName="Times-Roman" pdfEncoding="CP1252" pdfEmbedded="false" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="" evaluationTime="Now" isRemoveLineWhenBlank="false" hyperlinkType="None" hyperlinkTarget="Self" isPrintRepeatedValues="true" isPrintInFirstWholeBand="false" isPrintWhenDetailOverflows="false" lineSpacing="Single">
+				<box topBorder="None" topBorderColor="#000000" leftBorder="None" leftBorderColor="#000000" rightBorder="None" rightBorderColor="#FFFFFF" bottomBorder="None" bottomBorderColor="#000000" />
+				<expression><![CDATA[NumberFormat.getCurrencyInstance().format(new Double($F{amount}))]]></expression>
+			</element>
+			<element kind="textField" positionType="FixRelativeToTop" stretchType="NoStretch" mode="Transparent" x="0" y="1" width="63" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField-2" hTextAlign="Left" vTextAlign="Middle" fontName="Times-Roman" fontSize="8.0" bold="false" italic="false" underline="false" strikeThrough="false" pdfFontName="Times-Roman" pdfEncoding="CP1252" pdfEmbedded="false" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="dd-MMM-yy" evaluationTime="Now" isRemoveLineWhenBlank="false" hyperlinkType="None" hyperlinkTarget="Self" isPrintRepeatedValues="true" isPrintInFirstWholeBand="false" isPrintWhenDetailOverflows="false" lineSpacing="Single">
+				<box topBorder="None" topBorderColor="#000000" leftBorder="None" leftBorderColor="#000000" rightBorder="None" rightBorderColor="#FFFFFF" bottomBorder="None" bottomBorderColor="#000000" />
+				<expression><![CDATA[new SimpleDateFormat("yyyyddmm").parse($F{paymentDate})]]></expression>
+			</element>
+			<element kind="textField" positionType="FixRelativeToTop" stretchType="NoStretch" mode="Transparent" x="136" y="1" width="33" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField-6" hTextAlign="Left" vTextAlign="Middle" fontName="Times-Roman" fontSize="8.0" bold="false" italic="false" underline="false" strikeThrough="false" pdfFontName="Times-Roman" pdfEncoding="CP1252" pdfEmbedded="false" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="" evaluationTime="Now" isRemoveLineWhenBlank="false" hyperlinkType="None" hyperlinkTarget="Self" isPrintRepeatedValues="true" isPrintInFirstWholeBand="false" isPrintWhenDetailOverflows="false" lineSpacing="Single">
+				<box topBorder="None" topBorderColor="#000000" leftBorder="None" leftBorderColor="#000000" rightBorder="None" rightBorderColor="#FFFFFF" bottomBorder="None" bottomBorderColor="#000000" />
+				<expression><![CDATA[$F{acctInit}]]></expression>
+			</element>
+			<element kind="textField" positionType="FixRelativeToTop" stretchType="NoStretch" mode="Transparent" x="449" y="1" width="25" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField-7" hTextAlign="Left" vTextAlign="Middle" fontName="Times-Roman" fontSize="8.0" bold="false" italic="false" underline="false" strikeThrough="false" pdfFontName="Times-Roman" pdfEncoding="CP1252" pdfEmbedded="false" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="" evaluationTime="Now" isRemoveLineWhenBlank="false" hyperlinkType="None" hyperlinkTarget="Self" isPrintRepeatedValues="true" isPrintInFirstWholeBand="false" isPrintWhenDetailOverflows="false" lineSpacing="Single">
+				<box topBorder="None" topBorderColor="#000000" leftBorder="None" leftBorderColor="#000000" rightBorder="None" rightBorderColor="#FFFFFF" bottomBorder="None" bottomBorderColor="#000000" />
+				<expression><![CDATA[$F{provName}]]></expression>
+			</element>
+			<element kind="textField" positionType="FixRelativeToTop" stretchType="NoStretch" mode="Transparent" x="63" y="1" width="38" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField-14" hTextAlign="Left" vTextAlign="Middle" fontName="Times-Roman" fontSize="8.0" bold="false" italic="false" underline="false" strikeThrough="false" pdfFontName="Times-Roman" pdfEncoding="CP1252" pdfEmbedded="false" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="" evaluationTime="Now" isRemoveLineWhenBlank="false" hyperlinkType="None" hyperlinkTarget="Self" isPrintRepeatedValues="true" isPrintInFirstWholeBand="false" isPrintWhenDetailOverflows="false" lineSpacing="Single">
+				<box topBorder="None" topBorderColor="#000000" leftBorder="None" leftBorderColor="#000000" rightBorder="None" rightBorderColor="#FFFFFF" bottomBorder="None" bottomBorderColor="#000000" />
+				<expression><![CDATA[$F{type}]]></expression>
+			</element>
+			<element kind="textField" positionType="FixRelativeToTop" stretchType="NoStretch" mode="Transparent" x="306" y="1" width="39" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField-15" hTextAlign="Left" vTextAlign="Middle" fontName="Times-Roman" fontSize="8.0" bold="false" italic="false" underline="false" strikeThrough="false" pdfFontName="Times-Roman" pdfEncoding="CP1252" pdfEmbedded="false" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="" evaluationTime="Now" isRemoveLineWhenBlank="false" hyperlinkType="None" hyperlinkTarget="Self" isPrintRepeatedValues="true" isPrintInFirstWholeBand="false" isPrintWhenDetailOverflows="false" lineSpacing="Single">
+				<box topBorder="None" topBorderColor="#000000" leftBorder="None" leftBorderColor="#000000" rightBorder="None" rightBorderColor="#FFFFFF" bottomBorder="None" bottomBorderColor="#000000" />
+				<expression><![CDATA[$F{exp1}+$F{exp2}]]></expression>
+			</element>
+		</band>
+	</detail>
+	<columnFooter height="0">
+		</columnFooter>
+	<pageFooter height="0">
+		</pageFooter>
+	<summary height="0">
+		</summary>
+</jasperReport>

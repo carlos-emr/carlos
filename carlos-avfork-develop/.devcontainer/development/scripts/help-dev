@@ -1,0 +1,96 @@
+#!/usr/bin/env sh
+
+# Help script for OpenO EMR Development Environment
+
+cat << "EOF"
+=============================================================
+OpenO EMR Development Environment - Command Reference
+=============================================================
+
+BUILD & DEPLOY COMMANDS:
+  make clean              Clean project and remove deployed app
+  make install            Build and deploy (skip tests)
+  make install --run-tests Build, test, and deploy
+  make jspc               Compile JSPs only
+  make lock               Update Maven dependency lock file
+  make help               Show make command usage
+
+DOCUMENTATION COMMANDS:
+  make docs               Generate all docs and build static site
+  make docs-serve         Start Docusaurus dev server (port 3000)
+
+SERVER MANAGEMENT:
+  server start            Start Tomcat server
+  server stop             Stop Tomcat server  
+  server restart          Restart Tomcat server
+  server log              Tail Tomcat logs (catalina.out)
+
+MAIL MANAGEMENT:
+  mail start              Start Postfix mail server
+  mail stop               Stop Postfix mail server
+  mail status             Show Postfix server status
+  mail restart            Restart Postfix mail server
+  mail log                Tail Postfix logs (mail.log)
+
+AI CODING ASSISTANTS:
+  claude                  Claude Code CLI (Anthropic)
+  copilot                 GitHub Copilot CLI
+  codex                   OpenAI Codex CLI
+  gemini                  Google Gemini CLI
+  aider                   AI pair programming assistant
+  aider --model claude-3-5-sonnet-20241022
+  aider --model gpt-4-turbo
+  gh pr create            Create GitHub pull request
+
+DATABASE ACCESS:
+  db-connect              Connect to MariaDB as root
+  mysql -h db -u root -ppassword oscar
+
+MAVEN OPERATIONS:
+  mvn clean compile       Build Java project
+  mvn test                Run test suite
+  mvn package             Create WAR file
+  mvn javadoc:javadoc     Generate Javadoc HTML
+
+DEBUGGING:
+  debug-on                Enable DEBUG logging level
+  debug-off               Return to INFO logging level
+
+CONTAINER PORTS:
+  Main app:  http://localhost:8080/carlos
+  Debug:     http://localhost:8000
+  Database:  localhost:3306
+  Docs:      http://localhost:3000
+
+HEALTHCARE EMR CONTEXT:
+  • Project: OpenO EMR (NOT OSCAR EMR)
+  • Follow PIPEDA/HIPAA compliance
+  • Use 2Action pattern for Struts2 migration
+  • Package namespace: io.github.carlos_emr.carlos.*
+  • Security: OWASP encoding required
+  • Always check SecurityInfoManager.hasPrivilege()
+
+PROJECT FILES:
+  CLAUDE.md               AI context and project guidelines
+  pom.xml                 Maven configuration (200+ deps)
+  database/mysql/         Schema and migrations
+  .devcontainer/          Docker development setup
+
+QUICK ALIASES:
+  ll                      List files (detailed)
+  build                   mvn clean compile
+  test-build              mvn test
+  package-war             mvn package
+  logs-tomcat             Tail Tomcat logs
+  claude-help             Show AI context (first 50 lines)
+
+GIT WORKFLOW:
+  git status              Check current changes
+  git diff                View uncommitted changes
+  git log --oneline -10   Recent commits
+  gh pr create            Create pull request
+
+=============================================================
+Type 'make help' for build options or 'server help' for server management
+=============================================================
+EOF

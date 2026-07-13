@@ -1,0 +1,54 @@
+
+.quill-placeholder-provider {
+    color: #212529 !important;
+    background-color: #8bb5ff !important;
+}
+
+.quill-placeholder-demographic {
+    color: #212529 !important;
+    background-color: #77ff8c !important;
+}
+
+.quill-placeholder-global, .quill-placeholder-eformAp, .quill-placeholder-appointment {
+    color: #212529 !important;
+    background-color: #ffea7b !important;
+}
+
+.quill-placeholder {
+    display: inline-block;
+    padding: .25em .4em;
+    font-size: 85%;
+    font-weight: 700;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: baseline;
+    border-radius: .25rem;
+}
+
+.quill-placeholder-block {
+    display: block;
+    width: 300px;
+    white-space: pre-wrap;
+    text-align: left;
+}
+
+.quill-placeholder-no-value:after {
+    content: " *";
+    color: red;
+}
+
+.center-row-content {
+    -webkit-box-pack: center !important;
+    -webkit-justify-content: center !important;
+    -ms-flex-pack: center !important;
+    justify-content: center !important;
+    display: flex !important;
+}
+
+.short-code-preview {
+    max-height: 100px;
+    overflow-y: scroll;
+    display: inline-block;
+    width: 100%;
+}

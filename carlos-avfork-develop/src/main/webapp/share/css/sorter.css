@@ -1,0 +1,245 @@
+* {
+    font-family: arial, helvetica, sans-serif;
+    font-size: small;
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+}
+
+body, html {
+    margin: 0;
+    padding: 0;
+    top: 0;
+    left: 0;
+    background-color: #ffffff;
+}
+
+body, html {
+    height: 100%;
+    scroll-behavior: unset;
+    overflow-x: unset;
+    overflow-y: unset;
+    overflow-x: -moz-hidden-unscrollable;
+    overflow-y: -moz-hidden-unscrollable;
+}
+
+#mastercontainer {
+    margin: 15px;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    overflow: hidden;
+}
+
+#mastercontainer #buildercontainer #builderContainerWindow img,
+#mastercontainer #pickercontainer #pickercontainerWindow img {
+    max-width: 100%;
+    height: auto;
+    width: auto \9;
+}
+
+#mastercontainer #buildercontainer #builderContainerWindow img,
+#mastercontainer #pickercontainer #pickercontainerWindow img,
+#mastercontainer #pickercontainer #pickercontainerWindow canvas,
+#mastercontainer #buildercontainer #builderContainerWindow canvas {
+    vertical-align: middle;
+    box-shadow: 0px 1px 3px #333333;
+    -webkit-box-shadow: 0px 1px 3px #333333;
+    -moz-box-shadow: 0px 1px 3px #333333;
+}
+
+#mastercontainer div#pickercontainer {
+    margin: 0px;
+    padding: 0px;
+    text-align: right;
+    width: 33%;
+    margin-left: 15px;
+}
+
+#mastercontainer #pickercontainer #pickercontainerWindow {
+    overflow-y: scroll;
+    overflow-x: hidden;
+    margin: 0px;
+    padding: 0px;
+}
+
+#mastercontainer div#buildercontainer {
+    margin: 0px;
+    padding: 0px;
+    text-align: left;
+    width: 66%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: baseline;
+}
+
+#mastercontainer #buildercontainer div#builderContainerWindow {
+    min-height: 250px;
+    width: 100%;
+    overflow-y: hidden;
+    overflow-x: auto;
+}
+
+#mastercontainer #pickercontainer ul#picker,
+#mastercontainer #buildercontainer #builderContainerWindow ul#builder {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+#mastercontainer #buildercontainer #builderContainerWindow ul#builder {
+    display: flex;
+    flex-wrap: nowrap;
+    flex-direction: row;
+
+}
+
+#mastercontainer #pickercontainer ul#picker li,
+#mastercontainer #buildercontainer #builderContainerWindow ul#builder li {
+    list-style: none;
+    position: relative;
+    padding: 0px;
+}
+
+#mastercontainer #buildercontainer #builderContainerWindow ul#builder li {
+    display: inline-block;
+    max-width: 450px;
+    margin-right: 10px;
+    flex-shrink: 0;
+}
+
+#mastercontainer #buildercontainer ul#builder li:last-of-type {
+    margin-right: 0px !important;
+}
+
+#mastercontainer #pickercontainer ul#picker li {
+    margin-bottom: 10px;
+}
+
+#mastercontainer #pickercontainer ul#picker li:last-of-type {
+    margin-bottom: 0px !important;
+}
+
+#mastercontainer #pickercontainer ul#picker li div,
+#mastercontainer #buildercontainer #builderContainerWindow ul#builder li div {
+    border: #FFF 3px solid;
+}
+
+#mastercontainer #buildercontainer #builderContainerWindow ul#builder li div {
+    display: inline-block;
+}
+
+#mastercontainer #pickercontainer ul#picker li div span.num,
+#mastercontainer #buildercontainer #builderContainerWindow ul#builder li div span.num {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    padding-top: 3px;
+    padding-bottom: 2px;
+    padding-left: 5px;
+    padding-right: 5px;
+    color: black;
+    opacity: 0.3;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 150px;
+}
+
+#mastercontainer h2 {
+    text-align: left;
+    color: black;
+    opacity: 0.3;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 19pt;
+}
+
+#mastercontainer #pickercontainer ul#picker li div:hover,
+#mastercontainer #buildercontainer #builderContainerWindow ul#builder li div:hover {
+    cursor: pointer;
+    border: 3px solid yellow;
+}
+
+#mastercontainer #pickercontainer ul#picker li div.selected,
+#mastercontainer #buildercontainer #builderContainerWindow ul#builder li div.selected {
+    border: 3px solid red;
+}
+
+#mastercontainer #pickercontainer ul#picker li div.rotated:hover {
+    top: -3px;
+}
+
+#mastercontainer #buildercontainer #pickertoolscontainer {
+    display: block;
+    padding: 0;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    background-color: white;
+    border-top: 1px solid gray;
+}
+
+
+#mastercontainer #buildercontainer #pickertoolscontainer ul#pickertools li {
+    display: inline-block;
+    margin-right: 5px;
+    margin-top: 5px;
+    padding: 8px;
+    font-weight: bold;
+    font-size: 14px;
+    position: relative;
+    border-radius: 8px;
+    -moz-border-radius: 8px;
+    border: 1px solid gray;
+    cursor: pointer;
+    background-color: white;
+}
+
+#mastercontainer #buildercontainer #pickertoolscontainer ul#pickertools li:hover {
+    box-shadow: inset 0 0 5px #333333;
+    -moz-box-shadow: inset 0 0 5px #333333;
+    -webkit-box-shadow: inset 0 0 5px #333333;
+}
+
+#mastercontainer #buildercontainer #pickertoolscontainer ul#pickertools li span {
+    position: relative;
+    top: 1px;
+}
+
+#mastercontainer #buildercontainer #pickertoolscontainer ul#pickertools li img {
+    margin-right: 8px;
+    position: relative;
+    top: 3px;
+}
+
+.accept-drop {
+    background: lightred;
+}
+
+.ui-dialog img {
+    margin-top: 5px;
+    box-shadow: 0px 1px 3px #333333;
+    -webkit-box-shadow: 0px 1px 3px #333333;
+    -moz-box-shadow: 0px 1px 3px #333333;
+}
+
+.jog-control {
+    display: none;
+    position: absolute;
+    right: 15;
+    top: 10;
+}
+
+.jog-control img {
+    background: black;
+    margin: 4px;
+    padding: 8px;
+}
+
+.jog-control {
+    display: inline;
+}
+

@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema targetNamespace="http://hcv.health.ontario.ca/" version="1.0" xmlns:tns="http://hcv.health.ontario.ca/" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="validate" type="tns:validate"/>
+  <xs:element name="validateResponse" type="tns:validateResponse"/>
+  <xs:complexType name="validate">
+    <xs:sequence>
+      <xs:element name="requests" type="tns:requests"/>
+      <xs:element minOccurs="0" name="locale" type="tns:lc"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:simpleType name="lc">
+    <xs:restriction base="xs:string">
+      <xs:pattern value=""/>
+      <xs:pattern value="  "/>
+      <xs:pattern value="en"/>
+      <xs:pattern value="fr"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:complexType name="requests">
+    <xs:sequence>
+      <xs:element maxOccurs="100" name="hcvRequest" type="tns:hcvRequest"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="hcvRequest">
+    <xs:sequence>
+      <xs:element minOccurs="1" name="healthNumber" type="tns:hn"/>
+      <xs:element minOccurs="1" name="versionCode" type="tns:vc"/>
+      <xs:element maxOccurs="5" minOccurs="0" name="feeServiceCodes" nillable="true" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:simpleType name="hn">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[1-9]\d{9}"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="vc">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[A-Z]{0,2}"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:complexType name="validateResponse">
+    <xs:sequence>
+      <xs:element minOccurs="1" name="results" type="tns:hcvResults"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="hcvResults">
+    <xs:sequence>
+      <xs:element minOccurs="1" name="auditUID" type="xs:string"/>
+      <xs:element maxOccurs="unbounded" minOccurs="1" name="results" nillable="true" type="tns:person"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:simpleType name="sex">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="M"/>
+      <xs:pattern value="F"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:complexType name="person">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="dateOfBirth" type="xs:dateTime"/>
+      <xs:element minOccurs="0" name="expiryDate" type="xs:dateTime"/>
+      <xs:element minOccurs="0" name="firstName" type="xs:string"/>
+      <xs:element minOccurs="0" name="gender" type="tns:sex"/>
+      <xs:element minOccurs="1" name="healthNumber" type="tns:hn"/>
+      <xs:element minOccurs="0" name="lastName" type="xs:string"/>
+      <xs:element minOccurs="1" name="responseAction" type="xs:string"/>
+      <xs:element minOccurs="1" name="responseCode" type="xs:string"/>
+      <xs:element minOccurs="1" name="responseDescription" type="xs:string"/>
+      <xs:element minOccurs="1" name="responseID" type="tns:responseID"/>
+      <xs:element minOccurs="0" name="secondName" type="xs:string"/>
+      <xs:element minOccurs="1" name="versionCode" type="tns:vc"/>
+      <xs:element maxOccurs="unbounded" minOccurs="0" name="feeServiceDetails" type="tns:feeServiceDetails"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="feeServiceDetails">
+    <xs:sequence>
+      <xs:element minOccurs="1" name="feeServiceCode" type="xs:string"/>
+      <xs:element minOccurs="0" name="feeServiceDate" type="xs:dateTime"/>
+      <xs:element minOccurs="1" name="feeServiceResponseCode" type="xs:string"/>
+      <xs:element minOccurs="1" name="feeServiceResponseDescription" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:simpleType name="responseID">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="INFO_NOT_AVAIL"/>
+      <xs:enumeration value="LOST_STATE_ND"/>
+      <xs:enumeration value="LOST_STATE"/>
+      <xs:enumeration value="DAMAGED_STATE_ND"/>
+      <xs:enumeration value="DAMAGED_STATE"/>
+      <xs:enumeration value="IS_VOID_NEVER_ISS_ND"/>
+      <xs:enumeration value="IS_VOID_NEVER_ISS"/>
+      <xs:enumeration value="IS_CANCELLED_OR_VOIDED_ND"/>
+      <xs:enumeration value="IS_CANCELLED_OR_VOIDED"/>
+      <xs:enumeration value="IS_STOLEN_ND"/>
+      <xs:enumeration value="IS_STOLEN"/>
+      <xs:enumeration value="INVALID_VERSION_CODE_ND"/>
+      <xs:enumeration value="INVALID_VERSION_CODE"/>
+      <xs:enumeration value="RETURNED_MAIL_ND"/>
+      <xs:enumeration value="RETURNED_MAIL"/>
+      <xs:enumeration value="IS_THC_ND"/>
+      <xs:enumeration value="IS_THC"/>
+      <xs:enumeration value="IS_RQ_HAS_EXPIRED_ND"/>
+      <xs:enumeration value="IS_RQ_HAS_EXPIRED"/>
+      <xs:enumeration value="IS_RQ_FUTURE_ISSUE"/>
+      <xs:enumeration value="IS_RQ_FUTURE_ISSUE_ND"/>
+      <xs:enumeration value="HAS_NOTICE_ND"/>
+      <xs:enumeration value="HAS_NOTICE"/>
+      <xs:enumeration value="IS_ON_ACTIVE_ROSTER_ND"/>
+      <xs:enumeration value="IS_ON_ACTIVE_ROSTER"/>
+      <xs:enumeration value="NOT_ON_ACTIVE_ROSTER_ND"/>
+      <xs:enumeration value="NOT_ON_ACTIVE_ROSTER"/>
+      <xs:enumeration value="IS_NOT_ELIGIBLE_ND"/>
+      <xs:enumeration value="IS_NOT_ELIGIBLE"/>
+      <xs:enumeration value="IS_IN_DISTRIBUTED_STATUS"/>
+      <xs:enumeration value="FAILED_MOD10"/>
+      <xs:enumeration value="NOT_10_DIGITS"/>
+      <xs:enumeration value="SUCCESS"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>

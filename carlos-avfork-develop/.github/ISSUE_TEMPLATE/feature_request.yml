@@ -1,0 +1,83 @@
+name: Feature Request
+description: Suggest an idea for CARLOS
+title: "[Feature]: "
+labels: ["type: feature", "status: needs-triage"]
+type: Feature
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for sharing your idea — we love hearing how CARLOS can better serve the healthcare community.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What problem does this solve?
+      placeholder: Describe the problem or need
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Solution
+      description: Your proposed solution
+      placeholder: What you'd like to happen
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      description: Other approaches considered
+      placeholder: Other solutions you've thought about
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: Module/Area
+      description: Which part would this affect?
+      options:
+        - eChart
+        - Admin Panel
+        - Billing
+        - Forms/eForms
+        - Appointment/Schedule
+        - Search
+        - HL7/FHIR Integration
+        - Reports
+        - New Module
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this?
+      options:
+        - Must have
+        - Should have
+        - Nice to have
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Any other context or examples
+      placeholder: Screenshots welcome — but please ensure no patient data (PHI) is visible
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I have searched for similar feature requests
+          required: true
+        - label: I am willing to help implement this feature
+          required: false

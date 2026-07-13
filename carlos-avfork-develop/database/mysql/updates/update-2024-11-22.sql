@@ -1,0 +1,1 @@
+update relationships set deleted = 0 where deleted is null;

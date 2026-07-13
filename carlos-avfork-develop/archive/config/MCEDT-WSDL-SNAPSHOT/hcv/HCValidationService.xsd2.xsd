@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema targetNamespace="http://ebs.health.ontario.ca/" version="1.0" xmlns:tns="http://ebs.health.ontario.ca/" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="EBSFault" type="tns:ebsFault"/>
+  <xs:complexType name="ebsFault">
+    <xs:sequence>
+      <xs:element name="code" type="xs:string"/>
+      <xs:element name="message" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>

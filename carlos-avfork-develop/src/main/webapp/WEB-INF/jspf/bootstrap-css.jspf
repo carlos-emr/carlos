@@ -1,0 +1,19 @@
+<%--
+    Shared Bootstrap 5 CSS include for CARLOS JSPs.
+
+    Why: pinning the Bootstrap version path (library/bootstrap/<version>/...)
+    in many JSPs increases the maintenance cost of future Bootstrap upgrades
+    and the risk of inconsistent UI when the path/version changes. Pages that
+    need Bootstrap styling and do not already inherit a layout that loads it
+    should include this fragment in <head>:
+
+        <%@ include file="/WEB-INF/jspf/bootstrap-css.jspf" %>
+
+    Pages that already pull Bootstrap from a layout/header (e.g. via
+    /WEB-INF/jsp/layouts/html_top.jspf) should NOT include this fragment;
+    duplicate <link> tags add a second HTTP request and can briefly flash
+    unstyled content.
+--%>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<link href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/library/bootstrap/5.3.8/css/bootstrap.min.css"
+      rel="stylesheet" type="text/css">

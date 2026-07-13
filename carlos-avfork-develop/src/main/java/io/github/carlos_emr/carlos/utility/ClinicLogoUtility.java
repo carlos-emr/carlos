@@ -1,0 +1,180 @@
+/**
+ * Copyright (c) 2015-2019. The Pharmacists Clinic, Faculty of Pharmaceutical Sciences, University of British Columbia. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * This software was written for the
+ * The Pharmacists Clinic
+ * Faculty of Pharmaceutical Sciences
+ * University of British Columbia
+ * Vancouver, British Columbia, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ */
+
+package io.github.carlos_emr.carlos.utility;
+
+import io.github.carlos_emr.carlos.commn.model.Document;
+import org.openpdf.text.BadElementException;
+import org.openpdf.text.Image;
+import org.openpdf.text.PageSize;
+import org.openpdf.text.pdf.PdfPCell;
+import org.openpdf.text.pdf.PdfPTable;
+
+import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.SiteDao;
+import io.github.carlos_emr.carlos.commn.model.Site;
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequestUtil;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.net.MalformedURLException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
+/**
+ * Utility for loading clinic logo images and embedding them into PDF document headers.
+ *
+ * <p>Resolves the clinic logo from multiple sources in order of priority:</p>
+ * <ol>
+ *   <li>Multi-site configuration: site-specific logo from the document database</li>
+ *   <li>Property {@code clinicLetterheadLogo}: file path to a letterhead logo image</li>
+ *   <li>Property {@code faxLogoInConsultation}: fallback logo file path</li>
+ * </ol>
+ *
+ * <p>Creates an OpenPDF {@link PdfPTable} containing the scaled logo image, suitable for
+ * insertion into fax cover pages, consultation letters, and other PDF documents.</p>
+ *
+ * @see io.github.carlos_emr.carlos.fax.util.PdfCoverPageCreator
+ * @since 2022-04-21
+ */
+public final class ClinicLogoUtility {
+
+    private static final Logger logger = MiscUtils.getLogger();
+    private static EctConsultationFormRequestUtil ectConsultationFormRequestUtil;
+    private static final float HEADER_HEIGHT = 70f;
+    private static final float LOGO_HEIGHT = 65f;
+
+    /**
+     * Creates a PDF table containing the clinic logo image configured in CARLOS properties.
+     *
+     * <p>Resolves the logo from site-specific settings (multi-site mode) or the
+     * {@code clinicLetterheadLogo} / {@code faxLogoInConsultation} properties.
+     * The logo is normally stored in the document directory.</p>
+     *
+     * @return PdfPTable an OpenPDF table element containing the logo image, for insertion into a PDF
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path derived from trusted configuration/constant/DB value, not user-controllable input")
+    public static PdfPTable createLogoHeader() {
+
+        PdfPTable infoTable = new PdfPTable(1);
+        CarlosProperties props = CarlosProperties.getInstance();
+
+        String filename = "";
+        if (props.getProperty("multisites") != null && "on".equalsIgnoreCase(props.getProperty("multisites")) && ectConsultationFormRequestUtil != null) {
+            DocumentDao documentDao = (DocumentDao) SpringUtils.getBean(DocumentDao.class);
+            SiteDao siteDao = (SiteDao) SpringUtils.getBean(SiteDao.class);
+            Site site = siteDao.getById(Integer.valueOf(ectConsultationFormRequestUtil.siteName));
+            if (site != null) {
+                if (site.getSiteLogoId() != null) {
+                    Document d = documentDao.getDocument(String.valueOf(site.getSiteLogoId()));
+                    String dir = props.getProperty("DOCUMENT_DIR");
+                    filename = dir.concat(d.getDocfilename());
+                } else {
+                    //If no logo file uploaded for this site, use the default one defined in carlos properties file.
+                    filename = props.getProperty("clinicLetterheadLogo");
+                    if (filename == null) {
+                        filename = props.getProperty("faxLogoInConsultation");
+                    }
+                }
+            }
+        } else {
+            filename = props.getProperty("clinicLetterheadLogo");
+            if (filename == null) {
+                filename = props.getProperty("faxLogoInConsultation");
+            }
+        }
+
+        try {
+            File logoFile = PathValidationUtils.resolveTrustedPath(new File(filename));
+            Path path = logoFile.toPath();
+            if (Files.exists(path)) {
+                addImage(infoTable, logoFile, PageSize.LETTER.getWidth() * 0.5f, LOGO_HEIGHT);
+            }
+        } catch (SecurityException e) {
+            // A blank/misconfigured logo path must not abort the surrounding document; skip the logo.
+            logger.warn("Skipping clinic logo: invalid logo file path", e);
+        }
+        return infoTable;
+
+    }
+
+    /**
+     * Creates a logo header table using the site context from a consultation form request.
+     *
+     * <p>Sets the consultation form utility for multi-site logo resolution, then delegates
+     * to {@link #createLogoHeader()}.</p>
+     *
+     * @param ectConsultationFormRequestUtil EctConsultationFormRequestUtil providing site context
+     * @return PdfPTable the logo header table
+     */
+    public static PdfPTable createLogoHeader(EctConsultationFormRequestUtil ectConsultationFormRequestUtil) {
+        ClinicLogoUtility.ectConsultationFormRequestUtil = ectConsultationFormRequestUtil;
+        return createLogoHeader();
+    }
+
+    /**
+     * Loads an image file and adds it as a scaled cell to the given PDF table.
+     *
+     * @param pdfPTable PdfPTable the table to add the image cell to
+     * @param logoFile File the validated image file
+     * @param width float the maximum width to scale the image to (in points)
+     * @param height float the maximum height to scale the image to (in points)
+     */
+    // FindSecBugs CRLF_INJECTION_LOGS: logoFile is resolved via PathValidationUtils.resolveTrustedPath from server-configured properties (clinicLetterheadLogo / faxLogoInConsultation / DOCUMENT_DIR + DB-stored document filename); no request-controlled string reaches this log.
+    @SuppressFBWarnings(value = "CRLF_INJECTION_LOGS", justification = "logoFile path is derived from server config properties and a server-stored document filename, not from request input; no attacker-controlled CR/LF.")
+    private static void addImage(PdfPTable pdfPTable, File logoFile, float width, float height) {
+        try (FileInputStream fileInputStream = new FileInputStream(logoFile)) {
+            PdfPCell cell = new PdfPCell();
+            byte[] faxLogImage = fileInputStream.readAllBytes();
+            Image image = Image.getInstance(faxLogImage);
+            image.scaleToFit(width, height);
+            image.setBorder(0);
+            cell.addElement(image);
+            cell.setPadding(-11);
+            cell.setBorder(0);
+            cell.setFixedHeight(HEADER_HEIGHT);
+            pdfPTable.addCell(cell);
+        } catch (FileNotFoundException e) {
+            logger.error("Failed to locate file at " + logoFile, e);
+        } catch (BadElementException e) {
+            logger.error("Unexpected error.", e);
+        } catch (MalformedURLException e) {
+            logger.error("This image location is malformed " + logoFile, e);
+        } catch (IOException e) {
+            logger.error("Unexpected error.", e);
+        }
+    }
+}

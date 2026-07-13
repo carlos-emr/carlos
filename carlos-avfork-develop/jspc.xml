@@ -1,0 +1,71 @@
+<?xml version="1.0"?>
+<project default="jspc">
+	<!--
+		Note that this should be a self contained ant xml script that compiles
+		jsp's assuming a maven build structure and out put. 
+				
+		REQUIRES:
+		This build script requires that the normal build be run and 
+		the expectation is that target/oscar.war was built and exists.
+		This script requires the environment variable CATALINA_HOME to be set.
+		Tomcat version 6+ is required (preferably version 9+).
+	-->
+
+	<property environment="env" />
+	<property name="catalina.home" location="${env.CATALINA_HOME}" />
+	<echo message="Using CATALINA_HOME=${catalina.home}" />
+	<import file="${catalina.home}/bin/catalina-tasks.xml" />
+
+	<property name="jspc.expandedWarDir" value="target/${jspc_target}" />
+	<property name="jspc.generatedDir" value="target/generated_jsp_classes" />
+
+	<echo message="war=${jspc.expandedWarDir}" />
+	<echo message="jsp=${jspc.generatedDir}" />
+
+	<target name="jspc" depends="jspc.clean">
+		<!--
+		The general algorithm is as follows :
+		1) compile jsp's into java source
+		2) compile java source into class files
+		-->
+
+		<!-- build the compiled JSP directory -->
+		<mkdir dir="${jspc.generatedDir}"/>
+
+		<condition property="tomcat.lib" value="${catalina.home}/lib">
+			<available file="${catalina.home}/lib" type="dir" />
+		</condition>
+		<condition property="tomcat.lib" value="${catalina.home}/common/lib">
+			<available file="${catalina.home}/common/lib" type="dir" />
+		</condition>
+		<property name="tomcat.lib.dir" location="${tomcat.lib}" />
+
+		<!-- ant-contrib needed for the if statements -->
+		<taskdef resource="net/sf/antcontrib/antcontrib.properties">
+		  <classpath>
+		    <pathelement location="utils/tasks/lib/ant-contrib-1.0b3.jar"/>
+		  </classpath>
+		</taskdef>
+
+		<jasper uriroot="${jspc.expandedWarDir}" webXmlFragment="${jspc.generatedDir}/generated_web.xml" outputDir="${jspc.generatedDir}" failOnError="true" verbose="0" />
+
+		<javac srcdir="${jspc.generatedDir}" source="8" target="8" debug="on" memoryInitialSize="128m" compiler="modern" includeantruntime="false" memoryMaximumSize="1024m" fork="yes" encoding="UTF8">
+			<classpath>
+				<pathelement location="${jspc.expandedWarDir}/WEB-INF/classes" />
+				<pathelement path="${jspc.expandedWarDir}/WEB-INF/lib/*" />
+                                <pathelement path="${tomcat.lib.dir}/*" />
+				<pathelement path="${catalina.home}/bin/*" />
+			</classpath>
+
+			<!-- we will allow this exclusion because this is not our code and is just
+			included code from another library, this will allow upgrades to be
+			easier if  we don't change other people's library code.
+			<exclude name="org/apache/jsp/jspspellcheck/**" />-->
+		</javac>
+	</target>
+
+	<target name="jspc.clean">
+		<delete dir="${jspc.generatedDir}" quiet="true" />
+	</target>
+
+</project>

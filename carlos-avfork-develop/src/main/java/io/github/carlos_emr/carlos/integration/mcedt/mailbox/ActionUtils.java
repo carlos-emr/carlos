@@ -1,0 +1,532 @@
+/**
+ * Copyright (c) 2014-2015. KAI Innovations Inc. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ */
+package io.github.carlos_emr.carlos.integration.mcedt.mailbox;
+
+import static io.github.carlos_emr.carlos.integration.mcedt.McedtConstants.REQUEST_ATTR_KEY_RESOURCE_ID;
+import static io.github.carlos_emr.carlos.integration.mcedt.McedtConstants.SESSION_KEY_MCEDT_UPDATES;
+import static io.github.carlos_emr.carlos.integration.mcedt.McedtConstants.SESSION_KEY_MCEDT_UPLOADS;
+
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileFilter;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.math.BigInteger;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.Date;
+import java.util.List;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
+
+import org.apache.commons.io.FileUtils;
+import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.integration.mcedt.McedtConstants;
+import io.github.carlos_emr.carlos.integration.mcedt.ResourceForm;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.util.ConversionUtils;
+import ca.ontario.health.edt.Detail;
+import ca.ontario.health.edt.DetailData;
+import ca.ontario.health.edt.EDTDelegate;
+import ca.ontario.health.edt.ResponseResult;
+import ca.ontario.health.edt.TypeListData;
+import ca.ontario.health.edt.TypeListResult;
+import ca.ontario.health.edt.UpdateRequest;
+import ca.ontario.health.edt.UploadData;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
+/**
+ * Defines utility methods for action classes.
+ */
+public class ActionUtils {
+    private static Logger logger = MiscUtils.getLogger();
+
+    static Detail getDetails(HttpServletRequest request) {
+        Detail result = (Detail) request.getSession().getAttribute(McedtConstants.SESSION_KEY_RESOURCE_LIST);
+        return result;
+    }
+
+    static void setDetails(HttpServletRequest request, Detail detail) {
+        request.getSession().setAttribute(McedtConstants.SESSION_KEY_RESOURCE_LIST, detail); // nosemgrep: tainted-session-from-http-request -- MCEDT resource list from EDT service response
+    }
+
+    static void removeDetails(HttpServletRequest request) {
+        request.getSession().removeAttribute(McedtConstants.SESSION_KEY_RESOURCE_LIST);
+    }
+
+    static List<DetailDataCustom> getResourceList(HttpServletRequest request) {
+        List<DetailDataCustom> result = (List<DetailDataCustom>) request.getSession().getAttribute(McedtConstants.SESSION_KEY_CUSTOM_RESOURCE_LIST);
+        return result;
+    }
+
+    static void setResourceList(HttpServletRequest request, List<DetailDataCustom> resourceList) {
+        request.getSession().setAttribute(McedtConstants.SESSION_KEY_CUSTOM_RESOURCE_LIST, resourceList); // nosemgrep: tainted-session-from-http-request -- MCEDT resource list from EDT service response
+    }
+
+    static void removeResourceList(HttpServletRequest request) {
+        request.getSession().removeAttribute(McedtConstants.SESSION_KEY_CUSTOM_RESOURCE_LIST);
+    }
+
+    static void clearUpdateList(HttpServletRequest request) {
+        clear(request.getSession(), SESSION_KEY_MCEDT_UPDATES);
+    }
+
+    static List<UpdateRequest> getUpdateList(HttpServletRequest request) {
+        return getUpdateList(request.getSession());
+    }
+
+    static List<UpdateRequest> getUpdateList(HttpSession session) {
+        return getSessionList(session, SESSION_KEY_MCEDT_UPDATES);
+    }
+
+    static List<UploadData> getUploadList(HttpServletRequest request) {
+        return getUploadList(request.getSession());
+    }
+
+    static void clearUploadList(HttpServletRequest request) {
+        clear(request.getSession(), SESSION_KEY_MCEDT_UPLOADS);
+    }
+
+    static List<UploadData> getUploadList(HttpSession session) {
+        return getSessionList(session, SESSION_KEY_MCEDT_UPLOADS);
+    }
+
+    private static void clear(HttpSession session, String sessionKey) {
+        session.removeAttribute(sessionKey);
+    }
+
+    private static <T> List<T> getSessionList(HttpSession session, String sessionKey) {
+        @SuppressWarnings("unchecked")
+        List<T> result = (List<T>) session.getAttribute(sessionKey);
+        if (result == null) {
+            result = new ArrayList<T>();
+            session.setAttribute(sessionKey, result); // nosemgrep: tainted-session-from-http-request -- initialized empty list, not from user input
+        }
+        return result;
+    }
+
+    static List<BigInteger> getResourceIds(HttpServletRequest request) {
+        String[] resourceIds = request.getParameterValues(REQUEST_ATTR_KEY_RESOURCE_ID);
+
+        List<BigInteger> ids = new ArrayList<BigInteger>();
+        if (resourceIds == null) {
+            return ids;
+        }
+
+        for (String i : resourceIds) {
+            ids.add(BigInteger.valueOf(ConversionUtils.fromIntString(i)));
+        }
+        return ids;
+    }
+
+    static TypeListResult getTypeList(HttpServletRequest request) {
+        return (TypeListResult) request.getSession().getAttribute(McedtConstants.SESSION_KEY_TYPE_LIST);
+    }
+
+    static String getServiceId(HttpServletRequest request) {
+        return request.getParameter(McedtConstants.REQUEST_ATTR_KEY_SERVICE_ID);
+    }
+
+    static void setTypeList(HttpServletRequest request, TypeListResult result) {
+        request.getSession().setAttribute(McedtConstants.SESSION_KEY_TYPE_LIST, result); // nosemgrep: tainted-session-from-http-request -- MCEDT type list from EDT service response
+    }
+
+    static void removeTypeList(HttpServletRequest request) {
+        request.getSession().removeAttribute(McedtConstants.SESSION_KEY_TYPE_LIST);
+    }
+
+    /*KAI FUNCTIONS*/
+
+    static BigInteger getUploadResourceId(HttpServletRequest request) {
+        return (BigInteger) request.getSession().getAttribute(McedtConstants.SESSION_KEY_UPLOAD_RESOURCE_ID);
+    }
+
+    static void setUploadResourceId(HttpServletRequest request, BigInteger result) {
+        request.getSession().setAttribute(McedtConstants.SESSION_KEY_UPLOAD_RESOURCE_ID, result); // nosemgrep: tainted-session-from-http-request -- resource ID from EDT service response object
+    }
+
+    static void removeUploadResourceId(HttpServletRequest request) {
+        request.getSession().removeAttribute(McedtConstants.SESSION_KEY_UPLOAD_RESOURCE_ID);
+    }
+
+    static void setUploadedFileName(HttpServletRequest request, String result) {
+        request.getSession().setAttribute(McedtConstants.SESSION_KEY_UPLOAD_FILENAME, result); // nosemgrep: tainted-session-from-http-request -- upload detail from validated MCEDT submission
+    }
+
+    static void removeUploadFileName(HttpServletRequest request) {
+        request.getSession().removeAttribute(McedtConstants.SESSION_KEY_UPLOAD_FILENAME);
+    }
+
+    @SuppressWarnings("unchecked")
+    static List<File> getSuccessfulUploads(HttpServletRequest request) {
+        return (List<File>) request.getSession().getAttribute(McedtConstants.SESSION_SUCCESSFUL_UPLOADS);
+    }
+
+    static void setSuccessfulUploads(HttpServletRequest request, File result) {
+        List<File> files = ActionUtils.getSuccessfulUploads(request);
+        if (files == null) files = new ArrayList<File>();
+        files.add(result);
+        request.getSession().setAttribute(McedtConstants.SESSION_SUCCESSFUL_UPLOADS, files); // nosemgrep: tainted-session-from-http-request -- upload detail from validated MCEDT submission
+    }
+
+    static void removeSuccessfulUploads(HttpServletRequest request) {
+        request.getSession().removeAttribute(McedtConstants.SESSION_SUCCESSFUL_UPLOADS);
+    }
+
+    @SuppressWarnings("unchecked")
+    static List<ResponseResult> getUploadResponseResults(HttpServletRequest request) {
+        return (List<ResponseResult>) request.getSession().getAttribute(McedtConstants.SESSION_KEY_UPLOAD_RESPONSE_RESULT);
+    }
+
+    static void setUploadResponseResults(HttpServletRequest request, ResponseResult result) {
+        List<ResponseResult> results = ActionUtils.getUploadResponseResults(request);
+        if (results == null) results = new ArrayList<ResponseResult>();
+        results.add(result);
+        request.getSession().setAttribute(McedtConstants.SESSION_KEY_UPLOAD_RESPONSE_RESULT, results); // nosemgrep: tainted-session-from-http-request -- upload detail from validated MCEDT submission
+    }
+
+    static void removeUploadResponseResults(HttpServletRequest request) {
+        request.getSession().removeAttribute(McedtConstants.SESSION_KEY_UPLOAD_RESPONSE_RESULT);
+    }
+
+    @SuppressWarnings("unchecked")
+    static List<ResponseResult> getSubmitResponseResults(HttpServletRequest request) {
+        return (List<ResponseResult>) request.getSession().getAttribute(McedtConstants.SESSION_KEY_SUBMIT_RESPONSE_RESULT);
+    }
+
+    static void setSubmitResponseResults(HttpServletRequest request, ResponseResult result) {
+        List<ResponseResult> results = ActionUtils.getSubmitResponseResults(request);
+        if (results == null) results = new ArrayList<ResponseResult>();
+        results.add(result);
+        request.getSession().setAttribute(McedtConstants.SESSION_KEY_SUBMIT_RESPONSE_RESULT, results); // nosemgrep: tainted-session-from-http-request -- upload detail from validated MCEDT submission
+    }
+
+    static void removeSubmitResponseResults(HttpServletRequest request) {
+        request.getSession().removeAttribute(McedtConstants.SESSION_KEY_SUBMIT_RESPONSE_RESULT);
+    }
+
+    public static List<File> getUploadList() {
+        List<File> edtUploadList = new ArrayList<File>();
+        CarlosProperties props = CarlosProperties.getInstance();
+        String outboxPath = props.getProperty("ONEDT_OUTBOX", "");
+        if (outboxPath == null || outboxPath.trim().isEmpty()) {
+            logger.warn("ONEDT_OUTBOX is not configured; returning empty upload list");
+            return edtUploadList;
+        }
+        File outbox = PathValidationUtils.resolveConfiguredDirectory(outboxPath, "ONEDT_OUTBOX");
+        FileFilter fileFilter = new FileFilter() {
+            public boolean accept(File file) {
+                return file.isFile() && !file.isHidden();
+            }
+        };
+        File[] toEdt = outbox.listFiles(fileFilter);
+        if (toEdt == null) {
+            logger.warn("ONEDT_OUTBOX directory is missing or unreadable; returning empty upload list");
+            return edtUploadList;
+        }
+        Arrays.sort(toEdt, Comparator.comparingLong(File::lastModified));
+        for (File file : toEdt) {
+            edtUploadList.add(file);
+        }
+        return edtUploadList;
+    }
+
+    public static boolean isOHIPFile(String filename) {
+        String suffix = filename.substring(filename.lastIndexOf(".") + 1);
+        String prefix = filename.substring(0, 2);
+        if (suffix.length() == 3 && suffix.matches("\\d+") && prefix.matches("H[A-L]")) {
+            return true;
+        }
+        return false;
+    }
+
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    public static boolean isOBECFile(String filename) {
+        String suffix = filename.substring(filename.lastIndexOf(".") + 1);
+        String prefix = "";
+        if (filename.length() < 4) {
+            logger.warn("Checked for OBEC file, found one with too short name: " + filename);
+        } else {
+            prefix = filename.substring(0, 4);
+        }
+        return suffix.equalsIgnoreCase("txt") && prefix.equals("OBEC");
+    }
+
+    public static void moveOhipToOutBox(Date startDate, Date endDate) {
+        try {
+            CarlosProperties props = CarlosProperties.getInstance();
+            File generatedFiles = PathValidationUtils.resolveConfiguredDirectory(props.getProperty("HOME_DIR", ""), "HOME_DIR");
+            File outbox = PathValidationUtils.resolveConfiguredDirectory(props.getProperty("ONEDT_OUTBOX", ""), "ONEDT_OUTBOX");
+            FileFilter fileFilter = new FileFilter() {
+                public boolean accept(File file) {
+                    return (file.isFile() && !file.isHidden() && ActionUtils.isOHIPFile(file.getName()));
+                }
+            };
+            File[] toOutbox = generatedFiles.listFiles(fileFilter);
+            if (toOutbox != null) {
+                Arrays.sort(toOutbox, new Comparator<File>() {
+                    public int compare(File f1, File f2) {
+                        return Long.valueOf(f1.lastModified()).compareTo(f2.lastModified());
+                    }
+                });
+                for (File file : toOutbox) {
+                    if (new Date(file.lastModified()).after(startDate) && new Date(file.lastModified()).before(endDate))
+                        copyFileToDirectory(file, outbox, false, true);
+                }
+            }
+//			for (File file : toOutbox) {
+//				if (new Date(file.lastModified()).after(startDate) && new Date(file.lastModified()).before(endDate)) copyFileToDirectory(file, outbox,false, true);
+//			}
+        } catch (Exception e) {
+            logger.error("Unable to copy OHIP files to outbox", e);
+        }
+    }
+
+    /*
+	 * The method ActionUtils.moveObecToOutBox is slow with many files in 'OscarDocument/oscar/document/'.
+	 * To optimize, we will move OBEC files during generation rather than during MCEDT mailbox opening.
+	 * See ObecData.writeFile() for details on the updated process.
+	 */
+    public static void moveObecToOutBox(Date startDate, Date endDate) {
+        try {
+            CarlosProperties props = CarlosProperties.getInstance();
+            File generatedFiles = PathValidationUtils.resolveConfiguredDirectory(props.getProperty("DOCUMENT_DIR", ""), "DOCUMENT_DIR");
+            File outbox = PathValidationUtils.resolveConfiguredDirectory(props.getProperty("ONEDT_OUTBOX", ""), "ONEDT_OUTBOX");
+            FileFilter fileFilter = new FileFilter() {
+                public boolean accept(File file) {
+                    return (file.isFile() && !file.isHidden() && ActionUtils.isOBECFile(file.getName()));
+                }
+            };
+            File[] toOutbox = generatedFiles.listFiles(fileFilter);
+            if (toOutbox != null) {
+                Arrays.sort(toOutbox, new Comparator<File>() {
+                    public int compare(File f1, File f2) {
+                        return Long.valueOf(f1.lastModified()).compareTo(f2.lastModified());
+                    }
+                });
+                for (File file : toOutbox) {
+                    if (new Date(file.lastModified()).after(startDate) && new Date(file.lastModified()).before(endDate))
+                        copyFileToDirectory(file, outbox, false, true);
+                }
+            }
+
+        } catch (Exception e) {
+            logger.error("Unable to copy OBEC files to outbox", e);
+        }
+    }
+
+    public static void createOnEDTOutboxDir() {
+        CarlosProperties props = CarlosProperties.getInstance();
+        String outboxPath = props.getProperty("ONEDT_OUTBOX", "");
+        if (outboxPath == null || outboxPath.trim().isEmpty()) {
+            logger.warn("ONEDT_OUTBOX is not configured; skipping outbox directory creation");
+            return;
+        }
+        File dateDir = PathValidationUtils.resolveConfiguredDirectory(outboxPath, "ONEDT_OUTBOX");
+        if (!dateDir.exists()) dateDir.mkdirs();
+    }
+
+    public static Date getOutboxTimestamp() {
+        Date startDate = new Date();
+        try {
+            SimpleDateFormat formatter = new SimpleDateFormat("dd-MM-yyyy HH:mm");
+            CarlosProperties props = CarlosProperties.getInstance();
+            File dateDir = PathValidationUtils.resolveConfiguredDirectory(props.getProperty("ONEDT_OUTBOX", ""), "ONEDT_OUTBOX");
+            if (!dateDir.exists()) dateDir.mkdirs();
+            File dateFile = PathValidationUtils.validateGeneratedChildPath(".timestamp", dateDir);
+            if (!dateFile.exists()) dateFile.createNewFile();
+            BufferedReader br = new BufferedReader(new FileReader(dateFile));
+            String temp = br.readLine().trim();
+            if (temp != null) {
+                startDate = formatter.parse(temp);
+            }
+            br.close();
+        } catch (Exception e) {
+            logger.error("Unable to open outbox timestamp file", e);
+        }
+        return startDate;
+    }
+
+    public static void setOutboxTimestamp(Date endDate) {
+        try {
+            SimpleDateFormat formatter = new SimpleDateFormat("dd-MM-yyyy HH:mm");
+            CarlosProperties props = CarlosProperties.getInstance();
+            File dateFile = PathValidationUtils.validateGeneratedSiblingPath(props.getProperty("ONEDT_OUTBOX", ""), ".timestamp", "ONEDT_OUTBOX timestamp");
+            if (!dateFile.exists()) dateFile.createNewFile();
+            BufferedWriter bw = new BufferedWriter(new FileWriter(dateFile));
+            bw.write(formatter.format(endDate));
+            bw.close();
+        } catch (Exception e) {
+            logger.error("Unable to open outbox timestamp file", e);
+        }
+    }
+
+
+    static TypeListResult getTypeList(HttpServletRequest request, EDTDelegate delegate) {
+
+        TypeListResult result = getTypeList(request);
+        if (result == null) {
+            try {
+                result = delegate.getTypeList();
+                setTypeList(request, result);
+            } catch (Exception e) {
+                logger.error("Unable to load type list", e);
+
+                //saveErrors(request, ActionUtils.addMessage("resourceAction.getTypeList.fault", McedtMessageCreator.exceptionToString(e)));
+            }
+        }
+        return result;
+    }
+
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    static String getTypeDescription(ResourceForm form, String typeCode) {
+
+        String typeDesc = "";
+        for (TypeListData typeListData : form.getTypeListResult().getData()) {
+            if (typeListData.getResourceType().trim().equalsIgnoreCase(typeCode.trim())) {
+                typeDesc = typeListData.getDescriptionEn();
+                break;
+            }
+        }
+        return typeDesc;
+    }
+
+    static boolean filterResourceStatus(DetailData detailData) {
+        boolean displayResource = true;
+
+        switch (detailData.getStatus()) {
+            case WIP:
+                displayResource = false;
+                break;
+            case DOWNLOADABLE:
+                displayResource = false;
+                break;
+            case DELETED:
+                displayResource = false;
+                break;
+            default:
+                displayResource = true;
+        }
+
+        return displayResource;
+    }
+
+    static boolean filterResourceStatus(DetailDataCustom detailData) {
+        boolean displayResource = true;
+
+        switch (detailData.getStatus()) {
+            case WIP:
+                displayResource = false;
+                break;
+            case DOWNLOADABLE:
+                displayResource = false;
+                break;
+            case DELETED:
+                displayResource = false;
+                break;
+            default:
+                displayResource = true;
+        }
+
+        return displayResource;
+    }
+
+    static DetailDataCustom mapDetailData(ResourceForm form, DetailDataCustom detailDataK, DetailData detailData) {
+
+        detailDataK.setCreateTimestamp(detailData.getCreateTimestamp());
+        detailDataK.setDescription(detailData.getDescription());
+        detailDataK.setModifyTimestamp(detailData.getModifyTimestamp());
+        detailDataK.setResourceID(detailData.getResourceID());
+
+        detailDataK.setResourceType(getTypeDescription(form, detailData.getResourceType()));
+
+        detailDataK.setResult(detailData.getResult());
+        detailDataK.setStatus(detailData.getStatus());
+        detailDataK.setServiceId(form.getServiceIdSent());
+        return detailDataK;
+    }
+
+    public static void moveFileToDirectory(File srcFile, File destDir, boolean createDestDir, boolean override) throws IOException {
+        if (override) {
+            File checkFile = PathValidationUtils.validateGeneratedChildPath(srcFile.getName(), destDir);
+            if (checkFile.exists()) FileUtils.forceDelete(checkFile);
+        }
+        FileUtils.moveFileToDirectory(srcFile, destDir, createDestDir);
+    }
+
+    public static void copyFileToDirectory(File srcFile, File destDir, boolean createDestDir, boolean override) throws IOException {
+        if (override) {
+            File checkFile = PathValidationUtils.validateGeneratedChildPath(srcFile.getName(), destDir);
+            if (checkFile.exists()) FileUtils.forceDelete(checkFile);
+        }
+        FileUtils.copyFileToDirectory(srcFile, destDir, createDestDir);
+    }
+
+    public static String getServiceId(String filename) {
+        String serviceId;
+        if (isOHIPFile(filename)) {
+            serviceId = filename.substring(2, filename.lastIndexOf("."));
+            if (serviceId.length() == 4) {
+                serviceId = "0" + serviceId; //for group numbers, it has to be 5 digits
+                return serviceId;
+            }
+            if (serviceId.length() == 6) return serviceId;
+        }
+        CarlosProperties props = CarlosProperties.getInstance();
+        serviceId = props.getProperty("mcedt.service.id");
+        return serviceId;
+    }
+
+    public static List<String> getServiceIds() {
+        CarlosProperties props = CarlosProperties.getInstance();
+        String id = props.getProperty("mcedt.service.id");
+        String ids = props.getProperty("mcedt.service.designated.ids");
+        List<String> serviceIds = new ArrayList<String>();
+        serviceIds.addAll(Arrays.asList(ids.trim().split(",")));
+        if (serviceIds.contains(id)) serviceIds.remove(id);
+        if (!serviceIds.contains(id)) serviceIds.add(0, id);
+        return serviceIds;
+    }
+
+    public static String getDefaultServiceId() {
+        CarlosProperties props = CarlosProperties.getInstance();
+        String serviceId = props.getProperty("mcedt.service.id");
+        return serviceId;
+    }
+}

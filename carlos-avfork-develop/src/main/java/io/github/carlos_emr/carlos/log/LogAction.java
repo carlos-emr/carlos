@@ -1,0 +1,249 @@
+/**
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ */
+
+
+package io.github.carlos_emr.carlos.log;
+
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
+
+import jakarta.servlet.http.HttpServletRequest;
+
+import org.apache.commons.lang3.StringUtils;
+import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
+import io.github.carlos_emr.carlos.commn.model.OscarLog;
+import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.utility.DeamonThreadFactory;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+
+public class LogAction {
+    private static Logger logger = MiscUtils.getLogger();
+    private static volatile OscarLogDao oscarLogDao;
+    private static ExecutorService executorService = createExecutorService();
+    private static final int EXECUTOR_SHUTDOWN_TIMEOUT_SECONDS = 5;
+
+    private static ExecutorService createExecutorService() {
+        return Executors.newCachedThreadPool(new DeamonThreadFactory(LogAction.class.getSimpleName() + ".executorService", Thread.MAX_PRIORITY));
+    }
+
+    static void setExecutorServiceForTesting(ExecutorService testExecutorService) {
+        executorService = testExecutorService;
+    }
+
+    static void resetExecutorServiceForTesting() {
+        executorService.shutdownNow();
+        executorService = createExecutorService();
+    }
+
+    static void setOscarLogDaoForTesting(OscarLogDao testOscarLogDao) {
+        oscarLogDao = testOscarLogDao;
+    }
+
+    private static OscarLogDao getOscarLogDao() {
+        OscarLogDao localDao = oscarLogDao;
+        if (localDao == null) {
+            synchronized (LogAction.class) {
+                localDao = oscarLogDao;
+                if (localDao == null) {
+                    localDao = (OscarLogDao) SpringUtils.getBean(OscarLogDao.class);
+                    oscarLogDao = localDao;
+                }
+            }
+        }
+        return localDao;
+    }
+
+    /**
+     * Gracefully shuts down the shared audit-log executor during webapp shutdown.
+     * Waits up to the configured timeout, logs any queued tasks dropped by
+     * {@code shutdownNow()}, and restores the interrupt flag if interrupted.
+     *
+     * @since 2026-05-21
+     */
+    public static void shutdownExecutorService() {
+        executorService.shutdown();
+        try {
+            if (!executorService.awaitTermination(EXECUTOR_SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                logDroppedAuditTasks(executorService.shutdownNow());
+            }
+        } catch (InterruptedException e) {
+            logDroppedAuditTasks(executorService.shutdownNow());
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private static void executeAsync(OscarLog oscarLog) {
+        try {
+            executorService.execute(new AddLogExecutorTask(oscarLog));
+        } catch (RejectedExecutionException e) {
+            logger.warn("Audit log executor rejected task; persisting synchronously", e);
+            addLogSynchronous(oscarLog);
+        }
+    }
+
+    private static void logDroppedAuditTasks(List<Runnable> droppedTasks) {
+        if (droppedTasks.isEmpty()) {
+            return;
+        }
+        StringBuilder taskTypes = new StringBuilder();
+        for (Runnable task : droppedTasks) {
+            if (taskTypes.length() > 0) {
+                taskTypes.append(", ");
+            }
+            taskTypes.append(task.getClass().getName());
+        }
+        logger.warn("Audit log executor shutdown dropped {} queued task(s): {}", droppedTasks.size(), taskTypes);
+    }
+
+    public static void addLogSynchronous(LoggedInInfo loggedInInfo, String action, String data) {
+        OscarLog logEntry = new OscarLog();
+        if (loggedInInfo.getLoggedInSecurity() != null)
+            logEntry.setSecurityId(loggedInInfo.getLoggedInSecurity().getSecurityNo());
+        if (loggedInInfo.getLoggedInProvider() != null) logEntry.setProviderNo(loggedInInfo.getLoggedInProviderNo());
+        logEntry.setAction(action);
+        logEntry.setData(data);
+        LogAction.addLogSynchronous(logEntry);
+    }
+
+    /**
+     * This method will add a log entry asynchronously in a separate thread.
+     */
+    public static void addLog(String provider_no, String action, String content, String data) {
+        addLog(provider_no, action, content, null, null, null, data);
+    }
+
+    /**
+     * This method will add a log entry asynchronously in a separate thread.
+     */
+    public static void addLog(String provider_no, String action, String content, String contentId, String ip) {
+        addLog(provider_no, action, content, contentId, ip, null, null);
+    }
+
+    /**
+     * This method will add a log entry asynchronously in a separate thread.
+     */
+    public static void addLog(String provider_no, String action, String content, String contentId, String ip, String demographicNo) {
+        addLog(provider_no, action, content, contentId, ip, demographicNo, null);
+    }
+
+    public static void addLog(LoggedInInfo loggedInInfo, String action, String content, String contentId, String demographicNo, String data) {
+        OscarLog logEntry = new OscarLog();
+        if (loggedInInfo.getLoggedInSecurity() != null)
+            logEntry.setSecurityId(loggedInInfo.getLoggedInSecurity().getSecurityNo());
+        if (loggedInInfo.getLoggedInProvider() != null) logEntry.setProviderNo(loggedInInfo.getLoggedInProviderNo());
+        logEntry.setAction(action);
+        logEntry.setContent(content);
+        logEntry.setContentId(contentId);
+        logEntry.setIp(loggedInInfo.getIp());
+
+        try {
+            demographicNo = StringUtils.trimToNull(demographicNo);
+            if (demographicNo != null) logEntry.setDemographicId(Integer.parseInt(demographicNo));
+        } catch (Exception e) {
+            logger.error("Unexpected error", e);
+        }
+        logEntry.setData(data);
+        executeAsync(logEntry);
+    }
+
+    /**
+     * This method will add a log entry asynchronously in a separate thread.
+     */
+    public static void addLog(String provider_no, String action, String content, String contentId, String ip, String demographicNo, String data) {
+        OscarLog oscarLog = new OscarLog();
+
+        oscarLog.setProviderNo(provider_no);
+        oscarLog.setAction(action);
+        oscarLog.setContent(content);
+        oscarLog.setContentId(contentId);
+        oscarLog.setIp(ip);
+
+        try {
+            demographicNo = StringUtils.trimToNull(demographicNo);
+            if (demographicNo != null) oscarLog.setDemographicId(Integer.parseInt(demographicNo));
+        } catch (Exception e) {
+            logger.error("Unexpected error", e);
+        }
+
+        oscarLog.setData(data);
+
+        executeAsync(oscarLog);
+    }
+
+    /**
+     * This method will add a log entry in the same thread and can participate in the same transaction if one exists.
+     */
+    public static void addLogSynchronous(String provider_no, String action, String content, String contentId, String ip) {
+        OscarLog oscarLog = new OscarLog();
+
+        oscarLog.setProviderNo(provider_no);
+        oscarLog.setAction(action);
+        oscarLog.setContent(content);
+        oscarLog.setContentId(contentId);
+        oscarLog.setIp(ip);
+
+        addLogSynchronous(oscarLog);
+    }
+
+    /**
+     * This method will add the log entry in the same thread and transaction as it's being called in. This method will not throw exceptions, it will log to the file / console / log4j logger if an error occurs.
+     */
+    public static void addLogSynchronous(OscarLog oscarLog) {
+        try {
+            getOscarLogDao().persist(oscarLog);
+        } catch (Exception e) {
+            logger.error("Error in logger.", e);
+            logger.error("Error logging entry : " + oscarLog);
+        }
+    }
+
+
+    /**
+     * ported from the old caisi pmm_log
+     */
+    public static void log(String accessType, String entity, String entityId, HttpServletRequest request) {
+        OscarLog log = new OscarLog();
+
+        Provider provider = (Provider) request.getSession().getAttribute("provider");
+        if (provider != null) log.setProviderNo(provider.getProviderNo());
+
+        log.setAction(accessType);
+        log.setContent(entity);
+        log.setContentId(entityId);
+        log.setIp(request.getRemoteAddr());
+
+        getOscarLogDao().persist(log);
+    }
+}

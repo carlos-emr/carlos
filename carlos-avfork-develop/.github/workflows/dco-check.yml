@@ -1,0 +1,518 @@
+# GitHub Workflow: DCO (Developer Certificate of Origin) Check
+#
+# Verifies that all commits in a pull request include a Signed-off-by trailer,
+# as required by the Developer Certificate of Origin (DCO).
+# See https://developercertificate.org/
+#
+# This check can also pass if the PR author or an authorized project
+# contributor posts a PR comment containing:
+#   Confirming DCO sign off for all commits
+#
+# This workflow intentionally uses pull_request_target and the GitHub API
+# instead of checking out PR code. That lets it post guidance comments on fork
+# PRs without executing untrusted repository content.
+
+name: DCO
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches:
+      - main
+      - develop
+      - experimental
+      - staging/*
+      - hotfix/*
+      - community/*/develop
+      - community/*/staging/*
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+  statuses: write
+
+jobs:
+  dco:
+    name: DCO Sign-Off
+    runs-on: ubuntu-latest
+    # Keep issue_comment runs scoped to the documented phrase; the shell step
+    # repeats a case-insensitive phrase check before touching PR state.
+    if: >
+      github.event_name == 'pull_request_target' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       (contains(github.event.comment.body, 'Confirming DCO sign off for all commits') ||
+        contains(github.event.comment.body, 'confirming dco sign off for all commits')) &&
+       (contains(fromJson('["OWNER","MEMBER","COLLABORATOR","CONTRIBUTOR"]'), github.event.comment.author_association) ||
+        github.event.comment.user.login == github.event.issue.user.login))
+    steps:
+      - name: Resolve PR context
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          CONFIRMATION_PHRASE: Confirming DCO sign off for all commits
+          ISSUE_PR_URL: ${{ github.event.issue.pull_request.url }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          if [ "$EVENT_NAME" = "issue_comment" ]; then
+            if ! printf '%s\n' "$COMMENT_BODY" | grep -qiF "$CONFIRMATION_PHRASE"; then
+              echo "Issue comment does not contain the DCO confirmation phrase; skipping."
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            pr_json=$(curl -fsSL \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "$ISSUE_PR_URL")
+
+            echo "pr_number=$(jq -r '.number' <<< "$pr_json")" >> "$GITHUB_OUTPUT"
+            echo "pr_author=$(jq -r '.user.login' <<< "$pr_json")" >> "$GITHUB_OUTPUT"
+            echo "head_sha=$(jq -r '.head.sha' <<< "$pr_json")" >> "$GITHUB_OUTPUT"
+          else
+            echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+            echo "pr_author=$PR_AUTHOR" >> "$GITHUB_OUTPUT"
+            echo "head_sha=$PR_HEAD_SHA" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Verify DCO sign-off on all commits
+        id: dco_check
+        if: steps.pr.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ steps.pr.outputs.pr_number }}
+        run: |
+          set -euo pipefail
+
+          pr_json=$(curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$REPO/pulls/$PR_NUMBER")
+          pr_commit_count=$(jq -r '.commits' <<< "$pr_json")
+          base_ref=$(jq -r '.base.ref' <<< "$pr_json")
+
+          if [ "$pr_commit_count" -gt 250 ]; then
+            echo "::error::CARLOS EMR DCO check cannot automatically verify $pr_commit_count commits because GitHub's pull request commits API is capped at 250 commits."
+            echo "commits_missing=true" >> "$GITHUB_OUTPUT"
+            echo "dco_truncated=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "PR has $pr_commit_count commits; GitHub's pull request commits API is capped at 250 commits."
+              echo "CARLOS EMR cannot safely verify every commit's DCO trailer from this endpoint."
+            } > /tmp/dco_truncated.txt
+            exit 0
+          fi
+          echo "dco_truncated=false" >> "$GITHUB_OUTPUT"
+
+          bot_authors_regex='^(google-labs-jules\[bot\]|copilot-swe-agent\[bot\]|claude\[bot\]|coderabbitai\[bot\]|github-actions\[bot\]|dependabot\[bot\]) <'
+
+          is_github_base_update_merge() {
+            local subject=$1
+            local committer_login=$2
+            local parent_count=$3
+            local base_ref=$4
+            local direct_prefix="Merge branch '$base_ref' into "
+            local remote_prefix="Merge remote-tracking branch 'origin/$base_ref' into "
+
+            if [ "$parent_count" -lt 2 ] || [ "$committer_login" != "web-flow" ]; then
+              return 1
+            fi
+
+            [[ "$subject" == "$direct_prefix"* || "$subject" == "$remote_prefix"* ]]
+          }
+
+          missing=()
+          bot_exempt=()
+          base_update_merge_exempt=()
+          total=0
+          passed=0
+          page=1
+
+          while true; do
+            commits=$(curl -fsSL \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/$REPO/pulls/$PR_NUMBER/commits?per_page=100&page=$page")
+
+            count=$(jq 'length' <<< "$commits")
+            if [ "$count" = "0" ]; then
+              break
+            fi
+
+            while IFS= read -r commit; do
+              sha=$(jq -r '.sha' <<< "$commit")
+              message=$(jq -r '.message' <<< "$commit")
+              author_name=$(jq -r '.author_name // ""' <<< "$commit")
+              author_email=$(jq -r '.author_email // ""' <<< "$commit")
+              committer_login=$(jq -r '.committer_login // ""' <<< "$commit")
+              parent_count=$(jq -r '.parent_count // 0' <<< "$commit")
+              short="${sha:0:7}"
+              subject=$(printf '%s\n' "$message" | sed -n '1p')
+              author="$author_name <$author_email>"
+
+              total=$((total + 1))
+              if printf '%s\n' "$message" | grep -qE '^Signed-off-by: .+ <.+>'; then
+                passed=$((passed + 1))
+              elif printf '%s' "$author" | grep -qE "$bot_authors_regex"; then
+                passed=$((passed + 1))
+                bot_exempt+=("$short - $subject")
+              elif is_github_base_update_merge "$subject" "$committer_login" "$parent_count" "$base_ref"; then
+                passed=$((passed + 1))
+                base_update_merge_exempt+=("$short - $subject")
+              else
+                missing+=("$short $subject")
+              fi
+            done < <(jq -c '.[] | {
+              sha: .sha,
+              message: .commit.message,
+              author_name: .commit.author.name,
+              author_email: .commit.author.email,
+              committer_login: (.committer.login // ""),
+              parent_count: (.parents | length)
+            }' <<< "$commits")
+
+            page=$((page + 1))
+          done
+
+          if [ ${#bot_exempt[@]} -gt 0 ]; then
+            echo "DCO-exempt bot commits (${#bot_exempt[@]}):"
+            for entry in "${bot_exempt[@]}"; do
+              printf '  - %s\n' "$entry"
+            done
+            echo ""
+          fi
+
+          if [ ${#base_update_merge_exempt[@]} -gt 0 ]; then
+            echo "DCO-exempt GitHub base-update merge commits (${#base_update_merge_exempt[@]}):"
+            for entry in "${base_update_merge_exempt[@]}"; do
+              printf '  - %s\n' "$entry"
+            done
+            echo ""
+          fi
+
+          echo "Checked $total commit(s): $passed passed, ${#missing[@]} missing sign-off"
+
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "commits_missing=true" >> "$GITHUB_OUTPUT"
+            printf '%s\n' "${missing[@]}" > /tmp/missing_commits.txt
+          else
+            echo "commits_missing=false" >> "$GITHUB_OUTPUT"
+            echo "All commits have valid DCO sign-off."
+          fi
+
+      - name: Set success status
+        if: steps.pr.outputs.skip != 'true' && steps.dco_check.outputs.commits_missing == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+        run: |
+          set -euo pipefail
+
+          jq -n \
+            --arg state "success" \
+            --arg context "DCO" \
+            --arg description "All commits have valid DCO sign-off" \
+            --arg target_url "$GITHUB_SERVER_URL/$REPO/actions/runs/$GITHUB_RUN_ID" \
+            '{state: $state, context: $context, description: $description, target_url: $target_url}' | \
+            curl -fsS -X POST \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              -H "Content-Type: application/json" \
+              "https://api.github.com/repos/$REPO/statuses/$HEAD_SHA" \
+              -d @-
+
+      - name: Check for manual DCO confirmation comment
+        id: manual_check
+        if: steps.dco_check.outputs.commits_missing == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ steps.pr.outputs.pr_number }}
+          PR_AUTHOR: ${{ steps.pr.outputs.pr_author }}
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+          CONFIRMATION_PHRASE: Confirming DCO sign off for all commits
+        run: |
+          set -euo pipefail
+
+          commit_json=$(curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$REPO/commits/$HEAD_SHA")
+          latest_commit_at=$(jq -r '.commit.committer.date // .commit.author.date' <<< "$commit_json")
+          latest_commit_epoch=$(date -d "$latest_commit_at" +%s)
+
+          page=1
+          found=false
+          confirming_user=""
+          confirming_association=""
+          confirming_at=""
+          stale_confirmation_found=false
+
+          while true; do
+            comments=$(curl -fsSL \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/$REPO/issues/$PR_NUMBER/comments?per_page=100&page=$page")
+
+            if [ "$(jq 'length' <<< "$comments")" = "0" ]; then
+              break
+            fi
+
+            while IFS= read -r comment; do
+              body=$(jq -r '.body // ""' <<< "$comment")
+              author=$(jq -r '.author' <<< "$comment")
+              association=$(jq -r '.association' <<< "$comment")
+              created_at=$(jq -r '.created_at' <<< "$comment")
+              updated_at=$(jq -r '.updated_at' <<< "$comment")
+              created_epoch=$(date -d "$created_at" +%s)
+              updated_epoch=$(date -d "$updated_at" +%s)
+              comment_confirmed_at="$updated_at"
+              comment_confirmed_epoch="$updated_epoch"
+              if [ "$updated_epoch" -lt "$created_epoch" ]; then
+                echo "::error::PR #$PR_NUMBER: DCO confirmation comment timestamp integrity check failed for $author: updated_at ($updated_at) is earlier than created_at ($created_at)."
+                exit 1
+              fi
+
+              if printf '%s\n' "$body" | grep -qiF "$CONFIRMATION_PHRASE"; then
+                if [ "$author" = "$PR_AUTHOR" ] || printf '%s' "$association" | grep -qE '^(OWNER|MEMBER|COLLABORATOR|CONTRIBUTOR)$'; then
+                  if [ "$comment_confirmed_epoch" -gt "$latest_commit_epoch" ]; then
+                    found=true
+                    confirming_user="$author"
+                    confirming_at="$comment_confirmed_at"
+                    if [ "$author" = "$PR_AUTHOR" ]; then
+                      confirming_association="AUTHOR"
+                    else
+                      confirming_association="$association"
+                    fi
+                    break
+                  fi
+                  stale_confirmation_found=true
+                  # Continue scanning so every stale confirmation gets a warning and a newer fresh confirmation can still pass.
+                  echo "::warning::PR #$PR_NUMBER: Ignoring stale DCO confirmation from $author at $comment_confirmed_at (latest commit is $latest_commit_at). A fresh confirmation is required after the latest commit."
+                fi
+              fi
+            done < <(jq -c '.[] | {
+              body: .body,
+              author: .user.login,
+              association: .author_association,
+              created_at: .created_at,
+              updated_at: .updated_at
+            }' <<< "$comments")
+
+            if [ "$found" = true ]; then
+              break
+            fi
+
+            page=$((page + 1))
+          done
+
+          echo "manual_confirmed=$found" >> "$GITHUB_OUTPUT"
+          echo "confirming_user=$confirming_user" >> "$GITHUB_OUTPUT"
+          echo "confirming_association=$confirming_association" >> "$GITHUB_OUTPUT"
+          echo "confirming_at=$confirming_at" >> "$GITHUB_OUTPUT"
+          echo "latest_commit_at=$latest_commit_at" >> "$GITHUB_OUTPUT"
+          echo "stale_confirmation_found=$stale_confirmation_found" >> "$GITHUB_OUTPUT"
+
+      - name: Report result
+        if: always() && steps.dco_check.outputs.commits_missing == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ steps.pr.outputs.pr_number }}
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+          EVENT_NAME: ${{ github.event_name }}
+          MANUAL_CONFIRMED: ${{ steps.manual_check.outputs.manual_confirmed }}
+          CONFIRMING_USER: ${{ steps.manual_check.outputs.confirming_user }}
+          CONFIRMING_ASSOCIATION: ${{ steps.manual_check.outputs.confirming_association }}
+          CONFIRMING_AT: ${{ steps.manual_check.outputs.confirming_at }}
+          LATEST_COMMIT_AT: ${{ steps.manual_check.outputs.latest_commit_at }}
+          STALE_CONFIRMATION_FOUND: ${{ steps.manual_check.outputs.stale_confirmation_found }}
+          DCO_TRUNCATED: ${{ steps.dco_check.outputs.dco_truncated }}
+        run: |
+          set -euo pipefail
+
+          post_comment() {
+            local file=$1
+            jq -n --rawfile body "$file" '{body: $body}' | \
+              curl -fsS -X POST \
+                -H "Authorization: Bearer $GH_TOKEN" \
+                -H "Accept: application/vnd.github+json" \
+                -H "Content-Type: application/json" \
+                "https://api.github.com/repos/$REPO/issues/$PR_NUMBER/comments" \
+                -d @-
+          }
+
+          update_comment() {
+            local comment_id=$1
+            local file=$2
+            jq -n --rawfile body "$file" '{body: $body}' | \
+              curl -fsS -X PATCH \
+                -H "Authorization: Bearer $GH_TOKEN" \
+                -H "Accept: application/vnd.github+json" \
+                -H "Content-Type: application/json" \
+                "https://api.github.com/repos/$REPO/issues/comments/$comment_id" \
+                -d @-
+          }
+
+          upsert_failure_comment() {
+            local file=$1
+            local page=1
+            local existing_id=""
+
+            while true; do
+              comments=$(curl -fsSL \
+                -H "Authorization: Bearer $GH_TOKEN" \
+                -H "Accept: application/vnd.github+json" \
+                "https://api.github.com/repos/$REPO/issues/$PR_NUMBER/comments?per_page=100&page=$page")
+
+              if [ "$(jq 'length' <<< "$comments")" = "0" ]; then
+                break
+              fi
+
+              existing_id=$(jq -r '.[] | select((.body // "") | contains("<!-- dco-check-failed -->")) | .id' <<< "$comments" | head -n 1)
+              if [ -n "$existing_id" ]; then
+                break
+              fi
+
+              page=$((page + 1))
+            done
+
+            if [ -n "$existing_id" ]; then
+              update_comment "$existing_id" "$file"
+            else
+              post_comment "$file"
+            fi
+          }
+
+          set_dco_status() {
+            local state=$1
+            local description=$2
+            jq -n \
+              --arg state "$state" \
+              --arg context "DCO" \
+              --arg description "$description" \
+              --arg target_url "$GITHUB_SERVER_URL/$REPO/actions/runs/$GITHUB_RUN_ID" \
+              '{state: $state, context: $context, description: $description, target_url: $target_url}' | \
+              curl -fsS -X POST \
+                -H "Authorization: Bearer $GH_TOKEN" \
+                -H "Accept: application/vnd.github+json" \
+                -H "Content-Type: application/json" \
+                "https://api.github.com/repos/$REPO/statuses/$HEAD_SHA" \
+                -d @-
+          }
+
+          delete_failure_comment() {
+            local page=1
+            local failure_id=""
+
+            while true; do
+              comments=$(curl -fsSL \
+                -H "Authorization: Bearer $GH_TOKEN" \
+                -H "Accept: application/vnd.github+json" \
+                "https://api.github.com/repos/$REPO/issues/$PR_NUMBER/comments?per_page=100&page=$page")
+
+              if [ "$(jq 'length' <<< "$comments")" = "0" ]; then
+                break
+              fi
+
+              failure_id=$(jq -r '.[] | select((.body // "") | contains("<!-- dco-check-failed -->")) | .id' <<< "$comments" | head -n 1)
+              if [ -n "$failure_id" ]; then
+                curl -fsS -X DELETE \
+                  -H "Authorization: Bearer $GH_TOKEN" \
+                  "https://api.github.com/repos/$REPO/issues/comments/$failure_id"
+                break
+              fi
+
+              page=$((page + 1))
+            done
+          }
+
+          if [ "$MANUAL_CONFIRMED" = "true" ]; then
+            echo "DCO check passed via manual confirmation from $CONFIRMING_USER ($CONFIRMING_ASSOCIATION) at $CONFIRMING_AT."
+            # Keep pull_request_target statuses current when an existing fresh confirmation is reused.
+            # Deleting an absent failure comment is a no-op; posting the same status again is safe.
+            delete_failure_comment
+            set_dco_status success "DCO manually confirmed by $CONFIRMING_USER"
+            if [ "$EVENT_NAME" = "issue_comment" ]; then
+              {
+                echo "## CARLOS EMR DCO Check Passed via Manual Confirmation"
+                echo ""
+                echo "Thank you, **$CONFIRMING_USER** ($CONFIRMING_ASSOCIATION)."
+                echo ""
+                echo "The DCO check has passed using manual PR sign-off. No commit changes are required."
+              } > /tmp/dco_success_comment.md
+              post_comment /tmp/dco_success_comment.md
+            fi
+            exit 0
+          fi
+
+          if [ "$DCO_TRUNCATED" = "true" ]; then
+            cat /tmp/dco_truncated.txt >&2
+            {
+              echo "<!-- dco-check-failed -->"
+              echo "## CARLOS EMR DCO Check Failed"
+              echo ""
+              cat /tmp/dco_truncated.txt
+              echo ""
+              echo "Please reduce the PR commit count or have the PR author/project contributor post the manual confirmation phrase below after reviewing DCO coverage."
+              echo ""
+              echo "> Confirming DCO sign off for all commits"
+              echo ""
+              echo "See https://developercertificate.org/ for DCO details."
+            } > /tmp/dco_failure_comment.md
+          else
+            echo "::error::The following commit(s) are missing a DCO sign-off:"
+            while IFS= read -r entry; do
+              echo "  - $entry"
+            done < /tmp/missing_commits.txt
+
+            missing_list=""
+            while IFS= read -r entry; do
+              missing_list="$missing_list"$'\n'"- \`$entry\`"
+            done < /tmp/missing_commits.txt
+
+            {
+              echo "<!-- dco-check-failed -->"
+              echo "## CARLOS EMR DCO Check Failed"
+              echo ""
+              echo "The following commit(s) are missing a \`Signed-off-by\` line:"
+              echo "$missing_list"
+              echo ""
+              echo "### Preferred fix"
+              echo ""
+              echo '```bash'
+              echo "git commit --amend -s --no-edit"
+              echo "git push --force-with-lease"
+              echo ""
+              echo "git rebase --signoff HEAD~N"
+              echo "git push --force-with-lease"
+              echo '```'
+              echo ""
+              echo "### Manual confirmation fallback"
+              echo ""
+              echo "The PR author or a project contributor can confirm DCO sign-off by posting this exact phrase:"
+              echo ""
+              echo "> Confirming DCO sign off for all commits"
+              echo ""
+              echo "See https://developercertificate.org/ for DCO details."
+            } > /tmp/dco_failure_comment.md
+          fi
+
+          failure_description="DCO sign-off missing"
+          if [ "$STALE_CONFIRMATION_FOUND" = "true" ]; then
+            failure_description="DCO manual confirmation is stale"
+          fi
+          set_dco_status failure "$failure_description"
+          upsert_failure_comment /tmp/dco_failure_comment.md
+          exit 1

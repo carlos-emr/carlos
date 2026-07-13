@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns:cxf="http://cxf.apache.org/core"
+       xmlns:jaxws="http://cxf.apache.org/jaxws"
+       xmlns:jaxrs="http://cxf.apache.org/jaxrs"
+       xmlns:util="http://www.springframework.org/schema/util"
+       xsi:schemaLocation="
+           http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+           http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+           http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop.xsd
+           http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd
+           http://cxf.apache.org/core http://cxf.apache.org/schemas/core.xsd
+           http://cxf.apache.org/jaxws http://cxf.apache.org/schemas/jaxws.xsd
+           http://cxf.apache.org/jaxrs http://cxf.apache.org/schemas/jaxrs.xsd">
+
+    <!-- CXF core beans -->
+    <import resource="classpath:META-INF/cxf/cxf.xml"/>
+
+    <!-- OAuth provider, uses component scan. -->
+    <alias name="oscarOAuthDataProvider" alias="oauthProvider"/>
+
+    <!-- Helpers for initiate -->
+    <bean id="OAuth1ParamParser" class="io.github.carlos_emr.carlos.webserv.oauth.util.OAuth1ParamParser"/>
+
+    <!-- Step 1: Request token (initiate) -->
+    <bean id="oscarRequestTokenService"
+        class="io.github.carlos_emr.carlos.login.OscarRequestTokenService">
+        <constructor-arg ref="oscarOAuthDataProvider"/>
+        <constructor-arg ref="OAuth1ParamParser"/>
+    </bean>
+
+    <!-- Step 2: JAX-RS resources (use autowire so provider gets injected) -->
+    <bean id="oauthAuthorizeResource"
+          class="io.github.carlos_emr.carlos.webserv.oauth.AuthorizeResource"
+          autowire="byType"/>
+
+    <!-- Step 3: Access token resource (CXF JAX-RS) -->
+    <bean id="oauthAccessTokenEndpoint"
+        class="io.github.carlos_emr.carlos.webserv.oauth.AccessTokenResource">
+        <constructor-arg ref="oscarOAuthDataProvider"/>
+        <constructor-arg ref="OAuth1ParamParser"/>
+        <!-- Use the existing verifier bean id in your app; if it's different, change this ref -->
+        <constructor-arg ref="OAuth1SignatureVerifierImplementation"/>
+    </bean>
+
+
+    <!-- JSON/JAXB providers for CXF JAX-RS -->
+    <!-- Custom Jackson module for smart date serialization -->
+    <bean id="smartDateModule" class="io.github.carlos_emr.carlos.webserv.rest.util.SmartDateModule"/>
+
+    <!-- Jackson 2 ObjectMapper -->
+    <bean id="jacksonObjectMapper" class="com.fasterxml.jackson.databind.ObjectMapper">
+        <!-- <property name="serializationInclusion">
+            <util:constant static-field="com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL"/>
+        </property> -->
+
+        <!-- Use combined introspector to support both Jackson and JAXB annotations -->
+        <!-- Jackson annotations (like @JsonFormat) take precedence over JAXB -->
+        <property name="annotationIntrospector">
+            <bean class="com.fasterxml.jackson.databind.introspect.AnnotationIntrospectorPair">
+                <constructor-arg>
+                    <bean class="com.fasterxml.jackson.databind.introspect.JacksonAnnotationIntrospector"/>
+                </constructor-arg>
+                <constructor-arg>
+                    <bean class="com.fasterxml.jackson.module.jakarta.xmlbind.JakartaXmlBindAnnotationIntrospector">
+                        <constructor-arg>
+                            <bean class="com.fasterxml.jackson.databind.type.TypeFactory" factory-method="defaultInstance"/>
+                        </constructor-arg>
+                    </bean>
+                </constructor-arg>
+            </bean>
+        </property>
+    </bean>
+
+    <!-- Register the smart date module with ObjectMapper -->
+    <bean class="org.springframework.beans.factory.config.MethodInvokingFactoryBean">
+        <property name="targetObject" ref="jacksonObjectMapper"/>
+        <property name="targetMethod" value="registerModule"/>
+        <property name="arguments">
+            <list>
+                <ref bean="smartDateModule"/>
+            </list>
+        </property>
+    </bean>
+
+    <!-- Jackson 2 JAX-RS provider -->
+    <bean id="jsonProvider" class="com.fasterxml.jackson.jakarta.rs.json.JacksonJsonProvider">
+        <property name="mapper" ref="jacksonObjectMapper"/>
+    </bean>
+
+    <bean id="jaxb" class="org.apache.cxf.jaxrs.provider.JAXBElementProvider">
+        <property name="marshallerProperties">
+            <map>
+                <entry key="jaxb.formatted.output">
+                    <value type="java.lang.Boolean">true</value>
+                </entry>
+            </map>
+        </property>
+        <property name="produceMediaTypes">
+            <list>
+                <value>application/xml</value>
+                <value>text/xml</value>
+            </list>
+        </property>
+        <property name="consumeMediaTypes">
+            <list>
+                <value>application/xml</value>
+                <value>text/xml</value>
+            </list>
+        </property>
+    </bean>
+
+    <!-- OAuth 1.0a endpoints at /oscar/ws/oauth/* -->
+    <jaxrs:server id="oauthEndpoints" address="/oauth">
+
+        <jaxrs:serviceBeans>
+            <!-- Step 1: Request token (initiate) -->
+            <ref bean="oscarRequestTokenService"/>
+
+            <!-- Step 2: Authorize (consent UI + sets verifier) -->
+            <ref bean="oauthAuthorizeResource"/>
+
+            <!-- Step 3: Access token (exchange request token + verifier for access token) -->
+            <ref bean="oauthAccessTokenEndpoint"/>
+        </jaxrs:serviceBeans>
+
+        <jaxrs:providers>
+            <ref bean="jaxb"/>
+            <ref bean="jsonProvider"/>
+            <!-- Optional: accept x-www-form-urlencoded bodies -->
+            <bean class="org.apache.cxf.jaxrs.provider.FormEncodingProvider"/>
+            <!-- Render OAuth1Exception with its carried HTTP status instead of a 500 -->
+            <bean class="io.github.carlos_emr.carlos.webserv.oauth.OAuth1ExceptionMapper"/>
+        </jaxrs:providers>
+
+        <jaxrs:extensionMappings>
+            <entry key="xml"  value="application/xml"/>
+            <entry key="json" value="application/json"/>
+        </jaxrs:extensionMappings>
+
+    </jaxrs:server>
+
+
+
+    <!-- CXF JAX-RS server for data APIs at /ws/services (NO OAuth interceptor here) -->
+    <jaxrs:server id="restServices" address="/services">
+
+		<jaxrs:inInterceptors>
+			<bean name="oauthInInterceptor"
+				class="io.github.carlos_emr.carlos.webserv.oauth.util.OAuthInterceptor" />
+		</jaxrs:inInterceptors>
+
+        <jaxrs:serviceBeans>
+            <bean class="io.github.carlos_emr.carlos.webserv.oauth.OAuthStatusService" autowire="byName"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.PharmacyService"  autowire="byName"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.DemographicService"  autowire="byName"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.ScheduleService"  autowire="byName"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.DemographicMergeService"  autowire="byName"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.MessagingService"  autowire="byName"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.InboxService"  autowire="byName"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.TicklerWebService"  autowire="byName"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.RxWebService"  autowire="byName"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.RxLookupService"  autowire="byName"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.ProviderService"  autowire="byName"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.PatientDetailStatusService"  autowire="byName"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.PersonaService"  autowire="byName"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.FormsService"  autowire="byName"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.OscarJobService"  autowire="byName"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.NotesService" autowire="byName" />
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.RecordUxService" autowire="byName" />
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.ReportingService" autowire="byName" />
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.BillingService" autowire="byName" />
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.StatusService" autowire="byName" />
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.ProgramService" autowire="byName" />
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.ConsultationWebService" autowire="byName" />
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.AppService" autowire="byName" />
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.AllergyService" autowire="byName" />
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.PreventionService" autowire="byName" />
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.ReportByTemplateService" autowire="byName" />
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.ResourceService" autowire="byName" />
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.DiseaseRegistryService" autowire="byName" />
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.LabService" autowire="byName" />
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.MeasurementService" autowire="byName" />
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.DocumentService" autowire="byName" />
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.ConsentService" autowire="byName"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.EFormService" autowire="byName"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.EFormsService" autowire="byName"/>
+        </jaxrs:serviceBeans>
+
+        <jaxrs:providers>
+            <ref bean="jaxb"/>
+            <ref bean="jsonProvider"/>
+        </jaxrs:providers>
+
+        <jaxrs:extensionMappings>
+            <entry key="xml" value="application/xml"/>
+            <entry key="json" value="application/json"/>
+        </jaxrs:extensionMappings>
+    </jaxrs:server>
+<context:component-scan base-package="io.github.carlos_emr.carlos.login" />
+
+</beans>

@@ -1,0 +1,303 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns:cxf="http://cxf.apache.org/core"
+       xmlns:jaxws="http://cxf.apache.org/jaxws"
+       xmlns:jaxrs="http://cxf.apache.org/jaxrs"
+       xmlns:util="http://www.springframework.org/schema/util"
+       xsi:schemaLocation="
+            http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+            http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+            http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop.xsd
+            http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd
+            http://cxf.apache.org/core http://cxf.apache.org/schemas/core.xsd
+            http://cxf.apache.org/jaxws http://cxf.apache.org/schemas/jaxws.xsd
+            http://cxf.apache.org/jaxrs http://cxf.apache.org/schemas/jaxrs.xsd">
+
+    <!-- =========================================================
+         Component scans
+         ========================================================= -->
+    <!-- NEW: pick up your OAuth1 controllers + helpers -->
+    <context:component-scan base-package="io.github.carlos_emr.carlos.webserv.oauth"/>
+    <!-- Provider + legacy OAuth session merger lives here -->
+    <context:component-scan base-package="io.github.carlos_emr.carlos.login"/>
+
+    <!-- Keep existing REST resources (cookie-auth) and SOAP WS -->
+    <context:component-scan base-package="io.github.carlos_emr.carlos.webserv.rest"/>
+    <context:component-scan base-package="io.github.carlos_emr.carlos.webserv.rest.util"/>
+    <context:component-scan base-package="io.github.carlos_emr.carlos.webserv.rest.conversion"/>
+    <context:component-scan base-package="io.github.carlos_emr.carlos.webserv">
+        <context:exclude-filter type="assignable" expression="io.github.carlos_emr.carlos.webserv.SystemInfoWs"/>
+    </context:component-scan>
+
+    <aop:aspectj-autoproxy/>
+
+    <!-- =========================================================
+         CXF Bus + SOAP endpoints (unchanged)
+         ========================================================= -->
+    <import resource="classpath:META-INF/cxf/cxf.xml"/>
+
+    <bean id="abstractLoggingInterceptor" abstract="true">
+        <property name="prettyLogging" value="true"/>
+    </bean>
+    <bean id="loggingInInterceptor" class="org.apache.cxf.ext.logging.LoggingInInterceptor" parent="abstractLoggingInterceptor">
+        <property name="limit" value="1024000"/>
+    </bean>
+    <bean id="loggingOutInterceptor" class="org.apache.cxf.ext.logging.LoggingOutInterceptor" parent="abstractLoggingInterceptor"/>
+
+    <cxf:bus>
+		<cxf:properties>
+			<entry key="ws-security.ut.validator" value-ref="oscarUsernameTokenValidator" />
+		</cxf:properties>
+		
+		<!-- logging interceptors
+		<cxf:outInterceptors>
+			<ref bean="loggingOutInterceptor" />
+		</cxf:outInterceptors> 
+		<cxf:inInterceptors>
+			<ref bean="loggingInInterceptor" />
+		</cxf:inInterceptors>
+		
+		<cxf:outFaultInterceptors>
+			<ref bean="loggingOutInterceptor" />
+		</cxf:outFaultInterceptors>
+		<cxf:inFaultInterceptors>
+			<ref bean="loggingInInterceptor" />
+		</cxf:inFaultInterceptors>
+		-->
+		 
+    </cxf:bus>
+
+	<!-- Managed WS Beans -->
+	<!-- The WS classes are turned into spring beans to allow autowiring etc, then the endpoints reference them -->
+ 	<context:component-scan base-package="io.github.carlos_emr.carlos.webserv"/>
+
+	<!-- WebServiceContext placeholder - CXF injects the real instance at endpoint init time.
+	     Spring 7 processes @Resource eagerly, so we need a bean definition to satisfy DI. -->
+	<bean id="jakarta.xml.ws.WebServiceContext"
+	      class="org.apache.cxf.jaxws.context.WebServiceContextImpl"/>
+	
+	<bean id="authenticationInWSS4JInterceptor" class="io.github.carlos_emr.carlos.webserv.AuthenticationInWSS4JInterceptor" autowire="byType" />
+	<bean id="oscarUsernameTokenValidator" class="io.github.carlos_emr.carlos.webserv.OscarUsernameTokenValidator" autowire="byType" />
+
+	<!-- HTTP policy for lab upload service to handle long-running batch operations -->
+	<bean id="labUploadHttpServerPolicy" class="org.apache.cxf.transports.http.configuration.HTTPServerPolicy">
+		<!-- 5 minute timeout for processing multiple lab results in a single upload -->
+		<property name="receiveTimeout" value="300000"/>
+	</bean>
+
+	<!-- www service endpoints -->
+	<jaxws:endpoint implementor="#systemInfoWs" address="/SystemInfoService"/>		
+	<jaxws:endpoint implementor="#loginWs" address="/LoginService" />	
+	
+	<jaxws:endpoint implementor="#scheduleWs" address="/ScheduleService">
+		<jaxws:inInterceptors>
+			<ref bean="authenticationInWSS4JInterceptor"/>
+		</jaxws:inInterceptors>
+	</jaxws:endpoint>	
+
+	<jaxws:endpoint implementor="#bookingWs" address="/BookingService">
+		<jaxws:inInterceptors>
+			<ref bean="authenticationInWSS4JInterceptor"/>
+		</jaxws:inInterceptors>
+	</jaxws:endpoint>	
+	
+	<jaxws:endpoint implementor="#providerWs" address="/ProviderService" >
+		<jaxws:inInterceptors>
+			<ref bean="authenticationInWSS4JInterceptor"/>
+		</jaxws:inInterceptors>
+	</jaxws:endpoint>	
+	
+	<jaxws:endpoint implementor="#demographicWs" address="/DemographicService" >
+		<jaxws:inInterceptors>
+			<ref bean="authenticationInWSS4JInterceptor"/>
+		</jaxws:inInterceptors>
+	</jaxws:endpoint>
+		
+	<jaxws:endpoint implementor="#facilityWs" address="/FacilityService" >
+		<jaxws:inInterceptors>
+			<ref bean="authenticationInWSS4JInterceptor"/>
+		</jaxws:inInterceptors>
+	</jaxws:endpoint>	
+  
+	<jaxws:endpoint implementor="#programWs" address="/ProgramService" >
+		<jaxws:inInterceptors>
+			<ref bean="authenticationInWSS4JInterceptor"/>
+		</jaxws:inInterceptors>
+	</jaxws:endpoint>	
+     	
+	<jaxws:endpoint implementor="#allergyWs" address="/AllergyService" >
+		<jaxws:inInterceptors>
+			<ref bean="authenticationInWSS4JInterceptor"/>
+		</jaxws:inInterceptors>
+	</jaxws:endpoint>	
+     	
+	<jaxws:endpoint implementor="#preventionWs" address="/PreventionService" >
+		<jaxws:inInterceptors>
+			<ref bean="authenticationInWSS4JInterceptor"/>
+		</jaxws:inInterceptors>
+	</jaxws:endpoint>	
+
+	<jaxws:endpoint implementor="#measurementWs" address="/MeasurementService" >
+		<jaxws:inInterceptors>
+			<ref bean="authenticationInWSS4JInterceptor"/>
+		</jaxws:inInterceptors>
+	</jaxws:endpoint>	
+
+	<jaxws:endpoint implementor="#documentWs" address="/DocumentService" >
+		<jaxws:inInterceptors>
+			<ref bean="authenticationInWSS4JInterceptor"/>
+		</jaxws:inInterceptors>
+	</jaxws:endpoint>	
+
+	<jaxws:endpoint implementor="#prescriptionWs" address="/PrescriptionService" >
+		<jaxws:inInterceptors>
+			<ref bean="authenticationInWSS4JInterceptor"/>
+		</jaxws:inInterceptors>
+	</jaxws:endpoint>	
+
+	<jaxws:endpoint implementor="#labUploadWs" address="/LabUploadService" >
+		<jaxws:inInterceptors>
+			<ref bean="authenticationInWSS4JInterceptor"/>
+		</jaxws:inInterceptors>
+		<jaxws:properties>
+			<entry key="org.apache.cxf.transports.http.configuration.HTTPServerPolicy" value-ref="labUploadHttpServerPolicy"/>
+		</jaxws:properties>
+	</jaxws:endpoint>	
+	
+	<context:component-scan base-package="io.github.carlos_emr.carlos.webserv.rest"/>
+	<context:component-scan base-package="io.github.carlos_emr.carlos.webserv.rest.util"/>
+	<context:component-scan base-package="io.github.carlos_emr.carlos.webserv.rest.conversion"/>
+	<context:component-scan base-package="io.github.carlos_emr.carlos.webserv.oauth.util"/>
+
+	<aop:aspectj-autoproxy/>
+	
+	<!-- RESTful www service  -->
+	<jaxrs:server address="/rs" id="jaxrServer">
+
+		<jaxrs:inInterceptors>
+			<bean name="authInInterceptor"
+				class="io.github.carlos_emr.carlos.webserv.rest.util.AuthenticationInInterceptor" />
+		</jaxrs:inInterceptors>
+		
+		<jaxrs:providers>
+		    <ref bean="jaxb"/>
+			<ref bean="jsonProvider"/>
+			<bean class="com.fasterxml.jackson.jakarta.rs.json.JacksonJsonProvider"/>
+		</jaxrs:providers>
+		
+	
+
+		<jaxrs:features>
+			<cxf:logging />
+		</jaxrs:features>
+
+		<!-- REST data services are exposed on BOTH the session surface (/ws/rs, here)
+		     and the OAuth surface (/ws/services, applicationContextREST.xml). Keep the two
+		     service-bean lists consistent so every data service is reachable on both. -->
+		<jaxrs:serviceBeans>
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.PharmacyService" autowire="byName"/>
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.DemographicService" autowire="byName"/>
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.ScheduleService" autowire="byName"/>
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.DemographicMergeService" autowire="byName"/>
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.MessagingService" autowire="byName"/>
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.InboxService" autowire="byName"/>
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.TicklerWebService" autowire="byName"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.RxWebService" autowire="byName"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.RxLookupService" autowire="byName"/>
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.ProviderService" autowire="byName"/>
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.PatientDetailStatusService" autowire="byName"/>
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.PersonaService" autowire="byName"/>
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.FormsService" autowire="byName"/>
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.OscarJobService" autowire="byName"/>
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.NotesService" autowire="byName" />
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.RecordUxService" autowire="byName" />
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.ReportingService" autowire="byName" />
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.BillingService" autowire="byName" />
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.StatusService" autowire="byName" />
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.ProgramService" autowire="byName" />
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.ConsultationWebService" autowire="byName" />
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.AppService" autowire="byName" />
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.AllergyService" autowire="byName" />
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.PreventionService" autowire="byName" />
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.ReportByTemplateService" autowire="byName" />
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.ResourceService" autowire="byName" />
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.DiseaseRegistryService" autowire="byName" />
+<!--			<bean class="org.oscarehr.webservbserv.rest.SystemInfoService" autowire="byName" /> -->
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.LabService" autowire="byName" />
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.MeasurementService" autowire="byName" />
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.DocumentService" autowire="byName" />
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.ConsentService" autowire="byName" />
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.EFormService" autowire="byName"/>
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.EFormsService" autowire="byName"/>
+		</jaxrs:serviceBeans>
+
+		<jaxrs:extensionMappings>
+			<entry key="xml" value="application/xml" />
+			<entry key="json" value="application/json" />
+		</jaxrs:extensionMappings>
+	</jaxrs:server>
+	
+	<bean id="jaxb" class="org.apache.cxf.jaxrs.provider.JAXBElementProvider">
+      <property name="singleJaxbContext" value="true"/>
+ 
+      <property name="extraClass">
+         <list>
+           <value>io.github.carlos_emr.carlos.webserv.transfer_objects.ProviderTransfer</value>
+         </list>
+      </property>
+
+	</bean>
+
+    <util:list id="jsonKeys">
+        <value>tickler</value>
+        <value>ticklerComments</value>
+        <value>ticklerUpdates</value>
+        <value>content</value>
+        <value>post</value>
+    </util:list>
+
+    <!-- OAuth provider alias - OAuth beans are defined in applicationContextREST.xml -->
+    <alias name="oscarOAuthDataProvider" alias="oauthProvider"/>
+
+
+	<!-- 
+		Switched from Jettison (org.codehaus.jettison) to FasterXML Jackson 
+		for JSON handling in CXF JAX-RS providers. 
+		This ensures better compatibility and consistency of REST API 
+		request/response serialization and deserialization. 
+		Also excluded cxf-rt-rs-extension-providers to avoid Jettison being pulled in transitively.
+	-->
+    <!-- <bean id="jsonProvider" class="org.apache.cxf.jaxrs.provider.json.JSONProvider">
+        <property name="dropRootElement" value="true"/>
+        <property name="serializeAsArray" value="true"/>
+        <property name="arrayKeys" ref="jsonKeys"/>
+        <property name="dropCollectionWrapperElement" value="true"/>
+    </bean> -->
+
+	<!-- Jackson 2 ObjectMapper -->
+    <bean id="jacksonObjectMapper" class="com.fasterxml.jackson.databind.ObjectMapper">
+        <!-- <property name="serializationInclusion">
+            <util:constant static-field="com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL"/>
+        </property> -->
+
+        <!-- If you rely on JAXB-style annotations (@XmlRootElement, etc.) -->
+        <!-- This lets Jackson 2 understand them -->
+        <property name="annotationIntrospector">
+            <bean class="com.fasterxml.jackson.module.jakarta.xmlbind.JakartaXmlBindAnnotationIntrospector">
+                <constructor-arg>
+                    <bean class="com.fasterxml.jackson.databind.type.TypeFactory" factory-method="defaultInstance"/>
+                </constructor-arg>
+            </bean>
+        </property>
+    </bean>
+
+    <!-- Jackson 2 Jakarta RS provider -->
+    <bean id="jsonProvider" class="com.fasterxml.jackson.jakarta.rs.json.JacksonJsonProvider">
+        <property name="mapper" ref="jacksonObjectMapper"/>
+    </bean>
+
+
+</beans>

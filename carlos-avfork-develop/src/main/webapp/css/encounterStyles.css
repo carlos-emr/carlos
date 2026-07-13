@@ -1,0 +1,1580 @@
+/*
+ *
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved. *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version. *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details. * * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. *
+ *
+ * <OSCAR TEAM>
+ *
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
+ */
+/* styles.css -- Style sheet for the UI prototype.
+
+   Colours used:
+       #A9A9A9 = darkgray
+       #DCDCDC = gainsboro
+       #F5F5F5 = whitesmoke
+       #000000 = black
+       #FF8C00 = darkorange
+*/
+
+
+/*
+ * Encounter Page Layout
+ * =====================
+ * The encounter page uses a two-level flex layout:
+ *
+ *   body.encounter-layout          (flex column: header + navigation-layout)
+ *     #header                      (sticky header bar, natural height ~50px)
+ *     #navigation-layout           (flex row filling remaining height, scrollable)
+ *       #leftNavBar   (order:1)    (left sidebar — CPP boxes, 20%)
+ *       #content      (order:2)    (center column — notes area, 60%, sticky)
+ *       #rightNavBar  (order:3)    (right sidebar — issues/eforms, 20%)
+ *
+ * The body owns viewport height; #navigation-layout fills the space below the header
+ * via flex:1. The center column uses position:sticky so it stays pinned while the
+ * sidebars scroll via #navigation-layout's overflow-y:auto.
+ */
+body.encounter-layout {
+    overflow: hidden;
+    height: 100vh;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+:root * {
+    font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
+    font-size: 12px;
+    overscroll-behavior: none;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+#noteEditTxt {
+    font-size: larger;
+}
+
+div#userSettings ul#userSettingsMenu {
+    margin: 0;
+    padding: 0;
+    white-space: nowrap;
+    list-style-type: none;
+}
+
+div#userSettings ul#userSettingsMenu li a {
+    text-decoration: none;
+    color: #00283c;
+}
+
+div#userSettings ul#userSettingsMenu li a:hover {
+    text-decoration: none;
+    color: red;
+}
+
+div#userSettings ul#userSettingsMenu li {
+    color: #00283c;
+    font-weight: bold;
+    display: inline-block;
+}
+
+div#userSettings ul#userSettingsMenu li .fa-solid {
+    position: relative;
+    top: 1px;
+    display: inline-block;
+    -webkit-font-smoothing: antialiased;
+    font-style: normal;
+    font-weight: normal;
+    line-height: 1;
+}
+
+.nav-menu-heading {
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    background-color: inherit;
+}
+
+.nav-menu-heading div:first-of-type {
+    order: 2;
+    background-color: inherit;
+}
+
+.nav-menu-heading div:last-of-type {
+    order: 1;
+}
+
+.nav-menu-heading div:first-of-type h3 a {
+    text-align: center;
+}
+
+.nav-menu-heading div:last-of-type h3 a {
+    text-align: left;
+}
+
+.nav-menu-heading div:first-of-type h3 a, .nav-menu-heading div:last-of-type h3 a {
+    white-space: nowrap;
+    margin: 0 !important;
+    padding: 1px 10px !important;
+    background-color: inherit;
+    display: block;
+}
+
+.nav-menu-heading div:first-of-type h3, .nav-menu-heading div:last-of-type h3 {
+    display: inline-block;
+    display: -webkit-box;
+    display: -webkit-inline-box;
+    border: none;
+    margin: 0 !important;
+    padding: 0 !important;
+    background-color: inherit;
+    width: 100%;
+}
+
+#header-top-row, #header-top-row #left-column {
+    display: flex;
+}
+
+#header-top-row {
+    width: 100%;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#header-top-row #left-column #branding-logo {
+    margin: 5px 5px auto 5px;
+    position: relative;
+    top: 0;
+    left: 0;
+}
+
+.noteRounded {
+    background-color: #ffffff;
+    box-shadow: 0 2px 4px 0 rgba(38, 40, 42, 0.3);
+    border-radius: 4px;
+    border: lightgray thin solid;
+}
+
+/*div.encounter-note > div > div:first-of-type:not(.tool-button), .encounter-note textarea.txtArea {*/
+/*	padding: 10px !important;*/
+/*}*/
+
+fieldset {
+    background-color: transparent;
+    border: 1px solid #cccccc !important;
+    margin: 0;
+    position: relative;
+}
+
+fieldset legend {
+    color: #3c3c3c;
+}
+
+
+div#patient-label {
+    display: flex;
+    align-items: baseline;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    padding: 3px 0;
+    width: 100%;
+}
+
+.boxsizingBorder {
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+}
+
+textarea.txtArea {
+    border: none;
+    border-radius: 4px 4px 0 0;
+    width: 100%;
+    font-size: inherit;
+    padding: 2px 5px;
+    overflow: hidden;
+    resize: none;
+}
+
+textarea.unsigned-textarea, textarea.edit-textarea {
+    border-radius: unset;
+}
+
+div#patient-label > div {
+    margin: 2px 0;
+    padding: 0 6px;
+    font-size: 11px;
+    border-right: 1px solid #ccc;
+    white-space: nowrap;
+}
+
+div#patient-label > div:last-child {
+    border-right: none;
+}
+
+div#patient-label > div#patient-mrp {
+    margin-left: auto;
+}
+
+div#patient-label div#patient-full-name, div#patient-label div#patient-full-name h1, div#patient-label div#patient-full-name h1 a {
+    margin: 0;
+    font-size: 12px;
+    font-weight: bold;
+    display: inline;
+}
+
+div#patient-full-name a {
+    text-decoration: none;
+    color: blue;
+}
+
+div#patient-label div#header-top-row {
+    width: 100%;
+}
+
+div#patient-label .label {
+    margin: 0;
+    font-weight: normal !important;
+    font-size: 10px;
+    text-decoration: none;
+    display: inline;
+    color: #666;
+}
+
+div#patient-label .label::after {
+    content: ':\00a0';
+}
+
+div#patient-label div.copyable {
+    cursor: pointer;
+}
+
+div#patient-label .copyable:hover {
+    text-decoration: underline;
+}
+
+
+.float-end {
+    float: right !important;
+    width: 10% !important;
+}
+
+.float-end a {
+    color: white;
+    text-decoration: none;
+    font-weight: normal;
+}
+
+input {
+    box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    -webkit-box-sizing: border-box;
+}
+
+html, body {
+    padding: 0;
+    margin: 0;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    height: 100%;
+}
+
+table {
+    border-collapse: collapse;
+}
+
+
+a img {
+    border: none;
+    margin: 0;
+    padding: 0;
+}
+
+
+h3 {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.box {
+    border-top: 1px;
+    border-left: 1px;
+    border-right: 1px;
+    border-bottom: 1px;
+}
+
+
+.FakeLink {
+    text-align: right;
+}
+
+.Head {
+    background-color: #BBBBBB;
+    padding-top: 5px;
+    padding-bottom: 5px;
+    width: 100%;
+}
+
+.ControlPushButton {
+
+    font-family: inherit;
+}
+
+/* Fills remaining height below #header; scrolls sidebars vertically */
+#navigation-layout {
+    margin: auto 15px !important;
+    flex: 1;            /* fill remaining body height after header */
+    min-height: 0;      /* allow flex child to shrink below content size */
+    overflow-y: auto;   /* sidebar scroll container */
+    display: flex;
+    flex-direction: row;
+    gap: 3px;
+    border-top: white 3px solid;
+    align-items: flex-start;
+}
+
+#leftColLoader, #rightColLoader,
+#rightColLoader h3, #leftColLoader h3, #leftColLoader h3 a {
+    margin: 0 !important;
+    padding: 0 !important;
+    background-color: white !important;
+    color: black !important;
+    z-index: 10000 !important;
+}
+
+/* Left sidebar: CPP (Cumulative Patient Profile) boxes and clinical panels */
+div#leftNavBar {
+    order: 1;
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    flex-basis: 20%;
+    padding-bottom: 20px;
+}
+
+/* Right sidebar: issues, eForms, and encounter-specific panels */
+#rightNavBar {
+    order: 3;
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    flex-basis: 20%;
+    padding-bottom: 20px;
+}
+
+#rightNavBar img:first-of-type {
+    align-self: flex-start;
+}
+
+div#notCPP {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    height: 70%;
+}
+
+/* Center column: notes area. Sticky so it stays pinned while sidebars scroll. */
+#content {
+    order: 2;
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    height: 100%;       /* relative to #navigation-layout */
+    position: sticky;   /* pins center column while sidebars scroll */
+    top: 0;
+    flex-basis: 60%;
+    align-content: end;
+    width: 100%;
+    gap: 3px;
+    padding-bottom: 20px;
+}
+
+div#cppBoxes {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    height: auto;
+    margin: 0;
+}
+
+div#divR2, div#divR1 {
+    display: flex;
+    flex-direction: row;
+    gap: 3px;
+    flex-wrap: nowrap;
+}
+
+div#divR1I1, div#divR1I2, div#divR2I1, div#divR2I2 {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    flex-basis: 50%;
+}
+
+#topContent {
+    height: auto;
+    margin: 0;
+    border: 1px solid #cccccc;
+    padding: 5px;
+    background-color: whitesmoke;
+}
+
+form[name='caseManagementEntryForm'] {
+    height: 90%;
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    gap: 3px;
+}
+
+div.topBox {
+    background-color: #ffffff;
+}
+
+div.cppNotesList {
+    padding: 5px;
+    max-height: 250px;
+    overflow-y: scroll;
+}
+
+div.topBox h3 a {
+    color: white;
+    text-decoration: none;
+}
+
+div.topBox h3 {
+    margin: 0 !important;
+    padding: 0 !important;
+    padding-left: 5px !important;
+    background-color: #6699cc;
+
+    color: white;
+    font-weight: normal;
+}
+
+#cppBoxes div.topBox-notes ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+#cppBoxes div.topBox-notes ul li:nth-of-type(odd) {
+    background-color: white !important;
+}
+
+#cppBoxes div.topBox-notes ul li:nth-of-type(even) {
+    background-color: whitesmoke !important;
+}
+
+#cppBoxes .topBox-notes {
+    height: auto;
+    border-left: 1px solid #cccccc;
+    border-right: 1px solid #cccccc;
+    border-bottom: 1px solid #cccccc;
+}
+
+#rightNavBar .topBox-notes {
+    height: auto;
+}
+
+div.topBox-notes ul li a {
+    display: block;
+    padding: 2px 5px;
+}
+
+div.topBox-notes ul li, div.topBox-notes ul li a {
+    word-wrap: anywhere;
+    white-space: wrap;
+    background-color: inherit !important;
+}
+
+div#encMainDiv {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+/* Notes scroll container. overscroll-behavior:contain prevents wheel events
+   from leaking to the parent #navigation-layout when notes hit scroll bounds. */
+div#encMainDivWrapper {
+    padding: 15px 15px 10px 10px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border: thin solid #cccccc;
+    margin: 0;
+    background-color: whitesmoke;
+    flex: 1;
+    min-height: 0;
+}
+
+div#header {
+    padding: 0 10px;
+    margin: 0;
+    background-color: white;
+    position: sticky;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 101;
+    border-bottom: 1px solid #c0c0c0;
+    display: flex;
+    height: auto;
+}
+
+table#encounterHeader {
+    width: 100% !important;
+    margin-bottom: 2px !important;
+}
+
+table#encounterHeader tr td a {
+    text-decoration: none !important;
+}
+
+table#encounterHeader td#encounterHeaderLeftColumn {
+    width: 19.5% !important;
+    background-color: black;
+    padding-top: 0px !important;
+    padding-left: 0px !important;
+    padding-bottom: 0px !important;
+    border-right: white 1px solid;
+    text-align: left;
+    vertical-align: top;
+    height: 50px !important;
+}
+
+table#encounterHeader td#encounterHeaderLeftColumn h1 {
+    margin: 0px !important;
+    padding-left: 7px !important;
+    padding-top: 7px !important;
+    display: block !important;
+    color: white !important;
+
+}
+
+table#encounterHeader td#encounterHeaderRightColumn {
+    color: white !important;
+    vertical-align: top !important;
+    text-align: right !important;
+    padding-top: 3px !important;
+    padding-right: 3px !important;
+    width: 10.5%;
+}
+
+div#encounterTools {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 3px;
+}
+
+div#encounterTools fieldset:nth-of-type(1) {
+    flex-grow: 1;
+}
+
+div#encounterTools fieldset:nth-of-type(2) {
+    flex-grow: 2;
+}
+
+div#encounterTools fieldset:nth-of-type(3) {
+    flex-grow: 3;
+}
+
+.doctorInfo {
+    font-weight: bold;
+    background-color: #A39FC4;
+}
+
+.encounterTable {
+    background-color: #EBEAF2;
+}
+
+.patientInfo {
+    font-weight: bold;
+    background-color: #CBC9E0;
+}
+
+
+.ControlSelect {
+    width: 100%;
+}
+
+.LeftTable {
+    width: 100%;
+}
+
+.BodyStyle {
+    margin-left: 0;
+    margin-right: 0;
+    margin-top: 0;
+}
+
+.MainTable {
+    border-collapse: collapse;
+    border-color: #111111;
+    border-width: 0;
+    padding-bottom: 0;
+    padding-top: 0;
+    padding-left: 0;
+    padding-right: 0;
+    width: 100%;
+}
+
+.MainTableTopRowLeftColumn {
+    background-color: #003399;
+    border-right: 2px solid #A9A9A9;
+    border-left: 2px solid #A9A9A9;
+    border-top: 2px solid #A9A9A9;
+    height: 34px;
+    max-width: 130px;
+    font-weight: normal;
+    color: #FFFFFF;
+}
+
+.MainTableBottomRowLeftColumn {
+    border-right: 2px solid #A9A9A9;
+    border-left: 2px solid #A9A9A9;
+    border-bottom: 2px solid #A9A9A9;
+    height: 4px;
+    max-width: 130px;
+}
+
+.MainTableLeftColumn {
+    border-right: 2px solid #A9A9A9;
+    border-left: 2px solid #A9A9A9;
+    max-width: 130px;
+}
+
+.MainTableTopRowRightColumn {
+    border-right: 2px solid #A9A9A9;
+    border-top: 2px solid #A9A9A9;
+    background-color: #003399;
+    height: 34px;
+    min-width: 400px;
+}
+
+.MainTableBottomRowRightColumn {
+    border-bottom: 2px solid #A9A9A9;
+    border-right: 2px solid #A9A9A9;
+    height: 4px;
+}
+
+.MainTableRightColumn {
+    border-right: 2px solid #A9A9A9;
+    height: 34px;
+    margin-left: 4px;
+}
+
+
+/* For the Pharmacists Drug Therapy Problems */
+
+.dtpStatus {
+    margin-left: 10px;
+}
+
+/* FOR DEMOGRAPHIC EDIT DEMOGRAPHIC PAGE */
+.demographicDetail {
+    background-color: #CCCCFF;
+}
+
+div.info, span.info {
+    font-weight: normal;
+}
+
+div.statusName, div.statusInfo, div.statusAppointment {
+    float: left;
+    padding-right: 20px;
+}
+
+div.statusAppointment {
+    font-style: italic;
+}
+
+div.demographicSection {
+    width: 100%;
+    margin-top: 2px;
+    border-top: 1px solid #ccccff;
+    border-bottom: 1px solid #ccccff;
+    border-left: 1px solid #ccccff;
+    border-right: 1px solid #ccccff;
+    float: left;
+}
+
+div.demographicSection h3 {
+    background-color: #ccccff;
+    font-weight: normal;
+    margin-top: 0;
+    padding-top: 0;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+div.demographicSection ul {
+    list-style: none;
+    list-style-type: none;
+    list-style-position: outside;
+    padding-left: 1px;
+    margin-left: 1px;
+    margin-top: 0px;
+    padding-top: 1px;
+    margin-bottom: 0px;
+    padding-bottom: 0px;
+}
+
+div.leftSection, div.rightSection {
+    float: left;
+    width: 48%;
+    margin-left: 1%;
+}
+
+
+div.demographicSection li {
+    padding-right: 15px;
+    white-space: nowrap;
+}
+
+#viewDemographics2, div.demographicWrapper, .lightPurple {
+    background-color: #eeeeff;
+    width: 100%;
+}
+
+div.demographicDetail {
+    width: 100%;
+    background-color: #eeeeff;
+}
+
+#viewMobileMenu, .mobileScrollBtns, .mobileTitle, .mobileTopBar {
+    display: none;
+}
+
+.darkPurple {
+    background-color: #CCCCFF;
+}
+
+div.demographicWrapper {
+    background-color: #eeeeff;
+    margin-top: 5px;
+    margin-left: 1px;
+    margin-right: 1px;
+}
+
+/* popup menu styles for forms */
+div.nav-menu-heading div.menu {
+    position: absolute;
+    left: 20px;
+    top: auto;
+    margin: 0;
+    visibility: hidden;
+    background-color: #6699cc;
+    color: white;
+    border: thin solid #4080BF;
+    box-shadow: 1px 2px 4px 1px rgba(38, 40, 42, 0.3);
+    border-radius: 4px 4px 0 0;
+    z-index: 101;
+    max-height: 150px;
+    overflow-y: scroll;
+    padding: 0 0 5px 0;
+}
+
+div.nav-menu-heading div.menu h3 {
+    margin: 0;
+    padding: 2px 0 !important;
+    border-bottom: #4080BF thin solid;
+    width: 100%;
+    display: block;
+    font-weight: 500 !important;
+    position: sticky;
+    top: 0;
+    left: 0;
+    right: 0;
+    background-color: #4080BF;
+    opacity: 100;
+}
+
+div.nav-menu-heading div.menu br {
+    display: none;
+}
+
+div.nav-menu-heading div.menu a {
+    display: block;
+    padding: 1px 5px;
+    text-decoration: none;
+    color: white;
+}
+
+
+/*****************/
+
+.TopStatusBarShort {
+    font-weight: normal;
+    background-color: #6699cc;
+    color: black;
+    height: 23px;
+    width: 500px;
+}
+
+.Title {
+    font-weight: bold;
+    color: white;
+    background-color: #6699cc;
+}
+
+.fieldBox {
+
+    background-color: #ddddff;
+}
+
+.data {
+    background-color: #F7F7F7;
+}
+
+.data2 {
+    background-color: #F7F7F7;
+    color: #3366CC;
+}
+
+.data3 {
+    color: #15120B;
+}
+
+.data4 {
+    background-color: #F7F7F7;
+    color: #3366CC;
+}
+
+.data5 {
+    background-color: #FDFEC7;
+    color: #3366CC;
+}
+
+span.footnote {
+    background-color: #ccccee;
+    border: 1px solid #000;
+    width: 4px;
+}
+
+
+div.leftBox {
+    width: 100%;
+    background-color: #FFFFFF;
+}
+
+div.leftBox h3 a {
+    color: white;
+    text-decoration: none;
+    font-weight: normal;
+}
+
+div.leftBox h3 {
+    background-color: transparent;
+    color: white;
+}
+
+div.leftBox ul {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    margin: 0;
+    list-style: none;
+    list-style-type: none;
+    list-style-position: outside;
+}
+
+div.leftBox li {
+    padding: unset !important;
+    margin: unset !important;
+    white-space: nowrap;
+}
+
+div.leftBox li:nth-of-type(odd) {
+    background-color: white !important;
+}
+
+div.leftBox li:nth-of-type(even) {
+    background-color: whitesmoke !important;
+}
+
+div.leftBox li a, div.leftBox li span {
+    display: -webkit-box;
+    display: inline-block;
+    display: inline list-item;
+    padding: unset;
+    word-wrap: anywhere;
+    white-space: nowrap;
+    z-index: unset !important;
+    background-color: inherit !important;
+    height: 100% !important;
+    margin: unset !important;
+}
+
+div.leftBox li a, div.leftBox li span a {
+    padding: 2px 5px;
+    text-align: left;
+    vertical-align: middle;
+}
+
+div.leftBox li a {
+    cursor: pointer;
+}
+
+div.leftBox li a img[src*="clear.gif"] {
+    display: none;
+}
+
+.view-links {
+    color: white;
+}
+
+.linkhover {
+    color: black;
+    text-decoration: underline;
+}
+
+.editBtn {
+    float: right;
+    margin-right: 5px;
+}
+
+.caseNote_date {
+    float: left;
+    width: 25%;
+    font-weight: bold;
+}
+
+.caseNote_content {
+    float: left;
+    width: 60%;
+}
+
+.observation, .observationEdit, .showEditDate {
+    float: right;
+    margin-right: 3px;
+    font-style: italic;
+}
+
+.encType {
+    clear: right;
+    margin-right: 3px;
+    float: right;
+}
+
+.topLinks {
+    color: black;
+    text-decoration: none;
+}
+
+.topLinkhover {
+    color: blue;
+    text-decoration: underline;
+}
+
+div.newNote {
+    color: #000000;
+    margin: 5px 0px 5px 5px;
+    float: left;
+}
+
+div.newNote pre {
+    color: #000000;
+
+    margin: 0px 3px 0px 3px;
+    width: 100%;
+    clear: left;
+}
+
+div.expandedBox, div.cppBox {
+    clear: both;
+}
+
+div.expandedBox {
+    height: 100%;
+}
+
+/* in place editor */
+.showEdPosition {
+    display: table-cell;
+    vertical-align: middle;
+}
+
+.showEdFooter {
+    text-align: left;
+    padding: 0 2px;
+}
+
+ul#issueIdList {
+    padding: 0;
+}
+
+.showEdContent {
+    background-color: #CCCCFF;
+    position: absolute;
+    display: none;
+    z-index: 200;
+    right: 100px;
+    bottom: 200px;
+    padding: 10px;
+    box-shadow: 2px 3px 5px #999;
+    border-radius: 4px;
+}
+
+#showEditButtons, #showEditLogout {
+    float: right;
+    margin-right: 10px;
+}
+
+div#issueNoteAssign {
+    text-align: center;
+}
+
+/* template styles*/
+#issueListCPP {
+    background-color: #FFFFFF;
+    height: 200px;
+    width: 350px;
+    position: absolute;
+    z-index: 1;
+    overflow: auto;
+}
+
+.enTemplate_name_auto_complete {
+    width: 350px;
+    background: #fff;
+    text-align: left;
+}
+
+.enTemplate_name_auto_complete ul {
+    border: 1px solid #888;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    list-style-type: square;
+    list-style-position: inside;
+}
+
+.enTemplate_name_auto_complete ul li {
+    margin: 0;
+    padding: 3px;
+}
+
+.enTemplate_name_auto_complete ul li.selected {
+    background-color: #ffb;
+    text-decoration: underline;
+}
+
+.enTemplate_name_auto_complete ul strong.highlight {
+    color: #800;
+    margin: 0;
+    padding: 0;
+}
+
+#enTemplate_list {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    border-radius: 0 0 4px 4px;
+}
+
+div.passwd,div.passwdErr {
+	margin: 0 3px 3px 3px;
+}
+
+div.passwdErr {
+    color: red;
+}
+
+#notesLoading {
+    position: absolute;
+    background-color: white;
+    opacity: 80%;
+    border: 1px solid #cccccc;
+    border-radius: 4px;
+    box-shadow: 2px 3px 5px #999;
+    padding: 4px;
+    text-align: center;
+    width: 130px;
+    z-index: 4000;
+}
+
+#notesLoading img {
+    margin-right: 5px;
+}
+
+/*Note format */
+div.newNote {
+    color: #000000;
+    margin: 5px 0 5px 5px;
+    float: left;
+    width: 98%;
+}
+
+div.newNote pre {
+    color: #000000;
+    margin: 0 3px 0 3px;
+    width: 100%;
+    clear: left;
+}
+
+div.note pre {
+    color: #000000;
+    margin: 0 3px 0 3px;
+    width: 100%;
+    clear: left;
+}
+
+.sig:not(.sig div#autosaveTime) {
+    color: #111111 !important;
+    width: inherit;
+    border-radius: 0 0 4px 4px;
+    padding: 5px;
+    font-weight: 400;
+}
+
+.sig:not(#sig0, #autosaveTime, .note-unsigned, .new-note, .note-edit) {
+    border-top: #FFEEA9 thin solid;
+    background-color: cornsilk;
+}
+
+#sig0, .note-unsigned, .new-note, .note-edit {
+    border-top: #9999FF thin solid;
+    background-color: #ccccff;
+}
+
+p.passwd {
+    margin: 0 3px 0 3px;
+}
+
+/* formatting for navbar */
+.links {
+    color: blue;
+    text-decoration: none;
+}
+
+.linkhover {
+    color: black;
+    text-decoration: underline;
+}
+
+/* template styles*/
+.enTemplate_name_auto_complete {
+    width: 350px;
+    background: #fff;
+    text-align: left;
+}
+
+.enTemplate_name_auto_complete ul {
+    border: 1px solid #888;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    list-style-type: square;
+    list-style-position: inside;
+}
+
+.enTemplate_name_auto_complete ul li {
+    margin: 0;
+    padding: 3px;
+}
+
+.enTemplate_name_auto_complete ul li.selected {
+    background-color: #ffb;
+    text-decoration: underline;
+}
+
+.enTemplate_name_auto_complete ul strong.highlight {
+    color: #800;
+    margin: 0;
+    padding: 0;
+}
+
+/* Encounter type select box */
+
+div.autocomplete {
+    position: absolute;
+    width: 400px;
+    background-color: white;
+    border: 1px solid #ccc;
+    margin: 0px;
+    padding: 0px;
+    text-align: left;
+    max-height: 200px;
+    overflow: auto;
+}
+
+div.autocomplete ul {
+    list-style-type: none;
+    margin: 0px;
+    padding: 0px;
+}
+
+div.autocomplete ul li.selected {
+    background-color: #EAF2FB;
+}
+
+div.autocomplete ul li {
+    list-style-type: none;
+    display: block;
+    margin: 0;
+    padding: 2px;
+    cursor: pointer;
+}
+
+.encTypeCombo {
+    margin: 0px;
+    width: 200px;
+    text-align: left;
+    vertical-align: middle;
+    background: #FFFFFF url('../images/downarrow_inv.gif') no-repeat right;
+    height: 18px;
+    cursor: pointer;
+    border: 1px solid #ccc;
+    color: #000000;
+}
+
+.printOps {
+    background-color: #CCCCFF;
+    position: absolute;
+    display: none;
+    z-index: 1;
+    width: 200px;
+    padding: 5px;
+    border: thin solid #cccccc;
+    box-shadow: 1px 2px 4px 1px rgba(38, 40, 42, 0.3);
+    border-radius: 4px;
+}
+
+.showEdContainer {
+    position: absolute;
+    display: none;
+    z-index: 100;
+    right: 100px;
+    bottom: 200px;
+    background-color: transparent;
+    text-align: center;
+}
+
+.showEdPosition {
+    display: table-cell;
+    vertical-align: middle;
+}
+
+/* Imported from casemgmt.css */
+
+.blueText {
+    vertical-align: top;
+}
+
+.mbttn {
+    background: #D7DBF2;
+    border-bottom: 1px solid #104A7B;
+    border-right: 1px solid #104A7B;
+    border-left: 1px solid #AFC4D5;
+    border-top: 1px solid #AFC4D5;
+    color: #000066;
+    height: 19px;
+    text-decoration: none;
+    cursor: hand
+}
+
+.subject {
+    background-color: #003399;
+    color: #FFFFFF;
+    font-weight: bold;
+    text-align: center;
+}
+
+.searchTitle {
+    background-color: #6699CC;
+    color: #000000;
+    font-weight: normal;
+    text-align: left;
+    height: 20px
+}
+
+.title {
+    background-color: #6699CC;
+    color: #000000;
+    font-weight: bold;
+    text-align: center;
+    height: 20px;
+}
+
+.fieldTitle {
+    background-color: #EEEEFF;
+    font-weight: normal;
+}
+
+.fieldValue {
+    background-color: #EEEEFF;
+    text-align: left;
+}
+
+.error {
+    color: #FF0000;
+    background-color: #EEEEFF;
+    text-align: left;
+}
+
+.message {
+    color: #000000;
+    background-color: #EEEEFF;
+    text-align: left;
+}
+
+/* TABS */
+.tabs th {
+    background-image: url('http://localhost:8080/casemgmt/images/nw_maj_rond.gif');
+    background-repeat: no-repeat;
+    border-right: 1px solid #333;
+    background-color: #ddd;
+    color: #fff;
+    border-left: 1px solid #fff;
+}
+
+.tabs td {
+    background-color: #999;
+    border-bottom: 1px solid #fff;
+    border-right: 1px solid #fff;
+    border-left: 1px solid #fff;
+}
+
+.tabs {
+    border-bottom: 6px #ddd solid;
+}
+
+.tabs th, .tabs th a:link, .tabs th a:visited {
+    color: #555;
+}
+
+.tabs td, .tabs td a:link, .tabs td a:visited {
+    color: #fff;
+}
+
+.tabs a {
+    text-decoration: none;
+}
+
+div.tabs th, div.tabs td, s, #rightcol div.help, .colbar, .tasknav, body.docs div#toc, #leftcol, .legend, .bars {
+    voice-family: "\"}\"";
+    voice-family: inherit;
+}
+
+.tabs td, .tabs th, dt, .tasknav .selfref, #login .username, .selection {
+    font-weight: bold;
+}
+
+.tabs {
+    margin-top: 0em;
+    margin-right: 2px;
+    margin-left: 2px;
+    padding-left: 8px;
+}
+
+.tabs td, .tabs th {
+    padding: 3px 9px;
+}
+
+.popover-content {
+    padding: 9px 14px;
+}
+
+.popover {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1010;
+    display: none;
+    max-width: 276px;
+    padding: 1px;
+    text-align: left;
+    white-space: normal;
+    background-color: #fff;
+    border: 1px solid #ccc;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
+    -webkit-box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+    background-clip: padding-box;
+}
+
+.popover.bottom {
+    margin-top: 10px;
+}
+
+.popover.bottom .arrow {
+    top: -11px;
+    left: 50%;
+    margin-left: -11px;
+    border-bottom-color: #999;
+    border-bottom-color: rgba(0, 0, 0, 0.25);
+    border-top-width: 0;
+}
+
+.popover .arrow, .popover .arrow::after {
+    position: absolute;
+    display: block;
+    width: 0;
+    height: 0;
+    border-color: transparent;
+    border-style: solid;
+}
+
+div#encMainDiv div.note:not(.encounter-note) div:last-of-type:not(div#encMainDiv div.note:not(.encounter-note) div div div:last-of-type) {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    width: 100%;
+}
+
+
+.view-links a, div#encMainDiv div.note:not(.encounter-note) div[id^='observation'] a {
+    display: inline-block;
+    color: white !important;
+    padding: 0 5px;
+    text-decoration: underline;
+}
+
+div#encMainDiv div.note:not(.encounter-note) div[id^='wrapper']:not(.view-links), .view-links a, .note div div[id^='wrapper'] {
+    padding: 2px 5px;
+}
+
+div#encMainDiv div.note:not(.encounter-note) div.view-links {
+    order: 2;
+}
+
+div.note-contents div.tool-button {
+    display: -webkit-inline-box;
+    display: inline-block;
+    float: right;
+}
+
+div.note-contents div.tool-button img {
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+div#control-panel div#timer-control,
+div#control-panel div#assignIssueSection,
+div#control-panel div#save-sign-bill-buttons,
+div#control-panel div.row,
+div#control-panel div#form-control-panel {
+    display: flex;
+    gap: 3px;
+}
+
+div#control-panel div#save-sign-bill-buttons {
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+div#save-sign-bill-buttons button {
+    height: 24px;
+    padding: 0 6px;
+    box-sizing: border-box;
+    vertical-align: middle;
+    font-size: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+
+div#control-panel div.row,
+div#control-panel div#form-control-panel {
+    justify-content: space-between;
+    flex-wrap: wrap;
+}
+
+div#control-panel div#form-control-panel div:first-of-type {
+    margin-left: auto;
+    margin-right: 0;
+}
+
+div#control-panel div.row:last-of-type {
+    align-content: center;
+    justify-content: flex-end;
+}
+
+div#control-panel div.row:last-of-type button {
+    margin-top: 3px
+}
+
+div#control-panel div.row:first-of-type,
+div#control-panel div#form-control-panel {
+    flex-direction: row-reverse;
+}
+
+
+div#control-panel {
+    display: flex;
+    flex-direction: column;
+    padding: 5px;
+    height: auto;
+    margin: 0;
+    border: 1px solid #cccccc;
+    background-color: whitesmoke;
+
+}
+
+div#timer-control button {
+    line-height: 1;
+}
+
+button#aTimer {
+    border-radius: 4px;
+    border: 1px solid grey;
+    font-weight: bold;
+}
+
+.ui-autocomplete {
+    max-height: 100px;
+    overflow-y: scroll;
+    overflow-x: hidden;
+}
+
+div.encounter-note div.note-contents div.view-links a {
+    color: #111111 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+div.encounter-note div.note-contents img, div.encounter-note div.note-contents div.view-links,
+div.encounter-note div.note-contents > a:not(div.encounter-note div.note-contents div.view-links a),
+div.encounter-note div.note-contents input[type*='image'] {
+    float: right;
+    color: #111111;
+    display: inline-flex;
+    display: -webkit-box;
+    display: -webkit-inline-box;
+    margin: 3px 3px 0 0 !important;
+    padding: 0 !important;
+    line-height: 1 !important;
+}
+
+div#save-sign-bill-buttons input {
+	display: inline-block;
+	box-sizing: border-box;
+	-moz-box-sizing: border-box;
+	-webkit-box-sizing: border-box;
+	border:transparent thin solid;
+}
+
+div.locked-note {
+	display:flex;
+	padding:3px;
+	justify-content: space-between;
+}

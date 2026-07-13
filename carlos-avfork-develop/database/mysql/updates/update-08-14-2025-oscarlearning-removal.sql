@@ -1,0 +1,21 @@
+-- Oscar Learning Module Removal
+-- Date: 08-14-2025
+-- Description: Documents the removal of the Oscar Learning module from the codebase
+-- 
+-- NOTE: The 'student' role is being kept as it's part of the general permission system
+--       and may be used independently of the learning module.
+--
+-- The 'moderator' role was specific to Oscar Learning but is not being removed 
+-- automatically to avoid breaking existing user configurations.
+--
+-- Tables that may have been used by Oscar Learning:
+-- - formIntakeHx: Student intake history form (check if used elsewhere before dropping)
+--
+-- To manually remove Oscar Learning specific roles if no longer needed:
+-- DELETE FROM secRole WHERE role_name = 'moderator' AND description = 'Moderator (OSCAR Learning)';
+--
+-- To check if formIntakeHx table is still in use:
+-- SELECT COUNT(*) FROM formIntakeHx;
+--
+-- To drop formIntakeHx table if no longer needed:
+-- DROP TABLE IF EXISTS formIntakeHx;

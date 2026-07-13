@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<indicatorTemplateXML>
+	<author>Colcamex Resources Inc. for Oscar EMR</author>
+	<uid></uid>
+	<heading>
+		<category></category>
+		<subCategory></subCategory>
+		<name></name>
+		<definition></definition>
+		<framework></framework>
+		<frameworkVersion></frameworkVersion>
+		<notes></notes>
+	</heading>
+	<indicatorQuery>
+		<version></version>
+		<params>
+			<!-- 
+				Required parameter providers. Value options are:
+					[ an individual providerNo, or providers range ] ie: value="370, 1001"
+					"all" ie: value="all" including null.
+					"loggedInProvider" ie:
+				Default is "loggedInProvider"
+				Use this parameter in the query as ${providers}
+				This parameter should be used for fetching patient's assigned to a MRP.
+				ie: WHERE demographic.provider_no = ${providers}
+			-->
+			<parameter id="provider" name="provider_no" value="loggedInProvider" />
+			<parameter id="" name="" value="" />		
+		</params>
+		<range>
+			<upperLimit id="" label="" name="" value="" />
+			<lowerLimit id="" label="" name="" value="" />
+		</range>
+		<query>
+			<!-- Indicator SQL Query here -->
+		</query>
+	</indicatorQuery>
+	<drillDownQuery>
+		<version></version>
+		<params>
+			<parameter id="provider" name="provider_no" value="loggedInProvider" />
+			<parameter id="" name="" value="" />
+		</params>
+		<range>
+			<upperLimit id="" label="" name="" value="" />
+			<lowerLimit id="" label="" name="" value="" />
+		</range>
+		<displayColumns>
+			<column id="" name="" title="" primary="" />
+		</displayColumns>
+		<exportColumns>
+			<column id="" name="" title="" primary="" />
+		</exportColumns>
+		<query>
+			<!-- Drilldown SQL Query here -->	
+		</query>
+	</drillDownQuery>
+	<shared>false</shared>
+	<sharedMetricSetName></sharedMetricSetName>
+	<sharedMetricDataId></sharedMetricDataId>
+	<sharedMappings>
+		<sharedMapping fromLabel="" toLabel=""/>
+	</sharedMappings>
+</indicatorTemplateXML>

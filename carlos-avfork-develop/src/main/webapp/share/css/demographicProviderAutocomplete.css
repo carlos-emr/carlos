@@ -1,0 +1,15 @@
+/*
+    Autocomplete dropdown styles for provider/demographic search widgets.
+    Used by jQuery UI Autocomplete (carlosAutocomplete.js).
+*/
+
+.ui-autocomplete {
+    background-color: #FFFFFF;
+    border: 3px outset #2EFE2E;
+    width: 400px;
+}
+
+.ui-menu-item:hover {
+    background-color: #426FD9;
+    color: #FFFFFF;
+}

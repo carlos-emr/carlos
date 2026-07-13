@@ -1,0 +1,262 @@
+/*
+    Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    This software was written for the
+    Department of Family Medicine
+    McMaster University
+    Hamilton
+    Ontario, Canada
+*/
+
+var chartInstances = {};
+var placeHolderCount = 0;
+var indicatorPanels = [];
+
+$(document).ready(function () {
+
+    // get the drill down page
+    $(".indicatorWrapper").on('click', ".indicatorDrilldownBtn", function (event) {
+        event.preventDefault();
+        var url = "/web/dashboard/display/DrilldownDisplay";
+        var data = new Object();
+        data.indicatorTemplateId = (this.id).split("_")[1];
+        data.method = (this.id).split("_")[0];
+
+        sendData(url, data, null);
+    });
+
+    $(".indicatorWrapper").on("click", ".indicatorGraph", function (event) {
+        event.preventDefault();
+        var url = "/web/dashboard/display/DrilldownDisplay";
+        var data = new Object();
+        data.indicatorTemplateId = (this.id).split("_")[1];
+        data.method = "getDrilldown";
+
+        sendData(url, data, null);
+    });
+
+    // get the dashboard manager page
+    $(".dashboardManagerBtn").on('click', function (event) {
+        event.preventDefault();
+        var url = "/web/dashboard/admin/DashboardManager";
+        var data = "dashboardId=" + this.id;
+        sendData(url, data, null);
+    });
+
+    // reload this dashboard with fresh data.
+    $(".reloadDashboardBtn").on('click', function (event) {
+        event.preventDefault();
+        var url = "/web/dashboard/display/DashboardDisplay";
+        var data = new Object();
+        data.dashboardId = (this.id).split("_")[1];
+        data.method = (this.id).split("_")[0];
+
+        sendData(url, data, null);
+    });
+
+    $(".indicatorWrapper").each(function () {
+        var data = new Object();
+        data.method = "getIndicator";
+        data.indicatorId = this.id.split("_")[1];
+
+        sendData("/web/dashboard/display/DisplayIndicator", data, this.id.split("_")[0]);
+    })
+
+    placeHolderCount = $(".indicatorWrapper").length;
+
+})
+
+// build Indicator panel with Pie chart.
+function buildIndicatorPanel(html, target, id) {
+
+    let data;
+
+    if (typeof DOMPurify === 'undefined') {
+        console.error('DOMPurify is required but not loaded. Indicator panel blocked to prevent XSS.');
+        $("#" + target + "_" + id).html('<p style="color:red">Unable to display content safely. Please reload the page.</p>');
+        return;
+    }
+    // DOMPurify sanitization with defaults plus <input>, <canvas> and value attr. Event handlers are stripped by DOMPurify defaults.
+    let panel;
+    try {
+        if (chartInstances[id]) {
+            chartInstances[id].destroy();
+            delete chartInstances[id];
+        }
+        panel = $("#" + target + "_" + id).html(DOMPurify.sanitize(html, {ADD_TAGS: ['input', 'canvas'], ADD_ATTR: ['value']}));
+        let plotVal = panel.find("#graphPlots_" + id).val();
+        if (!plotVal) {
+            console.error('Graph plot data not found for indicator ' + id);
+            return;
+        }
+        // plotVal is a valid JSON array serialised by IndicatorQueryHandler.plotsToStringArray()
+        data = JSON.parse(plotVal);
+    } catch (e) {
+        console.error('Error rendering indicator panel ' + id + ':', e); // nosemgrep: unsafe-formatstring -- string concatenation for console logging, id is a server-side indicator ID not user input
+        $("#" + target + "_" + id).html('<p style="color:red">Unable to render indicator panel.</p>');
+        return;
+    }
+
+    // data is [[[label1, val1], [label2, val2]], ...] — one array per SQL result row (series).
+    // Pie charts always use the first (and typically only) series.
+    // If the query returns multiple rows each becomes a separate series; warn so it is visible.
+    if (Array.isArray(data) && data.length > 1) {
+        console.warn('Indicator ' + id + ' returned ' + data.length + ' series; only the first will be rendered as a pie chart.');
+    }
+    var seriesData = (Array.isArray(data) && Array.isArray(data[0])) ? data[0] : [];
+    if (seriesData.length === 0) {
+        console.error('No chart data available for indicator ' + id);
+        return;
+    }
+    var labels = seriesData.map(function (item) { return item[0]; });
+    var values = seriesData.map(function (item) { return item[1]; });
+
+    var canvas = document.getElementById('graphCanvas_' + id);
+    if (!canvas) {
+        console.error('Canvas element not found for indicator ' + id);
+        return;
+    }
+
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js is required but not loaded. Indicator chart blocked for indicator ' + id + '.');
+        $("#" + target + "_" + id).html('<p style="color:red">Unable to display chart. Please reload the page.</p>');
+        return;
+    }
+
+    chartInstances[id] = new Chart(canvas, {
+        type: 'pie',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: values,
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'bottom'
+                },
+                title: {
+                    display: false
+                },
+                // Show value and percentage in tooltip since Chart.js has no built-in on-slice labels
+                // (jqPlot previously rendered values directly on slices via showDataLabels: true).
+                tooltip: {
+                    callbacks: {
+                        label: function (context) {
+                            var label = context.label || '';
+                            var value = context.raw;
+                            var total = context.dataset.data.reduce(function (a, b) { return a + b; }, 0);
+                            var pct = total > 0 ? Math.round((value / total) * 100) : 0;
+                            return label + ': ' + value + ' (' + pct + '%)';
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    let name = panel.find(".indicatorHeading div").text();
+
+    let paneldata = [name, id, data];
+
+    if (paneldata) {
+        indicatorPanels.push(paneldata);
+    }
+
+    if (indicatorPanels.length === placeHolderCount) {
+
+        let panelList;
+
+        for (let i = 0; i < indicatorPanels.length; i++) {
+            let ipanel = indicatorPanels[i];
+            let name, id, data;
+
+            if (ipanel) {
+                name = ipanel[0].trim();
+                id = ipanel[1];
+                data = ipanel[2];
+                panelList += ("NAME " + name + ", ID " + id + "\n " + "  DATA " + data + "\n");
+            }
+
+        }
+        return panelList;
+    }
+}
+
+function sendData(path, param, target) {
+    if (target === "indicatorId") {
+        // AJAX load for indicator panels — sanitize HTML before DOM insertion
+        $.ajax({
+            url: ctx + path,
+            type: 'POST',
+            data: param,
+            dataType: 'html',
+            success: function (data) {
+                var panelList = buildIndicatorPanel(data, target, param.indicatorId);
+                if (panelList) {
+                    console.log(panelList);
+                }
+            },
+            error: function (xhr, status, error) {
+                console.error('Dashboard indicator request failed:', status, error);
+                $("#" + target + "_" + param.indicatorId).html(
+                    '<p style="color:red">Failed to load indicator. Please reload the page.</p>');
+            }
+        });
+    } else {
+        // Full-page navigation — use form submission so the browser handles
+        // the response natively (including scripts, stylesheets, etc.)
+        var form = document.createElement('form');
+        form.method = 'POST';
+        form.action = ctx + path;
+        if (typeof param === 'string') {
+            param.split('&').forEach(function(pair) {
+                var parts = pair.split('=', 2);
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = decodeURIComponent(parts[0]);
+                input.value = decodeURIComponent(parts[1] || '');
+                form.appendChild(input);
+            });
+        } else {
+            Object.keys(param).forEach(function(key) {
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = key;
+                input.value = param[key];
+                form.appendChild(input);
+            });
+        }
+        // Explicitly add CSRF token rather than relying on MutationObserver timing
+        var csrfTokenEl = document.querySelector('input[name="CSRF-TOKEN"]');
+        if (csrfTokenEl) {
+            var csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'CSRF-TOKEN';
+            csrfInput.value = csrfTokenEl.value;
+            form.appendChild(csrfInput);
+        } else {
+            console.warn('CSRF token not found on page; form submission may be rejected by server.');
+        }
+        document.body.appendChild(form);
+        form.submit();
+    }
+}

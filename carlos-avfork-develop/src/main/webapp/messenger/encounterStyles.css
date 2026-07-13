@@ -1,0 +1,351 @@
+/*
+ * 
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved. *
+ * This software is published under the GPL GNU General Public License. 
+ * This program is free software; you can redistribute it and/or 
+ * modify it under the terms of the GNU General Public License 
+ * as published by the Free Software Foundation; either version 2 
+ * of the License, or (at your option) any later version. * 
+ * This program is distributed in the hope that it will be useful, 
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of 
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the 
+ * GNU General Public License for more details. * * You should have received a copy of the GNU General Public License 
+ * along with this program; if not, write to the Free Software 
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. * 
+ * 
+ * <OSCAR TEAM>
+ * 
+ * This software was written for the 
+ * Department of Family Medicine 
+ * McMaster University 
+ * Hamilton 
+ * Ontario, Canada 
+ */
+/* styles.css -- Style sheet for the UI prototype.
+
+   Colours used:
+       #A9A9A9 = darkgray
+       #DCDCDC = gainsboro
+       #F5F5F5 = whitesmoke
+       #000000 = black
+       #FF8C00 = darkorange
+*/ /*jay adds*/
+.ChooseRecipientsBox {
+    max-height: 450px;
+    overflow-y: scroll;
+    border: 1px solid #dcdcdc;
+    width: 100%;
+}
+
+.ChooseRecipientsBox table tr td {
+    border: 0 !important;
+
+}
+
+.ChooseRecipientsBox table {
+    width: 100% !important;
+}
+
+* {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 12px;
+}
+
+strong {
+    font-size: larger;
+}
+
+.boxsizingBorder {
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+}
+
+TH {
+    font-size: larger;
+    padding: 1px 5px;
+}
+
+th:first-of-type {
+    border-right: white thin solid;
+}
+
+A IMG {
+    border: 0;
+}
+
+H3 {
+    font-weight: bold;
+    margin-bottom: -10px;
+}
+
+h2 {
+    margin: 0;
+    padding: 0;
+}
+
+
+.FakeLink {
+    text-align: right;
+}
+
+.RowTop {
+    font-variant: small-caps;
+    font-weight: bold;
+}
+
+
+.Header {
+    font-weight: bold;
+    background-color: #6699cc;
+}
+
+/*These are my additions*********************** */
+H4 {
+    font-weight: bold;
+    margin-bottom: -10px;
+}
+
+H3 {
+    font-weight: bold;
+    margin-bottom: -10px;
+}
+
+
+.doctorInfo {
+    background-color: #A39FC4;
+}
+
+.encounterTable {
+    background-color: #EBEAF2;
+}
+
+.patientInfo {
+
+    background-color: #CBC9E0;
+    /* //#CBC9E0; */
+}
+
+.ControlSelect {
+    width: 100%;
+}
+
+.LeftTable {
+    width: 100%;
+}
+
+.BodyStyle {
+    margin-left: 0;
+    margin-right: 0;
+    margin-top: 0;
+}
+
+.MainTable {
+    border-collapse: collapse;
+    border-color: #111111;
+    border-width: 0;
+    padding-bottom: 0;
+    padding-top: 0;
+    padding-left: 0;
+    padding-right: 0;
+    width: 100%;
+}
+
+.MainTableTopRowLeftColumn {
+    background-color: #003399;
+    border-left: 2px solid #A9A9A9;
+    border-right: 2px solid #A9A9A9;
+    border-top: 2px solid #A9A9A9;
+    height: 34px;
+    max-width: 130px;
+    font-weight: bold;
+    color: #FFFFFF;
+    padding: 0 10px;
+}
+
+.MainTableBottomRowLeftColumn {
+    border-left: 2px solid #A9A9A9;
+    border-right: 2px solid #A9A9A9;
+    border-bottom: 2px solid #A9A9A9;
+    height: 4px;
+    max-width: 130px;
+}
+
+.MainTableLeftColumn {
+    border-left: 2px solid #A9A9A9;
+    border-right: 2px solid #A9A9A9;
+    max-width: 130px;
+}
+
+.MainTableTopRowRightColumn {
+    background-color: #003399;
+    border-left: 2px solid #A9A9A9;
+    border-right: 2px solid #A9A9A9;
+    border-top: 2px solid #A9A9A9;
+    height: 34px;
+}
+
+.MainTableBottomRowRightColumn {
+    border-left: 2px solid #A9A9A9;
+    border-right: 2px solid #A9A9A9;
+    border-bottom: 2px solid #A9A9A9;
+    height: 4px;
+}
+
+.MainTableRightColumn {
+    border-left: 2px solid #A9A9A9;
+    border-right: 2px solid #A9A9A9;
+    height: 34px;
+}
+
+
+.MainTableRightColumn table {
+    border-collapse: collapse;
+}
+
+.MainTableRightColumn table tr td {
+    border-top: white thin solid;
+    padding: 1px 5px;
+    word-wrap: break-word;
+}
+
+.MainTableRightColumn table tr td:first-of-type {
+    border-right: white thin solid;
+}
+
+.TopStatusBar {
+    font-weight: bold;
+    background-color: #6699cc;
+    color: black;
+    height: 100%;
+    width: 100%;
+    padding: 0 15px;
+}
+
+textarea {
+    width: 100%;
+    padding: 5px;
+}
+
+
+.Title {
+    font-weight: bold;
+    color: white;
+}
+
+td.messengerButtonsA { /*background-color: #6666ff;*/
+    /*background-color: #6699cc;*/
+    background-color: #003399;
+}
+
+td.messengerButtonsD { /*background-color: #84c0f4;*/
+    background-color: #555599;
+}
+
+a.messengerButtons {
+    color: #ffffff;
+    text-decoration: none;
+}
+
+table.messButtonsA {
+    border-top: 2px solid #cfcfcf;
+    border-left: 2px solid #cfcfcf;
+    border-bottom: 2px solid #333333;
+    border-right: 2px solid #333333;
+}
+
+table.messButtonsD {
+    border-top: 2px solid #333333;
+    border-left: 2px solid #333333;
+    border-bottom: 2px solid #cfcfcf;
+    border-right: 2px solid #cfcfcf;
+}
+
+.NotDisplayable {
+    display: none;
+}
+
+/* styles for the modal window */
+
+.modal {
+    display: none; /* Hidden by default */
+    position: fixed; /* Stay in place */
+    z-index: 1; /* Sit on top */
+    left: 0;
+    top: 0;
+    width: 100%; /* Full width */
+    height: 100%; /* Full height */
+    overflow: auto; /* Enable scroll if needed */
+    background-color: rgb(0, 0, 0); /* Fallback color */
+    background-color: rgba(0, 0, 0, 0.4); /* Black w/ opacity */
+}
+
+/* Modal Header */
+.modal-header {
+    padding: 2px 16px;
+    background-color: #5cb85c;
+    color: white;
+}
+
+/* Modal Body */
+.modal-body {
+    padding: 2px 16px;
+}
+
+/* Modal Footer */
+.modal-footer {
+    padding: 2px 16px;
+    background-color: #5cb85c;
+    color: white;
+    text-align: right;
+}
+
+/* Modal Content */
+.modal-content {
+    position: relative;
+    background-color: #fefefe;
+    margin: auto;
+    padding: 0;
+    border: 1px solid #888;
+    width: 50%;
+    box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
+    animation-name: animatetop;
+    animation-duration: 0.4s
+}
+
+.modal-body .demographicOption {
+    margin-bottom: 5px;
+    padding: 5px 10px;
+    background: #eee;
+    border-bottom-right-radius: 4px;
+    border-bottom-left-radius: 4px;
+    border-top-right-radius: 4px;
+    border-top-left-radius: 4px;
+    border: 1px solid #ddd;
+}
+
+/* Add Animation */
+@keyframes animatetop {
+    from {
+        top: -300px;
+        opacity: 0
+    }
+    to {
+        top: 0;
+        opacity: 1
+    }
+}
+
+/* The Close Button */
+.close {
+    color: #aaa;
+    float: right;
+    font-weight: bold;
+}
+
+.close:hover,
+.close:focus {
+    color: black;
+    text-decoration: none;
+    cursor: pointer;
+}

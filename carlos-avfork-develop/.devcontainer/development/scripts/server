@@ -1,0 +1,54 @@
+#!/usr/bin/env sh
+
+command=$1
+PID_FILE=${CATALINA_PID:-/tomcat.pid}
+
+is_tomcat_pid() {
+  pid="$1"
+  [ -n "$pid" ] || return 1
+  ps -p "$pid" -o args= 2>/dev/null | grep -q 'org.apache.catalina.startup.Bootstrap'
+}
+
+case $command in
+  log)
+    tail -f /usr/local/tomcat/logs/catalina.out
+    ;;
+
+  start)
+    export CATALINA_PID="$PID_FILE"
+    catalina.sh jpda start
+
+    sleep 2
+    JAVA_PID=""
+    if [ -f "$PID_FILE" ]; then
+      JAVA_PID=$(cat "$PID_FILE")
+    fi
+    if is_tomcat_pid "$JAVA_PID"; then
+      echo "Tomcat/Java PID: $JAVA_PID"
+    else
+      echo "Tomcat did not write a valid Bootstrap PID to $PID_FILE"
+      rm -f "$PID_FILE"
+      exit 1
+    fi
+    ;;
+
+  stop)
+    export CATALINA_PID="$PID_FILE"
+    catalina.sh stop
+
+    if [ -f "$PID_FILE" ]; then
+      JAVA_PID=$(cat "$PID_FILE")
+      if is_tomcat_pid "$JAVA_PID"; then
+        echo "Killing Tomcat/Java PID: $JAVA_PID"
+        kill "$JAVA_PID"
+      fi
+      rm -f "$PID_FILE"
+    fi
+    ;;
+
+  restart)
+    server stop
+    sleep 2
+    server start
+    ;;
+esac

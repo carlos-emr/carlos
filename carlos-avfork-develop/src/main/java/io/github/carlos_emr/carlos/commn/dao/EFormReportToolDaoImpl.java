@@ -1,0 +1,201 @@
+/**
+ * Copyright (c) 2024. Magenta Health. All Rights Reserved.
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
+ * <p>
+ * Modifications made by Magenta Health in 2024.
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ */
+package io.github.carlos_emr.carlos.commn.dao;
+
+import java.math.BigInteger;
+import java.security.SecureRandom;
+import java.util.Date;
+import java.util.List;
+import java.util.regex.Pattern;
+
+import jakarta.persistence.Query;
+
+import org.apache.commons.lang3.time.DateFormatUtils;
+import io.github.carlos_emr.carlos.commn.model.EForm;
+import io.github.carlos_emr.carlos.commn.model.EFormReportTool;
+import io.github.carlos_emr.carlos.commn.model.EFormValue;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> implements EFormReportToolDao {
+
+    private static final Pattern VALID_IDENTIFIER_PATTERN = Pattern.compile("^[A-Za-z0-9_]+$");
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+    private static final String TABLE_NAME_PREFIX = "ERT_";
+    private static final int TABLE_NAME_RANDOM_SUFFIX_LENGTH = 8;
+
+    public EFormReportToolDaoImpl() {
+        super(EFormReportTool.class);
+    }
+
+    static String validateIdentifier(String identifier, String description) {
+        if (identifier == null || !VALID_IDENTIFIER_PATTERN.matcher(identifier).matches()) {
+            throw new IllegalArgumentException(
+                    "Invalid " + description + ": only letters, digits, and underscores are allowed.");
+        }
+        return identifier;
+    }
+
+    private static String getValidatedTableName(EFormReportTool eformReportTool) {
+        return validateIdentifier(eformReportTool.getTableName(), "report tool table name");
+    }
+
+    private static String buildTableName(String reportToolName) {
+        String safeReportToolName = validateIdentifier(reportToolName, "report tool name");
+        String randomSuffix = new BigInteger(130, SECURE_RANDOM)
+                .toString(8)
+                .substring(0, TABLE_NAME_RANDOM_SUFFIX_LENGTH);
+
+        return validateIdentifier(TABLE_NAME_PREFIX + safeReportToolName + randomSuffix, "report tool table name");
+    }
+
+    private static String normalizeProviderNoForReportTable(String providerNo) {
+        // Preserve the legacy sentinel written by the old SQL builder so historical rows with a null
+        // source provider number do not violate the dynamic report table's NOT NULL constraint.
+        return providerNo == null ? "null" : providerNo;
+    }
+
+    @SuppressWarnings("unchecked")
+    public void markLatest(Integer eformReportToolId) {
+        EFormReportTool eft = find(eformReportToolId);
+        if (eft != null) {
+            String tableName = getValidatedTableName(eft);
+            //get all distinct demographicNos
+            Query q = entityManager.createNativeQuery("select distinct demographicNo from " + tableName);
+            List<Integer> demoNos = q.getResultList();
+            for (Integer demoNo : demoNos) {
+                Query q2 = entityManager.createNativeQuery(
+                                "select id from " + tableName + " where demographicNo = ?1 order by dateFormCreated desc,fdid desc")
+                        .setParameter(1, demoNo)
+                        .setMaxResults(1);
+                List<Integer> idList = q2.getResultList();
+
+                //update the first result
+                Query q3 = entityManager.createNativeQuery("update " + tableName + " set eft_latest=1 where id = ?1")
+                        .setParameter(1, idList.get(0));
+                q3.executeUpdate();
+            }
+
+            eft.setLatestMarked(true);
+            merge(eft);
+        }
+    }
+
+    public void addNew(EFormReportTool eformReportTool, EForm eform, List<String> fields, String providerNo) {
+        //generate the create table statement
+        String tableName = buildTableName(eformReportTool.getName());
+        StringBuilder sql = new StringBuilder("CREATE TABLE " + tableName + " (");
+        sql.append("id int (10) NOT NULL auto_increment primary key,");
+        sql.append("fdid int (10) NOT NULL, ");
+        sql.append("demographicNo int (10) NOT NULL, ");
+        sql.append("dateFormCreated datetime NOT NULL, ");
+        sql.append("providerNo varchar(6) NOT NULL, ");
+        sql.append("eft_latest tinyint(1) NOT NULL, ");
+        sql.append("dateCreated timestamp NOT NULL ");
+        for (String field : fields) {
+            sql.append(",`" + field + "` text");
+        }
+        sql.append(")");
+
+        //logger.debug("sql=" + sql);
+
+        //commit the table
+        Query q = entityManager.createNativeQuery(sql.toString());
+        q.executeUpdate();
+
+        //save the EformReportTool
+        eformReportTool.setDateLastPopulated(null);
+        eformReportTool.setId(null);
+        eformReportTool.setTableName(tableName);
+        eformReportTool.setProviderNo(providerNo);
+        eformReportTool.setLatestMarked(false);
+        persist(eformReportTool);
+
+    }
+
+    public void populateReportTableItem(EFormReportTool eft, List<EFormValue> values, Integer fdid, Integer demographicNo, Date dateFormCreated, String providerNo) {
+        String tableName = getValidatedTableName(eft);
+        String persistedProviderNo = normalizeProviderNoForReportTable(providerNo);
+
+        StringBuilder columnFragment = new StringBuilder();
+        StringBuilder placeholderFragment = new StringBuilder();
+        for (int i = 0; i < values.size(); i++) {
+            String varName = values.get(i).getVarName();
+            if (varName == null || !VALID_IDENTIFIER_PATTERN.matcher(varName).matches()) {
+                throw new IllegalArgumentException("Invalid eform var name: " + varName);
+            }
+            columnFragment.append(", `").append(varName).append("`");
+            placeholderFragment.append(", ?").append(i + 5);
+        }
+
+        String sql = String.format("INSERT INTO %s (fdid, demographicNo, dateFormCreated, providerNo, eft_latest, dateCreated%s) VALUES (?1, ?2, ?3, ?4, 0, now()%s)", tableName, columnFragment.toString(), placeholderFragment.toString());
+
+        Query q = entityManager.createNativeQuery(sql);
+        q.setParameter(1, fdid);
+        q.setParameter(2, demographicNo);
+        q.setParameter(3, DateFormatUtils.format(dateFormCreated, "yyyy-MM-dd HH:mm:ss"));
+        q.setParameter(4, persistedProviderNo);
+        for (int i = 0; i < values.size(); i++) {
+            q.setParameter(i + 5, values.get(i).getVarValue());
+        }
+        q.executeUpdate();
+    }
+
+    public void deleteAllData(EFormReportTool eft) {
+        if (eft != null) {
+            String tableName = getValidatedTableName(eft);
+            Query q = entityManager.createNativeQuery("delete from " + tableName);
+            q.executeUpdate();
+        }
+    }
+
+    public void drop(EFormReportTool eft) {
+        if (eft != null) {
+            String tableName = getValidatedTableName(eft);
+            Query q = entityManager.createNativeQuery("drop table " + tableName);
+            q.executeUpdate();
+        }
+    }
+
+    public Integer getNumRecords(EFormReportTool eformReportTool) {
+        if (eformReportTool != null) {
+            String tableName = getValidatedTableName(eformReportTool);
+            Query q = entityManager.createNativeQuery("select count(*) from " + tableName);
+            List<BigInteger> results = q.getResultList();
+            if (!results.isEmpty()) {
+                return results.get(0).intValue();
+            }
+        }
+        return null;
+    }
+
+}

@@ -1,0 +1,851 @@
+/**
+ * Copyright (c) 2015-2019. The Pharmacists Clinic, Faculty of Pharmaceutical Sciences, University of British Columbia. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * This software was written for the
+ * The Pharmacists Clinic
+ * Faculty of Pharmaceutical Sciences
+ * University of British Columbia
+ * Vancouver, British Columbia, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ */
+package io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.pdf;
+
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.openpdf.text.DocumentException;
+import org.openpdf.text.pdf.AcroFields;
+import org.openpdf.text.pdf.AcroFields.Item;
+import org.openpdf.text.pdf.PdfDictionary;
+import org.openpdf.text.pdf.PdfName;
+import org.openpdf.text.pdf.PdfReader;
+import org.openpdf.text.pdf.PdfStamper;
+
+/*
+FIELD_TYPE_CHECKBOX 	2
+FIELD_TYPE_COMBO 	6
+FIELD_TYPE_LIST 	5
+FIELD_TYPE_NONE 	0
+FIELD_TYPE_PUSHBUTTON 	1
+FIELD_TYPE_RADIOBUTTON 	3
+FIELD_TYPE_SIGNATURE 	7
+FIELD_TYPE_TEXT 	4
+
+American Typewriter — 2.12
+Baskerville — 2.51
+Georgia — 2.27
+Hoefler Text — 2.44
+Palatino — 2.30
+Times New Roman — 2.60
+Arial — 2.31
+Gill Sans — 2.51
+Gill Sans 300 — 2.58
+Helvetica Neue — 2.26
+Lucida Grande — 2.07
+Tahoma — 2.30
+Trebuchet MS — 2.22
+Verdana — 1.98
+Courier New — 1.60
+ */
+
+/**
+ * Controller for generating Best Possible Medication History (BPMH) PDF documents
+ * using AcroForm field filling.
+ *
+ * <p>This class reads AcroForm smart-tag field names from a PDF template, matches them
+ * to getter methods on a provided data POJO (via reflection), and fills the PDF fields
+ * with the corresponding values. It supports:
+ * <ul>
+ *   <li>Flat property access (e.g., {@code firstName})</li>
+ *   <li>Nested property access (e.g., {@code demographic.phoneNumber})</li>
+ *   <li>Indexed list access (e.g., {@code getMedications#0.drugName})</li>
+ *   <li>Auto-print via embedded PDF JavaScript</li>
+ *   <li>Form flattening to produce a read-only output PDF</li>
+ * </ul>
+ *
+ * <p>Uses OpenPDF's {@link PdfStamper} for AcroForm field manipulation and
+ * {@link PdfReader} for template loading. The {@link FileOutputStream} for the
+ * stamper output is wrapped in a try-catch to ensure cleanup on constructor failure.
+ *
+ * <p>Originally created November 2014 for UBC Pharmacy Clinic and McMaster
+ * Department of Family Medicine.
+ *
+ * @see io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean
+ * @since 2014-11 (UBC Pharmacy Clinic)
+ */
+public class PDFController {
+
+    private static final Logger _Logger = MiscUtils.getLogger();
+    private final String STRING_FILTER = "[^a-zA-Z0-9_' '!.!#]";
+
+    private static String[] ALLOWED_BEAN_PACKAGES = new String[]{"io.github.carlos_emr.carlos.commn.model",
+            "io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean"};
+
+    private static final String DATE_FORMAT = "MM-dd-yyyy";
+
+    private PdfReader pdfreader;
+    private int numberOfPages;
+    private int certificationLevel;
+    private PdfStamper stamper;
+    private String outputPath;
+    private File filePath;
+    private String fileName;
+    private Map<String, Method> methodMap;
+    private Object data;
+
+    /** Default constructor. Call {@link #setFilePath(File)} and {@link #_init()} before use. */
+    public PDFController() {
+    }
+
+    /**
+     * Constructs a controller and initializes the PDF reader from the given template file.
+     *
+     * @param filePath File the PDF template file to read AcroForm fields from
+     */
+    public PDFController(File filePath) {
+        if (setFilePath(filePath)) {
+            _init();
+        }
+
+    }
+
+    /**
+     * Constructs a controller and initializes the PDF reader from the given template path.
+     *
+     * @param filePath String the absolute path to the PDF template file
+     */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
+    public PDFController(String filePath) {
+        if (setFilePath(new File(filePath))) {
+            _init();
+        }
+    }
+
+    /** Initializes the PdfReader from the current file path and extracts PDF metadata. */
+    public void _init() {
+        setReader(null);
+        setPdfMetaData();
+    }
+
+    public int getNumberOfPages() {
+        return numberOfPages;
+    }
+
+    public int getCertificationLevel() {
+        return certificationLevel;
+    }
+
+    public String getOutputPath() {
+        return outputPath;
+    }
+
+    public void setOutputPath(String outputPath) {
+        this.outputPath = outputPath;
+    }
+
+    public PdfReader getReader() {
+        return this.pdfreader;
+    }
+
+    private void setReader(PdfReader reader) {
+
+        try {
+            if (reader == null) {
+                this.pdfreader = new PdfReader(filePath.getAbsolutePath());
+            } else {
+                this.pdfreader = reader;
+            }
+        } catch (IOException e) {
+            _Logger.log(Level.FATAL, e);
+        }
+
+    }
+
+    private boolean setFilePath(File file) {
+
+        File validatedFile = PathValidationUtils.resolveTrustedPath(file);
+        if (validatedFile.exists()) {
+            this.filePath = validatedFile;
+            return Boolean.TRUE;
+        }
+
+        _Logger.log(Level.FATAL, "Template file location " + file.getAbsolutePath() + " not found.");
+
+        return Boolean.FALSE;
+    }
+
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
+    public boolean setFilePath(String filePath) {
+        return setFilePath(new File(filePath));
+    }
+
+    public String getFilePathString() {
+        if (getFilePath() == null) {
+            return "";
+        }
+        return getFilePath().getAbsolutePath();
+    }
+
+    public File getFilePath() {
+        return this.filePath;
+    }
+
+    public String getFileName() {
+        return fileName;
+    }
+
+    public void setFileName(String fileName) {
+        this.fileName = fileName;
+    }
+
+    public PdfStamper getStamper() {
+        return stamper;
+    }
+
+    private void setStamper(PdfStamper stamper) {
+        this.stamper = stamper;
+    }
+
+    public Map<String, Method> getMethodMap() {
+        return methodMap;
+    }
+
+    private void setMethodMap(Map<String, Method> methodMap) {
+        this.methodMap = methodMap;
+    }
+
+    public Object getDataObject() {
+        return data;
+    }
+
+    public void setDataObject(Object data) {
+        this.data = data;
+        digestData(data);
+    }
+
+    @SuppressWarnings("rawtypes")
+    private void setPdfMetaData() {
+
+        Map pdfInfoMap = getReader().getInfo();
+        Iterator pdfInfoIt = pdfInfoMap.entrySet().iterator();
+
+        numberOfPages = getReader().getNumberOfPages();
+        certificationLevel = getReader().getCertificationLevel();
+
+        while (pdfInfoIt.hasNext()) {
+            _Logger.debug("PDF INFO: " + pdfInfoIt.next().toString());
+        }
+
+        _Logger.debug("PDF INFO: number pages=" + getNumberOfPages());
+        _Logger.debug("PDF INFO: certification level=" + getCertificationLevel());
+
+    }
+
+
+    /**
+     * Read the smart tags off of a pdf document and use them to
+     * extract the property values from a POJO Object.
+     * <p>
+     * Assuming that the pdf input path has been preset.
+     */
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private void addDataToPDF() {
+
+        AcroFields acroFields = getStamper().getAcroFields();
+        Map acroFieldsMap = acroFields.getAllFields();
+        Iterator<String> acroFieldsIt = acroFieldsMap.keySet().iterator();
+        String replaceWith = "";
+        String key = "";
+        String cleanKey = "";
+        int fieldType;
+        String[] appStates;
+        AcroFields.Item acroField;
+        PdfDictionary annots;
+        Iterator itannots;
+
+        while (acroFieldsIt.hasNext()) {
+
+            key = acroFieldsIt.next().toString();
+            cleanKey = key.replaceAll(STRING_FILTER, "");
+            fieldType = acroFields.getFieldType(key);
+            appStates = acroFields.getAppearanceStates(key);
+            acroField = (Item) acroFieldsMap.get(key);
+            annots = acroField.getWidget(0);
+
+            _Logger.debug("Field Type: " + cleanKey + " = " + fieldType);
+
+            itannots = annots.getKeys().iterator();
+            while (itannots.hasNext()) {
+                PdfName annotKey = (PdfName) itannots.next();
+                _Logger.debug("ANNOT KEY: " + annotKey);
+                _Logger.debug("ANNOT VALUE: " + annots.get(annotKey));
+            }
+
+            if (appStates.length > 0) {
+                for (int i = 0; appStates.length > i; i++) {
+                    _Logger.debug("APPEARANCE STATE: " + appStates[i]);
+                }
+            }
+
+            replaceWith = invokeValue(cleanKey);
+
+            //count the characters and compare to limit.
+            //			if(fieldType == AcroFields.FIELD_TYPE_TEXT) {
+            //				replaceWith = contentSplicer(replaceWith, 30);
+            //			}
+
+            try {
+
+                _Logger.debug("Replacement Key and Value: Key = " + cleanKey + " Value = " + replaceWith);
+
+                acroFields.setField(cleanKey, replaceWith);
+
+            } catch (IOException e) {
+                _Logger.log(Level.FATAL, "Failed to set method " + cleanKey + " with value " + replaceWith + " into PDF document", e);
+            } catch (DocumentException e) {
+                _Logger.log(Level.FATAL, "Failed to set method " + cleanKey + " with value " + replaceWith + " into PDF document", e);
+            }
+
+        }
+
+    }
+
+    public void writeDataToPDF(Object data, String[] pages) {
+        writeDataToPDF(null, null, data, pages, "");
+    }
+
+    /**
+     * Write data from an object to a PDF with matching smart tags.
+     * PDF should be preset with instantiation of this class.
+     * <p>
+     * This method assumes that pdf path and output path info
+     * has been set on instantiation.
+     * <p>
+     * See test class with same name for example.
+     *
+     * @param fileId : An id, such as demographic number, to identify the file.
+     */
+    public void writeDataToPDF(Object data, String[] pages, String fileId) {
+
+        if (getFilePath() == null) {
+            _Logger.error("Set PDF file path first. [setFilePath()]");
+            return;
+        }
+
+        if (getOutputPath() == null) {
+            _Logger.error("Set output path first. [setOutputPath()]");
+            return;
+        }
+
+        writeDataToPDF(null, null, data, pages, fileId);
+    }
+
+    /**
+     * Writes data from an object to a PDF with matching smart tags.
+     * PDF should be preset with instantiation of this class.
+     * <p>
+     * See test class with same name for example.
+     *
+     * @param outPath : outPut path for completed PDF.
+     * @param pdfPath : the absolute path to an editable pdf template.
+     */
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
+    public void writeDataToPDF(String pdfPath, String outPath, Object data, String[] pages, String fileId) {
+
+        if (pages.length <= 0) {
+            _Logger.error("No page numbers provided.");
+            return;
+        }
+        if (data == null) {
+            _Logger.error("No data object provided.");
+            return;
+        } else {
+            setDataObject(data);
+        }
+
+        if ((pdfPath != null) && (!pdfPath.isEmpty())) {
+            setFilePath(pdfPath);
+            _init();
+        }
+
+        if ((outPath != null) && (!outPath.isEmpty())) {
+            setOutputPath(outPath);
+        }
+
+        if (getReader() != null) {
+
+            getReader().selectPages(arrayToString(pages, ","));
+
+            FileOutputStream fos = null;
+            try {
+
+                File outputDir = PathValidationUtils.resolveConfiguredDirectory(getOutputPath(), "BPMH output path");
+                String generatedName = PathValidationUtils.validateGeneratedFileName(fileId + "_" + new Date().getTime() +
+                        "_" + getFilePath().getName());
+                File outputFile = PathValidationUtils.validateGeneratedChildPath(generatedName, outputDir);
+                setOutputPath(outputFile.getAbsolutePath());
+
+                setFileName(outputFile.getName());
+
+                if (getStamper() == null) {
+                    fos = new FileOutputStream(PathValidationUtils.resolveTrustedPath(new File(getOutputPath())));
+                    try {
+                        setStamper(new PdfStamper(getReader(), fos));
+                    } catch (Exception e) {
+                        fos.close();
+                        throw e;
+                    }
+                }
+
+                addDataToPDF();
+
+                getStamper().getWriter().addJavaScript("this.print({bUI: true, bSilent: true, bShrinkToFit:true});", false);
+                getStamper().getWriter().addJavaScript("this.closeDoc(true);");
+
+                getStamper().setFreeTextFlattening(true);
+                getStamper().setFormFlattening(true);
+                getStamper().setFreeTextFlattening(true);
+
+            } catch (FileNotFoundException e1) {
+                _Logger.log(Level.FATAL, e1);
+            } catch (DocumentException e1) {
+                _Logger.log(Level.FATAL, e1);
+            } catch (IOException e1) {
+                _Logger.log(Level.FATAL, e1);
+            } finally {
+                if (getStamper() != null) {
+                    try {
+                        getStamper().close();
+                    } catch (DocumentException e) {
+                        _Logger.log(Level.FATAL, e);
+                    } catch (IOException e) {
+                        _Logger.log(Level.FATAL, e);
+                    }
+                }
+                if (fos != null) {
+                    try {
+                        fos.close();
+                    } catch (IOException e) {
+                        _Logger.log(Level.FATAL, e);
+                    }
+                }
+            }
+
+        } else {
+            _Logger.warn("Unable to load document from" + filePath);
+        }
+
+    }
+
+    /**
+     * Extracts getter methods from the data object via reflection and stores them
+     * in the method map for later AcroForm field value resolution.
+     *
+     * @param data Object the POJO containing form field values
+     */
+    private void digestData(Object data) {
+
+        Map<String, Method> getterMethods = getGetterMethods(data);
+        setMethodMap(getterMethods);
+
+    }
+
+    /**
+     * For pulling methods out of generic objects.
+     * This method will recurse through JPA entity beans returned by a method.
+     * The following methods could be pulled out and put into their own
+     * utility class.
+     * <p>
+     * Credit: http://www.java2s.com/Code/Java/Reflection/GetsthegettersofapojoasamapofStringaskeyandMethodasvalue.htm
+     */
+    public synchronized static Map<String, Method> getGetterMethods(Object data) {
+        HashMap<String, Method> methods = new HashMap<String, Method>();
+
+        try {
+            fillGetterMethods(data, methods);
+        } catch (IllegalArgumentException e) {
+            _Logger.fatal("Failed to get generic object methods ", e);
+        } catch (IllegalAccessException e) {
+            _Logger.fatal("Failed to get generic object methods ", e);
+        } catch (InvocationTargetException e) {
+            _Logger.fatal("Failed to get generic object methods ", e);
+        }
+
+        return methods;
+    }
+
+    /**
+     * Convenience overload that starts recursive getter extraction with an empty prefix.
+     */
+    private synchronized static void fillGetterMethods(Object data, Map<String, Method> baseMap)
+            throws IllegalArgumentException, IllegalAccessException, InvocationTargetException {
+        fillGetterMethods(data, baseMap, "");
+    }
+
+    /**
+     * Recursively extracts getter methods from a data object and its nested beans.
+     * For nested objects in allowed packages, recurses with the parent method name as prefix.
+     * For List-type returns, iterates elements and recurses with indexed notation (e.g., getItems#0).
+     *
+     * @param data Object the POJO to extract getters from
+     * @param baseMap Map to populate with method-name-to-Method mappings
+     * @param prepend String the prefix for nested property paths
+     */
+    private synchronized static void fillGetterMethods(Object data, Map<String, Method> baseMap, String prepend)
+            throws IllegalArgumentException, IllegalAccessException, InvocationTargetException {
+
+        Class<?> genericClass = data.getClass();
+        Method[] methods = genericClass.getDeclaredMethods();
+        Method method;
+        int modifiers;
+        String methodName;
+        Class<?> returnType;
+        Package packageType;
+        Object subObject = null;
+        List<?> genericList = null;
+
+        for (int i = 0; i < methods.length; i++) {
+
+            method = methods[i];
+            modifiers = method.getModifiers();
+            returnType = method.getReturnType();
+            packageType = returnType.getPackage();
+
+            _Logger.debug("Package Type: " + packageType);
+            _Logger.debug("Return Type: " + returnType.getName());
+
+            if (!Modifier.isStatic(modifiers) &&
+                    method.getParameterTypes().length == 0 &&
+                    returnType != null &&
+                    Modifier.isPublic(modifiers)) {
+
+                methodName = method.getName();
+
+                if (returnType.getName().equals("java.util.List")) {
+                    _Logger.debug("Found a List: " + returnType.getName());
+
+                    genericList = (List<?>) method.invoke(data);
+
+                    if (genericList != null) {
+
+                        for (int j = 0; genericList.size() > j; j++) {
+
+                            subObject = genericList.get(j);
+
+                            if (subObject != null) {
+                                fillGetterMethods(subObject, baseMap, methodName + "#" + j);
+                            }
+                        }
+                    }
+                }
+
+
+                if (isPackageAllowed(packageType)) {
+
+                    subObject = method.invoke(data);
+
+                    if (subObject != null) {
+                        fillGetterMethods(subObject, baseMap, methodName);
+                    }
+
+                } else {
+                    _Logger.debug("Package " + packageType + " is forbidden.");
+                }
+
+                if (!prepend.isEmpty()) {
+
+                    if (prepend.startsWith("is")) {
+
+                        prepend = toProperty("is".length(), prepend) + ".";
+
+                    } else if (prepend.startsWith("get")) {
+
+                        prepend = toProperty("get".length(), prepend) + ".";
+
+                    }
+
+                }
+
+                if (methodName.startsWith("is")) {
+
+                    baseMap.put(prepend + toProperty("is".length(), methodName), method);
+
+                } else if (methodName.startsWith("get")) {
+
+                    baseMap.put(prepend + toProperty("get".length(), methodName), method);
+
+                }
+            }
+
+        }
+
+    }
+
+    /**
+     * Invokes a getter method by name against the current data object and returns the
+     * result as a String. Supports dot-notation for nested properties
+     * (e.g., {@code demographic.phoneNumber}) up to two levels deep.
+     *
+     * @param methodName String the property name matching an AcroForm field tag
+     * @return String the value from the data object, or empty string if not found
+     */
+    public String invokeValue(String methodName) {
+        String value = "";
+
+        if (getMethodMap() != null && getDataObject() != null) {
+            value = castToString(invokeValue(methodName, getMethodMap(), getDataObject()));
+        }
+
+        return value;
+    }
+
+    /**
+     * Invokes a getter method from the provided method map against the given data object.
+     *
+     * <p>Supports dot-notation for nested property access and hash-notation for indexed
+     * list access (e.g., {@code getMedications#2.drugName}).
+     *
+     * @param methodName String the property name (supports dot and hash notation)
+     * @param methodMap Map mapping property names to their getter Methods
+     * @param data Object the root data object to invoke methods against
+     * @return Object the invoked value, or {@code null} on error or if not found
+     */
+    protected static Object invokeValue(String methodName, Map<String, Method> methodMap, Object data) {
+
+        Object value = null;
+        String[] methodParts = null;
+        Object objectOne = null;
+        Method method = null;
+        String methodOne = "";
+        int index = -1;
+
+        if (!methodMap.containsKey(methodName)) {
+            _Logger.debug("Method " + methodName + " not found in data object.");
+            return value;
+        } else {
+            method = methodMap.get(methodName);
+        }
+
+        if (methodName.contains(".")) {
+            methodParts = methodName.split("\\.");
+            methodOne = methodParts[0];
+        }
+
+        if (methodOne.contains("#")) {
+            methodParts = methodOne.split("#");
+            methodOne = methodParts[0];
+            index = stringToInt(methodParts[1]);
+        }
+
+        try {
+
+            _Logger.debug("Value state 1 = " + value);
+
+            if (methodMap.containsKey(methodOne)) {
+                objectOne = methodMap.get(methodOne).invoke(data);
+            }
+
+            if (objectOne != null) {
+                _Logger.debug("MethodName [MapKey]: " + methodName + " ObjectOne [GenericObject]: " + objectOne.toString() + " Index [ListIndex]: " + index);
+
+                if (objectOne instanceof java.util.List && index > -1) {
+                    _Logger.debug("Method [ObjectList]: " + methodMap.get(methodName).toGenericString());
+                    _Logger.debug("Method [ListPOJOBean]: " + method.getName());
+                    value = method.invoke(((java.util.List<?>) objectOne).get(index));
+                } else {
+                    _Logger.debug("Method [POJOBean]: " + method.getName());
+                    value = method.invoke(objectOne);
+                }
+
+                _Logger.debug("Value state 2 = " + value);
+
+            } else {
+                _Logger.debug("Method [FormBean]: " + method.getName());
+                value = method.invoke(data);
+                _Logger.debug("Value state 3 = " + value);
+            }
+
+        } catch (IllegalArgumentException e) {
+            _Logger.fatal("Failed to invoke method " + methodName, e);
+        } catch (IllegalAccessException e) {
+            _Logger.fatal("Failed to invoke method " + methodName, e);
+        } catch (InvocationTargetException e) {
+            _Logger.fatal("Failed to invoke method " + methodName, e);
+        }
+
+        if (value == null) {
+            _Logger.warn("Value for " + methodName + " not found in data object.");
+        }
+
+        return value;
+    }
+
+    /**
+     * Casts supported object types to their String representation.
+     * Handles {@link String}, {@link Date} (formatted as MM-dd-yyyy), and {@link Integer}.
+     * Returns empty string for {@code null} or unsupported types.
+     *
+     * @param object Object the value to convert
+     * @return String the string representation, or empty string if unsupported
+     */
+    private static final String castToString(final Object object) {
+        String string = "";
+
+        if (object instanceof java.lang.String) {
+
+            string = (String) object;
+
+        } else if (object instanceof java.util.Date) {
+
+            string = dateToString((java.util.Date) object, new SimpleDateFormat(DATE_FORMAT));
+
+        } else if (object instanceof java.lang.Integer) {
+
+            string = intToString((java.lang.Integer) object);
+
+        }
+
+        return string;
+    }
+
+    /**
+     * Converts a POJO getter/setter method name to its camelCase property name
+     * by stripping the prefix and lowercasing the first character.
+     *
+     * @param start int the length of the prefix to strip ("get"=3, "is"=2)
+     * @param methodName String the full method name (e.g., "getFirstName")
+     * @return String the camelCase property name (e.g., "firstName")
+     */
+    private static String toProperty(int start, String methodName) {
+
+        char[] property = new char[methodName.length() - start];
+        methodName.getChars(start, methodName.length(), property, 0);
+        int firstLetter = property[0];
+        property[0] = (char) (firstLetter < 91 ? firstLetter + 32 : firstLetter);
+
+        return new String(property);
+
+    }
+
+    /**
+     * Joins a String array into a single delimited String.
+     *
+     * @param array String[] the array of strings to join
+     * @param delimiter String the delimiter to insert between elements
+     * @return String the joined result
+     */
+    private static final String arrayToString(final String[] array, final String delimiter) {
+
+        StringBuilder stringBuilder = new StringBuilder();
+
+        for (int i = 0; array.length > i; i++) {
+            stringBuilder.append(array[i]);
+            if (i < array.length - 1) {
+                stringBuilder.append(delimiter);
+            }
+        }
+
+        _Logger.info("PRINTING PAGE NUMBERS: " + stringBuilder);
+
+        return stringBuilder.toString();
+    }
+
+    private static final int stringToInt(final String integer) {
+        int out = -1;
+        if ((integer != null) && (!integer.isEmpty())) {
+            String filteredInteger = integer.replaceAll("[^0-9]", "");
+            try {
+                out = Integer.parseInt(filteredInteger);
+            } catch (NumberFormatException e) {
+                _Logger.log(Level.FATAL, "Number format exception.", e);
+            }
+        }
+        return out;
+    }
+
+    private static final String intToString(final Integer integer) {
+        String number = "";
+
+        if (integer != null) {
+            number = String.valueOf(integer);
+            number = number.replaceAll("[^0-9]", "");
+        }
+
+        return number;
+    }
+
+    private static final String dateToString(final Date date, final SimpleDateFormat format) {
+        String formattedDate = "";
+
+        if (date != null) {
+            formattedDate = format.format(date);
+        }
+        return formattedDate;
+    }
+
+    /**
+     * Checks whether a return type's package is in the allowed list for recursive
+     * getter extraction. Only beans in {@link #ALLOWED_BEAN_PACKAGES} are recursed into,
+     * preventing reflection into arbitrary JDK or third-party classes.
+     *
+     * @param packageType Package the return type's package to check
+     * @return Boolean TRUE if the package is allowed for recursion
+     */
+    private static final Boolean isPackageAllowed(final Package packageType) {
+
+        Boolean allowed = Boolean.FALSE;
+        String beanPackage = "";
+
+        if (packageType == null) {
+            return allowed;
+        }
+
+        for (int i = 0; i < ALLOWED_BEAN_PACKAGES.length; i++) {
+            beanPackage = ALLOWED_BEAN_PACKAGES[i];
+            if (packageType.equals(Package.getPackage(beanPackage))) {
+                _Logger.debug("Package Type " + packageType + " is allowed.");
+                allowed = Boolean.TRUE;
+            }
+        }
+
+        return allowed;
+    }
+
+}

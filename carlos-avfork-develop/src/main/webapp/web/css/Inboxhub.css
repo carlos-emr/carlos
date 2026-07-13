@@ -1,0 +1,359 @@
+/*
+ *Copyright (c) 2023. Magenta Health Inc. All Rights Reserved.
+ *
+ *This software is published under the GPL GNU General Public License.
+ *
+ *This program is free software; you can redistribute it and/or
+ *modify it under the terms of the GNU General Public License
+ *as published by the Free Software Foundation; either version 2
+ *of the License, or (at your option) any later version.
+ *This program is distributed in the hope that it will be useful,
+ *but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ *GNU General Public License for more details.
+ *
+ *You should have received a copy of the GNU General Public License
+ *along with this program; if not, write to the Free Software
+ *Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
+ */
+
+@CHARSET "UTF-8";
+body {
+    font-family: Arial, "Helvetica Neue", Helvetica, FontAwesome, sans-serif !important;
+    font-size: 12px !important;
+}
+
+input {
+    font-size: 12px !important;
+}
+
+.d-inline-grid {
+    display: inline-grid !important;
+}
+
+.form-check {
+    min-height: 0 !important;
+    padding-left: 0.5rem !important;
+}
+
+.show {
+    display: block;
+}
+
+.ui-autocomplete {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 1000;
+    display: none;
+    float: left;
+    min-width: 160px;
+    padding: 5px 0;
+    margin: 2px 0 0;
+    list-style: none;
+    font-size: 14px;
+    text-align: left;
+    background-color: #ffffff;
+    border: 1px solid #cccccc;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    border-radius: 4px;
+    -webkit-box-shadow: 0 6px 12px rgba(0, 0, 0, 0.175);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.175);
+    background-clip: padding-box;
+}
+
+.ui-autocomplete > li > div {
+    display: block;
+    padding: 3px 20px;
+    clear: both;
+    font-weight: normal;
+    line-height: 1.42857143;
+    color: #333333;
+    white-space: nowrap;
+}
+
+.ui-state-hover,
+.ui-state-active,
+.ui-state-focus {
+    text-decoration: none;
+    color: #262626;
+    background-color: #f5f5f5;
+    cursor: pointer;
+}
+
+.ui-helper-hidden-accessible {
+    border: 0;
+    clip: rect(0 0 0 0);
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    padding: 0;
+    position: absolute;
+    width: 1px;
+}
+
+/* Override jQuery UI dialog default styles to make it look like a card */
+.ui-dialog {
+    border: none !important;
+    padding: 0 !important;
+}
+.ui-dialog-titlebar {
+    padding: 0 !important;
+    border-bottom: none !important;
+}
+.ui-dialog-content {
+    padding: 0 !important;
+}
+.ui-dialog-buttonpane {
+    padding: 0 !important;
+    border-top: none !important;
+}
+
+.inbox-view-items {
+    height: calc(100vh - 5em);
+    width: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.inbox-table-responsive {
+    height: calc(100vh - 8em);
+    width: 100%;
+    overflow-y: auto;
+    overflow-x: auto;
+}
+
+#inbox_table_wrapper {
+    max-width: 100%;
+}
+
+#inbox_table_wrapper > .row {
+
+    --bs-gutter-x: 0;
+    margin-left: 0;
+    margin-right: 0;
+}
+
+#inbox_table_wrapper > .row > * {
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.inbox-table td {
+    padding: 0.25rem 0.25rem !important;
+}
+
+.inbox-table-sticky-header th {
+    position: sticky !important;
+    top: 0;
+    padding-left: 0.25rem !important;
+    background-color: #fff; /* Background color to prevent transparency when scrolled */
+    z-index: 100; /* Ensure the header stays on top when scrolling */
+}
+
+.inbox-form {
+    height: calc(100vh - 5.5em);
+    overflow-y: auto;
+    overflow-x: hidden;
+    min-width: 261px;
+}
+
+.inbox-form .accordion-body {
+    padding: 0;
+}
+
+
+.inbox-form-datepicker-wrapper {
+    position: relative;
+}
+
+.inbox-form-datepicker-wrapper label {
+    width: 50px;
+    padding-left: 0.5rem;
+}
+
+.inbox-form-datepicker-wrapper .clear-btn {
+    position: absolute;
+    right: 35px;
+    top: 8.5px;
+    cursor: pointer;
+    z-index: 1;
+    color: lightgray;
+    display: none; /* Hide button initially */
+}
+
+.inbox-form-datepicker-wrapper .clear-btn:hover {
+    color: gray;
+}
+
+.inbox-form-datepicker-input {
+    width: 100px !important;
+}
+
+.category-btn {
+    font-size: 12px !important;
+}
+
+.collapse-btn {
+    position: relative;
+    padding-left: 2px;
+}
+
+.collapse-btn:after {
+    content: "\f105"; /* Font Awesome chevron-right */
+    font-family: "FontAwesome";
+    position: absolute;
+    left: 5px;
+    top: -2px;
+    transform: rotate(0deg);
+    transition: transform 0.2s ease-in-out;
+    font-size: 20px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.collapse-btn:not(.collapsed):after {
+    transform: rotate(90deg); /* Rotate the arrow on open */
+    top: 0;
+}
+
+.collapse-heading {
+    font-weight: 500;
+    color: #444444;
+    max-width: 200px;
+}
+
+.collapse-heading:hover {
+    background-color: #e7f1ff !important;
+    border-radius: 3px;
+}
+
+.category-list-header a.selected {
+    font-weight: 700;
+    color: #000;
+}
+
+.collapse-sub-category-list {
+    margin-left: 19px;
+}
+
+/* Custom styles for links */
+.collapse-sub-category-list a {
+    padding: 0px;
+    margin-bottom: 2px;
+    font-weight: 400;
+    color: grey;
+}
+
+.collapse-sub-category-list a:hover {
+    font-weight: 500;
+    background-color: #e7f1ff !important;
+}
+
+.collapse-sub-category-list a.selected {
+    font-weight: 600;
+    color: #000;
+}
+
+/*
+ * Inbox toolbar — styled to match the scheduler top nav bar (topnav.css).
+ * Uses a light grey background (#f5f5f5), font (Arial 12px bold), and
+ * CARLOS blue hover color as the Schedule/Search/Inbox/Tickler nav links.
+ */
+/* Top navigation bar — utility links (Forwarding Rules, Upload, etc.) */
+.inbox-topbar {
+
+    --inbox-nav-color: #00283c;
+    --inbox-nav-hover-bg: #486ebd;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 2px;
+    padding: 4px 8px;
+    background: #f5f5f5;
+    border-bottom: 1px solid #ddd;
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+}
+
+.inbox-topbar .nav-link {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 6px;
+    font-weight: bold;
+    color: var(--inbox-nav-color);
+    text-decoration: none;
+}
+
+.inbox-topbar .nav-link:hover {
+    color: #fff;
+    background-color: var(--inbox-nav-hover-bg);
+}
+
+/* Action toolbar — Forward, File, Acknowledged, Rapid Review, counts */
+.inbox-toolbar {
+
+    --inbox-nav-color: #00283c;
+    --inbox-nav-hover-bg: #486ebd;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 2px;
+    padding: 4px;
+    background: #f5f5f5;
+    border-bottom: 1px solid #ddd;
+}
+
+.inbox-toolbar-link {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 6px;
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+    font-weight: bold;
+    color: var(--inbox-nav-color);
+    text-decoration: none;
+    cursor: pointer !important;
+    border: none;
+    background-color: transparent;
+    user-select: none;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.inbox-toolbar-link * {
+    cursor: pointer !important;
+}
+
+.inbox-toolbar-link:hover {
+    color: #fff;
+    background-color: var(--inbox-nav-hover-bg);
+}
+
+.inbox-toolbar-link input[type="checkbox"] {
+    margin-right: 4px;
+    cursor: pointer;
+}
+
+/* Active type filter highlight */
+.inbox-type-filter.active-type-filter {
+    background-color: var(--inbox-nav-hover-bg);
+    color: #fff;
+    border-radius: 3px;
+}
+.inbox-type-filter.active-type-filter .badge {
+    background-color: #fff !important;
+    color: #337ab7 !important;
+}
+
+/* Macros dropdown — hover to open, highlight on focus */
+.macro-dropdown:hover > .dropdown-menu {
+    display: block;
+}
+.macro-dropdown .dropdown-item:hover,
+.macro-dropdown .dropdown-item:focus {
+    background-color: var(--carlos-primary, #337ab7) !important;
+    color: #fff !important;
+}
+

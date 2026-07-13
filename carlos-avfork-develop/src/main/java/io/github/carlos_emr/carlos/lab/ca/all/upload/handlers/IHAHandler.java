@@ -1,0 +1,227 @@
+/**
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ */
+
+//home/marc/t/oscar/src/main/java/oscar/oscarLab/ca/all/upload/handlers/IHAHandler.java
+//Created on December 8, 2009. Modified from DefaultHandler.java
+
+package io.github.carlos_emr.carlos.lab.ca.all.upload.handlers;
+
+import java.io.File;
+import java.util.ArrayList;
+
+import javax.xml.parsers.DocumentBuilderFactory;
+
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
+import ca.uhn.hl7v2.model.Message;
+import ca.uhn.hl7v2.util.Terser;
+
+import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
+import org.w3c.dom.NamedNodeMap;
+import org.w3c.dom.Node;
+
+import io.github.carlos_emr.carlos.lab.ca.all.parsers.DefaultGenericHandler;
+import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
+import io.github.carlos_emr.CarlosProperties;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
+@Deprecated
+/**
+ * @Deprecated use IHAPOIHandler
+ *
+ */
+public class IHAHandler extends DefaultGenericHandler implements MessageHandler {
+    Logger logger = MiscUtils.getLogger();
+    String hl7Type = null;
+    String proNo, UserID, Password, Alias;
+    ArrayList<String> headerList = null;
+    Terser terser;
+    Message msg = null;
+
+
+    String getHl7Type() {
+        return "IHA";
+    }
+
+    @Override
+    public String getMsgType() {
+        return ("IHA");
+    }
+
+    @Override
+    public ArrayList<String> getHeaders() {
+        headerList = new ArrayList<String>();
+
+        for (int i = 0; i < getOBRCount(); i++) {
+            headerList.add(getOBRName(i));
+            logger.debug("ADDING to header {}", LogSafe.sanitize(getOBRName(i)));
+        }
+        return headerList;
+    }
+
+    @Override
+    public String getObservationHeader(int i, int j) {
+        return headerList.get(i);
+    }
+
+    @Override
+    public String getOBXReferenceRange(int i, int j) {
+        return (getOBXField(i, j, 7, 0, 3));
+    }
+
+    @Override
+    public String getAccessionNum() {
+        try {
+            String accessionNum = getString(terser.get("/.MSH-10-1"));
+            int firstDash = accessionNum.indexOf("-");
+            int secondDash = accessionNum.indexOf("-", firstDash + 1);
+            return (accessionNum.substring(firstDash + 1, secondDash));
+        } catch (Exception e) {
+            return ("");
+        }
+    }
+
+    public void setParameters(String proNo, String UserID, String Password, String Alias) {
+        this.proNo = proNo;
+        this.UserID = UserID;
+        this.Password = Password;
+        this.Alias = Alias;
+    }
+
+    @Override
+    public String parse(LoggedInInfo loggedInInfo, String serviceName, String fileName, int fileId, String ipAddr) {
+        Document xmlDoc = getXML(fileName);
+        Node node;
+        Element element;
+        NamedNodeMap nnm = null;
+        String msgId = null;
+        String result = null;
+
+        if (xmlDoc != null) {
+            String hl7Body = null;
+            String attrName = null;
+            try {
+                msgId = null;
+                NodeList allNodes = xmlDoc.getElementsByTagNameNS("*", "*");
+
+                for (int i = 1; i < allNodes.getLength(); i++) {
+                    try {
+                        element = (Element) allNodes.item(i);
+                        nnm = element.getAttributes();
+                        if (nnm != null) {
+                            for (int j = 0; j < nnm.getLength(); j++) {
+                                node = nnm.item(j);
+                                attrName = node.getNodeName();
+                                if (attrName.equals("msgId")) {
+                                    msgId = node.getNodeValue();
+                                }
+                            }
+                        }
+                        hl7Body = allNodes.item(i).getFirstChild().getTextContent();
+
+                        logger.debug("MESSAGE ID: {}", LogSafe.sanitize(msgId));
+                        logger.debug("MESSAGE BODY PRESENT: {}, LENGTH: {}", hl7Body != null, hl7Body != null ? hl7Body.length() : 0);
+
+                        if (hl7Body != null && hl7Body.indexOf("\nPID|") > 0) {
+                            logger.info("using xml HL7 Type {}", LogSafe.sanitize(getHl7Type())); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                            MessageUploader.routeReport(loggedInInfo, serviceName, "IHA", hl7Body, fileId);
+                            result += "success:" + msgId + ",";
+                        }
+
+                    } catch (Exception e) {
+
+                        logger.debug("NESTED EXCEPTION RESULT: " + result);
+
+                        result += "fail:" + msgId + ",";
+                    }
+
+                    // The exception handling here is very dangerous.
+                }
+            } catch (Exception e) {
+
+                logger.debug("EXCEPTION RESULT: " + result);
+
+                MessageUploader.clean(fileId);
+                logger.error("ERROR:", e);
+                return null;
+            }
+        }
+
+        logger.debug("FINAL RESULT: " + result);
+
+        return (result);
+    }
+
+    /*
+     *  Return the message as an xml document if it is in the xml format
+     */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
+    private Document getXML(String fileName) {
+        try {
+            // Validate the file path using PathValidationUtils
+            File file = new File(fileName);
+
+            // Validate the file is within the expected document directory
+            CarlosProperties props = CarlosProperties.getInstance();
+            String documentDir = props.getProperty("DOCUMENT_DIR");
+            if (documentDir == null || documentDir.trim().isEmpty()) {
+                logger.error("DOCUMENT_DIR is not configured while parsing XML file: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                return null;
+            }
+            File docDir = PathValidationUtils.validateConfiguredDirectory(documentDir, "DOCUMENT_DIR");
+            file = PathValidationUtils.validateExistingPath(file, docDir);
+
+            // Ensure the file exists and is a regular file
+            if (!file.exists() || !file.isFile()) {
+                logger.error("File does not exist or is not a regular file: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                return null;
+            }
+
+            DocumentBuilderFactory factory = XmlUtils.createSecureDocumentBuilderFactory();
+            
+            // Use the validated file object instead of creating a new FileInputStream with the raw path
+            Document doc = factory.newDocumentBuilder().parse(file);
+            return (doc);
+
+        } catch (SecurityException e) {
+            logger.error("Path traversal attempt detected while parsing XML file: {}", LogSafe.sanitize(fileName), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            return null;
+        } catch (Exception e) {
+            logger.error("Error parsing XML file: {}", LogSafe.sanitize(fileName), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            return (null);
+        }
+    }
+}

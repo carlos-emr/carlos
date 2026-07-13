@@ -1,0 +1,132 @@
+/**
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
+ 
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ */
+
+
+package io.github.carlos_emr.carlos.commn.web;
+
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.ArrayList;
+import java.util.Hashtable;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+
+import io.github.carlos_emr.carlos.providers.data.ProviderData;
+import io.github.carlos_emr.carlos.commn.dao.ProviderDataDao;
+
+/**
+ * @author jackson
+ */
+import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+
+public class SearchProviderAutoComplete2Action extends ActionSupport {
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
+    HttpServletRequest request = ServletActionContext.getRequest();
+    HttpServletResponse response = ServletActionContext.getResponse();
+
+    
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
+    public String execute() throws Exception {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)) {
+            throw new SecurityException("missing required sec object (_admin)");
+        }
+
+        if ("labSearch".equals(request.getParameter("method"))) {
+            return labSearch();
+        }
+        String searchStr = request.getParameter("providerKeyword");
+        if (searchStr == null) {
+            searchStr = request.getParameter("query");
+        }
+        if (searchStr == null) {
+            searchStr = request.getParameter("name");
+        }
+
+        List provList = ProviderData.searchProvider(searchStr, true);
+        Hashtable d = new Hashtable();
+        d.put("results", provList);
+
+        response.setContentType("application/json");
+        ObjectNode jsonArray = objectMapper.valueToTree(d);
+        response.getWriter().write(jsonArray.toString()); // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep -- JSON API response with application/json content-type
+        return null;
+
+    }
+
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
+    public String labSearch() throws Exception {
+
+        String searchStr = request.getParameter("term");
+        String firstName, lastName;
+
+        if (searchStr.indexOf(",") != -1) {
+            String[] searchParams = searchStr.split(",", -1);
+            //note - the -1 is added because split discards a last empty string by default, so "smith,".split(",") returns ["smith"], not ["smith",""].
+            //adding the -1 causes split to return the 2 element array in this situation, to avoid an index out of bounds error when setting the firstName
+            lastName = searchParams[0].trim();
+            firstName = searchParams[1].trim();
+        } else {
+            lastName = searchStr;
+            firstName = null;
+        }
+
+        ProviderDataDao providerDataDao = SpringUtils.getBean(ProviderDataDao.class);
+        List<io.github.carlos_emr.carlos.commn.model.ProviderData> provList = providerDataDao.findByName(firstName, lastName, true);
+        List<Map<String, String>> results = new ArrayList<>();
+
+        for (io.github.carlos_emr.carlos.commn.model.ProviderData provData : provList) {
+            Map<String, String> item = new LinkedHashMap<>();
+            item.put("label", provData.getLastName() + ", " + provData.getFirstName());
+            item.put("value", String.valueOf(provData.getId()));
+            results.add(item);
+        }
+
+        response.setContentType("application/json");
+        response.getWriter().write(objectMapper.writeValueAsString(results)); // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep -- JSON API response with application/json content-type
+
+        return null;
+    }
+}
