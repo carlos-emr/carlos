@@ -387,6 +387,16 @@ public class EForm extends EFormBase {
         this.formDate = UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd");
     }
 
+    /**
+     * Applies the active servlet context path to the runtime eForm HTML.
+     *
+     * <p>The supplied context path is a browser-facing servlet URL prefix (for example {@code /carlos}),
+     * not a filesystem path. This method rewrites the library marker, normalizes legacy relative jQuery
+     * asset references, injects a {@code loadSig} fallback when needed, and converts legacy string-based
+     * timer calls inside inline scripts into function callbacks.</p>
+     *
+     * @param contextPath servlet context path used to build browser-facing runtime asset URLs
+     */
     public void setContextPath(String contextPath) {
         if (StringUtils.isBlank(contextPath)) return;
         // contextPath is a servlet URL prefix (e.g. "/carlos") that is injected into browser-facing
@@ -484,11 +494,43 @@ public class EForm extends EFormBase {
         Matcher matcher = pattern.matcher(html);
         StringBuffer rewritten = new StringBuffer();
         while (matcher.find()) {
-            String replacement = timerFunction + "(function(){ " + matcher.group(2) + " }, " + matcher.group(3) + ")";
+            char delimiter = matcher.group(1).charAt(0);
+            String replacement = timerFunction + "(function(){ "
+                    + unescapeLegacyTimerBody(matcher.group(2), delimiter)
+                    + " }, " + matcher.group(3) + ")";
             matcher.appendReplacement(rewritten, Matcher.quoteReplacement(replacement));
         }
         matcher.appendTail(rewritten);
         return rewritten.toString();
+    }
+
+    private static String unescapeLegacyTimerBody(String body, char delimiter) {
+        StringBuilder normalized = new StringBuilder(body.length());
+        int index = 0;
+        while (index < body.length()) {
+            char current = body.charAt(index);
+            if (current != '\\') {
+                normalized.append(current);
+                index += 1;
+                continue;
+            }
+
+            int slashStart = index;
+            while (index < body.length() && body.charAt(index) == '\\') {
+                index += 1;
+            }
+            int slashCount = index - slashStart;
+            boolean escapesDelimiter = index < body.length()
+                    && body.charAt(index) == delimiter
+                    && (slashCount % 2) == 1;
+            int preservedSlashes = escapesDelimiter ? slashCount / 2 : slashCount;
+            normalized.append("\\\\".repeat(preservedSlashes));
+            if (escapesDelimiter) {
+                normalized.append(delimiter);
+                index += 1;
+            }
+        }
+        return normalized.toString();
     }
 
     public void setFdid(String fdid) {

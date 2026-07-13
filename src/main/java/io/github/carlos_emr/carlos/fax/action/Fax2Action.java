@@ -285,7 +285,13 @@ public class Fax2Action extends ActionSupport {
         FaxJob faxJob = null;
 
         if (jobId != null && !jobId.isEmpty()) {
-            faxJob = faxManager.getFaxJob(loggedInInfo, Integer.parseInt(jobId));
+            try {
+                faxJob = faxManager.getFaxJob(loggedInInfo, Integer.parseInt(jobId));
+            } catch (NumberFormatException e) {
+                logger.warn("Invalid jobId supplied for fax preview: {}", LogSafe.sanitize(jobId, 1024), e);
+                sendErrorQuietly(HttpServletResponse.SC_BAD_REQUEST, "Invalid jobId");
+                return;
+            }
         }
 
         if (faxJob != null) {
@@ -293,7 +299,13 @@ public class Fax2Action extends ActionSupport {
         }
 
         if (pageNumber != null && !pageNumber.isEmpty()) {
-            page = Integer.parseInt(pageNumber);
+            try {
+                page = Integer.parseInt(pageNumber);
+            } catch (NumberFormatException e) {
+                logger.warn("Invalid pageNumber supplied for fax preview: {}", LogSafe.sanitize(pageNumber, 1024), e);
+                sendErrorQuietly(HttpServletResponse.SC_BAD_REQUEST, "Invalid pageNumber");
+                return;
+            }
         }
 
         /*
@@ -355,6 +367,10 @@ public class Fax2Action extends ActionSupport {
     public String prepareFax() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)) {
+            sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
+            return NONE;
+        }
 
         /*
          * Fax recipient info carried forward.

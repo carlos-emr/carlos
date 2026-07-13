@@ -95,6 +95,7 @@ public class EFormBrowserPdfRenderer {
      * @return readable temporary PDF path; caller owns cleanup
      * @throws PDFGenerationException when the renderer cannot start, times out, fails, or produces no readable PDF
      */
+    // FindSecBugs COMMAND_INJECTION: fixed argv slots only; validated local URL fragments; local Node script launched without shell expansion.
     @SuppressFBWarnings(value = "COMMAND_INJECTION", justification = "The renderer command uses fixed argv slots, validates request-derived URL fragments, and launches a local Node script without shell expansion.")
     public Path renderSavedEformPdf(int fdid, String providerId) throws PDFGenerationException {
         HttpServletRequest currentRequest = ServletActionContext.getRequest();
@@ -523,6 +524,7 @@ public class EFormBrowserPdfRenderer {
         return createSecureTempPath(tempRoot, false, prefix, suffix);
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: temp artifacts are created only under a validated managed temp root, with caller-controlled filenames disallowed.
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "Renderer temp files are created only beneath resolveRendererTempRoot(), which validates configured roots before creating a managed private temp directory.")
     private static Path createSecureTempPath(Path tempRoot, boolean directory, String prefix, String suffix) throws IOException {
         Path managedRoot = Files.createDirectories(tempRoot);
@@ -552,6 +554,7 @@ public class EFormBrowserPdfRenderer {
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison only classifies literal protocol names for default-port handling, not any auth decision.
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Case-insensitive comparison here only classifies literal protocol names for port defaults and is not used for authentication or authorization.")
     private static boolean isDefaultPort(String scheme, int port) {
         return ("http".equalsIgnoreCase(scheme) && port == 80)

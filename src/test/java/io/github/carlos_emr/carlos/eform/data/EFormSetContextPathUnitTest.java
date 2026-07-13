@@ -155,8 +155,8 @@ class EFormSetContextPathUnitTest {
         eform.setContextPath("/carlos");
 
         assertThat(eform.getFormHtml())
-                .contains("setTimeout(function(){ $('#field').val(\\\"done\\\") }, 100)")
-                .contains("setInterval(function(){ say(\\'hi\\') }, 200)");
+                .contains("setTimeout(function(){ $('#field').val(\"done\") }, 100)")
+                .contains("setInterval(function(){ say('hi') }, 200)");
     }
 
 }
