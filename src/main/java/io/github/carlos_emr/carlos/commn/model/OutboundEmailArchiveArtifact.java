@@ -66,7 +66,7 @@ public abstract class OutboundEmailArchiveArtifact extends AbstractModel<Integer
     @Column(nullable = false)
     private Long byteSize;
 
-    @Column(length = 6)
+    @Column(nullable = false, length = 6)
     private String lastUpdateUser;
 
     @Temporal(TemporalType.TIMESTAMP)

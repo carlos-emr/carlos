@@ -3,7 +3,7 @@
 -- link the artifact to emailLog/demographic and retain integrity/deletion audit data.
 
 CREATE TABLE IF NOT EXISTS `outboundEmailArchive` (
-    `id` BIGINT PRIMARY KEY AUTO_INCREMENT,
+    `id` INT PRIMARY KEY AUTO_INCREMENT,
     `emailLogId` BIGINT NOT NULL,
     `demographicNo` INT NOT NULL,
     `providerNo` VARCHAR(6),
@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS `outboundEmailArchive` (
     `deletedAt` DATETIME,
     `deletedByProviderNo` VARCHAR(6),
     `deleteReason` VARCHAR(1000),
-    `lastUpdateUser` VARCHAR(6),
+    `lastUpdateUser` VARCHAR(6) NOT NULL,
     `lastUpdateDate` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX `idx_outboundEmailArchive_emailLogId` (`emailLogId`),
     INDEX `idx_outboundEmailArchive_demographicNo` (`demographicNo`),
@@ -45,8 +45,8 @@ CREATE TABLE IF NOT EXISTS `outboundEmailArchive` (
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS `outboundEmailArchiveAttachment` (
-    `id` BIGINT PRIMARY KEY AUTO_INCREMENT,
-    `archiveId` BIGINT NOT NULL,
+    `id` INT PRIMARY KEY AUTO_INCREMENT,
+    `archiveId` INT NOT NULL,
     `documentNo` INT,
     `fileName` VARCHAR(255) NOT NULL,
     `contentType` VARCHAR(100),
@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS `outboundEmailArchiveAttachment` (
     `sourceDocumentType` VARCHAR(50),
     `sourceDocumentId` INT,
     `createdAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `lastUpdateUser` VARCHAR(6),
+    `lastUpdateUser` VARCHAR(6) NOT NULL,
     `lastUpdateDate` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX `idx_outboundEmailArchiveAttachment_archiveId` (`archiveId`),
     INDEX `idx_outboundEmailArchiveAttachment_documentNo` (`documentNo`),
@@ -66,8 +66,8 @@ CREATE TABLE IF NOT EXISTS `outboundEmailArchiveAttachment` (
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS `outboundEmailArchiveDeletion` (
-    `id` BIGINT PRIMARY KEY AUTO_INCREMENT,
-    `archiveId` BIGINT NOT NULL,
+    `id` INT PRIMARY KEY AUTO_INCREMENT,
+    `archiveId` INT NOT NULL,
     `emailLogId` BIGINT NOT NULL,
     `demographicNo` INT NOT NULL,
     `documentNo` INT,
@@ -78,7 +78,7 @@ CREATE TABLE IF NOT EXISTS `outboundEmailArchiveDeletion` (
     `deletedByProviderNo` VARCHAR(6) NOT NULL,
     `deletedAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `deleteReason` VARCHAR(1000) NOT NULL,
-    `lastUpdateUser` VARCHAR(6),
+    `lastUpdateUser` VARCHAR(6) NOT NULL,
     `lastUpdateDate` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE INDEX `idx_outboundEmailArchiveDeletion_archiveId` (`archiveId`),
     INDEX `idx_outboundEmailArchiveDeletion_emailLogId` (`emailLogId`),
