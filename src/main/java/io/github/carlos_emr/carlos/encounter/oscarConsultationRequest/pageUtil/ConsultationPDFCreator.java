@@ -41,6 +41,8 @@ import io.github.carlos_emr.carlos.prescript.data.RxProviderData;
 import io.github.carlos_emr.carlos.prescript.data.RxProviderData.Provider;
 
 import jakarta.servlet.http.HttpServletRequest;
+import org.apache.commons.lang3.StringUtils;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -835,12 +837,19 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         }
     }
 
+    /**
+     * Determines whether the consultation PDF should render a signature image.
+     *
+     * <p>The explicit suppression flag wins over both freshly supplied signature bytes and stored
+     * signature identifiers. Otherwise, either non-empty override bytes or a non-blank stored id is
+     * enough to request signature rendering.
+     */
     static boolean shouldRenderSignature(boolean suppressSignature, byte[] signatureImageOverride, String signatureImageId) {
         if (suppressSignature) {
             return false;
         }
         return (signatureImageOverride != null && signatureImageOverride.length > 0)
-                || (signatureImageId != null && !signatureImageId.isEmpty());
+                || StringUtils.isNotBlank(signatureImageId);
     }
 
     /**
