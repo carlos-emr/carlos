@@ -2589,7 +2589,7 @@ var EFORM_I18N = {
     		function cleanOscarTags(data) {
     		//  noborderPrint" title="age" oscardb="age" placeholder="
     		//  noborderPrint" title="age" oscardb="" "age"="" placeholder="
-    			const regex = /oscarDB=([a-z_]+)/gi;
+    			const regex = /oscarDB=([0-9#$a-z_]+)/gi;
     			const replaceStr = 'oscarDB="$1"';
     			data = data.replace(regex, replaceStr);
     			return data;
@@ -2606,7 +2606,7 @@ var EFORM_I18N = {
     				var wrapper = document.createElement('div');
     				wrapper.id = 'page_' + pageNo;
     				wrapper.className = 'page_container ui-droppable';
-    				wrapper.setAttribute('style', 'width: 800px; height: 1000px;');
+    				wrapper.setAttribute('style', 'width: ' + eFormPageWidthPortrait + 'px; height: ' + eFormPageHeightPortrait + 'px;');
     				// Move all child nodes (including text/comment nodes) using DOM
     				// node-moving rather than serialising to HTML strings.
     				// .contents() intentionally includes non-Element nodes to preserve
@@ -3035,12 +3035,12 @@ var EFORM_I18N = {
                     width: 400,
                     modal: true,
                     buttons: {
-                        "Delete": function() {
+                        [EFORM_I18N.buttonDelete]: function() {
                             $pageDiv.remove();
                             $root.remove();
                             $(this).dialog("close");
                         },
-                        "Cancel": function() {
+                        [EFORM_I18N.buttonCancel]: function() {
                             $(this).dialog("close");
                         }
                     },
@@ -3217,7 +3217,7 @@ var EFORM_I18N = {
             }).append($custDimensionX).append($custDimensionY);
 
             var labels = [EFORM_I18N.optPortrait, EFORM_I18N.optLandscape, EFORM_I18N.optCustom];
-            var $orinetationRadioGroup = addRadioGroup($element, "gen-orientation", "<fmt:message key="eFormGenerator.imageOrientation"/>", labels);
+            var $orinetationRadioGroup = addRadioGroup($element, "gen-orientation", "<fmt:message key='eFormGenerator.imageOrientation'/>", labels);
             $orinetationRadioGroup.on("change", function(e) {
                 var value = parseInt($(e.target).val());
                 setPageOrientation(value);
@@ -4169,7 +4169,7 @@ var EFORM_I18N = {
                 }));
             var $control_fieldset = createFieldset("grid-guide_options", EFORM_I18N.textGuideOptions);
             var $trash_box = createTrashFrame();
-            $trash_box.append("<span class='ui-icon ui-icon-trash' style='-webkit-transform: scale(2);'>EFORM_I18N.textTrash</span>");
+            $trash_box.append("<span class='ui-icon ui-icon-trash' style='-webkit-transform: scale(2);'>"+EFORM_I18N.textTrash+"</span>");
             $trash_box.droppable({
                 accept: ".ui-draggable",
                 hoverClass: "gen-trashHover",
