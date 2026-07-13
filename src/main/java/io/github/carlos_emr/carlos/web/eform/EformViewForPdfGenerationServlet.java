@@ -54,6 +54,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 public final class EformViewForPdfGenerationServlet extends HttpServlet {
 
     public static final String SKIP_HTML_INJECTION_ATTRIBUTE = EformViewForPdfGenerationServlet.class.getName() + ".skipHtmlInjection";
+    private static final String PROVIDER_ID_PARAM = "providerId";
 
     private static final Logger logger = MiscUtils.getLogger();
 
@@ -68,9 +69,9 @@ public final class EformViewForPdfGenerationServlet extends HttpServlet {
                 return;
             }
 
-            String providerNo = request.getParameter("providerId");
+            String providerNo = request.getParameter(PROVIDER_ID_PARAM);
             if (providerNo == null || providerNo.isBlank()) {
-                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing required parameter: providerId");
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing required parameter: " + PROVIDER_ID_PARAM);
                 return;
             }
             String canonicalProviderNo = providerNo.trim();
@@ -123,7 +124,7 @@ public final class EformViewForPdfGenerationServlet extends HttpServlet {
         return new HttpServletRequestWrapper(request) {
             @Override
             public String getParameter(String name) {
-                if ("providerId".equals(name)) {
+                if (PROVIDER_ID_PARAM.equals(name)) {
                     return canonicalProviderNo;
                 }
                 return super.getParameter(name);
@@ -131,7 +132,7 @@ public final class EformViewForPdfGenerationServlet extends HttpServlet {
 
             @Override
             public String[] getParameterValues(String name) {
-                if ("providerId".equals(name)) {
+                if (PROVIDER_ID_PARAM.equals(name)) {
                     return new String[] {canonicalProviderNo};
                 }
                 return super.getParameterValues(name);
@@ -140,7 +141,7 @@ public final class EformViewForPdfGenerationServlet extends HttpServlet {
             @Override
             public Map<String, String[]> getParameterMap() {
                 Map<String, String[]> parameterMap = new HashMap<>(super.getParameterMap());
-                parameterMap.put("providerId", new String[] {canonicalProviderNo});
+                parameterMap.put(PROVIDER_ID_PARAM, new String[] {canonicalProviderNo});
                 return Collections.unmodifiableMap(parameterMap);
             }
         };

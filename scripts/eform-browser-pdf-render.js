@@ -89,20 +89,20 @@ async function preparePageForCapture(page) {
   });
 }
 
+function rectFromElement(el) {
+  const rect = el.getBoundingClientRect();
+  return {
+    left: rect.left + window.scrollX,
+    top: rect.top + window.scrollY,
+    right: rect.right + window.scrollX,
+    bottom: rect.bottom + window.scrollY,
+    width: rect.width,
+    height: rect.height,
+  };
+}
+
 async function computeCaptureRegions(page) {
   return page.evaluate(() => {
-    function rectFromElement(el) {
-      const rect = el.getBoundingClientRect();
-      return {
-        left: rect.left + window.scrollX,
-        top: rect.top + window.scrollY,
-        right: rect.right + window.scrollX,
-        bottom: rect.bottom + window.scrollY,
-        width: rect.width,
-        height: rect.height,
-      };
-    }
-
     function unionRects(elements) {
       let left = Number.POSITIVE_INFINITY;
       let top = Number.POSITIVE_INFINITY;

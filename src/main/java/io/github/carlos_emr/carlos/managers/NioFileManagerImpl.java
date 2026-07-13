@@ -219,7 +219,9 @@ public class NioFileManagerImpl implements NioFileManager {
                     return null;
                 }
             } catch (Exception e) {
-                log.error("Invalid source directory path: {}", LogSafe.sanitize(sourceDirectory, 1024), e);
+                if (log.isErrorEnabled()) {
+                    log.error("Invalid source directory path: {}", LogSafe.sanitize(sourceDirectory, 1024), e);
+                }
                 return null;
             }
 
