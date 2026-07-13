@@ -91,106 +91,78 @@ async function preparePageForCapture(page) {
 
 async function computeCaptureRegions(page) {
   return page.evaluate(() => {
+    const rectFromElement = (el) => {
+      const elementRect = el.getBoundingClientRect();
+      return {
+        left: elementRect.left + window.scrollX,
+        top: elementRect.top + window.scrollY,
+        right: elementRect.right + window.scrollX,
+        bottom: elementRect.bottom + window.scrollY,
+        width: elementRect.width,
+        height: elementRect.height,
+      };
+    };
+    const isVisibleCaptureCandidate = (el) => {
+      const style = window.getComputedStyle(el);
+      return style.display !== 'none' && style.visibility !== 'hidden' && style.position !== 'fixed';
+    };
+    const unionRects = (elements) => {
+      let left = Number.POSITIVE_INFINITY;
+      let top = Number.POSITIVE_INFINITY;
+      let right = 0;
+      let bottom = 0;
+      for (const el of elements) {
+        if (!isVisibleCaptureCandidate(el)) {
+          continue;
+        }
+        const rect = rectFromElement(el);
+        if (rect.width <= 0 || rect.height <= 0) {
+          continue;
+        }
+        left = Math.min(left, rect.left);
+        top = Math.min(top, rect.top);
+        right = Math.max(right, rect.right);
+        bottom = Math.max(bottom, rect.bottom);
+      }
+      if (!Number.isFinite(left) || !Number.isFinite(top) || right <= left || bottom <= top) {
+        return null;
+      }
+      return { x: Math.max(0, left), y: Math.max(0, top), width: right - left, height: bottom - top };
+    };
+    const backgroundCandidates = (elements) => elements
+      .filter((el) => el.tagName === 'IMG')
+      .filter((el) => /(^BGImage$|background image|bgimage)/i.test(el.id || '')
+        || /background image/i.test(el.getAttribute('alt') || ''))
+      .map(rectFromElement)
+      .filter((rect) => rect.width > 0 && rect.height > 0)
+      .sort((a, b) => (b.width * b.height) - (a.width * a.height));
+    const rectFromLargestCandidate = (candidateRects) => {
+      if (candidateRects.length === 0) {
+        return null;
+      }
+      const rect = candidateRects[0];
+      return {
+        x: Math.max(0, rect.left),
+        y: Math.max(0, rect.top),
+        width: rect.width,
+        height: rect.height,
+      };
+    };
+
     const pageNodes = Array.from(document.querySelectorAll('[id]')).filter((el) => /^page\d+$/i.test(el.id));
-    const captures = [];
-    for (const pageNode of pageNodes) {
-      const pageElements = [pageNode, ...pageNode.querySelectorAll('*')];
-      const backgroundCandidates = [];
-      for (const el of pageElements) {
-        if (el.tagName !== 'IMG') {
-          continue;
-        }
-        if (!/(^BGImage$|background image|bgimage)/i.test(el.id || '')
-          && !/background image/i.test(el.getAttribute('alt') || '')) {
-          continue;
-        }
-        const candidateRect = el.getBoundingClientRect();
-        const candidate = {
-          left: candidateRect.left + window.scrollX,
-          top: candidateRect.top + window.scrollY,
-          right: candidateRect.right + window.scrollX,
-          bottom: candidateRect.bottom + window.scrollY,
-          width: candidateRect.width,
-          height: candidateRect.height,
-        };
-        if (candidate.width > 0 && candidate.height > 0) {
-          backgroundCandidates.push(candidate);
-        }
-      }
-      backgroundCandidates.sort((a, b) => (b.width * b.height) - (a.width * a.height));
-
-      let rect = null;
-      if (backgroundCandidates.length > 0) {
-        rect = {
-          x: Math.max(0, backgroundCandidates[0].left),
-          y: Math.max(0, backgroundCandidates[0].top),
-          width: backgroundCandidates[0].width,
-          height: backgroundCandidates[0].height,
-        };
-      } else {
-        let left = Number.POSITIVE_INFINITY;
-        let top = Number.POSITIVE_INFINITY;
-        let right = 0;
-        let bottom = 0;
-        for (const el of pageElements) {
-          const style = window.getComputedStyle(el);
-          if (style.display === 'none' || style.visibility === 'hidden' || style.position === 'fixed') {
-            continue;
-          }
-          const elementRect = el.getBoundingClientRect();
-          if (elementRect.width <= 0 || elementRect.height <= 0) {
-            continue;
-          }
-          const leftEdge = elementRect.left + window.scrollX;
-          const topEdge = elementRect.top + window.scrollY;
-          const rightEdge = elementRect.right + window.scrollX;
-          const bottomEdge = elementRect.bottom + window.scrollY;
-          left = Math.min(left, leftEdge);
-          top = Math.min(top, topEdge);
-          right = Math.max(right, rightEdge);
-          bottom = Math.max(bottom, bottomEdge);
-        }
-        if (Number.isFinite(left) && Number.isFinite(top) && right > left && bottom > top) {
-          rect = { x: Math.max(0, left), y: Math.max(0, top), width: right - left, height: bottom - top };
-        }
-      }
-
-      if (rect) {
-        captures.push(rect);
-      }
-    }
+    const captures = pageNodes
+      .map((pageNode) => {
+        const pageElements = [pageNode, ...pageNode.querySelectorAll('*')];
+        return rectFromLargestCandidate(backgroundCandidates(pageElements)) || unionRects(pageElements);
+      })
+      .filter(Boolean);
 
     if (captures.length > 0) {
       return captures;
     }
 
-    const fallbackElements = Array.from(document.body.querySelectorAll('*'));
-    let left = Number.POSITIVE_INFINITY;
-    let top = Number.POSITIVE_INFINITY;
-    let right = 0;
-    let bottom = 0;
-    for (const el of fallbackElements) {
-      const style = window.getComputedStyle(el);
-      if (style.display === 'none' || style.visibility === 'hidden' || style.position === 'fixed') {
-        continue;
-      }
-      const elementRect = el.getBoundingClientRect();
-      if (elementRect.width <= 0 || elementRect.height <= 0) {
-        continue;
-      }
-      const leftEdge = elementRect.left + window.scrollX;
-      const topEdge = elementRect.top + window.scrollY;
-      const rightEdge = elementRect.right + window.scrollX;
-      const bottomEdge = elementRect.bottom + window.scrollY;
-      left = Math.min(left, leftEdge);
-      top = Math.min(top, topEdge);
-      right = Math.max(right, rightEdge);
-      bottom = Math.max(bottom, bottomEdge);
-    }
-    if (!Number.isFinite(left) || !Number.isFinite(top) || right <= left || bottom <= top) {
-      return [];
-    }
-    return [{ x: Math.max(0, left), y: Math.max(0, top), width: right - left, height: bottom - top }];
+    const fallback = unionRects(Array.from(document.body.querySelectorAll('*')));
+    return fallback ? [fallback] : [];
   });
 }
 
