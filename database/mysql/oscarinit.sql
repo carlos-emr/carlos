@@ -7251,7 +7251,7 @@ CREATE TABLE IF NOT EXISTS `outboundEmailArchiveDeletion` (
     `deletedAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `deleteReason` VARCHAR(1000) NOT NULL,
     `lastUpdateUser` VARCHAR(6),
-    `lastUpdateDate` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    `lastUpdateDate` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE INDEX `idx_outboundEmailArchiveDeletion_archiveId` (`archiveId`),
     INDEX `idx_outboundEmailArchiveDeletion_emailLogId` (`emailLogId`),
     INDEX `idx_outboundEmailArchiveDeletion_demographicNo` (`demographicNo`),

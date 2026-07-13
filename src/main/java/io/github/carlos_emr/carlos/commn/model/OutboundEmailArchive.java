@@ -238,10 +238,6 @@ public class OutboundEmailArchive extends OutboundEmailArchiveArtifact {
         return deleted;
     }
 
-    public void setDeleted(boolean deleted) {
-        this.deleted = deleted;
-    }
-
     public String getSendStatus() {
         return sendStatus;
     }

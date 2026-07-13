@@ -23,6 +23,7 @@
 package io.github.carlos_emr.carlos.managers;
 
 import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.EmailLogDao;
 import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDeletionDao;
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
@@ -69,6 +70,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     private static final byte[] RFC822_BYTES = "Subject: Test\r\n\r\nBody".getBytes(StandardCharsets.UTF_8);
 
     private DocumentManager documentManager;
+    private EmailLogDao emailLogDao;
     private OutboundEmailArchiveDao outboundEmailArchiveDao;
     private OutboundEmailArchiveDeletionDao outboundEmailArchiveDeletionDao;
     private CtlDocumentDao ctlDocumentDao;
@@ -79,12 +81,13 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     @BeforeEach
     void setUp() {
         documentManager = mock(DocumentManager.class);
+        emailLogDao = mock(EmailLogDao.class);
         outboundEmailArchiveDao = mock(OutboundEmailArchiveDao.class);
         outboundEmailArchiveDeletionDao = mock(OutboundEmailArchiveDeletionDao.class);
         ctlDocumentDao = mock(CtlDocumentDao.class);
         securityInfoManager = mock(SecurityInfoManager.class);
         loggedInInfo = mock(LoggedInInfo.class);
-        service = new OutboundEmailArchiveServiceImpl(documentManager, outboundEmailArchiveDao, outboundEmailArchiveDeletionDao, ctlDocumentDao, securityInfoManager);
+        service = new OutboundEmailArchiveServiceImpl(documentManager, emailLogDao, outboundEmailArchiveDao, outboundEmailArchiveDeletionDao, ctlDocumentDao, securityInfoManager);
 
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn(PROVIDER_NO);
         allowControlledDeletion();
@@ -112,6 +115,26 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
 
         verify(outboundEmailArchiveDao).persist(archive);
         assertArchiveMetadata(archive, emailLog, savedDocument);
+    }
+
+    @Test
+    @DisplayName("should load persisted email log before deriving archive demographics")
+    void shouldLoadPersistedEmailLog_beforeDerivingArchiveDemographics() throws Exception {
+        EmailLog requestedEmailLog = emailLog();
+        requestedEmailLog.setDemographic(new Demographic(456));
+        OutboundEmailArchiveDto request = archiveRequest(requestedEmailLog);
+        EmailLog persistedEmailLog = emailLog();
+        Document savedDocument = savedDocument();
+        when(emailLogDao.find((Object) Integer.valueOf(44))).thenReturn(persistedEmailLog);
+        when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
+                .thenReturn(savedDocument);
+
+        OutboundEmailArchive archive = service.archive(loggedInInfo, request);
+
+        verify(emailLogDao).find((Object) Integer.valueOf(44));
+        verify(documentManager).createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES));
+        assertThat(archive.getEmailLog()).isSameAs(persistedEmailLog);
+        assertThat(archive.getDemographic().getDemographicNo()).isEqualTo(123);
     }
 
     @Test
@@ -374,6 +397,9 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     }
 
     private OutboundEmailArchiveDto archiveRequest(EmailLog emailLog) {
+        if (emailLog != null && emailLog.getId() != null) {
+            when(emailLogDao.find((Object) emailLog.getId())).thenReturn(emailLog);
+        }
         OutboundEmailArchiveDto request = new OutboundEmailArchiveDto();
         request.setEmailLog(emailLog);
         request.setArtifactBytes(RFC822_BYTES);

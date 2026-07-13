@@ -23,6 +23,7 @@
 package io.github.carlos_emr.carlos.managers;
 
 import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.EmailLogDao;
 import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDeletionDao;
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
@@ -74,6 +75,8 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
 
     private final DocumentManager documentManager;
 
+    private final EmailLogDao emailLogDao;
+
     private final OutboundEmailArchiveDao outboundEmailArchiveDao;
 
     private final OutboundEmailArchiveDeletionDao outboundEmailArchiveDeletionDao;
@@ -85,11 +88,13 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
     @Autowired
     public OutboundEmailArchiveServiceImpl(
             DocumentManager documentManager,
+            EmailLogDao emailLogDao,
             OutboundEmailArchiveDao outboundEmailArchiveDao,
             OutboundEmailArchiveDeletionDao outboundEmailArchiveDeletionDao,
             CtlDocumentDao ctlDocumentDao,
             SecurityInfoManager securityInfoManager) {
         this.documentManager = documentManager;
+        this.emailLogDao = emailLogDao;
         this.outboundEmailArchiveDao = outboundEmailArchiveDao;
         this.outboundEmailArchiveDeletionDao = outboundEmailArchiveDeletionDao;
         this.ctlDocumentDao = ctlDocumentDao;
@@ -101,14 +106,15 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
     public OutboundEmailArchive archive(LoggedInInfo loggedInInfo, OutboundEmailArchiveDto request) throws IOException {
         validateArchiveRequest(loggedInInfo, request);
 
-        EmailLog emailLog = request.getEmailLog();
+        EmailLog requestedEmailLog = request.getEmailLog();
         byte[] artifactBytes = request.getArtifactBytes();
         String contentType = defaultIfBlank(request.getContentType(), DEFAULT_CONTENT_TYPE);
-        String fileName = uniqueArchiveFileName(emailLog, contentType);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
         if (providerNo == null || providerNo.isBlank()) {
             throw new IllegalArgumentException("Provider number is required for outbound email archive");
         }
+        EmailLog emailLog = loadEmailLog(requestedEmailLog.getId());
+        String fileName = uniqueArchiveFileName(emailLog, contentType);
         Integer demographicNo = emailLog.getDemographic().getDemographicNo();
         authorizeArchiveAccess(loggedInInfo, demographicNo);
         List<OutboundEmailArchiveAttachment> attachments = buildAttachments(request, providerNo, demographicNo);
@@ -189,10 +195,6 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         if (emailLog == null || emailLog.getId() == null) {
             throw new IllegalArgumentException("Persisted EmailLog is required");
         }
-        Demographic demographic = emailLog.getDemographic();
-        if (demographic == null || demographic.getDemographicNo() == null) {
-            throw new IllegalArgumentException("EmailLog demographic is required");
-        }
         byte[] artifactBytes = request.getArtifactBytes();
         if (artifactBytes == null || artifactBytes.length == 0) {
             throw new IllegalArgumentException("Outbound artifact bytes are required");
@@ -219,6 +221,18 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         document.setObservationdate(now);
         document.setPublic1(0);
         return document;
+    }
+
+    private EmailLog loadEmailLog(Integer emailLogId) {
+        EmailLog emailLog = emailLogDao.find((Object) emailLogId);
+        if (emailLog == null) {
+            throw new IllegalArgumentException("EmailLog not found: " + emailLogId);
+        }
+        Demographic demographic = emailLog.getDemographic();
+        if (demographic == null || demographic.getDemographicNo() == null) {
+            throw new IllegalArgumentException("EmailLog demographic is required");
+        }
+        return emailLog;
     }
 
     private OutboundEmailArchive buildArchive(
