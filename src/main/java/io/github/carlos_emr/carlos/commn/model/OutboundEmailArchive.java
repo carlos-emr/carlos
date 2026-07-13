@@ -298,16 +298,6 @@ public class OutboundEmailArchive extends OutboundEmailArchiveArtifact {
         return attachments;
     }
 
-    public void setAttachments(List<OutboundEmailArchiveAttachment> attachments) {
-        List<OutboundEmailArchiveAttachment> replacementAttachments = attachments != null
-                ? new ArrayList<OutboundEmailArchiveAttachment>(attachments)
-                : List.of();
-        this.attachments.clear();
-        for (OutboundEmailArchiveAttachment attachment : replacementAttachments) {
-            addAttachment(attachment);
-        }
-    }
-
     public void addAttachment(OutboundEmailArchiveAttachment attachment) {
         if (attachment == null) {
             return;

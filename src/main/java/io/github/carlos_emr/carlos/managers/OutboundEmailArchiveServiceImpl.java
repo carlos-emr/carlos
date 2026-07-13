@@ -101,6 +101,15 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         this.securityInfoManager = securityInfoManager;
     }
 
+    private record ArchiveBuildContext(
+            Document savedDocument,
+            byte[] artifactBytes,
+            String contentType,
+            String archiveFileName,
+            List<OutboundEmailArchiveAttachment> attachments,
+            String providerNo) {
+    }
+
     @Override
     @Transactional(rollbackFor = IOException.class)
     public OutboundEmailArchive archive(LoggedInInfo loggedInInfo, OutboundEmailArchiveDto request) throws IOException {
@@ -134,7 +143,8 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         }
         registerRollbackCleanup(savedDocument);
 
-        OutboundEmailArchive archive = buildArchive(request, emailLog, savedDocument, artifactBytes, contentType, fileName, attachments, providerNo);
+        ArchiveBuildContext buildContext = new ArchiveBuildContext(savedDocument, artifactBytes, contentType, fileName, attachments, providerNo);
+        OutboundEmailArchive archive = buildArchive(request, emailLog, buildContext);
         outboundEmailArchiveDao.persist(archive);
 
         LogAction.addLog(loggedInInfo,
@@ -238,16 +248,13 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
     private OutboundEmailArchive buildArchive(
             OutboundEmailArchiveDto request,
             EmailLog emailLog,
-            Document savedDocument,
-            byte[] artifactBytes,
-            String contentType,
-            String archiveFileName,
-            List<OutboundEmailArchiveAttachment> attachments,
-            String providerNo) {
+            ArchiveBuildContext buildContext) {
 
         OutboundEmailArchive archive = new OutboundEmailArchive();
         EmailConfig emailConfig = emailLog.getEmailConfig();
-        String originalFileName = defaultIfBlank(request.getFileName(), archiveFileName);
+        String originalFileName = defaultIfBlank(request.getFileName(), buildContext.archiveFileName());
+        Document savedDocument = buildContext.savedDocument();
+        byte[] artifactBytes = buildContext.artifactBytes();
 
         archive.setEmailLog(emailLog);
         archive.setDemographic(emailLog.getDemographic());
@@ -259,7 +266,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         archive.setProviderName(truncate(defaultProviderName(request, emailConfig), 100));
         archive.setProviderMessageId(truncate(request.getProviderMessageId(), 255));
         archive.setProviderResponse(truncate(request.getProviderResponse(), 1000));
-        archive.setContentType(truncate(contentType, 100));
+        archive.setContentType(truncate(buildContext.contentType(), 100));
         archive.setFileName(truncate(savedDocument.getDocfilename(), 255));
         archive.setOriginalFileName(truncate(originalFileName, 255));
         archive.setSha256Hash(sha256Hex(artifactBytes));
@@ -267,9 +274,9 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         archive.setStorageType(OutboundEmailArchive.STORAGE_TYPE_EDOC);
         archive.setRetentionPolicy(OutboundEmailArchive.RETENTION_POLICY_PERMANENT);
         archive.setSendStatus(OutboundEmailArchive.SEND_STATUS_ARCHIVED);
-        archive.setLastUpdateUser(providerNo);
+        archive.setLastUpdateUser(buildContext.providerNo());
 
-        for (OutboundEmailArchiveAttachment attachment : safeArchiveAttachmentList(attachments)) {
+        for (OutboundEmailArchiveAttachment attachment : safeArchiveAttachmentList(buildContext.attachments())) {
             archive.addAttachment(attachment);
         }
 

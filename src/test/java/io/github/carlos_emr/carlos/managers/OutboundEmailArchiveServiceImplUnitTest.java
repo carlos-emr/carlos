@@ -206,6 +206,40 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should archive attachment metadata without document bytes or source document")
+    void shouldArchiveAttachmentMetadata_whenNoDocumentOrBytesSupplied() throws Exception {
+        byte[] attachmentBytes = "external attachment bytes".getBytes(StandardCharsets.UTF_8);
+        EmailLog emailLog = emailLog();
+        OutboundEmailArchiveDto request = archiveRequest(emailLog);
+        OutboundEmailArchiveAttachmentDto attachmentRequest = new OutboundEmailArchiveAttachmentDto();
+        attachmentRequest.setFileName("external-result.pdf");
+        attachmentRequest.setContentType("application/pdf");
+        attachmentRequest.setSha256Hash(sha256Hex(attachmentBytes));
+        attachmentRequest.setByteSize((long) attachmentBytes.length);
+        attachmentRequest.setSourceDocumentType("EXTERNAL");
+        attachmentRequest.setSourceDocumentId(9901);
+        request.addAttachment(attachmentRequest);
+
+        when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
+                .thenReturn(savedDocument());
+
+        OutboundEmailArchive archive = service.archive(loggedInInfo, request);
+
+        assertThat(archive.getAttachments()).hasSize(1);
+        OutboundEmailArchiveAttachment attachment = archive.getAttachments().get(0);
+        assertThat(attachment.getArchive()).isSameAs(archive);
+        assertThat(attachment.getFileName()).isEqualTo("external-result.pdf");
+        assertThat(attachment.getContentType()).isEqualTo("application/pdf");
+        assertThat(attachment.getSha256Hash()).isEqualTo(sha256Hex(attachmentBytes));
+        assertThat(attachment.getByteSize()).isEqualTo((long) attachmentBytes.length);
+        assertThat(attachment.getSourceDocumentType()).isEqualTo("EXTERNAL");
+        assertThat(attachment.getSourceDocumentId()).isEqualTo(9901);
+        assertThat(attachment.getDocument()).isNull();
+        assertThat(attachment.getLastUpdateUser()).isEqualTo(PROVIDER_NO);
+        verifyNoInteractions(ctlDocumentDao);
+    }
+
+    @Test
     @DisplayName("should reject attachment document from a different demographic before storing the eDoc")
     void shouldRejectAttachmentDocumentFromDifferentDemographic_beforeStoringEdoc() {
         byte[] attachmentBytes = "encrypted pdf bytes".getBytes(StandardCharsets.UTF_8);
