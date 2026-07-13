@@ -426,6 +426,22 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("denies standalone fax before lookup when consult write is missing")
+    void shouldDenyStandaloneFax_beforeLookupWhenSubmittedPatientWritePrivilegeMissing() {
+        action.setSubmission("And Fax");
+        action.setRequestId("9");
+        action.setDemographicNo("2");
+
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("missing required sec object (_con)");
+
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_con", "w", "2");
+        verify(consultationRequestDao, never()).find(9);
+        verifyNoInteractions(documentAttachmentManager);
+    }
+
+    @Test
     @DisplayName("saves a stamp for the selected signature provider when an update has no stored signature")
     void shouldSaveStampForSelectedProvider_whenUpdateHasNoStoredSignature() throws Exception {
         ConsultationRequest existing = consultationRequest(1);

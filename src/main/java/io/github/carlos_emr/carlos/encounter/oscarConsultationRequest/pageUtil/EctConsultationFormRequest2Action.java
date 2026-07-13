@@ -244,8 +244,10 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         String submission = this.getSubmission();
         String providerNo = this.getProviderNo();
         String demographicNo = this.getDemographicNo();
+        String submittedRequestId = this.getRequestId();
 
         String requestId = "";
+        boolean consultTargetWriteVerified = false;
 
         boolean newSignature = request.getParameter("newSignature") != null && request.getParameter("newSignature").equalsIgnoreCase("true");
         String signatureId = null;
@@ -412,6 +414,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 
                 int consultationRequestId = consult.getId();
                 requestId = String.valueOf(consultationRequestId);
+                consultTargetWriteVerified = true;
                 MiscUtils.getLogger().debug("saved new consult id " + requestId);
 
                 Enumeration e = request.getParameterNames();
@@ -436,7 +439,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
             request.setAttribute("transType", "2");
 
         } else if (submission.startsWith("Update")) {
-            requestId = this.getRequestId();
+            requestId = submittedRequestId;
 
             Integer parsedConsultationRequestId = parseUpdateInteger(requestId,
                     "Invalid consultation request id for update: {}",
@@ -469,6 +472,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 } catch (SecurityException e) {
                     return consultationUpdateUnavailable(consultationRequestId);
                 }
+                consultTargetWriteVerified = true;
                 consultationManager.archiveConsultationRequest(consultationRequestId);
 
                 String existingSignatureId = consult.getSignatureImg();
@@ -628,7 +632,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
             request.setAttribute("transType", "1");
 
         } else if (submission.equalsIgnoreCase("And Print Preview")) {
-            requestId = this.getRequestId();
+            requestId = submittedRequestId;
             String previewDemographicNo = resolveConsultationPreviewDemographicNoOrSetError(loggedInInfo, consultationRequestDao, requestId, demographicNo);
             if (previewDemographicNo != null) {
                 try {
@@ -666,6 +670,38 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
             }
             return "error";
         } else if (submission.endsWith("And Fax")) {
+            if (!consultTargetWriteVerified) {
+                if (StringUtils.isBlank(requestId)) {
+                    requestId = submittedRequestId;
+                }
+
+                Integer parsedDemographicId = parseUpdateInteger(demographicNo,
+                        "Invalid demographic number for consultation fax: {}",
+                        INVALID_DEMOGRAPHIC_NUMBER);
+                if (parsedDemographicId == null) {
+                    return INPUT;
+                }
+                demographicNo = String.valueOf(parsedDemographicId);
+                requireConsultWritePrivilege(loggedInInfo, demographicNo);
+
+                Integer parsedConsultationRequestId = parseUpdateInteger(requestId,
+                        "Invalid consultation request id for consultation fax: {}",
+                        INVALID_CONSULTATION_REQUEST_ID);
+                if (parsedConsultationRequestId == null) {
+                    return INPUT;
+                }
+                int consultationRequestId = parsedConsultationRequestId;
+                ConsultationRequest consult = consultationRequestDao.find(consultationRequestId);
+                if (consult == null) {
+                    return consultationUpdateUnavailable(consultationRequestId);
+                }
+                try {
+                    demographicNo = requireMatchingConsultationDemographic(consult, parsedDemographicId);
+                } catch (SecurityException e) {
+                    return consultationUpdateUnavailable(consultationRequestId);
+                }
+                requestId = String.valueOf(consultationRequestId);
+            }
 
             String[] faxRecipients = request.getParameterValues("faxRecipients");
             HashSet<FaxRecipient> copytoRecipients = new HashSet<FaxRecipient>();

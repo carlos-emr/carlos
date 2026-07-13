@@ -18,6 +18,7 @@
 package io.github.carlos_emr.carlos.documentManager;
 
 import io.github.carlos_emr.carlos.commn.dao.ConsultDocsDao;
+import io.github.carlos_emr.carlos.commn.dao.EFormDocsDao;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -31,6 +32,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -53,6 +55,9 @@ class DocumentAttachmentManagerImplTest extends CarlosUnitTestBase {
     private ConsultDocsDao consultDocsDao;
 
     @Mock
+    private EFormDocsDao eFormDocsDao;
+
+    @Mock
     private LoggedInInfo loggedInInfo;
 
     private DocumentAttachmentManagerImpl manager;
@@ -62,6 +67,8 @@ class DocumentAttachmentManagerImplTest extends CarlosUnitTestBase {
         manager = new DocumentAttachmentManagerImpl();
         injectDependency(manager, "securityInfoManager", securityInfoManager);
         injectDependency(manager, "consultDocsDao", consultDocsDao);
+        registerMock(ConsultDocsDao.class, consultDocsDao);
+        registerMock(EFormDocsDao.class, eFormDocsDao);
     }
 
     @Test
@@ -80,6 +87,36 @@ class DocumentAttachmentManagerImplTest extends CarlosUnitTestBase {
 
         assertThat(attachmentIds).containsExactly("789");
         verify(securityInfoManager).hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, demographicNo);
+    }
+
+    @Test
+    @DisplayName("should attach documents to consult with consult write privilege")
+    void shouldAttachToConsult_withConsultWritePrivilege() {
+        int demographicNo = 123;
+        int requestId = 456;
+
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo))
+                .thenReturn(true);
+        when(consultDocsDao.findByRequestIdDocType(requestId, DocumentType.DOC.getType()))
+                .thenReturn(List.of());
+
+        manager.attachToConsult(
+                loggedInInfo,
+                DocumentType.DOC,
+                new String[] {"789"},
+                "999",
+                requestId,
+                demographicNo);
+
+        ArgumentCaptor<ConsultDocs> consultDocCaptor = ArgumentCaptor.forClass(ConsultDocs.class);
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo);
+        verify(consultDocsDao).findByRequestIdDocType(requestId, DocumentType.DOC.getType());
+        verify(consultDocsDao).persist(consultDocCaptor.capture());
+        ConsultDocs persisted = consultDocCaptor.getValue();
+        assertThat(persisted.getRequestId()).isEqualTo(requestId);
+        assertThat(persisted.getDocumentNo()).isEqualTo(789);
+        assertThat(persisted.getDocType()).isEqualTo(DocumentType.DOC.getType());
+        assertThat(persisted.getProviderNo()).isEqualTo("999");
     }
 
     @Test
