@@ -22,8 +22,11 @@
 
 package io.github.carlos_emr.carlos.managers;
 
+import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDeletionDao;
+import io.github.carlos_emr.carlos.commn.model.CtlDocument;
+import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
@@ -45,6 +48,7 @@ import org.mockito.ArgumentCaptor;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.HexFormat;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -67,6 +71,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     private DocumentManager documentManager;
     private OutboundEmailArchiveDao outboundEmailArchiveDao;
     private OutboundEmailArchiveDeletionDao outboundEmailArchiveDeletionDao;
+    private CtlDocumentDao ctlDocumentDao;
     private SecurityInfoManager securityInfoManager;
     private LoggedInInfo loggedInInfo;
     private OutboundEmailArchiveServiceImpl service;
@@ -76,9 +81,10 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         documentManager = mock(DocumentManager.class);
         outboundEmailArchiveDao = mock(OutboundEmailArchiveDao.class);
         outboundEmailArchiveDeletionDao = mock(OutboundEmailArchiveDeletionDao.class);
+        ctlDocumentDao = mock(CtlDocumentDao.class);
         securityInfoManager = mock(SecurityInfoManager.class);
         loggedInInfo = mock(LoggedInInfo.class);
-        service = new OutboundEmailArchiveServiceImpl(documentManager, outboundEmailArchiveDao, outboundEmailArchiveDeletionDao, securityInfoManager);
+        service = new OutboundEmailArchiveServiceImpl(documentManager, outboundEmailArchiveDao, outboundEmailArchiveDeletionDao, ctlDocumentDao, securityInfoManager);
 
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn(PROVIDER_NO);
         allowControlledDeletion();
@@ -121,7 +127,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
 
         ArgumentCaptor<Document> documentCaptor = ArgumentCaptor.forClass(Document.class);
         verify(documentManager).createDocument(eq(loggedInInfo), documentCaptor.capture(), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES));
-        assertThat(documentCaptor.getValue().getDocfilename()).isEqualTo("outbound-email-44.eml");
+        assertThat(documentCaptor.getValue().getDocfilename()).startsWith("outbound-email-44-").endsWith(".eml");
     }
 
     @Test
@@ -137,7 +143,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
 
         ArgumentCaptor<Document> documentCaptor = ArgumentCaptor.forClass(Document.class);
         verify(documentManager).createDocument(eq(loggedInInfo), documentCaptor.capture(), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES));
-        assertThat(documentCaptor.getValue().getDocfilename()).isEqualTo("outbound-email-44.eml");
+        assertThat(documentCaptor.getValue().getDocfilename()).startsWith("outbound-email-44-").endsWith(".eml");
         assertThat(archive.getOriginalFileName()).isEqualTo("Jane-Smith-1970-01-01-referral.eml");
     }
 
@@ -157,6 +163,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         attachmentRequest.setDocument(attachmentDocument);
         request.addAttachment(attachmentRequest);
 
+        when(ctlDocumentDao.findByDocumentNoAndModule(777, "demographic")).thenReturn(List.of(ctlDocument(123, 777)));
         when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
                 .thenReturn(savedDocument());
 
@@ -173,6 +180,26 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         assertThat(attachment.getSourceDocumentId()).isEqualTo(777);
         assertThat(attachment.getDocument()).isSameAs(attachmentDocument);
         assertThat(attachment.getLastUpdateUser()).isEqualTo(PROVIDER_NO);
+    }
+
+    @Test
+    @DisplayName("should reject attachment document from a different demographic before storing the eDoc")
+    void shouldRejectAttachmentDocumentFromDifferentDemographic_beforeStoringEdoc() {
+        byte[] attachmentBytes = "encrypted pdf bytes".getBytes(StandardCharsets.UTF_8);
+        EmailLog emailLog = emailLog();
+        OutboundEmailArchiveDto request = archiveRequest(emailLog);
+        OutboundEmailArchiveAttachmentDto attachmentRequest = new OutboundEmailArchiveAttachmentDto();
+        attachmentRequest.setFileName("message.pdf");
+        attachmentRequest.setContentType("application/pdf");
+        attachmentRequest.setArtifactBytes(attachmentBytes);
+        attachmentRequest.setDocument(attachmentDocument());
+        request.addAttachment(attachmentRequest);
+        when(ctlDocumentDao.findByDocumentNoAndModule(777, "demographic")).thenReturn(List.of(ctlDocument(456, 777)));
+
+        assertThatThrownBy(() -> service.archive(loggedInInfo, request))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("attachment document");
+        verifyNoInteractions(documentManager);
     }
 
     @Test
@@ -269,9 +296,23 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         assertThat(deletion.getFileName()).isEqualTo("20260707120000_outbound-email-44.eml");
         assertThat(deletion.getSha256Hash()).isEqualTo(archive.getSha256Hash());
         assertThat(deletion.getDeletedByProviderNo()).isEqualTo(PROVIDER_NO);
+        assertThat(archive.getDeletedAt()).isNotNull();
+        assertThat(deletion.getDeletedAt()).isNotNull();
         assertThat(deletion.getDeletedAt()).isEqualTo(archive.getDeletedAt());
         assertThat(deletion.getDeleteReason()).isEqualTo("Patient requested cleanup");
         assertThat(deletion.getLastUpdateUser()).isEqualTo(PROVIDER_NO);
+    }
+
+    @Test
+    @DisplayName("should trim controlled deletion reason before truncating")
+    void shouldTrimControlledDeletionReason_beforeTruncating() {
+        OutboundEmailArchive archive = archiveForDeletion();
+        when(outboundEmailArchiveDao.find((Object) Integer.valueOf(888))).thenReturn(archive);
+
+        OutboundEmailArchiveDeletion deletion = service.recordControlledDeletion(loggedInInfo, 888, " ".repeat(1000) + "Meaningful reason");
+
+        assertThat(deletion.getDeleteReason()).isEqualTo("Meaningful reason");
+        assertThat(archive.getDeleteReason()).isEqualTo("Meaningful reason");
     }
 
     @Test
@@ -341,7 +382,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     }
 
     private void assertArchiveDocumentToCreate(Document documentToCreate) {
-        assertThat(documentToCreate.getDocfilename()).isEqualTo("outbound-email-44.eml");
+        assertThat(documentToCreate.getDocfilename()).startsWith("outbound-email-44-").endsWith(".eml");
         assertThat(documentToCreate.getDocdesc()).isEqualTo("Outbound email archive 44");
         assertThat(documentToCreate.getDoctype()).isEqualTo("email");
         assertThat(documentToCreate.getDocClass()).isEqualTo("EMAIL");
@@ -361,7 +402,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         assertThat(archive.getTransportType()).isEqualTo("SMTP");
         assertThat(archive.getProviderName()).isEqualTo("GMAIL");
         assertThat(archive.getContentType()).isEqualTo("message/rfc822");
-        assertThat(archive.getOriginalFileName()).isEqualTo("outbound-email-44.eml");
+        assertThat(archive.getOriginalFileName()).startsWith("outbound-email-44-").endsWith(".eml");
         assertThat(archive.getFileName()).isEqualTo("20260707120000_outbound-email-44.eml");
         assertThat(archive.getSha256Hash()).isEqualTo(sha256Hex(RFC822_BYTES));
         assertThat(archive.getByteSize()).isEqualTo((long) RFC822_BYTES.length);
@@ -395,6 +436,12 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         document.setDocfilename("message.pdf");
         document.setContenttype("application/pdf");
         return document;
+    }
+
+    private CtlDocument ctlDocument(Integer demographicNo, Integer documentNo) {
+        CtlDocument ctlDocument = new CtlDocument();
+        ctlDocument.setId(new CtlDocumentPK("demographic", demographicNo, documentNo));
+        return ctlDocument;
     }
 
     private OutboundEmailArchive archiveForDeletion() {

@@ -91,6 +91,8 @@ public class OutboundEmailArchiveAttachment extends OutboundEmailArchiveArtifact
 
     @PrePersist
     protected void prePersist() {
-        createdAt = new Date();
+        if (createdAt == null) {
+            createdAt = new Date();
+        }
     }
 }

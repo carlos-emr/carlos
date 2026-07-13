@@ -22,8 +22,10 @@
 
 package io.github.carlos_emr.carlos.managers;
 
+import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDeletionDao;
+import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
@@ -53,6 +55,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Stores finalized outbound email artifacts in eDoc and records archive/deletion audit metadata.
@@ -67,12 +70,15 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
     private static final String DEFAULT_CONTENT_TYPE = "application/octet-stream";
     private static final String DOCUMENT_DOCTYPE = "email";
     private static final String DOCUMENT_SOURCE = "Outbound Email Archive";
+    private static final String CTL_DOCUMENT_MODULE_DEMOGRAPHIC = "demographic";
 
     private final DocumentManager documentManager;
 
     private final OutboundEmailArchiveDao outboundEmailArchiveDao;
 
     private final OutboundEmailArchiveDeletionDao outboundEmailArchiveDeletionDao;
+
+    private final CtlDocumentDao ctlDocumentDao;
 
     private final SecurityInfoManager securityInfoManager;
 
@@ -81,10 +87,12 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
             DocumentManager documentManager,
             OutboundEmailArchiveDao outboundEmailArchiveDao,
             OutboundEmailArchiveDeletionDao outboundEmailArchiveDeletionDao,
+            CtlDocumentDao ctlDocumentDao,
             SecurityInfoManager securityInfoManager) {
         this.documentManager = documentManager;
         this.outboundEmailArchiveDao = outboundEmailArchiveDao;
         this.outboundEmailArchiveDeletionDao = outboundEmailArchiveDeletionDao;
+        this.ctlDocumentDao = ctlDocumentDao;
         this.securityInfoManager = securityInfoManager;
     }
 
@@ -96,14 +104,14 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         EmailLog emailLog = request.getEmailLog();
         byte[] artifactBytes = request.getArtifactBytes();
         String contentType = defaultIfBlank(request.getContentType(), DEFAULT_CONTENT_TYPE);
-        String fileName = defaultFileName(emailLog, contentType);
+        String fileName = uniqueArchiveFileName(emailLog, contentType);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
         if (providerNo == null || providerNo.isBlank()) {
             throw new IllegalArgumentException("Provider number is required for outbound email archive");
         }
         Integer demographicNo = emailLog.getDemographic().getDemographicNo();
         authorizeArchiveAccess(loggedInInfo, demographicNo);
-        List<OutboundEmailArchiveAttachment> attachments = buildAttachments(request, providerNo);
+        List<OutboundEmailArchiveAttachment> attachments = buildAttachments(request, providerNo, demographicNo);
 
         Document document = buildDocument(emailLog, fileName, contentType, providerNo);
         Document savedDocument;
@@ -120,7 +128,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         }
         registerRollbackCleanup(savedDocument);
 
-        OutboundEmailArchive archive = buildArchive(request, emailLog, savedDocument, artifactBytes, contentType, attachments, providerNo);
+        OutboundEmailArchive archive = buildArchive(request, emailLog, savedDocument, artifactBytes, contentType, fileName, attachments, providerNo);
         outboundEmailArchiveDao.persist(archive);
 
         LogAction.addLog(loggedInInfo,
@@ -153,7 +161,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
 
         String providerNo = loggedInInfo.getLoggedInProviderNo();
         authorizeControlledDeletion(loggedInInfo, archive);
-        String truncatedDeleteReason = truncate(deleteReason, 1000);
+        String truncatedDeleteReason = truncate(deleteReason.trim(), 1000);
         archive.markDeleted(providerNo, truncatedDeleteReason);
         OutboundEmailArchiveDeletion deletion = OutboundEmailArchiveDeletion.fromArchive(archive, providerNo, truncatedDeleteReason);
 
@@ -219,12 +227,13 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
             Document savedDocument,
             byte[] artifactBytes,
             String contentType,
+            String archiveFileName,
             List<OutboundEmailArchiveAttachment> attachments,
             String providerNo) {
 
         OutboundEmailArchive archive = new OutboundEmailArchive();
         EmailConfig emailConfig = emailLog.getEmailConfig();
-        String originalFileName = defaultIfBlank(request.getFileName(), defaultFileName(emailLog, contentType));
+        String originalFileName = defaultIfBlank(request.getFileName(), archiveFileName);
 
         archive.setEmailLog(emailLog);
         archive.setDemographic(emailLog.getDemographic());
@@ -253,7 +262,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         return archive;
     }
 
-    private List<OutboundEmailArchiveAttachment> buildAttachments(OutboundEmailArchiveDto request, String providerNo) {
+    private List<OutboundEmailArchiveAttachment> buildAttachments(OutboundEmailArchiveDto request, String providerNo, Integer demographicNo) {
         List<OutboundEmailArchiveAttachmentDto> attachmentRequests = safeAttachmentList(request.getAttachments());
         if (attachmentRequests.isEmpty()) {
             return List.of();
@@ -261,21 +270,22 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
 
         List<OutboundEmailArchiveAttachment> attachments = new ArrayList<OutboundEmailArchiveAttachment>();
         for (OutboundEmailArchiveAttachmentDto attachmentRequest : attachmentRequests) {
-            attachments.add(buildAttachment(attachmentRequest, providerNo));
+            attachments.add(buildAttachment(attachmentRequest, providerNo, demographicNo));
         }
         return attachments;
     }
 
-    private OutboundEmailArchiveAttachment buildAttachment(OutboundEmailArchiveAttachmentDto request, String providerNo) {
+    private OutboundEmailArchiveAttachment buildAttachment(OutboundEmailArchiveAttachmentDto request, String providerNo, Integer demographicNo) {
         if (request == null) {
             throw new IllegalArgumentException("Attachment request is required");
         }
 
         byte[] attachmentBytes = request.getArtifactBytes();
         Document attachmentDocument = request.getDocument();
-        if (attachmentBytes != null && (attachmentDocument == null || attachmentDocument.getId() == null)) {
+        if (attachmentBytes != null && attachmentDocument == null) {
             throw new IllegalArgumentException("Persisted attachment document is required when attachment bytes are supplied");
         }
+        validateAttachmentDocumentDemographic(attachmentDocument, demographicNo);
         String sha256Hash = request.getSha256Hash();
         Long byteSize = request.getByteSize();
         if (attachmentBytes != null) {
@@ -299,8 +309,28 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         return attachment;
     }
 
-    private String defaultFileName(EmailLog emailLog, String contentType) {
-        return "outbound-email-" + emailLog.getId() + extensionForContentType(contentType);
+    private void validateAttachmentDocumentDemographic(Document attachmentDocument, Integer demographicNo) {
+        if (attachmentDocument == null) {
+            return;
+        }
+        Integer documentNo = attachmentDocument.getId();
+        if (documentNo == null) {
+            throw new IllegalArgumentException("Persisted attachment document is required when attachment document metadata is supplied");
+        }
+
+        List<CtlDocument> ctlDocuments = ctlDocumentDao.findByDocumentNoAndModule(documentNo, CTL_DOCUMENT_MODULE_DEMOGRAPHIC);
+        for (CtlDocument ctlDocument : safeCtlDocumentList(ctlDocuments)) {
+            if (ctlDocument != null
+                    && ctlDocument.getId() != null
+                    && demographicNo.equals(ctlDocument.getId().getModuleId())) {
+                return;
+            }
+        }
+        throw new SecurityException("attachment document is not linked to outbound email archive demographic");
+    }
+
+    private String uniqueArchiveFileName(EmailLog emailLog, String contentType) {
+        return "outbound-email-" + emailLog.getId() + "-" + UUID.randomUUID().toString() + extensionForContentType(contentType);
     }
 
     private String extensionForContentType(String contentType) {
@@ -351,6 +381,10 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
 
     private List<OutboundEmailArchiveAttachment> safeArchiveAttachmentList(List<OutboundEmailArchiveAttachment> attachments) {
         return attachments != null ? attachments : List.of();
+    }
+
+    private List<CtlDocument> safeCtlDocumentList(List<CtlDocument> ctlDocuments) {
+        return ctlDocuments != null ? ctlDocuments : List.of();
     }
 
     private String defaultIfBlank(String value, String defaultValue) {

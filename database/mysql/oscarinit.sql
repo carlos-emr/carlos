@@ -7196,7 +7196,7 @@ CREATE TABLE IF NOT EXISTS `outboundEmailArchive` (
     `legalHold` BOOLEAN NOT NULL DEFAULT FALSE,
     `deleted` BOOLEAN NOT NULL DEFAULT FALSE,
     `sendStatus` VARCHAR(25) NOT NULL DEFAULT 'ARCHIVED',
-    `archivedAt` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    `archivedAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `sendAttemptedAt` DATETIME,
     `sentAt` DATETIME,
     `deletedAt` DATETIME,
@@ -7214,7 +7214,7 @@ CREATE TABLE IF NOT EXISTS `outboundEmailArchive` (
         FOREIGN KEY (`configId`) REFERENCES `emailConfig` (`id`),
     CONSTRAINT `fk_outboundEmailArchive_document`
         FOREIGN KEY (`documentNo`) REFERENCES `document` (`document_no`)
-);
+) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS `outboundEmailArchiveAttachment` (
     `id` BIGINT PRIMARY KEY AUTO_INCREMENT,
@@ -7235,7 +7235,7 @@ CREATE TABLE IF NOT EXISTS `outboundEmailArchiveAttachment` (
         FOREIGN KEY (`archiveId`) REFERENCES `outboundEmailArchive` (`id`),
     CONSTRAINT `fk_outboundEmailArchiveAttachment_document`
         FOREIGN KEY (`documentNo`) REFERENCES `document` (`document_no`)
-);
+) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS `outboundEmailArchiveDeletion` (
     `id` BIGINT PRIMARY KEY AUTO_INCREMENT,
@@ -7257,7 +7257,7 @@ CREATE TABLE IF NOT EXISTS `outboundEmailArchiveDeletion` (
     INDEX `idx_outboundEmailArchiveDeletion_demographicNo` (`demographicNo`),
     CONSTRAINT `fk_outboundEmailArchiveDeletion_emailLog`
         FOREIGN KEY (`emailLogId`) REFERENCES `emailLog` (`id`)
-);
+) ENGINE=InnoDB;
 
 
 CREATE TABLE IF NOT EXISTS `faxes` (

@@ -22,9 +22,10 @@
 
 package io.github.carlos_emr.carlos.commn.model;
 
+import jakarta.persistence.AssociationOverride;
 import jakarta.persistence.AttributeOverride;
-import jakarta.persistence.Column;
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
@@ -48,6 +49,7 @@ import java.util.List;
 @Entity
 @Table(name = "outboundEmailArchive")
 @AttributeOverride(name = "contentType", column = @Column(name = "contentType", nullable = false, length = 100))
+@AssociationOverride(name = "document", joinColumns = @JoinColumn(name = "documentNo", nullable = false))
 @SuppressWarnings({"java:S2160", "java:S2143"}) // Equality is inherited from AbstractModel id; DATETIME mappings follow CARLOS Hibernate conventions.
 public class OutboundEmailArchive extends OutboundEmailArchiveArtifact {
 
@@ -107,6 +109,7 @@ public class OutboundEmailArchive extends OutboundEmailArchiveArtifact {
     private String sendStatus = SEND_STATUS_ARCHIVED;
 
     @Temporal(TemporalType.TIMESTAMP)
+    @Column(nullable = false)
     private Date archivedAt = new Date();
 
     @Temporal(TemporalType.TIMESTAMP)
@@ -124,7 +127,7 @@ public class OutboundEmailArchive extends OutboundEmailArchiveArtifact {
     @Column(length = 1000)
     private String deleteReason;
 
-    @OneToMany(mappedBy = "archive", fetch = FetchType.LAZY, cascade = {CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REMOVE}, orphanRemoval = true)
+    @OneToMany(mappedBy = "archive", fetch = FetchType.LAZY, cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     private List<OutboundEmailArchiveAttachment> attachments = new ArrayList<OutboundEmailArchiveAttachment>();
 
     public EmailLog getEmailLog() {
