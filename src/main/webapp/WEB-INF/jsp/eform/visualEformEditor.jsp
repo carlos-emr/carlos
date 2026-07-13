@@ -1461,12 +1461,6 @@ var EFORM_I18N = {
     </style>
     <script>
         /** GLOBAL SCOPE CONSTANTS */
-        var CONFIRM_PAGE_REMOVE_TITLE = "Confirm Page Removal";
-        var CONFIRM_PAGE_REMOVE_MESSAGE = "You are about the remove a page from the eform. " +
-            "This will delete any work on the page and cannot be undone. Are you sure you want to delete the page?";
-
-        var OSCAR_SAVE_MESSAGE_NEW = "Save As New Eform";
-        var OSCAR_SAVE_MESSAGE_UPDATE = "Update Eform";
 
         // make sure .page_container css matches this when modifying
         var eFormPageWidthPortrait = 800; //850 //800
@@ -3034,7 +3028,7 @@ var EFORM_I18N = {
                 icon: "ui-icon-circle-minus",
                 showLabel: false
             }).click(function(event) {
-                var $confirm = createConfirmationDialogueElements(CONFIRM_PAGE_REMOVE_TITLE, CONFIRM_PAGE_REMOVE_MESSAGE);
+                var $confirm = createConfirmationDialogueElements(EFORM_I18N.dialogConfirmPageRemoval, EFORM_I18N.dialogConfirmPageRemovalMsg);
                 $confirm.dialog({
                     resizable: false,
                     height: "auto",
@@ -3126,10 +3120,10 @@ var EFORM_I18N = {
             var $saveBtn = $("#saveToOscarButton")
             if (Number.isInteger(asInt) && asInt > 0) {
                 eFormFid = asInt;
-                $saveBtn.button('option', 'label', OSCAR_SAVE_MESSAGE_UPDATE);
+                $saveBtn.button('option', 'label', EFORM_I18N.dialogUpdateEform);
             } else {
                 eFormFid = 0;
-                $saveBtn.button('option', 'label', OSCAR_SAVE_MESSAGE_NEW);
+                $saveBtn.button('option', 'label', EFORM_I18N.dialogSaveAsNewEform);
             }
         }
 
@@ -4393,7 +4387,7 @@ var EFORM_I18N = {
             if (!runStandaloneVersion) {
                 $element.append($('<button>', {
                     id: "saveToOscarButton",
-                    text: OSCAR_SAVE_MESSAGE_NEW,
+                    text: EFORM_I18N.dialogSaveAsNewEform,
                     click: function(event) {
                         saveToOscarEforms($toggleFaxControls.is(':checked'));
                         event.preventDefault();
