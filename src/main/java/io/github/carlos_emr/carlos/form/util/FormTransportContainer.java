@@ -217,6 +217,8 @@ public class FormTransportContainer {
         private int bufferSize;
         private Supplier<Map<String, String>> trailerFields;
         private String errorMessage;
+        private boolean writerAccessed;
+        private boolean outputStreamAccessed;
 
         CapturingResponseWrapper(HttpServletResponse response) {
             super(response);
@@ -229,11 +231,19 @@ public class FormTransportContainer {
 
         @Override
         public PrintWriter getWriter() throws IOException {
+            if (outputStreamAccessed) {
+                throw new IllegalStateException("getOutputStream() has already been called for this response");
+            }
+            writerAccessed = true;
             return writer;
         }
 
         @Override
         public ServletOutputStream getOutputStream() {
+            if (writerAccessed) {
+                throw new IllegalStateException("getWriter() has already been called for this response");
+            }
+            outputStreamAccessed = true;
             return outputStream;
         }
 
@@ -299,6 +309,8 @@ public class FormTransportContainer {
             resetBuffer();
             status = HttpServletResponse.SC_OK;
             errorMessage = null;
+            writerAccessed = false;
+            outputStreamAccessed = false;
             resetMetadata();
         }
 

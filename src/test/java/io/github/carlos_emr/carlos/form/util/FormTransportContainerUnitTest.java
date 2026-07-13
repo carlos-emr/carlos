@@ -167,6 +167,38 @@ class FormTransportContainerUnitTest {
     }
 
     @Test
+    @DisplayName("rejects nested form output streams after writer access")
+    void shouldRejectOutputStream_whenWriterAlreadyAccessed() throws Exception {
+        MockHttpServletResponse outerResponse = new MockHttpServletResponse();
+        MockHttpServletRequest request = requestForwardingTo((servletRequest, servletResponse) -> {
+            servletResponse.getWriter().write("<html>writer form</html>");
+            servletResponse.getOutputStream();
+        });
+
+        assertThatThrownBy(() -> new FormTransportContainer(outerResponse, request, "/form/output"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("getWriter() has already been called");
+
+        assertThat(outerResponse.getContentAsString()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("rejects nested form writers after output stream access")
+    void shouldRejectWriter_whenOutputStreamAlreadyAccessed() throws Exception {
+        MockHttpServletResponse outerResponse = new MockHttpServletResponse();
+        MockHttpServletRequest request = requestForwardingTo((servletRequest, servletResponse) -> {
+            servletResponse.getOutputStream().write("<html>stream form</html>".getBytes(StandardCharsets.UTF_8));
+            servletResponse.getWriter();
+        });
+
+        assertThatThrownBy(() -> new FormTransportContainer(outerResponse, request, "/form/output"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("getOutputStream() has already been called");
+
+        assertThat(outerResponse.getContentAsString()).isEmpty();
+    }
+
+    @Test
     @DisplayName("rejects async write listeners for synchronous form capture")
     void shouldRejectAsyncWriteListener_forSynchronousCapture() throws Exception {
         MockHttpServletResponse outerResponse = new MockHttpServletResponse();
