@@ -2895,7 +2895,7 @@ var EFORM_I18N = {
                             var $root = $("<div>", {
                                 class: "page_control_item"
                             }).appendTo($element);
-                            var $eFormSelect = addSelectMenu($root, "eFormSelect", "Select EForm", options, values);
+                            var $eFormSelect = addSelectMenu($root, "eFormSelect", EFORM_I18N.labelSelectEForm, options, values);
                             $eFormSelect.selectmenu();
                             var $loadButton = $("<button>", {
                                 text: EFORM_I18N.buttonLoadEForm
@@ -3065,7 +3065,7 @@ var EFORM_I18N = {
                     options.push(eFormImageList[i]);
                 }
 
-                $fileSelector = addSelectMenu($root, "imageSelect", "Select Background Image", options);
+                $fileSelector = addSelectMenu($root, "imageSelect", EFORM_I18N.labelSelectBgImage, options);
                 $fileSelector.selectmenu();
 
                 $fileSelector.on("selectmenuchange", (function(event, data) {
@@ -3189,7 +3189,6 @@ var EFORM_I18N = {
                 });
             }
 
-
             var $pagesControlgroup = createFieldset("pagesControlGroup", "Pages");
             var $addPageButtonControlGroup = createFieldset("addPagesControlGroup", null);
             var $addPageButton = $("<button>", {
@@ -3223,7 +3222,7 @@ var EFORM_I18N = {
                 class: "flexH"
             }).append($custDimensionX).append($custDimensionY);
 
-            var labels = ["Portrait", "Landscape", "Custom"];
+            var labels = [EFORM_I18N.optPortrait, EFORM_I18N.optLandscape, EFORM_I18N.optCustom];
             var $orinetationRadioGroup = addRadioGroup($element, "gen-orientation", "Orientation", labels);
             $orinetationRadioGroup.on("change", function(e) {
                 var value = parseInt($(e.target).val());
@@ -3290,12 +3289,12 @@ var EFORM_I18N = {
             linkTitle.css("font-size", "12");
             $xBoxTemplate.after(customTitle);
             $xBoxTemplate.before('&nbsp;');
-            var $label = $("<label>").text('  Custom Title: ');
+            var $label = $("<label>").text('  ' + EFORM_I18N.labelCustomTitle);
             $label.css("fontSize", 12);
             $label.attr('id', "theLabel");
             customTitle.before($label);
             customTitle.after(linkTitle);
-            var $label2 = $("<label>").text(' LinkTo:');
+            var $label2 = $("<label>").text(' ' + EFORM_I18N.labelLinkTo);
             $label2.css("fontSize", 12);
             $label2.attr('id', "theLabel2");
             linkTitle.before($label2);
@@ -3419,7 +3418,7 @@ var EFORM_I18N = {
                 text: EFORM_I18N.labelPreCheckByGender
             })).append($checkByGenderChkbox));
             var $div01 = $("<div>").appendTo($options_menu0);
-            var $gender_select = addSelectMenu($div01, "genderSelect0", "Check When", ["M", "F", "T", "O", "U"]);
+            var $gender_select = addSelectMenu($div01, "genderSelect0", EFORM_I18N.labelCheckWhen, ["M", "F", "T", "O", "U"]);
             $gender_select.selectmenu("disable");
             var removeGenderPrecheckClasses = function(index, curclass) {
                 return (curclass.match(/(^|\s)gender_precheck_\S+/g) || []).join(' ');
@@ -3454,7 +3453,7 @@ var EFORM_I18N = {
                 type: 'checkbox'
             });
             var $oscarCheckbox2label = $('<label>', {
-                text: 'Add function',
+                text: EFORM_I18N.labelAddFunction,
                 for: 'toggleCheckbox2'
             });
 
@@ -3463,7 +3462,7 @@ var EFORM_I18N = {
                 type: 'checkbox'
             });
             var $oscarCheckbox22label = $('<label>', {
-                text: 'Add SideBar',
+                text: EFORM_I18N.labelAddSideBar,
                 for: 'toggleCheckbox22'
             });
 
@@ -4174,9 +4173,9 @@ var EFORM_I18N = {
                 .append($("<div>")).append($("<label>", {
                     text: EFORM_I18N.helpCtrlCVCopy
                 }));
-            var $control_fieldset = createFieldset("grid-guide_options", "Guide Options");
+            var $control_fieldset = createFieldset("grid-guide_options", EFORM_I18N.textGuideOptions);
             var $trash_box = createTrashFrame();
-            $trash_box.append("<span class='ui-icon ui-icon-trash' style='-webkit-transform: scale(2);'></span> Trash");
+            $trash_box.append("<span class='ui-icon ui-icon-trash' style='-webkit-transform: scale(2);'>EFORM_I18N.textTrash</span>");
             $trash_box.droppable({
                 accept: ".ui-draggable",
                 hoverClass: "gen-trashHover",
@@ -4256,8 +4255,8 @@ var EFORM_I18N = {
 
         function init_style_controls($element) {
 
-            var visibilityLables = ["Always Visible", "Invisible on Print", "Always Invisible"];
-            var $textHideOptions = addRadioGroup($element, "gen-text-border-radio", "Text Borders", visibilityLables);
+            var visibilityLables = [EFORM_I18N.optAlwaysVisible, EFORM_I18N.optInvisibleOnPrint, EFORM_I18N.optAlwaysInvisible];
+            var $textHideOptions = addRadioGroup($element, "gen-text-border-radio", EFORM_I18N.labelTextBorders, visibilityLables);
             $textHideOptions.on("change", function(e) {
                 var value = parseInt($(e.target).val());
                 var $selector = $(".input_elements").find(TEXT_INPUT_SELECTOR);
@@ -4267,7 +4266,7 @@ var EFORM_I18N = {
             // set inital value index
             $textHideOptions.find("input").filter("[value='" + textBordersVisibleState + "']").prop("checked", true).button("refresh");
 
-            var $xboxHideOptions = addRadioGroup($element, "gen-xbox-border-radio", "xBox Borders", visibilityLables);
+            var $xboxHideOptions = addRadioGroup($element, "gen-xbox-border-radio", EFORM_I18N.labelXboxBorders, visibilityLables);
             $xboxHideOptions.on("change", function(e) {
                 var value = parseInt($(e.target).val());
                 var $selector = $(".input_elements").find(XBOX_INPUT_SELECTOR);
