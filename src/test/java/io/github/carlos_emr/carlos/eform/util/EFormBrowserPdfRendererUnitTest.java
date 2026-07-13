@@ -48,7 +48,7 @@ class EFormBrowserPdfRendererUnitTest {
                     .contains(".DoNotPrint")
                     .contains("#BaseSelect")
                     .contains("computeCaptureRegions")
-                    .contains("unionRects")
+                    .contains("backgroundCandidates")
                     .contains("document.fonts.ready instanceof Promise")
                     .contains("url: baseUrl.href");
         }

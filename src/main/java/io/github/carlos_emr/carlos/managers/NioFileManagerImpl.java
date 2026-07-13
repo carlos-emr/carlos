@@ -215,7 +215,10 @@ public class NioFileManagerImpl implements NioFileManager {
                 }
 
                 if (!Files.exists(normalizedSourceDir) || !Files.isDirectory(normalizedSourceDir)) {
-                    log.error("Source directory does not exist or is not a directory: {}", LogSafe.sanitize(sourceDirectory, 1024));
+                    if (log.isErrorEnabled()) {
+                        String sanitizedSourceDirectory = LogSafe.sanitize(sourceDirectory, 1024);
+                        log.error("Source directory does not exist or is not a directory: {}", sanitizedSourceDirectory);
+                    }
                     return null;
                 }
             } catch (Exception e) {
