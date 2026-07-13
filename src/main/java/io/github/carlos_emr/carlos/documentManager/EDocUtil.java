@@ -1423,7 +1423,15 @@ public final class EDocUtil {
 		}
 
 		String destPath = IncomingDocUtil.getIncomingDocumentFilePath(String.valueOf(queueId), "Refile");
-		File destDir = PathValidationUtils.validateConfiguredDirectory(destPath, "incoming refile directory");
+		// The Refile subdirectory is created lazily by refileDocument() on first use (see
+		// FileUtils.copyFile's auto-mkdirs behavior there), so it legitimately does not exist
+		// for a queue that has never had a document refiled into it yet. Use the tolerant
+		// resolver instead of validateConfiguredDirectory, which hard-fails on a missing
+		// directory — nothing can have been refiled into a directory that doesn't exist.
+		File destDir = PathValidationUtils.resolveConfiguredDirectory(destPath, "incoming refile directory");
+		if (!destDir.isDirectory()) {
+			return false;
+		}
 		File destFile = PathValidationUtils.validateGeneratedChildPath("R" + PathValidationUtils.validateGeneratedFileName(destFileName), destDir);
 		return destFile.exists();
 	}

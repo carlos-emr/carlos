@@ -736,6 +736,9 @@
                                     Linked Providers:
                                     <%
                                         Properties p = (Properties) session.getAttribute("providerBean");
+                                        if (p == null) {
+                                            p = new Properties();
+                                        }
                                         List<ProviderInboxItem> routeList = providerInboxRoutingDao.getProvidersWithRoutingForDocument("DOC", Integer.parseInt(docId));
                                     %>
                                     <ul>

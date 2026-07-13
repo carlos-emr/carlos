@@ -769,6 +769,9 @@
                                     <fmt:message key="inboxmanager.document.LinkedProvidersMsg"/>
                                     <%
                                         Properties p = (Properties) session.getAttribute("providerBean");
+                                        if (p == null) {
+                                            p = new Properties();
+                                        }
                                         List<ProviderInboxItem> routeList = Collections.emptyList();
                                         if (docId != null) {
                                             routeList = providerInboxRoutingDao.getProvidersWithRoutingForDocument("DOC", Integer.parseInt(docId));
