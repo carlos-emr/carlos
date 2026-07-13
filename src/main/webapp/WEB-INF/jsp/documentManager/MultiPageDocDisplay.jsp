@@ -30,6 +30,7 @@
 --%>
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -737,6 +738,9 @@
                                     <%
                                         Properties p = (Properties) session.getAttribute("providerBean");
                                         if (p == null) {
+                                            // See showDocument.jsp for why this can be null and why we
+                                            // still fall back to an empty map rather than failing.
+                                            MiscUtils.getLogger().warn("providerBean missing from session while rendering linked providers for document " + docId + "; falling back to provider IDs");
                                             p = new Properties();
                                         }
                                         List<ProviderInboxItem> routeList = providerInboxRoutingDao.getProvidersWithRoutingForDocument("DOC", Integer.parseInt(docId));

@@ -770,6 +770,13 @@
                                     <%
                                         Properties p = (Properties) session.getAttribute("providerBean");
                                         if (p == null) {
+                                            // Not populated yet for this session (only lazily seeded by
+                                            // other pages via <jsp:useBean scope="session">). Fall back to
+                                            // an empty map — getProperty(id, id) below still displays the
+                                            // raw provider number — but log it so a missing display-name
+                                            // lookup is visible instead of silently looking like no names
+                                            // were ever configured.
+                                            MiscUtils.getLogger().warn("providerBean missing from session while rendering linked providers for document " + docId + "; falling back to provider IDs");
                                             p = new Properties();
                                         }
                                         List<ProviderInboxItem> routeList = Collections.emptyList();

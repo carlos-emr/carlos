@@ -1429,7 +1429,7 @@ public final class EDocUtil {
 		// resolver instead of validateConfiguredDirectory, which hard-fails on a missing
 		// directory — nothing can have been refiled into a directory that doesn't exist.
 		File destDir = PathValidationUtils.resolveConfiguredDirectory(destPath, "incoming refile directory");
-		if (!destDir.isDirectory()) {
+		if (destDir == null || !destDir.isDirectory()) {
 			return false;
 		}
 		File destFile = PathValidationUtils.validateGeneratedChildPath("R" + PathValidationUtils.validateGeneratedFileName(destFileName), destDir);
