@@ -83,6 +83,23 @@ class DocumentAttachmentManagerImplTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should require consult read privilege before reading consult attachments")
+    void shouldRequireConsultReadPrivilege_beforeGetConsultAttachments() {
+        int demographicNo = 123;
+        int requestId = 456;
+
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, demographicNo))
+                .thenReturn(false);
+
+        assertThatThrownBy(() -> manager.getConsultAttachments(loggedInInfo, requestId, DocumentType.DOC, demographicNo))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_con)");
+
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, demographicNo);
+        verifyNoInteractions(consultDocsDao);
+    }
+
+    @Test
     @DisplayName("should require consult write privilege before attaching to consult")
     void shouldRequireConsultWritePrivilege_beforeAttachToConsult() {
         int demographicNo = 123;
@@ -98,8 +115,8 @@ class DocumentAttachmentManagerImplTest extends CarlosUnitTestBase {
                 "999",
                 requestId,
                 demographicNo))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("_con");
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_con)");
 
         verify(securityInfoManager).hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo);
         verifyNoInteractions(consultDocsDao);

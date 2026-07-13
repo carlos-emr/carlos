@@ -431,11 +431,11 @@
                                                            data-version="${totalVersions - versionLoop.index}"
                                                            type="checkbox" name="labNo" id="labNo${ version.key }"
                                                            value="${version.key}"
-                                                           title="v${totalVersions - versionLoop.index} ${ labName }"
+                                                           title="v${totalVersions - versionLoop.index} ${carlos:forHtmlAttribute(labName)}"
                                                            <c:if test="${attachmentSelectionDisabled}">disabled="disabled"</c:if>/>
                                                     <em>
                                                         <label for="labNo${version.key}"
-                                                               title="v${totalVersions - versionLoop.index} ${ labName }">
+                                                               title="v${totalVersions - versionLoop.index} ${carlos:forHtmlAttribute(labName)}">
                                                              <fmt:message key="encounter.oscarConsultationRequest.AttachDocPopup.earlierVersionOf">
                                                                  <fmt:param value="${totalVersions - versionLoop.index}"/>
                                                                  <fmt:param value="${totalVersions + 1}"/>

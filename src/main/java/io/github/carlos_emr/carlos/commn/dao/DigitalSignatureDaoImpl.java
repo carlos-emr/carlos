@@ -49,6 +49,14 @@ public class DigitalSignatureDaoImpl extends AbstractDaoImpl<DigitalSignature> i
         super(DigitalSignature.class);
     }
 
+    /**
+     * Loads authorization metadata for a stored signature without fetching the signature image.
+     *
+     * <p>Current records store both demographic and module metadata directly. Legacy records can
+     * have only a demographic id, so this method infers the missing module by checking, in order,
+     * consultation request, archived consultation request, consultation response, prescription, and
+     * eForm signature references.</p>
+     */
     @Override
     public DigitalSignature findMetadataById(int id) {
         Query query = entityManager.createQuery(

@@ -123,7 +123,8 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
     private static final String INVALID_DEMOGRAPHIC_NUMBER = "Invalid demographic number";
     private static final String INVALID_CONSULTATION_REQUEST_ID = "Invalid consultation request id";
     private static final String CONSULTATION_REQUEST_UNAVAILABLE = "Consultation request unavailable";
-    private static final String CONSULT_PREVIEW_UNAVAILABLE_MESSAGE = "A print preview of this consultation could not be generated. \n\n" + CONSULTATION_REQUEST_UNAVAILABLE + ".";
+    private static final String CONSULT_PREVIEW_UNAVAILABLE_PREFIX = "A print preview of this consultation could not be generated. \n\n";
+    private static final String CONSULT_PREVIEW_UNAVAILABLE_MESSAGE = CONSULT_PREVIEW_UNAVAILABLE_PREFIX + CONSULTATION_REQUEST_UNAVAILABLE + ".";
 
     private Integer parseUpdateInteger(String rawValue, String logMessage, String actionErrorMessage) {
         try {
@@ -157,7 +158,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 
     private String resolveConsultationPreviewDemographicNoOrSetError(LoggedInInfo loggedInInfo, ConsultationRequestDao consultationRequestDao, String requestId, String demographicNo) {
         if (StringUtils.isBlank(requestId)) {
-            request.setAttribute(ATTR_ERROR_MESSAGE, "A print preview of this consultation could not be generated. \n\nMissing consultation request id.");
+            request.setAttribute(ATTR_ERROR_MESSAGE, CONSULT_PREVIEW_UNAVAILABLE_PREFIX + "Missing consultation request id.");
             return null;
         }
 
@@ -165,7 +166,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 "Invalid demographic number for consultation print preview: {}",
                 INVALID_DEMOGRAPHIC_NUMBER);
         if (parsedDemographicId == null) {
-            request.setAttribute(ATTR_ERROR_MESSAGE, "A print preview of this consultation could not be generated. \n\nInvalid demographic number.");
+            request.setAttribute(ATTR_ERROR_MESSAGE, CONSULT_PREVIEW_UNAVAILABLE_PREFIX + "Invalid demographic number.");
             return null;
         }
 
@@ -179,7 +180,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 "Invalid consultation request id for print preview: {}",
                 INVALID_CONSULTATION_REQUEST_ID);
         if (parsedConsultationRequestId == null) {
-            request.setAttribute(ATTR_ERROR_MESSAGE, "A print preview of this consultation could not be generated. \n\n" + INVALID_CONSULTATION_REQUEST_ID + ".");
+            request.setAttribute(ATTR_ERROR_MESSAGE, CONSULT_PREVIEW_UNAVAILABLE_PREFIX + INVALID_CONSULTATION_REQUEST_ID + ".");
             return null;
         }
 
@@ -764,7 +765,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 "Invalid demographic number for consultation print preview signature: {}",
                 INVALID_DEMOGRAPHIC_NUMBER);
         if (demographicId == null) {
-            request.setAttribute(ATTR_ERROR_MESSAGE, "A print preview of this consultation could not be generated. \n\nInvalid demographic number.");
+            request.setAttribute(ATTR_ERROR_MESSAGE, CONSULT_PREVIEW_UNAVAILABLE_PREFIX + "Invalid demographic number.");
             return false;
         }
 
@@ -772,7 +773,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 "Invalid consultation request id for print preview signature update: {}",
                 INVALID_CONSULTATION_REQUEST_ID);
         if (parsedConsultationRequestId == null) {
-            request.setAttribute(ATTR_ERROR_MESSAGE, "A print preview of this consultation could not be generated. \n\n" + INVALID_CONSULTATION_REQUEST_ID + ".");
+            request.setAttribute(ATTR_ERROR_MESSAGE, CONSULT_PREVIEW_UNAVAILABLE_PREFIX + INVALID_CONSULTATION_REQUEST_ID + ".");
             return false;
         }
         int consultationRequestId = parsedConsultationRequestId;
