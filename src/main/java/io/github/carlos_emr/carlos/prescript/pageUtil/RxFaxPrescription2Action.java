@@ -6,6 +6,7 @@
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.PrintWriter;
 
 import jakarta.servlet.ServletContext;
@@ -14,6 +15,9 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.logging.log4j.Logger;
+
+import org.openpdf.text.DocumentException;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.form.pdfservlet.PrescriptionFaxService;
@@ -21,6 +25,7 @@ import io.github.carlos_emr.carlos.form.pdfservlet.PrescriptionFaxViewModel;
 import io.github.carlos_emr.carlos.form.pdfservlet.PrescriptionPdfComposer;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -28,6 +33,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * POST-only Struts boundary for queuing prescription PDF fax jobs.
  */
 public class RxFaxPrescription2Action extends ActionSupport {
+
+    private static final Logger logger = MiscUtils.getLogger();
 
     private final SecurityInfoManager securityInfoManager;
     private final PrescriptionPdfComposer prescriptionPdfComposer;
@@ -82,12 +89,12 @@ public class RxFaxPrescription2Action extends ActionSupport {
         response.setContentType("text/html");
         PrintWriter writer = response.getWriter();
 
-        String faxNo = request.getParameter("pharmaFax");
-        if (faxNo != null) {
-            faxNo = faxNo.trim().replaceAll("\\D", "");
+        String destinationFaxNo = request.getParameter("pharmaFax");
+        if (destinationFaxNo != null) {
+            destinationFaxNo = destinationFaxNo.trim().replaceAll("\\D", "");
         }
 
-        if (faxNo == null || faxNo.length() < 7) {
+        if (destinationFaxNo == null || destinationFaxNo.length() < 7) {
             writer.println("<div id='fax-failure'><h3>Error: Valid fax number not found!</h3></div>");
             writer.flush();
             return NONE;
@@ -105,18 +112,31 @@ public class RxFaxPrescription2Action extends ActionSupport {
             servletContext = request.getServletContext();
         }
 
-        try (ByteArrayOutputStream baosPDF = prescriptionPdfComposer.compose(request, servletContext)) {
+        ByteArrayOutputStream generatedPdf;
+        try {
+            generatedPdf = prescriptionPdfComposer.compose(request, servletContext);
+        } catch (DocumentException | IOException | SecurityException | IllegalStateException e) {
+            logger.warn("Prescription PDF generation failed before Rx fax job creation", e);
+            writer.println("<div id='fax-failure'><h3>Error: Unable to generate prescription PDF for fax.</h3></div>");
+            writer.flush();
+            return NONE;
+        }
+
+        try (ByteArrayOutputStream baosPDF = generatedPdf) {
             PrescriptionFaxViewModel faxViewModel =
                     prescriptionFaxService.createFaxJob(loggedInInfo, request, baosPDF);
             if (faxViewModel.validFaxNumber()) {
                 writer.println("<div id='fax-success' style='color:green;'><h3>Fax successfully generated</h3><p>"
-                        + SafeEncode.forHtml(faxViewModel.pharmacyName())
+                        + SafeEncode.forHtmlContent(faxViewModel.pharmacyName())
                         + " ("
-                        + SafeEncode.forHtml(faxViewModel.faxNumber())
+                        + SafeEncode.forHtmlContent(faxViewModel.faxNumber())
                         + ")</p><br><p>This window will close in <b>3</b> seconds...</p></div><script>setTimeout(() => window.top.close(), 3000);</script>");
             } else {
                 writer.println("<div id='fax-failure'><h3>Error: No matching clinic fax configuration found!</h3></div>");
             }
+        } catch (IOException | RuntimeException e) {
+            logger.warn("Rx fax job creation failed after PDF generation", e);
+            writer.println("<div id='fax-failure'><h3>Error: Unable to create prescription fax job.</h3></div>");
         }
 
         writer.flush();

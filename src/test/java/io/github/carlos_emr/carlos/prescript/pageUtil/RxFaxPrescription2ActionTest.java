@@ -15,6 +15,8 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.io.ByteArrayOutputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -170,6 +172,18 @@ class RxFaxPrescription2ActionTest {
     }
 
     @Test
+    @DisplayName("should reject POST when fax number has no digits")
+    void shouldRejectPost_whenFaxNumberHasNoDigits() throws Exception {
+        mockRequest.setParameter("pharmaFax", "not-a-fax");
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(mockResponse.getContentAsString()).contains("fax-failure", "Valid fax number");
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", SecurityInfoManager.WRITE, null);
+        verifyNoInteractions(mockPrescriptionPdfComposer, mockPrescriptionFaxService);
+    }
+
+    @Test
     @DisplayName("should reject POST when demographic number is invalid")
     void shouldRejectPost_whenDemographicNumberIsInvalid() throws Exception {
         mockRequest.setParameter("demographic_no", "not-a-number");
@@ -179,6 +193,105 @@ class RxFaxPrescription2ActionTest {
         assertThat(mockResponse.getContentAsString()).contains("fax-failure", "Valid demographic number");
         verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", SecurityInfoManager.WRITE, null);
         verifyNoInteractions(mockPrescriptionPdfComposer, mockPrescriptionFaxService);
+    }
+
+    @Test
+    @DisplayName("should show failure when PDF signature file is missing")
+    void shouldShowFailure_whenPdfSignatureFileIsMissing() throws Exception {
+        when(mockPrescriptionPdfComposer.compose(mockRequest, mockServletContext))
+                .thenThrow(new FileNotFoundException("signature missing"));
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(mockResponse.getStatus()).isEqualTo(MockHttpServletResponse.SC_OK);
+        assertThat(mockResponse.getContentAsString()).contains("fax-failure", "Unable to generate prescription PDF");
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", SecurityInfoManager.WRITE, null);
+        verify(mockPrescriptionPdfComposer).compose(mockRequest, mockServletContext);
+        verifyNoInteractions(mockPrescriptionFaxService);
+    }
+
+    @Test
+    @DisplayName("should show failure when PDF signature path is unsafe")
+    void shouldShowFailure_whenPdfSignaturePathIsUnsafe() throws Exception {
+        when(mockPrescriptionPdfComposer.compose(mockRequest, mockServletContext))
+                .thenThrow(new SecurityException("unsafe signature path"));
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(mockResponse.getStatus()).isEqualTo(MockHttpServletResponse.SC_OK);
+        assertThat(mockResponse.getContentAsString()).contains("fax-failure", "Unable to generate prescription PDF");
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", SecurityInfoManager.WRITE, null);
+        verify(mockPrescriptionPdfComposer).compose(mockRequest, mockServletContext);
+        verifyNoInteractions(mockPrescriptionFaxService);
+    }
+
+    @Test
+    @DisplayName("should show failure when PDF page rendering fails")
+    void shouldShowFailure_whenPdfPageRenderingFails() throws Exception {
+        when(mockPrescriptionPdfComposer.compose(mockRequest, mockServletContext))
+                .thenThrow(new IllegalStateException("page frame render failed"));
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(mockResponse.getStatus()).isEqualTo(MockHttpServletResponse.SC_OK);
+        assertThat(mockResponse.getContentAsString()).contains("fax-failure", "Unable to generate prescription PDF");
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", SecurityInfoManager.WRITE, null);
+        verify(mockPrescriptionPdfComposer).compose(mockRequest, mockServletContext);
+        verifyNoInteractions(mockPrescriptionFaxService);
+    }
+
+    @Test
+    @DisplayName("should show failure when fax job validation fails")
+    void shouldShowFailure_whenFaxJobValidationFails() throws Exception {
+        ByteArrayOutputStream pdfBytes = new ByteArrayOutputStream();
+        pdfBytes.write("%PDF".getBytes());
+        when(mockPrescriptionPdfComposer.compose(mockRequest, mockServletContext)).thenReturn(pdfBytes);
+        when(mockPrescriptionFaxService.createFaxJob(mockLoggedInInfo, mockRequest, pdfBytes))
+                .thenThrow(new IllegalArgumentException("Invalid prescription PDF id"));
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(mockResponse.getStatus()).isEqualTo(MockHttpServletResponse.SC_OK);
+        assertThat(mockResponse.getContentAsString()).contains("fax-failure", "Unable to create prescription fax job");
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", SecurityInfoManager.WRITE, null);
+        verify(mockPrescriptionPdfComposer).compose(mockRequest, mockServletContext);
+        verify(mockPrescriptionFaxService).createFaxJob(mockLoggedInInfo, mockRequest, pdfBytes);
+    }
+
+    @Test
+    @DisplayName("should show failure when fax job file write fails")
+    void shouldShowFailure_whenFaxJobFileWriteFails() throws Exception {
+        ByteArrayOutputStream pdfBytes = new ByteArrayOutputStream();
+        pdfBytes.write("%PDF".getBytes());
+        when(mockPrescriptionPdfComposer.compose(mockRequest, mockServletContext)).thenReturn(pdfBytes);
+        when(mockPrescriptionFaxService.createFaxJob(mockLoggedInInfo, mockRequest, pdfBytes))
+                .thenThrow(new IOException("disk full"));
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(mockResponse.getStatus()).isEqualTo(MockHttpServletResponse.SC_OK);
+        assertThat(mockResponse.getContentAsString()).contains("fax-failure", "Unable to create prescription fax job");
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", SecurityInfoManager.WRITE, null);
+        verify(mockPrescriptionPdfComposer).compose(mockRequest, mockServletContext);
+        verify(mockPrescriptionFaxService).createFaxJob(mockLoggedInInfo, mockRequest, pdfBytes);
+    }
+
+    @Test
+    @DisplayName("should show failure when fax job persistence fails")
+    void shouldShowFailure_whenFaxJobPersistenceFails() throws Exception {
+        ByteArrayOutputStream pdfBytes = new ByteArrayOutputStream();
+        pdfBytes.write("%PDF".getBytes());
+        when(mockPrescriptionPdfComposer.compose(mockRequest, mockServletContext)).thenReturn(pdfBytes);
+        when(mockPrescriptionFaxService.createFaxJob(mockLoggedInInfo, mockRequest, pdfBytes))
+                .thenThrow(new RuntimeException("database unavailable"));
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(mockResponse.getStatus()).isEqualTo(MockHttpServletResponse.SC_OK);
+        assertThat(mockResponse.getContentAsString()).contains("fax-failure", "Unable to create prescription fax job");
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", SecurityInfoManager.WRITE, null);
+        verify(mockPrescriptionPdfComposer).compose(mockRequest, mockServletContext);
+        verify(mockPrescriptionFaxService).createFaxJob(mockLoggedInInfo, mockRequest, pdfBytes);
     }
 
     @Test

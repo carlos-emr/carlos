@@ -110,7 +110,7 @@ public class PrescriptionPdfComposer {
         private String promoText;
         private String origPrintDate = null;
         private String numPrint = null;
-        private String imgPath;
+        private Image signatureImage;
         Locale locale = null;
         private String billingNumber;
 
@@ -125,24 +125,24 @@ public class PrescriptionPdfComposer {
          */
         public EndPage(String clinicName, String clinicTel, String clinicFax, String patientPhone, String patientCityPostal, String patientAddress,
                        String patientName, String patientDOB, String sigDoctorName, String rxDate, String origPrintDate, String numPrint,
-                       String imgPath, String patientHIN, String patientChartNo, String pracNo, Locale locale, String billingNumber, String pharmacyInfo) {
+                       Image signatureImage, String patientHIN, String patientChartNo, String pracNo, Locale locale, String billingNumber, String pharmacyInfo) {
             this.clinicName = clinicName == null ? "" : clinicName;
             this.clinicTel = clinicTel == null ? "" : clinicTel;
             this.clinicFax = clinicFax == null ? "" : clinicFax;
             this.patientPhone = patientPhone == null ? "" : patientPhone;
             this.patientCityPostal = patientCityPostal == null ? "" : patientCityPostal;
             this.patientAddress = patientAddress == null ? "" : patientAddress;
-            this.patientName = patientName;
-            this.patientDOB = patientDOB;
+            this.patientName = patientName == null ? "" : patientName;
+            this.patientDOB = patientDOB == null ? "" : patientDOB;
             this.sigDoctorName = sigDoctorName == null ? "" : sigDoctorName;
-            this.rxDate = rxDate;
+            this.rxDate = rxDate == null ? "" : rxDate;
             this.promoText = CarlosProperties.getInstance().getProperty("FORMS_PROMOTEXT");
             this.origPrintDate = origPrintDate;
             this.numPrint = numPrint;
             if (promoText == null) {
                 promoText = "";
             }
-            this.imgPath = imgPath;
+            this.signatureImage = signatureImage;
             this.patientHIN = patientHIN == null ? "" : patientHIN;
             this.patientChartNo = patientChartNo == null ? "" : patientChartNo;
             this.pracNo = pracNo == null ? "" : pracNo;
@@ -364,11 +364,8 @@ public class PrescriptionPdfComposer {
                  *  with the bottom left corner located at X: 75f Y: -31f
                  *  Also need to account for the height of the signature
                  */
-                if (this.imgPath != null && !this.imgPath.isBlank()) {
-                    File signatureFile = PathValidationUtils.validateExistingPath(
-                            new File(this.imgPath),
-                            new File(System.getProperty("java.io.tmpdir")));
-                    Image img = Image.getInstance(signatureFile.getAbsolutePath());
+                if (this.signatureImage != null) {
+                    Image img = Image.getInstance(this.signatureImage);
                     float imageWidth = 185f;
                     float imageHeight = 40f;
                     // scale the origin image to fix these exact parameters width x height
@@ -405,8 +402,8 @@ public class PrescriptionPdfComposer {
                 columnText.setSimpleColumn(0, 0, page.getWidth(), 60, 10, Element.ALIGN_CENTER | Element.ALIGN_TOP);
                 columnText.go();
 
-            } catch (Exception e) {
-                logger.error("Error", e);
+            } catch (DocumentException | IOException e) {
+                throw new IllegalStateException("Failed to render prescription PDF page frame", e);
             }
         }
     }
@@ -457,6 +454,16 @@ public class PrescriptionPdfComposer {
 
         return hm;
 
+    }
+
+    private Image loadSignatureImage(String imgFile) throws BadElementException, IOException {
+        if (imgFile == null || imgFile.isBlank()) {
+            return null;
+        }
+        File signatureFile = PathValidationUtils.validateExistingPath(
+                new File(imgFile),
+                new File(System.getProperty("java.io.tmpdir")));
+        return Image.getInstance(signatureFile.getAbsolutePath());
     }
 
     /**
@@ -520,6 +527,7 @@ public class PrescriptionPdfComposer {
         String patientDOB = req.getParameter("patientDOB");
         String showPatientDOB = req.getParameter("showPatientDOB");
         String imgFile = req.getParameter("imgFile");
+        Image signatureImage = loadSignatureImage(imgFile);
         String patientHIN = req.getParameter("patientHIN");
         String patientChartNo = req.getParameter("patientChartNo");
         String pracNo = req.getParameter("pracNo");
@@ -535,10 +543,13 @@ public class PrescriptionPdfComposer {
         if (patientPhone == null) patientPhone = "";
         if (patientCityPostal == null) patientCityPostal = "";
         if (patientAddress == null) patientAddress = "";
+        if (patientName == null) patientName = "";
         if (sigDoctorName == null) sigDoctorName = "";
+        if (rxDate == null) rxDate = "";
         if (patientHIN == null) patientHIN = "";
         if (patientChartNo == null) patientChartNo = "";
         if (pracNo == null) pracNo = "";
+        if (patientDOB == null) patientDOB = "";
 
         boolean isShowDemoDOB = (showPatientDOB != null && showPatientDOB.equalsIgnoreCase("true"));
         if (!isShowDemoDOB)
@@ -589,7 +600,7 @@ public class PrescriptionPdfComposer {
         // document.setMargins(15, pageSize.getWidth() - 285f + 5f, 170, 60); // left, right, top, bottom
         document.setMargins(15, pageSize.getWidth() - 285f + 5f, 185, 60); // left, right, top, bottom
 
-        writer.setPageEvent(new EndPage(clinicName, clinicTel, clinicFax, patientPhone, patientCityPostal, patientAddress, patientName, patientDOB, sigDoctorName, rxDate, origPrintDate, numPrint, imgFile, patientHIN, patientChartNo, pracNo, locale, billingNumber, pharmacyInfo));
+        writer.setPageEvent(new EndPage(clinicName, clinicTel, clinicFax, patientPhone, patientCityPostal, patientAddress, patientName, patientDOB, sigDoctorName, rxDate, origPrintDate, numPrint, signatureImage, patientHIN, patientChartNo, pracNo, locale, billingNumber, pharmacyInfo));
         document.addTitle(title);
         document.addSubject("");
         document.addKeywords("pdf");
@@ -634,14 +645,16 @@ public class PrescriptionPdfComposer {
 
         // render QrCode
         if (PrescriptionQrCodeUIBean.isPrescriptionQrCodeEnabledForProvider(loggedInInfo.getLoggedInProviderNo())) {
-            int scriptId = Integer.parseInt(req.getParameter("scriptId"));
-            byte[] qrCodeImage = PrescriptionQrCodeUIBean.getPrescriptionHl7QrCodeImage(scriptId);
-            Image qrCode = null;
-            if (qrCodeImage != null) {
-                qrCode = Image.getInstance(qrCodeImage);
-            }
-            if (qrCode != null) {
-                document.add(qrCode);
+            Integer scriptId = parseScriptId(req.getParameter("scriptId"));
+            if (scriptId != null) {
+                byte[] qrCodeImage = PrescriptionQrCodeUIBean.getPrescriptionHl7QrCodeImage(scriptId);
+                Image qrCode = null;
+                if (qrCodeImage != null) {
+                    qrCode = Image.getInstance(qrCodeImage);
+                }
+                if (qrCode != null) {
+                    document.add(qrCode);
+                }
             }
         }
 
@@ -650,5 +663,16 @@ public class PrescriptionPdfComposer {
         logger.debug("***END in PrescriptionPdfComposer.compose***");
         return baosPDF;
 
+    }
+
+    private Integer parseScriptId(String rawScriptId) {
+        if (rawScriptId == null || !rawScriptId.matches("\\d+")) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(rawScriptId);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 }

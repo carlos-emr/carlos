@@ -9,7 +9,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -112,8 +114,8 @@ class PrescriptionFaxServiceTest {
     }
 
     @Test
-    @DisplayName("should overwrite existing PDF and match formatted clinic fax")
-    void shouldOverwriteExistingPdfAndMatchFormattedClinicFax_whenFaxJobCreated() throws Exception {
+    @DisplayName("should create unique PDF artifact and match formatted clinic fax")
+    void shouldCreateUniquePdfArtifactAndMatchFormattedClinicFax_whenFaxJobCreated() throws Exception {
         MockHttpServletRequest request = createFaxRequest("rx_123");
         Files.writeString(documentDir.resolve("prescription_rx_123.pdf"), "stale pdf");
         FaxConfig faxConfig = new FaxConfig();
@@ -125,19 +127,44 @@ class PrescriptionFaxServiceTest {
         PrescriptionFaxViewModel result = service.createFaxJob(mockLoggedInInfo, request, createPdf("fresh rx"));
 
         assertThat(result.validFaxNumber()).isTrue();
-        assertThat(Files.readAllBytes(documentDir.resolve("prescription_rx_123.pdf")))
-                .startsWith("%PDF".getBytes(StandardCharsets.US_ASCII));
-        assertThat(faxDir.resolve("prescription_rx_123.pdf")).exists();
-        assertThat(faxDir.resolve("prescription_rx_123.txt")).hasContent("4165550123");
 
         ArgumentCaptor<FaxJob> faxJobCaptor = ArgumentCaptor.forClass(FaxJob.class);
         verify(mockFaxJobDao).persist(faxJobCaptor.capture());
         FaxJob faxJob = faxJobCaptor.getValue();
+        assertThat(faxJob.getFile_name()).startsWith("prescription_rx_123_").endsWith(".pdf");
+        assertThat(Files.readAllBytes(documentDir.resolve(faxJob.getFile_name())))
+                .startsWith("%PDF".getBytes(StandardCharsets.US_ASCII));
+        assertThat(documentDir.resolve("prescription_rx_123.pdf")).hasContent("stale pdf");
+        assertThat(faxDir.resolve(faxJob.getFile_name())).exists();
+        assertThat(faxDir.resolve(faxJob.getFile_name().replace(".pdf", ".txt"))).hasContent("4165550123");
         assertThat(faxJob.getDestination()).isEqualTo("4165550123");
         assertThat(faxJob.getFax_line()).isEqualTo("4165550199");
-        assertThat(faxJob.getFile_name()).isEqualTo("prescription_rx_123.pdf");
         assertThat(faxJob.getDemographicNo()).isEqualTo(123);
         verify(mockFaxManager).logFaxJob(mockLoggedInInfo, faxJob, TransactionType.RX, -1);
+    }
+
+    @Test
+    @DisplayName("should create separate artifacts when PDF id is reused")
+    void shouldCreateSeparateArtifacts_whenPdfIdIsReused() throws Exception {
+        MockHttpServletRequest firstRequest = createFaxRequest("rx_123");
+        MockHttpServletRequest secondRequest = createFaxRequest("rx_123");
+        FaxConfig faxConfig = new FaxConfig();
+        faxConfig.setFaxNumber("416-555-0199");
+        faxConfig.setFaxUser("fax-user");
+        faxConfig.setSenderEmail("fax@example.test");
+        when(mockFaxConfigDao.findAll(null, null)).thenReturn(List.of(faxConfig));
+
+        service.createFaxJob(mockLoggedInInfo, firstRequest, createPdf("first rx"));
+        service.createFaxJob(mockLoggedInInfo, secondRequest, createPdf("second rx"));
+
+        ArgumentCaptor<FaxJob> faxJobCaptor = ArgumentCaptor.forClass(FaxJob.class);
+        verify(mockFaxJobDao, times(2)).persist(faxJobCaptor.capture());
+        List<FaxJob> faxJobs = faxJobCaptor.getAllValues();
+        assertThat(faxJobs.get(0).getFile_name()).isNotEqualTo(faxJobs.get(1).getFile_name());
+        assertThat(documentDir.resolve(faxJobs.get(0).getFile_name())).exists();
+        assertThat(documentDir.resolve(faxJobs.get(1).getFile_name())).exists();
+        assertThat(faxDir.resolve(faxJobs.get(0).getFile_name())).exists();
+        assertThat(faxDir.resolve(faxJobs.get(1).getFile_name())).exists();
     }
 
     @Test
@@ -148,6 +175,36 @@ class PrescriptionFaxServiceTest {
         assertThatThrownBy(() -> service.createFaxJob(mockLoggedInInfo, request, createPdf("fresh rx")))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Invalid prescription PDF id");
+
+        assertThat(documentDir).isEmptyDirectory();
+        assertThat(faxDir).isEmptyDirectory();
+        verifyNoInteractions(mockFaxConfigDao, mockFaxJobDao, mockFaxManager);
+    }
+
+    @Test
+    @DisplayName("should reject missing destination fax before creating fax artifacts")
+    void shouldRejectMissingDestinationFax_beforeCreatingFaxArtifacts() {
+        MockHttpServletRequest request = createFaxRequest("rx_123");
+        request.removeParameter("pharmaFax");
+
+        assertThatThrownBy(() -> service.createFaxJob(mockLoggedInInfo, request, createPdf("fresh rx")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid destination fax number");
+
+        assertThat(documentDir).isEmptyDirectory();
+        assertThat(faxDir).isEmptyDirectory();
+        verifyNoInteractions(mockFaxConfigDao, mockFaxJobDao, mockFaxManager);
+    }
+
+    @Test
+    @DisplayName("should reject short destination fax before creating fax artifacts")
+    void shouldRejectShortDestinationFax_beforeCreatingFaxArtifacts() {
+        MockHttpServletRequest request = createFaxRequest("rx_123");
+        request.setParameter("pharmaFax", "123-45");
+
+        assertThatThrownBy(() -> service.createFaxJob(mockLoggedInInfo, request, createPdf("fresh rx")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid destination fax number");
 
         assertThat(documentDir).isEmptyDirectory();
         assertThat(faxDir).isEmptyDirectory();
@@ -171,6 +228,34 @@ class PrescriptionFaxServiceTest {
     }
 
     @Test
+    @DisplayName("should skip file writes when no fax configurations exist")
+    void shouldSkipFileWrites_whenNoFaxConfigurationsExist() throws Exception {
+        MockHttpServletRequest request = createFaxRequest("rx_123");
+        when(mockFaxConfigDao.findAll(null, null)).thenReturn(List.of());
+
+        PrescriptionFaxViewModel result = service.createFaxJob(mockLoggedInInfo, request, createPdf("fresh rx"));
+
+        assertThat(result.validFaxNumber()).isFalse();
+        assertThat(documentDir).isEmptyDirectory();
+        assertThat(faxDir).isEmptyDirectory();
+        verifyNoInteractions(mockFaxJobDao, mockFaxManager);
+    }
+
+    @Test
+    @DisplayName("should skip fax config matching when clinic fax is missing")
+    void shouldSkipFaxConfigMatching_whenClinicFaxIsMissing() throws Exception {
+        MockHttpServletRequest request = createFaxRequest("rx_123");
+        request.removeParameter("clinicFax");
+
+        PrescriptionFaxViewModel result = service.createFaxJob(mockLoggedInInfo, request, createPdf("fresh rx"));
+
+        assertThat(result.validFaxNumber()).isFalse();
+        assertThat(documentDir).isEmptyDirectory();
+        assertThat(faxDir).isEmptyDirectory();
+        verifyNoInteractions(mockFaxConfigDao, mockFaxJobDao, mockFaxManager);
+    }
+
+    @Test
     @DisplayName("should reject invalid demographic number before creating fax artifacts")
     void shouldRejectInvalidDemographicNumber_beforeCreatingFaxArtifacts() {
         MockHttpServletRequest request = createFaxRequest("rx_123");
@@ -183,6 +268,64 @@ class PrescriptionFaxServiceTest {
         assertThat(documentDir).isEmptyDirectory();
         assertThat(faxDir).isEmptyDirectory();
         verifyNoInteractions(mockFaxConfigDao, mockFaxJobDao, mockFaxManager);
+    }
+
+    @Test
+    @DisplayName("should reject overflowing demographic number before creating fax artifacts")
+    void shouldRejectOverflowingDemographicNumber_beforeCreatingFaxArtifacts() {
+        MockHttpServletRequest request = createFaxRequest("rx_123");
+        request.setParameter("demographic_no", "9999999999");
+
+        assertThatThrownBy(() -> service.createFaxJob(mockLoggedInInfo, request, createPdf("fresh rx")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid demographic number");
+
+        assertThat(documentDir).isEmptyDirectory();
+        assertThat(faxDir).isEmptyDirectory();
+        verifyNoInteractions(mockFaxConfigDao, mockFaxJobDao, mockFaxManager);
+    }
+
+    @Test
+    @DisplayName("should clean up artifacts when fax job persist fails")
+    void shouldCleanUpArtifacts_whenFaxJobPersistFails() throws Exception {
+        MockHttpServletRequest request = createFaxRequest("rx_123");
+        FaxConfig faxConfig = new FaxConfig();
+        faxConfig.setFaxNumber("416-555-0199");
+        faxConfig.setFaxUser("fax-user");
+        faxConfig.setSenderEmail("fax@example.test");
+        when(mockFaxConfigDao.findAll(null, null)).thenReturn(List.of(faxConfig));
+        doThrow(new RuntimeException("database unavailable")).when(mockFaxJobDao).persist(any(FaxJob.class));
+
+        assertThatThrownBy(() -> service.createFaxJob(mockLoggedInInfo, request, createPdf("fresh rx")))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("database unavailable");
+
+        assertThat(documentDir).isEmptyDirectory();
+        assertThat(faxDir).isEmptyDirectory();
+        verifyNoInteractions(mockFaxManager);
+    }
+
+    @Test
+    @DisplayName("should keep successful fax job when audit logging fails")
+    void shouldKeepSuccessfulFaxJob_whenAuditLoggingFails() throws Exception {
+        MockHttpServletRequest request = createFaxRequest("rx_123");
+        FaxConfig faxConfig = new FaxConfig();
+        faxConfig.setFaxNumber("416-555-0199");
+        faxConfig.setFaxUser("fax-user");
+        faxConfig.setSenderEmail("fax@example.test");
+        when(mockFaxConfigDao.findAll(null, null)).thenReturn(List.of(faxConfig));
+        doThrow(new RuntimeException("audit unavailable"))
+                .when(mockFaxManager).logFaxJob(any(LoggedInInfo.class), any(FaxJob.class), eq(TransactionType.RX), eq(-1));
+
+        PrescriptionFaxViewModel result = service.createFaxJob(mockLoggedInInfo, request, createPdf("fresh rx"));
+
+        assertThat(result.validFaxNumber()).isTrue();
+        ArgumentCaptor<FaxJob> faxJobCaptor = ArgumentCaptor.forClass(FaxJob.class);
+        verify(mockFaxJobDao).persist(faxJobCaptor.capture());
+        FaxJob faxJob = faxJobCaptor.getValue();
+        assertThat(documentDir.resolve(faxJob.getFile_name())).exists();
+        assertThat(faxDir.resolve(faxJob.getFile_name())).exists();
+        assertThat(faxDir.resolve(faxJob.getFile_name().replace(".pdf", ".txt"))).hasContent("4165550123");
     }
 
     private MockHttpServletRequest createFaxRequest(String pdfId) {
