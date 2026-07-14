@@ -57,8 +57,6 @@ public record EmailAttachmentSettings(
     boolean isEmailAttachmentEncrypted,
     boolean isEmailAutoSend,
     boolean deleteEFormAfterEmail,
-    String emailPDFPassword,
-    String emailPDFPasswordClue,
     String senderEmail,
     String subjectEmail,
     String bodyEmail,
@@ -73,9 +71,6 @@ public record EmailAttachmentSettings(
     /** Precompiled pattern matching any Unicode line break sequence. */
     private static final Pattern LINE_BREAK_PATTERN = Pattern.compile("\\R");
 
-    /** Precompiled pattern matching Unicode control characters. */
-    private static final Pattern CONTROL_CHARS_PATTERN = Pattern.compile("[\\p{Cntrl}]");
-
     /** Valid values for the patient chart option, derived from {@link ChartDisplayOption} enum. */
     private static final Set<String> VALID_CHART_OPTIONS = Arrays.stream(ChartDisplayOption.values())
         .map(ChartDisplayOption::getValue)
@@ -84,15 +79,14 @@ public record EmailAttachmentSettings(
     private static final int MAX_EMAIL_LENGTH = 254;
     private static final int MAX_SUBJECT_LENGTH = 200;
     private static final int MAX_BODY_LENGTH = 10000;
-    private static final int MAX_PASSWORD_LENGTH = 100;
 
     /**
      * Creates an EmailAttachmentSettings instance from an HTTP request.
      * Validates and sanitizes raw user input parameters before storage.
      *
      * <p>Boolean parameters are validated via {@code "true".equals()} / {@code !"false".equals()}
-     * patterns (safe against arbitrary input). String parameters are sanitized: control characters
-     * are stripped from password/subject fields, email addresses are format-validated, and all
+     * patterns (safe against arbitrary input). String parameters are sanitized: line breaks
+     * are stripped from subject fields, email addresses are format-validated, and all
      * string fields are length-limited to prevent unbounded session storage.</p>
      *
      * @param req The HTTP request containing the parameters.
@@ -129,8 +123,6 @@ public record EmailAttachmentSettings(
             !"false".equals(req.getParameter("encryptEmailAttachments")),
             "true".equals(req.getParameter("autoSendEmail")),
             "true".equals(req.getParameter("deleteEFormAfterSendingEmail")),
-            null,
-            null,
             validateEmail(req.getParameter("senderEmail")),
             sanitizeSubject(req.getParameter("subjectEmail")),
             truncate(req.getParameter("bodyEmail"), MAX_BODY_LENGTH),
@@ -184,24 +176,6 @@ public record EmailAttachmentSettings(
             subject = subject.substring(0, MAX_SUBJECT_LENGTH);
         }
         return subject;
-    }
-
-    /**
-     * Sanitizes a password or password clue by stripping control characters
-     * and truncating to maximum length.
-     *
-     * @param password the raw password/clue from user input
-     * @return the sanitized value, or null if input was null
-     */
-    static String sanitizePassword(String password) {
-        if (password == null) {
-            return null;
-        }
-        password = CONTROL_CHARS_PATTERN.matcher(password).replaceAll("");
-        if (password.length() > MAX_PASSWORD_LENGTH) {
-            password = password.substring(0, MAX_PASSWORD_LENGTH);
-        }
-        return password;
     }
 
     /**

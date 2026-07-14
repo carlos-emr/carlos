@@ -234,8 +234,9 @@ public class EmailSend2Action extends ActionSupport {
         String encryptedMessage = request.getParameter("encryptedMessage");
         String isEncrypted = request.getParameter("isEmailEncrypted");
         String isAttachmentEncrypted = request.getParameter("isEmailAttachmentEncrypted");
-        String password = resolveEmailPdfPassword(request, isEncrypted);
-        String passwordClue = "true".equals(isEncrypted) ? EmailPdfPasswordService.DELIVERY_INSTRUCTION : "";
+        boolean needsPdfPassword = "true".equals(isEncrypted) || "true".equals(isAttachmentEncrypted);
+        String password = resolveEmailPdfPassword(request, needsPdfPassword);
+        String passwordClue = needsPdfPassword ? EmailPdfPasswordService.DELIVERY_INSTRUCTION : "";
         String chartDisplayOption = request.getParameter("patientChartOption");
         String internalComment = request.getParameter("internalComment");
         String transactionType = request.getParameter("transactionType");
@@ -271,8 +272,8 @@ public class EmailSend2Action extends ActionSupport {
         return emailData;
     }
 
-    private String resolveEmailPdfPassword(HttpServletRequest request, String isEncrypted) {
-        if (!"true".equals(isEncrypted)) {
+    private String resolveEmailPdfPassword(HttpServletRequest request, boolean needsPdfPassword) {
+        if (!needsPdfPassword) {
             return "";
         }
 
@@ -280,6 +281,6 @@ public class EmailSend2Action extends ActionSupport {
         if (sessionPassword instanceof String password && !StringUtils.isNullOrEmpty(password)) {
             return password;
         }
-        return emailPdfPasswordService.generatePassphrase();
+        throw new IllegalStateException("Email PDF password is missing from session");
     }
 }

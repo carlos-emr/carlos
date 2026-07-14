@@ -37,6 +37,7 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 
@@ -123,5 +124,65 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         assertThat(emailData.getPassword()).isEqualTo("alpha-bravo-charlie-delta-echo-foxtrot");
         assertThat(emailData.getPasswordClue()).isEqualTo(EmailPdfPasswordService.DELIVERY_INSTRUCTION);
         assertThat(request.getSession().getAttribute("emailPDFPassword")).isNull();
+        assertThat(request.getSession().getAttribute("emailPDFPasswordClue")).isNull();
+    }
+
+    @Test
+    @DisplayName("should use generated session password when only attachments are encrypted")
+    void shouldUseGeneratedSessionPassword_whenOnlyAttachmentsEncrypted() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("senderConfigId", "1");
+        request.setParameter("receiverEmailAddress", "patient@example.com");
+        request.setParameter("subjectEmail", "Subject");
+        request.setParameter("bodyEmail", "Body");
+        request.setParameter("encryptedMessage", "");
+        request.setParameter("emailPDFPassword", "tampered-password");
+        request.setParameter("emailPDFPasswordClue", "tampered clue");
+        request.setParameter("isEmailEncrypted", "false");
+        request.setParameter("isEmailAttachmentEncrypted", "true");
+        request.setParameter("patientChartOption", "addFullNote");
+        request.setParameter("transactionType", "DIRECT");
+        request.setParameter("demographicId", "123");
+        request.getSession().setAttribute("emailPDFPassword", "cedar-maple-spruce-birch-aspen-willow");
+        request.getSession().setAttribute("emailPDFPasswordClue", "legacy clue");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        EmailSend2Action action = new EmailSend2Action();
+        action.request = request;
+        action.response = response;
+
+        EmailData emailData = ReflectionTestUtils.invokeMethod(action, "prepareEmailFields", request);
+
+        assertThat(emailData.getPassword()).isEqualTo("cedar-maple-spruce-birch-aspen-willow");
+        assertThat(emailData.getPasswordClue()).isEqualTo(EmailPdfPasswordService.DELIVERY_INSTRUCTION);
+        assertThat(request.getSession().getAttribute("emailPDFPassword")).isNull();
+        assertThat(request.getSession().getAttribute("emailPDFPasswordClue")).isNull();
+    }
+
+    @Test
+    @DisplayName("should fail when encrypted email is missing generated session password")
+    void shouldFail_whenEncryptedPdfPasswordMissingFromSession() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("senderConfigId", "1");
+        request.setParameter("receiverEmailAddress", "patient@example.com");
+        request.setParameter("subjectEmail", "Subject");
+        request.setParameter("bodyEmail", "Body");
+        request.setParameter("encryptedMessage", "Encrypted message");
+        request.setParameter("isEmailEncrypted", "true");
+        request.setParameter("isEmailAttachmentEncrypted", "false");
+        request.setParameter("patientChartOption", "addFullNote");
+        request.setParameter("transactionType", "DIRECT");
+        request.setParameter("demographicId", "123");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        EmailSend2Action action = new EmailSend2Action();
+        action.request = request;
+        action.response = response;
+
+        assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(action, "prepareEmailFields", request))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Email PDF password is missing from session");
     }
 }

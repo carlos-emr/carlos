@@ -472,7 +472,7 @@
                                                       title="${emailComposeClueTooltip}"></span></label>
                                 </div>
                                 <div class="col-sm-9">
-                                    <textarea class="form-control" name="emailPDFPasswordClue" id="emailPDFPasswordClue"
+                                    <textarea class="form-control" id="emailPDFPasswordClue"
                                               rows="2" placeholder="${emailComposeCluePlaceholder}" readonly>${carlos:forHtml(emailPDFPasswordClue)}</textarea>
                                     <div class="error-message" id="emailPDFPasswordClueError"></div>
                                 </div>
@@ -707,7 +707,6 @@
         const subjectEmail = document.getElementById('subjectEmail');
         const bodyEmail = document.getElementById('bodyEmail');
         const isEncrypted = document.getElementById('encryptionSwitch').checked;
-        const hasEncryptedMessage = document.getElementById('encryptedMessage').value.trim() !== '';
         const isAttachmentEncrypted = document.getElementById('encryptAttachmentSwitch').checked;
         const emailPDFPassword = document.getElementById('emailPDFPassword');
         const emailPDFPasswordClue = document.getElementById('emailPDFPasswordClue');
@@ -723,17 +722,13 @@
 
         validateField(subjectEmail, emailComposeSubjectRequiredMsg, errors, 'subjectError');
         validateField(bodyEmail, emailComposeBodyRequiredMsg, errors, 'bodyError');
-        if (isEncrypted) {
-            if (hasEncryptedMessage) {
-                validateField(emailPDFPassword, emailComposePasswordRequiredMsg, errors, 'emailPDFPasswordError');
-                validateField(emailPDFPasswordClue, emailComposeClueRequiredMsg, errors, 'emailPDFPasswordClueError');
-            } else if (hasAttachments && isAttachmentEncrypted) {
-                validateField(emailPDFPassword, emailComposePasswordRequiredMsg, errors, 'emailPDFPasswordError');
-                validateField(emailPDFPasswordClue, emailComposeClueRequiredMsg, errors, 'emailPDFPasswordClueError');
-            } else {
-                clearError('emailPDFPasswordError');
-                clearError('emailPDFPasswordClueError');
-            }
+        const needsPdfPassword = isEncrypted || (hasAttachments && isAttachmentEncrypted);
+        if (needsPdfPassword) {
+            validateField(emailPDFPassword, emailComposePasswordRequiredMsg, errors, 'emailPDFPasswordError');
+            validateField(emailPDFPasswordClue, emailComposeClueRequiredMsg, errors, 'emailPDFPasswordClueError');
+        } else {
+            clearError('emailPDFPasswordError');
+            clearError('emailPDFPasswordClueError');
         }
 
         if (Object.keys(errors).length === 0) {
@@ -744,13 +739,14 @@
 
     function validateField(field, errorMessage, errors, errorElementId) {
         clearError(errorElementId);
+        const errorKey = field.name || field.id;
 
         if (field.value.trim() === '') {
-            errors[field.name] = errorMessage;
+            errors[errorKey] = errorMessage;
             displayError(errorElementId, errorMessage);
         } else if (field.value.trim().length < 5 && field.id === 'emailPDFPassword') {
             errorMessage = emailComposePasswordMinLengthMsg;
-            errors[field.name] = errorMessage;
+            errors[errorKey] = errorMessage;
             displayError(errorElementId, errorMessage);
         }
     }

@@ -298,7 +298,7 @@ public class EmailCompose2Action extends ActionSupport {
      * @param request the HTTP servlet request containing the session to clean up
      * @since 2025-01-18
      */
-    protected static void cleanupEmailSessionAttributes(HttpServletRequest request) {
+    public static void cleanupEmailSessionAttributes(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
         if (session == null) {
             return;
