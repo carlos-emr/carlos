@@ -237,23 +237,7 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             List<EctFormData.PatientForm> forms = consultationManager.getAttachedForms(loggedInInfo, Integer.parseInt(reqId), Integer.parseInt(demoNo));
 
             for (EctFormData.PatientForm formItem : forms) {
-                try {
-                    String formPath = FormShortcutRouteResolver.resolve(
-                            formItem.getDemoNo(), formItem.getFormName(), formItem.getFormId(), null, null);
-                    FormTransportContainer formTransportContainer = new FormTransportContainer(response, request, formPath);
-                    formTransportContainer.setDemographicNo(demoNo);
-                    formTransportContainer.setProviderNo(loggedInInfo.getLoggedInProviderNo());
-                    formTransportContainer.setSubject(formItem.getFormName() + " Form ID " + formItem.getFormId());
-                    formTransportContainer.setFormName(formItem.getFormName());
-                    formTransportContainer.setRealPath(ServletActionContext.getServletContext().getRealPath(File.separator));
-                    Path attachedForm = faxManager.renderFaxDocument(loggedInInfo, FaxManager.TransactionType.FORM, formTransportContainer);
-                    InputStream attachedFormStream = Files.newInputStream(attachedForm);
-                    streams.add(attachedFormStream);
-                    alist.add(attachedFormStream);
-                } catch (SQLException | IOException | ServletException | RuntimeException e) {
-                    logger.warn("Skipped consultation print form attachment id={} while rendering PDF package",
-                            LogSafe.sanitize(formItem.getFormId()), e);
-                }
+                addRenderedFormAttachment(loggedInInfo, request, response, faxManager, demoNo, formItem, streams, alist);
             }
 
             if (alist.size() > 0) {
@@ -295,5 +279,38 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
         }
         return null;
 
+    }
+
+    private void addRenderedFormAttachment(
+            LoggedInInfo loggedInInfo,
+            HttpServletRequest request,
+            HttpServletResponse response,
+            FaxManager faxManager,
+            String demoNo,
+            EctFormData.PatientForm formItem,
+            List<InputStream> streams,
+            List<Object> alist) {
+        try {
+            String formPath = FormShortcutRouteResolver.resolve(
+                    formItem.getDemoNo(), formItem.getFormName(), formItem.getFormId(), null, null);
+            FormTransportContainer formTransportContainer = new FormTransportContainer(response, request, formPath);
+            formTransportContainer.setDemographicNo(demoNo);
+            formTransportContainer.setProviderNo(loggedInInfo.getLoggedInProviderNo());
+            formTransportContainer.setSubject(formItem.getFormName() + " Form ID " + formItem.getFormId());
+            formTransportContainer.setFormName(formItem.getFormName());
+            formTransportContainer.setRealPath(ServletActionContext.getServletContext().getRealPath(File.separator));
+            Path attachedForm = faxManager.renderFaxDocument(
+                    loggedInInfo, FaxManager.TransactionType.FORM, formTransportContainer);
+            InputStream attachedFormStream = Files.newInputStream(attachedForm);
+            streams.add(attachedFormStream);
+            alist.add(attachedFormStream);
+        } catch (SQLException | IOException | ServletException | RuntimeException e) {
+            logger.warn("Skipped consultation print form attachment id={} while rendering PDF package; errorType={}",
+                    safeFormAttachmentId(formItem), e.getClass().getName());
+        }
+    }
+
+    private static String safeFormAttachmentId(EctFormData.PatientForm formItem) {
+        return formItem == null ? "unknown" : LogSafe.sanitize(formItem.getFormId());
     }
 }
