@@ -33,7 +33,6 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -86,6 +85,6 @@ class OutboundEmailArchiveDaoImplUnitTest {
     @Test
     void shouldReturnNull_whenForUpdateArchiveIdIsNull() {
         assertThat(dao.findForUpdate(null)).isNull();
-        verify(entityManager, never()).createNativeQuery(eq(FIND_FOR_UPDATE_SQL), eq(OutboundEmailArchive.class));
+        verify(entityManager, never()).createNativeQuery(FIND_FOR_UPDATE_SQL, OutboundEmailArchive.class);
     }
 }

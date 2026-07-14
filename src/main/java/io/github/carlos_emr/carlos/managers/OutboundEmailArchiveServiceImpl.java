@@ -102,6 +102,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         this.securityInfoManager = securityInfoManager;
     }
 
+    @SuppressWarnings("java:S6206") // A record would generate byte[] identity-based equals/hashCode/toString for artifactBytes.
     private static final class ArchiveBuildContext {
 
         private final Document savedDocument;
@@ -275,7 +276,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
     }
 
     private EmailLog loadEmailLog(Integer emailLogId) {
-        EmailLog emailLog = emailLogDao.find((Object) emailLogId);
+        EmailLog emailLog = emailLogDao.find(emailLogId);
         if (emailLog == null) {
             throw new IllegalArgumentException("EmailLog not found: " + emailLogId);
         }
@@ -330,7 +331,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
             return List.of();
         }
 
-        List<OutboundEmailArchiveAttachment> attachments = new ArrayList<OutboundEmailArchiveAttachment>();
+        List<OutboundEmailArchiveAttachment> attachments = new ArrayList<>();
         for (OutboundEmailArchiveAttachmentDto attachmentRequest : attachmentRequests) {
             attachments.add(buildAttachment(attachmentRequest, providerNo, demographicNo));
         }
