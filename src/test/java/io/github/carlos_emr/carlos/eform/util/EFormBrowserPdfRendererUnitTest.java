@@ -193,6 +193,51 @@ class EFormBrowserPdfRendererUnitTest {
     }
 
     @Test
+    @DisplayName("should accept a direct node_modules directory candidate for Playwright resolution")
+    void shouldAcceptNodeModulesDirectoryCandidate_whenResolvingPlaywrightModules() throws IOException {
+        Path root = Files.createTempDirectory("playwright-modules-root-");
+        Path nodeModules = Files.createDirectories(root.resolve("node_modules"));
+        Path playwright = Files.createDirectories(nodeModules.resolve("playwright"));
+        try {
+            assertThat(EFormBrowserPdfRenderer.findNodeModulesDirectory(List.of(nodeModules)))
+                    .isEqualTo(nodeModules);
+            assertThat(playwright).isDirectory();
+        } finally {
+            Files.deleteIfExists(playwright);
+            Files.deleteIfExists(nodeModules);
+            Files.deleteIfExists(root);
+        }
+    }
+
+    @Test
+    @DisplayName("should accept a checkout root candidate for Playwright resolution")
+    void shouldAcceptCheckoutRootCandidate_whenResolvingPlaywrightModules() throws IOException {
+        Path root = Files.createTempDirectory("playwright-checkout-root-");
+        Path nodeModules = Files.createDirectories(root.resolve("node_modules"));
+        Path playwright = Files.createDirectories(nodeModules.resolve("playwright"));
+        try {
+            assertThat(EFormBrowserPdfRenderer.findNodeModulesDirectory(List.of(root)))
+                    .isEqualTo(nodeModules);
+            assertThat(playwright).isDirectory();
+        } finally {
+            Files.deleteIfExists(playwright);
+            Files.deleteIfExists(nodeModules);
+            Files.deleteIfExists(root);
+        }
+    }
+
+    @Test
+    @DisplayName("should parse path lists using the current platform separator")
+    void shouldParsePathList_whenNodePathContainsMultipleEntries() {
+        String rawPaths = "/usr/lib/node_modules" + java.io.File.pathSeparator + "/usr/local/lib/node_modules";
+
+        assertThat(EFormBrowserPdfRenderer.parsePathList(rawPaths))
+                .containsExactly(
+                        Path.of("/usr/lib/node_modules"),
+                        Path.of("/usr/local/lib/node_modules"));
+    }
+
+    @Test
     @DisplayName("should apply validated renderer settings to the child process environment")
     void shouldApplyRendererEnvironment_whenLaunchingRenderer() {
         Map<String, String> environment = new HashMap<>();
