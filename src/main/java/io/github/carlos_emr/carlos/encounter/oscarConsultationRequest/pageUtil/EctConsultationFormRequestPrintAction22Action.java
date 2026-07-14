@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -45,6 +46,7 @@ import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -52,6 +54,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
+import io.github.carlos_emr.carlos.form.gate.FormShortcutRouteResolver;
 import io.github.carlos_emr.carlos.form.util.FormTransportContainer;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.lab.ca.all.pageUtil.LabPDFCreator;
@@ -234,27 +237,32 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             List<EctFormData.PatientForm> forms = consultationManager.getAttachedForms(loggedInInfo, Integer.parseInt(reqId), Integer.parseInt(demoNo));
 
             for (EctFormData.PatientForm formItem : forms) {
-                FormTransportContainer formTransportContainer = new FormTransportContainer(
-                        response, request, "/form/forwardshortcutname"
-                        + "?method=fetch&formname="
-                        + formItem.getFormName()
-                        + "&demographic_no="
-                        + formItem.getDemoNo()
-                        + "&formId="
-                        + formItem.getFormId());
-                formTransportContainer.setDemographicNo(demoNo);
-                formTransportContainer.setProviderNo(loggedInInfo.getLoggedInProviderNo());
-                formTransportContainer.setSubject(formItem.getFormName() + " Form ID " + formItem.getFormId());
-                formTransportContainer.setFormName(formItem.getFormName());
-                formTransportContainer.setRealPath(ServletActionContext.getServletContext().getRealPath(File.separator));
-                Path attachedForm = faxManager.renderFaxDocument(loggedInInfo, FaxManager.TransactionType.FORM, formTransportContainer);
-                alist.add(Files.newInputStream(attachedForm));
+                try {
+                    String formPath = FormShortcutRouteResolver.resolve(
+                            formItem.getDemoNo(), formItem.getFormName(), formItem.getFormId(), null, null);
+                    FormTransportContainer formTransportContainer = new FormTransportContainer(response, request, formPath);
+                    formTransportContainer.setDemographicNo(demoNo);
+                    formTransportContainer.setProviderNo(loggedInInfo.getLoggedInProviderNo());
+                    formTransportContainer.setSubject(formItem.getFormName() + " Form ID " + formItem.getFormId());
+                    formTransportContainer.setFormName(formItem.getFormName());
+                    formTransportContainer.setRealPath(ServletActionContext.getServletContext().getRealPath(File.separator));
+                    Path attachedForm = faxManager.renderFaxDocument(loggedInInfo, FaxManager.TransactionType.FORM, formTransportContainer);
+                    InputStream attachedFormStream = Files.newInputStream(attachedForm);
+                    streams.add(attachedFormStream);
+                    alist.add(attachedFormStream);
+                } catch (SQLException | IOException | ServletException | RuntimeException e) {
+                    logger.warn("Skipped consultation print form attachment id={} while rendering PDF package",
+                            LogSafe.sanitize(formItem.getFormId()), e);
+                }
             }
 
             if (alist.size() > 0) {
 
                 bos = new ByteOutputStream();
                 ConcatPDF.concat(alist, bos);
+                if (response.isCommitted()) {
+                    throw new IOException("Consultation print response committed before PDF output");
+                }
                 response.setContentType("application/pdf"); // octet-stream
                 response.setHeader(
                         "Content-Disposition",
@@ -270,8 +278,6 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
         } catch (IOException ioe) {
             error = "IOException";
             exception = ioe;
-        } catch (ServletException e) {
-            throw new RuntimeException(e);
         } finally {
             // Cleaning up InputStreams created for concatenation.
             for (InputStream is : streams) {

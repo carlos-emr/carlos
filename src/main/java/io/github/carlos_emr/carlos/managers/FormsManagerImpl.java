@@ -34,6 +34,7 @@ package io.github.carlos_emr.carlos.managers;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -56,6 +57,7 @@ import org.springframework.stereotype.Service;
 
 import io.github.carlos_emr.carlos.documentManager.ConvertToEdoc;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
+import io.github.carlos_emr.carlos.form.gate.FormShortcutRouteResolver;
 import io.github.carlos_emr.carlos.form.util.FormTransportContainer;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
@@ -304,8 +306,12 @@ public class FormsManagerImpl implements FormsManager {
                 : form.getFormName();
         String demographicNo = request.getParameter("demographicNo") != null ? request.getParameter("demographicNo")
                 : form.getDemoNo();
-        String formPath = "/form/forwardshortcutname?method=fetch&formname=" + formName + "&demographic_no="
-                + demographicNo + "&formId=" + formId;
+        String formPath;
+        try {
+            formPath = FormShortcutRouteResolver.resolve(demographicNo, formName, formId, null, null);
+        } catch (SQLException | IllegalArgumentException e) {
+            throw new PDFGenerationException("An error occurred while resolving the form render path.", e);
+        }
         FormTransportContainer formTransportContainer = null;
         try {
             formTransportContainer = new FormTransportContainer(response, request, formPath);

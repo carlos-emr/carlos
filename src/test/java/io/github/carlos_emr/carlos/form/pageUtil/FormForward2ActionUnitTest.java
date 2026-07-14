@@ -62,7 +62,7 @@ class FormForward2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(response.getStatus()).isEqualTo(400);
             assertThat(frmDataConstruction.constructed()).hasSize(1);
             String logged = capture.messages().stream()
-                    .filter(message -> message.startsWith("Failed to resolve action path"))
+                    .filter(message -> message.startsWith("Invalid form shortcut path requested"))
                     .findFirst()
                     .orElseThrow();
             assertThat(logged).doesNotContain("\r").doesNotContain("\n");
