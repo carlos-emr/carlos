@@ -100,6 +100,7 @@ public final class ConvertToEdoc {
     private enum FileType {pdf, css, jpeg, png, gif, js, jpg}
 
     public static final String CUSTOM_STYLESHEET_ID = "pdfMediaStylesheet";
+    private static final String OSCAR_IMAGE_PATH_TOKEN = "${oscar_image_path}";
     private static final String DEFAULT_IMAGE_DIRECTORY = String.format("%1$s", CarlosProperties.getInstance().getEformImageDirectory());
     private static final String DEFAULT_FILENAME = "temporaryPDF";
     public static final String DEFAULT_DATE_FORMAT = "yyyy-MM-dd";
@@ -806,9 +807,22 @@ public final class ConvertToEdoc {
             collectImageDirectoryCandidates(path, potentialFilePaths);
         } else {
             collectRealPathCandidates(path, potentialFilePaths);
+            collectOscarImagePathCandidate(path, potentialFilePaths);
         }
 
         return potentialFilePaths;
+    }
+
+    private static void collectOscarImagePathCandidate(String path, List<String> potentialFilePaths) {
+        if (!path.startsWith(OSCAR_IMAGE_PATH_TOKEN)) {
+            return;
+        }
+
+        String filename = path.substring(OSCAR_IMAGE_PATH_TOKEN.length());
+        String candidate = buildImageDirectoryPath(filename);
+        if (!candidate.isEmpty()) {
+            potentialFilePaths.add(candidate);
+        }
     }
 
     private static boolean isTranslatableResourcePath(String path) {

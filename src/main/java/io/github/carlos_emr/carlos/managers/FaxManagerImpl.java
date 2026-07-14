@@ -296,8 +296,8 @@ public class FaxManagerImpl implements FaxManager {
         String senderFaxNumber = (String) faxJobMap.get("senderFaxNumber");
         Integer demographicNo = (Integer) faxJobMap.get("demographicNo");
 
-        // If file is in a temporary directory, copy to the permanent document storage (DOCUMENT_DIR).
-        if (faxFilePath.contains("/temp/")) {
+        // Promote renderer/upload temp files into the permanent document store before queuing.
+        if (faxFilePath != null && PathValidationUtils.isInAllowedTempDirectory(new File(faxFilePath))) {
             faxFilePath = nioFileManager.copyFileToOscarDocuments(faxFilePath);
         }
         recipientFaxNumber = recipientFaxNumber.replaceAll("\\D", "");

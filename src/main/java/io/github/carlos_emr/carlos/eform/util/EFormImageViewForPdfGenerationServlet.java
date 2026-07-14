@@ -143,7 +143,7 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
 
     private static String validateRequestedFileName(String fileName) {
         try {
-            return PathValidationUtils.validateStrictFileName(fileName);
+            return PathValidationUtils.validatePathComponent(fileName, "imagefile");
         } catch (IllegalArgumentException e) {
             throw new SecurityException("Invalid imagefile parameter", e);
         }

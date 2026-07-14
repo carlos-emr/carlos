@@ -22,6 +22,7 @@ import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.EnumSet;
 import java.util.List;
@@ -68,6 +69,8 @@ public class EFormBrowserPdfRenderer {
     private static final Duration RENDER_TIMEOUT = Duration.ofSeconds(90);
     private static final String SCRIPT_RELATIVE_PATH = "scripts/eform-browser-pdf-render.js";
     private static final String PLAYWRIGHT_MODULE_RELATIVE_PATH = "node_modules/playwright";
+    private static final String PLAYWRIGHT_PACKAGE_NAME = "playwright";
+    private static final String NODE_MODULES_DIRECTORY_NAME = "node_modules";
     private static final String ROOT_PROPERTY = "eform_pdf_browser_render_root";
     private static final String BASE_URL_PROPERTY = "eform_pdf_browser_base_url";
     private static final String NODE_BINARY_PROPERTY = "eform_pdf_browser_node_binary";
@@ -78,12 +81,16 @@ public class EFormBrowserPdfRenderer {
     private static final String ENV_APP_PATH = "CARLOS_EFORM_RENDER_APP_PATH";
     private static final String ENV_COOKIE_HEADER = "CARLOS_EFORM_RENDER_COOKIE_HEADER";
     private static final String ENV_CHROME_PATH = "CARLOS_EFORM_RENDER_CHROME_PATH";
+    private static final String ENV_NODE_PATH = "NODE_PATH";
     private static final String RENDERER_RESOURCE_ROOT = "io/github/carlos_emr/carlos/eform/browserpdf/";
     private static final String MAIN_SCRIPT_NAME = "eform-browser-pdf-render.js";
     private static final String[] BUNDLED_SCRIPT_NAMES = {
             MAIN_SCRIPT_NAME,
             "eform-local-playwright-utils.js"
     };
+    private static final List<Path> FALLBACK_NODE_MODULES_DIRECTORIES = List.of(
+            Path.of("/usr/lib/node_modules"),
+            Path.of("/usr/local/lib/node_modules"));
     private static final float CSS_PIXEL_TO_POINTS = 72f / 96f;
 
     /**
@@ -114,7 +121,7 @@ public class EFormBrowserPdfRenderer {
 
         try {
             // Resolved inside the try block so a discovery failure still cleans up any staged runtime directory.
-            Path nodeModulesRoot = resolveNodeModulesRoot(runtimeRoot);
+            Path nodeModulesDirectory = resolveNodeModulesDirectory(runtimeRoot);
             outputDirectory = createSecureTempDirectory(tempRoot, "eform-browser-render-");
             outputPdfPath = createSecureTempFile(tempRoot, "eform-browser-render-", ".pdf");
 
@@ -127,7 +134,7 @@ public class EFormBrowserPdfRenderer {
             processBuilder.directory(runtimeRoot.toFile());
             processBuilder.redirectErrorStream(true);
             Map<String, String> environment = processBuilder.environment();
-            environment.put("NODE_PATH", nodeModulesRoot.resolve("node_modules").toString());
+            environment.put(ENV_NODE_PATH, nodeModulesDirectory.toString());
             applyRendererEnvironment(environment, baseUrl, appPath, cookieHeader, resolveChromiumPath());
 
             process = processBuilder.start();
@@ -418,7 +425,25 @@ public class EFormBrowserPdfRenderer {
         return null;
     }
 
-    private Path resolveNodeModulesRoot(Path runtimeRoot) throws PDFGenerationException {
+    private Path resolveNodeModulesDirectory(Path runtimeRoot) throws PDFGenerationException {
+        Path nodeModulesDirectory = findNodeModulesDirectory(nodeModulesCandidates(runtimeRoot));
+        if (nodeModulesDirectory != null) {
+            return nodeModulesDirectory;
+        }
+        throw new PDFGenerationException("Unable to locate the Playwright node_modules directory for eForm PDF generation.");
+    }
+
+    static Path findNodeModulesDirectory(List<Path> candidates) {
+        for (Path candidate : candidates) {
+            Path nodeModulesDirectory = validateNodeModulesCandidate(candidate);
+            if (nodeModulesDirectory != null) {
+                return nodeModulesDirectory;
+            }
+        }
+        return null;
+    }
+
+    private List<Path> nodeModulesCandidates(Path runtimeRoot) {
         Set<Path> candidates = new LinkedHashSet<>();
         Path runtimeParent = runtimeRoot.getParent();
         if (runtimeParent != null) {
@@ -426,19 +451,35 @@ public class EFormBrowserPdfRenderer {
         }
         candidates.add(runtimeRoot.toAbsolutePath().normalize());
         candidates.addAll(configuredCandidateRoots(NODE_MODULES_ROOT_PROPERTY, "CARLOS_EFORM_PDF_BROWSER_NODE_MODULES_ROOT"));
-        for (Path candidate : candidates) {
-            Path playwrightPath = candidate.resolve(PLAYWRIGHT_MODULE_RELATIVE_PATH).normalize();
+        candidates.addAll(parsePathList(System.getenv(ENV_NODE_PATH)));
+        candidates.addAll(FALLBACK_NODE_MODULES_DIRECTORIES);
+        return new ArrayList<>(candidates);
+    }
+
+    private static Path validateNodeModulesCandidate(Path candidate) {
+        if (candidate == null) {
+            return null;
+        }
+        Path normalizedCandidate = candidate.toAbsolutePath().normalize();
+        List<Path> playwrightPaths = List.of(
+                normalizedCandidate.resolve(PLAYWRIGHT_MODULE_RELATIVE_PATH).normalize(),
+                normalizedCandidate.resolve(PLAYWRIGHT_PACKAGE_NAME).normalize());
+        for (Path playwrightPath : playwrightPaths) {
             if (!Files.isDirectory(playwrightPath)) {
                 continue;
             }
+            Path nodeModulesDirectory = playwrightPath.getParent();
+            if (nodeModulesDirectory == null || !NODE_MODULES_DIRECTORY_NAME.equals(nodeModulesDirectory.getFileName().toString())) {
+                continue;
+            }
             try {
-                PathValidationUtils.validateExistingPath(playwrightPath.toFile(), candidate.toFile());
-                return candidate;
+                PathValidationUtils.validateExistingPath(playwrightPath.toFile(), nodeModulesDirectory.toFile());
+                return nodeModulesDirectory;
             } catch (SecurityException e) {
-                logger.warn("Ignoring Playwright node_modules root outside its configured directory: {}", candidate, e);
+                logger.warn("Ignoring Playwright node_modules directory outside its candidate root: {}", candidate, e);
             }
         }
-        throw new PDFGenerationException("Unable to locate the Playwright node_modules directory for eForm PDF generation.");
+        return null;
     }
 
     private List<Path> configuredCandidateRoots(String propertyName, String environmentVariableName) {
@@ -458,6 +499,21 @@ public class EFormBrowserPdfRenderer {
         } catch (RuntimeException e) {
             logger.warn("Ignoring invalid eForm PDF browser renderer root candidate: {}", rawCandidate, e);
         }
+    }
+
+    static List<Path> parsePathList(String rawPaths) {
+        if (rawPaths == null || rawPaths.isBlank()) {
+            return Collections.emptyList();
+        }
+        String[] entries = rawPaths.split(java.util.regex.Pattern.quote(File.pathSeparator));
+        List<Path> parsedPaths = new ArrayList<>();
+        for (String entry : entries) {
+            if (entry == null || entry.isBlank()) {
+                continue;
+            }
+            parsedPaths.add(Path.of(entry.trim()).toAbsolutePath().normalize());
+        }
+        return parsedPaths;
     }
 
     private Path extractBundledRendererRuntime(Path tempRoot) throws PDFGenerationException {
