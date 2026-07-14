@@ -271,14 +271,15 @@ public class ManageEmails2Action extends ActionSupport {
         request.setAttribute("encryptedMessageEmail", emailLog.getEncryptedMessage());
         request.setAttribute("emailPDFPassword", emailPDFPassword);
         request.setAttribute("emailPDFPasswordClue", emailPDFPasswordClue);
+        request.setAttribute("emailAttachmentList", emailAttachmentList);
         request.setAttribute("isEmailEncrypted", emailLog.getIsEncrypted());
         request.setAttribute("isEmailAttachmentEncrypted", emailLog.getIsAttachmentEncrypted());
         request.setAttribute("emailPatientChartOption", emailLog.getChartDisplayOption().getValue());
         request.setAttribute("emailAdditionalParams", emailLog.getAdditionalParams());
         EmailCompose2Action.cleanupEmailSessionAttributes(request);
-        request.getSession().setAttribute("emailAttachmentList", emailAttachmentList); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        request.getSession().setAttribute("emailPDFPassword", emailPDFPassword);
-        request.getSession().setAttribute("emailPDFPasswordClue", emailPDFPasswordClue);
+        String emailPDFPasswordToken = EmailCompose2Action.storeEmailComposeSubmissionState(
+                request, emailPDFPassword, emailPDFPasswordClue, emailAttachmentList);
+        request.setAttribute("emailPDFPasswordToken", emailPDFPasswordToken);
 
         return "compose";
     }

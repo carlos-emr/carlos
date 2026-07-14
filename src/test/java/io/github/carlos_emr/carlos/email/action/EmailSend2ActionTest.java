@@ -17,6 +17,8 @@
  */
 package io.github.carlos_emr.carlos.email.action;
 
+import java.util.List;
+
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -111,7 +113,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         request.setParameter("patientChartOption", "addFullNote");
         request.setParameter("transactionType", "DIRECT");
         request.setParameter("demographicId", "123");
-        request.getSession().setAttribute("emailPDFPassword", "alpha-bravo-charlie-delta-echo-foxtrot");
+        setComposeToken(request, "alpha-bravo-charlie-delta-echo-foxtrot");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
 
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -143,8 +145,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         request.setParameter("patientChartOption", "addFullNote");
         request.setParameter("transactionType", "DIRECT");
         request.setParameter("demographicId", "123");
-        request.getSession().setAttribute("emailPDFPassword", "cedar-maple-spruce-birch-aspen-willow");
-        request.getSession().setAttribute("emailPDFPasswordClue", "legacy clue");
+        setComposeToken(request, "cedar-maple-spruce-birch-aspen-willow");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
 
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -174,6 +175,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         request.setParameter("patientChartOption", "addFullNote");
         request.setParameter("transactionType", "DIRECT");
         request.setParameter("demographicId", "123");
+        setComposeToken(request, "");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
 
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -184,5 +186,80 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(action, "prepareEmailFields", request))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Email PDF password is missing from session");
+    }
+
+    @Test
+    @DisplayName("should use passphrase bound to submitted compose token")
+    void shouldUsePassphraseBoundToSubmittedComposeToken() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("senderConfigId", "1");
+        request.setParameter("receiverEmailAddress", "patient@example.com");
+        request.setParameter("subjectEmail", "Subject");
+        request.setParameter("bodyEmail", "Body");
+        request.setParameter("encryptedMessage", "Encrypted message");
+        request.setParameter("isEmailEncrypted", "true");
+        request.setParameter("isEmailAttachmentEncrypted", "false");
+        request.setParameter("patientChartOption", "addFullNote");
+        request.setParameter("transactionType", "DIRECT");
+        request.setParameter("demographicId", "123");
+        String firstToken = EmailCompose2Action.storeEmailComposeSubmissionState(
+                request,
+                "first-token-password",
+                EmailPdfPasswordService.DELIVERY_INSTRUCTION,
+                List.of());
+        EmailCompose2Action.storeEmailComposeSubmissionState(
+                request,
+                "second-token-password",
+                EmailPdfPasswordService.DELIVERY_INSTRUCTION,
+                List.of());
+        request.setParameter(EmailCompose2Action.EMAIL_PDF_PASSWORD_TOKEN_PARAM, firstToken);
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        EmailSend2Action action = new EmailSend2Action();
+        action.request = request;
+        action.response = response;
+
+        EmailData emailData = ReflectionTestUtils.invokeMethod(action, "prepareEmailFields", request);
+
+        assertThat(emailData.getPassword()).isEqualTo("first-token-password");
+    }
+
+    @Test
+    @DisplayName("should consume compose token once")
+    void shouldConsumeComposeTokenOnce() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("senderConfigId", "1");
+        request.setParameter("receiverEmailAddress", "patient@example.com");
+        request.setParameter("subjectEmail", "Subject");
+        request.setParameter("bodyEmail", "Body");
+        request.setParameter("encryptedMessage", "Encrypted message");
+        request.setParameter("isEmailEncrypted", "true");
+        request.setParameter("isEmailAttachmentEncrypted", "false");
+        request.setParameter("patientChartOption", "addFullNote");
+        request.setParameter("transactionType", "DIRECT");
+        request.setParameter("demographicId", "123");
+        setComposeToken(request, "single-use-password");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        EmailSend2Action action = new EmailSend2Action();
+        action.request = request;
+        action.response = response;
+
+        ReflectionTestUtils.invokeMethod(action, "prepareEmailFields", request);
+
+        assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(action, "prepareEmailFields", request))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Email compose session is missing or expired");
+    }
+
+    private static void setComposeToken(MockHttpServletRequest request, String emailPDFPassword) {
+        String token = EmailCompose2Action.storeEmailComposeSubmissionState(
+                request,
+                emailPDFPassword,
+                EmailPdfPasswordService.DELIVERY_INSTRUCTION,
+                List.of());
+        request.setParameter(EmailCompose2Action.EMAIL_PDF_PASSWORD_TOKEN_PARAM, token);
     }
 }

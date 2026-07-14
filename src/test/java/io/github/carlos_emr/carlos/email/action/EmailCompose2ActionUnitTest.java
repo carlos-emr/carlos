@@ -74,7 +74,13 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(action.prepareComposeEFormMailer()).isEqualTo("compose");
             assertThat(request.getAttribute("fid")).isNull();
             assertThat(request.getAttribute("emailPDFPassword")).isEqualTo("alpha-bravo-charlie-delta-echo-foxtrot");
-            assertThat(request.getSession(false).getAttribute("emailPDFPassword")).isEqualTo("alpha-bravo-charlie-delta-echo-foxtrot");
+            assertThat(request.getSession(false).getAttribute("emailPDFPassword")).isNull();
+            String emailPDFPasswordToken = (String) request.getAttribute("emailPDFPasswordToken");
+            assertThat(emailPDFPasswordToken).isNotBlank();
+            request.setParameter(EmailCompose2Action.EMAIL_PDF_PASSWORD_TOKEN_PARAM, emailPDFPasswordToken);
+            EmailCompose2Action.EmailComposeSubmissionState composeState =
+                    EmailCompose2Action.consumeEmailComposeSubmissionState(request);
+            assertThat(composeState.emailPDFPassword()).isEqualTo("alpha-bravo-charlie-delta-echo-foxtrot");
             verify(emailComposeManager, never()).createEmailPDFPassword(any(), anyInt());
             String logged = capture.messages().stream()
                     .filter(message -> message.startsWith("Invalid fid parameter received"))

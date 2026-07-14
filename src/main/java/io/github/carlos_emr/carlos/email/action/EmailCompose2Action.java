@@ -1,7 +1,11 @@
 package io.github.carlos_emr.carlos.email.action;
 
+import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -83,8 +87,11 @@ public class EmailCompose2Action extends ActionSupport {
     private EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManager.class);
     private EmailPdfPasswordService emailPdfPasswordService = SpringUtils.getBean(EmailPdfPasswordService.class);
 
+    public static final String EMAIL_PDF_PASSWORD_TOKEN_PARAM = "emailPDFPasswordToken";
+    private static final String EMAIL_COMPOSE_SUBMISSION_STATES = "emailComposeSubmissionStates";
+
     private static final String[] EMAIL_SESSION_KEYS = {
-        "attachEFormItSelf", "fdid", "demographicId",
+        "attachEFormItSelf", "fdid", "demographicId", "emailAttachmentList",
         "emailPDFPassword", "emailPDFPasswordClue",
         "attachedDocuments", "attachedLabs", "attachedForms",
         "attachedEForms", "attachedHRMDocuments",
@@ -168,6 +175,7 @@ public class EmailCompose2Action extends ActionSupport {
      *   <li>senderAccounts (List&lt;EmailConfig&gt;) - available sender account configurations</li>
      *   <li>emailPDFPassword (String) - generated PDF passphrase shown once for separate delivery</li>
      *   <li>emailPDFPasswordClue (String) - provider delivery instruction</li>
+     *   <li>emailPDFPasswordToken (String) - per-compose token used to consume prepared submission state</li>
      *   <li>demographicId (String) - patient demographic identifier</li>
      *   <li>fdid (String) - form data ID</li>
      *   <li>fid (String) - validated form ID or null if invalid</li>
@@ -175,7 +183,7 @@ public class EmailCompose2Action extends ActionSupport {
      *
      * Session Attributes Set:
      * <ul>
-     *   <li>emailAttachmentList (List&lt;EmailAttachment&gt;) - prepared and sanitized attachments</li>
+     *   <li>emailComposeSubmissionStates (Map) - tokenized prepared compose states</li>
      * </ul>
      *
      * Security Features:
@@ -269,6 +277,7 @@ public class EmailCompose2Action extends ActionSupport {
         request.setAttribute("senderAccounts", senderAccounts);
         request.setAttribute("emailPDFPassword", emailPDFPassword);
         request.setAttribute("emailPDFPasswordClue", emailPDFPasswordClue);
+        request.setAttribute("emailAttachmentList", emailAttachmentList);
         request.setAttribute("senderEmail", senderEmail);
         request.setAttribute("subjectEmail", subjectEmail);
         request.setAttribute("bodyEmail", bodyEmail);
@@ -282,13 +291,76 @@ public class EmailCompose2Action extends ActionSupport {
         request.setAttribute("isEmailEncrypted", session.getAttribute("isEmailEncrypted"));
         request.setAttribute("isEmailAttachmentEncrypted", session.getAttribute("isEmailAttachmentEncrypted"));
         request.setAttribute("isEmailAutoSend", session.getAttribute("isEmailAutoSend"));
-        request.getSession().setAttribute("emailAttachmentList", emailAttachmentList); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- emailAttachmentList built from manager-prepared attachments (eForm, eDoc, lab, HRM, form PDFs), then sanitized by emailComposeManager.sanitizeAttachments()
 
         cleanupEmailSessionAttributes(request);
-        request.getSession().setAttribute("emailPDFPassword", emailPDFPassword);
-        request.getSession().setAttribute("emailPDFPasswordClue", emailPDFPasswordClue);
+        String emailPDFPasswordToken = storeEmailComposeSubmissionState(
+                request, emailPDFPassword, emailPDFPasswordClue, emailAttachmentList);
+        request.setAttribute("emailPDFPasswordToken", emailPDFPasswordToken);
 
         return "compose";
+    }
+
+    public static String storeEmailComposeSubmissionState(
+            HttpServletRequest request,
+            String emailPDFPassword,
+            String emailPDFPasswordClue,
+            List<EmailAttachment> emailAttachmentList
+    ) {
+        HttpSession session = request.getSession();
+        String token = UUID.randomUUID().toString();
+        EmailComposeSubmissionState state = new EmailComposeSubmissionState(
+                emailPDFPassword,
+                emailPDFPasswordClue,
+                List.copyOf(emailAttachmentList != null ? emailAttachmentList : List.of()));
+
+        synchronized (session) {
+            Map<String, EmailComposeSubmissionState> states = emailComposeSubmissionStates(session);
+            states.put(token, state);
+        }
+        return token;
+    }
+
+    public static EmailComposeSubmissionState consumeEmailComposeSubmissionState(HttpServletRequest request) {
+        String token = request.getParameter(EMAIL_PDF_PASSWORD_TOKEN_PARAM);
+        if (token == null || token.isBlank()) {
+            return null;
+        }
+
+        HttpSession session = request.getSession(false);
+        if (session == null) {
+            return null;
+        }
+
+        synchronized (session) {
+            Map<String, EmailComposeSubmissionState> states = emailComposeSubmissionStates(session);
+            EmailComposeSubmissionState state = states.remove(token);
+            if (states.isEmpty()) {
+                session.removeAttribute(EMAIL_COMPOSE_SUBMISSION_STATES);
+            }
+            return state;
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, EmailComposeSubmissionState> emailComposeSubmissionStates(HttpSession session) {
+        Object existingStates = session.getAttribute(EMAIL_COMPOSE_SUBMISSION_STATES);
+        if (existingStates instanceof Map<?, ?>) {
+            return (Map<String, EmailComposeSubmissionState>) existingStates;
+        }
+
+        Map<String, EmailComposeSubmissionState> states = new HashMap<>();
+        // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        // Values are generated passphrases and manager-prepared attachments, not raw request parameters.
+        session.setAttribute(EMAIL_COMPOSE_SUBMISSION_STATES, states);
+        return states;
+    }
+
+    public record EmailComposeSubmissionState(
+            String emailPDFPassword,
+            String emailPDFPasswordClue,
+            List<EmailAttachment> emailAttachmentList
+    ) implements Serializable {
+        private static final long serialVersionUID = 1L;
     }
 
     /**

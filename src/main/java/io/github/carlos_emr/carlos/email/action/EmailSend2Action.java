@@ -64,7 +64,6 @@ public class EmailSend2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
     private EmailManager emailManager = SpringUtils.getBean(EmailManager.class);
     private EformDataManager eformDataManager = SpringUtils.getBean(EformDataManager.class);
-    private EmailPdfPasswordService emailPdfPasswordService = SpringUtils.getBean(EmailPdfPasswordService.class);
 
     /**
      * Main execution method that routes to specific email handling methods based on the "method" request parameter.
@@ -171,9 +170,10 @@ public class EmailSend2Action extends ActionSupport {
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
     @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String cancel() {
-        EmailData emailData = prepareEmailFields(request);
-        String emailRedirect = emailData.getTransactionType().name();
-        if (emailData.getTransactionType().equals(EmailLog.TransactionType.EFORM)) {
+        EmailLog.TransactionType transactionType = resolveTransactionType(request.getParameter("transactionType"));
+        EmailCompose2Action.consumeEmailComposeSubmissionState(request);
+        String emailRedirect = transactionType.name();
+        if (transactionType.equals(EmailLog.TransactionType.EFORM)) {
             try {
                 response.sendRedirect(request.getContextPath() + "/eform/efmshowform_data?fdid="
                         + SafeEncode.forUriComponent(request.getParameter("fdid")) + "&parentAjaxId=eforms");
@@ -235,14 +235,15 @@ public class EmailSend2Action extends ActionSupport {
         String isEncrypted = request.getParameter("isEmailEncrypted");
         String isAttachmentEncrypted = request.getParameter("isEmailAttachmentEncrypted");
         boolean needsPdfPassword = "true".equals(isEncrypted) || "true".equals(isAttachmentEncrypted);
-        String password = resolveEmailPdfPassword(request, needsPdfPassword);
-        String passwordClue = needsPdfPassword ? EmailPdfPasswordService.DELIVERY_INSTRUCTION : "";
+        EmailCompose2Action.EmailComposeSubmissionState composeState = resolveEmailComposeSubmissionState(request);
+        String password = resolveEmailPdfPassword(composeState, needsPdfPassword);
+        String passwordClue = needsPdfPassword ? resolveEmailPdfPasswordClue(composeState) : "";
         String chartDisplayOption = request.getParameter("patientChartOption");
         String internalComment = request.getParameter("internalComment");
         String transactionType = request.getParameter("transactionType");
         String demographicNo = request.getParameter("demographicId");
         String additionalParams = request.getParameter("additionalURLParams");
-        List<EmailAttachment> emailAttachmentList = (List<EmailAttachment>) request.getSession().getAttribute("emailAttachmentList");
+        List<EmailAttachment> emailAttachmentList = composeState.emailAttachmentList();
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -265,22 +266,42 @@ public class EmailSend2Action extends ActionSupport {
         emailData.setAdditionalParams(additionalParams);
         emailData.setAttachments(emailAttachmentList);
 
-        request.getSession().removeAttribute("emailAttachmentList");
-        request.getSession().removeAttribute("emailPDFPassword");
-        request.getSession().removeAttribute("emailPDFPasswordClue");
-
         return emailData;
     }
 
-    private String resolveEmailPdfPassword(HttpServletRequest request, boolean needsPdfPassword) {
+    private EmailCompose2Action.EmailComposeSubmissionState resolveEmailComposeSubmissionState(HttpServletRequest request) {
+        EmailCompose2Action.EmailComposeSubmissionState composeState =
+                EmailCompose2Action.consumeEmailComposeSubmissionState(request);
+        if (composeState == null) {
+            throw new IllegalStateException("Email compose session is missing or expired");
+        }
+        return composeState;
+    }
+
+    private String resolveEmailPdfPassword(
+            EmailCompose2Action.EmailComposeSubmissionState composeState,
+            boolean needsPdfPassword
+    ) {
         if (!needsPdfPassword) {
             return "";
         }
 
-        Object sessionPassword = request.getSession().getAttribute("emailPDFPassword");
-        if (sessionPassword instanceof String password && !StringUtils.isNullOrEmpty(password)) {
-            return password;
+        if (!StringUtils.isNullOrEmpty(composeState.emailPDFPassword())) {
+            return composeState.emailPDFPassword();
         }
         throw new IllegalStateException("Email PDF password is missing from session");
+    }
+
+    private String resolveEmailPdfPasswordClue(EmailCompose2Action.EmailComposeSubmissionState composeState) {
+        if (!StringUtils.isNullOrEmpty(composeState.emailPDFPasswordClue())) {
+            return composeState.emailPDFPasswordClue();
+        }
+        return EmailPdfPasswordService.DELIVERY_INSTRUCTION;
+    }
+
+    private EmailLog.TransactionType resolveTransactionType(String transactionType) {
+        EmailData emailData = new EmailData();
+        emailData.setTransactionType(transactionType);
+        return emailData.getTransactionType();
     }
 }
