@@ -1,0 +1,777 @@
+<!--
+Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+
+This software is published under the GPL GNU General Public License.
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+CARLOS EMR Project
+https://github.com/carlos-emr/carlos
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CARLOS Test Pattern eForm</title>
+<link rel="stylesheet" href="../share/calendar/calendar.css">
+<style type="text/css">
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: #f3f5f7;
+  color: #111827;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 13px;
+}
+
+form {
+  margin: 0;
+}
+
+.test-page {
+  position: relative;
+  box-sizing: border-box;
+  width: 820px;
+  min-height: 1040px;
+  margin: 0 auto 20px;
+  overflow: hidden;
+  border: 1px solid #aeb7c4;
+  background: #fff;
+  page-break-after: always;
+}
+
+.page-inner {
+  position: relative;
+  z-index: 2;
+  padding: 24px 28px 80px;
+}
+
+.test-header {
+  display: grid;
+  grid-template-columns: 96px 1fr 190px;
+  gap: 18px;
+  align-items: start;
+  border-bottom: 3px solid #1f2937;
+  padding-bottom: 14px;
+}
+
+#BGImage1 {
+  display: block;
+  width: 88px;
+  height: 88px;
+  border: 1px solid #111827;
+  background: repeating-linear-gradient(45deg, #f9fafb, #f9fafb 5px, #e5e7eb 5px, #e5e7eb 10px);
+  image-rendering: pixelated;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-weight: 700;
+}
+
+h1 {
+  font-size: 24px;
+  letter-spacing: 0;
+}
+
+h2 {
+  margin: 22px 0 10px;
+  font-size: 15px;
+  color: #0f766e;
+}
+
+h3 {
+  margin: 14px 0 8px;
+  font-size: 13px;
+  color: #374151;
+}
+
+.meta-box {
+  border: 1px solid #c7ced8;
+  padding: 8px;
+  background: #f8fafc;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.section {
+  border-top: 1px solid #d5dbe4;
+  padding-top: 12px;
+}
+
+.grid-2,
+.grid-3,
+.grid-4 {
+  display: grid;
+  gap: 10px 14px;
+}
+
+.grid-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.grid-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+label,
+.label {
+  display: block;
+  color: #374151;
+  font-weight: 700;
+}
+
+input,
+textarea,
+select,
+button {
+  box-sizing: border-box;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 13px;
+}
+
+input[type="text"],
+input[type="date"],
+input[type="number"],
+input[type="password"],
+input[type="email"],
+input[type="tel"],
+input[type="time"],
+input[type="color"],
+select,
+textarea {
+  width: 100%;
+  min-height: 28px;
+  margin-top: 3px;
+  border: 1px solid #9ca3af;
+  border-radius: 0;
+  padding: 4px 6px;
+  background: #fff;
+  color: #111827;
+}
+
+input[type="file"] {
+  width: 100%;
+  margin-top: 3px;
+}
+
+input[type="image"] {
+  width: 24px;
+  height: 24px;
+  margin-top: 5px;
+  border: 1px solid #9ca3af;
+}
+
+textarea {
+  min-height: 68px;
+  resize: vertical;
+}
+
+.inline-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  align-items: center;
+  min-height: 32px;
+  padding-top: 3px;
+}
+
+.inline-options label {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  font-weight: 400;
+}
+
+.legacy-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  align-items: center;
+  min-height: 34px;
+}
+
+.Xbox {
+  width: 20px !important;
+  min-height: 20px !important;
+  margin: 0 4px 0 0 !important;
+  padding: 0 !important;
+  border: 1px solid #111827 !important;
+  background: #fff !important;
+  text-align: center;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.sig {
+  width: 180px;
+  min-height: 42px;
+  border: 1px solid #4b5563;
+  background: repeating-linear-gradient(-45deg, #fff, #fff 6px, #eef2f7 6px, #eef2f7 12px);
+}
+
+.noborder {
+  border: 0 !important;
+  background: transparent !important;
+  overflow: hidden;
+}
+
+.readonly-strip {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 8px;
+  border: 1px dashed #94a3b8;
+  background: #f8fafc;
+}
+
+.table-test {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table-test th,
+.table-test td {
+  border: 1px solid #9ca3af;
+  padding: 6px;
+  vertical-align: top;
+}
+
+.table-test th {
+  background: #e0f2fe;
+  text-align: left;
+}
+
+#test_pattern_list {
+  margin: 4px 0 0 18px;
+  padding: 0;
+}
+
+.conditional-panel {
+  margin-top: 8px;
+  border: 1px solid #99f6e4;
+  background: #f0fdfa;
+  padding: 8px;
+}
+
+.visual-strip {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  height: 30px;
+  margin: 12px 0;
+  border: 1px solid #111827;
+}
+
+.visual-strip span:nth-child(1) { background: #111827; }
+.visual-strip span:nth-child(2) { background: #dc2626; }
+.visual-strip span:nth-child(3) { background: #f59e0b; }
+.visual-strip span:nth-child(4) { background: #facc15; }
+.visual-strip span:nth-child(5) { background: #16a34a; }
+.visual-strip span:nth-child(6) { background: #0891b2; }
+.visual-strip span:nth-child(7) { background: #2563eb; }
+.visual-strip span:nth-child(8) { background: #f9fafb; }
+
+#test_pattern_canvas {
+  display: block;
+  width: 240px;
+  height: 100px;
+  border: 1px solid #374151;
+  background: #fff;
+}
+
+.signature-block {
+  width: 260px;
+  min-height: 78px;
+  border: 1px solid #9ca3af;
+  padding: 8px;
+  background: #f9fafb;
+}
+
+.signature_image,
+#test_pattern_data_uri_image {
+  display: block;
+  width: 120px;
+  height: 40px;
+  border: 1px solid #9ca3af;
+  background: #fff;
+}
+
+.long-label {
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+#test_pattern_contenteditable,
+#test_pattern_iframe,
+#test_pattern_object {
+  display: inline-block;
+  box-sizing: border-box;
+  width: 230px;
+  height: 48px;
+  margin: 6px 8px 0 0;
+  border: 1px solid #94a3b8;
+  vertical-align: top;
+}
+
+#test_pattern_contenteditable {
+  padding: 6px;
+  background: #fff;
+}
+
+.PrintOnly {
+  display: none;
+}
+
+#BottomButtons {
+  position: absolute;
+  left: 28px;
+  right: 28px;
+  bottom: 20px;
+  z-index: 3;
+  border-top: 1px solid #cbd5e1;
+  padding-top: 10px;
+  background: #fff;
+}
+
+#BottomButtons input,
+#BottomButtons button {
+  width: auto;
+  margin-right: 8px;
+  padding: 4px 10px;
+}
+
+@media print {
+  body {
+    background: #fff;
+  }
+
+  .DoNotPrint {
+    display: none !important;
+  }
+
+  .PrintOnly {
+    display: block !important;
+  }
+
+  .test-page {
+    margin: 0;
+    border: 0;
+  }
+
+  .noborder {
+    border: 0 !important;
+    background: transparent !important;
+  }
+}
+</style>
+<script type="text/javascript" src="../share/calendar/calendar.js"></script>
+<script type="text/javascript">
+var needToConfirm = false;
+
+function setDirtyFlag() {
+  needToConfirm = true;
+}
+
+function releaseDirtyFlag() {
+  needToConfirm = false;
+}
+
+function numericValue(id) {
+  var value = parseFloat(document.getElementById(id).value);
+  return isFinite(value) ? value : 0;
+}
+
+function updateTestPatternTotal() {
+  var total = numericValue('test_pattern_calc_one') + numericValue('test_pattern_calc_two');
+  document.getElementById('test_pattern_calc_total').value = total.toFixed(1);
+}
+
+function toggleConditionalBlock() {
+  var show = document.getElementById('test_pattern_toggle_details').checked;
+  document.getElementById('test_pattern_conditional_block').style.display = show ? 'block' : 'none';
+}
+
+function toggleLegacyXbox(element) {
+  element.value = element.value === 'X' ? '' : 'X';
+  setDirtyFlag();
+}
+
+function checkOnlyOne(groupClass, selectedElement) {
+  var group = document.querySelectorAll('.' + groupClass);
+  for (var i = 0; i < group.length; i++) {
+    if (group[i] !== selectedElement) {
+      group[i].checked = false;
+    }
+  }
+  setDirtyFlag();
+}
+
+function drawCanvasPattern() {
+  var canvas = document.getElementById('test_pattern_canvas');
+  if (!canvas || !canvas.getContext) {
+    return;
+  }
+  var ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#0f766e';
+  ctx.fillRect(0, 0, 80, 100);
+  ctx.fillStyle = '#f97316';
+  ctx.fillRect(80, 0, 80, 100);
+  ctx.fillStyle = '#1d4ed8';
+  ctx.fillRect(160, 0, 80, 100);
+  ctx.strokeStyle = '#111827';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(12, 82);
+  ctx.lineTo(228, 18);
+  ctx.stroke();
+  ctx.fillStyle = '#111827';
+  ctx.font = '16px Arial';
+  ctx.fillText('Canvas', 88, 56);
+}
+
+function startTestPattern() {
+  var form = document.getElementById('FormName');
+  form.addEventListener('reset', function () {
+    setTimeout(function () {
+      updateTestPatternTotal();
+      toggleConditionalBlock();
+      releaseDirtyFlag();
+    }, 0);
+  });
+  var dirtyFields = form.querySelectorAll('input, textarea, select');
+  for (var i = 0; i < dirtyFields.length; i++) {
+    dirtyFields[i].addEventListener('input', setDirtyFlag);
+    dirtyFields[i].addEventListener('change', setDirtyFlag);
+  }
+  document.getElementById('test_pattern_calc_one').addEventListener('input', updateTestPatternTotal);
+  document.getElementById('test_pattern_calc_two').addEventListener('input', updateTestPatternTotal);
+  document.getElementById('test_pattern_toggle_details').addEventListener('change', toggleConditionalBlock);
+  updateTestPatternTotal();
+  toggleConditionalBlock();
+  drawCanvasPattern();
+}
+
+if (window.addEventListener) {
+  window.addEventListener('load', startTestPattern);
+} else {
+  window.onload = startTestPattern;
+}
+
+window.onbeforeunload = function confirmExit() {
+  if (needToConfirm) {
+    return 'Unsaved changes';
+  }
+};
+</script>
+</head>
+<body onbeforeprint="window.__testPatternBeforePrint = true;">
+<form method="post" action="" name="FormName" id="FormName">
+<input type="hidden" name="test_pattern_javascript_path" id="test_pattern_javascript_path" value="${oscar_javascript_path}eforms/printControl.js">
+<input type="hidden" name="test_pattern_javascript_fax_path" id="test_pattern_javascript_fax_path" value="${oscar_javascript_path}eforms/faxControl.js">
+<input type="hidden" name="test_pattern_javascript_jsignature_path" id="test_pattern_javascript_jsignature_path" value="${oscar_javascript_path}jquery/jSignature.min.js">
+<input type="hidden" name="test_pattern_image_script_path" id="test_pattern_image_script_path" value="${oscar_image_path}jSignature.min.js">
+<input type="hidden" name="test_pattern_image_stylesheet_path" id="test_pattern_image_stylesheet_path" value="${oscar_image_path}JSMPC.css">
+<input type="hidden" name="test_pattern_source_marker" id="test_pattern_source_marker" value="${source}">
+<input type="hidden" name="test_pattern_fdid_marker" id="test_pattern_fdid_marker" value="${fdid}">
+<input type="hidden" name="test_pattern_hidden_persisted" id="test_pattern_hidden_persisted" value="template-hidden">
+<input type="hidden" name="StoreSignature1" id="StoreSignature1" value="image/jsignature;base30,0_0">
+<input type="hidden" name="SignatureChoice" id="SignatureChoice" value="Wet">
+<input type="hidden" name="test_pattern_patient_id" id="test_pattern_patient_id" oscarDB="patient_id">
+<input type="hidden" name="test_pattern_current_user" id="test_pattern_current_user" oscarDB="current_user">
+<input type="hidden" name="test_pattern_medication_history" id="test_pattern_medication_history" oscarDB="druglist_line">
+<input type="hidden" name="test_pattern_allergy_history" id="test_pattern_allergy_history" oscarDB="allergies_des_no_archived">
+<input type="hidden" name="test_pattern_medical_history" id="test_pattern_medical_history" oscarDB="medical_history">
+<input type="hidden" name="tickler_patient_id" id="tickler_patient_id" oscarDB="patient_id">
+<input type="hidden" name="tickler_send_to" id="tickler_send_to" oscarDB="current_user_id">
+<input type="hidden" name="tickler_weeks" id="tickler_weeks" value="2">
+<input type="hidden" name="tickler_priority" id="tickler_priority" value="Low">
+<input type="hidden" name="fax_no" id="fax_no" value="555-0100">
+
+<div id="page1" class="test-page">
+  <div class="page-inner">
+    <header class="test-header">
+      <img id="BGImage1" alt="Uploaded eForm asset" src="${oscar_image_path}playwright_test_pattern_bg.png">
+      <div>
+        <h1>CARLOS Test Pattern eForm</h1>
+        <p>This synthetic form exercises the eForm renderer, saved-value reinjection, path marker replacement, print styling, and common browser controls in one fixture.</p>
+        <div class="visual-strip" aria-label="Visual color strip">
+          <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+        </div>
+      </div>
+      <div class="meta-box">
+        <div>Form data id marker: <span id="test_pattern_fdid_display">${fdid}</span></div>
+        <div>Source marker: <span id="test_pattern_source_display">${source}</span></div>
+        <div>Runtime subject field below drives saved eForm subject checks.</div>
+      </div>
+    </header>
+
+    <section class="section">
+      <h2>Database Tag Coverage</h2>
+      <div class="grid-3">
+        <label>Last name
+          <input type="text" name="patient_nameL" id="patient_nameL" value="TemplateLast" class="noborder" oscarDB="patient_nameL">
+        </label>
+        <label>First name
+          <input type="text" name="patient_nameF" id="patient_nameF" value="TemplateFirst" class="noborder" oscarDB="patient_nameF">
+        </label>
+        <label>Sex
+          <input type="text" name="sex" id="sex" value="TemplateSex" class="noborder" oscarDB="sex">
+        </label>
+        <label>Date of birth
+          <input type="text" name="dob" id="dob" value="TemplateDob" class="noborder" oscarDB="dob">
+        </label>
+        <label>Health card
+          <input type="text" name="hin" id="hin" value="TemplateHin" class="noborder" oscarDB="hin">
+        </label>
+        <label>Today
+          <input type="text" name="today" id="today" value="TemplateToday" class="noborder" oscarDB="today">
+        </label>
+      </div>
+      <label style="margin-top: 10px;">Address textarea DB tag
+        <textarea name="addressline" id="addressline" class="noborder" oscarDB="addressline">Template address line</textarea>
+      </label>
+    </section>
+
+    <section class="section">
+      <h2>Persisted Control Coverage</h2>
+      <div class="grid-2">
+        <label>Subject
+          <input type="text" name="subject" id="subject" value="Template Test Pattern Subject">
+        </label>
+        <label>Text
+          <input type="text" name="test_pattern_text" id="test_pattern_text" value="Template text" maxlength="80" placeholder="Free text" required>
+        </label>
+        <label>Date
+          <input type="date" name="test_pattern_date" id="test_pattern_date" value="2026-07-14">
+        </label>
+        <label>Select
+          <select name="test_pattern_select" id="test_pattern_select">
+            <option value="">Choose</option>
+            <option value="alpha">Alpha</option>
+            <option value="bravo" selected>Bravo</option>
+            <option value="charlie">Charlie</option>
+          </select>
+        </label>
+        <label>Datalist text
+          <input type="text" name="test_pattern_datalist" id="test_pattern_datalist" list="test_pattern_datalist_options" value="Template option">
+          <datalist id="test_pattern_datalist_options">
+            <option value="Alpha option">
+            <option value="Bravo option">
+            <option value="Legacy typed option">
+          </datalist>
+        </label>
+      </div>
+      <label style="margin-top: 10px;">Textarea
+        <textarea name="test_pattern_textarea" id="test_pattern_textarea">Template multiline text
+Second line
+Third line</textarea>
+      </label>
+      <div class="grid-2" style="margin-top: 10px;">
+        <div>
+          <div class="label">Radio group</div>
+          <div class="inline-options">
+            <label><input type="radio" name="test_pattern_radio" id="test_pattern_radio_alpha" value="alpha"> Alpha</label>
+            <label><input type="radio" name="test_pattern_radio" id="test_pattern_radio_bravo" value="bravo" checked> Bravo</label>
+            <label><input type="radio" name="test_pattern_radio" id="test_pattern_radio_charlie" value="charlie"> Charlie</label>
+          </div>
+        </div>
+        <div>
+          <div class="label">Checkboxes</div>
+          <div class="inline-options">
+            <label><input type="checkbox" name="test_pattern_checkbox_yes" id="test_pattern_checkbox_yes" value="yes" checked> Persist checked</label>
+            <label><input type="checkbox" name="test_pattern_checkbox_no" id="test_pattern_checkbox_no" value="no"> Persist unchecked</label>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Render-Only Control Coverage</h2>
+      <div class="grid-4">
+        <label>Number A
+          <input type="number" name="test_pattern_calc_one" id="test_pattern_calc_one" value="12.5" step="0.1">
+        </label>
+        <label>Number B
+          <input type="number" name="test_pattern_calc_two" id="test_pattern_calc_two" value="7.5" step="0.1">
+        </label>
+        <label>Calculated total
+          <input type="text" name="test_pattern_calc_total" id="test_pattern_calc_total" value="20.0" readonly>
+        </label>
+        <label>Range
+          <input type="range" name="test_pattern_range" id="test_pattern_range" min="0" max="10" value="6">
+        </label>
+        <label>Email
+          <input type="email" name="test_pattern_email" id="test_pattern_email" value="test.pattern@example.invalid">
+        </label>
+        <label>Phone
+          <input type="tel" name="test_pattern_tel" id="test_pattern_tel" value="555-0100">
+        </label>
+        <label>Time
+          <input type="time" name="test_pattern_time" id="test_pattern_time" value="09:30">
+        </label>
+        <label>Color
+          <input type="color" name="test_pattern_color" id="test_pattern_color" value="#0f766e">
+        </label>
+        <label>Password
+          <input type="password" name="test_pattern_password" id="test_pattern_password" value="">
+        </label>
+        <label>File
+          <input type="file" name="test_pattern_file" id="test_pattern_file">
+        </label>
+        <label>Image input
+          <input type="image" name="test_pattern_image_input" id="test_pattern_image_input" alt="Image action" onclick="return false;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl5n2QAAAAASUVORK5CYII=">
+        </label>
+      </div>
+      <div class="readonly-strip" style="margin-top: 10px;">
+        <label>Read-only value
+          <input type="text" name="test_pattern_readonly" id="test_pattern_readonly" value="Read-only sample" readonly>
+        </label>
+        <label>Disabled value
+          <input type="text" name="test_pattern_disabled" id="test_pattern_disabled" value="Disabled sample" disabled>
+        </label>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div id="page2" class="test-page">
+  <div class="page-inner">
+    <section class="section">
+      <h2>Layout, Media, and Edge Cases</h2>
+      <div class="grid-2">
+        <label class="long-label">Long label wrapping: This label intentionally contains a very long unbroken token ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz so renderer regressions in clipping or overflow are visible.
+          <input type="text" name="test_pattern_long_label" id="test_pattern_long_label" value="Long label value">
+        </label>
+        <div class="label">Conditional toggle
+          <span class="inline-options"><label><input type="checkbox" name="test_pattern_toggle_details" id="test_pattern_toggle_details" value="show" checked> Show detail panel</label></span>
+        </div>
+      </div>
+      <div id="test_pattern_conditional_block" class="conditional-panel Show_Hide">
+        Conditional panel text and inputs are visible when the checkbox is checked.
+        <input type="text" name="test_pattern_conditional_text" id="test_pattern_conditional_text" value="Conditional value">
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Legacy eForm Patterns</h2>
+      <div class="grid-2">
+        <div class="label">Text-input Xbox control
+          <div class="legacy-row">
+            <input type="text" name="test_pattern_legacy_xbox" id="test_pattern_legacy_xbox" class="Xbox box1" value="" onclick="toggleLegacyXbox(this);">
+            <span>Legacy forms often use a text input as a clickable checkbox.</span>
+          </div>
+        </div>
+        <div class="label">Only-one checkbox group
+          <div class="legacy-row">
+            <label><input type="checkbox" name="test_pattern_only_one_alpha" id="test_pattern_only_one_alpha" class="only-one-test-pattern" value="alpha" checked onclick="checkOnlyOne('only-one-test-pattern', this);"> Alpha</label>
+            <label><input type="checkbox" name="test_pattern_only_one_bravo" id="test_pattern_only_one_bravo" class="only-one-test-pattern" value="bravo" onclick="checkOnlyOne('only-one-test-pattern', this);"> Bravo</label>
+          </div>
+        </div>
+        <label>oscarOPEN module button
+          <input type="button" name="test_pattern_oscaropen_button" id="test_pattern_oscaropen_button" value="Open patient summary" oscarOPEN="Pt Summary">
+        </label>
+        <div class="label">jSignature-style storage
+          <div class="legacy-row">
+            <div id="CanvasSignature1" class="sig"></div>
+            <span>Hidden StoreSignature1 and SignatureChoice fields persist signature state.</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Tables and Structured Text</h2>
+      <table class="table-test">
+        <thead>
+          <tr>
+            <th>Column</th>
+            <th>Expected renderer behavior</th>
+            <th>Sample value</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>HTML entities</td>
+            <td>Display entity text without breaking layout.</td>
+            <td>Ampersand &amp; quotes &quot;like this&quot;</td>
+          </tr>
+          <tr>
+            <td>Empty input</td>
+            <td>Preserve an empty editable field.</td>
+            <td><input type="text" name="test_pattern_empty_text" id="test_pattern_empty_text" value=""></td>
+          </tr>
+          <tr>
+            <td>Measurement DB tag</td>
+            <td>Render if seeded measurement data exists; otherwise remain blank.</td>
+            <td><input type="text" name="test_pattern_measurement_weight" id="test_pattern_measurement_weight" oscarDB="m$WT#value" value=""></td>
+          </tr>
+          <tr>
+            <td>Links and lists</td>
+            <td>Keep anchors and list markup in the rendered form.</td>
+            <td><a id="test_pattern_link" href="#test_pattern_canvas">Canvas link</a><ul id="test_pattern_list"><li>One</li><li>Two</li></ul></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section">
+      <h2>Image, Canvas, and Print Surface</h2>
+      <div class="grid-3">
+        <div>
+          <h3>Data URI image</h3>
+          <img id="test_pattern_data_uri_image" alt="Data URI test pixel" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl5n2QAAAAASUVORK5CYII=">
+        </div>
+        <div>
+          <h3>Canvas</h3>
+          <canvas id="test_pattern_canvas" width="240" height="100"></canvas>
+        </div>
+        <div class="signature-block">
+          <h3>Signature image surface</h3>
+          <img id="test_pattern_signature_image" class="signature_image" alt="Signature preview" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl5n2QAAAAASUVORK5CYII=">
+          <input type="hidden" name="test_pattern_signature_data" id="test_pattern_signature_data" value="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl5n2QAAAAASUVORK5CYII=">
+        </div>
+      </div>
+      <div class="PrintOnly" id="test_pattern_print_only">This text is print-only and should be hidden on screen.</div>
+      <details class="DoNotPrint" id="test_pattern_screen_only_details" open>
+        <summary>Screen-only details block</summary>
+        <p>This block checks details/summary rendering and DoNotPrint behavior.</p>
+      </details>
+      <p><progress id="test_pattern_progress" value="65" max="100"></progress> <meter id="test_pattern_meter" min="0" max="100" low="30" high="80" optimum="70" value="72"></meter></p>
+      <div id="test_pattern_contenteditable" contenteditable="true">Editable rich text surface</div>
+      <iframe id="test_pattern_iframe" title="Embedded test pattern frame" srcdoc="<p>Embedded frame content</p>"></iframe>
+      <object id="test_pattern_object" type="text/plain" data="data:text/plain,Embedded%20object%20content"></object>
+    </section>
+  </div>
+
+  <div class="DoNotPrint" id="BottomButtons">
+    <input value="Local action" name="test_pattern_local_action" id="test_pattern_local_action" type="button">
+    <button type="button" name="test_pattern_button_element" id="test_pattern_button_element" onclick="document.getElementById('test_pattern_button_result').value = 'clicked';">HTML button</button>
+    <input type="hidden" name="test_pattern_button_result" id="test_pattern_button_result" value="">
+    <input value="Print" name="test_pattern_print_button" id="test_pattern_print_button" type="button" onclick="window.print();">
+    <input value="Reset" name="test_pattern_reset_button" id="test_pattern_reset_button" type="reset">
+    <input value="Local submit" name="SubmitButton" id="SubmitButton" type="submit">
+  </div>
+</div>
+</form>
+</body>
+</html>
