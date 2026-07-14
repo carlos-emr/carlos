@@ -39,14 +39,18 @@ import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchiveDeletion;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveAttachmentDto;
 import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDto;
+import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -97,6 +101,13 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
 
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn(PROVIDER_NO);
         allowControlledDeletion();
+    }
+
+    @AfterEach
+    void tearDownTransactionSynchronization() {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
     }
 
     @Test
@@ -212,6 +223,33 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
                 props.remove("DOCUMENT_DIR");
             }
         }
+    }
+
+    @Test
+    @DisplayName("should defer archive audit until transaction commit")
+    void shouldDeferArchiveAudit_untilTransactionCommit() throws Exception {
+        TransactionSynchronizationManager.initSynchronization();
+        EmailLog emailLog = emailLog();
+        OutboundEmailArchiveDto request = archiveRequest(emailLog);
+        Document savedDocument = savedDocument();
+        when(documentManager.createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES)))
+                .thenReturn(savedDocument);
+        doAnswer(invocation -> {
+            OutboundEmailArchive archive = invocation.getArgument(0);
+            archive.setId(888);
+            return null;
+        }).when(outboundEmailArchiveDao).persist(any(OutboundEmailArchive.class));
+
+        service.archive(loggedInInfo, request);
+
+        logActionMock.verifyNoInteractions();
+        runAfterCommitSynchronizations();
+        logActionMock.verify(() -> LogAction.addLog(loggedInInfo,
+                "OutboundEmailArchiveService.archive",
+                "Outbound email archive",
+                "archiveId=888 emailLogId=44 documentNo=321",
+                "123",
+                ""));
     }
 
     @Test
@@ -418,6 +456,25 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should defer controlled deletion audit until transaction commit")
+    void shouldDeferControlledDeletionAudit_untilTransactionCommit() {
+        TransactionSynchronizationManager.initSynchronization();
+        OutboundEmailArchive archive = archiveForDeletion();
+        when(outboundEmailArchiveDao.findForUpdate(888)).thenReturn(archive);
+
+        service.recordControlledDeletion(loggedInInfo, 888, "Patient requested cleanup");
+
+        logActionMock.verifyNoInteractions();
+        runAfterCommitSynchronizations();
+        logActionMock.verify(() -> LogAction.addLog(loggedInInfo,
+                "OutboundEmailArchiveService.recordControlledDeletion",
+                "Outbound email archive tombstone",
+                "archiveId=888 documentNo=321",
+                "123",
+                ""));
+    }
+
+    @Test
     @DisplayName("should reject controlled deletion without eDoc delete authority")
     void shouldRejectDeletion_whenCallerLacksEdocDeleteAuthority() {
         OutboundEmailArchive archive = archiveForDeletion();
@@ -484,6 +541,14 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
         request.setArtifactBytes(RFC822_BYTES);
         request.setContentType("message/rfc822");
         return request;
+    }
+
+    private void runAfterCommitSynchronizations() {
+        List<TransactionSynchronization> synchronizations = TransactionSynchronizationManager.getSynchronizations();
+        assertThat(synchronizations).isNotEmpty();
+        for (TransactionSynchronization synchronization : synchronizations) {
+            synchronization.afterCommit();
+        }
     }
 
     private void assertArchiveDocumentToCreate(Document documentToCreate) {

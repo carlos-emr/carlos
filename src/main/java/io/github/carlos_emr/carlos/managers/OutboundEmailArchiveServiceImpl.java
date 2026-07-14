@@ -188,12 +188,12 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         OutboundEmailArchive archive = buildArchive(request, emailLog, buildContext);
         outboundEmailArchiveDao.persist(archive);
 
-        LogAction.addLog(loggedInInfo,
+        registerAfterCommitLog(() -> LogAction.addLog(loggedInInfo,
                 "OutboundEmailArchiveService.archive",
                 "Outbound email archive",
                 "archiveId=" + archive.getId() + " emailLogId=" + emailLog.getId() + " documentNo=" + savedDocument.getId(),
                 String.valueOf(demographicNo),
-                "");
+                ""));
 
         return archive;
     }
@@ -225,12 +225,12 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
         outboundEmailArchiveDao.merge(archive);
         outboundEmailArchiveDeletionDao.persist(deletion);
 
-        LogAction.addLog(loggedInInfo,
+        registerAfterCommitLog(() -> LogAction.addLog(loggedInInfo,
                 "OutboundEmailArchiveService.recordControlledDeletion",
                 "Outbound email archive tombstone",
                 "archiveId=" + archive.getId() + " documentNo=" + documentId(archive),
                 demographicNo(archive),
-                "");
+                ""));
 
         return deletion;
     }
@@ -535,6 +535,19 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
                 if (status != STATUS_COMMITTED) {
                     deleteArchivedDocumentFile(fileName);
                 }
+            }
+        });
+    }
+
+    private void registerAfterCommitLog(Runnable logAction) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            logAction.run();
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                logAction.run();
             }
         });
     }
