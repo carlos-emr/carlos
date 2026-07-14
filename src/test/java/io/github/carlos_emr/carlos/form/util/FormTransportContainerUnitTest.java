@@ -46,7 +46,7 @@ class FormTransportContainerUnitTest {
     void shouldCaptureForwardedFormHtml_whenNestedRenderUsesStrutsResponse() throws Exception {
         MockHttpServletResponse outerResponse = new MockHttpServletResponse();
         ActionContext.of().withServletResponse(outerResponse).bind();
-        MockHttpServletRequest request = requestForwardingTo((servletRequest, servletResponse) -> {
+        MockHttpServletRequest request = requestForwardingTo(servletResponse -> {
             assertThat(ServletActionContext.getResponse()).isSameAs(servletResponse);
             ServletActionContext.getResponse().getWriter().write("<html>form</html>");
             ServletActionContext.getResponse().flushBuffer();
@@ -64,8 +64,10 @@ class FormTransportContainerUnitTest {
     void shouldRejectNestedRedirect_withoutMutatingCallerResponse() {
         MockHttpServletResponse outerResponse = new MockHttpServletResponse();
         ActionContext.of().withServletResponse(outerResponse).bind();
-        MockHttpServletRequest request = requestForwardingTo((servletRequest, servletResponse) ->
-                ServletActionContext.getResponse().sendRedirect("/carlos/form/formannual"));
+        MockHttpServletRequest request = requestForwardingTo(servletResponse -> {
+            ServletActionContext.getResponse().sendRedirect("/carlos/form/formannual");
+            assertThat(ServletActionContext.getResponse().isCommitted()).isTrue();
+        });
 
         assertThatThrownBy(() -> new FormTransportContainer(outerResponse, request, "/form/forwardshortcutname"))
                 .isInstanceOf(ServletException.class)
@@ -77,6 +79,25 @@ class FormTransportContainerUnitTest {
         assertThat(ServletActionContext.getResponse()).isSameAs(outerResponse);
     }
 
+    @Test
+    void shouldRejectNestedError_withoutExposingNestedMessage() {
+        MockHttpServletResponse outerResponse = new MockHttpServletResponse();
+        ActionContext.of().withServletResponse(outerResponse).bind();
+        MockHttpServletRequest request = requestForwardingTo(servletResponse -> {
+            ServletActionContext.getResponse().sendError(500, "patient-specific error");
+            assertThat(ServletActionContext.getResponse().isCommitted()).isTrue();
+        });
+
+        assertThatThrownBy(() -> new FormTransportContainer(outerResponse, request, "/form/formannual"))
+                .isInstanceOf(ServletException.class)
+                .hasMessageContaining("HTTP status 500")
+                .hasMessageNotContaining("patient-specific error");
+
+        assertThat(outerResponse.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        assertThat(outerResponse.isCommitted()).isFalse();
+        assertThat(ServletActionContext.getResponse()).isSameAs(outerResponse);
+    }
+
     private static MockHttpServletRequest requestForwardingTo(ForwardHandler forwardHandler) {
         return new MockHttpServletRequest() {
             @Override
@@ -84,11 +105,12 @@ class FormTransportContainerUnitTest {
                 return new RequestDispatcher() {
                     @Override
                     public void forward(ServletRequest request, ServletResponse response) throws ServletException, IOException {
-                        forwardHandler.forward(request, response);
+                        forwardHandler.forward(response);
                     }
 
                     @Override
                     public void include(ServletRequest request, ServletResponse response) {
+                        throw new UnsupportedOperationException("Test dispatcher does not support include");
                     }
                 };
             }
@@ -97,6 +119,6 @@ class FormTransportContainerUnitTest {
 
     @FunctionalInterface
     private interface ForwardHandler {
-        void forward(ServletRequest request, ServletResponse response) throws ServletException, IOException;
+        void forward(ServletResponse response) throws ServletException, IOException;
     }
 }

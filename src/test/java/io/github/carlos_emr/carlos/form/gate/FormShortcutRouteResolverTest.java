@@ -41,11 +41,23 @@ class FormShortcutRouteResolverTest {
         String route = FormShortcutRouteResolver.resolve(
                 new String[] {"../form/formannual.jsp?demographic_no=", "9"},
                 "3",
-                "latest",
+                "LaTeSt",
                 null,
                 null);
 
         assertThat(route).isEqualTo("/form/formannual?demographic_no=3&formId=9");
+    }
+
+    @Test
+    void shouldPreserveNewFormRoute_whenFormIdIsZero() {
+        String route = FormShortcutRouteResolver.resolve(
+                new String[] {"../form/formannual.jsp?demographic_no=", "9"},
+                "3",
+                "0",
+                null,
+                null);
+
+        assertThat(route).isEqualTo("/form/formannual?demographic_no=3&formId=0");
     }
 
     @Test
@@ -87,7 +99,7 @@ class FormShortcutRouteResolverTest {
     }
 
     @Test
-    void shouldRejectBlankDemographicNumber() {
+    void shouldRejectDemographicNumber_whenValueIsBlank() {
         assertThatThrownBy(() -> FormShortcutRouteResolver.resolve(
                 new String[] {"../form/formannual.jsp?demographic_no=", "9"},
                 " ",
@@ -96,5 +108,41 @@ class FormShortcutRouteResolverTest {
                 null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Invalid demographic number");
+    }
+
+    @Test
+    void shouldRejectDemographicNumber_whenValueIsZero() {
+        assertThatThrownBy(() -> FormShortcutRouteResolver.resolve(
+                new String[] {"../form/formannual.jsp?demographic_no=", "9"},
+                "0",
+                "9",
+                null,
+                null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid demographic number");
+    }
+
+    @Test
+    void shouldRejectFormId_whenValueIsNegative() {
+        assertThatThrownBy(() -> FormShortcutRouteResolver.resolve(
+                new String[] {"../form/formannual.jsp?demographic_no=", "9"},
+                "3",
+                "-1",
+                null,
+                null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid form id");
+    }
+
+    @Test
+    void shouldRejectFormName_whenValueIsBlank() {
+        assertThatThrownBy(() -> FormShortcutRouteResolver.resolve(
+                "3",
+                " ",
+                "9",
+                null,
+                null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid form name");
     }
 }
