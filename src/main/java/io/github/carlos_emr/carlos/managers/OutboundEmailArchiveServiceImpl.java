@@ -179,7 +179,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
                     providerNo,
                     artifactBytes);
         } catch (IOException | RuntimeException e) {
-            deleteArchivedDocumentFile(fileName);
+            deleteArchivedDocumentFile(document.getDocfilename() != null ? document.getDocfilename() : fileName);
             throw e;
         }
         registerRollbackCleanup(savedDocument);

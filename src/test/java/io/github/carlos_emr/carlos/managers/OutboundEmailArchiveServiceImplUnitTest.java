@@ -177,8 +177,8 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should delete generated eDoc file when createDocument fails after file write")
-    void shouldDeleteGeneratedEdocFile_whenCreateDocumentFailsAfterFileWrite(@TempDir Path documentDir) throws Exception {
+    @DisplayName("should delete final eDoc file when createDocument fails after filename normalization")
+    void shouldDeleteFinalEdocFile_whenCreateDocumentFailsAfterFilenameNormalization(@TempDir Path documentDir) throws Exception {
         CarlosProperties props = CarlosProperties.getInstance();
         boolean hadDocumentDir = props.containsKey("DOCUMENT_DIR");
         Object originalDocumentDir = props.get("DOCUMENT_DIR");
@@ -190,15 +190,16 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
             AtomicReference<Path> createdFile = new AtomicReference<>();
             doAnswer(invocation -> {
                 Document documentToCreate = invocation.getArgument(1);
+                documentToCreate.setDocfilename("20260707120000_" + documentToCreate.getDocfilename());
                 Path file = documentDir.resolve(documentToCreate.getDocfilename());
                 Files.write(file, RFC822_BYTES);
                 createdFile.set(file);
-                throw new IOException("document creation failed");
+                throw new RuntimeException("document database failed");
             }).when(documentManager).createDocument(eq(loggedInInfo), any(Document.class), eq(123), eq(PROVIDER_NO), eq(RFC822_BYTES));
 
             assertThatThrownBy(() -> service.archive(loggedInInfo, request))
-                    .isInstanceOf(IOException.class)
-                    .hasMessageContaining("document creation failed");
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessageContaining("document database failed");
 
             Path file = createdFile.get();
             assertThat(file).isNotNull();
