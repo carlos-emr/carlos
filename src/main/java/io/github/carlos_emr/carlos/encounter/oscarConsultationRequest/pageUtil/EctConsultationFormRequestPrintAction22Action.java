@@ -237,7 +237,12 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             List<EctFormData.PatientForm> forms = consultationManager.getAttachedForms(loggedInInfo, Integer.parseInt(reqId), Integer.parseInt(demoNo));
 
             for (EctFormData.PatientForm formItem : forms) {
-                addRenderedFormAttachment(loggedInInfo, request, response, faxManager, demoNo, formItem, streams, alist);
+                InputStream attachedFormStream = renderFormAttachment(
+                        loggedInInfo, request, response, faxManager, demoNo, formItem);
+                if (attachedFormStream != null) {
+                    streams.add(attachedFormStream);
+                    alist.add(attachedFormStream);
+                }
             }
 
             if (alist.size() > 0) {
@@ -281,15 +286,13 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
 
     }
 
-    private void addRenderedFormAttachment(
+    private InputStream renderFormAttachment(
             LoggedInInfo loggedInInfo,
             HttpServletRequest request,
             HttpServletResponse response,
             FaxManager faxManager,
             String demoNo,
-            EctFormData.PatientForm formItem,
-            List<InputStream> streams,
-            List<Object> alist) {
+            EctFormData.PatientForm formItem) {
         try {
             String formPath = FormShortcutRouteResolver.resolve(
                     formItem.getDemoNo(), formItem.getFormName(), formItem.getFormId(), null, null);
@@ -301,12 +304,11 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             formTransportContainer.setRealPath(ServletActionContext.getServletContext().getRealPath(File.separator));
             Path attachedForm = faxManager.renderFaxDocument(
                     loggedInInfo, FaxManager.TransactionType.FORM, formTransportContainer);
-            InputStream attachedFormStream = Files.newInputStream(attachedForm);
-            streams.add(attachedFormStream);
-            alist.add(attachedFormStream);
+            return Files.newInputStream(attachedForm);
         } catch (SQLException | IOException | ServletException | RuntimeException e) {
             logger.warn("Skipped consultation print form attachment id={} while rendering PDF package; errorType={}",
                     safeFormAttachmentId(formItem), e.getClass().getName());
+            return null;
         }
     }
 
