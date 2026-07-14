@@ -126,6 +126,46 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
     private static final String CONSULT_PREVIEW_UNAVAILABLE_PREFIX = "A print preview of this consultation could not be generated. \n\n";
     private static final String CONSULT_PREVIEW_UNAVAILABLE_MESSAGE = CONSULT_PREVIEW_UNAVAILABLE_PREFIX + CONSULTATION_REQUEST_UNAVAILABLE + ".";
 
+    private enum ConsultationWriteTargetStatus {
+        VERIFIED,
+        INVALID_DEMOGRAPHIC,
+        INVALID_CONSULTATION_REQUEST_ID,
+        CONSULTATION_UNAVAILABLE
+    }
+
+    private record ConsultationWriteTarget(ConsultationRequest consult, int consultationRequestId,
+                                           int demographicId, String demographicNo) {
+    }
+
+    private record ConsultationWriteTargetVerification(ConsultationWriteTargetStatus status,
+                                                       ConsultationWriteTarget target,
+                                                       Integer consultationRequestId) {
+        private static ConsultationWriteTargetVerification verified(ConsultationWriteTarget target) {
+            return new ConsultationWriteTargetVerification(ConsultationWriteTargetStatus.VERIFIED, target, target.consultationRequestId());
+        }
+
+        private static ConsultationWriteTargetVerification invalidDemographic() {
+            return new ConsultationWriteTargetVerification(ConsultationWriteTargetStatus.INVALID_DEMOGRAPHIC, null, null);
+        }
+
+        private static ConsultationWriteTargetVerification invalidConsultationRequestId() {
+            return new ConsultationWriteTargetVerification(ConsultationWriteTargetStatus.INVALID_CONSULTATION_REQUEST_ID, null, null);
+        }
+
+        private static ConsultationWriteTargetVerification consultationUnavailable(int consultationRequestId) {
+            return new ConsultationWriteTargetVerification(ConsultationWriteTargetStatus.CONSULTATION_UNAVAILABLE, null, consultationRequestId);
+        }
+
+        private boolean isVerified() {
+            return status == ConsultationWriteTargetStatus.VERIFIED;
+        }
+
+        private boolean hasInvalidInput() {
+            return status == ConsultationWriteTargetStatus.INVALID_DEMOGRAPHIC
+                    || status == ConsultationWriteTargetStatus.INVALID_CONSULTATION_REQUEST_ID;
+        }
+    }
+
     private Integer parseUpdateInteger(String rawValue, String logMessage, String actionErrorMessage) {
         try {
             return Integer.parseInt(rawValue);
@@ -156,46 +196,78 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return INPUT;
     }
 
+    private String consultationWriteTargetFailureResult(ConsultationWriteTargetVerification verification) {
+        if (verification.hasInvalidInput()) {
+            return INPUT;
+        }
+        return consultationUpdateUnavailable(verification.consultationRequestId());
+    }
+
+    private ConsultationWriteTargetVerification verifyConsultationWriteTarget(LoggedInInfo loggedInInfo,
+                                                                             ConsultationRequestDao consultationRequestDao,
+                                                                             String requestId,
+                                                                             String demographicNo,
+                                                                             String demographicLogMessage,
+                                                                             String consultationRequestLogMessage) {
+        Integer parsedDemographicId = parseUpdateInteger(demographicNo, demographicLogMessage, INVALID_DEMOGRAPHIC_NUMBER);
+        if (parsedDemographicId == null) {
+            return ConsultationWriteTargetVerification.invalidDemographic();
+        }
+
+        String submittedDemographicNo = String.valueOf(parsedDemographicId);
+        requireConsultWritePrivilege(loggedInInfo, submittedDemographicNo);
+
+        Integer parsedConsultationRequestId = parseUpdateInteger(requestId, consultationRequestLogMessage, INVALID_CONSULTATION_REQUEST_ID);
+        if (parsedConsultationRequestId == null) {
+            return ConsultationWriteTargetVerification.invalidConsultationRequestId();
+        }
+        int consultationRequestId = parsedConsultationRequestId;
+
+        ConsultationRequest consult = consultationRequestDao.find(consultationRequestId);
+        if (consult == null) {
+            return ConsultationWriteTargetVerification.consultationUnavailable(consultationRequestId);
+        }
+
+        try {
+            String verifiedDemographicNo = requireMatchingConsultationDemographic(consult, parsedDemographicId);
+            ConsultationWriteTarget target = new ConsultationWriteTarget(
+                    consult, consultationRequestId, parsedDemographicId, verifiedDemographicNo);
+            return ConsultationWriteTargetVerification.verified(target);
+        } catch (SecurityException e) {
+            return ConsultationWriteTargetVerification.consultationUnavailable(consultationRequestId);
+        }
+    }
+
     private String resolveConsultationPreviewDemographicNoOrSetError(LoggedInInfo loggedInInfo, ConsultationRequestDao consultationRequestDao, String requestId, String demographicNo) {
         if (StringUtils.isBlank(requestId)) {
             request.setAttribute(ATTR_ERROR_MESSAGE, CONSULT_PREVIEW_UNAVAILABLE_PREFIX + "Missing consultation request id.");
             return null;
         }
 
-        Integer parsedDemographicId = parseUpdateInteger(demographicNo,
-                "Invalid demographic number for consultation print preview: {}",
-                INVALID_DEMOGRAPHIC_NUMBER);
-        if (parsedDemographicId == null) {
-            request.setAttribute(ATTR_ERROR_MESSAGE, CONSULT_PREVIEW_UNAVAILABLE_PREFIX + "Invalid demographic number.");
-            return null;
-        }
-
-        String submittedDemographicNo = String.valueOf(parsedDemographicId);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", "w", submittedDemographicNo)) {
-            request.setAttribute(ATTR_ERROR_MESSAGE, CONSULT_PREVIEW_UNAVAILABLE_MESSAGE);
-            return null;
-        }
-
-        Integer parsedConsultationRequestId = parseUpdateInteger(requestId,
-                "Invalid consultation request id for print preview: {}",
-                INVALID_CONSULTATION_REQUEST_ID);
-        if (parsedConsultationRequestId == null) {
-            request.setAttribute(ATTR_ERROR_MESSAGE, CONSULT_PREVIEW_UNAVAILABLE_PREFIX + INVALID_CONSULTATION_REQUEST_ID + ".");
-            return null;
-        }
-
-        ConsultationRequest consult = consultationRequestDao.find(parsedConsultationRequestId.intValue());
-        if (consult == null) {
-            request.setAttribute(ATTR_ERROR_MESSAGE, CONSULT_PREVIEW_UNAVAILABLE_MESSAGE);
-            return null;
-        }
-
+        ConsultationWriteTargetVerification verification;
         try {
-            return requireMatchingConsultationDemographic(consult, parsedDemographicId);
+            verification = verifyConsultationWriteTarget(loggedInInfo, consultationRequestDao, requestId, demographicNo,
+                    "Invalid demographic number for consultation print preview: {}",
+                    "Invalid consultation request id for print preview: {}");
         } catch (SecurityException e) {
             request.setAttribute(ATTR_ERROR_MESSAGE, CONSULT_PREVIEW_UNAVAILABLE_MESSAGE);
             return null;
         }
+
+        if (verification.status() == ConsultationWriteTargetStatus.VERIFIED) {
+            return verification.target().demographicNo();
+        }
+        if (verification.status() == ConsultationWriteTargetStatus.INVALID_DEMOGRAPHIC) {
+            request.setAttribute(ATTR_ERROR_MESSAGE, CONSULT_PREVIEW_UNAVAILABLE_PREFIX + "Invalid demographic number.");
+            return null;
+        }
+        if (verification.status() == ConsultationWriteTargetStatus.INVALID_CONSULTATION_REQUEST_ID) {
+            request.setAttribute(ATTR_ERROR_MESSAGE, CONSULT_PREVIEW_UNAVAILABLE_PREFIX + INVALID_CONSULTATION_REQUEST_ID + ".");
+            return null;
+        }
+
+        request.setAttribute(ATTR_ERROR_MESSAGE, CONSULT_PREVIEW_UNAVAILABLE_MESSAGE);
+        return null;
     }
 
     /**
@@ -441,38 +513,23 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         } else if (submission.startsWith("Update")) {
             requestId = submittedRequestId;
 
-            Integer parsedConsultationRequestId = parseUpdateInteger(requestId,
-                    "Invalid consultation request id for update: {}",
-                    INVALID_CONSULTATION_REQUEST_ID);
-            if (parsedConsultationRequestId == null) {
-                return INPUT;
-            }
-            int consultationRequestId = parsedConsultationRequestId;
-
-            Integer parsedDemographicId = parseUpdateInteger(demographicNo,
+            // Load the consultation record before signature assignment so fallback branches use the
+            // DB-stored signature id rather than the client-submitted field (prevents a tampered
+            // form from associating an arbitrary DigitalSignature id with this consultation).
+            ConsultationWriteTargetVerification verification = verifyConsultationWriteTarget(loggedInInfo, consultationRequestDao, requestId, demographicNo,
                     "Invalid demographic number for consultation update: {}",
-                    INVALID_DEMOGRAPHIC_NUMBER);
-            if (parsedDemographicId == null) {
-                return INPUT;
+                    "Invalid consultation request id for update: {}");
+            if (!verification.isVerified()) {
+                return consultationWriteTargetFailureResult(verification);
             }
-            int demographicId = parsedDemographicId;
-            String submittedDemographicNo = String.valueOf(demographicId);
-            requireConsultWritePrivilege(loggedInInfo, submittedDemographicNo);
+            ConsultationWriteTarget target = verification.target();
+            ConsultationRequest consult = target.consult();
+            int consultationRequestId = target.consultationRequestId();
+            int demographicId = target.demographicId();
+            demographicNo = target.demographicNo();
+            consultTargetWriteVerified = true;
 
             try {
-                // Load the consultation record before signature assignment so fallback branches use the
-                // DB-stored signature id rather than the client-submitted field (prevents a tampered
-                // form from associating an arbitrary DigitalSignature id with this consultation).
-                ConsultationRequest consult = consultationRequestDao.find(consultationRequestId);
-                if (consult == null) {
-                    return consultationUpdateUnavailable(consultationRequestId);
-                }
-                try {
-                    demographicNo = requireMatchingConsultationDemographic(consult, demographicId);
-                } catch (SecurityException e) {
-                    return consultationUpdateUnavailable(consultationRequestId);
-                }
-                consultTargetWriteVerified = true;
                 consultationManager.archiveConsultationRequest(consultationRequestId);
 
                 String existingSignatureId = consult.getSignatureImg();
@@ -675,32 +732,15 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                     requestId = submittedRequestId;
                 }
 
-                Integer parsedDemographicId = parseUpdateInteger(demographicNo,
+                ConsultationWriteTargetVerification verification = verifyConsultationWriteTarget(loggedInInfo, consultationRequestDao, requestId, demographicNo,
                         "Invalid demographic number for consultation fax: {}",
-                        INVALID_DEMOGRAPHIC_NUMBER);
-                if (parsedDemographicId == null) {
-                    return INPUT;
+                        "Invalid consultation request id for consultation fax: {}");
+                if (!verification.isVerified()) {
+                    return consultationWriteTargetFailureResult(verification);
                 }
-                demographicNo = String.valueOf(parsedDemographicId);
-                requireConsultWritePrivilege(loggedInInfo, demographicNo);
-
-                Integer parsedConsultationRequestId = parseUpdateInteger(requestId,
-                        "Invalid consultation request id for consultation fax: {}",
-                        INVALID_CONSULTATION_REQUEST_ID);
-                if (parsedConsultationRequestId == null) {
-                    return INPUT;
-                }
-                int consultationRequestId = parsedConsultationRequestId;
-                ConsultationRequest consult = consultationRequestDao.find(consultationRequestId);
-                if (consult == null) {
-                    return consultationUpdateUnavailable(consultationRequestId);
-                }
-                try {
-                    demographicNo = requireMatchingConsultationDemographic(consult, parsedDemographicId);
-                } catch (SecurityException e) {
-                    return consultationUpdateUnavailable(consultationRequestId);
-                }
-                requestId = String.valueOf(consultationRequestId);
+                ConsultationWriteTarget target = verification.target();
+                demographicNo = target.demographicNo();
+                requestId = String.valueOf(target.consultationRequestId());
             }
 
             String[] faxRecipients = request.getParameterValues("faxRecipients");
