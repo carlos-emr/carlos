@@ -64,6 +64,9 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+/**
+ * Struts action orchestrating the display of WCB claim details.
+ */
 
 public class ViewWCB2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -75,6 +78,7 @@ public class ViewWCB2Action extends ActionSupport {
     SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     public String execute() {
+        // Prepares the complex WCB context payload ensuring all injury metadata is present
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }

@@ -53,6 +53,9 @@ import java.util.*;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+/**
+ * Struts action delivering the user preference settings interface for billing.
+ */
 
 public class ViewBillingPreferences2Action
         extends ActionSupport {
@@ -66,6 +69,7 @@ public class ViewBillingPreferences2Action
     private final ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
 
     public String execute() {
+        // Loads user-specific defaults that dictate UI behavior during fast-entry billing
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(servletRequest);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");

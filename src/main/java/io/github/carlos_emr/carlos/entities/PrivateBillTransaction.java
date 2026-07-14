@@ -31,6 +31,9 @@ package io.github.carlos_emr.carlos.entities;
 
 import java.math.BigDecimal;
 import java.util.Date;
+/**
+ * Data Transfer Object containing transaction details for private medical billing.
+ */
 
 public class PrivateBillTransaction {
     private int id;

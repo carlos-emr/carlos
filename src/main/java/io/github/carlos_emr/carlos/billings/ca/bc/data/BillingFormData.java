@@ -43,6 +43,9 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 import java.util.*;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+/**
+ * Form-backing object aggregating varied billing information for presentation.
+ */
 
 public class BillingFormData {
 
@@ -139,6 +142,7 @@ public class BillingFormData {
      * @return boolean value whether this type exists or not
      */
     public boolean serviceExists(String serviceType) {
+        // Verifies presence of service codes in payload against active billing definitions
         List<BillingService> result = new ArrayList<BillingService>();
         BillingBCDao dao = SpringUtils.getBean(BillingBCDao.class);
         List<Object[]> services = dao.findBillingServicesByType(serviceType);

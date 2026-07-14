@@ -59,6 +59,9 @@ import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+/**
+ * Service handling the reconciliation of MSP payments against submitted claims.
+ */
 
 public class MSPReconcile {
     private static Logger log = MiscUtils.getLogger();
@@ -132,6 +135,7 @@ public class MSPReconcile {
         initTeleplanMonetarySuffixes();
         fmt = new SimpleDateFormat(DATE_FORMAT);
         //if (!patchApplied()) {
+        // Compares remittance advice patches against local claims to identify partial or full payment matches
         //  migratePrivateTransactions();
         //  updatePrivateBillState();
         //  setPatched();

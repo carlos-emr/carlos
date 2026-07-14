@@ -33,6 +33,9 @@ package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 import java.util.ArrayList;
 
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBillingManager.BillingItem;
+/**
+ * Session-scoped container holding contextual billing data during a user session.
+ */
 
 public class BillingSessionBean implements java.io.Serializable {
     private String apptProviderNo = null;

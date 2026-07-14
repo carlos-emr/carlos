@@ -39,6 +39,9 @@ import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+/**
+ * Struts endpoint retrieving and displaying current service code associations.
+ */
 
 public class ShowServiceCodeAssocs2Action
         extends ActionSupport {
@@ -47,6 +50,7 @@ public class ShowServiceCodeAssocs2Action
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
     public String execute() {
+        // Retrieves the active code mapping rules for administrative review and editing
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");

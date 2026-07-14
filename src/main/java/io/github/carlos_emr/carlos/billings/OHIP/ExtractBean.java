@@ -53,6 +53,9 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+/**
+ * Container bean for managing and exporting OHIP extraction records.
+ */
 
 public class ExtractBean extends Object implements Serializable {
 
@@ -145,6 +148,7 @@ public class ExtractBean extends Object implements Serializable {
     }
 
     private String buildBatchHeader() {
+        // Formats header exactly to OHIP specification requiring strict fixed-width field alignment
         return (HE + "B" + ohipVer + ohipCenter + output + zero(batchOrder)
                 + batchCount + space(6) + groupNo + providerNo + specialty
                 + space(42) + "\r");

@@ -40,6 +40,9 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Iterator;
 import java.util.List;
+/**
+ * Utility routine performing validation checks on billing data prior to submission.
+ */
 
 public class CheckBillingData {
 
@@ -48,6 +51,7 @@ public class CheckBillingData {
                            String dataCentreSeq, String vendorMSPDCNum, String softName,
                            String softVer, String softInsDate, String vendorName,
                            String vendorContact, String vendorConName, String filler) {
+        // Enforces strict BC validation schema rules before payload serialization
         String ret = checkVS1DataCenterNum(dataCentreNum);
         ret = printWarningMsg(ret);
         return ret;

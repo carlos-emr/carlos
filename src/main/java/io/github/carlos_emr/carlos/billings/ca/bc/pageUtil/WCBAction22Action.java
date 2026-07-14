@@ -66,6 +66,9 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+/**
+ * Struts endpoint processing specific WCB-related forms and updates.
+ */
 
 public class WCBAction22Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -74,6 +77,7 @@ public class WCBAction22Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     public String execute() throws Exception {        return save();
+        // Handles the specialized routing requirements for form 22 submission workflows
     }
 
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.

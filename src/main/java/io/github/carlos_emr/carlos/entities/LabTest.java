@@ -30,6 +30,9 @@
 package io.github.carlos_emr.carlos.entities;
 
 //
+/**
+ * Entity representing a laboratory test configuration or order detail.
+ */
 public class LabTest
         extends Test {
     private String observationDateTime = "";
@@ -62,6 +65,7 @@ public class LabTest
     }
 
     public boolean isDefaultLab() {
+        // Flags whether this configuration should be applied universally across standard lab routing rules
         return defaultLab;
     }
 

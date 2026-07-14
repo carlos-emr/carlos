@@ -68,6 +68,9 @@ import io.github.carlos_emr.carlos.util.StringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+/**
+ * Struts controller managing the workflow to re-process previously rejected bills.
+ */
 
 public class BillingReProcessBill2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -84,6 +87,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
     MSPReconcile msp = new MSPReconcile();
 
     public String execute() throws IOException, ServletException {        if (request.getSession().getAttribute("user") == null) {
+        // Resets claim state and applies necessary corrections prior to secondary submission
             return "Logout";
         }
 

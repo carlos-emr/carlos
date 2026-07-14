@@ -41,6 +41,9 @@ import io.github.carlos_emr.carlos.commn.model.CtlBillingService;
 import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+/**
+ * Form-backing object aggregating varied billing information for presentation.
+ */
 
 public class BillingFormData {
 

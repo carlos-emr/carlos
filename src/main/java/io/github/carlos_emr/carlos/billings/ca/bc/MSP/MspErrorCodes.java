@@ -45,6 +45,9 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.CarlosProperties;
+/**
+ * Reference container or enumerator for standard MSP rejection and error codes.
+ */
 
 public class MspErrorCodes extends Properties {
 
@@ -54,6 +57,7 @@ public class MspErrorCodes extends Properties {
     public MspErrorCodes() {
         super();
         try (InputStream is = openErrorCodesStream()) {
+        // Loads the definitive provincial error matrix used to decode submission rejections
             if (is != null) {
                 load(is);
             }

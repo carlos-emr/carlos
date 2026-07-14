@@ -57,6 +57,9 @@ import java.io.Serializable;
 import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
+/**
+ * Container bean for managing and exporting OHIP extraction records.
+ */
 
 
 public class ExtractBean extends Object implements Serializable {

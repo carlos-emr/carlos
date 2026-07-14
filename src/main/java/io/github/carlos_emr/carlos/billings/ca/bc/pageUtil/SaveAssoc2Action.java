@@ -40,6 +40,9 @@ import java.util.List;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+/**
+ * Struts action responsible for saving updates to code mappings or associations.
+ */
 
 public class SaveAssoc2Action
         extends ActionSupport {
@@ -49,6 +52,7 @@ public class SaveAssoc2Action
     HttpServletResponse response = ServletActionContext.getResponse();
 
     public String execute() {
+        // Commits changes to the code relationship matrix used in clinical decision support
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");

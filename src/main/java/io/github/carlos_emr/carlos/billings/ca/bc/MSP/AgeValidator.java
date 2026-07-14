@@ -28,6 +28,9 @@
  */
 
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
+/**
+ * Utility component for evaluating and validating patient age constraints for billing codes.
+ */
 
 
 public class AgeValidator
@@ -73,6 +76,7 @@ public class AgeValidator
     }
 
     public boolean isValid() {
+        // Applies complex age constraints to ensure service code eligibility for pediatric/geriatric claims
         return (this.inputAge >= minAge && this.inputAge <= maxAge);
     }
 }

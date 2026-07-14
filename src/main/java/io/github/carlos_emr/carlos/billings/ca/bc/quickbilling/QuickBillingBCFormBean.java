@@ -36,6 +36,9 @@ import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
 
 import java.util.ArrayList;
 import java.util.List;
+/**
+ * Data representation holding UI inputs for quick billing workflows in BC.
+ */
 
 
 public class QuickBillingBCFormBean {

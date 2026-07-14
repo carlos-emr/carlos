@@ -35,6 +35,9 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.BillRecipients;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+/**
+ * Data entity defining the individual or agency responsible for receiving a bill.
+ */
 
 public class BillRecipient {
 

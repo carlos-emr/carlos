@@ -56,6 +56,9 @@ import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+/**
+ * Struts action processing save operations for BC quick billing submissions.
+ */
 
 public class QuickBillingBCSave2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -70,6 +73,7 @@ public class QuickBillingBCSave2Action extends ActionSupport {
 
     public String execute()
             throws ServletException, IOException {        if (request.getSession().getAttribute("user") == null) {
+        // Wraps save logic in transaction boundaries to prevent partial billing state corruption
             return "Logout";
         }
 

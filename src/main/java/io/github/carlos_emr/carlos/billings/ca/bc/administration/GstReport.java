@@ -17,6 +17,9 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import java.util.Properties;
 import java.util.Vector;
+/**
+ * Service or model entity handling GST calculation and reporting data for billing.
+ */
 
 public class GstReport {
 

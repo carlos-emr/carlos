@@ -35,6 +35,9 @@ import java.util.List;
 import io.github.carlos_emr.carlos.billing.CA.BC.dao.TeleplanSubmissionLinkDao;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanSubmissionLink;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+/**
+ * Data Access Object managing persistence of links between local claims and Teleplan submissions.
+ */
 
 public class TeleplanSubmissionLinkDAO {
 
@@ -45,6 +48,7 @@ public class TeleplanSubmissionLinkDAO {
     }
 
     public void save(int billActId, List billingMasterList) {
+        // Persists the linkage between local records and provincial submission IDs for traceability
         for (int i = 0; i < billingMasterList.size(); i++) {
             String bi = (String) billingMasterList.get(i);
             int b = Integer.parseInt(bi);

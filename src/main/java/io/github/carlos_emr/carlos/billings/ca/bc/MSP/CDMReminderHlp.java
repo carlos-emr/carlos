@@ -36,12 +36,16 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.tickler.TicklerCreator;
 import io.github.carlos_emr.carlos.util.SqlUtils;
+/**
+ * Helper utility processing reminders related to Chronic Disease Management (CDM) criteria.
+ */
 
 public class CDMReminderHlp {
     public CDMReminderHlp() {
     }
 
     private String[] createCDMCodeArray(List<String[]> codes) {
+        // Constructs criteria matrix required for chronicity tracking and automated billing prompts
         String[] ret = new String[codes.size()];
         for (int i = 0; i < codes.size(); i++) {
             String[] row = codes.get(i);
