@@ -272,6 +272,7 @@ FOR STAND ALONE USE
 <c:set var="i18n_textAddWetSignature"><fmt:message key="eform.visual.editor.text.addWetSignature"/></c:set>
 <c:set var="i18n_textControls"><fmt:message key="eform.visual.editor.text.controls"/></c:set>
 <c:set var="i18n_textGuideOptions"><fmt:message key="eform.visual.editor.text.guideOptions"/></c:set>
+<c:set var="i18n_imageOrientation"><fmt:message key="eFormGenerator.imageOrientation"/></c:set>
 <script>
 /* i18n strings for Visual eForm Editor - populated server-side, OWASP JS-encoded */
 var EFORM_I18N = {
@@ -374,7 +375,8 @@ var EFORM_I18N = {
     textTrash: '${carlos:forJavaScript(i18n_textTrash)}',
     textAddWetSignature: '${carlos:forJavaScript(i18n_textAddWetSignature)}',
     textControls: '${carlos:forJavaScript(i18n_textControls)}',
-    textGuideOptions: '${carlos:forJavaScript(i18n_textGuideOptions)}'
+    textGuideOptions: '${carlos:forJavaScript(i18n_textGuideOptions)}',
+    imageOrientation: '${carlos:forJavaScript(imageOrientation)}'           
 };
 </script>
 
@@ -2589,7 +2591,7 @@ var EFORM_I18N = {
     		function cleanOscarTags(data) {
     		//  noborderPrint" title="age" oscardb="age" placeholder="
     		//  noborderPrint" title="age" oscardb="" "age"="" placeholder="
-    			const regex = /oscarDB=([0-9#$a-z_]+)/gi;
+    			const regex = /oscarDB=([0-9#$a-z_\-]+)/gi;
     			const replaceStr = 'oscarDB="$1"';
     			data = data.replace(regex, replaceStr);
     			return data;
@@ -2621,9 +2623,14 @@ var EFORM_I18N = {
     		}
 
         function loadEformData(data) {
+          // clear fax number from the previous eform
+          defaultFaxNo = "";
+          $("`#defaultFaxNo`").val("");
+          $("`#setTickler`").prop("checked", false);
+          $("`#tickle_dialog`").remove();
           // remove oscar image paths in incoming data
           data = removeOscarImagePath(data);
-    			//use regex to sanitize foreign imported oscarDb tags
+    			// use regex to sanitize foreign imported oscarDb tags
     			data = cleanOscarTags(data);
     
     			// import the default fax number if present
@@ -3217,7 +3224,7 @@ var EFORM_I18N = {
             }).append($custDimensionX).append($custDimensionY);
 
             var labels = [EFORM_I18N.optPortrait, EFORM_I18N.optLandscape, EFORM_I18N.optCustom];
-            var $orinetationRadioGroup = addRadioGroup($element, "gen-orientation", "<fmt:message key='eFormGenerator.imageOrientation'/>", labels);
+            var $orinetationRadioGroup = addRadioGroup($element, "gen-orientation", EFORM_I18N.imageOrientation, labels);
             $orinetationRadioGroup.on("change", function(e) {
                 var value = parseInt($(e.target).val());
                 setPageOrientation(value);
@@ -3324,7 +3331,7 @@ var EFORM_I18N = {
             //$rBoxTemplateInput.addClass("cradio").attr('autocomplete', 'off');
             $rBoxTemplateInput.addClass("cradio").attr('onclick', 'myupdate(this)'); //newwork
 
-            $bBoxTemplateInput.addClass("all-no-button2").attr('value', 'All No');
+            $bBoxTemplateInput.addClass("all-no-button2").attr('value', EFORM_I18N.buttonAllNo);
             $bBoxTemplateInput.attr('onclick', 'allno();');
             $bBoxTemplateInput.removeClass("gen_input")
             $bBoxTemplate.hide();
