@@ -23,7 +23,9 @@ import org.springframework.stereotype.Service;
  * Generates server-assigned passphrases for password-protected patient email PDFs.
  *
  * <p>The wordlist is intentionally public. Security comes from uniformly selecting
- * enough words with {@link SecureRandom}, not from wordlist secrecy.</p>
+ * enough words with {@link SecureRandom}, not from wordlist secrecy. The 4096-word
+ * list contributes 12 bits per word, so the default seven-word passphrase provides
+ * 84 bits of entropy.</p>
  */
 @Service
 public class EmailPdfPasswordService {
