@@ -1,7 +1,7 @@
 package io.github.carlos_emr.carlos.email.action;
 
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -92,7 +92,7 @@ public class EmailCompose2Action extends ActionSupport {
     static final long PENDING_EMAIL_COMPOSE_STATE_MAX_AGE_MILLIS = 15L * 60 * 1000;
     private static final Object EMAIL_COMPOSE_SUBMISSION_STATES_LOCK = new Object();
     private static final Map<EmailComposeSubmissionStateKey, EmailComposeSubmissionState>
-            PENDING_EMAIL_COMPOSE_SUBMISSION_STATES = new HashMap<>();
+            PENDING_EMAIL_COMPOSE_SUBMISSION_STATES = new LinkedHashMap<>();
 
     private static final String[] EMAIL_SESSION_KEYS = {
         "attachEFormItSelf", "fdid", "demographicId", "emailAttachmentList",
