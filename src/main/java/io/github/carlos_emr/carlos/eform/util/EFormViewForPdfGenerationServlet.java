@@ -24,6 +24,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.CarlosProperties;
@@ -32,6 +33,7 @@ import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.commn.model.EFormValue;
 import io.github.carlos_emr.carlos.eform.data.EForm;
 import io.github.carlos_emr.carlos.utility.HtmlResponse;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -46,6 +48,7 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
     private static final String IMAGE_RENDERING_SERVLET_PATH = "/imageRenderingServlet";
     private static final String PDF_SIGNATURE_SERVLET_PATH = "/EFormSignatureViewForPdfGenerationServlet";
     private static final String DIGITAL_SIGNATURE_ID_PARAM = "digitalSignatureId";
+    private static final String PROVIDER_ID_PARAM = "providerId";
 
     @Override
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
@@ -64,7 +67,11 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
 
             boolean prepareForFax = "true".equals(request.getParameter("prepareForFax"));
             String id = request.getParameter("fdid");
-            String providerId = request.getParameter("providerId");
+            String providerId = browserRender ? authorizedRendererProviderId(request) : request.getParameter(PROVIDER_ID_PARAM);
+            if (browserRender && providerId == null) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN, "Renderer request requires an authenticated matching provider session");
+                return;
+            }
 
             if (id == null || id.trim().isEmpty()) {
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing required parameter: fdid");
@@ -110,6 +117,30 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
         String projectHome = CarlosProperties.getInstance().getProperty("project_home");
 
         return buildPdfHtml(eForm, eFormValues, contextPath, projectHome, prepareForFax);
+    }
+
+    private static String authorizedRendererProviderId(HttpServletRequest request) {
+        String providerId = request.getParameter(PROVIDER_ID_PARAM);
+        if (providerId == null || providerId.isBlank()) {
+            logger.warn("Renderer request rejected: missing providerId for authenticated browser render");
+            return null;
+        }
+
+        String canonicalProviderId = providerId.trim();
+        HttpSession session = request.getSession(false);
+        LoggedInInfo loggedInInfo = session == null ? null : LoggedInInfo.getLoggedInInfoFromSession(session);
+        if (loggedInInfo == null || loggedInInfo.getLoggedInProvider() == null || loggedInInfo.getLoggedInSecurity() == null) {
+            logger.warn("Renderer request rejected: no authenticated session was present");
+            return null;
+        }
+
+        String sessionProviderId = loggedInInfo.getLoggedInProviderNo();
+        if (sessionProviderId == null || !sessionProviderId.equals(canonicalProviderId)) {
+            logger.warn("Renderer request rejected: provider mismatch for authenticated session");
+            return null;
+        }
+
+        return canonicalProviderId;
     }
 
     // normalizePdfSignatureUrl constrains signature URLs to local servlet paths with numeric ids before markup insertion.

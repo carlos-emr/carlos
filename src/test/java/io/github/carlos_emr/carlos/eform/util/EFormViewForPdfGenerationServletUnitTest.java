@@ -22,6 +22,7 @@
 
 package io.github.carlos_emr.carlos.eform.util;
 
+import java.lang.reflect.Method;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
@@ -31,9 +32,13 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.springframework.mock.web.MockHttpServletRequest;
 
 import io.github.carlos_emr.carlos.commn.model.EFormValue;
+import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.eform.data.EForm;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -46,6 +51,36 @@ import static org.mockito.Mockito.when;
 @Tag("fast")
 @Tag("eform")
 class EFormViewForPdfGenerationServletUnitTest {
+
+    @Test
+    @DisplayName("should allow browser renderer requests when the authenticated session matches providerId")
+    void shouldAllowBrowserRendererRequest_whenProviderMatchesAuthenticatedSession() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormViewForPdfGenerationServlet");
+        request.setParameter("providerId", " 999998 ");
+        installLoggedInInfo(request, "999998");
+
+        assertThat(invokeAuthorizedRendererProviderId(request)).isEqualTo("999998");
+    }
+
+    @Test
+    @DisplayName("should reject browser renderer requests without an authenticated session")
+    void shouldRejectBrowserRendererRequest_whenNoAuthenticatedSessionExists() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormViewForPdfGenerationServlet");
+        request.setParameter("providerId", "999998");
+
+        assertThat(invokeAuthorizedRendererProviderId(request)).isNull();
+        assertThat(request.getSession(false)).isNull();
+    }
+
+    @Test
+    @DisplayName("should reject browser renderer requests when providerId does not match the authenticated session")
+    void shouldRejectBrowserRendererRequest_whenProviderDoesNotMatchSession() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormViewForPdfGenerationServlet");
+        request.setParameter("providerId", "999998");
+        installLoggedInInfo(request, "111111");
+
+        assertThat(invokeAuthorizedRendererProviderId(request)).isNull();
+    }
 
     @Test
     @DisplayName("should normalize a valid stored signature URL under the current context path")
@@ -131,7 +166,6 @@ class EFormViewForPdfGenerationServletUnitTest {
                 .contains("<body style='width:640px;'>");
     }
 
-
     @Test
     @DisplayName("should apply stored signature when signature value appears before letter content")
     void shouldApplySignature_whenSignatureValuePrecedesLetter() {
@@ -189,5 +223,23 @@ class EFormViewForPdfGenerationServletUnitTest {
                 "/carlos/imageRenderingServlet?source=signature_stored&digitalSignatureId=12\" onerror=\"alert(1)",
                 "/carlos/imageRenderingServlet?source=signature_preview&signatureRequestId=temp123"
         );
+    }
+
+    private static void installLoggedInInfo(MockHttpServletRequest request, String providerNo) {
+        Provider provider = new Provider();
+        provider.setProviderNo(providerNo);
+        Security security = new Security();
+        security.setProviderNo(providerNo);
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        loggedInInfo.setSession(request.getSession(true));
+        loggedInInfo.setLoggedInProvider(provider);
+        loggedInInfo.setLoggedInSecurity(security);
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+    }
+
+    private static String invokeAuthorizedRendererProviderId(MockHttpServletRequest request) throws Exception {
+        Method method = EFormViewForPdfGenerationServlet.class.getDeclaredMethod("authorizedRendererProviderId", jakarta.servlet.http.HttpServletRequest.class);
+        method.setAccessible(true);
+        return (String) method.invoke(null, request);
     }
 }
