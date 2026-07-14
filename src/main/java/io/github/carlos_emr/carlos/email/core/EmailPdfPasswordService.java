@@ -26,6 +26,8 @@ import org.springframework.stereotype.Service;
  * enough words with {@link SecureRandom}, not from wordlist secrecy. The 4096-word
  * list contributes 12 bits per word, so the default seven-word passphrase provides
  * 84 bits of entropy.</p>
+ *
+ * @since 2026-07-14
  */
 @Service
 public class EmailPdfPasswordService {
@@ -41,6 +43,11 @@ public class EmailPdfPasswordService {
     private final List<String> words;
     private final SecureRandom secureRandom;
 
+    /**
+     * Creates a service using the bundled patient PDF passphrase wordlist.
+     *
+     * @since 2026-07-14
+     */
     public EmailPdfPasswordService() {
         this(loadWordsFromResource(WORDLIST_RESOURCE), new SecureRandom());
     }
@@ -50,6 +57,12 @@ public class EmailPdfPasswordService {
         this.secureRandom = secureRandom;
     }
 
+    /**
+     * Generates a random seven-word PDF passphrase from the validated wordlist.
+     *
+     * @return hyphen-separated lowercase passphrase
+     * @since 2026-07-14
+     */
     public String generatePassphrase() {
         List<String> selectedWords = new ArrayList<>(DEFAULT_WORD_COUNT);
         for (int i = 0; i < DEFAULT_WORD_COUNT; i++) {
@@ -58,14 +71,34 @@ public class EmailPdfPasswordService {
         return String.join(SEPARATOR, selectedWords);
     }
 
+    /**
+     * Gets the number of words available for passphrase generation.
+     *
+     * @return validated wordlist size
+     * @since 2026-07-14
+     */
     public int getWordListSize() {
         return words.size();
     }
 
+    /**
+     * Gets the entropy for the default generated passphrase format.
+     *
+     * @return entropy bits for the configured wordlist size and default word count
+     * @since 2026-07-14
+     */
     public double getEntropyBits() {
         return calculateEntropyBits(words.size(), DEFAULT_WORD_COUNT);
     }
 
+    /**
+     * Calculates entropy for uniformly selected words.
+     *
+     * @param wordListSize number of candidate words
+     * @param wordCount number of words selected for the passphrase
+     * @return entropy bits for the given wordlist size and word count
+     * @since 2026-07-14
+     */
     public static double calculateEntropyBits(int wordListSize, int wordCount) {
         if (wordListSize < 1 || wordCount < 1) {
             throw new IllegalArgumentException("Word list size and word count must be positive");

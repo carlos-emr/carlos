@@ -218,9 +218,10 @@ public class ManageEmails2Action extends ActionSupport {
      * is advised to create a new email instead of resending. The method returns null in
      * case of validation errors (invalid log ID).
      *
-     * All email data including encryption settings, password protection, chart display options,
-     * and additional parameters are preserved from the original email for potential modification
-     * before resending.
+     * Email data including encryption settings, chart display options, and additional
+     * parameters are preserved from the original email for potential modification before
+     * resending. A new PDF passphrase and delivery instruction are generated for each
+     * resend instead of reusing the original email's password values.
      *
      * @return String Struts2 result name "compose" to display the email composition page, or null if validation fails
      * @see EmailComposeManager#prepareEmailForResend

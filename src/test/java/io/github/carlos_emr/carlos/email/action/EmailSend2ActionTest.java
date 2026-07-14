@@ -30,6 +30,8 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
 import io.github.carlos_emr.carlos.managers.EformDataManager;
@@ -99,7 +101,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should ignore submitted PDF password and use generated session password")
-    void shouldIgnoreSubmittedPdfPasswordAndUseGeneratedSessionPassword() {
+    void shouldIgnorePassword_whenSubmittedPdfPasswordIsTampered() {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setParameter("senderConfigId", "1");
         request.setParameter("receiverEmailAddress", "patient@example.com");
@@ -145,7 +147,10 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         request.setParameter("patientChartOption", "addFullNote");
         request.setParameter("transactionType", "DIRECT");
         request.setParameter("demographicId", "123");
-        setComposeToken(request, "cedar-maple-spruce-birch-aspen-willow");
+        setComposeToken(
+                request,
+                "cedar-maple-spruce-birch-aspen-willow",
+                List.of(new EmailAttachment("lab.pdf", "/tmp/lab.pdf", DocumentType.LAB, 1)));
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
 
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -157,6 +162,9 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
 
         assertThat(emailData.getPassword()).isEqualTo("cedar-maple-spruce-birch-aspen-willow");
         assertThat(emailData.getPasswordClue()).isEqualTo(EmailPdfPasswordService.DELIVERY_INSTRUCTION);
+        assertThat(emailData.getIsEncrypted()).isTrue();
+        assertThat(emailData.getIsAttachmentEncrypted()).isTrue();
+        assertThat(emailData.getAttachments()).hasSize(1);
         assertThat(request.getSession().getAttribute("emailPDFPassword")).isNull();
         assertThat(request.getSession().getAttribute("emailPDFPasswordClue")).isNull();
     }
@@ -190,7 +198,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should use passphrase bound to submitted compose token")
-    void shouldUsePassphraseBoundToSubmittedComposeToken() {
+    void shouldUsePassphrase_whenBoundToSubmittedComposeToken() {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setParameter("senderConfigId", "1");
         request.setParameter("receiverEmailAddress", "patient@example.com");
@@ -207,7 +215,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
                 "first-token-password",
                 EmailPdfPasswordService.DELIVERY_INSTRUCTION,
                 List.of());
-        EmailCompose2Action.storeEmailComposeSubmissionState(
+        String secondToken = EmailCompose2Action.storeEmailComposeSubmissionState(
                 request,
                 "second-token-password",
                 EmailPdfPasswordService.DELIVERY_INSTRUCTION,
@@ -223,11 +231,13 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         EmailData emailData = ReflectionTestUtils.invokeMethod(action, "prepareEmailFields", request);
 
         assertThat(emailData.getPassword()).isEqualTo("first-token-password");
+        request.setParameter(EmailCompose2Action.EMAIL_PDF_PASSWORD_TOKEN_PARAM, secondToken);
+        EmailCompose2Action.consumeEmailComposeSubmissionState(request);
     }
 
     @Test
     @DisplayName("should consume compose token once")
-    void shouldConsumeComposeTokenOnce() {
+    void shouldConsumeComposeToken_onFirstUseOnly() {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setParameter("senderConfigId", "1");
         request.setParameter("receiverEmailAddress", "patient@example.com");
@@ -255,11 +265,19 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
     }
 
     private static void setComposeToken(MockHttpServletRequest request, String emailPDFPassword) {
+        setComposeToken(request, emailPDFPassword, List.of());
+    }
+
+    private static void setComposeToken(
+            MockHttpServletRequest request,
+            String emailPDFPassword,
+            List<EmailAttachment> emailAttachmentList
+    ) {
         String token = EmailCompose2Action.storeEmailComposeSubmissionState(
                 request,
                 emailPDFPassword,
                 EmailPdfPasswordService.DELIVERY_INSTRUCTION,
-                List.of());
+                emailAttachmentList);
         request.setParameter(EmailCompose2Action.EMAIL_PDF_PASSWORD_TOKEN_PARAM, token);
     }
 }

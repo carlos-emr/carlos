@@ -1,6 +1,5 @@
 package io.github.carlos_emr.carlos.email.action;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -88,9 +87,12 @@ public class EmailCompose2Action extends ActionSupport {
     private EmailPdfPasswordService emailPdfPasswordService = SpringUtils.getBean(EmailPdfPasswordService.class);
 
     public static final String EMAIL_PDF_PASSWORD_TOKEN_PARAM = "emailPDFPasswordToken";
-    private static final String EMAIL_COMPOSE_SUBMISSION_STATES = "emailComposeSubmissionStates";
     static final int MAX_PENDING_EMAIL_COMPOSE_STATES = 8;
+    private static final int MAX_PENDING_EMAIL_COMPOSE_SUBMISSION_CACHE_STATES = 1024;
     static final long PENDING_EMAIL_COMPOSE_STATE_MAX_AGE_MILLIS = 15L * 60 * 1000;
+    private static final Object EMAIL_COMPOSE_SUBMISSION_STATES_LOCK = new Object();
+    private static final Map<EmailComposeSubmissionStateKey, EmailComposeSubmissionState>
+            PENDING_EMAIL_COMPOSE_SUBMISSION_STATES = new HashMap<>();
 
     private static final String[] EMAIL_SESSION_KEYS = {
         "attachEFormItSelf", "fdid", "demographicId", "emailAttachmentList",
@@ -302,30 +304,67 @@ public class EmailCompose2Action extends ActionSupport {
         return "compose";
     }
 
+    /**
+     * Stores generated PDF passphrase state for one compose form submission.
+     *
+     * <p>The returned token is bound to the current HTTP session id, while the generated
+     * passphrase, delivery instruction, and attachment snapshot stay in a short-lived
+     * server-side cache instead of the serializable HTTP session. Storing a new entry also
+     * prunes expired entries and caps both the current session and the global cache.</p>
+     *
+     * @param request HttpServletRequest used to bind the token to the active session
+     * @param emailPDFPassword generated PDF passphrase to use when sending
+     * @param emailPDFPasswordClue delivery instruction displayed with the compose page
+     * @param emailAttachmentList prepared attachment list to bind to the compose token
+     * @return opaque token that must be submitted back with the compose form
+     * @since 2026-07-14
+     */
     public static String storeEmailComposeSubmissionState(
             HttpServletRequest request,
             String emailPDFPassword,
             String emailPDFPasswordClue,
             List<EmailAttachment> emailAttachmentList
     ) {
+        return storeEmailComposeSubmissionState(
+                request, emailPDFPassword, emailPDFPasswordClue, emailAttachmentList, System.currentTimeMillis());
+    }
+
+    static String storeEmailComposeSubmissionState(
+            HttpServletRequest request,
+            String emailPDFPassword,
+            String emailPDFPasswordClue,
+            List<EmailAttachment> emailAttachmentList,
+            long createdAtMillis
+    ) {
         HttpSession session = request.getSession();
         String token = UUID.randomUUID().toString();
-        long now = System.currentTimeMillis();
         EmailComposeSubmissionState state = new EmailComposeSubmissionState(
                 emailPDFPassword,
                 emailPDFPasswordClue,
                 List.copyOf(emailAttachmentList != null ? emailAttachmentList : List.of()),
-                now);
+                createdAtMillis);
 
-        synchronized (session) {
-            Map<String, EmailComposeSubmissionState> states = emailComposeSubmissionStates(session);
-            pruneExpiredEmailComposeSubmissionStates(states, now);
-            states.put(token, state);
-            trimEmailComposeSubmissionStates(states);
+        synchronized (EMAIL_COMPOSE_SUBMISSION_STATES_LOCK) {
+            pruneExpiredEmailComposeSubmissionStates(createdAtMillis);
+            PENDING_EMAIL_COMPOSE_SUBMISSION_STATES.put(
+                    new EmailComposeSubmissionStateKey(session.getId(), token), state);
+            trimEmailComposeSubmissionStates(session.getId());
+            trimEmailComposeSubmissionStateCache();
         }
         return token;
     }
 
+    /**
+     * Consumes the generated compose state for the submitted token.
+     *
+     * <p>Consumption is one-time: a valid token is removed from the server-side cache before
+     * returning its state. Missing, blank, expired, cross-session, or reused tokens return
+     * {@code null}. Each consume attempt also prunes expired cached entries.</p>
+     *
+     * @param request HttpServletRequest containing the compose token parameter
+     * @return generated compose state for the current session and token, or {@code null}
+     * @since 2026-07-14
+     */
     public static EmailComposeSubmissionState consumeEmailComposeSubmissionState(HttpServletRequest request) {
         String token = request.getParameter(EMAIL_PDF_PASSWORD_TOKEN_PARAM);
         if (token == null || token.isBlank()) {
@@ -337,63 +376,79 @@ public class EmailCompose2Action extends ActionSupport {
             return null;
         }
 
-        synchronized (session) {
-            Map<String, EmailComposeSubmissionState> states = emailComposeSubmissionStates(session);
-            pruneExpiredEmailComposeSubmissionStates(states, System.currentTimeMillis());
-            EmailComposeSubmissionState state = states.remove(token);
-            if (states.isEmpty()) {
-                session.removeAttribute(EMAIL_COMPOSE_SUBMISSION_STATES);
-            }
-            return state;
+        synchronized (EMAIL_COMPOSE_SUBMISSION_STATES_LOCK) {
+            pruneExpiredEmailComposeSubmissionStates(System.currentTimeMillis());
+            return PENDING_EMAIL_COMPOSE_SUBMISSION_STATES.remove(
+                    new EmailComposeSubmissionStateKey(session.getId(), token));
         }
     }
 
-    @SuppressWarnings("unchecked")
-    private static Map<String, EmailComposeSubmissionState> emailComposeSubmissionStates(HttpSession session) {
-        Object existingStates = session.getAttribute(EMAIL_COMPOSE_SUBMISSION_STATES);
-        if (existingStates instanceof Map<?, ?>) {
-            return (Map<String, EmailComposeSubmissionState>) existingStates;
-        }
-
-        Map<String, EmailComposeSubmissionState> states = new HashMap<>();
-        // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        // Values are generated passphrases and manager-prepared attachments, not raw request parameters.
-        session.setAttribute(EMAIL_COMPOSE_SUBMISSION_STATES, states);
-        return states;
-    }
-
-    private static void pruneExpiredEmailComposeSubmissionStates(
-            Map<String, EmailComposeSubmissionState> states,
-            long now
-    ) {
-        states.entrySet().removeIf(entry ->
+    private static void pruneExpiredEmailComposeSubmissionStates(long now) {
+        PENDING_EMAIL_COMPOSE_SUBMISSION_STATES.entrySet().removeIf(entry ->
                 now - entry.getValue().createdAtMillis() > PENDING_EMAIL_COMPOSE_STATE_MAX_AGE_MILLIS);
     }
 
-    private static void trimEmailComposeSubmissionStates(Map<String, EmailComposeSubmissionState> states) {
-        while (states.size() > MAX_PENDING_EMAIL_COMPOSE_STATES) {
-            String oldestToken = null;
-            long oldestCreatedAt = Long.MAX_VALUE;
-            for (Map.Entry<String, EmailComposeSubmissionState> entry : states.entrySet()) {
-                if (entry.getValue().createdAtMillis() < oldestCreatedAt) {
-                    oldestToken = entry.getKey();
-                    oldestCreatedAt = entry.getValue().createdAtMillis();
-                }
-            }
-            if (oldestToken == null) {
+    private static void trimEmailComposeSubmissionStates(String sessionId) {
+        while (emailComposeSubmissionStateCount(sessionId) > MAX_PENDING_EMAIL_COMPOSE_STATES) {
+            EmailComposeSubmissionStateKey oldestKey = oldestEmailComposeSubmissionStateKey(sessionId);
+            if (oldestKey == null) {
                 return;
             }
-            states.remove(oldestToken);
+            PENDING_EMAIL_COMPOSE_SUBMISSION_STATES.remove(oldestKey);
         }
     }
 
+    private static void trimEmailComposeSubmissionStateCache() {
+        while (PENDING_EMAIL_COMPOSE_SUBMISSION_STATES.size()
+                > MAX_PENDING_EMAIL_COMPOSE_SUBMISSION_CACHE_STATES) {
+            EmailComposeSubmissionStateKey oldestKey = oldestEmailComposeSubmissionStateKey(null);
+            if (oldestKey == null) {
+                return;
+            }
+            PENDING_EMAIL_COMPOSE_SUBMISSION_STATES.remove(oldestKey);
+        }
+    }
+
+    private static int emailComposeSubmissionStateCount(String sessionId) {
+        int count = 0;
+        for (EmailComposeSubmissionStateKey key : PENDING_EMAIL_COMPOSE_SUBMISSION_STATES.keySet()) {
+            if (key.sessionId().equals(sessionId)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private static EmailComposeSubmissionStateKey oldestEmailComposeSubmissionStateKey(String sessionId) {
+        EmailComposeSubmissionStateKey oldestKey = null;
+        long oldestCreatedAt = Long.MAX_VALUE;
+        for (Map.Entry<EmailComposeSubmissionStateKey, EmailComposeSubmissionState> entry
+                : PENDING_EMAIL_COMPOSE_SUBMISSION_STATES.entrySet()) {
+            if (sessionId != null && !entry.getKey().sessionId().equals(sessionId)) {
+                continue;
+            }
+            if (entry.getValue().createdAtMillis() < oldestCreatedAt) {
+                oldestKey = entry.getKey();
+                oldestCreatedAt = entry.getValue().createdAtMillis();
+            }
+        }
+        return oldestKey;
+    }
+
+    private record EmailComposeSubmissionStateKey(String sessionId, String token) {
+    }
+
+    /**
+     * Generated compose state associated with one opaque compose token.
+     *
+     * @since 2026-07-14
+     */
     public record EmailComposeSubmissionState(
             String emailPDFPassword,
             String emailPDFPasswordClue,
             List<EmailAttachment> emailAttachmentList,
             long createdAtMillis
-    ) implements Serializable {
-        private static final long serialVersionUID = 1L;
+    ) {
     }
 
     /**

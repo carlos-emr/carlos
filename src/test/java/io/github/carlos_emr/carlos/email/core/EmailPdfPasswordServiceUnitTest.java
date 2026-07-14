@@ -29,7 +29,7 @@ class EmailPdfPasswordServiceUnitTest {
 
     @Test
     @DisplayName("should generate seven lowercase hyphen-separated words")
-    void shouldGenerateSevenLowercaseHyphenSeparatedWords() {
+    void shouldGeneratePassphrase_withSevenLowercaseHyphenSeparatedWords() {
         EmailPdfPasswordService service = new EmailPdfPasswordService();
 
         String passphrase = service.generatePassphrase();
@@ -40,7 +40,7 @@ class EmailPdfPasswordServiceUnitTest {
 
     @Test
     @DisplayName("should use secure random indexes to select words")
-    void shouldUseSecureRandomIndexesToSelectWords() {
+    void shouldUseSecureRandomIndexes_toSelectWords() {
         EmailPdfPasswordService service = new EmailPdfPasswordService(testWords(4096), new FixedSecureRandom(0, 1, 2, 3, 4, 5, 6));
 
         String passphrase = service.generatePassphrase();
@@ -50,7 +50,7 @@ class EmailPdfPasswordServiceUnitTest {
 
     @Test
     @DisplayName("should load a 4096 word resource wordlist with 84 bits of entropy")
-    void shouldLoadLargeEnoughResourceWordlistWithExpectedEntropy() {
+    void shouldLoadLargeEnoughResourceWordlist_withExpectedEntropy() {
         EmailPdfPasswordService service = new EmailPdfPasswordService();
 
         assertThat(service.getWordListSize()).isEqualTo(4096);
@@ -59,7 +59,7 @@ class EmailPdfPasswordServiceUnitTest {
 
     @Test
     @DisplayName("should not include patient-facing sensitive review words")
-    void shouldNotIncludePatientFacingSensitiveReviewWords() throws Exception {
+    void shouldExcludeSensitiveWords_fromWordlist() throws Exception {
         String[] blockedWords = resourceText(PATIENT_UNFRIENDLY_REVIEW_WORDS_RESOURCE).trim().split("\\s+");
 
         assertThat(resourceWords()).doesNotContain(blockedWords);
@@ -67,7 +67,7 @@ class EmailPdfPasswordServiceUnitTest {
 
     @Test
     @DisplayName("should calculate entropy from wordlist size and word count")
-    void shouldCalculateEntropyFromWordlistSizeAndWordCount() {
+    void shouldCalculateEntropy_fromWordlistSizeAndWordCount() {
         double entropy = EmailPdfPasswordService.calculateEntropyBits(4096, 7);
 
         assertThat(entropy).isEqualTo(84.0);
@@ -75,7 +75,7 @@ class EmailPdfPasswordServiceUnitTest {
 
     @Test
     @DisplayName("should reject a wordlist below the minimum size")
-    void shouldRejectWordlistBelowMinimumSize() {
+    void shouldRejectWordlist_belowMinimumSize() {
         assertThatThrownBy(() -> new EmailPdfPasswordService(testWords(4095), new FixedSecureRandom()))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("at least 4096");
@@ -83,7 +83,7 @@ class EmailPdfPasswordServiceUnitTest {
 
     @Test
     @DisplayName("should reject non-lowercase ASCII words")
-    void shouldRejectInvalidWords() {
+    void shouldRejectInvalidWords_whenLoading() {
         List<String> words = testWords(4096);
         words.set(100, "two-words");
 
@@ -94,7 +94,7 @@ class EmailPdfPasswordServiceUnitTest {
 
     @Test
     @DisplayName("should reject duplicate words")
-    void shouldRejectDuplicateWords() {
+    void shouldRejectDuplicateWords_whenLoading() {
         List<String> words = testWords(4096);
         words.set(100, words.get(99));
 

@@ -20,8 +20,8 @@ import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -76,6 +76,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(request.getAttribute("fid")).isNull();
             assertThat(request.getAttribute("emailPDFPassword")).isEqualTo("alpha-bravo-charlie-delta-echo-foxtrot");
             assertThat(request.getSession(false).getAttribute("emailPDFPassword")).isNull();
+            assertThat(request.getSession(false).getAttribute("emailComposeSubmissionStates")).isNull();
             String emailPDFPasswordToken = (String) request.getAttribute("emailPDFPasswordToken");
             assertThat(emailPDFPasswordToken).isNotBlank();
             request.setParameter(EmailCompose2Action.EMAIL_PDF_PASSWORD_TOKEN_PARAM, emailPDFPasswordToken);
@@ -94,15 +95,17 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should cap pending compose submission states")
-    void shouldCapPendingComposeSubmissionStates() {
+    void shouldCapPendingComposeSubmissionStates_whenMaxExceeded() {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
         String oldestToken = null;
+        List<String> tokens = new ArrayList<>();
         for (int i = 0; i <= EmailCompose2Action.MAX_PENDING_EMAIL_COMPOSE_STATES; i++) {
             String token = EmailCompose2Action.storeEmailComposeSubmissionState(
                     request,
                     "password" + i,
                     EmailPdfPasswordService.DELIVERY_INSTRUCTION,
                     List.of());
+            tokens.add(token);
             if (i == 0) {
                 oldestToken = token;
             }
@@ -111,30 +114,24 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         request.setParameter(EmailCompose2Action.EMAIL_PDF_PASSWORD_TOKEN_PARAM, oldestToken);
 
         assertThat(EmailCompose2Action.consumeEmailComposeSubmissionState(request)).isNull();
+        for (String token : tokens) {
+            request.setParameter(EmailCompose2Action.EMAIL_PDF_PASSWORD_TOKEN_PARAM, token);
+            EmailCompose2Action.consumeEmailComposeSubmissionState(request);
+        }
     }
 
     @Test
     @DisplayName("should expire pending compose submission states")
-    void shouldExpirePendingComposeSubmissionStates() {
+    void shouldExpirePendingComposeSubmissionStates_whenMaxAgeExceeded() {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
         String expiredToken = EmailCompose2Action.storeEmailComposeSubmissionState(
                 request,
                 "expired-password",
                 EmailPdfPasswordService.DELIVERY_INSTRUCTION,
-                List.of());
-        Object states = request.getSession(false).getAttribute("emailComposeSubmissionStates");
-        assertThat(states).isInstanceOf(Map.class);
-        @SuppressWarnings("unchecked")
-        Map<String, EmailCompose2Action.EmailComposeSubmissionState> stateMap =
-                (Map<String, EmailCompose2Action.EmailComposeSubmissionState>) states;
-        EmailCompose2Action.EmailComposeSubmissionState state = stateMap.get(expiredToken);
-        stateMap.put(expiredToken, new EmailCompose2Action.EmailComposeSubmissionState(
-                state.emailPDFPassword(),
-                state.emailPDFPasswordClue(),
-                state.emailAttachmentList(),
+                List.of(),
                 System.currentTimeMillis()
                         - EmailCompose2Action.PENDING_EMAIL_COMPOSE_STATE_MAX_AGE_MILLIS
-                        - 1));
+                        - 1);
         request.setParameter(EmailCompose2Action.EMAIL_PDF_PASSWORD_TOKEN_PARAM, expiredToken);
 
         assertThat(EmailCompose2Action.consumeEmailComposeSubmissionState(request)).isNull();
