@@ -74,6 +74,18 @@ class FormShortcutRouteResolverTest {
     }
 
     @Test
+    void shouldRemoveReservedSelectionParameters_whenShortcutPathAlreadyHasQueryValues() {
+        String route = FormShortcutRouteResolver.resolve(
+                new String[] {"../form/formannual.jsp?demographic_no=999&formId=111&foo=bar&demographicNo=888", "9"},
+                "3",
+                "6",
+                null,
+                null);
+
+        assertThat(route).isEqualTo("/form/formannual?foo=bar&demographic_no=3&formId=6&warning=history");
+    }
+
+    @Test
     void shouldEncodeQueryValues_whenOptionalParametersContainSpaces() {
         String route = FormShortcutRouteResolver.resolve(
                 new String[] {"../form/formannual.jsp?demographic_no=", "9"},

@@ -98,6 +98,22 @@ class FormTransportContainerUnitTest {
         assertThat(ServletActionContext.getResponse()).isSameAs(outerResponse);
     }
 
+    @Test
+    void shouldRejectNestedNoContent_withoutRenderingBlankAttachment() {
+        MockHttpServletResponse outerResponse = new MockHttpServletResponse();
+        ActionContext.of().withServletResponse(outerResponse).bind();
+        MockHttpServletRequest request = requestForwardingTo(servletResponse ->
+                ServletActionContext.getResponse().setStatus(HttpServletResponse.SC_NO_CONTENT));
+
+        assertThatThrownBy(() -> new FormTransportContainer(outerResponse, request, "/form/formannual"))
+                .isInstanceOf(ServletException.class)
+                .hasMessageContaining("HTTP status 204");
+
+        assertThat(outerResponse.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        assertThat(outerResponse.isCommitted()).isFalse();
+        assertThat(ServletActionContext.getResponse()).isSameAs(outerResponse);
+    }
+
     private static MockHttpServletRequest requestForwardingTo(ForwardHandler forwardHandler) {
         return new MockHttpServletRequest() {
             @Override

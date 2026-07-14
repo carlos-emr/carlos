@@ -442,7 +442,10 @@ public class FormTransportContainer {
         }
 
         boolean isUnrenderableStatus() {
-            return status >= HttpServletResponse.SC_MULTIPLE_CHOICES;
+            return status < HttpServletResponse.SC_OK
+                    || status == HttpServletResponse.SC_NO_CONTENT
+                    || status == HttpServletResponse.SC_RESET_CONTENT
+                    || status >= HttpServletResponse.SC_MULTIPLE_CHOICES;
         }
 
         @Override

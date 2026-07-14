@@ -294,13 +294,16 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             String demoNo,
             EctFormData.PatientForm formItem) {
         try {
+            String formDemoNo = formItem.getDemoNo();
+            String formName = formItem.getFormName();
+            String formId = formItem.getFormId();
             String formPath = FormShortcutRouteResolver.resolve(
-                    formItem.getDemoNo(), formItem.getFormName(), formItem.getFormId(), null, null);
+                    formDemoNo, formName, formId, null, null);
             FormTransportContainer formTransportContainer = new FormTransportContainer(response, request, formPath);
             formTransportContainer.setDemographicNo(demoNo);
             formTransportContainer.setProviderNo(loggedInInfo.getLoggedInProviderNo());
-            formTransportContainer.setSubject(formItem.getFormName() + " Form ID " + formItem.getFormId());
-            formTransportContainer.setFormName(formItem.getFormName());
+            formTransportContainer.setSubject(formName + " Form ID " + formId);
+            formTransportContainer.setFormName(formName);
             formTransportContainer.setRealPath(ServletActionContext.getServletContext().getRealPath(File.separator));
             Path attachedForm = faxManager.renderFaxDocument(
                     loggedInInfo, FaxManager.TransactionType.FORM, formTransportContainer);
@@ -313,6 +316,13 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
     }
 
     private static String safeFormAttachmentId(EctFormData.PatientForm formItem) {
-        return formItem == null ? "unknown" : LogSafe.sanitize(formItem.getFormId());
+        if (formItem == null) {
+            return "unknown";
+        }
+        try {
+            return LogSafe.sanitize(formItem.getFormId());
+        } catch (RuntimeException e) {
+            return "unknown";
+        }
     }
 }

@@ -12,6 +12,7 @@
  */
 package io.github.carlos_emr.carlos.form.gate;
 
+import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
@@ -27,12 +28,15 @@ import io.github.carlos_emr.carlos.form.data.FrmData;
 public final class FormShortcutRouteResolver {
 
     private static final String LATEST_FORM_ID = "latest";
+    private static final String DEMOGRAPHIC_NO_PARAMETER = "demographic_no";
+    private static final String DEMOGRAPHIC_NO_CAMEL_PARAMETER = "demographicNo";
+    private static final String FORM_ID_PARAMETER = "formId";
     private static final int ASCII_CASE_OFFSET = 'a' - 'A';
     private static final String[] TRAILING_EMPTY_DEMOGRAPHIC_PARAMETERS = {
-            "?demographic_no=",
-            "?demographicNo=",
-            "&demographic_no=",
-            "&demographicNo="
+            "?" + DEMOGRAPHIC_NO_PARAMETER + "=",
+            "?" + DEMOGRAPHIC_NO_CAMEL_PARAMETER + "=",
+            "&" + DEMOGRAPHIC_NO_PARAMETER + "=",
+            "&" + DEMOGRAPHIC_NO_CAMEL_PARAMETER + "="
     };
 
     private FormShortcutRouteResolver() {
@@ -111,7 +115,7 @@ public final class FormShortcutRouteResolver {
         if (actionPath == null) {
             throw new IllegalArgumentException("Invalid form path");
         }
-        return actionPath;
+        return removeReservedQueryParameters(actionPath);
     }
 
     private static String stripTrailingEmptyDemographicParameter(String legacyPath) {
@@ -208,6 +212,40 @@ public final class FormShortcutRouteResolver {
             }
         }
         return true;
+    }
+
+    private static String removeReservedQueryParameters(String actionPath) {
+        int queryIndex = actionPath.indexOf('?');
+        if (queryIndex < 0) {
+            return actionPath;
+        }
+
+        String basePath = actionPath.substring(0, queryIndex);
+        String query = actionPath.substring(queryIndex + 1);
+        StringBuilder normalizedPath = new StringBuilder(basePath);
+        for (String parameter : query.split("&", -1)) {
+            if (parameter.isBlank() || isReservedParameterName(parameterName(parameter))) {
+                continue;
+            }
+            normalizedPath.append(normalizedPath.indexOf("?") >= 0 ? "&" : "?").append(parameter);
+        }
+        return normalizedPath.toString();
+    }
+
+    private static String parameterName(String parameter) {
+        int equalsIndex = parameter.indexOf('=');
+        String rawName = equalsIndex >= 0 ? parameter.substring(0, equalsIndex) : parameter;
+        try {
+            return URLDecoder.decode(rawName, StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid form path", e);
+        }
+    }
+
+    private static boolean isReservedParameterName(String name) {
+        return DEMOGRAPHIC_NO_PARAMETER.equals(name)
+                || DEMOGRAPHIC_NO_CAMEL_PARAMETER.equals(name)
+                || FORM_ID_PARAMETER.equals(name);
     }
 
     private static void appendQueryParameter(StringBuilder path, String name, String value) {
