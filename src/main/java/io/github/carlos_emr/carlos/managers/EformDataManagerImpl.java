@@ -53,6 +53,7 @@ import org.springframework.context.annotation.Lazy;
 
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.eform.data.EForm;
+import io.github.carlos_emr.carlos.eform.util.EFormBrowserPdfRenderer;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
@@ -61,8 +62,7 @@ import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 @Service
 public class EformDataManagerImpl implements EformDataManager {
 
-    @Autowired
-    SecurityInfoManager securityInfoManager;
+    private final SecurityInfoManager securityInfoManager;
 
     @Autowired
     EFormDataDao eFormDataDao;
@@ -77,8 +77,13 @@ public class EformDataManagerImpl implements EformDataManager {
     @Autowired
     private FormsManager formsManager;
 
-    public EformDataManagerImpl() {
-        // Default
+
+    private final EFormBrowserPdfRenderer eFormBrowserPdfRenderer;
+
+    @Autowired
+    public EformDataManagerImpl(SecurityInfoManager securityInfoManager, EFormBrowserPdfRenderer eFormBrowserPdfRenderer) {
+        this.securityInfoManager = securityInfoManager;
+        this.eFormBrowserPdfRenderer = eFormBrowserPdfRenderer;
     }
 
     // @Autowired
@@ -175,9 +180,9 @@ public class EformDataManagerImpl implements EformDataManager {
     }
 
     /**
-     * Saves an form as PDF in a temp directory.
-     * <p>
-     * Path to a temp file is returned. Remember to change the .tmp filetype and to delete the tmp file when finished.
+     * Saves an eForm as a browser-rendered PDF in a managed temporary location.
+     *
+     * @return readable path to an {@code eform-browser-render-*.pdf} file; callers are responsible for cleanup
      */
     public Path createEformPDF(LoggedInInfo loggedInInfo, int fdid) throws PDFGenerationException {
 
@@ -185,16 +190,18 @@ public class EformDataManagerImpl implements EformDataManager {
             throw new RuntimeException("missing required sec object (_eform)");
         }
 
-        EFormData eformData = eFormDataDao.find(fdid);
-        Path path = null;
+        Path path;
         try {
-            path = ConvertToEdoc.saveAsTempPDF(eformData);
+            path = eFormBrowserPdfRenderer.renderSavedEformPdf(fdid, loggedInInfo.getLoggedInProviderNo());
+        } catch (PDFGenerationException e) {
+            // Preserve the renderer's specific failure message for callers/UI instead of re-wrapping it.
+            throw e;
         } catch (Exception e) {
-            throw new PDFGenerationException("EForm PDF generation failed during HTML-to-PDF conversion.", e);
+            throw new PDFGenerationException("EForm PDF generation failed during browser rendering.", e);
         }
 
         if (path == null) {
-            throw new PDFGenerationException("EForm PDF generation failed during HTML-to-PDF conversion.");
+            throw new PDFGenerationException("EForm PDF generation failed during browser rendering.");
         }
 
         if (Files.isReadable(path)) {

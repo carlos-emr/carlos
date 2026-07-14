@@ -53,7 +53,7 @@
         <link rel="stylesheet" href="<%= request.getContextPath() %>/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css">
         <script type="text/javascript" src="<%= request.getContextPath() %>/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/library/DataTables/DataTables-1.13.11/js/dataTables.bootstrap5.min.js"></script>
-<%@ include file="eformBootstrapScript.jspf" %>
+<%@ include file="/WEB-INF/jsp/eform/eformBootstrapScript.jspf" %>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
 
 
@@ -188,14 +188,14 @@
 
             <tbody>
             <%
-                LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-                SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-                boolean isEFormAdmin = securityInfoManager.hasPrivilege(loggedInInfo, "_admin.eform", SecurityInfoManager.WRITE, null);
+                LoggedInInfo tableLoggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+                SecurityInfoManager tableSecurityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+                boolean tableIsEFormAdmin = tableSecurityInfoManager.hasPrivilege(tableLoggedInInfo, "_admin.eform", SecurityInfoManager.WRITE, null);
 
                 ArrayList<HashMap<String, ? extends Object>> eForms = EFormUtil.listEForms(orderBy, EFormUtil.CURRENT);
                 for (int i = 0; i < eForms.size(); i++) {
                     HashMap<String, ? extends Object> curForm = eForms.get(i);
-                    boolean canDelete = isEFormAdmin;
+                    boolean canDelete = tableIsEFormAdmin;
             %>
             <tr>
                 <td><%if (curForm.get("formFileName") != null && curForm.get("formFileName").toString().length() != 0) {%><i

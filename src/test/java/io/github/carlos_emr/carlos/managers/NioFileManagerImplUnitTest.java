@@ -25,13 +25,24 @@ package io.github.carlos_emr.carlos.managers;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.UUID;
 
+import jakarta.servlet.ServletContext;
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -41,12 +52,16 @@ import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @Tag("unit")
 @Tag("manager")
-class NioFileManagerImplUnitTest {
+class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
 
     private NioFileManagerImpl nioFileManager;
+    private SecurityInfoManager securityInfoManager;
+    private LoggedInInfo loggedInInfo;
+    private Path allowedTempDir;
     private Path outsideDir;
     private Path outsideFile;
     private Path symlink;
@@ -56,11 +71,28 @@ class NioFileManagerImplUnitTest {
 
     @BeforeEach
     void setUp() {
+        System.setProperty("java.awt.headless", "true");
         nioFileManager = new NioFileManagerImpl();
+        securityInfoManager = mock(SecurityInfoManager.class);
+        loggedInInfo = mock(LoggedInInfo.class);
+        ServletContext servletContext = mock(ServletContext.class);
+
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), anyString(), eq(""))).thenReturn(true);
+        when(servletContext.getContextPath()).thenReturn("carlos");
+
+        ReflectionTestUtils.setField(nioFileManager, "securityInfoManager", securityInfoManager);
+        ReflectionTestUtils.setField(nioFileManager, "context", servletContext);
     }
 
     @AfterEach
     void tearDown() throws IOException {
+        if (allowedTempDir != null) {
+            Files.deleteIfExists(allowedTempDir.resolve("fax-preview.pdf"));
+            Files.deleteIfExists(allowedTempDir.resolve("fax-preview-unique.pdf"));
+            Files.deleteIfExists(getDocumentCacheDirectory().resolve("fax-preview.pdf_1.png"));
+            Files.deleteIfExists(getDocumentCacheDirectory().resolve("fax-preview-unique.pdf_1.png"));
+            Files.deleteIfExists(allowedTempDir);
+        }
         if (symlink != null) {
             Files.deleteIfExists(symlink);
         }
@@ -152,7 +184,42 @@ class NioFileManagerImplUnitTest {
         assertThat(deleted).isFalse();
     }
 
+
+    @Test
+    @DisplayName("Creates preview images for approved temp PDFs used by fax rendering")
+    void shouldCreateCacheVersion_whenSourcePdfIsInAllowedTempDirectory() throws IOException {
+        allowedTempDir = Files.createTempDirectory(Path.of(System.getProperty("java.io.tmpdir")), "nio-cache-preview-");
+        assumeTrue(PathValidationUtils.isInAllowedTempDirectory(allowedTempDir.toFile()),
+                "test temp directory must resolve inside an allowed temp directory");
+        Files.createDirectories(getDocumentCacheDirectory());
+        Path sourcePdf = allowedTempDir.resolve("fax-preview-unique.pdf");
+        Path expectedCache = getDocumentCacheDirectory().resolve("fax-preview-unique.pdf_1.png");
+        Files.deleteIfExists(expectedCache);
+        createSinglePagePdf(sourcePdf);
+
+        try {
+            Path cacheVersion = nioFileManager.createCacheVersion2(loggedInInfo, allowedTempDir.toString(), sourcePdf.getFileName().toString(), 1);
+
+            assertThat(cacheVersion).isNotNull().exists();
+            assertThat(cacheVersion.getFileName().toString()).endsWith("_1.png");
+            assertThat(Files.size(cacheVersion)).isPositive();
+        } finally {
+            Files.deleteIfExists(expectedCache);
+        }
+    }
+
     private Path createOutsideAllowedTempDirectory() throws IOException {
         return Files.createTempDirectory(Path.of(System.getProperty("user.dir")), "nio-delete-outside-" + UUID.randomUUID());
+    }
+
+    private static Path getDocumentCacheDirectory() {
+        return Path.of(CarlosProperties.getInstance().getProperty("BASE_DOCUMENT_DIR"), "carlos", "document_cache");
+    }
+
+    private static void createSinglePagePdf(Path path) throws IOException {
+        try (PDDocument document = new PDDocument()) {
+            document.addPage(new PDPage());
+            document.save(path.toFile());
+        }
     }
 }

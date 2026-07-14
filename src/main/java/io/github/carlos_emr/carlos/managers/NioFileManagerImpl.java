@@ -164,14 +164,16 @@ public class NioFileManagerImpl implements NioFileManager {
         return cacheDir;
     }
 
-    /**
-     * First checks to see if a cache version is already available.  If one is not available then a
-     * new cached version is created.
-     * <p>
-     * Returns a file path to the cached version of the given PDF
+        /**
+     * Creates or returns a cached PNG preview for a page in a source PDF.
+     *
+     * @param loggedInInfo current authenticated user used to resolve the document cache directory
+     * @param sourceDirectory directory containing the source PDF; must resolve under the document root or an approved temporary directory
+     * @param filename source PDF filename; path components are stripped by legacy filename sanitization before resolution
+     * @param pageNum one-based PDF page number to render
+     * @return cached PNG path, or {@code null} when inputs are missing, paths are unauthorized, source paths traverse outside
+     *         the validated directory, the source PDF is missing, or the requested page is out of range
      */
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public Path createCacheVersion2(LoggedInInfo loggedInInfo, String sourceDirectory, String filename, Integer pageNum) {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.WRITE, "")) {
@@ -195,37 +197,48 @@ public class NioFileManagerImpl implements NioFileManager {
             
             // Define the allowed base directory for documents
             Path baseDocumentPath = Paths.get(BASE_DOCUMENT_DIR).normalize().toAbsolutePath();
-            
-            // Validate and normalize the source directory - ensure it's within the allowed base path
+
+            // Validate and normalize the source directory - allow either document storage or approved temp paths.
             Path normalizedSourceDir;
+            boolean sourceDirectoryInAllowedTemp = false;
             try {
                 normalizedSourceDir = Paths.get(sourceDirectory).normalize().toAbsolutePath();
-                
-                // Ensure the source directory is within the allowed base document directory
+
                 try {
                     normalizedSourceDir = PathValidationUtils.validateExistingPath(normalizedSourceDir.toFile(), baseDocumentPath.toFile()).toPath();
                 } catch (SecurityException e) {
-                    log.error("Source directory is outside allowed base path: " + sourceDirectory);
-                    return null;
+                    if (!PathValidationUtils.isInAllowedTempDirectory(normalizedSourceDir.toFile())) {
+                        log.error("Source directory is outside allowed base path: {}", LogSafe.sanitize(sourceDirectory, 1024));
+                        return null;
+                    }
+                    sourceDirectoryInAllowedTemp = true;
                 }
-                
-                // Verify the source directory exists and is actually a directory
+
                 if (!Files.exists(normalizedSourceDir) || !Files.isDirectory(normalizedSourceDir)) {
-                    log.error("Source directory does not exist or is not a directory: " + sourceDirectory);
+                    if (log.isErrorEnabled()) {
+                        String sanitizedSourceDirectory = LogSafe.sanitize(sourceDirectory, 1024);
+                        log.error("Source directory does not exist or is not a directory: {}", sanitizedSourceDirectory);
+                    }
                     return null;
                 }
             } catch (Exception e) {
-                log.error("Invalid source directory path: " + sourceDirectory, e);
+                if (log.isErrorEnabled()) {
+                    log.error("Invalid source directory path: {}", LogSafe.sanitize(sourceDirectory, 1024), e);
+                }
                 return null;
             }
-            
+
             Path sourceFile = normalizedSourceDir.resolve(sanitizedFilename).normalize().toAbsolutePath();
 
-            // Ensure source file is within the source directory
+            // Ensure source file is within the source directory and, for temp previews, remains in an approved temp location.
             try {
                 sourceFile = PathValidationUtils.validateExistingPath(sourceFile.toFile(), normalizedSourceDir.toFile()).toPath();
+                if (sourceDirectoryInAllowedTemp && !PathValidationUtils.isInAllowedTempDirectory(sourceFile.toFile())) {
+                    log.error("Source file is outside allowed temp path");
+                    return null;
+                }
             } catch (SecurityException e) {
-                log.error("Path traversal attempt in source file: " + filename);
+                log.error("Path traversal attempt in source file");
                 return null;
             }
             

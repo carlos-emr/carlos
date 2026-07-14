@@ -25,6 +25,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
 import jakarta.servlet.ServletContext;
+import javax.imageio.ImageIO;
 import org.apache.commons.io.FileUtils;
 import org.junit.jupiter.api.*;
 import org.mockito.*;
@@ -63,6 +64,8 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
     private static final String RESOURCE_EDITCONTROL = "/WEB-INF/eform-assets/editControl2.js";
     private static final String RESOURCE_BLANK = "/WEB-INF/eform-assets/blank.rtl";
     private static final String RESOURCE_HELP = "/WEB-INF/eform-assets/editor_help.html";
+    private static final String RESOURCE_SIGNATURE_PAD = "/share/javascript/signature_pad.min.js";
+    private static final String RESOURCE_JQUERY = "/library/jquery/jquery-3.7.1.min.js";
 
     private MockedStatic<CarlosProperties> carlosPropertiesMock;
 
@@ -106,6 +109,8 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
         when(mockServletContext.getResourceAsStream(RESOURCE_EDITCONTROL)).thenReturn(toStream("js content"));
         when(mockServletContext.getResourceAsStream(RESOURCE_BLANK)).thenReturn(toStream("blank content"));
         when(mockServletContext.getResourceAsStream(RESOURCE_HELP)).thenReturn(toStream("help content"));
+        when(mockServletContext.getResourceAsStream(RESOURCE_SIGNATURE_PAD)).thenReturn(toStream("signature pad"));
+        when(mockServletContext.getResourceAsStream(RESOURCE_JQUERY)).thenReturn(toStream("jquery compat"));
     }
 
     @Nested
@@ -125,6 +130,64 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
             assertThat(new File(tempDir.toFile(), "editControl2.js")).exists();
             assertThat(new File(tempDir.toFile(), "blank.rtl")).exists();
             assertThat(new File(tempDir.toFile(), "editor_help.html")).exists();
+            assertThat(new File(tempDir.toFile(), "signature_pad.min.js")).exists();
+            assertThat(new File(tempDir.toFile(), "BNK.png")).exists();
+            assertThat(new File(tempDir.toFile(), "jquery-3.1.0.min.js")).exists();
+            assertThat(new File(tempDir.toFile(), "LocationsLab_Nov2020.js")).exists();
+            assertThat(new File(tempDir.toFile(), "LabDecisionSupport3_2024.js")).exists();
+            assertThat(new File(tempDir.toFile(), "LabEngine_2023.js")).exists();
+            assertThat(new File(tempDir.toFile(), "SOPLR_BC_2018_Sans2.png")).exists();
+            assertThat(new File(tempDir.toFile(), "CreativeCommonsIcon.png")).exists();
+        }
+
+        @Test
+        @DisplayName("Should deploy legacy signature compatibility assets for older eForms")
+        void shouldDeployLegacySignatureCompatibilityAssets_forOlderEforms() throws Exception {
+            when(mockProperties.getEformImageDirectory()).thenReturn(tempDir.toString());
+            stubAllAssets();
+
+            deployer.afterPropertiesSet();
+
+            File deployedSignaturePad = new File(tempDir.toFile(), "signature_pad.min.js");
+            File deployedBlankImage = new File(tempDir.toFile(), "BNK.png");
+            assertThat(deployedSignaturePad).exists();
+            assertThat(Files.readString(deployedSignaturePad.toPath())).isEqualTo("signature pad");
+            assertThat(deployedBlankImage).exists();
+            var blankImage = ImageIO.read(deployedBlankImage);
+            assertThat(blankImage).isNotNull();
+            assertThat(blankImage.getWidth()).isEqualTo(1);
+            assertThat(blankImage.getHeight()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("Should deploy compatibility assets for seeded Lab Requisition sample forms")
+        void shouldDeployCompatibilityAssets_forSeededLabRequisitionSamples() throws Exception {
+            when(mockProperties.getEformImageDirectory()).thenReturn(tempDir.toString());
+            stubAllAssets();
+
+            deployer.afterPropertiesSet();
+
+            File deployedJquery = new File(tempDir.toFile(), "jquery-3.1.0.min.js");
+            File deployedHelperScript = new File(tempDir.toFile(), "LabEngine_2023.js");
+            File deployedBackground = new File(tempDir.toFile(), "SOPLR_BC_2018_Sans2.png");
+            File deployedIcon = new File(tempDir.toFile(), "CreativeCommonsIcon.png");
+
+            assertThat(deployedJquery).exists();
+            assertThat(Files.readString(deployedJquery.toPath())).isEqualTo("jquery compat");
+            assertThat(deployedHelperScript).exists();
+            assertThat(Files.readString(deployedHelperScript.toPath())).contains("autoLabReqPop");
+            assertThat(deployedBackground).exists();
+            assertThat(ImageIO.read(deployedBackground)).satisfies(image -> {
+                assertThat(image).isNotNull();
+                assertThat(image.getWidth()).isEqualTo(1700);
+                assertThat(image.getHeight()).isEqualTo(2200);
+            });
+            assertThat(deployedIcon).exists();
+            assertThat(ImageIO.read(deployedIcon)).satisfies(image -> {
+                assertThat(image).isNotNull();
+                assertThat(image.getWidth()).isEqualTo(160);
+                assertThat(image.getHeight()).isEqualTo(160);
+            });
         }
 
         @Test
@@ -334,8 +397,11 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
 
             assertThatCode(() -> deployer.afterPropertiesSet()).doesNotThrowAnyException();
 
-            // No files should have been created
-            assertThat(tempDir.toFile().listFiles()).isEmpty();
+            assertThat(tempDir.toFile().listFiles())
+                .extracting(File::getName)
+                .contains("BNK.png", "LocationsLab_Nov2020.js", "LabDecisionSupport3_2024.js",
+                    "LabEngine_2023.js", "SOPLR_BC_2018_Sans2.png", "CreativeCommonsIcon.png")
+                .doesNotContain("editControl2.js", "blank.rtl", "editor_help.html", "jquery-3.1.0.min.js");
         }
 
         @Test

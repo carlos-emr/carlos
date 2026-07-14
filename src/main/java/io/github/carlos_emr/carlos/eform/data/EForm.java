@@ -41,6 +41,7 @@ import org.apache.logging.log4j.Logger;
 import org.jsoup.nodes.Element;
 import org.jsoup.parser.TokenQueue;
 import org.jsoup.select.Elements;
+import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.commn.OtherIdManager;
 import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
@@ -49,7 +50,7 @@ import io.github.carlos_emr.carlos.ui.servlet.ImageRenderingServlet;
 import io.github.carlos_emr.carlos.utility.DigitalSignatureUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import org.owasp.encoder.Encode;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.eform.EFormLoader;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
@@ -75,6 +76,21 @@ public class EForm extends EFormBase {
     private HashMap<String, String> fieldValues = new HashMap<String, String>();
     private int needValueInForm = 0;
     private boolean setAP2nd = false;
+    private static final String SCRIPT_TAG = "script";
+    private static final String LEGACY_JQUERY_SOURCE = "jquery-1.12.0.min.js";
+    private static final String LEGACY_JQUERY_DISPLAY_PATH = "/eform/jquery-1.12.0.min.js";
+    private static final String LOAD_SIG_CALL = "loadSig()";
+    private static final String LOAD_SIG_FUNCTION = "function loadSig(";
+    private static final String LOAD_SIG_WINDOW = "window.loadSig";
+    private static final String LOAD_SIG_FALLBACK = "window.loadSig = window.loadSig || function loadSig() {};";
+    // Matches legacy string-argument timer calls with either quote style. The backreference \1 pins
+    // the closing quote to the opening one, while the body consumes either escaped characters or
+    // any non-delimiter, non-line-break content so escaped quotes do not terminate the match early.
+    private static final Pattern LEGACY_SET_TIMEOUT_PATTERN = Pattern.compile("setTimeout\\(\\s*+(['\"])((?:\\\\.|(?!\\1)[^\\r\\n])*+)\\1\\s*+,\\s*+([^)]++)\\)");
+    private static final Pattern LEGACY_SET_INTERVAL_PATTERN = Pattern.compile("setInterval\\(\\s*+(['\"])((?:\\\\.|(?!\\1)[^\\r\\n])*+)\\1\\s*+,\\s*+([^)]++)\\)");
+    private static final Pattern INLINE_SCRIPT_PATTERN = Pattern.compile("(?is)<script\\b(?![^>]*\\bsrc\\s*=)([^>]*)>(.*?)</script>");
+
+    private String runtimeContextPath;
 
     private static final String EFORM_DEMOGRAPHIC = "eform_demographic";
     private static final String VAR_NAME = "var_name";
@@ -371,6 +387,16 @@ public class EForm extends EFormBase {
         this.formDate = UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd");
     }
 
+    /**
+     * Applies the active servlet context path to the runtime eForm HTML.
+     *
+     * <p>The supplied context path is a browser-facing servlet URL prefix (for example {@code /carlos}),
+     * not a filesystem path. This method rewrites the library marker, normalizes legacy relative jQuery
+     * asset references, injects a {@code loadSig} fallback when needed, and converts legacy string-based
+     * timer calls inside inline scripts into function callbacks.</p>
+     *
+     * @param contextPath servlet context path used to build browser-facing runtime asset URLs
+     */
     public void setContextPath(String contextPath) {
         if (StringUtils.isBlank(contextPath)) return;
         // contextPath is a servlet URL prefix (e.g. "/carlos") that is injected into browser-facing
@@ -379,7 +405,132 @@ public class EForm extends EFormBase {
         String normalizedContextPath = contextPath.endsWith("/")
                 ? contextPath.substring(0, contextPath.length() - 1)
                 : contextPath;
+        this.runtimeContextPath = normalizedContextPath;
         this.formHtml = this.formHtml.replace(jsMarker, normalizedContextPath + "/library/");
+        this.formHtml = rewriteLegacyRelativeJqueryReferences(this.formHtml, normalizedContextPath);
+        this.formHtml = injectLoadSigFallback(this.formHtml);
+        this.formHtml = rewriteLegacyStringTimersInInlineScripts(this.formHtml);
+    }
+
+    private String rewriteLegacyRelativeJqueryReferences(String html, String contextPath) {
+        if (StringUtils.isBlank(html)) return html;
+
+        String assetUrl = contextPath + "/eform/displayImage?imagefile=jquery-1.12.0.min.js";
+        return html
+                .replace("src=\"jquery-1.12.0.min.js\"", "src=\"" + assetUrl + "\"")
+                .replace("src=\"/eform/jquery-1.12.0.min.js\"", "src=\"" + assetUrl + "\"");
+    }
+
+    private String injectLoadSigFallback(String html) {
+        if (StringUtils.isBlank(html)) return html;
+        if (!html.contains(LOAD_SIG_CALL)) return html;
+        if (html.contains(LOAD_SIG_FUNCTION) || html.contains(LOAD_SIG_WINDOW)) return html;
+
+        String fallback = "<" + SCRIPT_TAG + ">" + LOAD_SIG_FALLBACK + "</" + SCRIPT_TAG + ">";
+        int bodyClose = StringUtils.lastIndexOfIgnoreCase(html, "</body>");
+        if (bodyClose >= 0) {
+            return html.substring(0, bodyClose) + fallback + html.substring(bodyClose);
+        }
+        return html + fallback;
+    }
+
+
+    private String rewriteLegacyStringTimersInInlineScripts(String html) {
+        if (StringUtils.isBlank(html)) return html;
+
+        Matcher matcher = INLINE_SCRIPT_PATTERN.matcher(html);
+        StringBuffer rewritten = new StringBuffer();
+        while (matcher.find()) {
+            String scriptBody = rewriteLegacyStringTimers(matcher.group(2));
+            String replacement = "<script" + matcher.group(1) + ">" + scriptBody + "</script>";
+            matcher.appendReplacement(rewritten, Matcher.quoteReplacement(replacement));
+        }
+        matcher.appendTail(rewritten);
+        return rewritten.toString();
+    }
+
+    private String rewriteLegacyStringTimers(String scriptBody) {
+        if (StringUtils.isBlank(scriptBody)) return scriptBody;
+
+        return rewriteLegacyTimerCalls(rewriteLegacyTimerCalls(scriptBody, LEGACY_SET_TIMEOUT_PATTERN, "setTimeout"), LEGACY_SET_INTERVAL_PATTERN, "setInterval");
+    }
+
+    @Override
+    public String getFormHtml() {
+        if (!StringUtils.isBlank(runtimeContextPath)) {
+            try {
+                normalizeLegacyRuntimeAssetsInDocument(runtimeContextPath);
+            } catch (RuntimeException | LinkageError e) {
+                log.debug("Skipping DOM-based eForm runtime normalization; falling back to string-level HTML", e);
+            }
+        }
+        return super.getFormHtml();
+    }
+
+    private void normalizeLegacyRuntimeAssetsInDocument(String contextPath) {
+        String assetUrl = contextPath + "/eform/displayImage?imagefile=jquery-1.12.0.min.js";
+        for (Element script : getDocument().select("script[src]")) {
+            String src = script.attr("src").trim();
+            if (LEGACY_JQUERY_SOURCE.equals(src) || LEGACY_JQUERY_DISPLAY_PATH.equals(src)) {
+                script.attr("src", assetUrl);
+            }
+        }
+        for (Element script : getDocument().select(SCRIPT_TAG + ":not([src])")) {
+            script.text(rewriteLegacyStringTimers(script.data()));
+        }
+
+        Element body = getDocument().body();
+        if (!body.attr("onload").contains(LOAD_SIG_CALL)) return;
+
+        boolean hasLoadSigDefinition = getDocument().select(SCRIPT_TAG + ":not([src])").stream()
+                .map(Element::data)
+                .anyMatch(scriptContent -> scriptContent.contains(LOAD_SIG_FUNCTION) || scriptContent.contains(LOAD_SIG_WINDOW));
+        if (!hasLoadSigDefinition) {
+            body.appendElement(SCRIPT_TAG).append(LOAD_SIG_FALLBACK);
+        }
+    }
+
+    private static String rewriteLegacyTimerCalls(String html, Pattern pattern, String timerFunction) {
+        Matcher matcher = pattern.matcher(html);
+        StringBuffer rewritten = new StringBuffer();
+        while (matcher.find()) {
+            char delimiter = matcher.group(1).charAt(0);
+            String replacement = timerFunction + "(function(){ "
+                    + unescapeLegacyTimerBody(matcher.group(2), delimiter)
+                    + " }, " + matcher.group(3) + ")";
+            matcher.appendReplacement(rewritten, Matcher.quoteReplacement(replacement));
+        }
+        matcher.appendTail(rewritten);
+        return rewritten.toString();
+    }
+
+    private static String unescapeLegacyTimerBody(String body, char delimiter) {
+        StringBuilder normalized = new StringBuilder(body.length());
+        int index = 0;
+        while (index < body.length()) {
+            char current = body.charAt(index);
+            if (current != '\\') {
+                normalized.append(current);
+                index += 1;
+                continue;
+            }
+
+            int slashStart = index;
+            while (index < body.length() && body.charAt(index) == '\\') {
+                index += 1;
+            }
+            int slashCount = index - slashStart;
+            boolean escapesDelimiter = index < body.length()
+                    && body.charAt(index) == delimiter
+                    && (slashCount % 2) == 1;
+            int preservedSlashes = escapesDelimiter ? slashCount / 2 : slashCount;
+            normalized.append("\\\\".repeat(preservedSlashes));
+            if (escapesDelimiter) {
+                normalized.append(delimiter);
+                index += 1;
+            }
+        }
+        return normalized.toString();
     }
 
     public void setFdid(String fdid) {
@@ -708,7 +859,7 @@ public class EForm extends EFormBase {
         //put values into according controls
         if (type.equals("textarea")) {
             pointer = html.indexOf(">", pointer) + 1;
-            html.insert(pointer, output);
+            html.insert(pointer, SafeEncode.forHtml(output));
         } else if (type.equals("select")) {
             int selectEnd = StringBuilderUtils.indexOfIgnoreCase(html, "</select>", pointer);
             if (selectEnd >= 0) {
@@ -718,8 +869,7 @@ public class EForm extends EFormBase {
                 html = html.insert(pointer, " selected");
             }
         } else { //type=input
-            output = output.replace("\"", "&quot;");
-            html.insert(pointer, " value=\"" + output + "\"");
+            html.insert(pointer, " value=\"" + SafeEncode.forHtmlAttribute(output) + "\"");
         }
         return (html);
     }
@@ -993,7 +1143,7 @@ public class EForm extends EFormBase {
      * Add path to Javascript resource in OSCAR source code.
      */
     public void addHeadJavascript(String javascriptPath) {
-        Element script = getDocument().createElement("script");
+        Element script = getDocument().createElement(SCRIPT_TAG);
         script.attr("type", "text/javascript");
         script.attr("src", javascriptPath);
         addHeadElement(script);
@@ -1004,7 +1154,7 @@ public class EForm extends EFormBase {
      * Useful if there is a dependency on previous javascript in the window load
      */
     public void addBodyJavascript(String javascriptPath) {
-        Element script = getDocument().createElement("script");
+        Element script = getDocument().createElement(SCRIPT_TAG);
         script.attr("type", "text/javascript");
         script.attr("src", javascriptPath);
         addBodyElement(script);
