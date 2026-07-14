@@ -211,7 +211,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
             throw new IllegalArgumentException("Deleting provider number is required");
         }
 
-        OutboundEmailArchive archive = outboundEmailArchiveDao.find(archiveId);
+        OutboundEmailArchive archive = outboundEmailArchiveDao.findForUpdate(archiveId);
         if (archive == null) {
             throw new IllegalArgumentException("Outbound email archive not found: " + archiveId);
         }

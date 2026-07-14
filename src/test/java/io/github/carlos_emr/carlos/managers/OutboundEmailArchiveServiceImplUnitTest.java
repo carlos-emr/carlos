@@ -381,10 +381,11 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     @DisplayName("should mark archive deleted and persist tombstone")
     void shouldMarkArchiveDeletedAndPersistTombstone_whenDeletionAllowed() {
         OutboundEmailArchive archive = archiveForDeletion();
-        when(outboundEmailArchiveDao.find((Object) Integer.valueOf(888))).thenReturn(archive);
+        when(outboundEmailArchiveDao.findForUpdate(888)).thenReturn(archive);
 
         OutboundEmailArchiveDeletion deletion = service.recordControlledDeletion(loggedInInfo, 888, "Patient requested cleanup");
 
+        verify(outboundEmailArchiveDao).findForUpdate(888);
         verify(outboundEmailArchiveDao).merge(archive);
         verify(outboundEmailArchiveDeletionDao).persist(deletion);
         assertThat(archive.isDeleted()).isTrue();
@@ -408,7 +409,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     @DisplayName("should trim controlled deletion reason before truncating")
     void shouldTrimControlledDeletionReason_beforeTruncating() {
         OutboundEmailArchive archive = archiveForDeletion();
-        when(outboundEmailArchiveDao.find((Object) Integer.valueOf(888))).thenReturn(archive);
+        when(outboundEmailArchiveDao.findForUpdate(888)).thenReturn(archive);
 
         OutboundEmailArchiveDeletion deletion = service.recordControlledDeletion(loggedInInfo, 888, " ".repeat(1000) + "Meaningful reason");
 
@@ -420,7 +421,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     @DisplayName("should reject controlled deletion without eDoc delete authority")
     void shouldRejectDeletion_whenCallerLacksEdocDeleteAuthority() {
         OutboundEmailArchive archive = archiveForDeletion();
-        when(outboundEmailArchiveDao.find((Object) Integer.valueOf(888))).thenReturn(archive);
+        when(outboundEmailArchiveDao.findForUpdate(888)).thenReturn(archive);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin.edocdelete", SecurityInfoManager.WRITE, null)).thenReturn(false);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.WRITE, null)).thenReturn(false);
 
@@ -436,7 +437,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     @DisplayName("should reject controlled deletion without patient access")
     void shouldRejectDeletion_whenCallerCannotAccessPatientRecord() {
         OutboundEmailArchive archive = archiveForDeletion();
-        when(outboundEmailArchiveDao.find((Object) Integer.valueOf(888))).thenReturn(archive);
+        when(outboundEmailArchiveDao.findForUpdate(888)).thenReturn(archive);
         when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 123)).thenReturn(false);
 
         assertThatThrownBy(() -> service.recordControlledDeletion(loggedInInfo, 888, "cleanup"))
@@ -452,7 +453,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     void shouldRejectDeletion_whenLegalHoldIsActive() {
         OutboundEmailArchive archive = archiveForDeletion();
         archive.setLegalHold(true);
-        when(outboundEmailArchiveDao.find((Object) Integer.valueOf(888))).thenReturn(archive);
+        when(outboundEmailArchiveDao.findForUpdate(888)).thenReturn(archive);
 
         assertThatThrownBy(() -> service.recordControlledDeletion(loggedInInfo, 888, "cleanup"))
                 .isInstanceOf(IllegalStateException.class)
@@ -464,7 +465,7 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
     void shouldRejectDeletion_whenArchiveAlreadyDeleted() {
         OutboundEmailArchive archive = archiveForDeletion();
         archive.markDeleted(PROVIDER_NO, "previous cleanup");
-        when(outboundEmailArchiveDao.find((Object) Integer.valueOf(888))).thenReturn(archive);
+        when(outboundEmailArchiveDao.findForUpdate(888)).thenReturn(archive);
 
         assertThatThrownBy(() -> service.recordControlledDeletion(loggedInInfo, 888, "cleanup"))
                 .isInstanceOf(IllegalStateException.class)

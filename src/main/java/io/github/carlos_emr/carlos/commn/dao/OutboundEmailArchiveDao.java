@@ -40,6 +40,14 @@ public interface OutboundEmailArchiveDao extends AbstractDao<OutboundEmailArchiv
     List<OutboundEmailArchive> findByEmailLogId(Integer emailLogId);
 
     /**
+     * Finds an archive row with a write lock for short controlled-deletion critical sections.
+     *
+     * @param archiveId persisted archive identifier
+     * @return locked archive row, or {@code null} when no row exists
+     */
+    OutboundEmailArchive findForUpdate(Integer archiveId);
+
+    /**
      * Finds archive rows for a patient demographic, newest archive first.
      *
      * @param demographicNo patient demographic number
