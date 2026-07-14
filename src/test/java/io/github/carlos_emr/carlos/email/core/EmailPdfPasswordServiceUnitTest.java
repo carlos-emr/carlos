@@ -121,7 +121,8 @@ class EmailPdfPasswordServiceUnitTest {
     }
 
     private static List<String> resourceWords() throws Exception {
-        InputStream stream = EmailPdfPasswordService.class.getResourceAsStream(EmailPdfPasswordService.WORDLIST_RESOURCE);
+        InputStream stream = EmailPdfPasswordService.class.getResourceAsStream(
+                EmailPdfPasswordService.WORDLIST_RESOURCE);
         assertThat(stream).isNotNull();
 
         List<String> words = new ArrayList<>();
@@ -132,8 +133,11 @@ class EmailPdfPasswordServiceUnitTest {
                 if (trimmedLine.isEmpty() || trimmedLine.startsWith("#")) {
                     continue;
                 }
-                String[] parts = trimmedLine.split("\\s+");
-                words.add(parts[parts.length - 1]);
+                String[] parts = trimmedLine.split("\\t");
+                assertThat(parts).hasSize(2);
+                assertThat(parts[0]).matches("\\d{4}");
+                assertThat(parts[1]).matches("[a-z]+");
+                words.add(parts[1]);
             }
         }
         return words;

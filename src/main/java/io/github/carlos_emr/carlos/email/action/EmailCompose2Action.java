@@ -89,6 +89,8 @@ public class EmailCompose2Action extends ActionSupport {
 
     public static final String EMAIL_PDF_PASSWORD_TOKEN_PARAM = "emailPDFPasswordToken";
     private static final String EMAIL_COMPOSE_SUBMISSION_STATES = "emailComposeSubmissionStates";
+    static final int MAX_PENDING_EMAIL_COMPOSE_STATES = 8;
+    static final long PENDING_EMAIL_COMPOSE_STATE_MAX_AGE_MILLIS = 15L * 60 * 1000;
 
     private static final String[] EMAIL_SESSION_KEYS = {
         "attachEFormItSelf", "fdid", "demographicId", "emailAttachmentList",
@@ -308,14 +310,18 @@ public class EmailCompose2Action extends ActionSupport {
     ) {
         HttpSession session = request.getSession();
         String token = UUID.randomUUID().toString();
+        long now = System.currentTimeMillis();
         EmailComposeSubmissionState state = new EmailComposeSubmissionState(
                 emailPDFPassword,
                 emailPDFPasswordClue,
-                List.copyOf(emailAttachmentList != null ? emailAttachmentList : List.of()));
+                List.copyOf(emailAttachmentList != null ? emailAttachmentList : List.of()),
+                now);
 
         synchronized (session) {
             Map<String, EmailComposeSubmissionState> states = emailComposeSubmissionStates(session);
+            pruneExpiredEmailComposeSubmissionStates(states, now);
             states.put(token, state);
+            trimEmailComposeSubmissionStates(states);
         }
         return token;
     }
@@ -333,6 +339,7 @@ public class EmailCompose2Action extends ActionSupport {
 
         synchronized (session) {
             Map<String, EmailComposeSubmissionState> states = emailComposeSubmissionStates(session);
+            pruneExpiredEmailComposeSubmissionStates(states, System.currentTimeMillis());
             EmailComposeSubmissionState state = states.remove(token);
             if (states.isEmpty()) {
                 session.removeAttribute(EMAIL_COMPOSE_SUBMISSION_STATES);
@@ -355,10 +362,36 @@ public class EmailCompose2Action extends ActionSupport {
         return states;
     }
 
+    private static void pruneExpiredEmailComposeSubmissionStates(
+            Map<String, EmailComposeSubmissionState> states,
+            long now
+    ) {
+        states.entrySet().removeIf(entry ->
+                now - entry.getValue().createdAtMillis() > PENDING_EMAIL_COMPOSE_STATE_MAX_AGE_MILLIS);
+    }
+
+    private static void trimEmailComposeSubmissionStates(Map<String, EmailComposeSubmissionState> states) {
+        while (states.size() > MAX_PENDING_EMAIL_COMPOSE_STATES) {
+            String oldestToken = null;
+            long oldestCreatedAt = Long.MAX_VALUE;
+            for (Map.Entry<String, EmailComposeSubmissionState> entry : states.entrySet()) {
+                if (entry.getValue().createdAtMillis() < oldestCreatedAt) {
+                    oldestToken = entry.getKey();
+                    oldestCreatedAt = entry.getValue().createdAtMillis();
+                }
+            }
+            if (oldestToken == null) {
+                return;
+            }
+            states.remove(oldestToken);
+        }
+    }
+
     public record EmailComposeSubmissionState(
             String emailPDFPassword,
             String emailPDFPasswordClue,
-            List<EmailAttachment> emailAttachmentList
+            List<EmailAttachment> emailAttachmentList,
+            long createdAtMillis
     ) implements Serializable {
         private static final long serialVersionUID = 1L;
     }
