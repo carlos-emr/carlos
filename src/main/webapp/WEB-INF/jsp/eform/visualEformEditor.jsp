@@ -376,7 +376,7 @@ var EFORM_I18N = {
     textAddWetSignature: '${carlos:forJavaScript(i18n_textAddWetSignature)}',
     textControls: '${carlos:forJavaScript(i18n_textControls)}',
     textGuideOptions: '${carlos:forJavaScript(i18n_textGuideOptions)}',
-    imageOrientation: '${carlos:forJavaScript(imageOrientation)}'           
+    imageOrientation: '${carlos:forJavaScript(i18n_imageOrientation)}'           
 };
 </script>
 
@@ -2623,11 +2623,11 @@ var EFORM_I18N = {
     		}
 
         function loadEformData(data) {
-          // clear fax number from the previous eform
+          // clear fax number and tickler settings from the previous eform
           defaultFaxNo = "";
-          $("`#defaultFaxNo`").val("");
-          $("`#setTickler`").prop("checked", false);
-          $("`#tickle_dialog`").remove();
+          $("#defaultFaxNo").val("");
+          $("#setTickler").prop("checked", false);
+          $("#tickle_dialog").remove();
           // remove oscar image paths in incoming data
           data = removeOscarImagePath(data);
     			// use regex to sanitize foreign imported oscarDb tags
@@ -2699,9 +2699,8 @@ var EFORM_I18N = {
       					defaultFaxNo = matches[1];
       				}
 
-              $("[id^='BGImage']").addClass("gen-layer1");
+      				$("[id^='BGImage']").addClass("gen-layer1");
       				$("[id^='BGImage']").attr( "alt", "background" );
-      				$("[id^='BGImage']").addClass( "gen-layer1" );
 
 				$("#BottomButtons").remove();
 				var pageNo = 1;
@@ -3224,8 +3223,8 @@ var EFORM_I18N = {
             }).append($custDimensionX).append($custDimensionY);
 
             var labels = [EFORM_I18N.optPortrait, EFORM_I18N.optLandscape, EFORM_I18N.optCustom];
-            var $orinetationRadioGroup = addRadioGroup($element, "gen-orientation", EFORM_I18N.imageOrientation, labels);
-            $orinetationRadioGroup.on("change", function(e) {
+            var $orientationRadioGroup = addRadioGroup($element, "gen-orientation", EFORM_I18N.imageOrientation, labels);
+            $orientationRadioGroup.on("change", function(e) {
                 var value = parseInt($(e.target).val());
                 setPageOrientation(value);
             });
