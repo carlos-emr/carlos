@@ -106,6 +106,17 @@ function waitQuiet(page) {
   ]);
 }
 
+async function waitForFaxPreviewElement(page) {
+  try {
+    await Promise.any([
+      page.locator('#previewPDF').first().waitFor({ state: 'attached', timeout: 15000 }),
+      page.locator('img[src*="/fax/faxAction?method=getPreview"]').first().waitFor({ state: 'attached', timeout: 15000 }),
+    ]);
+  } catch {
+    throw new Error('Fax preview page did not render a PDF object or image preview within 15 seconds');
+  }
+}
+
 function toDataUrl(filePath) {
   const ext = path.extname(filePath).toLowerCase();
   const mimeType = ext === '.png' ? 'image/png' : 'application/octet-stream';
@@ -507,7 +518,7 @@ async function openFaxPreviewPage(context, fdid, recorder) {
   await waitQuiet(page);
   assert(page.url().includes('/fax/faxAction?method=prepareFax'), `Fax preview page did not open as expected: ${page.url()}`);
 
-  await page.waitForTimeout(1500);
+  await waitForFaxPreviewElement(page);
 
   const previewObject = page.locator('#previewPDF');
   const previewObjectCount = await previewObject.count();
