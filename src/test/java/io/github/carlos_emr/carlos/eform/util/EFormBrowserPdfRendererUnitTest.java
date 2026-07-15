@@ -50,6 +50,9 @@ class EFormBrowserPdfRendererUnitTest {
                     .contains("#BaseSelect")
                     .contains("computeCaptureRegions")
                     .contains("backgroundCandidates")
+                    .contains("pageBackgroundCaptures")
+                    .contains("page.route('**/*'")
+                    .contains("blockedRequests")
                     .contains("document.fonts.ready instanceof Promise")
                     .contains("url: baseUrl.href");
         }
@@ -102,6 +105,21 @@ class EFormBrowserPdfRendererUnitTest {
                         .as("bundled %s must stay in sync with scripts/%s", scriptName, scriptName)
                         .isEqualTo(checkout);
             }
+        }
+    }
+
+    @Test
+    @DisplayName("should keep attachment fetch failures explicit in the bundled Playwright helpers")
+    void shouldKeepAttachmentFetchFailuresExplicit_inBundledPlaywrightHelpers() throws IOException {
+        try (InputStream inputStream = getClass().getClassLoader().getResourceAsStream(
+                "io/github/carlos_emr/carlos/eform/browserpdf/eform-local-playwright-utils.js")) {
+            assertThat(inputStream).isNotNull();
+            String script = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
+
+            assertThat(script)
+                    .contains("fetchAttached() request failed with HTTP")
+                    .contains("sidebarResponse.status() >= 400")
+                    .contains("status: sidebarResponse.status()");
         }
     }
 

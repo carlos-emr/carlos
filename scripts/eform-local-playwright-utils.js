@@ -252,10 +252,14 @@ async function invokeFetchAttached(page) {
 
   const target = page.locator('#tdAttachedDocs');
   const previousHtml = await target.evaluate((element) => element.innerHTML).catch(() => '');
+  let sidebarResponse = null;
   const responsePromise = page.waitForResponse(
     (response) => response.url().includes('/eform/displayAttachedFiles'),
     { timeout: 30000 },
-  ).catch(() => null);
+  ).then((response) => {
+    sidebarResponse = response;
+    return response;
+  }).catch(() => null);
   const domPromise = page.waitForFunction((previousMarkup) => {
     const attachmentTarget = document.getElementById('tdAttachedDocs');
     if (!attachmentTarget) {
@@ -278,6 +282,17 @@ async function invokeFetchAttached(page) {
   }
 
   await Promise.race([responsePromise, domPromise]);
+  await page.waitForTimeout(250);
+  if (sidebarResponse && sidebarResponse.status() >= 400) {
+    return {
+      hasFunction: true,
+      error: `fetchAttached() request failed with HTTP ${sidebarResponse.status()} for ${sidebarResponse.url()}`,
+      text: '',
+      html: '',
+      status: sidebarResponse.status(),
+      url: sidebarResponse.url(),
+    };
+  }
   await page.waitForFunction((previousMarkup) => {
     const attachmentTarget = document.getElementById('tdAttachedDocs');
     return !!attachmentTarget && attachmentTarget.innerHTML.trim().length > 0

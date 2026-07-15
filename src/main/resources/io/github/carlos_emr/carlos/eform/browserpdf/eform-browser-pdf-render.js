@@ -89,6 +89,18 @@ async function preparePageForCapture(page) {
   });
 }
 
+function isAllowedRendererRequestUrl(requestUrl, allowedOrigin) {
+  if (requestUrl.startsWith('data:') || requestUrl.startsWith('blob:') || requestUrl.startsWith('about:')) {
+    return true;
+  }
+  try {
+    const parsed = new URL(requestUrl);
+    return ['http:', 'https:'].includes(parsed.protocol) && parsed.origin === allowedOrigin;
+  } catch (_error) {
+    return false;
+  }
+}
+
 async function computeCaptureRegions(page) {
   return page.evaluate(() => {
     const rectFromElement = (el) => {
@@ -148,8 +160,27 @@ async function computeCaptureRegions(page) {
         height: rect.height,
       };
     };
+    const dedupeAndSortCaptureRects = (rects) => rects
+      .sort((a, b) => a.top - b.top || a.left - b.left)
+      .filter((rect, index, sorted) => {
+        if (index === 0) {
+          return true;
+        }
+        const previous = sorted[index - 1];
+        return Math.abs(rect.left - previous.left) > 2
+          || Math.abs(rect.top - previous.top) > 2
+          || Math.abs(rect.width - previous.width) > 2
+          || Math.abs(rect.height - previous.height) > 2;
+      })
+      .map((rect) => ({
+        x: Math.max(0, rect.left),
+        y: Math.max(0, rect.top),
+        width: rect.width,
+        height: rect.height,
+      }));
 
-    const pageNodes = Array.from(document.querySelectorAll('[id]')).filter((el) => /^page\d+$/i.test(el.id));
+    const allElements = Array.from(document.body ? document.body.querySelectorAll('*') : []);
+    const pageNodes = allElements.filter((el) => /^page\d+$/i.test(el.id));
     const captures = pageNodes
       .map((pageNode) => {
         const pageElements = [pageNode, ...pageNode.querySelectorAll('*')];
@@ -161,7 +192,12 @@ async function computeCaptureRegions(page) {
       return captures;
     }
 
-    const fallback = unionRects(Array.from(document.body.querySelectorAll('*')));
+    const pageBackgroundCaptures = dedupeAndSortCaptureRects(backgroundCandidates(allElements));
+    if (pageBackgroundCaptures.length > 0) {
+      return pageBackgroundCaptures;
+    }
+
+    const fallback = unionRects(allElements);
     return fallback ? [fallback] : [];
   });
 }
@@ -226,6 +262,22 @@ async function main() {
   const page = await context.newPage();
   const consoleIssues = [];
   const pageErrors = [];
+  const blockedRequests = [];
+  await page.route('**/*', async (route) => {
+    const request = route.request();
+    const requestUrl = request.url();
+    if (isAllowedRendererRequestUrl(requestUrl, baseUrl.origin)) {
+      await route.continue();
+      return;
+    }
+
+    blockedRequests.push({
+      url: requestUrl,
+      method: request.method(),
+      resourceType: request.resourceType(),
+    });
+    await route.abort('blockedbyclient').catch(() => {});
+  });
   page.on('console', (message) => {
     if (message.type() === 'error') {
       consoleIssues.push(message.text());
@@ -251,7 +303,7 @@ async function main() {
   }
 
   if (consoleIssues.length || pageErrors.length) {
-    const details = { consoleIssues, pageErrors };
+    const details = { consoleIssues, pageErrors, blockedRequests };
     throw new Error(`Playwright render surfaced browser errors: ${JSON.stringify(details)}`);
   }
 }
