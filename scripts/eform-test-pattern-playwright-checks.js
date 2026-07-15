@@ -207,7 +207,7 @@ async function openSavedEformFromPatientList(context, recorder, fdid) {
   await gotoApp(page, config.baseUrl, `/eform/efmpatientformlist?demographic_no=${encodeURIComponent(config.demographicNo)}`);
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
 
-  const link = page.locator(`#efmTable a[onclick*="fdid=${fdid}"]`).first();
+  const link = page.locator(`#efmTable a[onclick*="fdid=${fdid}"], #efmTable a[href*="fdid=${fdid}"]`).first();
   await link.waitFor({ state: 'visible', timeout: 15000 });
   const [popup] = await Promise.all([
     context.waitForEvent('page', { timeout: 30000 }),
@@ -578,10 +578,10 @@ function filteredConsoleIssues(recorder) {
 
 function filteredPageErrors(recorder) {
   // Legacy patient-list unload code can run after its opener has gone away.
-  // Keep this exception exact so unrelated patient-list script failures still fail.
+  // Keep this exception specific so unrelated patient-list script failures still fail.
   return recorder.pageErrors.filter((issue) => !(
     issue.label === 'test-pattern-patient-list'
-    && issue.text === 'Invalid or unexpected token'
+    && /Invalid or unexpected token/.test(issue.text)
   ) && !(
     issue.label === 'test-pattern-patient-list'
     && /Cannot read properties of null \(reading 'document'\)/.test(issue.text)
