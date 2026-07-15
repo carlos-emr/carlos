@@ -222,6 +222,7 @@ async function openSavedEformFromPatientList(context, recorder, fdid) {
 
 async function listSavedFdidsFromPatientList(context, recorder, searchText) {
   const page = await context.newPage();
+  wirePage(page, 'test-pattern-patient-list-resolve', recorder);
   try {
     await gotoApp(page, config.baseUrl, `/eform/efmpatientformlist?demographic_no=${encodeURIComponent(config.demographicNo)}`);
     await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
@@ -617,11 +618,12 @@ function formatDiagnostic(value) {
 async function readCsrfToken(page, label) {
   let csrfToken = await page.locator('input[name="CSRF-TOKEN"]').first().inputValue({ timeout: 5000 }).catch(() => '');
   if (!csrfToken) {
-    csrfToken = await page.evaluate(async () => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- fixed helper code fetches same-origin CSRFGuard script without interpolating caller input
+    const configuredContextPath = config.baseUrl.pathname === '/' ? '' : config.baseUrl.pathname.replace(/\/$/, '');
+    csrfToken = await page.evaluate(async (baseContextPath) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection,javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- baseContextPath is derived from validateBaseUrl and used only for a same-origin CSRFGuard fetch fallback
       const contextInput = document.getElementById('context');
       const contextPath = contextInput && contextInput.value
         ? contextInput.value
-        : `/${window.location.pathname.split('/').filter(Boolean)[0] || ''}`;
+        : baseContextPath;
       const response = await fetch(`${contextPath}/csrfguard`, { credentials: 'same-origin' });
       if (!response.ok) {
         return '';
@@ -629,7 +631,7 @@ async function readCsrfToken(page, label) {
       const js = await response.text();
       const match = js.match(/masterTokenValue\s*=\s*["']([^"']+)["']/);
       return match ? match[1] : '';
-    }).catch(() => '');
+    }, configuredContextPath).catch(() => '');
   }
   assert(csrfToken, `${label} page did not expose a CSRF token for cleanup`);
   return csrfToken;
