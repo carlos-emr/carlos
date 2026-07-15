@@ -32,6 +32,7 @@ import io.github.carlos_emr.carlos.commn.dao.EFormValueDao;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.commn.model.EFormValue;
 import io.github.carlos_emr.carlos.eform.data.EForm;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.HtmlResponse;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -61,13 +62,19 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
                 return;
             }
 
+            LoggedInInfo loggedInInfo = authorizedEformReadRequest(request);
+            if (loggedInInfo == null) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN, "Saved eForm PDF rendering requires an authenticated _eform session");
+                return;
+            }
+
             boolean browserRender = "true".equals(request.getParameter("browserRender"));
             response.setHeader("X-Content-Type-Options", "nosniff");
             response.setHeader("Content-Security-Policy", buildContentSecurityPolicy(browserRender));
 
             boolean prepareForFax = "true".equals(request.getParameter("prepareForFax"));
             String id = request.getParameter("fdid");
-            String providerId = browserRender ? authorizedRendererProviderId(request) : request.getParameter(PROVIDER_ID_PARAM);
+            String providerId = browserRender ? authorizedRendererProviderId(request, loggedInInfo) : request.getParameter(PROVIDER_ID_PARAM);
             if (browserRender && providerId == null) {
                 response.sendError(HttpServletResponse.SC_FORBIDDEN, "Renderer request requires an authenticated matching provider session");
                 return;
@@ -119,18 +126,28 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
         return buildPdfHtml(eForm, eFormValues, contextPath, projectHome, prepareForFax);
     }
 
-    private static String authorizedRendererProviderId(HttpServletRequest request) {
+    private static LoggedInInfo authorizedEformReadRequest(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        LoggedInInfo loggedInInfo = session == null ? null : LoggedInInfo.getLoggedInInfoFromSession(session);
+        if (loggedInInfo == null || loggedInInfo.getLoggedInProvider() == null || loggedInInfo.getLoggedInSecurity() == null) {
+            logger.warn("Saved eForm PDF request rejected: no authenticated session was present");
+            return null;
+        }
+
+        SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, null)) {
+            logger.warn("Saved eForm PDF request rejected: authenticated session lacks _eform read privilege");
+            return null;
+        }
+
+        return loggedInInfo;
+    }
+
+    private static String authorizedRendererProviderId(HttpServletRequest request, LoggedInInfo loggedInInfo) {
         String providerId = request.getParameter(PROVIDER_ID_PARAM);
         String canonicalProviderId = providerId == null ? "" : providerId.trim();
         if (canonicalProviderId.isEmpty()) {
             logger.warn("Renderer request rejected: missing providerId for authenticated browser render");
-            return null;
-        }
-
-        HttpSession session = request.getSession(false);
-        LoggedInInfo loggedInInfo = session == null ? null : LoggedInInfo.getLoggedInInfoFromSession(session);
-        if (loggedInInfo == null || loggedInInfo.getLoggedInProvider() == null || loggedInInfo.getLoggedInSecurity() == null) {
-            logger.warn("Renderer request rejected: no authenticated session was present");
             return null;
         }
 
