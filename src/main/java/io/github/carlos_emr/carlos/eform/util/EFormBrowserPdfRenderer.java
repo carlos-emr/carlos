@@ -590,7 +590,10 @@ public class EFormBrowserPdfRenderer {
                     ? Files.createTempDirectory(managedRoot, prefix, secureAttributes)
                     : Files.createTempFile(managedRoot, prefix, suffix, secureAttributes);
         } catch (UnsupportedOperationException e) {
-            throw new IOException("Renderer temp path requires POSIX filesystem permissions under " + managedRoot, e);
+            logger.warn("Renderer temp path POSIX permissions are unsupported under {}; using platform temp-file defaults", managedRoot);
+            return directory
+                    ? Files.createTempDirectory(managedRoot, prefix)
+                    : Files.createTempFile(managedRoot, prefix, suffix);
         }
     }
 

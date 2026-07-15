@@ -10,12 +10,16 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.when;
 
 @DisplayName("ConvertToEdoc unit tests")
 @Tag("unit")
@@ -131,14 +135,17 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should preserve oscar image path resources when backing files exist")
     void shouldPreserveOscarImagePathResources_whenBackingFilesExist(@TempDir Path tempDir) throws Exception {
-        Path imageDirectory = Path.of(CarlosProperties.getInstance().getEformImageDirectory());
+        Path imageDirectory = tempDir.resolve("eform-images");
+        CarlosProperties properties = mock(CarlosProperties.class);
+        when(properties.getEformImageDirectory()).thenReturn(imageDirectory.toString());
         Files.createDirectories(imageDirectory);
         Path image = imageDirectory.resolve("convert-to-edoc-oscar-image-path-test.png");
         Path script = imageDirectory.resolve("convert-to-edoc-oscar-image-path-test.js");
         Files.writeString(image, "png-placeholder");
         Files.writeString(script, "console.log('ok');");
 
-        try {
+        try (MockedStatic<CarlosProperties> propertiesMock = mockStatic(CarlosProperties.class)) {
+            propertiesMock.when(CarlosProperties::getInstance).thenReturn(properties);
             String html = "<html><head><script src=\"${oscar_image_path}convert-to-edoc-oscar-image-path-test.js\"></script></head>"
                     + "<body><img src=\"${oscar_image_path}convert-to-edoc-oscar-image-path-test.png\"></body></html>";
 
@@ -148,9 +155,6 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
             assertThat(document.outerHtml())
                     .contains("${oscar_image_path}convert-to-edoc-oscar-image-path-test.png")
                     .contains("${oscar_image_path}convert-to-edoc-oscar-image-path-test.js");
-        } finally {
-            Files.deleteIfExists(image);
-            Files.deleteIfExists(script);
         }
     }
 

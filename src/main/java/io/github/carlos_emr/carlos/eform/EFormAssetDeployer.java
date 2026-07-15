@@ -22,11 +22,8 @@
 
 package io.github.carlos_emr.carlos.eform;
 
-import java.awt.Color;
-import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.AtomicMoveNotSupportedException;
@@ -42,8 +39,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import javax.imageio.ImageIO;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -133,19 +128,7 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
     private static final String[] LEGACY_SIGNATURE_ASSETS = {
         "signature_pad.min.js"
     };
-    private static final String[] SAMPLE_LAB_BACKGROUND_ASSETS = {
-        "SOPLR_BC_2018_Sans2.png",
-        "BCCW_Lab_pg2.png",
-        "FHA_Lab_Mar2018_Pg2.png",
-        "VCH_PHC_Labs_2018.png",
-        "LifeLabsPg2_2019.png",
-        "CreativeCommonsIcon.png"
-    };
     private static final Map<String, String> SAMPLE_LAB_COMPATIBILITY_SCRIPTS = buildSampleLabCompatibilityScripts();
-    private static final int DEFAULT_BACKGROUND_WIDTH = 1700;
-    private static final int DEFAULT_BACKGROUND_HEIGHT = 2200;
-    private static final int ICON_WIDTH = 160;
-    private static final int ICON_HEIGHT = 160;
 
     /** Injected by Spring via {@link ServletContextAware} before {@link #afterPropertiesSet()}. */
     private jakarta.servlet.ServletContext servletContext;
@@ -301,9 +284,6 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
         for (Map.Entry<String, String> entry : SAMPLE_LAB_COMPATIBILITY_SCRIPTS.entrySet()) {
             deployGeneratedAsset(entry.getKey(), targetDir, entry.getValue().getBytes(java.nio.charset.StandardCharsets.UTF_8));
         }
-        for (String asset : SAMPLE_LAB_BACKGROUND_ASSETS) {
-            deployGeneratedAsset(asset, targetDir, createSampleLabPng(asset));
-        }
     }
 
     private void deployAssetFromPath(String filename, String resourcePath, File targetDir) {
@@ -398,72 +378,5 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
         scripts.put("LabDecisionSupport3_2024.js", compatibilityScript);
         scripts.put("LabEngine_2023.js", compatibilityScript);
         return scripts;
-    }
-
-    private byte[] createSampleLabPng(String filename) {
-        int width = "CreativeCommonsIcon.png".equals(filename) ? ICON_WIDTH : DEFAULT_BACKGROUND_WIDTH;
-        int height = "CreativeCommonsIcon.png".equals(filename) ? ICON_HEIGHT : DEFAULT_BACKGROUND_HEIGHT;
-
-        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-        fillRect(image, 0, 0, width, height, Color.WHITE.getRGB());
-        fillRect(image, 24, 24, Math.max(1, width - 48), Math.max(1, height - 48), new Color(236, 241, 246).getRGB());
-        drawRect(image, 24, 24, Math.max(1, width - 49), Math.max(1, height - 49), new Color(181, 190, 199).getRGB());
-
-        if (height > 400) {
-            int stripeColor = new Color(208, 216, 224).getRGB();
-            for (int i = 0; i < 18; i++) {
-                int y = 260 + (i * 96);
-                drawHorizontalLine(image, 72, width - 72, y, stripeColor);
-            }
-        } else {
-            fillRect(image, 36, 36, Math.max(1, width - 72), Math.max(1, height - 72), new Color(208, 216, 224).getRGB());
-        }
-
-        try (ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-            ImageIO.write(image, "png", output);
-            return output.toByteArray();
-        } catch (IOException e) {
-            logger.warn("Failed to generate sample eForm compatibility image {}; falling back to blank placeholder", filename, e);
-            return BLANK_SIGNATURE_PNG;
-        }
-    }
-
-    private void fillRect(BufferedImage image, int x, int y, int width, int height, int rgb) {
-        int maxX = Math.min(image.getWidth(), x + width);
-        int maxY = Math.min(image.getHeight(), y + height);
-        for (int drawY = Math.max(0, y); drawY < maxY; drawY++) {
-            for (int drawX = Math.max(0, x); drawX < maxX; drawX++) {
-                image.setRGB(drawX, drawY, rgb);
-            }
-        }
-    }
-
-    private void drawRect(BufferedImage image, int x, int y, int width, int height, int rgb) {
-        drawHorizontalLine(image, x, x + width, y, rgb);
-        drawHorizontalLine(image, x, x + width, y + height, rgb);
-        drawVerticalLine(image, x, y, y + height, rgb);
-        drawVerticalLine(image, x + width, y, y + height, rgb);
-    }
-
-    private void drawHorizontalLine(BufferedImage image, int startX, int endX, int y, int rgb) {
-        if (y < 0 || y >= image.getHeight()) {
-            return;
-        }
-        int from = Math.max(0, Math.min(startX, endX));
-        int to = Math.min(image.getWidth() - 1, Math.max(startX, endX));
-        for (int x = from; x <= to; x++) {
-            image.setRGB(x, y, rgb);
-        }
-    }
-
-    private void drawVerticalLine(BufferedImage image, int x, int startY, int endY, int rgb) {
-        if (x < 0 || x >= image.getWidth()) {
-            return;
-        }
-        int from = Math.max(0, Math.min(startY, endY));
-        int to = Math.min(image.getHeight() - 1, Math.max(startY, endY));
-        for (int y = from; y <= to; y++) {
-            image.setRGB(x, y, rgb);
-        }
     }
 }

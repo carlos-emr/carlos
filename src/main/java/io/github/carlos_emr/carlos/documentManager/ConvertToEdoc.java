@@ -101,7 +101,6 @@ public final class ConvertToEdoc {
 
     public static final String CUSTOM_STYLESHEET_ID = "pdfMediaStylesheet";
     private static final String OSCAR_IMAGE_PATH_TOKEN = "${oscar_image_path}";
-    private static final String DEFAULT_IMAGE_DIRECTORY = String.format("%1$s", CarlosProperties.getInstance().getEformImageDirectory());
     private static final String DEFAULT_FILENAME = "temporaryPDF";
     public static final String DEFAULT_DATE_FORMAT = "yyyy-MM-dd";
     private static final String DEFAULT_CONTENT_TYPE = "application/pdf";
@@ -1122,7 +1121,7 @@ public final class ConvertToEdoc {
      * @return String directory path
      */
     private static String getImageDirectory() {
-        return DEFAULT_IMAGE_DIRECTORY;
+        return CarlosProperties.getInstance().getEformImageDirectory();
     }
 
     /**

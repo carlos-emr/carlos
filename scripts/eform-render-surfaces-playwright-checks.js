@@ -115,6 +115,21 @@ function sha256(buffer) {
   return crypto.createHash('sha256').update(buffer).digest('hex');
 }
 
+function sameOriginUrl(rawUrl, label) {
+  const candidate = new URL(rawUrl, config.baseUrl);
+  const expectedOrigin = new URL(config.baseUrl).origin;
+  assert(candidate.origin === expectedOrigin, `${label} must be same-origin with ${expectedOrigin}: ${rawUrl}`);
+  return candidate.href;
+}
+
+function sameOriginUrls(rawUrls, label) {
+  return rawUrls.map((rawUrl, index) => sameOriginUrl(rawUrl, `${label} ${index + 1}`));
+}
+
+function assertDataImageUrl(dataUrl, label) {
+  assert(/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(dataUrl), `${label} must be a PNG data URL`);
+}
+
 function isIgnorableLegacyFaxIssue(urlOrText) {
   return /onBodyLoad_Oct2018\.js/.test(urlOrText)
     || /jSignature\.min\.js/.test(urlOrText)
@@ -124,7 +139,11 @@ function isIgnorableLegacyFaxIssue(urlOrText) {
 }
 
 async function compareImageFiles(comparePage, baselinePath, candidatePath) {
-  return comparePage.evaluate(async ({ baselineSrc, candidateSrc }) => {
+  const baselineSrc = toDataUrl(baselinePath);
+  const candidateSrc = toDataUrl(candidatePath);
+  assertDataImageUrl(baselineSrc, 'baseline image');
+  assertDataImageUrl(candidateSrc, 'candidate image');
+  return comparePage.evaluate(async ({ baselineSrc, candidateSrc }) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- arguments are locally generated PNG data URLs, not network URLs or interpolated code
     function loadImage(src) {
       return new Promise((resolve, reject) => {
         const image = new Image();
@@ -187,10 +206,7 @@ async function compareImageFiles(comparePage, baselinePath, candidatePath) {
       meanChannelDelta: totalDelta / (width * height * 4),
       maxChannelDelta,
     };
-  }, {
-    baselineSrc: toDataUrl(baselinePath),
-    candidateSrc: toDataUrl(candidatePath),
-  });
+  }, { baselineSrc, candidateSrc });
 }
 
 async function compareImageSeries(comparePage, baselinePaths, candidatePaths, label) {
@@ -309,8 +325,16 @@ async function screenshotPages(page, prefix) {
 }
 
 async function downloadBackgroundImages(page, images, prefix) {
-  const downloaded = await page.evaluate(async (bgImages) => Promise.all(bgImages.map(async (img) => {
-    const response = await fetch(img.src, { credentials: 'same-origin' });
+  const safeImages = images.map((image, index) => ({
+    ...image,
+    src: sameOriginUrl(image.src, `background image ${index + 1}`),
+  }));
+  const downloaded = await page.evaluate(async (bgImages) => Promise.all(bgImages.map(async (img) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- img.src values are prevalidated against the configured app origin and rechecked in-page before fetch
+    const imageUrl = new URL(img.src, window.location.href);
+    if (imageUrl.origin !== window.location.origin) {
+      throw new Error(`Refusing to fetch cross-origin background image: ${img.src}`);
+    }
+    const response = await fetch(imageUrl.href, { credentials: 'same-origin' });
     const buffer = await response.arrayBuffer();
     const bytes = new Uint8Array(buffer);
     let binary = '';
@@ -322,7 +346,7 @@ async function downloadBackgroundImages(page, images, prefix) {
       contentType: response.headers.get('content-type') || '',
       base64: btoa(binary),
     };
-  })), images);
+  })), safeImages);
 
   return downloaded.map((image, index) => {
     const outputPath = buildArtifactPath(screenshotDir, `${prefix}-page${index + 1}`);
@@ -498,15 +522,20 @@ async function openFaxPreviewPage(context, fdid, recorder) {
     previewData = await previewObject.getAttribute('data');
     assert(previewData && previewData.includes('/fax/faxAction?method=getPreview'), `Fax preview object did not point at getPreview: ${previewData}`);
 
-    const previewFetch = await page.evaluate(async (url) => {
-      const response = await fetch(url, { credentials: 'same-origin' });
+    const previewFetchUrl = sameOriginUrl(previewData, 'fax preview PDF object URL');
+    const previewFetch = await page.evaluate(async (url) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- URL is prevalidated against the configured app origin and rechecked in-page before fetch
+      const previewUrl = new URL(url, window.location.href);
+      if (previewUrl.origin !== window.location.origin) {
+        throw new Error(`Refusing to fetch cross-origin fax preview object: ${url}`);
+      }
+      const response = await fetch(previewUrl.href, { credentials: 'same-origin' });
       const bytes = await response.arrayBuffer();
       return {
         status: response.status,
         byteLength: bytes.byteLength,
         contentType: response.headers.get('content-type') || '',
       };
-    }, previewData);
+    }, previewFetchUrl);
     previewStatus = previewFetch.status;
     previewBytes = previewFetch.byteLength;
     previewContentType = previewFetch.contentType;
@@ -516,11 +545,18 @@ async function openFaxPreviewPage(context, fdid, recorder) {
     const imagePreviewResponses = recorder.requestLog.filter((entry) => entry.label === 'fax-preview' && entry.url.includes('/fax/faxAction?method=getPreview') && entry.url.includes('showAs=image') && entry.method === 'GET');
     assert(imagePreviewResponses.length > 0, 'Fax preview image requests were not captured');
 
-    const previewImageUrls = await imagePreviewLocators.evaluateAll((images) => images.map((img) => img.currentSrc || img.src).filter(Boolean));
+    const previewImageUrls = sameOriginUrls(
+      await imagePreviewLocators.evaluateAll((images) => images.map((img) => img.currentSrc || img.src).filter(Boolean)),
+      'fax preview image URL',
+    );
     assert(previewImageUrls.length > 0, 'Fax preview image URLs were not available in the DOM');
 
-    const previewImages = await page.evaluate(async (urls) => Promise.all(urls.map(async (url) => {
-      const response = await fetch(url, { credentials: 'same-origin' });
+    const previewImages = await page.evaluate(async (urls) => Promise.all(urls.map(async (url) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- URLs are prevalidated against the configured app origin and rechecked in-page before fetch
+      const previewUrl = new URL(url, window.location.href);
+      if (previewUrl.origin !== window.location.origin) {
+        throw new Error(`Refusing to fetch cross-origin fax preview image: ${url}`);
+      }
+      const response = await fetch(previewUrl.href, { credentials: 'same-origin' });
       const buffer = await response.arrayBuffer();
       const bytes = new Uint8Array(buffer);
       let binary = '';
@@ -552,11 +588,16 @@ async function openFaxPreviewPage(context, fdid, recorder) {
   let previewPdfSha256 = null;
   let previewPdfBytes = null;
   if (previewPdfHref) {
-    const previewPdfBytesArray = await page.evaluate(async (href) => {
-      const response = await fetch(href, { credentials: 'same-origin' });
+    const previewPdfUrl = sameOriginUrl(previewPdfHref, 'fax preview source PDF URL');
+    const previewPdfBytesArray = await page.evaluate(async (href) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- href is prevalidated against the configured app origin and rechecked in-page before fetch
+      const pdfUrl = new URL(href, window.location.href);
+      if (pdfUrl.origin !== window.location.origin) {
+        throw new Error(`Refusing to fetch cross-origin fax preview PDF: ${href}`);
+      }
+      const response = await fetch(pdfUrl.href, { credentials: 'same-origin' });
       const buffer = await response.arrayBuffer();
       return Array.from(new Uint8Array(buffer));
-    }, previewPdfHref);
+    }, previewPdfUrl);
     const previewPdfBuffer = Buffer.from(previewPdfBytesArray);
     previewPdfPath = buildArtifactPath(screenshotDir, 'child-psychiatry-fax-preview-source', '.pdf');
     fs.writeFileSync(previewPdfPath, previewPdfBuffer);
@@ -664,6 +705,12 @@ function getLaunchOptions() {
     };
     if (result.faxPreview.previewImagePaths.length > 0) {
       result.faxPreview.surfaceComparisons = await compareImageSeries(comparePage, result.originalScreenshots, result.faxPreview.previewImagePaths, 'fax preview surface');
+    }
+    for (const [label, comparisons] of Object.entries(result.surfaceComparisons)) {
+      assertComparisonWithinThreshold(comparisons, label, 0.002, 0.2);
+    }
+    if (result.faxPreview.surfaceComparisons) {
+      assertComparisonWithinThreshold(result.faxPreview.surfaceComparisons, 'fax preview surface', 0.002, 0.2);
     }
     result.pdfVisualStability = await comparePdfFilesVisually(comparePage, result.pdf.pdfPath, result.faxPreview.referencePdf.pdfPath, 'saved-form pdf stability');
     if (result.faxPreview.previewPdfPath) {

@@ -296,10 +296,7 @@ public class FaxManagerImpl implements FaxManager {
         String senderFaxNumber = (String) faxJobMap.get("senderFaxNumber");
         Integer demographicNo = (Integer) faxJobMap.get("demographicNo");
 
-        // Promote renderer/upload temp files into the permanent document store before queuing.
-        if (faxFilePath != null && PathValidationUtils.isInAllowedTempDirectory(new File(faxFilePath))) {
-            faxFilePath = nioFileManager.copyFileToOscarDocuments(faxFilePath);
-        }
+        faxFilePath = promoteAllowedTempFaxFile(faxFilePath);
         recipientFaxNumber = recipientFaxNumber.replaceAll("\\D", "");
 
         FaxJob faxJob = new FaxJob();
@@ -348,6 +345,23 @@ public class FaxManagerImpl implements FaxManager {
 
         return faxJob;
 
+    }
+
+    private String promoteAllowedTempFaxFile(String faxFilePath) {
+        if (faxFilePath == null || faxFilePath.isBlank()) {
+            return faxFilePath;
+        }
+
+        try {
+            Path validatedPath = resolveAndValidateFilePath(faxFilePath);
+            if (PathValidationUtils.isInAllowedTempDirectory(validatedPath.toFile())) {
+                return nioFileManager.copyFileToOscarDocuments(validatedPath.toString());
+            }
+        } catch (SecurityException | IOException e) {
+            logger.debug("Skipping temp fax file promotion for invalid or inaccessible file path: {}",
+                    LogSafe.sanitize(faxFilePath), e);
+        }
+        return faxFilePath;
     }
 
     /**

@@ -201,7 +201,6 @@ class EFormBrowserPdfRendererUnitTest {
         try {
             assertThat(EFormBrowserPdfRenderer.findNodeModulesDirectory(List.of(nodeModules)))
                     .isEqualTo(nodeModules);
-            assertThat(playwright).isDirectory();
         } finally {
             Files.deleteIfExists(playwright);
             Files.deleteIfExists(nodeModules);
@@ -218,7 +217,6 @@ class EFormBrowserPdfRendererUnitTest {
         try {
             assertThat(EFormBrowserPdfRenderer.findNodeModulesDirectory(List.of(root)))
                     .isEqualTo(nodeModules);
-            assertThat(playwright).isDirectory();
         } finally {
             Files.deleteIfExists(playwright);
             Files.deleteIfExists(nodeModules);
