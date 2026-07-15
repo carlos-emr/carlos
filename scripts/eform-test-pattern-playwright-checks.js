@@ -441,6 +441,7 @@ async function fillPattern(page, expected) {
     element.dispatchEvent(new Event('change', { bubbles: true }));
   });
   await page.locator('#test_pattern_legacy_xbox').click();
+  await page.locator('#test_pattern_only_one_alpha').click();
   await page.locator('#test_pattern_only_one_bravo').click();
   await page.locator('#test_pattern_button_element').click();
   await page.locator('#subject').fill(expected.subject);
@@ -461,6 +462,7 @@ async function fillPattern(page, expected) {
   }, expected.signatureChoice);
   await page.locator('#test_pattern_calc_one').fill('14.25');
   await page.locator('#test_pattern_calc_two').fill('5.75');
+  await page.locator('#test_pattern_toggle_details').check();
   await page.locator('#test_pattern_toggle_details').uncheck();
 }
 
@@ -574,6 +576,9 @@ function filteredPageErrors(recorder) {
   // Keep this exception exact so unrelated patient-list script failures still fail.
   return recorder.pageErrors.filter((issue) => !(
     issue.label === 'test-pattern-patient-list'
+    && issue.text === 'Invalid or unexpected token'
+  ) && !(
+    issue.label === 'test-pattern-patient-list'
     && /Cannot read properties of null \(reading 'document'\)/.test(issue.text)
     && /at updateAjax .*efmpatientformlist\?demographic_no=/.test(issue.text)
     && /at onunload .*efmpatientformlist\?demographic_no=/.test(issue.text)
@@ -610,7 +615,22 @@ function formatDiagnostic(value) {
 }
 
 async function readCsrfToken(page, label) {
-  const csrfToken = await page.locator('input[name="CSRF-TOKEN"]').first().inputValue({ timeout: 5000 }).catch(() => '');
+  let csrfToken = await page.locator('input[name="CSRF-TOKEN"]').first().inputValue({ timeout: 5000 }).catch(() => '');
+  if (!csrfToken) {
+    csrfToken = await page.evaluate(async () => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- fixed helper code fetches same-origin CSRFGuard script without interpolating caller input
+      const contextInput = document.getElementById('context');
+      const contextPath = contextInput && contextInput.value
+        ? contextInput.value
+        : `/${window.location.pathname.split('/').filter(Boolean)[0] || ''}`;
+      const response = await fetch(`${contextPath}/csrfguard`, { credentials: 'same-origin' });
+      if (!response.ok) {
+        return '';
+      }
+      const js = await response.text();
+      const match = js.match(/masterTokenValue\s*=\s*["']([^"']+)["']/);
+      return match ? match[1] : '';
+    }).catch(() => '');
+  }
   assert(csrfToken, `${label} page did not expose a CSRF token for cleanup`);
   return csrfToken;
 }

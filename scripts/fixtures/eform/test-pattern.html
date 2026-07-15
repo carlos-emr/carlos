@@ -394,6 +394,12 @@ function releaseDirtyFlag() {
   needToConfirm = false;
 }
 
+function submitTestPatternForm() {
+  releaseDirtyFlag();
+  document.getElementById('FormName').submit();
+  return false;
+}
+
 function numericValue(id) {
   var value = parseFloat(document.getElementById(id).value);
   return isFinite(value) ? value : 0;
@@ -663,7 +669,7 @@ Third line</textarea>
           <input type="text" name="test_pattern_long_label" id="test_pattern_long_label" value="Long label value">
         </label>
         <div class="label">Conditional toggle
-          <span class="inline-options"><label><input type="checkbox" name="test_pattern_toggle_details" id="test_pattern_toggle_details" value="show" checked> Show detail panel</label></span>
+          <span class="inline-options"><label><input type="checkbox" name="test_pattern_toggle_details" id="test_pattern_toggle_details" value="show"> Show detail panel</label></span>
         </div>
       </div>
       <div id="test_pattern_conditional_block" class="conditional-panel Show_Hide">
@@ -683,7 +689,7 @@ Third line</textarea>
         </div>
         <div class="label">Only-one checkbox group
           <div class="legacy-row">
-            <label><input type="checkbox" name="test_pattern_only_one_alpha" id="test_pattern_only_one_alpha" class="only-one-test-pattern" value="alpha" checked onclick="checkOnlyOne('only-one-test-pattern', this);"> Alpha</label>
+            <label><input type="checkbox" name="test_pattern_only_one_alpha" id="test_pattern_only_one_alpha" class="only-one-test-pattern" value="alpha" onclick="checkOnlyOne('only-one-test-pattern', this);"> Alpha</label>
             <label><input type="checkbox" name="test_pattern_only_one_bravo" id="test_pattern_only_one_bravo" class="only-one-test-pattern" value="bravo" onclick="checkOnlyOne('only-one-test-pattern', this);"> Bravo</label>
           </div>
         </div>
@@ -769,7 +775,7 @@ Third line</textarea>
     <input type="hidden" name="test_pattern_button_result" id="test_pattern_button_result" value="">
     <input value="Print" name="test_pattern_print_button" id="test_pattern_print_button" type="button" onclick="window.print();">
     <input value="Reset" name="test_pattern_reset_button" id="test_pattern_reset_button" type="reset">
-    <input value="Local submit" name="SubmitButton" id="SubmitButton" type="submit">
+    <input value="Local submit" name="SubmitButton" id="SubmitButton" type="submit" onclick="return submitTestPatternForm();">
   </div>
 </div>
 </form>

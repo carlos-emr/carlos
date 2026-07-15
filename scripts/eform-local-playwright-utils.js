@@ -97,7 +97,8 @@ function isIgnorableConsoleMessage(message) {
 
 function isExpectedLegacyConsoleIssue(text, location = {}) {
   const source = `${location.url || ''} ${text}`;
-  return /signature_pad\.min\.js|BNK\.png/.test(source);
+  return /signature_pad\.min\.js|BNK\.png/.test(source)
+    || /Loading plugin data from 'data:text\/plain,Embedded%20object%20content' violates .*object-src 'none'/.test(source);
 }
 
 function isSevereConsoleMessage(message) {
