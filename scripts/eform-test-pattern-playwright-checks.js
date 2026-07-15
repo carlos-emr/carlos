@@ -791,8 +791,8 @@ async function cleanupUploadedImage(context, imageName) {
   const recorder = createRecorder();
   const timestamp = Date.now();
   const runId = `${timestamp}_${process.pid}`;
-  const formName = `Playwright Test Pattern ${timestamp}`;
-  const formSubject = `Test Pattern ${timestamp}`;
+  const formName = `Playwright Test Pattern ${runId}`;
+  const formSubject = `Test Pattern ${runId}`;
   bgImageName = `playwright_test_pattern_bg_${runId}.png`;
   const expected = {
     fid: '',
@@ -802,7 +802,7 @@ async function cleanupUploadedImage(context, imageName) {
     select: 'charlie',
     datalist: 'Legacy typed option',
     radio: 'charlie',
-    subject: `Pattern subject ${timestamp}`,
+    subject: `Pattern subject ${runId}`,
     hiddenPersisted: `hidden-${timestamp}`,
     storeSignature: `image/jsignature;base30,legacy-${timestamp}`,
     signatureChoice: 'Wet',
@@ -855,7 +855,7 @@ async function cleanupUploadedImage(context, imageName) {
     const directPage = await openSavedEformDirect(context, recorder, fdid);
     await assertSavedPattern(directPage, expected, fdid, 'eform-test-pattern-direct-reopen');
     const pdfResult = await downloadPdf(directPage, `eform-test-pattern-${runId}`);
-    for (const currentFdid of await listSavedFdidsFromPatientList(context, recorder, formName)) {
+    for (const currentFdid of await listSavedFdidsFromPatientList(context, recorder, expected.subject)) {
       savedFdidsToCleanup.add(currentFdid);
     }
     await directPage.close();
