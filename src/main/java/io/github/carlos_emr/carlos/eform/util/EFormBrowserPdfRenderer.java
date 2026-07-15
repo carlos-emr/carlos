@@ -92,7 +92,6 @@ public class EFormBrowserPdfRenderer {
             Path.of("/usr/lib/node_modules"),
             Path.of("/usr/local/lib/node_modules"));
     private static final float CSS_PIXEL_TO_POINTS = 72f / 96f;
-    private static final int PROCESS_OUTPUT_LOG_TAIL_LIMIT = 4000;
 
     /**
      * Renders a saved eForm by loading the authenticated local servlet route in Playwright,
@@ -152,15 +151,15 @@ public class EFormBrowserPdfRenderer {
             boolean finished = process.waitFor(RENDER_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
             if (!finished) {
                 terminateProcessTree(process);
-                String processOutput = awaitProcessOutput(outputFuture);
-                logger.error("Browser eForm renderer timed out: fdid={} providerId={} baseUrl={} appPath={} outputTail={}",
-                        fdid, providerId, baseUrl, appPath, abbreviateProcessOutput(processOutput));
+                awaitProcessOutput(outputFuture);
+                logger.error("Browser eForm renderer timed out: fdid={} providerId={} baseUrl={} appPath={}",
+                        fdid, providerId, baseUrl, appPath);
                 throw new PDFGenerationException("Browser rendering timed out while generating the eForm PDF.");
             }
-            String processOutput = awaitProcessOutput(outputFuture);
+            awaitProcessOutput(outputFuture);
             if (process.exitValue() != 0) {
-                logger.error("Browser eForm renderer failed: fdid={} providerId={} baseUrl={} appPath={} exitStatus={} outputTail={}",
-                        fdid, providerId, baseUrl, appPath, process.exitValue(), abbreviateProcessOutput(processOutput));
+                logger.error("Browser eForm renderer failed: fdid={} providerId={} baseUrl={} appPath={} exitStatus={}",
+                        fdid, providerId, baseUrl, appPath, process.exitValue());
                 throw new PDFGenerationException("Browser rendering failed while generating the eForm PDF. exitStatus=" + process.exitValue());
             }
             List<Path> captureFiles = listCaptureFiles(outputDirectory);
@@ -236,17 +235,6 @@ public class EFormBrowserPdfRenderer {
         } catch (ExecutionException | java.util.concurrent.TimeoutException e) {
             return "";
         }
-    }
-
-    private static String abbreviateProcessOutput(String processOutput) {
-        if (processOutput == null || processOutput.isBlank()) {
-            return "<empty>";
-        }
-        String normalized = processOutput.replaceAll("\\s+", " ").trim();
-        if (normalized.length() <= PROCESS_OUTPUT_LOG_TAIL_LIMIT) {
-            return normalized;
-        }
-        return normalized.substring(normalized.length() - PROCESS_OUTPUT_LOG_TAIL_LIMIT);
     }
 
     static String buildDefaultBaseUrl(String projectHome) {
