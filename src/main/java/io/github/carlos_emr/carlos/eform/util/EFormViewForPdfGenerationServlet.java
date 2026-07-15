@@ -121,12 +121,12 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
 
     private static String authorizedRendererProviderId(HttpServletRequest request) {
         String providerId = request.getParameter(PROVIDER_ID_PARAM);
-        if (providerId == null || providerId.isBlank()) {
+        String canonicalProviderId = providerId == null ? "" : providerId.trim();
+        if (canonicalProviderId.isEmpty()) {
             logger.warn("Renderer request rejected: missing providerId for authenticated browser render");
             return null;
         }
 
-        String canonicalProviderId = providerId.trim();
         HttpSession session = request.getSession(false);
         LoggedInInfo loggedInInfo = session == null ? null : LoggedInInfo.getLoggedInInfoFromSession(session);
         if (loggedInInfo == null || loggedInInfo.getLoggedInProvider() == null || loggedInInfo.getLoggedInSecurity() == null) {

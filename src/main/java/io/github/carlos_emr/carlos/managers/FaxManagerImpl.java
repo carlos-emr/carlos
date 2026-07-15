@@ -572,7 +572,7 @@ public class FaxManagerImpl implements FaxManager {
         Path outfile = null;
 
         if (filePath != null && Files.exists(filePath)) {
-            outfile = nioFileManager.createCacheVersion2(loggedInInfo, filePath.getParent().toString(), filePath.getFileName().toString(), pageNumber);
+            outfile = nioFileManager.createFaxPreviewCacheVersion(loggedInInfo, filePath.getParent().toString(), filePath.getFileName().toString(), pageNumber);
         }
         return outfile;
     }

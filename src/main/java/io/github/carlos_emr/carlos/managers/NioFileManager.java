@@ -63,6 +63,12 @@ public interface NioFileManager {
     public Path createCacheVersion2(LoggedInInfo loggedInInfo, String sourceDirectory, String filename, Integer pageNum);
 
     /**
+     * Creates or returns a cached preview image for fax preview callers.
+     * This is scoped to fax preview authorization and does not change the _edoc-gated cache API.
+     */
+    public Path createFaxPreviewCacheVersion(LoggedInInfo loggedInInfo, String sourceDirectory, String filename, Integer pageNum);
+
+    /**
      * Remove the given file from the cache directory.
      * This is highly recommended function for temporary document preview images.
      *

@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -206,6 +207,67 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
         } finally {
             Files.deleteIfExists(expectedCache);
         }
+    }
+
+    @Test
+    @DisplayName("Creates fax preview images with fax read privilege without requiring edoc write")
+    void shouldCreateFaxPreviewCacheVersion_whenFaxReadGrantedAndEdocWriteDenied() throws IOException {
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq(SecurityInfoManager.WRITE), eq(""))).thenReturn(false);
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq(SecurityInfoManager.READ), eq(""))).thenReturn(false);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
+        allowedTempDir = Files.createTempDirectory(Path.of(System.getProperty("java.io.tmpdir")), "nio-fax-preview-");
+        assumeTrue(PathValidationUtils.isInAllowedTempDirectory(allowedTempDir.toFile()),
+                "test temp directory must resolve inside an allowed temp directory");
+        Files.createDirectories(getDocumentCacheDirectory());
+        String sourceFilename = "fax-preview-fax-only-" + UUID.randomUUID() + ".pdf";
+        Path sourcePdf = allowedTempDir.resolve(sourceFilename);
+        Path expectedCache = getDocumentCacheDirectory().resolve(sourceFilename + "_1.png");
+        Files.deleteIfExists(expectedCache);
+        createSinglePagePdf(sourcePdf);
+
+        try {
+            Path cacheVersion = nioFileManager.createFaxPreviewCacheVersion(loggedInInfo, allowedTempDir.toString(), sourceFilename, 1);
+
+            assertThat(cacheVersion).isNotNull().exists();
+            assertThat(cacheVersion.getFileName().toString()).isEqualTo(sourceFilename + "_1.png");
+            assertThat(Files.size(cacheVersion)).isPositive();
+        } finally {
+            Files.deleteIfExists(expectedCache);
+            Files.deleteIfExists(sourcePdf);
+        }
+    }
+
+    @Test
+    @DisplayName("Keeps edoc cache generation gated by edoc write privilege")
+    void shouldRequireEdocWrite_whenCreatingDocumentCacheVersion() {
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq(SecurityInfoManager.WRITE), eq(""))).thenReturn(false);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
+
+        assertThatThrownBy(() -> nioFileManager.createCacheVersion2(loggedInInfo, "/tmp", "fax-preview.pdf", 1))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("_edoc");
+    }
+
+    @Test
+    @DisplayName("Keeps edoc cache generation gated by edoc read privilege")
+    void shouldRequireEdocRead_whenCreatingDocumentCacheVersion() {
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq(SecurityInfoManager.WRITE), eq(""))).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq(SecurityInfoManager.READ), eq(""))).thenReturn(false);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
+
+        assertThatThrownBy(() -> nioFileManager.createCacheVersion2(loggedInInfo, "/tmp", "fax-preview.pdf", 1))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("_edoc");
+    }
+
+    @Test
+    @DisplayName("Rejects fax preview cache generation without fax read privilege")
+    void shouldRequireFaxRead_whenCreatingFaxPreviewCacheVersion() {
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq(SecurityInfoManager.READ), isNull())).thenReturn(false);
+
+        assertThatThrownBy(() -> nioFileManager.createFaxPreviewCacheVersion(loggedInInfo, "/tmp", "fax-preview.pdf", 1))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("_fax");
     }
 
     private Path createOutsideAllowedTempDirectory() throws IOException {

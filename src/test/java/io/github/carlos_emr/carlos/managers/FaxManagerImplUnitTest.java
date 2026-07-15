@@ -114,6 +114,26 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    @DisplayName("should use fax preview cache generation for preview images")
+    void shouldUseFaxPreviewCacheVersion_whenRenderingPreviewImage() throws Exception {
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_fax"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
+        Path sourcePdf = Files.createTempFile("fax-preview-source-", ".pdf");
+        Path previewImage = Path.of("/tmp/fax-preview-source_2.png");
+        try {
+            when(nioFileManager.createFaxPreviewCacheVersion(loggedInInfo, sourcePdf.getParent().toString(),
+                    sourcePdf.getFileName().toString(), 2)).thenReturn(previewImage);
+
+            Path result = manager.getFaxPreviewImage(loggedInInfo, sourcePdf, 2);
+
+            assertThat(result).isEqualTo(previewImage);
+            verify(nioFileManager).createFaxPreviewCacheVersion(loggedInInfo, sourcePdf.getParent().toString(),
+                    sourcePdf.getFileName().toString(), 2);
+        } finally {
+            Files.deleteIfExists(sourcePdf);
+        }
+    }
+
     private static void resetAllowedTempDirectoriesCache() throws Exception {
         Field allowedTempDirectories = io.github.carlos_emr.carlos.utility.PathValidationUtils.class
                 .getDeclaredField("allowedTempDirectories");

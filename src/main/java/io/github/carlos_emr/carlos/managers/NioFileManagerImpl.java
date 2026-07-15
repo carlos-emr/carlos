@@ -88,6 +88,10 @@ public class NioFileManagerImpl implements NioFileManager {
             throw new RuntimeException("Read Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
         }
 
+        return hasCacheVersion(filename, pageNum);
+    }
+
+    private Path hasCacheVersion(String filename, Integer pageNum) {
         // Validate input parameters
         if (filename == null || filename.trim().isEmpty()) {
             log.error("Invalid filename provided: null or empty");
@@ -108,7 +112,7 @@ public class NioFileManagerImpl implements NioFileManager {
             return null;
         }
 
-        Path documentCacheDir = getDocumentCacheDirectory(loggedInInfo);
+        Path documentCacheDir = getDocumentCacheDirectoryWithoutAuthorization();
         Path normalizedCacheDir = documentCacheDir.normalize().toAbsolutePath();
         
         // Construct the cache filename securely
@@ -152,6 +156,10 @@ public class NioFileManagerImpl implements NioFileManager {
             throw new RuntimeException("Read Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
         }
 
+        return getDocumentCacheDirectoryWithoutAuthorization();
+    }
+
+    private Path getDocumentCacheDirectoryWithoutAuthorization() {
         Path cacheDir = Paths.get(BASE_DOCUMENT_DIR, context.getContextPath(), DOCUMENT_CACHE_DIRECTORY);
 
         if (!Files.exists(cacheDir)) {
@@ -179,11 +187,30 @@ public class NioFileManagerImpl implements NioFileManager {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.WRITE, "")) {
             throw new RuntimeException("Read Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
         }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, "")) {
+            throw new RuntimeException("Read Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
+        }
 
+        return createCacheVersion(sourceDirectory, filename, pageNum);
+    }
+
+    /**
+     * Creates or returns a cached PNG preview for a fax preview page.
+     */
+    @Override
+    public Path createFaxPreviewCacheVersion(LoggedInInfo loggedInInfo, String sourceDirectory, String filename, Integer pageNum) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)) {
+            throw new RuntimeException("missing required sec object (_fax)");
+        }
+
+        return createCacheVersion(sourceDirectory, filename, pageNum);
+    }
+
+    private Path createCacheVersion(String sourceDirectory, String filename, Integer pageNum) {
         // Sanitize the filename to prevent path traversal
         String sanitizedFilename = sanitizeFileName(filename);
 
-        Path cacheFilePath = hasCacheVersion2(loggedInInfo, sanitizedFilename, pageNum);
+        Path cacheFilePath = hasCacheVersion(sanitizedFilename, pageNum);
 
         /*
          * create a new cache file if an existing cache file is not returned.
@@ -242,7 +269,7 @@ public class NioFileManagerImpl implements NioFileManager {
                 return null;
             }
             
-            Path documentCacheDir = getDocumentCacheDirectory(loggedInInfo);
+            Path documentCacheDir = getDocumentCacheDirectoryWithoutAuthorization();
             Path normalizedCacheDir = documentCacheDir.normalize().toAbsolutePath();
             cacheFilePath = normalizedCacheDir.resolve(sanitizedFilename + "_" + pageNum + ".png");
             cacheFilePath = cacheFilePath.normalize().toAbsolutePath();

@@ -162,6 +162,13 @@ class EFormBrowserPdfRendererUnitTest {
     }
 
     @Test
+    @DisplayName("should build URL context paths with forward slashes")
+    void shouldBuildLocalBaseUrl_whenContextPathDoesNotStartWithSlash() {
+        assertThat(EFormBrowserPdfRenderer.buildLocalBaseUrl("http", 8080, "carlos"))
+                .isEqualTo("http://127.0.0.1:8080/carlos");
+    }
+
+    @Test
     @DisplayName("should reject non-local base URLs for the Playwright renderer")
     void shouldRejectNonLocalBaseUrl_whenApplyingRendererEnvironment() {
         assertThatThrownBy(EFormBrowserPdfRendererUnitTest::applyEnvironmentWithInvalidBaseUrl)
@@ -222,6 +229,12 @@ class EFormBrowserPdfRendererUnitTest {
             Files.deleteIfExists(nodeModules);
             Files.deleteIfExists(root);
         }
+    }
+
+    @Test
+    @DisplayName("should ignore root candidates when resolving Playwright modules")
+    void shouldIgnoreRootCandidate_whenResolvingPlaywrightModules() {
+        assertThat(EFormBrowserPdfRenderer.findNodeModulesDirectory(List.of(Path.of("/")))).isNull();
     }
 
     @Test

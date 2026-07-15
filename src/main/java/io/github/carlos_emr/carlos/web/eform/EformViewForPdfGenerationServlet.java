@@ -70,11 +70,11 @@ public final class EformViewForPdfGenerationServlet extends HttpServlet {
             }
 
             String providerNo = request.getParameter(PROVIDER_ID_PARAM);
-            if (providerNo == null || providerNo.isBlank()) {
+            String canonicalProviderNo = providerNo == null ? "" : providerNo.trim();
+            if (canonicalProviderNo.isEmpty()) {
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing required parameter: " + PROVIDER_ID_PARAM);
                 return;
             }
-            String canonicalProviderNo = providerNo.trim();
 
             String sessionProviderNo = authorizedRendererProviderNo(request, canonicalProviderNo);
             if (sessionProviderNo == null) {

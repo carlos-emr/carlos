@@ -26,10 +26,13 @@ import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import javax.imageio.ImageIO;
@@ -138,17 +141,21 @@ public class EFormBrowserPdfRenderer {
             applyRendererEnvironment(environment, baseUrl, appPath, cookieHeader, resolveChromiumPath());
 
             process = processBuilder.start();
-            Process rendererProcess = process;
-            CompletableFuture<String> outputFuture = CompletableFuture.supplyAsync(() -> readProcessOutput(rendererProcess));
-            boolean finished = process.waitFor(RENDER_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
-            if (!finished) {
-                terminateProcessTree(process);
+            try (ExecutorService processOutputExecutor = Executors.newSingleThreadExecutor()) {
+                Process rendererProcess = process;
+                CompletableFuture<String> outputFuture = CompletableFuture.supplyAsync(
+                        () -> readProcessOutput(rendererProcess),
+                        processOutputExecutor);
+                boolean finished = process.waitFor(RENDER_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
+                if (!finished) {
+                    terminateProcessTree(process);
+                    awaitProcessOutput(outputFuture);
+                    throw new PDFGenerationException("Browser rendering timed out while generating the eForm PDF.");
+                }
                 awaitProcessOutput(outputFuture);
-                throw new PDFGenerationException("Browser rendering timed out while generating the eForm PDF.");
-            }
-            awaitProcessOutput(outputFuture);
-            if (process.exitValue() != 0) {
-                throw new PDFGenerationException("Browser rendering failed while generating the eForm PDF. exitStatus=" + process.exitValue());
+                if (process.exitValue() != 0) {
+                    throw new PDFGenerationException("Browser rendering failed while generating the eForm PDF. exitStatus=" + process.exitValue());
+                }
             }
             List<Path> captureFiles = listCaptureFiles(outputDirectory);
             if (captureFiles.isEmpty()) {
@@ -236,7 +243,7 @@ public class EFormBrowserPdfRenderer {
         String normalizedScheme = (scheme == null || scheme.isBlank()) ? "http" : scheme.trim();
         String normalizedContextPath = contextPath == null ? "" : contextPath.trim();
         if (!normalizedContextPath.isEmpty() && !normalizedContextPath.startsWith("/")) {
-            normalizedContextPath = Path.of("/", normalizedContextPath).toString();
+            normalizedContextPath = "/" + normalizedContextPath;
         }
         if (normalizedContextPath.endsWith("/")) {
             normalizedContextPath = normalizedContextPath.substring(0, normalizedContextPath.length() - 1);
@@ -283,7 +290,8 @@ public class EFormBrowserPdfRenderer {
 
         URI uri = URI.create(rawBaseUrl.trim());
         String scheme = uri.getScheme();
-        if (scheme == null || (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme))) {
+        String normalizedScheme = scheme == null ? "" : scheme.toLowerCase(Locale.ROOT);
+        if (!"http".equals(normalizedScheme) && !"https".equals(normalizedScheme)) {
             throw new IllegalArgumentException("Renderer base URL must use http or https");
         }
         if (uri.getHost() == null || !isLocalRendererHost(uri.getHost())) {
@@ -303,10 +311,8 @@ public class EFormBrowserPdfRenderer {
         return normalizedPath;
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (host label classification for local/private loopback); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (host label classification for local/private loopback); not a security or authorization decision")
     static boolean isLocalRendererHost(String rawHost) {
-        String host = rawHost == null ? "" : rawHost.trim().toLowerCase();
+        String host = rawHost == null ? "" : rawHost.trim().toLowerCase(Locale.ROOT);
         if (host.startsWith("[") && host.endsWith("]")) {
             host = host.substring(1, host.length() - 1);
         }
@@ -469,7 +475,8 @@ public class EFormBrowserPdfRenderer {
                 continue;
             }
             Path nodeModulesDirectory = playwrightPath.getParent();
-            if (nodeModulesDirectory == null || !NODE_MODULES_DIRECTORY_NAME.equals(nodeModulesDirectory.getFileName().toString())) {
+            Path nodeModulesFileName = nodeModulesDirectory == null ? null : nodeModulesDirectory.getFileName();
+            if (nodeModulesFileName == null || !NODE_MODULES_DIRECTORY_NAME.equals(nodeModulesFileName.toString())) {
                 continue;
             }
             try {
@@ -613,11 +620,10 @@ public class EFormBrowserPdfRenderer {
         }
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison only classifies literal protocol names for default-port handling, not any auth decision.
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Case-insensitive comparison here only classifies literal protocol names for port defaults and is not used for authentication or authorization.")
     private static boolean isDefaultPort(String scheme, int port) {
-        return ("http".equalsIgnoreCase(scheme) && port == 80)
-                || ("https".equalsIgnoreCase(scheme) && port == 443);
+        String normalizedScheme = scheme == null ? "" : scheme.toLowerCase(Locale.ROOT);
+        return ("http".equals(normalizedScheme) && port == 80)
+                || ("https".equals(normalizedScheme) && port == 443);
     }
 
     private record RendererRuntime(Path runtimeRoot, boolean temporary) {
