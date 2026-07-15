@@ -33,8 +33,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
 import java.util.Comparator;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -338,6 +340,30 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("Ignores discriminator cache matches for sources outside approved roots")
+    void shouldNotRemoveFaxPreviewCacheVersions_whenSourcePathIsOutsideApprovedRoots() throws Exception {
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
+        outsideDir = createOutsideAllowedTempDirectory();
+        outsideFile = outsideDir.resolve("fax-preview-removal.pdf");
+        createSinglePagePdf(outsideFile);
+        assumeTrue(!PathValidationUtils.isInAllowedTempDirectory(outsideFile.toFile()),
+                "outside test PDF unexpectedly resolves inside an allowed temp directory");
+        Files.createDirectories(getDocumentCacheDirectory());
+        Path cacheFile = getDocumentCacheDirectory().resolve("fax-preview-removal.pdf_"
+                + sourcePathDiscriminator(outsideFile) + "_1.png");
+        Files.writeString(cacheFile, "cache");
+
+        try {
+            boolean removed = nioFileManager.removeFaxPreviewCacheVersions(loggedInInfo, outsideFile.toString());
+
+            assertThat(removed).isFalse();
+            assertThat(cacheFile).exists();
+        } finally {
+            Files.deleteIfExists(cacheFile);
+        }
+    }
+
+    @Test
     @DisplayName("Keeps edoc cache generation gated by edoc write privilege")
     void shouldRequireEdocWrite_whenCreatingDocumentCacheVersion() {
         when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq(SecurityInfoManager.WRITE), eq(""))).thenReturn(false);
@@ -376,6 +402,22 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
 
     private static Path getDocumentCacheDirectory() {
         return Path.of(CarlosProperties.getInstance().getProperty("BASE_DOCUMENT_DIR"), "carlos", "document_cache");
+    }
+
+    private static String sourcePathDiscriminator(Path sourceFile) throws Exception {
+        byte[] digest = MessageDigest.getInstance("SHA-256")
+                .digest(sourceFile.toRealPath().toString().getBytes(StandardCharsets.UTF_8));
+        StringBuilder builder = new StringBuilder(16);
+        for (byte value : digest) {
+            if (builder.length() >= 16) {
+                break;
+            }
+            builder.append(Character.forDigit((value >>> 4) & 0xF, 16));
+            if (builder.length() < 16) {
+                builder.append(Character.forDigit(value & 0xF, 16));
+            }
+        }
+        return builder.toString();
     }
 
     private static void createSinglePagePdf(Path path) throws IOException {

@@ -697,11 +697,21 @@ public class FaxManagerImpl implements FaxManager {
         }
 
         boolean cache = nioFileManager.removeFaxPreviewCacheVersions(loggedInInfo, filePath);
-        boolean temp = filePath != null
-                && PathValidationUtils.isInAllowedTempDirectory(new File(filePath))
-                && nioFileManager.deleteTempFile(filePath);
+        boolean temp = deleteAllowedTempPreviewFile(filePath);
 
         return cache || temp;
+    }
+
+    private boolean deleteAllowedTempPreviewFile(String filePath) {
+        return filePath != null
+                && PathValidationUtils.isInAllowedTempDirectory(toFlushTempFile(filePath))
+                && nioFileManager.deleteTempFile(filePath);
+    }
+
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
+            justification = "flush checks whether a caller-supplied path is inside an approved temp root before deleting it")
+    private File toFlushTempFile(String filePath) {
+        return new File(filePath);
     }
 
 

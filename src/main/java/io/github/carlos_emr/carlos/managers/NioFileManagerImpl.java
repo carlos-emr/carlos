@@ -272,7 +272,7 @@ public class NioFileManagerImpl implements NioFileManager {
         }
 
         try {
-            Path normalizedSourceDir = Paths.get(sourceDirectory).normalize().toAbsolutePath();
+            Path normalizedSourceDir = normalizeCacheSourceDirectory(sourceDirectory);
             Path allowedSourceDir = resolveAllowedSourceDirectory(normalizedSourceDir, sourceDirectory);
             if (allowedSourceDir == null || !Files.exists(allowedSourceDir) || !Files.isDirectory(allowedSourceDir)) {
                 log.error("Source directory does not exist or is not a directory");
@@ -285,8 +285,14 @@ public class NioFileManagerImpl implements NioFileManager {
         }
     }
 
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
+            justification = "sourceDirectory is normalized only so the next step can enforce document-root or approved-temp containment")
+    private Path normalizeCacheSourceDirectory(String sourceDirectory) {
+        return Paths.get(sourceDirectory).normalize().toAbsolutePath();
+    }
+
     private Path resolveAllowedSourceDirectory(Path normalizedSourceDir, String rawSourceDirectory) {
-        Path baseDocumentPath = Paths.get(BASE_DOCUMENT_DIR).normalize().toAbsolutePath();
+        Path baseDocumentPath = getBaseDocumentPath();
         try {
             return PathValidationUtils.validateExistingPath(normalizedSourceDir.toFile(), baseDocumentPath.toFile()).toPath();
         } catch (SecurityException e) {
@@ -296,6 +302,12 @@ public class NioFileManagerImpl implements NioFileManager {
             log.error("Source directory is outside allowed base path: {}", LogSafe.sanitize(rawSourceDirectory, 1024));
             return null;
         }
+    }
+
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
+            justification = "BASE_DOCUMENT_DIR is trusted server configuration used only as the containment root")
+    private Path getBaseDocumentPath() {
+        return Paths.get(BASE_DOCUMENT_DIR).normalize().toAbsolutePath();
     }
 
     private Path resolveCacheOutputFile(CacheRequest cacheRequest, Path sourceFile) {
@@ -423,12 +435,41 @@ public class NioFileManagerImpl implements NioFileManager {
     }
 
     private String sourcePathDiscriminatorOrNull(String sourceFileName) {
+        Path sourcePath = resolveSourcePathForDiscriminator(sourceFileName);
+        if (sourcePath == null) {
+            return null;
+        }
+
+        try {
+            return sourcePathDiscriminator(sourcePath);
+        } catch (SecurityException e) {
+            return null;
+        }
+    }
+
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
+            justification = "sourceFileName is normalized only to validate it against document-root or approved-temp containment before use")
+    private Path resolveSourcePathForDiscriminator(String sourceFileName) {
         try {
             Path sourcePath = Path.of(sourceFileName);
             if (!sourcePath.isAbsolute() && sourcePath.getNameCount() == 1) {
-                sourcePath = getOscarDocument(sourcePath);
+                return getOscarDocument(sourcePath);
             }
-            return sourcePathDiscriminator(sourcePath);
+
+            Path normalizedSourcePath = sourcePath.normalize().toAbsolutePath();
+            Path sourceDirectory = normalizedSourcePath.getParent();
+            if (sourceDirectory == null) {
+                return null;
+            }
+
+            Path allowedSourceDirectory = resolveAllowedSourceDirectory(sourceDirectory, sourceFileName);
+            if (allowedSourceDirectory == null) {
+                return null;
+            }
+
+            return PathValidationUtils
+                    .validateExistingPath(normalizedSourcePath.toFile(), allowedSourceDirectory.toFile())
+                    .toPath();
         } catch (InvalidPathException | SecurityException e) {
             return null;
         }
