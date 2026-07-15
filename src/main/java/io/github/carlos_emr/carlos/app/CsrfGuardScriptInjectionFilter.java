@@ -168,6 +168,10 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
                 safeRequestUri, wrapper.isResponseCommitted(),
                 wrapper.isUsingWriter(), wrapper.isUsingOutputStream());
 
+        if (shouldSkipHtmlInjectionAfterChain(httpRequest, httpResponse, wrapper, safeRequestUri)) {
+            return;
+        }
+
         // If the response was committed by sendRedirect() or sendError(), the status and
         // headers have already been sent to the client — no post-processing is possible
         if (wrapper.isResponseCommitted()) {
@@ -222,6 +226,26 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         String modified = injectScript(captured, scriptTag);
 
         writeToResponse(httpResponse, modified, safeRequestUri);
+    }
+
+    private boolean shouldSkipHtmlInjectionAfterChain(HttpServletRequest request, HttpServletResponse response,
+            CaptureResponseWrapper wrapper, String safeRequestUri) throws IOException {
+        if (!Boolean.TRUE.equals(request.getAttribute(EformViewForPdfGenerationServlet.SKIP_HTML_INJECTION_ATTRIBUTE))) {
+            return false;
+        }
+
+        LOGGER.debug("CsrfGuard script injection skipped after downstream marker for {}", safeRequestUri);
+        if (wrapper.isResponseCommitted() || wrapper.isUsingOutputStream()) {
+            return true;
+        }
+        if (wrapper.isWriterPassthrough()) {
+            wrapper.flushPassthroughWriter();
+            return true;
+        }
+        if (wrapper.isUsingWriter()) {
+            writeToResponse(response, wrapper.getCapturedContent(), safeRequestUri);
+        }
+        return true;
     }
 
     /**

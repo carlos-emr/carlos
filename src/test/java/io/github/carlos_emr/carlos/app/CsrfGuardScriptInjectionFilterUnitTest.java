@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.app;
 
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
+import io.github.carlos_emr.carlos.web.eform.EformViewForPdfGenerationServlet;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.FilterConfig;
@@ -174,6 +175,26 @@ class CsrfGuardScriptInjectionFilterUnitTest {
 
         String content = response.getContentAsString();
         assertThat(countOccurrences(content, "/csrfguard")).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("should skip injection when downstream marks eForm renderer response")
+    void shouldSkipInjection_whenDownstreamMarksEformRendererResponse() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/EformViewForPdfGenerationServlet");
+        request.setContextPath("/carlos");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        String body = "<html><head><title>Renderer</title></head><body></body></html>";
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletRequest.setAttribute(EformViewForPdfGenerationServlet.SKIP_HTML_INJECTION_ATTRIBUTE, Boolean.TRUE);
+            servletResponse.setContentType("text/html;charset=UTF-8");
+            servletResponse.getWriter().write(body);
+        };
+
+        withEnabledCsrfGuard(() -> filter.doFilter(request, response, chain));
+
+        assertThat(response.getContentAsString()).isEqualTo(body);
+        assertThat(response.getContentAsString()).doesNotContain("/csrfguard");
     }
 
     @Test
