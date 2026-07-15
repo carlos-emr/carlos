@@ -208,6 +208,35 @@ class EFormBrowserPdfRendererUnitTest {
     }
 
     @Test
+    @DisplayName("should sort browser capture files by numeric page suffix")
+    void shouldSortCaptureFiles_byNumericPageSuffix() throws IOException {
+        Path root = Files.createTempDirectory("eform-browser-captures-");
+        try {
+            Files.createFile(root.resolve("page-1000.png"));
+            Files.createFile(root.resolve("page-999.png"));
+            Files.createFile(root.resolve("page-010.png"));
+            Files.createFile(root.resolve("page-002.png"));
+            Files.createFile(root.resolve("page-001.png"));
+            Files.createFile(root.resolve("page-not-a-number.png"));
+
+            List<String> fileNames = new EFormBrowserPdfRenderer().listCaptureFiles(root).stream()
+                    .map(path -> path.getFileName().toString())
+                    .toList();
+
+            assertThat(fileNames)
+                    .containsExactly(
+                            "page-001.png",
+                            "page-002.png",
+                            "page-010.png",
+                            "page-999.png",
+                            "page-1000.png",
+                            "page-not-a-number.png");
+        } finally {
+            deleteRecursivelyIfExists(root);
+        }
+    }
+
+    @Test
     @DisplayName("should build a local base URL from project home")
     void shouldBuildLocalBaseUrl_whenNoOverrideIsProvided() {
         assertThat(EFormBrowserPdfRenderer.buildDefaultBaseUrl("carlos"))

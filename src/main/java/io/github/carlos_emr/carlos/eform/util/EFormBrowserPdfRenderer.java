@@ -92,6 +92,8 @@ public class EFormBrowserPdfRenderer {
     private static final Duration RENDERED_PDF_MAX_AGE = Duration.ofHours(24);
     private static final String RENDER_ROOT_PREFIX = "carlos-eform-browser-pdf-";
     private static final String RENDER_OUTPUT_PREFIX = "eform-browser-render-";
+    private static final String CAPTURE_FILE_PREFIX = "page-";
+    private static final String CAPTURE_FILE_SUFFIX = ".png";
     private static final String PDF_SUFFIX = ".pdf";
     private static final String SCRIPT_RELATIVE_PATH = "scripts/eform-browser-pdf-render.js";
     private static final String PLAYWRIGHT_MODULE_RELATIVE_PATH = "node_modules/playwright";
@@ -579,15 +581,35 @@ public class EFormBrowserPdfRenderer {
         }
     }
 
-    private List<Path> listCaptureFiles(Path outputDirectory) throws IOException {
-        try (DirectoryStream<Path> stream = Files.newDirectoryStream(outputDirectory, "page-*.png")) {
+    List<Path> listCaptureFiles(Path outputDirectory) throws IOException {
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(
+                outputDirectory, CAPTURE_FILE_PREFIX + "*" + CAPTURE_FILE_SUFFIX)) {
             List<Path> captures = new ArrayList<>();
             for (Path capture : stream) {
                 captures.add(capture);
             }
             return captures.stream()
-                    .sorted(Comparator.comparing(path -> path.getFileName().toString()))
+                    .sorted(Comparator.comparingInt(EFormBrowserPdfRenderer::capturePageNumber)
+                            .thenComparing(path -> path.getFileName().toString()))
                     .toList();
+        }
+    }
+
+    private static int capturePageNumber(Path captureFile) {
+        String fileName = captureFile.getFileName().toString();
+        if (!fileName.startsWith(CAPTURE_FILE_PREFIX) || !fileName.endsWith(CAPTURE_FILE_SUFFIX)) {
+            return Integer.MAX_VALUE;
+        }
+        String rawPageNumber = fileName.substring(
+                CAPTURE_FILE_PREFIX.length(),
+                fileName.length() - CAPTURE_FILE_SUFFIX.length());
+        if (rawPageNumber.isBlank() || rawPageNumber.chars().anyMatch(ch -> !Character.isDigit(ch))) {
+            return Integer.MAX_VALUE;
+        }
+        try {
+            return Integer.parseInt(rawPageNumber);
+        } catch (NumberFormatException e) {
+            return Integer.MAX_VALUE;
         }
     }
 
