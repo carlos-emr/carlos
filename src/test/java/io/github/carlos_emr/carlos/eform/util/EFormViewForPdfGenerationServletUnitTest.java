@@ -204,7 +204,6 @@ class EFormViewForPdfGenerationServletUnitTest {
                 eForm,
                 List.of(letter),
                 "/carlos",
-                "carlos",
                 true);
 
         assertThat(html)
@@ -237,7 +236,6 @@ class EFormViewForPdfGenerationServletUnitTest {
                 eForm,
                 List.of(firstLetter, secondLetter),
                 "/carlos",
-                "carlos",
                 false);
 
         assertThat(html)
@@ -268,13 +266,37 @@ class EFormViewForPdfGenerationServletUnitTest {
                 eForm,
                 List.of(signature, letter),
                 "/carlos",
-                "carlos",
                 false);
 
         assertThat(html)
                 .contains("/carlos/EFormSignatureViewForPdfGenerationServlet?digitalSignatureId=42")
                 .contains("position:absolute;left:20;top:10;width:120;height:40;")
                 .doesNotContain("<div id=\"signatureDisplay\"></div>");
+    }
+
+    @Test
+    @DisplayName("should rewrite oscar image path markers using the servlet context path")
+    void shouldRewriteOscarImagePathMarkers_usingContextPath() {
+        EForm eForm = mock(EForm.class);
+        AtomicReference<String> htmlRef = new AtomicReference<>("<img src=\"${oscar_image_path}bg.png\"><img src=\"$%7Boscar_image_path%7Dencoded.png\">");
+        when(eForm.getDemographicNo()).thenReturn("1");
+        when(eForm.getFormHtml()).thenAnswer(invocation -> htmlRef.get());
+        doAnswer(invocation -> {
+            htmlRef.set(invocation.getArgument(0));
+            return null;
+        }).when(eForm).setFormHtml(anyString());
+
+        String html = EFormViewForPdfGenerationServlet.buildPdfHtml(
+                eForm,
+                List.of(),
+                "/actualContext",
+                false);
+
+        assertThat(html)
+                .contains("/actualContext/EFormImageViewForPdfGenerationServlet?imagefile=bg.png")
+                .contains("/actualContext/EFormImageViewForPdfGenerationServlet?imagefile=encoded.png")
+                .doesNotContain("${oscar_image_path}")
+                .doesNotContain("$%7Boscar_image_path%7D");
     }
 
     @Test

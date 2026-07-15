@@ -27,7 +27,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.EFormValueDao;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.commn.model.EFormValue;
@@ -121,9 +120,8 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
 
         EFormValueDao efvDao = SpringUtils.getBean(EFormValueDao.class);
         List<EFormValue> eFormValues = efvDao.findByFormDataId(formDataId);
-        String projectHome = CarlosProperties.getInstance().getProperty("project_home");
 
-        return buildPdfHtml(eForm, eFormValues, contextPath, projectHome, prepareForFax);
+        return buildPdfHtml(eForm, eFormValues, contextPath, prepareForFax);
     }
 
     private static LoggedInInfo authorizedEformReadRequest(HttpServletRequest request) {
@@ -160,19 +158,19 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
         return canonicalProviderId;
     }
 
-    static String buildPdfHtml(EForm eForm, List<EFormValue> eFormValues, String contextPath, String projectHome, boolean prepareForFax) {
+    static String buildPdfHtml(EForm eForm, List<EFormValue> eFormValues, String contextPath, boolean prepareForFax) {
         applyLetterHtml(eForm, eFormValues, prepareForFax);
         applySignatureHtml(eForm, eFormValues, contextPath);
 
+        String imageViewServletPath = contextPath + "/EFormImageViewForPdfGenerationServlet";
         String html = eForm.getFormHtml();
-        html = html.replace("../eform/displayImage", imageViewServletBase(projectHome));
-        html = html.replace("${oscar_image_path}", imageViewServletImagePrefix(projectHome));
-        html = html.replace("$%7Boscar_image_path%7D", imageViewServletImagePrefix(projectHome));
+        html = html.replace("../eform/displayImage", imageViewServletPath);
+        html = html.replace("${oscar_image_path}", imageViewServletPath + "?imagefile=");
+        html = html.replace("$%7Boscar_image_path%7D", imageViewServletPath + "?imagefile=");
         html = html.replace("<div class=\"DoNotPrint\" style=\"", "<div class=\"DoNotPrint\" style=\"display:none;");
         eForm.setFormHtml(html);
         eForm.setImagePath(contextPath);
         html = eForm.getFormHtml();
-        String imageViewServletPath = contextPath + "/EFormImageViewForPdfGenerationServlet";
         html = html.replace(contextPath + "/eform/displayImage", imageViewServletPath);
         html = html.replace("/eform/displayImage", imageViewServletPath);
         eForm.setFormHtml(html);
@@ -228,14 +226,6 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
             return "default-src 'self'; script-src 'none'; object-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data:";
         }
         return "default-src 'self' data:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; object-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'";
-    }
-
-    private static String imageViewServletBase(String projectHome) {
-        return "/" + projectHome + "/EFormImageViewForPdfGenerationServlet";
-    }
-
-    private static String imageViewServletImagePrefix(String projectHome) {
-        return imageViewServletBase(projectHome) + "?imagefile=";
     }
 
     static String normalizePdfSignatureUrl(String rawUrl, String contextPath) {
