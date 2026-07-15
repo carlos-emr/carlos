@@ -92,6 +92,7 @@ public class EFormBrowserPdfRenderer {
             Path.of("/usr/lib/node_modules"),
             Path.of("/usr/local/lib/node_modules"));
     private static final float CSS_PIXEL_TO_POINTS = 72f / 96f;
+    private static final int PROCESS_OUTPUT_LOG_TAIL_LIMIT = 4000;
 
     /**
      * Renders a saved eForm by loading the authenticated local servlet route in Playwright,
@@ -109,6 +110,8 @@ public class EFormBrowserPdfRenderer {
         String projectHome = CarlosProperties.getInstance().getProperty("project_home", "");
         String baseUrl = resolveBaseUrl(projectHome, currentRequest);
         String appPath = buildAppPath(fdid, providerId);
+        logger.info("Browser eForm renderer starting: fdid={} providerId={} baseUrl={} appPath={}",
+                fdid, providerId, baseUrl, appPath);
         String cookieHeader = buildRendererSessionCookieHeader(currentRequest);
         Path tempRoot = resolveRendererTempRoot();
         RendererRuntime rendererRuntime = prepareRendererRuntime(tempRoot);
@@ -135,7 +138,13 @@ public class EFormBrowserPdfRenderer {
             processBuilder.redirectErrorStream(true);
             Map<String, String> environment = processBuilder.environment();
             environment.put(ENV_NODE_PATH, nodeModulesDirectory.toString());
-            applyRendererEnvironment(environment, baseUrl, appPath, cookieHeader, resolveChromiumPath());
+            try {
+                applyRendererEnvironment(environment, baseUrl, appPath, cookieHeader, resolveChromiumPath());
+            } catch (IllegalArgumentException e) {
+                logger.error("Browser eForm renderer rejected baseUrl/appPath before launch: fdid={} providerId={} baseUrl={} appPath={}",
+                        fdid, providerId, baseUrl, appPath, e);
+                throw e;
+            }
 
             process = processBuilder.start();
             Process rendererProcess = process;
@@ -143,11 +152,15 @@ public class EFormBrowserPdfRenderer {
             boolean finished = process.waitFor(RENDER_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
             if (!finished) {
                 terminateProcessTree(process);
-                awaitProcessOutput(outputFuture);
+                String processOutput = awaitProcessOutput(outputFuture);
+                logger.error("Browser eForm renderer timed out: fdid={} providerId={} baseUrl={} appPath={} outputTail={}",
+                        fdid, providerId, baseUrl, appPath, abbreviateProcessOutput(processOutput));
                 throw new PDFGenerationException("Browser rendering timed out while generating the eForm PDF.");
             }
-            awaitProcessOutput(outputFuture);
+            String processOutput = awaitProcessOutput(outputFuture);
             if (process.exitValue() != 0) {
+                logger.error("Browser eForm renderer failed: fdid={} providerId={} baseUrl={} appPath={} exitStatus={} outputTail={}",
+                        fdid, providerId, baseUrl, appPath, process.exitValue(), abbreviateProcessOutput(processOutput));
                 throw new PDFGenerationException("Browser rendering failed while generating the eForm PDF. exitStatus=" + process.exitValue());
             }
             List<Path> captureFiles = listCaptureFiles(outputDirectory);
@@ -161,7 +174,11 @@ public class EFormBrowserPdfRenderer {
             success = true;
             return outputPdfPath;
         } catch (IOException e) {
+            logger.error("Unable to start browser eForm renderer: fdid={} providerId={} baseUrl={} appPath={}",
+                    fdid, providerId, baseUrl, appPath, e);
             throw new PDFGenerationException("Unable to start the browser PDF renderer for eForms.", e);
+        } catch (IllegalArgumentException e) {
+            throw new PDFGenerationException("Browser renderer configuration is invalid for the resolved local eForm URL.", e);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new PDFGenerationException("Browser rendering was interrupted while generating the eForm PDF.", e);
@@ -219,6 +236,17 @@ public class EFormBrowserPdfRenderer {
         } catch (ExecutionException | java.util.concurrent.TimeoutException e) {
             return "";
         }
+    }
+
+    private static String abbreviateProcessOutput(String processOutput) {
+        if (processOutput == null || processOutput.isBlank()) {
+            return "<empty>";
+        }
+        String normalized = processOutput.replaceAll("\\s+", " ").trim();
+        if (normalized.length() <= PROCESS_OUTPUT_LOG_TAIL_LIMIT) {
+            return normalized;
+        }
+        return normalized.substring(normalized.length() - PROCESS_OUTPUT_LOG_TAIL_LIMIT);
     }
 
     static String buildDefaultBaseUrl(String projectHome) {
@@ -319,12 +347,20 @@ public class EFormBrowserPdfRenderer {
     private String resolveBaseUrl(String projectHome, HttpServletRequest request) {
         String configuredBaseUrl = CarlosProperties.getInstance().getProperty(BASE_URL_PROPERTY);
         if (configuredBaseUrl != null && !configuredBaseUrl.isBlank()) {
-            return configuredBaseUrl.trim().replaceAll("/$", "");
+            String resolvedBaseUrl = configuredBaseUrl.trim().replaceAll("/$", "");
+            logger.info("Browser eForm renderer using configured base URL property {}={}", BASE_URL_PROPERTY, resolvedBaseUrl);
+            return resolvedBaseUrl;
         }
         if (request != null) {
-            return buildLocalBaseUrl(request.getScheme(), request.getLocalPort(), request.getContextPath());
+            String resolvedBaseUrl = buildLocalBaseUrl(request.getScheme(), request.getLocalPort(), request.getContextPath());
+            logger.info("Browser eForm renderer derived local base URL from request: scheme={} localPort={} contextPath={} resolvedBaseUrl={}",
+                    request.getScheme(), request.getLocalPort(), request.getContextPath(), resolvedBaseUrl);
+            return resolvedBaseUrl;
         }
-        return buildDefaultBaseUrl(projectHome);
+        String resolvedBaseUrl = buildDefaultBaseUrl(projectHome);
+        logger.info("Browser eForm renderer fell back to default base URL from project_home: projectHome={} resolvedBaseUrl={}",
+                projectHome, resolvedBaseUrl);
+        return resolvedBaseUrl;
     }
 
     private String resolveNodeBinary() {

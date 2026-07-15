@@ -50,9 +50,10 @@ class EFormBrowserPdfRendererUnitTest {
                     .contains("#BaseSelect")
                     .contains("computeCaptureRegions")
                     .contains("backgroundCandidates")
+                    .contains(".filter(isVisibleCaptureCandidate)")
                     .contains("pageBackgroundCaptures")
                     .contains("page.route('**/*'")
-                    .contains("blockedRequests")
+                    .contains("blockedRequests.length")
                     .contains("document.fonts.ready instanceof Promise")
                     .contains("url: baseUrl.href");
         }

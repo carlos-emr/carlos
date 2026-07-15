@@ -145,6 +145,7 @@ async function computeCaptureRegions(page) {
       .filter((el) => el.tagName === 'IMG')
       .filter((el) => /(^BGImage$|background image|bgimage)/i.test(el.id || '')
         || /background image/i.test(el.getAttribute('alt') || ''))
+      .filter(isVisibleCaptureCandidate)
       .map(rectFromElement)
       .filter((rect) => rect.width > 0 && rect.height > 0)
       .sort((a, b) => (b.width * b.height) - (a.width * a.height));
@@ -302,7 +303,7 @@ async function main() {
     throw new Error('Playwright completed without creating any page captures');
   }
 
-  if (consoleIssues.length || pageErrors.length) {
+  if (consoleIssues.length || pageErrors.length || blockedRequests.length) {
     const details = { consoleIssues, pageErrors, blockedRequests };
     throw new Error(`Playwright render surfaced browser errors: ${JSON.stringify(details)}`);
   }
