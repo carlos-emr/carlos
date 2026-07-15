@@ -37,18 +37,18 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for {@link UploadedFileUtils}.
+ * Unit tests for {@link UploadedFileResolver}.
  *
  * <p>Verifies backing-file extraction from Struts {@link UploadedFile} objects,
  * including null safety and the throwing vs. null-returning variants.</p>
  *
- * @see UploadedFileUtils
+ * @see UploadedFileResolver
  * @since 2026-06-21
  */
 @Tag("unit")
 @Tag("fast")
-@DisplayName("UploadedFileUtils")
-class UploadedFileUtilsUnitTest {
+@DisplayName("UploadedFileResolver")
+class UploadedFileResolverUnitTest {
 
     @Nested
     @DisplayName("getUploadedFile(UploadedFile)")
@@ -57,19 +57,19 @@ class UploadedFileUtilsUnitTest {
         @Test
         @DisplayName("should return backing file when upload has file-backed content")
         void shouldReturnBackingFile_whenUploadHasFileBacking() throws IOException {
-            File expected = Files.createTempFile("UploadedFileUtilsUnitTest-", ".pdf").toFile();
+            File expected = Files.createTempFile("UploadedFileResolverUnitTest-", ".pdf").toFile();
             expected.deleteOnExit();
             UploadedFile upload = mock(UploadedFile.class);
             when(upload.getContent()).thenReturn(expected);
 
-            assertThat(UploadedFileUtils.getUploadedFile(upload))
+            assertThat(UploadedFileResolver.getUploadedFile(upload))
                 .isEqualTo(expected.getCanonicalFile());
         }
 
         @Test
         @DisplayName("should throw IllegalArgumentException when upload is null")
         void shouldThrowIllegalArgumentException_whenUploadIsNull() {
-            assertThatThrownBy(() -> UploadedFileUtils.getUploadedFile(null))
+            assertThatThrownBy(() -> UploadedFileResolver.getUploadedFile(null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("null");
         }
@@ -80,7 +80,7 @@ class UploadedFileUtilsUnitTest {
             UploadedFile upload = mock(UploadedFile.class);
             when(upload.getContent()).thenReturn("not-a-file");
 
-            assertThatThrownBy(() -> UploadedFileUtils.getUploadedFile(upload))
+            assertThatThrownBy(() -> UploadedFileResolver.getUploadedFile(upload))
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("not a file");
         }
@@ -91,7 +91,7 @@ class UploadedFileUtilsUnitTest {
             UploadedFile upload = mock(UploadedFile.class);
             when(upload.getContent()).thenReturn(null);
 
-            assertThatThrownBy(() -> UploadedFileUtils.getUploadedFile(upload))
+            assertThatThrownBy(() -> UploadedFileResolver.getUploadedFile(upload))
                 .isInstanceOf(SecurityException.class);
         }
     }
@@ -103,19 +103,19 @@ class UploadedFileUtilsUnitTest {
         @Test
         @DisplayName("should return backing file when upload has file-backed content")
         void shouldReturnBackingFile_whenUploadHasFileBacking() throws IOException {
-            File expected = Files.createTempFile("UploadedFileUtilsUnitTest-", ".pdf").toFile();
+            File expected = Files.createTempFile("UploadedFileResolverUnitTest-", ".pdf").toFile();
             expected.deleteOnExit();
             UploadedFile upload = mock(UploadedFile.class);
             when(upload.getContent()).thenReturn(expected);
 
-            assertThat(UploadedFileUtils.getUploadedFileOrNull(upload))
+            assertThat(UploadedFileResolver.getUploadedFileOrNull(upload))
                 .isEqualTo(expected.getCanonicalFile());
         }
 
         @Test
         @DisplayName("should return null when upload is null")
         void shouldReturnNull_whenUploadIsNull() {
-            assertThat(UploadedFileUtils.getUploadedFileOrNull(null)).isNull();
+            assertThat(UploadedFileResolver.getUploadedFileOrNull(null)).isNull();
         }
 
         @Test
@@ -124,7 +124,7 @@ class UploadedFileUtilsUnitTest {
             UploadedFile upload = mock(UploadedFile.class);
             when(upload.getContent()).thenReturn("not-a-file");
 
-            assertThat(UploadedFileUtils.getUploadedFileOrNull(upload)).isNull();
+            assertThat(UploadedFileResolver.getUploadedFileOrNull(upload)).isNull();
         }
 
         @Test
@@ -133,7 +133,7 @@ class UploadedFileUtilsUnitTest {
             UploadedFile upload = mock(UploadedFile.class);
             when(upload.getContent()).thenReturn(null);
 
-            assertThat(UploadedFileUtils.getUploadedFileOrNull(upload)).isNull();
+            assertThat(UploadedFileResolver.getUploadedFileOrNull(upload)).isNull();
         }
     }
 }

@@ -25,12 +25,12 @@ import java.io.File;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
 
 /**
- * Helpers for extracting backing {@link File} handles from Struts
+ * Resolves backing {@link File} handles from Struts
  * {@link UploadedFile} objects.
  */
-public final class UploadedFileUtils {
+public final class UploadedFileResolver {
 
-    private UploadedFileUtils() {
+    private UploadedFileResolver() {
         // utility class — no instances
     }
 
