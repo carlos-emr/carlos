@@ -288,7 +288,7 @@ public class Fax2Action extends ActionSupport {
             try {
                 faxJob = faxManager.getFaxJob(loggedInInfo, Integer.parseInt(jobId));
             } catch (NumberFormatException e) {
-                logger.warn("Invalid jobId supplied for fax preview: {}", LogSafe.sanitize(jobId, 1024), e);
+                logger.warn("Invalid jobId supplied for fax preview");
                 sendErrorQuietly(HttpServletResponse.SC_BAD_REQUEST, "Invalid jobId");
                 return;
             }
@@ -302,14 +302,12 @@ public class Fax2Action extends ActionSupport {
             try {
                 page = Integer.parseInt(pageNumber);
             } catch (NumberFormatException e) {
-                logger.warn("Invalid pageNumber supplied for fax preview: {}", LogSafe.sanitize(pageNumber, 1024), e);
+                logger.warn("Invalid pageNumber supplied for fax preview");
                 sendErrorQuietly(HttpServletResponse.SC_BAD_REQUEST, "Invalid pageNumber");
                 return;
             }
             if (page < 1) {
-                if (logger.isWarnEnabled()) {
-                    logger.warn("Invalid pageNumber supplied for fax preview: {}", LogSafe.sanitize(pageNumber, 1024));
-                }
+                logger.warn("Invalid non-positive pageNumber supplied for fax preview");
                 sendErrorQuietly(HttpServletResponse.SC_BAD_REQUEST, "Invalid pageNumber");
                 return;
             }

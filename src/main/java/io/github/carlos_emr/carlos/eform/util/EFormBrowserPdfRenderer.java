@@ -166,22 +166,7 @@ public class EFormBrowserPdfRenderer {
                 CompletableFuture<Void> outputFuture = CompletableFuture.runAsync(
                         () -> drainProcessOutput(rendererProcess),
                         processOutputExecutor);
-                try {
-                    boolean finished = process.waitFor(RENDER_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
-                    if (!finished) {
-                        terminateProcessTree(process);
-                        awaitProcessOutput(outputFuture);
-                        throw new PDFGenerationException("Browser rendering timed out while generating the eForm PDF.");
-                    }
-                    awaitProcessOutput(outputFuture);
-                    if (process.exitValue() != 0) {
-                        throw new PDFGenerationException("Browser rendering failed while generating the eForm PDF. exitStatus=" + process.exitValue());
-                    }
-                } catch (InterruptedException e) {
-                    terminateProcessTree(process);
-                    outputFuture.cancel(true);
-                    throw e;
-                }
+                waitForRendererProcess(process, outputFuture);
             }
             List<Path> captureFiles = listCaptureFiles(outputDirectory);
             if (captureFiles.isEmpty()) {
@@ -236,6 +221,26 @@ public class EFormBrowserPdfRenderer {
             cookieName = "JSESSIONID";
         }
         return cookieName + "=" + session.getId();
+    }
+
+    private void waitForRendererProcess(Process process, CompletableFuture<Void> outputFuture)
+            throws InterruptedException, PDFGenerationException {
+        try {
+            boolean finished = process.waitFor(RENDER_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
+            if (!finished) {
+                terminateProcessTree(process);
+                awaitProcessOutput(outputFuture);
+                throw new PDFGenerationException("Browser rendering timed out while generating the eForm PDF.");
+            }
+            awaitProcessOutput(outputFuture);
+            if (process.exitValue() != 0) {
+                throw new PDFGenerationException("Browser rendering failed while generating the eForm PDF. exitStatus=" + process.exitValue());
+            }
+        } catch (InterruptedException e) {
+            terminateProcessTree(process);
+            outputFuture.cancel(true);
+            throw e;
+        }
     }
 
     private static void drainProcessOutput(Process process) {

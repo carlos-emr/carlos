@@ -42,28 +42,31 @@ async function waitForStableRender(page) {
       await document.fonts.ready;
     }
 
-    const pendingImages = Array.from(document.images).filter((image) => !image.complete);
-    await Promise.all(pendingImages.map((image) => new Promise((resolve) => {
+    function waitForImageComplete(image, timeoutMs) {
       if (image.complete) {
-        resolve();
-        return;
+        return Promise.resolve();
       }
-      let settled = false;
-      let timeoutId;
-      const finish = () => {
-        if (settled) {
-          return;
-        }
-        settled = true;
-        clearTimeout(timeoutId);
-        image.removeEventListener('load', finish);
-        image.removeEventListener('error', finish);
-        resolve();
-      };
-      timeoutId = setTimeout(finish, imageWaitTimeoutMs);
-      image.addEventListener('load', finish, { once: true });
-      image.addEventListener('error', finish, { once: true });
-    })));
+      return new Promise((resolve) => {
+        let settled = false;
+        let timeoutId;
+        const finish = () => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          clearTimeout(timeoutId);
+          image.removeEventListener('load', finish);
+          image.removeEventListener('error', finish);
+          resolve();
+        };
+        timeoutId = setTimeout(finish, timeoutMs);
+        image.addEventListener('load', finish, { once: true });
+        image.addEventListener('error', finish, { once: true });
+      });
+    }
+
+    const pendingImages = Array.from(document.images).filter((image) => !image.complete);
+    await Promise.all(pendingImages.map((image) => waitForImageComplete(image, imageWaitTimeoutMs)));
 
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
   }, IMAGE_WAIT_TIMEOUT_MS);
