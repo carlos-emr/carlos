@@ -90,11 +90,7 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
     @AfterEach
     void tearDown() throws IOException {
         if (allowedTempDir != null) {
-            Files.deleteIfExists(allowedTempDir.resolve("fax-preview.pdf"));
-            Files.deleteIfExists(allowedTempDir.resolve("fax-preview-unique.pdf"));
-            Files.deleteIfExists(getDocumentCacheDirectory().resolve("fax-preview.pdf_1.png"));
-            Files.deleteIfExists(getDocumentCacheDirectory().resolve("fax-preview-unique.pdf_1.png"));
-            Files.deleteIfExists(allowedTempDir);
+            deleteDirectoryQuietly(allowedTempDir);
         }
         if (symlink != null) {
             Files.deleteIfExists(symlink);
@@ -275,23 +271,69 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("Rejects fax preview cache generation for document-store sources")
-    void shouldRejectFaxPreviewCacheVersion_whenSourcePdfIsInDocumentStore() throws IOException {
+    @DisplayName("Creates fax preview cache generation for document-store sources")
+    void shouldCreateFaxPreviewCacheVersion_whenSourcePdfIsInDocumentStore() throws IOException {
         when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
         Path sourceDir = Path.of(CarlosProperties.getInstance().getProperty("BASE_DOCUMENT_DIR"),
                 "carlos", "fax-preview-doc-source-" + UUID.randomUUID());
         Files.createDirectories(sourceDir);
         Path sourcePdf = sourceDir.resolve("fax-preview-document.pdf");
+        Path cacheVersion = null;
         createSinglePagePdf(sourcePdf);
 
         try {
-            assertThatThrownBy(() -> nioFileManager.createFaxPreviewCacheVersion(loggedInInfo,
-                    sourceDir.toString(), sourcePdf.getFileName().toString(), 1))
-                    .isInstanceOf(SecurityException.class)
-                    .hasMessageContaining("approved temporary directory");
+            cacheVersion = nioFileManager.createFaxPreviewCacheVersion(loggedInInfo,
+                    sourceDir.toString(), sourcePdf.getFileName().toString(), 1);
+
+            assertThat(cacheVersion).isNotNull().exists();
+            assertThat(cacheVersion.getFileName().toString())
+                    .startsWith(sourcePdf.getFileName().toString() + "_")
+                    .endsWith("_1.png")
+                    .isNotEqualTo(sourcePdf.getFileName().toString() + "_1.png");
         } finally {
+            deleteFileQuietly(cacheVersion);
             Files.deleteIfExists(sourcePdf);
             Files.deleteIfExists(sourceDir);
+        }
+    }
+
+    @Test
+    @DisplayName("Returns null for null fax preview page numbers")
+    void shouldReturnNull_whenFaxPreviewPageNumberIsNull() {
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
+
+        Path cacheVersion = nioFileManager.createFaxPreviewCacheVersion(loggedInInfo, "/tmp", "fax-preview.pdf", null);
+
+        assertThat(cacheVersion).isNull();
+    }
+
+    @Test
+    @DisplayName("Removes discriminator-named fax preview cache pages")
+    void shouldRemoveFaxPreviewCacheVersions_whenSourceUsesDiscriminator() throws IOException {
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
+        allowedTempDir = Files.createTempDirectory(Path.of(System.getProperty("java.io.tmpdir")), "nio-fax-preview-remove-");
+        assumeTrue(PathValidationUtils.isInAllowedTempDirectory(allowedTempDir.toFile()),
+                "test temp directory must resolve inside an allowed temp directory");
+        Files.createDirectories(getDocumentCacheDirectory());
+        Path sourcePdf = allowedTempDir.resolve("fax-preview-removal.pdf");
+        createPdf(sourcePdf, 2);
+        Path firstCache = null;
+        Path secondCache = null;
+
+        try {
+            firstCache = nioFileManager.createFaxPreviewCacheVersion(loggedInInfo, allowedTempDir.toString(),
+                    sourcePdf.getFileName().toString(), 1);
+            secondCache = nioFileManager.createFaxPreviewCacheVersion(loggedInInfo, allowedTempDir.toString(),
+                    sourcePdf.getFileName().toString(), 2);
+
+            boolean removed = nioFileManager.removeFaxPreviewCacheVersions(loggedInInfo, sourcePdf.toString());
+
+            assertThat(removed).isTrue();
+            assertThat(firstCache).doesNotExist();
+            assertThat(secondCache).doesNotExist();
+        } finally {
+            deleteFileQuietly(firstCache);
+            deleteFileQuietly(secondCache);
         }
     }
 
@@ -337,8 +379,14 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
     }
 
     private static void createSinglePagePdf(Path path) throws IOException {
+        createPdf(path, 1);
+    }
+
+    private static void createPdf(Path path, int pageCount) throws IOException {
         try (PDDocument document = new PDDocument()) {
-            document.addPage(new PDPage());
+            for (int i = 0; i < pageCount; i++) {
+                document.addPage(new PDPage());
+            }
             document.save(path.toFile());
         }
     }

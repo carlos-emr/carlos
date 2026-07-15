@@ -37,7 +37,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
@@ -97,31 +99,20 @@ public class NioFileManagerImpl implements NioFileManager {
     }
 
     private Path hasCacheVersion(String filename, Integer pageNum) {
-        // Validate input parameters
-        if (filename == null || filename.trim().isEmpty()) {
-            log.error("Invalid filename provided: null or empty");
-            return null;
-        }
-        
-        if (pageNum == null || pageNum < 1) {
-            log.error("Invalid page number provided: " + pageNum);
+        CacheRequest cacheRequest = buildCacheRequest(filename, pageNum);
+        if (cacheRequest == null) {
             return null;
         }
 
-        // Sanitize the filename to prevent path traversal
-        String sanitizedFilename = sanitizeFileName(filename);
-        
-        // Additional validation after sanitization
-        if (sanitizedFilename.isEmpty() || "invalid_filename".equals(sanitizedFilename)) {
-            log.error("Filename failed sanitization: " + filename);
-            return null;
-        }
+        return hasCacheVersion(cacheRequest);
+    }
 
+    private Path hasCacheVersion(CacheRequest cacheRequest) {
         Path documentCacheDir = getDocumentCacheDirectoryWithoutAuthorization();
         Path normalizedCacheDir = documentCacheDir.normalize().toAbsolutePath();
         
         // Construct the cache filename securely
-        String cacheFileName = sanitizedFilename + "_" + pageNum + ".png";
+        String cacheFileName = cacheRequest.sanitizedFilename() + "_" + cacheRequest.pageNum() + ".png";
         
         // Validate the cache filename doesn't contain any path separators
         if (cacheFileName.contains("/") || cacheFileName.contains("\\") || cacheFileName.contains("..")) {
@@ -137,7 +128,7 @@ public class NioFileManagerImpl implements NioFileManager {
         try {
             outfile = PathValidationUtils.validateExistingPath(outfile.toFile(), normalizedCacheDir.toFile()).toPath();
         } catch (SecurityException e) {
-            log.error("Path traversal attempt detected in hasCacheVersion2: " + filename);
+            log.error("Path traversal attempt detected in hasCacheVersion2");
             return null;
         }
         
@@ -196,7 +187,7 @@ public class NioFileManagerImpl implements NioFileManager {
             throw new SecurityException("missing required sec object (_edoc)");
         }
 
-        return createCacheVersion(sourceDirectory, filename, pageNum, false, false);
+        return createCacheVersion(sourceDirectory, filename, pageNum, false);
     }
 
     /**
@@ -208,134 +199,145 @@ public class NioFileManagerImpl implements NioFileManager {
             throw new SecurityException("missing required sec object (_fax)");
         }
 
-        return createCacheVersion(sourceDirectory, filename, pageNum, true, true);
+        return createCacheVersion(sourceDirectory, filename, pageNum, true);
     }
 
     private Path createCacheVersion(String sourceDirectory, String filename, Integer pageNum,
-            boolean requireAllowedTempSource, boolean includeSourceDiscriminator) {
-        // Sanitize the filename to prevent path traversal
-        String sanitizedFilename = sanitizeFileName(filename);
-
-        Path cacheFilePath = includeSourceDiscriminator ? null : hasCacheVersion(sanitizedFilename, pageNum);
-
-        /*
-         * create a new cache file if an existing cache file is not returned.
-         */
-        if (cacheFilePath == null) {
-            // Validate source directory input
-            if (sourceDirectory == null || sourceDirectory.trim().isEmpty()) {
-                log.error("Invalid source directory: null or empty");
-                return null;
-            }
-            
-            // Define the allowed base directory for documents
-            Path baseDocumentPath = Paths.get(BASE_DOCUMENT_DIR).normalize().toAbsolutePath();
-
-            // Validate and normalize the source directory - allow either document storage or approved temp paths.
-            Path normalizedSourceDir;
-            boolean sourceDirectoryInAllowedTemp = false;
-            try {
-                normalizedSourceDir = Paths.get(sourceDirectory).normalize().toAbsolutePath();
-
-                try {
-                    normalizedSourceDir = PathValidationUtils.validateExistingPath(normalizedSourceDir.toFile(), baseDocumentPath.toFile()).toPath();
-                } catch (SecurityException e) {
-                    if (!PathValidationUtils.isInAllowedTempDirectory(normalizedSourceDir.toFile())) {
-                        log.error("Source directory is outside allowed base path: {}", LogSafe.sanitize(sourceDirectory, 1024));
-                        return null;
-                    }
-                    sourceDirectoryInAllowedTemp = true;
-                }
-
-                if (!Files.exists(normalizedSourceDir) || !Files.isDirectory(normalizedSourceDir)) {
-                    if (log.isErrorEnabled()) {
-                        String sanitizedSourceDirectory = LogSafe.sanitize(sourceDirectory, 1024);
-                        log.error("Source directory does not exist or is not a directory: {}", sanitizedSourceDirectory);
-                    }
-                    return null;
-                }
-
-                if (requireAllowedTempSource && !sourceDirectoryInAllowedTemp) {
-                    log.warn("Rejected fax preview source directory outside approved temp directories");
-                    throw new SecurityException("Fax preview source must be in an approved temporary directory");
-                }
-            } catch (Exception e) {
-                if (e instanceof SecurityException securityException) {
-                    throw securityException;
-                }
-                if (log.isErrorEnabled()) {
-                    log.error("Invalid source directory path: {}", LogSafe.sanitize(sourceDirectory, 1024), e);
-                }
-                return null;
-            }
-
-            Path sourceFile = normalizedSourceDir.resolve(sanitizedFilename).normalize().toAbsolutePath();
-
-            // Ensure source file is within the source directory and, for temp previews, remains in an approved temp location.
-            try {
-                sourceFile = PathValidationUtils.validateExistingPath(sourceFile.toFile(), normalizedSourceDir.toFile()).toPath();
-                if (sourceDirectoryInAllowedTemp && !PathValidationUtils.isInAllowedTempDirectory(sourceFile.toFile())) {
-                    log.error("Source file is outside allowed temp path");
-                    return null;
-                }
-                if (requireAllowedTempSource && !PathValidationUtils.isInAllowedTempDirectory(sourceFile.toFile())) {
-                    log.warn("Rejected fax preview source file outside approved temp directories");
-                    throw new SecurityException("Fax preview source must be in an approved temporary directory");
-                }
-            } catch (SecurityException e) {
-                log.error("Path traversal attempt in source file");
-                return null;
-            }
-            
-            Path documentCacheDir = getDocumentCacheDirectoryWithoutAuthorization();
-            Path normalizedCacheDir = documentCacheDir.normalize().toAbsolutePath();
-            String cacheFileName = buildCacheFileName(sanitizedFilename, pageNum,
-                    includeSourceDiscriminator ? sourceFile : null);
-            cacheFilePath = normalizedCacheDir.resolve(cacheFileName);
-            cacheFilePath = cacheFilePath.normalize().toAbsolutePath();
-            
-            // Verify the cache file path is within the cache directory
-            try {
-                cacheFilePath = PathValidationUtils.validateChildPath(cacheFilePath.toFile(), normalizedCacheDir.toFile()).toPath();
-            } catch (SecurityException e) {
-                log.error("Path traversal attempt in cache file creation: " + filename);
-                return null;
-            }
-
-            if (Files.exists(cacheFilePath)) {
-                return cacheFilePath;
-            }
-
-            try (PDDocument document = Loader.loadPDF(sourceFile.toFile())) {
-                int pageIndex = pageNum - 1;
-                int pageCount = document.getNumberOfPages();
-
-                // Validate page index is within bounds
-                if (pageIndex < 0 || pageIndex >= pageCount) {
-                    log.error("Requested page " + pageNum + " is out of range for document with " + pageCount + " pages");
-                    return null;
-                }
-
-                PDFRenderer renderer = new PDFRenderer(document);
-                // Render at 96 DPI to match jpedal settings
-                // Note: jpedal uses 1-based page indexing, PDFBox uses 0-based
-                BufferedImage image_to_save = renderer.renderImageWithDPI(pageIndex, 96, ImageType.RGB);
-
-                // Check ImageIO.write success (returns false on failure)
-                if (!ImageIO.write(image_to_save, "png", cacheFilePath.toFile())) {
-                    log.error("Failed to write PNG image to cache file: " + cacheFilePath);
-                    return null;
-                }
-
-                image_to_save.flush();
-            } catch (IOException e) {
-                log.error("Error rendering PDF page to cache", e);
-                return null;  // Must return null on error
-            }
+            boolean includeSourceDiscriminator) {
+        CacheRequest cacheRequest = buildCacheRequest(filename, pageNum);
+        if (cacheRequest == null) {
+            return null;
         }
 
-        return cacheFilePath;
+        Path cacheFilePath = includeSourceDiscriminator ? null : hasCacheVersion(cacheRequest);
+        if (cacheFilePath != null) {
+            return cacheFilePath;
+        }
 
+        Path sourceFile = resolveCacheSourceFile(sourceDirectory, cacheRequest.sanitizedFilename());
+        if (sourceFile == null) {
+            return null;
+        }
+
+        cacheFilePath = resolveCacheOutputFile(cacheRequest, includeSourceDiscriminator ? sourceFile : null);
+        if (cacheFilePath == null) {
+            return null;
+        }
+        if (Files.exists(cacheFilePath)) {
+            return cacheFilePath;
+        }
+
+        return renderPdfPageToCache(sourceFile, cacheFilePath, cacheRequest.pageNum());
+    }
+
+    private CacheRequest buildCacheRequest(String filename, Integer pageNum) {
+        if (filename == null || filename.trim().isEmpty()) {
+            log.error("Invalid filename provided: null or empty");
+            return null;
+        }
+
+        if (pageNum == null || pageNum < 1) {
+            log.error("Invalid page number provided: {}", pageNum);
+            return null;
+        }
+
+        String sanitizedFilename = sanitizeFileName(filename);
+        if (sanitizedFilename.isEmpty() || "invalid_filename".equals(sanitizedFilename)) {
+            log.error("Filename failed sanitization");
+            return null;
+        }
+
+        return new CacheRequest(sanitizedFilename, pageNum);
+    }
+
+    private Path resolveCacheSourceFile(String sourceDirectory, String sanitizedFilename) {
+        Path normalizedSourceDir = resolveCacheSourceDirectory(sourceDirectory);
+        if (normalizedSourceDir == null) {
+            return null;
+        }
+
+        Path sourceFile = normalizedSourceDir.resolve(sanitizedFilename).normalize().toAbsolutePath();
+        try {
+            return PathValidationUtils.validateExistingPath(sourceFile.toFile(), normalizedSourceDir.toFile()).toPath();
+        } catch (SecurityException e) {
+            log.error("Path traversal attempt in source file");
+            return null;
+        }
+    }
+
+    private Path resolveCacheSourceDirectory(String sourceDirectory) {
+        if (sourceDirectory == null || sourceDirectory.trim().isEmpty()) {
+            log.error("Invalid source directory: null or empty");
+            return null;
+        }
+
+        try {
+            Path normalizedSourceDir = Paths.get(sourceDirectory).normalize().toAbsolutePath();
+            Path allowedSourceDir = resolveAllowedSourceDirectory(normalizedSourceDir, sourceDirectory);
+            if (allowedSourceDir == null || !Files.exists(allowedSourceDir) || !Files.isDirectory(allowedSourceDir)) {
+                log.error("Source directory does not exist or is not a directory");
+                return null;
+            }
+            return allowedSourceDir;
+        } catch (InvalidPathException e) {
+            log.error("Invalid source directory path: {}", LogSafe.sanitize(sourceDirectory, 1024), e);
+            return null;
+        }
+    }
+
+    private Path resolveAllowedSourceDirectory(Path normalizedSourceDir, String rawSourceDirectory) {
+        Path baseDocumentPath = Paths.get(BASE_DOCUMENT_DIR).normalize().toAbsolutePath();
+        try {
+            return PathValidationUtils.validateExistingPath(normalizedSourceDir.toFile(), baseDocumentPath.toFile()).toPath();
+        } catch (SecurityException e) {
+            if (PathValidationUtils.isInAllowedTempDirectory(normalizedSourceDir.toFile())) {
+                return normalizedSourceDir;
+            }
+            log.error("Source directory is outside allowed base path: {}", LogSafe.sanitize(rawSourceDirectory, 1024));
+            return null;
+        }
+    }
+
+    private Path resolveCacheOutputFile(CacheRequest cacheRequest, Path sourceFile) {
+        Path documentCacheDir = getDocumentCacheDirectoryWithoutAuthorization();
+        Path normalizedCacheDir = documentCacheDir.normalize().toAbsolutePath();
+        String cacheFileName = buildCacheFileName(cacheRequest.sanitizedFilename(), cacheRequest.pageNum(), sourceFile);
+        Path cacheFilePath = normalizedCacheDir.resolve(cacheFileName).normalize().toAbsolutePath();
+
+        try {
+            return PathValidationUtils.validateChildPath(cacheFilePath.toFile(), normalizedCacheDir.toFile()).toPath();
+        } catch (SecurityException e) {
+            log.error("Path traversal attempt in cache file creation");
+            return null;
+        }
+    }
+
+    private Path renderPdfPageToCache(Path sourceFile, Path cacheFilePath, int pageNum) {
+        try (PDDocument document = Loader.loadPDF(sourceFile.toFile())) {
+            int pageIndex = pageNum - 1;
+            int pageCount = document.getNumberOfPages();
+
+            if (pageIndex < 0 || pageIndex >= pageCount) {
+                log.error("Requested page {} is out of range for document with {} pages", pageNum, pageCount);
+                return null;
+            }
+
+            PDFRenderer renderer = new PDFRenderer(document);
+            BufferedImage imageToSave = renderer.renderImageWithDPI(pageIndex, 96, ImageType.RGB);
+            try {
+                if (!ImageIO.write(imageToSave, "png", cacheFilePath.toFile())) {
+                    log.error("Failed to write PNG image to cache file");
+                    return null;
+                }
+            } finally {
+                imageToSave.flush();
+            }
+
+            return cacheFilePath;
+        } catch (IOException e) {
+            log.error("Error rendering PDF page to cache", e);
+            return null;
+        }
     }
 
     private String buildCacheFileName(String sanitizedFilename, Integer pageNum, Path sourceFile) {
@@ -371,6 +373,85 @@ public class NioFileManagerImpl implements NioFileManager {
             }
         }
         return builder.toString();
+    }
+
+    /**
+     * Removes all page images generated by fax preview cache rendering for a source PDF.
+     */
+    @Override
+    public boolean removeFaxPreviewCacheVersions(LoggedInInfo loggedInInfo, final String sourceFileName) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)) {
+            throw new SecurityException("missing required sec object (_fax)");
+        }
+        if (sourceFileName == null || sourceFileName.trim().isEmpty()) {
+            log.error("Invalid fax preview cache source: null or empty");
+            return false;
+        }
+
+        String sanitizedFileName = sanitizeFileName(sourceFileName);
+        String sourceDiscriminator = sourcePathDiscriminatorOrNull(sourceFileName);
+        Path normalizedCacheDir = getDocumentCacheDirectoryWithoutAuthorization().normalize().toAbsolutePath();
+        boolean deletedAny = false;
+
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(normalizedCacheDir, "*.png")) {
+            for (Path candidate : stream) {
+                Path normalizedCandidate = validateCacheDeletionCandidate(candidate, normalizedCacheDir);
+                if (normalizedCandidate == null) {
+                    continue;
+                }
+                String cacheFileName = normalizedCandidate.getFileName().toString();
+                if (isFaxPreviewCacheFile(cacheFileName, sanitizedFileName, sourceDiscriminator)) {
+                    deletedAny |= Files.deleteIfExists(normalizedCandidate);
+                }
+            }
+        } catch (IOException e) {
+            log.error("Error while deleting fax preview cache images", e);
+        }
+
+        return deletedAny;
+    }
+
+    private Path validateCacheDeletionCandidate(Path candidate, Path normalizedCacheDir) {
+        try {
+            return PathValidationUtils
+                    .validateExistingPath(candidate.normalize().toAbsolutePath().toFile(), normalizedCacheDir.toFile())
+                    .toPath();
+        } catch (SecurityException e) {
+            log.warn("Ignoring cache deletion candidate outside document cache directory", e);
+            return null;
+        }
+    }
+
+    private String sourcePathDiscriminatorOrNull(String sourceFileName) {
+        try {
+            Path sourcePath = Path.of(sourceFileName);
+            if (!sourcePath.isAbsolute() && sourcePath.getNameCount() == 1) {
+                sourcePath = getOscarDocument(sourcePath);
+            }
+            return sourcePathDiscriminator(sourcePath);
+        } catch (InvalidPathException | SecurityException e) {
+            return null;
+        }
+    }
+
+    private static boolean isFaxPreviewCacheFile(String cacheFileName, String sanitizedSourceFileName,
+            String sourceDiscriminator) {
+        if (sourceDiscriminator != null
+                && isPagedCacheFile(cacheFileName, sanitizedSourceFileName + "_" + sourceDiscriminator + "_")) {
+            return true;
+        }
+        return isPagedCacheFile(cacheFileName, sanitizedSourceFileName + "_");
+    }
+
+    private static boolean isPagedCacheFile(String cacheFileName, String prefix) {
+        if (!cacheFileName.startsWith(prefix) || !cacheFileName.endsWith(".png")) {
+            return false;
+        }
+        String pageNumber = cacheFileName.substring(prefix.length(), cacheFileName.length() - ".png".length());
+        return !pageNumber.isEmpty() && pageNumber.chars().allMatch(Character::isDigit);
+    }
+
+    private record CacheRequest(String sanitizedFilename, Integer pageNum) {
     }
 
     /**

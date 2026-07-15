@@ -237,18 +237,6 @@ public final class ConvertToEdoc {
     }
 
     /**
-     * Converts an arbitrary HTML string to a temporary PDF file.
-     * The caller is responsible for deleting the temporary file after use.
-     *
-     * @param htmlString String the HTML markup to convert
-     * @param filename String the base filename (without directory) used for the temporary PDF
-     * @return Path the temporary file path to the produced PDF, or null if conversion fails
-     */
-    public static synchronized Path saveAsTempPDF(String htmlString, String filename) {
-        return execute(htmlString, filename);
-    }
-
-    /**
      * Converts a Form (via its transport container) to a temporary PDF file without
      * creating an EDoc entity. The caller is responsible for deleting the temporary file after use.
      *

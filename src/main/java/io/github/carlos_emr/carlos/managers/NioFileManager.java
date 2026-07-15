@@ -63,10 +63,33 @@ public interface NioFileManager {
     public Path createCacheVersion2(LoggedInInfo loggedInInfo, String sourceDirectory, String filename, Integer pageNum);
 
     /**
-     * Creates or returns a cached preview image for fax preview callers.
-     * This is scoped to fax preview authorization and does not change the _edoc-gated cache API.
+     * Creates or returns a cached PNG preview page for a fax source PDF.
+     *
+     * <p>This entry point is scoped to fax-preview authorization and intentionally
+     * does not broaden the legacy {@code _edoc}-gated cache API. Implementations
+     * must validate that {@code filename} resolves either under the configured
+     * document store or under an approved temporary directory before rendering.</p>
+     *
+     * @param loggedInInfo current authenticated user context
+     * @param sourceDirectory optional source directory for relative filenames
+     * @param filename source PDF filename or validated path
+     * @param pageNum one-based PDF page number to render
+     * @return path to the cached PNG preview
      */
     public Path createFaxPreviewCacheVersion(LoggedInInfo loggedInInfo, String sourceDirectory, String filename, Integer pageNum);
+
+    /**
+     * Removes cached fax preview images for the given source PDF.
+     *
+     * <p>Only fax-preview cache entries derived from the supplied source are
+     * removed. Implementations should reject or ignore cache candidates that
+     * resolve outside the per-user document cache directory.</p>
+     *
+     * @param loggedInInfo current authenticated user context
+     * @param sourceFileName source PDF filename or validated path used for preview generation
+     * @return {@code true} when every matching cache entry was removed or no entry existed
+     */
+    public boolean removeFaxPreviewCacheVersions(LoggedInInfo loggedInInfo, final String sourceFileName);
 
     /**
      * Remove the given file from the cache directory.

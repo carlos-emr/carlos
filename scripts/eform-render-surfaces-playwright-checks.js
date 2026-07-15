@@ -49,6 +49,7 @@ const {
   assert,
   buildArtifactPath,
   createRecorder,
+  getLaunchOptions,
   gotoApp,
   login,
   openManager,
@@ -241,33 +242,27 @@ function assertComparisonWithinThreshold(comparisons, label, maxMismatchRatio, m
   }
 }
 
-function ensurePdfRenderDumper() {
-  const compileDir = path.join(os.tmpdir(), 'carlos-pdfbox-render-dump');
-  const sourcePath = path.join(compileDir, 'PdfRenderDump.java');
-  const classPath = path.join(compileDir, 'PdfRenderDump.class');
-  fs.mkdirSync(compileDir, { recursive: true });
-  if (!fs.existsSync(sourcePath) || fs.readFileSync(sourcePath, 'utf8') !== PDFBOX_RENDER_DUMP_SOURCE) {
-    fs.writeFileSync(sourcePath, PDFBOX_RENDER_DUMP_SOURCE);
-  }
-  if (!fs.existsSync(classPath) || fs.statSync(classPath).mtimeMs < fs.statSync(sourcePath).mtimeMs) {
-    execFileSync('javac', ['-cp', PDFBOX_CLASSPATH, sourcePath], { stdio: 'pipe' });
-  }
-  return { compileDir, className: 'PdfRenderDump' };
-}
-
 function renderPdfToImages(pdfPath, outputPrefix) {
-  const dumper = ensurePdfRenderDumper();
-  execFileSync('java', ['-Djava.awt.headless=true', '-cp', `${dumper.compileDir}:${PDFBOX_CLASSPATH}`, dumper.className, pdfPath, outputPrefix], { stdio: 'pipe' });
-  const files = [];
-  for (let page = 1; ; page += 1) {
-    const candidate = `${outputPrefix}-page${page}.png`;
-    if (!fs.existsSync(candidate)) {
-      break;
+  const compileDir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-pdfbox-render-dump-'));
+  const sourcePath = path.join(compileDir, 'PdfRenderDump.java');
+  try {
+    fs.chmodSync(compileDir, 0o700);
+    fs.writeFileSync(sourcePath, PDFBOX_RENDER_DUMP_SOURCE, { mode: 0o600 });
+    execFileSync('javac', ['-cp', PDFBOX_CLASSPATH, sourcePath], { stdio: 'pipe' });
+    execFileSync('java', ['-Djava.awt.headless=true', '-cp', `${compileDir}:${PDFBOX_CLASSPATH}`, 'PdfRenderDump', pdfPath, outputPrefix], { stdio: 'pipe' });
+    const files = [];
+    for (let page = 1; ; page += 1) {
+      const candidate = `${outputPrefix}-page${page}.png`;
+      if (!fs.existsSync(candidate)) {
+        break;
+      }
+      files.push(candidate);
     }
-    files.push(candidate);
+    assert(files.length > 0, `No rendered PDF page images were produced for ${pdfPath}`);
+    return files;
+  } finally {
+    fs.rmSync(compileDir, { recursive: true, force: true });
   }
-  assert(files.length > 0, `No rendered PDF page images were produced for ${pdfPath}`);
-  return files;
 }
 
 async function comparePdfFilesVisually(comparePage, baselinePdfPath, candidatePdfPath, label) {
@@ -631,20 +626,9 @@ async function openFaxPreviewPage(context, fdid, recorder) {
   };
 }
 
-function getLaunchOptions() {
-  const launchOptions = {
-    headless: true,
-    args: ['--no-sandbox', '--disable-dev-shm-usage'],
-  };
-  if (chromePath) {
-    launchOptions.executablePath = chromePath;
-  }
-  return launchOptions;
-}
-
 (async () => {
   const recorder = createRecorder();
-  const browser = await chromium.launch(getLaunchOptions());
+  const browser = await chromium.launch(getLaunchOptions(chromePath));
   const context = await browser.newContext({
     acceptDownloads: true,
     ignoreHTTPSErrors: true,
@@ -737,6 +721,8 @@ function getLaunchOptions() {
     assert(result.faxPreview.referencePdf.pdfBytes > 10000, `Fax reference PDF was unexpectedly small: ${result.faxPreview.referencePdf.pdfBytes} bytes`);
     assert(result.faxPreview.previewPdfSha256, 'Fax preview PDF hash was not captured');
     result.faxPreview.samePageReferencePdfBytesMatch = result.faxPreview.previewPdfBytes === result.faxPreview.referencePdf.pdfBytes;
+    assert(result.faxPreview.previewPdfSha256 === result.faxPreview.referencePdf.pdfSha256,
+      `Fax preview PDF hash ${result.faxPreview.previewPdfSha256} did not match reference ${result.faxPreview.referencePdf.pdfSha256}`);
     assertComparisonWithinThreshold(result.pdfVisualStability, 'saved-form pdf stability', 0.002, 0.2);
     if (result.faxPreview.pdfVisualComparison) {
       assertComparisonWithinThreshold(result.faxPreview.pdfVisualComparison, 'fax preview pdf', 0.0001, 0.01);

@@ -99,8 +99,8 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
 
     /** Path inside the WAR where bundled assets are stored (not web-accessible). */
     private static final String BUNDLED_ASSETS_PATH = "/WEB-INF/eform-assets/";
-    private static final String SHARED_JAVASCRIPT_PATH = "/share/javascript/";
-    private static final String JQUERY_RESOURCE_PATH = "/library/jquery/jquery-3.7.1.min.js";
+    private static final String SHARED_JAVASCRIPT_PATH = "/share/javascript/"; // NOSONAR java:S1075 -- fixed WAR resource path, not a filesystem path or deployment-specific URI.
+    private static final String JQUERY_RESOURCE_PATH = "/library/jquery/jquery-3.7.1.min.js"; // NOSONAR java:S1075 -- fixed bundled webapp resource path.
     private static final byte[] BLANK_SIGNATURE_PNG = new byte[] {
         (byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
         0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,

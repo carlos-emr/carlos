@@ -306,6 +306,13 @@ public class Fax2Action extends ActionSupport {
                 sendErrorQuietly(HttpServletResponse.SC_BAD_REQUEST, "Invalid pageNumber");
                 return;
             }
+            if (page < 1) {
+                if (logger.isWarnEnabled()) {
+                    logger.warn("Invalid pageNumber supplied for fax preview: {}", LogSafe.sanitize(pageNumber, 1024));
+                }
+                sendErrorQuietly(HttpServletResponse.SC_BAD_REQUEST, "Invalid pageNumber");
+                return;
+            }
         }
 
         /*

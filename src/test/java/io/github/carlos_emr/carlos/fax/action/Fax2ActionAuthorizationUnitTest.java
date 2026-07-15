@@ -153,6 +153,36 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject getPreview when pageNumber is less than one")
+    void shouldRejectGetPreview_whenPageNumberIsLessThanOne() {
+        FaxManager faxManager = mock(FaxManager.class);
+        DocumentAttachmentManager documentAttachmentManager = mock(DocumentAttachmentManager.class);
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_fax"), eq("r"), isNull()))
+                .thenReturn(true);
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("pageNumber", "0");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        registerMock(FaxManager.class, faxManager);
+        registerMock(DocumentAttachmentManager.class, documentAttachmentManager);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            Fax2Action action = new Fax2Action();
+            action.getPreview();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            verifyNoInteractions(faxManager);
+        }
+    }
+
+    @Test
     @DisplayName("should reject getPreview image when fax manager rejects the source path")
     void shouldRejectGetPreviewImage_whenFaxManagerRejectsSourcePath() {
         FaxManager faxManager = mock(FaxManager.class);

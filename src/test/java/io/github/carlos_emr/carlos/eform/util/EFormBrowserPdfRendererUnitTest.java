@@ -1,3 +1,24 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
 package io.github.carlos_emr.carlos.eform.util;
 
 import java.io.IOException;
@@ -39,7 +60,7 @@ class EFormBrowserPdfRendererUnitTest {
 
     @Test
     @DisplayName("should keep print-only cleanup rules in the bundled renderer script")
-    void shouldKeepPrintCleanupRulesInBundledRendererScript() throws IOException {
+    void shouldKeepPrintCleanupRules_whenBundledRendererScriptLoaded() throws IOException {
         try (InputStream inputStream = getClass().getClassLoader().getResourceAsStream(
                 "io/github/carlos_emr/carlos/eform/browserpdf/eform-browser-pdf-render.js")) {
             assertThat(inputStream).isNotNull();
@@ -107,7 +128,7 @@ class EFormBrowserPdfRendererUnitTest {
 
     @Test
     @DisplayName("should create a secure temporary renderer directory inside the managed temp root")
-    void shouldCreateSecureTemporaryRendererDirectory() throws IOException {
+    void shouldCreateSecureDirectory_whenCreatingRendererTempDirectory() throws IOException {
         Path root = Files.createTempDirectory("eform-browser-render-root-");
         Path directory = EFormBrowserPdfRenderer.createSecureTempDirectory(root, "eform-browser-render-test-");
         try {
@@ -128,7 +149,7 @@ class EFormBrowserPdfRendererUnitTest {
 
     @Test
     @DisplayName("should create a secure temporary renderer pdf file inside the managed temp root")
-    void shouldCreateSecureTemporaryRendererPdfFile() throws IOException {
+    void shouldCreateSecurePdfFile_whenCreatingRendererTempFile() throws IOException {
         Path root = Files.createTempDirectory("eform-browser-render-root-");
         Path file = EFormBrowserPdfRenderer.createSecureTempFile(root, "eform-browser-render-test-", ".pdf");
         try {

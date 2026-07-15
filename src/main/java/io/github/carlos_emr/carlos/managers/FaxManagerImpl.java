@@ -357,18 +357,24 @@ public class FaxManagerImpl implements FaxManager {
             if (PathValidationUtils.isInAllowedTempDirectory(validatedPath.toFile())) {
                 String copiedPath = nioFileManager.copyFileToOscarDocuments(validatedPath.toString());
                 if (copiedPath == null || copiedPath.isBlank()) {
-                    logger.debug("Temp fax file promotion did not return a document-store path for: {}",
-                            LogSafe.sanitize(faxFilePath));
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("Temp fax file promotion did not return a document-store path for: {}",
+                                LogSafe.sanitize(faxFilePath));
+                    }
                     return null;
                 }
                 return copiedPath;
             }
         } catch (IllegalArgumentException | SecurityException | IOException e) {
-            logger.debug("Skipping temp fax file promotion for invalid or inaccessible file path: {}",
-                    LogSafe.sanitize(faxFilePath), e);
+            if (logger.isDebugEnabled()) {
+                logger.debug("Skipping temp fax file promotion for invalid or inaccessible file path: {}",
+                        LogSafe.sanitize(faxFilePath), e);
+            }
         } catch (RuntimeException e) {
-            logger.debug("Skipping temp fax file promotion after copy failure for file path: {}",
-                    LogSafe.sanitize(faxFilePath), e);
+            if (logger.isDebugEnabled()) {
+                logger.debug("Skipping temp fax file promotion after copy failure for file path: {}",
+                        LogSafe.sanitize(faxFilePath), e);
+            }
         }
         return faxFilePath;
     }
@@ -583,14 +589,10 @@ public class FaxManagerImpl implements FaxManager {
         if (filePath != null) {
             try {
                 Path validatedPath = resolveAndValidateFilePath(filePath.toString());
-                if (!PathValidationUtils.isInAllowedTempDirectory(validatedPath.toFile())) {
-                    throw new SecurityException("Fax preview image source must be an approved temporary file");
-                }
                 outfile = nioFileManager.createFaxPreviewCacheVersion(loggedInInfo, validatedPath.getParent().toString(),
                         validatedPath.getFileName().toString(), pageNumber);
             } catch (IllegalArgumentException | IOException e) {
-                logger.error("File not found or error processing fax preview image path: {}",
-                        LogSafe.sanitize(filePath.toString()), e);
+                logger.error("File not found or error processing fax preview image path", e);
             }
         }
         return outfile;
@@ -694,10 +696,12 @@ public class FaxManagerImpl implements FaxManager {
             throw new RuntimeException("missing required sec object (_fax)");
         }
 
-        boolean cache = nioFileManager.removeCacheVersion(loggedInInfo, filePath);
-        boolean temp = nioFileManager.deleteTempFile(filePath);
+        boolean cache = nioFileManager.removeFaxPreviewCacheVersions(loggedInInfo, filePath);
+        boolean temp = filePath != null
+                && PathValidationUtils.isInAllowedTempDirectory(new File(filePath))
+                && nioFileManager.deleteTempFile(filePath);
 
-        return (cache && temp);
+        return cache || temp;
     }
 
 

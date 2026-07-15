@@ -1,3 +1,24 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
 package io.github.carlos_emr.carlos.managers;
 
 import java.nio.file.Files;
@@ -28,6 +49,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -49,7 +72,7 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
     @BeforeEach
     void setUp() {
         mocks = MockitoAnnotations.openMocks(this);
-        manager = Mockito.spy(new FaxManagerImpl());
+        manager = spy(new FaxManagerImpl());
         injectDependency(manager, "securityInfoManager", securityInfoManager);
         injectDependency(manager, "nioFileManager", nioFileManager);
         injectDependency(manager, "faxConfigDao", faxConfigDao);
@@ -154,6 +177,37 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
         } finally {
             Files.deleteIfExists(sourcePdf);
         }
+    }
+
+    @Test
+    @DisplayName("should use fax preview cache generation for document store preview images")
+    void shouldUseFaxPreviewCacheVersion_whenRenderingDocumentStorePreviewImage() throws Exception {
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_fax"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
+        Path sourcePdf = Path.of("/var/lib/OscarDocument/document/fax-preview-source.pdf");
+        Path previewImage = Path.of("/tmp/fax-preview-source_2.png");
+        doReturn(sourcePdf).when(manager).resolveAndValidateFilePath(sourcePdf.toString());
+        when(nioFileManager.createFaxPreviewCacheVersion(loggedInInfo, sourcePdf.getParent().toString(),
+                sourcePdf.getFileName().toString(), 2)).thenReturn(previewImage);
+
+        Path result = manager.getFaxPreviewImage(loggedInInfo, sourcePdf, 2);
+
+        assertThat(result).isEqualTo(previewImage);
+        verify(nioFileManager).createFaxPreviewCacheVersion(loggedInInfo, sourcePdf.getParent().toString(),
+                sourcePdf.getFileName().toString(), 2);
+    }
+
+    @Test
+    @DisplayName("should clear fax preview cache without temp deletion for document store paths")
+    void shouldClearFaxPreviewCache_whenFlushingDocumentStorePath() {
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_fax"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
+        String sourcePath = "/var/lib/OscarDocument/document/fax-preview-source.pdf";
+        when(nioFileManager.removeFaxPreviewCacheVersions(loggedInInfo, sourcePath)).thenReturn(true);
+
+        boolean flushed = manager.flush(loggedInInfo, sourcePath);
+
+        assertThat(flushed).isTrue();
+        verify(nioFileManager).removeFaxPreviewCacheVersions(loggedInInfo, sourcePath);
+        verify(nioFileManager, never()).deleteTempFile(sourcePath);
     }
 
     @Test

@@ -186,23 +186,22 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
 
     private static void applySignatureHtml(EForm eForm, List<EFormValue> eFormValues, String contextPath) {
         for (EFormValue value : eFormValues) {
-            if (!"signatureValue".equals(value.getVarName())) {
-                continue;
-            }
-            String html = eForm.getFormHtml();
-            String signatureInit = "signatureControl.initialize\\s*\\(\\s*\\{\\s*eform:true,\\s+height:(\\d+),\\s+width:(\\d+),\\s+top:(\\d+),\\s+left:(\\d+)\\s*\\}\\s*\\)";
-            Pattern pattern = Pattern.compile(signatureInit);
-            Matcher matcher = pattern.matcher(html);
-            boolean matchFound = matcher.find();
-            if (matchFound && matcher.groupCount() == 4) {
-                String sign = normalizePdfSignatureUrl(value.getVarValue(), contextPath);
-                if (sign == null) {
-                    logger.warn("Skipping invalid signature URL while preparing eForm PDF");
-                    continue;
+            if ("signatureValue".equals(value.getVarName())) {
+                String html = eForm.getFormHtml();
+                String signatureInit = "signatureControl.initialize\\s*\\(\\s*\\{\\s*eform:true,\\s+height:(\\d+),\\s+width:(\\d+),\\s+top:(\\d+),\\s+left:(\\d+)\\s*\\}\\s*\\)";
+                Pattern pattern = Pattern.compile(signatureInit);
+                Matcher matcher = pattern.matcher(html);
+                boolean matchFound = matcher.find();
+                if (matchFound && matcher.groupCount() == 4) {
+                    String sign = normalizePdfSignatureUrl(value.getVarValue(), contextPath);
+                    if (sign == null) {
+                        logger.warn("Skipping invalid signature URL while preparing eForm PDF");
+                    } else {
+                        String left = matcher.group(4), top = matcher.group(3), width = matcher.group(2), height = matcher.group(1);
+                        eForm.setFormHtml(html.replace("<div id=\"signatureDisplay\"></div>",
+                                buildSignatureImageMarkup(sign, left, top, width, height)));
+                    }
                 }
-                String left = matcher.group(4), top = matcher.group(3), width = matcher.group(2), height = matcher.group(1);
-                eForm.setFormHtml(html.replace("<div id=\"signatureDisplay\"></div>",
-                        buildSignatureImageMarkup(sign, left, top, width, height)));
             }
         }
     }

@@ -2,12 +2,29 @@
  * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
  *
  * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.eform.util;
 
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -26,7 +43,6 @@ import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -80,6 +96,10 @@ public class EFormBrowserPdfRenderer {
     private static final String CHROME_PATH_PROPERTY = "eform_pdf_browser_chromium_path";
     private static final String NODE_MODULES_ROOT_PROPERTY = "eform_pdf_browser_node_modules_root";
     private static final String CATALINA_BASE_PROPERTY = "catalina.base";
+    private static final String LOOPBACK_BASE_URL = "http://127.0.0.1:8080";
+    private static final String HTTP_SCHEME = "http";
+    private static final String HTTPS_SCHEME = "https";
+    private static final char URL_PATH_SEPARATOR = '/';
     private static final String ENV_BASE_URL = "CARLOS_EFORM_RENDER_BASE_URL";
     private static final String ENV_APP_PATH = "CARLOS_EFORM_RENDER_APP_PATH";
     private static final String ENV_COOKIE_HEADER = "CARLOS_EFORM_RENDER_COOKIE_HEADER";
@@ -143,18 +163,24 @@ public class EFormBrowserPdfRenderer {
             process = processBuilder.start();
             try (ExecutorService processOutputExecutor = Executors.newSingleThreadExecutor()) {
                 Process rendererProcess = process;
-                CompletableFuture<String> outputFuture = CompletableFuture.supplyAsync(
-                        () -> readProcessOutput(rendererProcess),
+                CompletableFuture<Void> outputFuture = CompletableFuture.runAsync(
+                        () -> drainProcessOutput(rendererProcess),
                         processOutputExecutor);
-                boolean finished = process.waitFor(RENDER_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
-                if (!finished) {
-                    terminateProcessTree(process);
+                try {
+                    boolean finished = process.waitFor(RENDER_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
+                    if (!finished) {
+                        terminateProcessTree(process);
+                        awaitProcessOutput(outputFuture);
+                        throw new PDFGenerationException("Browser rendering timed out while generating the eForm PDF.");
+                    }
                     awaitProcessOutput(outputFuture);
-                    throw new PDFGenerationException("Browser rendering timed out while generating the eForm PDF.");
-                }
-                awaitProcessOutput(outputFuture);
-                if (process.exitValue() != 0) {
-                    throw new PDFGenerationException("Browser rendering failed while generating the eForm PDF. exitStatus=" + process.exitValue());
+                    if (process.exitValue() != 0) {
+                        throw new PDFGenerationException("Browser rendering failed while generating the eForm PDF. exitStatus=" + process.exitValue());
+                    }
+                } catch (InterruptedException e) {
+                    terminateProcessTree(process);
+                    outputFuture.cancel(true);
+                    throw e;
                 }
             }
             List<Path> captureFiles = listCaptureFiles(outputDirectory);
@@ -212,40 +238,45 @@ public class EFormBrowserPdfRenderer {
         return cookieName + "=" + session.getId();
     }
 
-    private static String readProcessOutput(Process process) {
+    private static void drainProcessOutput(Process process) {
         try {
-            return new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            process.getInputStream().transferTo(OutputStream.nullOutputStream());
         } catch (IOException e) {
-            return "";
+            logger.debug("Unable to drain browser renderer output", e);
         }
     }
 
-    private static String awaitProcessOutput(CompletableFuture<String> outputFuture) throws InterruptedException {
+    private static void awaitProcessOutput(CompletableFuture<Void> outputFuture) throws InterruptedException {
         try {
-            return outputFuture.get(5, TimeUnit.SECONDS);
+            outputFuture.get(5, TimeUnit.SECONDS);
         } catch (ExecutionException | java.util.concurrent.TimeoutException e) {
-            return "";
+            logger.debug("Browser renderer output drain did not finish cleanly", e);
         }
     }
 
     static String buildDefaultBaseUrl(String projectHome) {
         if (projectHome == null || projectHome.isBlank()) {
-            return "http://127.0.0.1:8080";
+            return LOOPBACK_BASE_URL;
         }
-        String normalizedProjectHome = projectHome.startsWith("/") ? projectHome.substring(1) : projectHome;
-        normalizedProjectHome = normalizedProjectHome.endsWith("/")
+        String normalizedProjectHome = projectHome.charAt(0) == URL_PATH_SEPARATOR ? projectHome.substring(1) : projectHome;
+        normalizedProjectHome = !normalizedProjectHome.isEmpty()
+                && normalizedProjectHome.charAt(normalizedProjectHome.length() - 1) == URL_PATH_SEPARATOR
                 ? normalizedProjectHome.substring(0, normalizedProjectHome.length() - 1)
                 : normalizedProjectHome;
-        return "http://127.0.0.1:8080/" + normalizedProjectHome;
+        if (normalizedProjectHome.isEmpty()) {
+            return LOOPBACK_BASE_URL;
+        }
+        return LOOPBACK_BASE_URL + URL_PATH_SEPARATOR + normalizedProjectHome;
     }
 
     static String buildLocalBaseUrl(String scheme, int port, String contextPath) {
         String normalizedScheme = (scheme == null || scheme.isBlank()) ? "http" : scheme.trim();
         String normalizedContextPath = contextPath == null ? "" : contextPath.trim();
-        if (!normalizedContextPath.isEmpty() && !normalizedContextPath.startsWith("/")) {
-            normalizedContextPath = "/" + normalizedContextPath;
+        if (!normalizedContextPath.isEmpty() && normalizedContextPath.charAt(0) != URL_PATH_SEPARATOR) {
+            normalizedContextPath = URL_PATH_SEPARATOR + normalizedContextPath;
         }
-        if (normalizedContextPath.endsWith("/")) {
+        if (!normalizedContextPath.isEmpty()
+                && normalizedContextPath.charAt(normalizedContextPath.length() - 1) == URL_PATH_SEPARATOR) {
             normalizedContextPath = normalizedContextPath.substring(0, normalizedContextPath.length() - 1);
         }
         StringBuilder baseUrl = new StringBuilder(normalizedScheme).append("://127.0.0.1");
@@ -290,8 +321,7 @@ public class EFormBrowserPdfRenderer {
 
         URI uri = URI.create(rawBaseUrl.trim());
         String scheme = uri.getScheme();
-        String normalizedScheme = scheme == null ? "" : scheme.toLowerCase(Locale.ROOT);
-        if (!"http".equals(normalizedScheme) && !"https".equals(normalizedScheme)) {
+        if (!equalsAsciiIgnoreCase(scheme, HTTP_SCHEME) && !equalsAsciiIgnoreCase(scheme, HTTPS_SCHEME)) {
             throw new IllegalArgumentException("Renderer base URL must use http or https");
         }
         if (uri.getHost() == null || !isLocalRendererHost(uri.getHost())) {
@@ -312,7 +342,7 @@ public class EFormBrowserPdfRenderer {
     }
 
     static boolean isLocalRendererHost(String rawHost) {
-        String host = rawHost == null ? "" : rawHost.trim().toLowerCase(Locale.ROOT);
+        String host = rawHost == null ? "" : toAsciiLowerCase(rawHost.trim());
         if (host.startsWith("[") && host.endsWith("]")) {
             host = host.substring(1, host.length() - 1);
         }
@@ -467,26 +497,37 @@ public class EFormBrowserPdfRenderer {
             return null;
         }
         Path normalizedCandidate = candidate.toAbsolutePath().normalize();
+        if (normalizedCandidate.getParent() == null) {
+            return null;
+        }
         List<Path> playwrightPaths = List.of(
                 normalizedCandidate.resolve(PLAYWRIGHT_MODULE_RELATIVE_PATH).normalize(),
                 normalizedCandidate.resolve(PLAYWRIGHT_PACKAGE_NAME).normalize());
         for (Path playwrightPath : playwrightPaths) {
-            if (!Files.isDirectory(playwrightPath)) {
-                continue;
-            }
-            Path nodeModulesDirectory = playwrightPath.getParent();
-            Path nodeModulesFileName = nodeModulesDirectory == null ? null : nodeModulesDirectory.getFileName();
-            if (nodeModulesFileName == null || !NODE_MODULES_DIRECTORY_NAME.equals(nodeModulesFileName.toString())) {
-                continue;
-            }
-            try {
-                PathValidationUtils.validateExistingPath(playwrightPath.toFile(), nodeModulesDirectory.toFile());
+            Path nodeModulesDirectory = validatePlaywrightPath(candidate, playwrightPath);
+            if (nodeModulesDirectory != null) {
                 return nodeModulesDirectory;
-            } catch (SecurityException e) {
-                logger.warn("Ignoring Playwright node_modules directory outside its candidate root: {}", candidate, e);
             }
         }
         return null;
+    }
+
+    private static Path validatePlaywrightPath(Path candidate, Path playwrightPath) {
+        if (!Files.isDirectory(playwrightPath)) {
+            return null;
+        }
+        Path nodeModulesDirectory = playwrightPath.getParent();
+        Path nodeModulesFileName = nodeModulesDirectory == null ? null : nodeModulesDirectory.getFileName();
+        if (nodeModulesFileName == null || !NODE_MODULES_DIRECTORY_NAME.equals(nodeModulesFileName.toString())) {
+            return null;
+        }
+        try {
+            PathValidationUtils.validateExistingPath(playwrightPath.toFile(), nodeModulesDirectory.toFile());
+            return nodeModulesDirectory;
+        } catch (SecurityException e) {
+            logger.warn("Ignoring Playwright node_modules directory outside its candidate root: {}", candidate, e);
+            return null;
+        }
     }
 
     private List<Path> configuredCandidateRoots(String propertyName, String environmentVariableName) {
@@ -524,13 +565,15 @@ public class EFormBrowserPdfRenderer {
     }
 
     private Path extractBundledRendererRuntime(Path tempRoot) throws PDFGenerationException {
+        Path runtimeDir = null;
         try {
-            Path runtimeDir = createSecureTempDirectory(tempRoot, "eform-browser-pdf-runtime-");
+            runtimeDir = createSecureTempDirectory(tempRoot, "eform-browser-pdf-runtime-");
             for (String scriptName : BUNDLED_SCRIPT_NAMES) {
                 copyBundledScript(runtimeDir, scriptName);
             }
             return runtimeDir;
-        } catch (IOException e) {
+        } catch (IOException | PDFGenerationException e) {
+            deleteRecursivelyQuietly(runtimeDir);
             throw new PDFGenerationException("Unable to stage the bundled Playwright renderer assets for eForm PDF generation.", e);
         }
     }
@@ -621,9 +664,36 @@ public class EFormBrowserPdfRenderer {
     }
 
     private static boolean isDefaultPort(String scheme, int port) {
-        String normalizedScheme = scheme == null ? "" : scheme.toLowerCase(Locale.ROOT);
-        return ("http".equals(normalizedScheme) && port == 80)
-                || ("https".equals(normalizedScheme) && port == 443);
+        return (equalsAsciiIgnoreCase(scheme, HTTP_SCHEME) && port == 80)
+                || (equalsAsciiIgnoreCase(scheme, HTTPS_SCHEME) && port == 443);
+    }
+
+    private static boolean equalsAsciiIgnoreCase(String value, String expectedLowerCase) {
+        if (value == null || value.length() != expectedLowerCase.length()) {
+            return false;
+        }
+        for (int i = 0; i < value.length(); i++) {
+            char candidate = value.charAt(i);
+            if (candidate >= 'A' && candidate <= 'Z') {
+                candidate = (char) (candidate + ('a' - 'A'));
+            }
+            if (candidate != expectedLowerCase.charAt(i)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static String toAsciiLowerCase(String value) {
+        StringBuilder builder = new StringBuilder(value.length());
+        for (int i = 0; i < value.length(); i++) {
+            char candidate = value.charAt(i);
+            if (candidate >= 'A' && candidate <= 'Z') {
+                candidate = (char) (candidate + ('a' - 'A'));
+            }
+            builder.append(candidate);
+        }
+        return builder.toString();
     }
 
     private record RendererRuntime(Path runtimeRoot, boolean temporary) {

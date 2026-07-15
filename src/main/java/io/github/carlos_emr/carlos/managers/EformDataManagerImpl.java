@@ -80,6 +80,12 @@ public class EformDataManagerImpl implements EformDataManager {
 
     private final EFormBrowserPdfRenderer eFormBrowserPdfRenderer;
 
+    /**
+     * Creates the manager with its authorization and browser-rendering collaborators.
+     *
+     * @param securityInfoManager privilege checks for eForm operations
+     * @param eFormBrowserPdfRenderer renderer that loads the saved eForm servlet in Playwright
+     */
     @Autowired
     public EformDataManagerImpl(SecurityInfoManager securityInfoManager, EFormBrowserPdfRenderer eFormBrowserPdfRenderer) {
         this.securityInfoManager = securityInfoManager;
@@ -180,9 +186,16 @@ public class EformDataManagerImpl implements EformDataManager {
     }
 
     /**
-     * Saves an eForm as a browser-rendered PDF in a managed temporary location.
+     * Creates a browser-rendered PDF for an existing saved eForm in a managed temporary location.
      *
+     * <p>The caller must hold {@code _eform} update privileges. The returned path
+     * remains in the renderer-managed temporary directory so downstream fax and
+     * eDoc workflows can validate it with the standard file-path checks.</p>
+     *
+     * @param loggedInInfo current authenticated user context
+     * @param fdid saved eForm data id
      * @return readable path to an {@code eform-browser-render-*.pdf} file; callers are responsible for cleanup
+     * @throws PDFGenerationException when browser rendering fails or produces an unreadable file
      */
     public Path createEformPDF(LoggedInInfo loggedInInfo, int fdid) throws PDFGenerationException {
 

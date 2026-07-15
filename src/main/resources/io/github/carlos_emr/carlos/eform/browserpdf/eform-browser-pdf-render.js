@@ -17,6 +17,8 @@ const path = require('node:path');
 const { chromium } = require('playwright');
 const { appUrl, assert, getLaunchOptions, validateBaseUrl } = require('./eform-local-playwright-utils');
 
+const IMAGE_WAIT_TIMEOUT_MS = 5000;
+
 function parseArgs(argv) {
   const parsed = {};
   for (let index = 0; index < argv.length; index += 1) {
@@ -35,19 +37,36 @@ async function waitForStableRender(page) {
   await page.waitForLoadState('domcontentloaded', { timeout: 30000 });
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   await page.waitForTimeout(1500);
-  await page.evaluate(async () => {
+  await page.evaluate(async (imageWaitTimeoutMs) => {
     if (document.fonts && document.fonts.ready instanceof Promise) {
       await document.fonts.ready;
     }
 
     const pendingImages = Array.from(document.images).filter((image) => !image.complete);
     await Promise.all(pendingImages.map((image) => new Promise((resolve) => {
-      image.addEventListener('load', resolve, { once: true });
-      image.addEventListener('error', resolve, { once: true });
+      if (image.complete) {
+        resolve();
+        return;
+      }
+      let settled = false;
+      let timeoutId;
+      const finish = () => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        clearTimeout(timeoutId);
+        image.removeEventListener('load', finish);
+        image.removeEventListener('error', finish);
+        resolve();
+      };
+      timeoutId = setTimeout(finish, imageWaitTimeoutMs);
+      image.addEventListener('load', finish, { once: true });
+      image.addEventListener('error', finish, { once: true });
     })));
 
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-  });
+  }, IMAGE_WAIT_TIMEOUT_MS);
 }
 
 async function preparePageForCapture(page) {
@@ -203,43 +222,43 @@ async function main() {
   const outputDir = path.resolve(args['output-dir']);
   assert(fs.existsSync(outputDir) && fs.statSync(outputDir).isDirectory(), `Renderer output directory must already exist, got ${outputDir}`);
 
-  const browser = await chromium.launch(getLaunchOptions(rawChromePath));
-  const context = await browser.newContext({ viewport: { width: 1800, height: 3200 } });
-  if (rawCookieHeader) {
-    // Scope the session cookie to the validated renderer application URL instead of a page-wide
-    // extra header, so it stays confined to the intended host and app context.
-    const cookies = rawCookieHeader.split(';')
-      .map((pair) => pair.trim())
-      .filter((pair) => pair.includes('='))
-      .map((pair) => {
-        const separator = pair.indexOf('=');
-        return {
-          name: pair.slice(0, separator).trim(),
-          value: pair.slice(separator + 1).trim(),
-          url: baseUrl.href,
-        };
-      });
-    if (cookies.length) {
-      await context.addCookies(cookies);
-    }
-  }
-  const page = await context.newPage();
   const consoleIssues = [];
   const pageErrors = [];
-  page.on('console', (message) => {
-    if (message.type() === 'error') {
-      consoleIssues.push(message.text());
-    }
-  });
-  page.on('pageerror', (error) => {
-    pageErrors.push(error.stack ?? error.message);
-  });
-
   let captureFiles = [];
+  const browser = await chromium.launch(getLaunchOptions(rawChromePath));
   try {
+    const context = await browser.newContext({ viewport: { width: 1800, height: 3200 } });
+    if (rawCookieHeader) {
+      // Scope the session cookie to the validated renderer application URL instead of a page-wide
+      // extra header, so it stays confined to the intended host and app context.
+      const cookies = rawCookieHeader.split(';')
+        .map((pair) => pair.trim())
+        .filter((pair) => pair.includes('='))
+        .map((pair) => {
+          const separator = pair.indexOf('=');
+          return {
+            name: pair.slice(0, separator).trim(),
+            value: pair.slice(separator + 1).trim(),
+            url: baseUrl.href,
+          };
+        });
+      if (cookies.length) {
+        await context.addCookies(cookies);
+      }
+    }
+    const page = await context.newPage();
+    page.on('console', (message) => {
+      if (message.type() === 'error') {
+        consoleIssues.push(message.type());
+      }
+    });
+    page.on('pageerror', (error) => {
+      pageErrors.push(error?.name || 'Error');
+    });
+
     await page.emulateMedia({ media: 'screen' });
     const response = await page.goto(appUrl(baseUrl, rawAppPath), { waitUntil: 'domcontentloaded', timeout: 30000 }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- validateBaseUrl restricts hosts to local/private by default and appUrl rejects non-root-relative or protocol-relative paths
-    assert(response && response.ok(), `Renderer route returned HTTP ${response ? response.status() : 'no response'}`);
+    assert(response?.ok(), `Renderer route returned HTTP ${response?.status() ?? 'no response'}`);
     await waitForStableRender(page);
     await preparePageForCapture(page);
     captureFiles = await capturePages(page, outputDir);
@@ -252,7 +271,11 @@ async function main() {
   }
 
   if (consoleIssues.length || pageErrors.length) {
-    const details = { consoleIssues, pageErrors };
+    const details = {
+      consoleErrorCount: consoleIssues.length,
+      pageErrorCount: pageErrors.length,
+      pageErrorTypes: [...new Set(pageErrors)],
+    };
     console.error(JSON.stringify(details));
   }
   if (pageErrors.length) {
