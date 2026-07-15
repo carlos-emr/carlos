@@ -495,8 +495,12 @@ public class EForm extends EFormBase {
         StringBuffer rewritten = new StringBuffer();
         while (matcher.find()) {
             char delimiter = matcher.group(1).charAt(0);
+            String timerBody = unescapeLegacyTimerBody(matcher.group(2), delimiter);
+            if (timerBody == null) {
+                continue;
+            }
             String replacement = timerFunction + "(function(){ "
-                    + unescapeLegacyTimerBody(matcher.group(2), delimiter)
+                    + timerBody
                     + " }, " + matcher.group(3) + ")";
             matcher.appendReplacement(rewritten, Matcher.quoteReplacement(replacement));
         }
@@ -523,12 +527,13 @@ public class EForm extends EFormBase {
             boolean escapesDelimiter = index < body.length()
                     && body.charAt(index) == delimiter
                     && (slashCount % 2) == 1;
+            if (!escapesDelimiter) {
+                return null;
+            }
             int preservedSlashes = escapesDelimiter ? slashCount / 2 : slashCount;
             normalized.append("\\\\".repeat(preservedSlashes));
-            if (escapesDelimiter) {
-                normalized.append(delimiter);
-                index += 1;
-            }
+            normalized.append(delimiter);
+            index += 1;
         }
         return normalized.toString();
     }

@@ -159,4 +159,19 @@ class EFormSetContextPathUnitTest {
                 .contains("setInterval(function(){ say('hi') }, 200)");
     }
 
+    @Test
+    @DisplayName("should leave legacy string timers unchanged when code body contains non-delimiter escapes")
+    void shouldLeaveLegacyStringTimersUnchanged_withNonDelimiterEscapesInCodeBody() {
+        EForm eform = new EForm();
+        String script = "setTimeout(\"note='line\\\\n2'\", 100); setInterval(\"say(\\'hi\\')\", 200);";
+        eform.setFormHtml("<html><body><script>" + script + "</script></body></html>");
+
+        eform.setContextPath("/carlos");
+
+        assertThat(eform.getFormHtml())
+                .contains(script)
+                .doesNotContain("setTimeout(function(){ note=")
+                .doesNotContain("setInterval(function(){ say");
+    }
+
 }

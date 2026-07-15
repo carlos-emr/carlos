@@ -31,6 +31,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -193,6 +194,29 @@ class CsrfGuardScriptInjectionFilterUnitTest {
 
         withEnabledCsrfGuard(() -> filter.doFilter(request, response, chain));
 
+        assertThat(response.getContentAsString()).isEqualTo(body);
+        assertThat(response.getContentAsString()).doesNotContain("/csrfguard");
+    }
+
+    @Test
+    @DisplayName("should still wrap responses already marked to skip CSRF injection")
+    void shouldStillWrapResponse_whenRequestIsAlreadyMarkedToSkipInjection() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/EformViewForPdfGenerationServlet");
+        request.setContextPath("/carlos");
+        request.setAttribute(EformViewForPdfGenerationServlet.SKIP_HTML_INJECTION_ATTRIBUTE, Boolean.TRUE);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        AtomicBoolean wrappedResponseSeen = new AtomicBoolean(false);
+        String body = "<html><head><title>Renderer</title></head><body></body></html>";
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            wrappedResponseSeen.set(servletResponse != response);
+            servletResponse.setContentType("text/html;charset=UTF-8");
+            servletResponse.getWriter().write(body);
+        };
+
+        withEnabledCsrfGuard(() -> filter.doFilter(request, response, chain));
+
+        assertThat(wrappedResponseSeen).isTrue();
         assertThat(response.getContentAsString()).isEqualTo(body);
         assertThat(response.getContentAsString()).doesNotContain("/csrfguard");
     }

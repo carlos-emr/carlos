@@ -85,9 +85,9 @@ public class NioFileManagerImpl implements NioFileManager {
     private static final String TEMP_PDF_DIRECTORY = "tempPDF";
     private static final String DEFAULT_FILE_SUFFIX = "pdf";
     private static final String DEFAULT_GENERIC_TEMP = "tempDirectory";
-    private static final String BASE_DOCUMENT_DIR = CarlosProperties.getInstance().getProperty("BASE_DOCUMENT_DIR");
     private static final char[] HEX = "0123456789abcdef".toCharArray();
     private static final int CACHE_SOURCE_DISCRIMINATOR_LENGTH = 16;
+    private String baseDocumentDirectory = CarlosProperties.getInstance().getProperty("BASE_DOCUMENT_DIR");
 
     public Path hasCacheVersion2(LoggedInInfo loggedInInfo, String filename, Integer pageNum) {
 
@@ -156,7 +156,13 @@ public class NioFileManagerImpl implements NioFileManager {
     }
 
     private Path getDocumentCacheDirectoryWithoutAuthorization() {
-        Path cacheDir = Paths.get(BASE_DOCUMENT_DIR, context.getContextPath(), DOCUMENT_CACHE_DIRECTORY);
+        Path baseDocumentPath = getBaseDocumentPath();
+        Path cacheDir = baseDocumentPath
+                .resolve(getContextPathDirectoryName())
+                .resolve(DOCUMENT_CACHE_DIRECTORY)
+                .normalize()
+                .toAbsolutePath();
+        cacheDir = PathValidationUtils.validateChildPath(cacheDir.toFile(), baseDocumentPath.toFile()).toPath();
 
         if (!Files.exists(cacheDir)) {
             try {
@@ -307,7 +313,30 @@ public class NioFileManagerImpl implements NioFileManager {
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
             justification = "BASE_DOCUMENT_DIR is trusted server configuration used only as the containment root")
     private Path getBaseDocumentPath() {
-        return Paths.get(BASE_DOCUMENT_DIR).normalize().toAbsolutePath();
+        return PathValidationUtils
+                .resolveConfiguredDirectory(getBaseDocumentDirectory(), "BASE_DOCUMENT_DIR")
+                .toPath()
+                .normalize()
+                .toAbsolutePath();
+    }
+
+    private String getBaseDocumentDirectory() {
+        return baseDocumentDirectory;
+    }
+
+    private String getContextPathDirectoryName() {
+        String contextPath = context == null ? "" : context.getContextPath();
+        String directoryName = contextPath == null ? "" : contextPath.trim();
+        while (directoryName.startsWith("/")) {
+            directoryName = directoryName.substring(1);
+        }
+        while (directoryName.endsWith("/")) {
+            directoryName = directoryName.substring(0, directoryName.length() - 1);
+        }
+        if (directoryName.contains("/") || directoryName.contains("\\") || directoryName.contains("..")) {
+            throw new SecurityException("Invalid servlet context path");
+        }
+        return directoryName;
     }
 
     private Path resolveCacheOutputFile(CacheRequest cacheRequest, Path sourceFile) {
@@ -481,7 +510,7 @@ public class NioFileManagerImpl implements NioFileManager {
                 && isPagedCacheFile(cacheFileName, sanitizedSourceFileName + "_" + sourceDiscriminator + "_")) {
             return true;
         }
-        return isPagedCacheFile(cacheFileName, sanitizedSourceFileName + "_");
+        return sourceDiscriminator == null && isPagedCacheFile(cacheFileName, sanitizedSourceFileName + "_");
     }
 
     private static boolean isPagedCacheFile(String cacheFileName, String prefix) {
@@ -777,7 +806,7 @@ public class NioFileManagerImpl implements NioFileManager {
     private String getDocumentDirectory() {
         String document_dir = DOCUMENT_DIRECTORY;
         if (document_dir == null || !Files.isDirectory(Paths.get(document_dir))) {
-            document_dir = String.valueOf(Paths.get(BASE_DOCUMENT_DIR, "document"));
+            document_dir = String.valueOf(Paths.get(getBaseDocumentDirectory(), "document"));
         }
         return document_dir;
     }

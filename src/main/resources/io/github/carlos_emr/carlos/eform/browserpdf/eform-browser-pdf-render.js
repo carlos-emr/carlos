@@ -42,26 +42,53 @@ async function waitForStableRender(page) {
       await document.fonts.ready;
     }
 
+    function imageLabel(image) {
+      return image.currentSrc || image.src || image.getAttribute('src') || image.id || '<unknown image>';
+    }
+
     function waitForImageComplete(image, timeoutMs) {
-      if (image.complete) {
+      if (!image.currentSrc && !image.src && !image.getAttribute('src')) {
         return Promise.resolve();
       }
-      return new Promise((resolve) => {
+
+      if (image.complete) {
+        if (image.naturalWidth > 0 && image.naturalHeight > 0) {
+          return Promise.resolve();
+        }
+        return Promise.reject(new Error(`Image failed to load before PDF capture: ${imageLabel(image)}`));
+      }
+
+      return new Promise((resolve, reject) => {
         let settled = false;
         let timeoutId;
-        const finish = () => {
+        const finish = (error) => {
           if (settled) {
             return;
           }
           settled = true;
           clearTimeout(timeoutId);
-          image.removeEventListener('load', finish);
-          image.removeEventListener('error', finish);
-          resolve();
+          image.removeEventListener('load', handleLoad);
+          image.removeEventListener('error', handleError);
+          if (error) {
+            reject(error);
+          } else {
+            resolve();
+          }
         };
-        timeoutId = setTimeout(finish, timeoutMs);
-        image.addEventListener('load', finish, { once: true });
-        image.addEventListener('error', finish, { once: true });
+        const handleLoad = () => {
+          if (image.naturalWidth > 0 && image.naturalHeight > 0) {
+            finish();
+            return;
+          }
+          finish(new Error(`Image loaded without decoded dimensions before PDF capture: ${imageLabel(image)}`));
+        };
+        const handleError = () => finish(new Error(`Image failed to load before PDF capture: ${imageLabel(image)}`));
+        timeoutId = setTimeout(
+          () => finish(new Error(`Timed out waiting for image before PDF capture: ${imageLabel(image)}`)),
+          timeoutMs,
+        );
+        image.addEventListener('load', handleLoad, { once: true });
+        image.addEventListener('error', handleError, { once: true });
       });
     }
 
@@ -151,6 +178,32 @@ async function computeCaptureRegions(page) {
       }
       return { x: Math.max(0, left), y: Math.max(0, top), width: right - left, height: bottom - top };
     };
+    const captureToRect = (capture) => ({
+      left: capture.x,
+      top: capture.y,
+      right: capture.x + capture.width,
+      bottom: capture.y + capture.height,
+      width: capture.width,
+      height: capture.height,
+    });
+    const rectToCapture = (rect) => ({
+      x: Math.max(0, rect.left),
+      y: Math.max(0, rect.top),
+      width: rect.right - rect.left,
+      height: rect.bottom - rect.top,
+    });
+    const mergeCaptureRegions = (regions) => {
+      const rects = regions.filter(Boolean).map(captureToRect);
+      if (rects.length === 0) {
+        return null;
+      }
+      return rectToCapture({
+        left: Math.min(...rects.map((rect) => rect.left)),
+        top: Math.min(...rects.map((rect) => rect.top)),
+        right: Math.max(...rects.map((rect) => rect.right)),
+        bottom: Math.max(...rects.map((rect) => rect.bottom)),
+      });
+    };
     const backgroundCandidates = (elements) => elements
       .filter((el) => el.tagName === 'IMG')
       .filter((el) => /(^BGImage$|background image|bgimage)/i.test(el.id || '')
@@ -175,7 +228,10 @@ async function computeCaptureRegions(page) {
     const captures = pageNodes
       .map((pageNode) => {
         const pageElements = [pageNode, ...pageNode.querySelectorAll('*')];
-        return rectFromLargestCandidate(backgroundCandidates(pageElements)) || unionRects(pageElements);
+        return mergeCaptureRegions([
+          rectFromLargestCandidate(backgroundCandidates(pageElements)),
+          unionRects(pageElements),
+        ]);
       })
       .filter(Boolean);
 

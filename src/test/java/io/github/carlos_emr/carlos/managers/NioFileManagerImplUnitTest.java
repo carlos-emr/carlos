@@ -42,7 +42,6 @@ import java.util.UUID;
 import java.util.stream.Stream;
 
 import jakarta.servlet.ServletContext;
-import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -83,10 +82,11 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
         ServletContext servletContext = mock(ServletContext.class);
 
         when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), anyString(), eq(""))).thenReturn(true);
-        when(servletContext.getContextPath()).thenReturn("carlos");
+        when(servletContext.getContextPath()).thenReturn("/carlos");
 
         ReflectionTestUtils.setField(nioFileManager, "securityInfoManager", securityInfoManager);
         ReflectionTestUtils.setField(nioFileManager, "context", servletContext);
+        ReflectionTestUtils.setField(nioFileManager, "baseDocumentDirectory", tempDir.toString());
     }
 
     @AfterEach
@@ -276,8 +276,7 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
     @DisplayName("Creates fax preview cache generation for document-store sources")
     void shouldCreateFaxPreviewCacheVersion_whenSourcePdfIsInDocumentStore() throws IOException {
         when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
-        Path sourceDir = Path.of(CarlosProperties.getInstance().getProperty("BASE_DOCUMENT_DIR"),
-                "carlos", "fax-preview-doc-source-" + UUID.randomUUID());
+        Path sourceDir = tempDir.resolve(Path.of("carlos", "fax-preview-doc-source-" + UUID.randomUUID()));
         Files.createDirectories(sourceDir);
         Path sourcePdf = sourceDir.resolve("fax-preview-document.pdf");
         Path cacheVersion = null;
@@ -321,21 +320,25 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
         createPdf(sourcePdf, 2);
         Path firstCache = null;
         Path secondCache = null;
+        Path legacyCache = getDocumentCacheDirectory().resolve("fax-preview-removal.pdf_1.png");
 
         try {
             firstCache = nioFileManager.createFaxPreviewCacheVersion(loggedInInfo, allowedTempDir.toString(),
                     sourcePdf.getFileName().toString(), 1);
             secondCache = nioFileManager.createFaxPreviewCacheVersion(loggedInInfo, allowedTempDir.toString(),
                     sourcePdf.getFileName().toString(), 2);
+            Files.writeString(legacyCache, "legacy");
 
             boolean removed = nioFileManager.removeFaxPreviewCacheVersions(loggedInInfo, sourcePdf.toString());
 
             assertThat(removed).isTrue();
             assertThat(firstCache).doesNotExist();
             assertThat(secondCache).doesNotExist();
+            assertThat(legacyCache).exists();
         } finally {
             deleteFileQuietly(firstCache);
             deleteFileQuietly(secondCache);
+            deleteFileQuietly(legacyCache);
         }
     }
 
@@ -400,8 +403,8 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
         return Files.createTempDirectory(Path.of(System.getProperty("user.dir")), "nio-delete-outside-" + UUID.randomUUID());
     }
 
-    private static Path getDocumentCacheDirectory() {
-        return Path.of(CarlosProperties.getInstance().getProperty("BASE_DOCUMENT_DIR"), "carlos", "document_cache");
+    private Path getDocumentCacheDirectory() {
+        return tempDir.resolve(Path.of("carlos", "document_cache"));
     }
 
     private static String sourcePathDiscriminator(Path sourceFile) throws Exception {

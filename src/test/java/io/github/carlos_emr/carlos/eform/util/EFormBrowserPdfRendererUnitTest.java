@@ -99,15 +99,16 @@ class EFormBrowserPdfRendererUnitTest {
     }
 
     @Test
-    @DisplayName("should accept only complete private IPv4 literals for the renderer host check")
-    void shouldAcceptOnlyPrivateIpv4Literals_forRendererHostCheck() {
-        assertThat(EFormBrowserPdfRenderer.isLocalRendererHost("10.0.0.5")).isTrue();
-        assertThat(EFormBrowserPdfRenderer.isLocalRendererHost("192.168.1.20")).isTrue();
-        assertThat(EFormBrowserPdfRenderer.isLocalRendererHost("172.16.0.1")).isTrue();
-        assertThat(EFormBrowserPdfRenderer.isLocalRendererHost("10.attacker.example")).isFalse();
-        assertThat(EFormBrowserPdfRenderer.isLocalRendererHost("192.168.evil.example")).isFalse();
-        assertThat(EFormBrowserPdfRenderer.isLocalRendererHost("10.0.0.999")).isFalse();
-        assertThat(EFormBrowserPdfRenderer.isLocalRendererHost("172.32.0.1")).isFalse();
+    @DisplayName("should accept only loopback hosts for the renderer host check")
+    void shouldAcceptOnlyLoopbackHosts_forRendererHostCheck() {
+        assertThat(EFormBrowserPdfRenderer.isLoopbackRendererHost("localhost")).isTrue();
+        assertThat(EFormBrowserPdfRenderer.isLoopbackRendererHost("127.0.0.1")).isTrue();
+        assertThat(EFormBrowserPdfRenderer.isLoopbackRendererHost("::1")).isTrue();
+        assertThat(EFormBrowserPdfRenderer.isLoopbackRendererHost("10.0.0.5")).isFalse();
+        assertThat(EFormBrowserPdfRenderer.isLoopbackRendererHost("192.168.1.20")).isFalse();
+        assertThat(EFormBrowserPdfRenderer.isLoopbackRendererHost("172.16.0.1")).isFalse();
+        assertThat(EFormBrowserPdfRenderer.isLoopbackRendererHost("host.docker.internal")).isFalse();
+        assertThat(EFormBrowserPdfRenderer.isLoopbackRendererHost("carlos")).isFalse();
     }
 
     @Test
@@ -195,6 +196,14 @@ class EFormBrowserPdfRendererUnitTest {
         assertThatThrownBy(EFormBrowserPdfRendererUnitTest::applyEnvironmentWithInvalidBaseUrl)
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("base URL");
+    }
+
+    @Test
+    @DisplayName("should reject private-network base URLs for the Playwright renderer")
+    void shouldRejectPrivateNetworkBaseUrl_whenApplyingRendererEnvironment() {
+        assertThatThrownBy(EFormBrowserPdfRendererUnitTest::applyEnvironmentWithPrivateBaseUrl)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("loopback");
     }
 
     @Test
@@ -292,6 +301,15 @@ class EFormBrowserPdfRendererUnitTest {
         EFormBrowserPdfRenderer.applyRendererEnvironment(
                 new HashMap<>(),
                 "https://evil.example/steal",
+                "/EFormViewForPdfGenerationServlet?fdid=187&browserRender=true",
+                null,
+                null);
+    }
+
+    private static void applyEnvironmentWithPrivateBaseUrl() {
+        EFormBrowserPdfRenderer.applyRendererEnvironment(
+                new HashMap<>(),
+                "http://10.0.0.5:8080/carlos",
                 "/EFormViewForPdfGenerationServlet?fdid=187&browserRender=true",
                 null,
                 null);

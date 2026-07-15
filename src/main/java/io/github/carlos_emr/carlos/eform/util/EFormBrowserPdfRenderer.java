@@ -329,8 +329,8 @@ public class EFormBrowserPdfRenderer {
         if (!equalsAsciiIgnoreCase(scheme, HTTP_SCHEME) && !equalsAsciiIgnoreCase(scheme, HTTPS_SCHEME)) {
             throw new IllegalArgumentException("Renderer base URL must use http or https");
         }
-        if (uri.getHost() == null || !isLocalRendererHost(uri.getHost())) {
-            throw new IllegalArgumentException("Renderer base URL host must be local or private");
+        if (uri.getHost() == null || !isLoopbackRendererHost(uri.getHost())) {
+            throw new IllegalArgumentException("Renderer base URL host must be loopback");
         }
         return rawBaseUrl.trim().replaceAll("/$", "");
     }
@@ -346,7 +346,7 @@ public class EFormBrowserPdfRenderer {
         return normalizedPath;
     }
 
-    static boolean isLocalRendererHost(String rawHost) {
+    static boolean isLoopbackRendererHost(String rawHost) {
         String host = rawHost == null ? "" : toAsciiLowerCase(rawHost.trim());
         if (host.startsWith("[") && host.endsWith("]")) {
             host = host.substring(1, host.length() - 1);
@@ -354,36 +354,7 @@ public class EFormBrowserPdfRenderer {
         if (host.isEmpty()) {
             return false;
         }
-        if (Set.of("localhost", "127.0.0.1", "::1", "0:0:0:0:0:0:0:1", "0.0.0.0", "host.docker.internal", "carlos").contains(host)) {
-            return true;
-        }
-        return isPrivateIpv4Literal(host);
-    }
-
-    /**
-     * Returns true only for complete numeric IPv4 literals inside the RFC 1918 private ranges.
-     * DNS names that merely start with a private-looking prefix (for example
-     * {@code 10.attacker.example}) must not pass this check.
-     */
-    static boolean isPrivateIpv4Literal(String host) {
-        if (host == null || !host.matches("^\\d{1,3}(\\.\\d{1,3}){3}$")) {
-            return false;
-        }
-        String[] octets = host.split("\\.");
-        int[] values = new int[4];
-        try {
-            for (int index = 0; index < 4; index++) {
-                values[index] = Integer.parseInt(octets[index]);
-                if (values[index] > 255) {
-                    return false;
-                }
-            }
-        } catch (NumberFormatException e) {
-            return false;
-        }
-        return values[0] == 10
-                || (values[0] == 192 && values[1] == 168)
-                || (values[0] == 172 && values[1] >= 16 && values[1] <= 31);
+        return Set.of("localhost", "127.0.0.1", "::1", "0:0:0:0:0:0:0:1").contains(host);
     }
 
     private String resolveBaseUrl(String projectHome, HttpServletRequest request) {
@@ -392,7 +363,7 @@ public class EFormBrowserPdfRenderer {
             return configuredBaseUrl.trim().replaceAll("/$", "");
         }
         if (request != null) {
-            return buildLocalBaseUrl(request.getScheme(), request.getLocalPort(), request.getContextPath());
+            return buildLocalBaseUrl(HTTP_SCHEME, request.getLocalPort(), request.getContextPath());
         }
         return buildDefaultBaseUrl(projectHome);
     }

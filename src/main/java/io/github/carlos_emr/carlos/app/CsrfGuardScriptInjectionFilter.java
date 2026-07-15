@@ -129,11 +129,6 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         HttpServletResponse httpResponse = (HttpServletResponse) response;
         String safeRequestUri = LogSafe.sanitizeUri(httpRequest.getRequestURI());
 
-        if (Boolean.TRUE.equals(httpRequest.getAttribute(EformViewForPdfGenerationServlet.SKIP_HTML_INJECTION_ATTRIBUTE))) {
-            chain.doFilter(request, response);
-            return;
-        }
-
         // Skip AJAX requests on REQUEST dispatch only (not FORWARD).
         // On FORWARD dispatch, the CaptureResponseWrapper is needed to prevent
         // Tomcat 11 from truncating large JSP responses (> 8KB) during forward.

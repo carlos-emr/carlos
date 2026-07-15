@@ -409,6 +409,10 @@ async function openPatientListPopup(context, fdid, recorder) {
 }
 
 async function saveCurrentEform(page) {
+  const subject = page.locator('#remote_eform_subject');
+  if (await subject.count()) {
+    await subject.fill(`Child psychiatry render verification ${Date.now()}`);
+  }
   await page.locator('#remoteSubmitButton').click();
   await waitQuiet(page);
   await page.locator('#fdid').waitFor({ state: 'attached', timeout: 20000 });
