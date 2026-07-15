@@ -2,6 +2,9 @@ package io.github.carlos_emr.carlos.commn.model.converter;
 
 import io.github.carlos_emr.carlos.commn.model.EmailConfig.EmailType;
 import jakarta.persistence.Converter;
+/**
+ * JPA AttributeConverter for categorizing email configurations by use case (e.g., billing, reminders).
+ */
 
 @Converter
 public class EmailConfigTypeConverter extends NullSafeEnumConverter<EmailType> {

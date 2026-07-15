@@ -1,4 +1,7 @@
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.data;
+/**
+ * Data Transfer Object representing a specific consultation service or medical specialty.
+ */
 
 public class ConsultationServiceDto {
     private Integer serviceId;

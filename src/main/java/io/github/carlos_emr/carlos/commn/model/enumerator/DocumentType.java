@@ -1,4 +1,7 @@
 package io.github.carlos_emr.carlos.commn.model.enumerator;
+/**
+ * Enumeration defining the clinical and administrative categories for uploaded documents.
+ */
 
 public enum DocumentType {
     EFORM("E", "eForm"),

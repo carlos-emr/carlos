@@ -17,6 +17,9 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import java.util.Properties;
 import java.util.Vector;
+/**
+ * Report generator for Goods and Services Tax (GST) within the BC billing administration module, tracking taxable transactions.
+ */
 
 public class GstReport {
 

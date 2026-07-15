@@ -4,6 +4,9 @@ import io.github.carlos_emr.carlos.commn.model.converter.EmailAttachmentDocument
 import jakarta.persistence.*;
 
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+/**
+ * Data model representing a file attachment attached to an outgoing or incoming email.
+ */
 
 @Entity
 @Table(name = "emailAttachment")

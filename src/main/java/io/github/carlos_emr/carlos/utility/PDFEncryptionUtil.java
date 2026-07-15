@@ -8,6 +8,9 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.encryption.AccessPermission;
 import org.apache.pdfbox.pdmodel.encryption.StandardProtectionPolicy;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+/**
+ * Utility class providing cryptographic operations to encrypt and decrypt PDF files securely.
+ */
 
 public class PDFEncryptionUtil {
     // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input

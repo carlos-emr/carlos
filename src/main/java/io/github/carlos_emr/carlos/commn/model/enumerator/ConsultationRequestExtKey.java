@@ -1,4 +1,7 @@
 package io.github.carlos_emr.carlos.commn.model.enumerator;
+/**
+ * Composite key or identifier for extended consultation request attributes.
+ */
 
 public enum ConsultationRequestExtKey {
     EREFERRAL_REF("ereferral_ref"),

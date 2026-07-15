@@ -1,4 +1,7 @@
 package io.github.carlos_emr.carlos.utility;
+/**
+ * Exception thrown when an email fails to send during SMTP transmission or processing.
+ */
 
 public class EmailSendingException extends Exception {
     public EmailSendingException() {

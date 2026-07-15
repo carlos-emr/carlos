@@ -1,4 +1,7 @@
 package io.github.carlos_emr.carlos.integration.ebs;
+/**
+ * Main application entry point for the EBS integration module.
+ */
 
 public class App
 {

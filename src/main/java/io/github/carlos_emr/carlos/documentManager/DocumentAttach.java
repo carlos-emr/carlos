@@ -12,6 +12,9 @@ import io.github.carlos_emr.carlos.encounter.oceanEReferal.pageUtil.OceanEReferr
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+/**
+ * Data structure encapsulating a file attachment and its associated clinical metadata for document management.
+ */
 
 public class DocumentAttach {
     private final ConsultDocsDao consultDocsDao = SpringUtils.getBean(ConsultDocsDao.class);

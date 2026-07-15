@@ -11,6 +11,9 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.util.Date;
 import java.util.List;
+/**
+ * Entity linking an eReferral to its associated attachments and metadata.
+ */
 
 @Entity
 @Table(name = "erefer_attachment")

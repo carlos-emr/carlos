@@ -5,6 +5,9 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import io.github.carlos_emr.carlos.utility.DateUtils;
+/**
+ * Data model containing parsed lab result metrics extracted from an attachment or report.
+ */
 
 public class AttachmentLabResultData {
     private String segmentID;

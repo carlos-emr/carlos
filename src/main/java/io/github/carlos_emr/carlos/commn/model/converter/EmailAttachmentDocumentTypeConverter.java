@@ -2,6 +2,9 @@ package io.github.carlos_emr.carlos.commn.model.converter;
 
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import jakarta.persistence.Converter;
+/**
+ * JPA AttributeConverter for classifying the format or clinical nature of email attachments.
+ */
 
 @Converter
 public class EmailAttachmentDocumentTypeConverter extends NullSafeEnumConverter<DocumentType> {

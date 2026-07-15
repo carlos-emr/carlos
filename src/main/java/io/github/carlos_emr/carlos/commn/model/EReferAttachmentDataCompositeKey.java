@@ -5,6 +5,9 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import java.io.Serializable;
 import java.util.Objects;
+/**
+ * Composite primary key for EReferAttachmentData, mapping the document ID and referral ID.
+ */
 
 public class EReferAttachmentDataCompositeKey implements Serializable {
     @ManyToOne
