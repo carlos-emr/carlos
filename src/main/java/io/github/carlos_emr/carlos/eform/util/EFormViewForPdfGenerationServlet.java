@@ -143,8 +143,6 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
         return canonicalProviderId;
     }
 
-    // normalizePdfSignatureUrl constrains signature URLs to local servlet paths with numeric ids before markup insertion.
-    @SuppressFBWarnings(value = "MODIFICATION_AFTER_VALIDATION", justification = "normalizePdfSignatureUrl constrains the signature URL to a local servlet path with a numeric id, and buildSignatureImageMarkup HTML-attribute-encodes it before insertion.")
     static String buildPdfHtml(EForm eForm, List<EFormValue> eFormValues, String contextPath, String projectHome, boolean prepareForFax) {
         applyLetterHtml(eForm, eFormValues, prepareForFax);
         applySignatureHtml(eForm, eFormValues, contextPath);
@@ -184,6 +182,8 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
         eForm.setFormHtml("<html><body style='width:640px;'>" + html + "</body></html>");
     }
 
+    // normalizePdfSignatureUrl constrains signature URLs to local servlet paths with numeric ids before markup insertion.
+    @SuppressFBWarnings(value = "MODIFICATION_AFTER_VALIDATION", justification = "normalizePdfSignatureUrl constrains the signature URL to a local servlet path with a numeric id, and buildSignatureImageMarkup HTML-attribute-encodes it before insertion.")
     private static void applySignatureHtml(EForm eForm, List<EFormValue> eFormValues, String contextPath) {
         for (EFormValue value : eFormValues) {
             if ("signatureValue".equals(value.getVarName())) {
