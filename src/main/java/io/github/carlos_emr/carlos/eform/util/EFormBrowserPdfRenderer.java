@@ -287,7 +287,7 @@ public class EFormBrowserPdfRenderer {
             throw new IllegalArgumentException("Renderer base URL must use http or https");
         }
         if (uri.getHost() == null || !isLocalRendererHost(uri.getHost())) {
-            throw new IllegalArgumentException("Renderer base URL host must be local or private");
+            throw new IllegalArgumentException("Renderer base URL host must resolve to loopback");
         }
         return rawBaseUrl.trim().replaceAll("/$", "");
     }
@@ -303,8 +303,8 @@ public class EFormBrowserPdfRenderer {
         return normalizedPath;
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (host label classification for local/private loopback); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (host label classification for local/private loopback); not a security or authorization decision")
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of a loopback host label for internal renderer pinning; not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of a loopback host label for internal renderer pinning; not a security or authorization decision")
     static boolean isLocalRendererHost(String rawHost) {
         String host = rawHost == null ? "" : rawHost.trim().toLowerCase();
         if (host.startsWith("[") && host.endsWith("]")) {
@@ -313,36 +313,7 @@ public class EFormBrowserPdfRenderer {
         if (host.isEmpty()) {
             return false;
         }
-        if (Set.of("localhost", "127.0.0.1", "::1", "0:0:0:0:0:0:0:1", "0.0.0.0", "host.docker.internal", "carlos").contains(host)) {
-            return true;
-        }
-        return isPrivateIpv4Literal(host);
-    }
-
-    /**
-     * Returns true only for complete numeric IPv4 literals inside the RFC 1918 private ranges.
-     * DNS names that merely start with a private-looking prefix (for example
-     * {@code 10.attacker.example}) must not pass this check.
-     */
-    static boolean isPrivateIpv4Literal(String host) {
-        if (host == null || !host.matches("^\\d{1,3}(\\.\\d{1,3}){3}$")) {
-            return false;
-        }
-        String[] octets = host.split("\\.");
-        int[] values = new int[4];
-        try {
-            for (int index = 0; index < 4; index++) {
-                values[index] = Integer.parseInt(octets[index]);
-                if (values[index] > 255) {
-                    return false;
-                }
-            }
-        } catch (NumberFormatException e) {
-            return false;
-        }
-        return values[0] == 10
-                || (values[0] == 192 && values[1] == 168)
-                || (values[0] == 172 && values[1] >= 16 && values[1] <= 31);
+        return Set.of("localhost", "127.0.0.1", "::1", "0:0:0:0:0:0:0:1").contains(host);
     }
 
     private String resolveBaseUrl(String projectHome, HttpServletRequest request) {

@@ -78,15 +78,15 @@ class EFormBrowserPdfRendererUnitTest {
     }
 
     @Test
-    @DisplayName("should accept only complete private IPv4 literals for the renderer host check")
-    void shouldAcceptOnlyPrivateIpv4Literals_forRendererHostCheck() {
-        assertThat(EFormBrowserPdfRenderer.isLocalRendererHost("10.0.0.5")).isTrue();
-        assertThat(EFormBrowserPdfRenderer.isLocalRendererHost("192.168.1.20")).isTrue();
-        assertThat(EFormBrowserPdfRenderer.isLocalRendererHost("172.16.0.1")).isTrue();
-        assertThat(EFormBrowserPdfRenderer.isLocalRendererHost("10.attacker.example")).isFalse();
-        assertThat(EFormBrowserPdfRenderer.isLocalRendererHost("192.168.evil.example")).isFalse();
-        assertThat(EFormBrowserPdfRenderer.isLocalRendererHost("10.0.0.999")).isFalse();
-        assertThat(EFormBrowserPdfRenderer.isLocalRendererHost("172.32.0.1")).isFalse();
+    @DisplayName("should accept only loopback hosts for the renderer host check")
+    void shouldAcceptOnlyLoopbackHosts_forRendererHostCheck() {
+        assertThat(EFormBrowserPdfRenderer.isLocalRendererHost("localhost")).isTrue();
+        assertThat(EFormBrowserPdfRenderer.isLocalRendererHost("127.0.0.1")).isTrue();
+        assertThat(EFormBrowserPdfRenderer.isLocalRendererHost("::1")).isTrue();
+        assertThat(EFormBrowserPdfRenderer.isLocalRendererHost("10.0.0.5")).isFalse();
+        assertThat(EFormBrowserPdfRenderer.isLocalRendererHost("192.168.1.20")).isFalse();
+        assertThat(EFormBrowserPdfRenderer.isLocalRendererHost("host.docker.internal")).isFalse();
+        assertThat(EFormBrowserPdfRenderer.isLocalRendererHost("carlos")).isFalse();
     }
 
     @Test
@@ -166,7 +166,7 @@ class EFormBrowserPdfRendererUnitTest {
     void shouldRejectNonLocalBaseUrl_whenApplyingRendererEnvironment() {
         assertThatThrownBy(EFormBrowserPdfRendererUnitTest::applyEnvironmentWithInvalidBaseUrl)
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("base URL");
+                .hasMessageContaining("loopback");
     }
 
     @Test

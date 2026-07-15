@@ -309,6 +309,12 @@ async function screenshotPages(page, prefix) {
 }
 
 async function downloadBackgroundImages(page, images, prefix) {
+  const allowedOrigin = config.baseUrl.origin;
+  const sanitizedImages = images.map((img) => {
+    const parsed = new URL(img.src);
+    assert(parsed.origin === allowedOrigin, `Unexpected background image origin ${parsed.origin}; expected ${allowedOrigin}`);
+    return img;
+  });
   const downloaded = await page.evaluate(async (bgImages) => Promise.all(bgImages.map(async (img) => {
     const response = await fetch(img.src, { credentials: 'same-origin' });
     const buffer = await response.arrayBuffer();
@@ -322,7 +328,7 @@ async function downloadBackgroundImages(page, images, prefix) {
       contentType: response.headers.get('content-type') || '',
       base64: btoa(binary),
     };
-  })), images);
+  })), sanitizedImages);
 
   return downloaded.map((image, index) => {
     const outputPath = buildArtifactPath(screenshotDir, `${prefix}-page${index + 1}`);
@@ -685,6 +691,12 @@ function getLaunchOptions() {
     assert(result.faxPreview.referencePdf.pdfBytes > 10000, `Fax reference PDF was unexpectedly small: ${result.faxPreview.referencePdf.pdfBytes} bytes`);
     assert(result.faxPreview.previewPdfSha256, 'Fax preview PDF hash was not captured');
     result.faxPreview.samePageReferencePdfBytesMatch = result.faxPreview.previewPdfBytes === result.faxPreview.referencePdf.pdfBytes;
+    for (const [label, comparisons] of Object.entries(result.surfaceComparisons)) {
+      assertComparisonWithinThreshold(comparisons, label, 0.002, 0.2);
+    }
+    if (result.faxPreview.surfaceComparisons) {
+      assertComparisonWithinThreshold(result.faxPreview.surfaceComparisons, 'fax preview surface', 0.002, 0.2);
+    }
     assertComparisonWithinThreshold(result.pdfVisualStability, 'saved-form pdf stability', 0.002, 0.2);
     if (result.faxPreview.pdfVisualComparison) {
       assertComparisonWithinThreshold(result.faxPreview.pdfVisualComparison, 'fax preview pdf', 0.0001, 0.01);

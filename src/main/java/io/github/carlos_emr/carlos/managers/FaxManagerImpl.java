@@ -664,7 +664,7 @@ public class FaxManagerImpl implements FaxManager {
         boolean cache = nioFileManager.removeCacheVersion(loggedInInfo, filePath);
         boolean temp = nioFileManager.deleteTempFile(filePath);
 
-        return (cache && temp);
+        return cache || temp;
     }
 
 
@@ -804,19 +804,14 @@ public class FaxManagerImpl implements FaxManager {
             throw new SecurityException("Invalid file path detected: path traversal patterns not allowed");
         }
 
-        // Use PathValidationUtils for validation
         File file = new File(filePath);
-        File documentDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "/var/lib/OscarDocument/"));
-
-        try {
-            file = PathValidationUtils.validateExistingPath(file, documentDir);
-        } catch (SecurityException e) {
-            // File not in document dir, check if it's in allowed temp directories
-            if (!PathValidationUtils.isInAllowedTempDirectory(file)) {
-                logger.error("File path outside allowed directories: {}", LogSafe.sanitize(filePath));
-                throw new SecurityException("File path must be within allowed directories");
-            }
+        if (PathValidationUtils.isInAllowedTempDirectory(file)) {
+            return;
         }
+
+        // Use PathValidationUtils for document-root validation only after the temp-root fast path.
+        File documentDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "/var/lib/OscarDocument/"));
+        PathValidationUtils.validateExistingPath(file, documentDir);
     }
 
     /**
@@ -839,21 +834,16 @@ public class FaxManagerImpl implements FaxManager {
         // First validate with existing security checks
         validateFilePath(filePath);
 
-        // Use PathValidationUtils for robust path containment validation
         File file = new File(filePath);
-        File documentDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "/var/lib/OscarDocument/"));
-
-        try {
-            file = PathValidationUtils.validateExistingPath(file, documentDir);
-        } catch (SecurityException e) {
-            // File not in document dir, check if it's in allowed temp directories
-            if (!PathValidationUtils.isInAllowedTempDirectory(file)) {
-                logger.error("Path containment check failed - file path outside allowed directories: {}", LogSafe.sanitize(filePath));
-                throw new SecurityException("File path must be within allowed directories");
-            }
+        Path resolvedPath;
+        if (PathValidationUtils.isInAllowedTempDirectory(file)) {
+            resolvedPath = file.getCanonicalFile().toPath();
+        } else {
+            File documentDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "/var/lib/OscarDocument/"));
+            resolvedPath = PathValidationUtils.validateExistingPath(file, documentDir).toPath();
         }
 
-        Path resolvedPath = file.toPath().normalize();
+        resolvedPath = resolvedPath.normalize();
 
         // Ensure the file exists and is a regular file
         if (!Files.exists(resolvedPath) || !Files.isRegularFile(resolvedPath)) {

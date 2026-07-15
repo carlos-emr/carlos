@@ -47,29 +47,13 @@ function validateBaseUrl(rawBaseUrl) {
 
   const host = parsed.hostname.toLowerCase();
   const normalizedHost = host.startsWith('[') && host.endsWith(']') ? host.slice(1, -1) : host;
-  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = isPrivateIpv4Literal(normalizedHost);
-  if (!localHosts.has(normalizedHost) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
+  const loopbackHosts = new Set(['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1']);
+  if (!loopbackHosts.has(normalizedHost) && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
+    throw new Error(`Refusing non-loopback BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
 
   parsed.pathname = parsed.pathname.replace(/\/$/, '');
   return parsed;
-}
-
-// Only complete numeric IPv4 literals in RFC 1918 ranges qualify; DNS names such as
-// 10.attacker.example must not pass the private-network check.
-function isPrivateIpv4Literal(host) {
-  if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
-    return false;
-  }
-  const octets = host.split('.').map(Number);
-  if (octets.some((octet) => octet > 255)) {
-    return false;
-  }
-  return octets[0] === 10
-    || (octets[0] === 192 && octets[1] === 168)
-    || (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31);
 }
 
 function appUrl(baseUrl, appPath) {
@@ -171,7 +155,7 @@ function wirePage(page, label, recorder) {
 }
 
 async function gotoApp(page, baseUrl, appPath, waitUntil = 'domcontentloaded') {
-  return page.goto(appUrl(baseUrl, appPath), { waitUntil, timeout: 30000 }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restrict hosts to local/private by default
+  return page.goto(appUrl(baseUrl, appPath), { waitUntil, timeout: 30000 }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to loopback by default
 }
 
 async function login(context, config, recorder) {

@@ -23,6 +23,8 @@
 package io.github.carlos_emr.carlos.eform.util;
 
 import java.lang.reflect.Method;
+
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
@@ -32,17 +34,25 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.model.EFormValue;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.eform.data.EForm;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -58,8 +68,14 @@ class EFormViewForPdfGenerationServletUnitTest {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormViewForPdfGenerationServlet");
         request.setParameter("providerId", " 999998 ");
         installLoggedInInfo(request, "999998");
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_eform"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
 
-        assertThat(invokeAuthorizedRendererProviderId(request)).isEqualTo("999998");
+        try (MockedStatic<SpringUtils> springUtils = mockStatic(SpringUtils.class)) {
+            springUtils.when(() -> SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(securityInfoManager);
+
+            assertThat(invokeAuthorizedRendererProviderId(request)).isEqualTo("999998");
+        }
     }
 
     @Test
@@ -78,8 +94,60 @@ class EFormViewForPdfGenerationServletUnitTest {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormViewForPdfGenerationServlet");
         request.setParameter("providerId", "999998");
         installLoggedInInfo(request, "111111");
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_eform"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
 
-        assertThat(invokeAuthorizedRendererProviderId(request)).isNull();
+        try (MockedStatic<SpringUtils> springUtils = mockStatic(SpringUtils.class)) {
+            springUtils.when(() -> SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(securityInfoManager);
+
+            assertThat(invokeAuthorizedRendererProviderId(request)).isNull();
+        }
+    }
+
+    @Test
+    @DisplayName("should reject saved eForm PDF requests without an authenticated session")
+    void shouldRejectSavedEformPdfRequest_whenNoAuthenticatedSessionExists() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormViewForPdfGenerationServlet");
+        request.setRemoteAddr("127.0.0.1");
+        request.setParameter("fdid", "123");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        new EFormViewForPdfGenerationServlet().doGet(request, response);
+
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+    }
+
+    @Test
+    @DisplayName("should allow saved eForm PDF requests when the authenticated session has _eform read privilege")
+    void shouldAllowSavedEformPdfRequest_whenSessionHasEformReadPrivilege() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormViewForPdfGenerationServlet");
+        installLoggedInInfo(request, "999998");
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_eform"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
+
+        try (MockedStatic<SpringUtils> springUtils = mockStatic(SpringUtils.class)) {
+            springUtils.when(() -> SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(securityInfoManager);
+
+            LoggedInInfo authorized = invokeAuthorizedEformReadRequest(request);
+
+            assertThat(authorized).isNotNull();
+            assertThat(authorized.getLoggedInProviderNo()).isEqualTo("999998");
+        }
+    }
+
+    @Test
+    @DisplayName("should reject saved eForm PDF requests when the authenticated session lacks _eform read privilege")
+    void shouldRejectSavedEformPdfRequest_whenSessionLacksEformReadPrivilege() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormViewForPdfGenerationServlet");
+        installLoggedInInfo(request, "999998");
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_eform"), eq(SecurityInfoManager.READ), isNull())).thenReturn(false);
+
+        try (MockedStatic<SpringUtils> springUtils = mockStatic(SpringUtils.class)) {
+            springUtils.when(() -> SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(securityInfoManager);
+
+            assertThat(invokeAuthorizedEformReadRequest(request)).isNull();
+        }
     }
 
     @Test
@@ -237,9 +305,21 @@ class EFormViewForPdfGenerationServletUnitTest {
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
     }
 
-    private static String invokeAuthorizedRendererProviderId(MockHttpServletRequest request) throws Exception {
-        Method method = EFormViewForPdfGenerationServlet.class.getDeclaredMethod("authorizedRendererProviderId", jakarta.servlet.http.HttpServletRequest.class);
+    private static LoggedInInfo invokeAuthorizedEformReadRequest(MockHttpServletRequest request) throws Exception {
+        Method method = EFormViewForPdfGenerationServlet.class.getDeclaredMethod("authorizedEformReadRequest", jakarta.servlet.http.HttpServletRequest.class);
         method.setAccessible(true);
-        return (String) method.invoke(null, request);
+        return (LoggedInInfo) method.invoke(null, request);
+    }
+
+    private static String invokeAuthorizedRendererProviderId(MockHttpServletRequest request) throws Exception {
+        Method readMethod = EFormViewForPdfGenerationServlet.class.getDeclaredMethod("authorizedEformReadRequest", jakarta.servlet.http.HttpServletRequest.class);
+        readMethod.setAccessible(true);
+        LoggedInInfo loggedInInfo = (LoggedInInfo) readMethod.invoke(null, request);
+        if (loggedInInfo == null) {
+            return null;
+        }
+        Method method = EFormViewForPdfGenerationServlet.class.getDeclaredMethod("authorizedRendererProviderId", jakarta.servlet.http.HttpServletRequest.class, LoggedInInfo.class);
+        method.setAccessible(true);
+        return (String) method.invoke(null, request, loggedInInfo);
     }
 }

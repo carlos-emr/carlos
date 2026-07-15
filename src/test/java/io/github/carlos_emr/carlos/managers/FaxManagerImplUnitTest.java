@@ -23,10 +23,12 @@ import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -48,7 +50,7 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
     @BeforeEach
     void setUp() {
         mocks = MockitoAnnotations.openMocks(this);
-        manager = Mockito.spy(new FaxManagerImpl());
+        manager = spy(new FaxManagerImpl());
         injectDependency(manager, "securityInfoManager", securityInfoManager);
         injectDependency(manager, "nioFileManager", nioFileManager);
         injectDependency(manager, "faxConfigDao", faxConfigDao);
@@ -107,6 +109,48 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
                     .sorted(java.util.Comparator.reverseOrder())
                     .forEach(path -> path.toFile().delete());
             Files.deleteIfExists(tempRoot);
+        }
+    }
+
+
+    @Test
+    @DisplayName("should resolve allowed temp renderer PDFs without requiring document directory containment")
+    void shouldResolveAllowedTempRendererPdf_withoutDocumentDirectoryContainment() throws Exception {
+        Path tempRoot = Files.createTempDirectory("fax-renderer-temp-root-");
+        String originalTmpDir = System.getProperty("java.io.tmpdir");
+        System.setProperty("java.io.tmpdir", tempRoot.toString());
+        resetAllowedTempDirectoriesCache();
+        try {
+            Path tempPdf = Files.createTempFile(tempRoot, "eform-browser-render-", ".pdf");
+
+            Path resolved = manager.resolveAndValidateFilePath(tempPdf.toString());
+
+            assertThat(resolved).isEqualTo(tempPdf.toRealPath());
+        } finally {
+            System.setProperty("java.io.tmpdir", originalTmpDir);
+            resetAllowedTempDirectoriesCache();
+            Files.walk(tempRoot)
+                    .sorted(java.util.Comparator.reverseOrder())
+                    .forEach(path -> path.toFile().delete());
+            Files.deleteIfExists(tempRoot);
+        }
+    }
+
+    @Test
+    @DisplayName("should reject file paths outside the document directory and approved temp roots")
+    void shouldRejectFilePaths_outsideDocumentDirectoryAndApprovedTempRoots() throws Exception {
+        Path outsideFile = Files.createTempFile("fax-invalid-root-", ".pdf");
+        String originalTmpDir = System.getProperty("java.io.tmpdir");
+        System.setProperty("java.io.tmpdir", "/tmp/another-temp-root-for-validation");
+        resetAllowedTempDirectoriesCache();
+        try {
+            String outsidePath = outsideFile.toString();
+            assertThatThrownBy(() -> manager.resolveAndValidateFilePath(outsidePath))
+                    .isInstanceOf(SecurityException.class);
+        } finally {
+            System.setProperty("java.io.tmpdir", originalTmpDir);
+            resetAllowedTempDirectoriesCache();
+            Files.deleteIfExists(outsideFile);
         }
     }
 

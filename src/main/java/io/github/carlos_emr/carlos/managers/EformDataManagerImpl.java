@@ -196,7 +196,7 @@ public class EformDataManagerImpl implements EformDataManager {
         } catch (PDFGenerationException e) {
             // Preserve the renderer's specific failure message for callers/UI instead of re-wrapping it.
             throw e;
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             throw new PDFGenerationException("EForm PDF generation failed during browser rendering.", e);
         }
 

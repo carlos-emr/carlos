@@ -136,8 +136,8 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
             assertThat(new File(tempDir.toFile(), "LocationsLab_Nov2020.js")).exists();
             assertThat(new File(tempDir.toFile(), "LabDecisionSupport3_2024.js")).exists();
             assertThat(new File(tempDir.toFile(), "LabEngine_2023.js")).exists();
-            assertThat(new File(tempDir.toFile(), "SOPLR_BC_2018_Sans2.png")).exists();
-            assertThat(new File(tempDir.toFile(), "CreativeCommonsIcon.png")).exists();
+            assertThat(new File(tempDir.toFile(), "SOPLR_BC_2018_Sans2.png")).doesNotExist();
+            assertThat(new File(tempDir.toFile(), "CreativeCommonsIcon.png")).doesNotExist();
         }
 
         @Test
@@ -160,8 +160,8 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("Should deploy compatibility assets for seeded Lab Requisition sample forms")
-        void shouldDeployCompatibilityAssets_forSeededLabRequisitionSamples() throws Exception {
+        @DisplayName("Should leave missing sample lab background assets unresolved instead of synthesizing placeholders")
+        void shouldLeaveMissingSampleLabBackgroundAssetsUnresolved_forSeededLabRequisitionSamples() throws Exception {
             when(mockProperties.getEformImageDirectory()).thenReturn(tempDir.toString());
             stubAllAssets();
 
@@ -176,18 +176,8 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
             assertThat(Files.readString(deployedJquery.toPath())).isEqualTo("jquery compat");
             assertThat(deployedHelperScript).exists();
             assertThat(Files.readString(deployedHelperScript.toPath())).contains("autoLabReqPop");
-            assertThat(deployedBackground).exists();
-            assertThat(ImageIO.read(deployedBackground)).satisfies(image -> {
-                assertThat(image).isNotNull();
-                assertThat(image.getWidth()).isEqualTo(1700);
-                assertThat(image.getHeight()).isEqualTo(2200);
-            });
-            assertThat(deployedIcon).exists();
-            assertThat(ImageIO.read(deployedIcon)).satisfies(image -> {
-                assertThat(image).isNotNull();
-                assertThat(image.getWidth()).isEqualTo(160);
-                assertThat(image.getHeight()).isEqualTo(160);
-            });
+            assertThat(deployedBackground).doesNotExist();
+            assertThat(deployedIcon).doesNotExist();
         }
 
         @Test
@@ -400,7 +390,7 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
             assertThat(tempDir.toFile().listFiles())
                 .extracting(File::getName)
                 .contains("BNK.png", "LocationsLab_Nov2020.js", "LabDecisionSupport3_2024.js",
-                    "LabEngine_2023.js", "SOPLR_BC_2018_Sans2.png", "CreativeCommonsIcon.png")
+                    "LabEngine_2023.js")
                 .doesNotContain("editControl2.js", "blank.rtl", "editor_help.html", "jquery-3.1.0.min.js");
         }
 

@@ -244,6 +244,18 @@ class LoginFilterUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should redirect uppercase saved eForm PDF route when unauthenticated")
+        void shouldRedirectUppercaseSavedEformPdfRoute_whenUnauthenticated()
+                throws ServletException, IOException {
+            MockHttpServletRequest request = request("GET", CONTEXT_PATH + "/EFormViewForPdfGenerationServlet");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            filter.doFilter(request, response, new MockFilterChain());
+
+            assertThat(response.getRedirectedUrl()).isEqualTo(CONTEXT_PATH + "/logoutPage");
+        }
+
+        @Test
         @DisplayName("should audit rejected token authentication")
         void shouldAuditRejectedTokenAuthentication_whenTokenManagerRejects()
                 throws ServletException, IOException {

@@ -204,14 +204,10 @@ public class NioFileManagerImpl implements NioFileManager {
             try {
                 normalizedSourceDir = Paths.get(sourceDirectory).normalize().toAbsolutePath();
 
-                try {
-                    normalizedSourceDir = PathValidationUtils.validateExistingPath(normalizedSourceDir.toFile(), baseDocumentPath.toFile()).toPath();
-                } catch (SecurityException e) {
-                    if (!PathValidationUtils.isInAllowedTempDirectory(normalizedSourceDir.toFile())) {
-                        log.error("Source directory is outside allowed base path: {}", LogSafe.sanitize(sourceDirectory, 1024));
-                        return null;
-                    }
+                if (PathValidationUtils.isInAllowedTempDirectory(normalizedSourceDir.toFile())) {
                     sourceDirectoryInAllowedTemp = true;
+                } else {
+                    normalizedSourceDir = PathValidationUtils.validateExistingPath(normalizedSourceDir.toFile(), baseDocumentPath.toFile()).toPath();
                 }
 
                 if (!Files.exists(normalizedSourceDir) || !Files.isDirectory(normalizedSourceDir)) {
