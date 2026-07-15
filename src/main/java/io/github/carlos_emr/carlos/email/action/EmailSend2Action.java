@@ -234,8 +234,8 @@ public class EmailSend2Action extends ActionSupport {
         String encryptedMessage = request.getParameter("encryptedMessage");
         String isEncrypted = request.getParameter("isEmailEncrypted");
         String isAttachmentEncrypted = request.getParameter("isEmailAttachmentEncrypted");
-        if ("true".equals(isAttachmentEncrypted)) {
-            isEncrypted = "true";
+        if (!"true".equals(isEncrypted)) {
+            isAttachmentEncrypted = "false";
         }
         boolean needsPdfPassword = "true".equals(isEncrypted) || "true".equals(isAttachmentEncrypted);
         EmailCompose2Action.EmailComposeSubmissionState composeState = resolveEmailComposeSubmissionState(request);

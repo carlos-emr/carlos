@@ -136,4 +136,29 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(EmailCompose2Action.consumeEmailComposeSubmissionState(request)).isNull();
     }
+
+    @Test
+    @DisplayName("should clear pending compose submission states for session")
+    void shouldClearPendingComposeSubmissionStates_forSession() {
+        MockHttpServletRequest firstRequest = new MockHttpServletRequest("GET", "/email/compose");
+        MockHttpServletRequest secondRequest = new MockHttpServletRequest("GET", "/email/compose");
+        String firstSessionId = firstRequest.getSession().getId();
+        String firstToken = EmailCompose2Action.storeEmailComposeSubmissionState(
+                firstRequest,
+                "first-password",
+                EmailPdfPasswordService.DELIVERY_INSTRUCTION,
+                List.of());
+        String secondToken = EmailCompose2Action.storeEmailComposeSubmissionState(
+                secondRequest,
+                "second-password",
+                EmailPdfPasswordService.DELIVERY_INSTRUCTION,
+                List.of());
+
+        assertThat(EmailCompose2Action.clearEmailComposeSubmissionStates(firstSessionId)).isEqualTo(1);
+        firstRequest.setParameter(EmailCompose2Action.EMAIL_PDF_PASSWORD_TOKEN_PARAM, firstToken);
+        secondRequest.setParameter(EmailCompose2Action.EMAIL_PDF_PASSWORD_TOKEN_PARAM, secondToken);
+
+        assertThat(EmailCompose2Action.consumeEmailComposeSubmissionState(firstRequest)).isNull();
+        assertThat(EmailCompose2Action.consumeEmailComposeSubmissionState(secondRequest)).isNotNull();
+    }
 }

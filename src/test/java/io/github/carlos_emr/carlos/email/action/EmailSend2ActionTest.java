@@ -132,8 +132,46 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should use generated session password when only attachments are encrypted")
-    void shouldUseGeneratedSessionPassword_whenOnlyAttachmentsEncrypted() {
+    @DisplayName("should use generated session password when attachments are encrypted")
+    void shouldUseGeneratedSessionPassword_whenAttachmentsEncrypted() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("senderConfigId", "1");
+        request.setParameter("receiverEmailAddress", "patient@example.com");
+        request.setParameter("subjectEmail", "Subject");
+        request.setParameter("bodyEmail", "Body");
+        request.setParameter("encryptedMessage", "");
+        request.setParameter("emailPDFPassword", "tampered-password");
+        request.setParameter("emailPDFPasswordClue", "tampered clue");
+        request.setParameter("isEmailEncrypted", "true");
+        request.setParameter("isEmailAttachmentEncrypted", "true");
+        request.setParameter("patientChartOption", "addFullNote");
+        request.setParameter("transactionType", "DIRECT");
+        request.setParameter("demographicId", "123");
+        setComposeToken(
+                request,
+                "cedar-maple-spruce-birch-aspen-willow",
+                List.of(new EmailAttachment("lab.pdf", "/tmp/lab.pdf", DocumentType.LAB, 1)));
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        EmailSend2Action action = new EmailSend2Action();
+        action.request = request;
+        action.response = response;
+
+        EmailData emailData = ReflectionTestUtils.invokeMethod(action, "prepareEmailFields", request);
+
+        assertThat(emailData.getPassword()).isEqualTo("cedar-maple-spruce-birch-aspen-willow");
+        assertThat(emailData.getPasswordClue()).isEqualTo(EmailPdfPasswordService.DELIVERY_INSTRUCTION);
+        assertThat(emailData.getIsEncrypted()).isTrue();
+        assertThat(emailData.getIsAttachmentEncrypted()).isTrue();
+        assertThat(emailData.getAttachments()).hasSize(1);
+        assertThat(request.getSession().getAttribute("emailPDFPassword")).isNull();
+        assertThat(request.getSession().getAttribute("emailPDFPasswordClue")).isNull();
+    }
+
+    @Test
+    @DisplayName("should ignore stale attachment encryption when email encryption is disabled")
+    void shouldIgnoreAttachmentEncryption_whenEmailEncryptionDisabled() {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setParameter("senderConfigId", "1");
         request.setParameter("receiverEmailAddress", "patient@example.com");
@@ -160,13 +198,11 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
 
         EmailData emailData = ReflectionTestUtils.invokeMethod(action, "prepareEmailFields", request);
 
-        assertThat(emailData.getPassword()).isEqualTo("cedar-maple-spruce-birch-aspen-willow");
-        assertThat(emailData.getPasswordClue()).isEqualTo(EmailPdfPasswordService.DELIVERY_INSTRUCTION);
-        assertThat(emailData.getIsEncrypted()).isTrue();
-        assertThat(emailData.getIsAttachmentEncrypted()).isTrue();
+        assertThat(emailData.getPassword()).isEmpty();
+        assertThat(emailData.getPasswordClue()).isEmpty();
+        assertThat(emailData.getIsEncrypted()).isFalse();
+        assertThat(emailData.getIsAttachmentEncrypted()).isFalse();
         assertThat(emailData.getAttachments()).hasSize(1);
-        assertThat(request.getSession().getAttribute("emailPDFPassword")).isNull();
-        assertThat(request.getSession().getAttribute("emailPDFPasswordClue")).isNull();
     }
 
     @Test

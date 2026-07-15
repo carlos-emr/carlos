@@ -777,6 +777,11 @@
         // Make the risk explicit whenever encryption is turned off: the message and any
         // attachments will leave CARLOS unencrypted, so PHI must not be included.
         document.getElementById("encryptionDisabledWarning").classList.toggle('d-none', checkbox.checked);
+        if (!checkbox.checked) {
+            const encryptAttachmentSwitch = document.getElementById("encryptAttachmentSwitch");
+            encryptAttachmentSwitch.checked = false;
+            document.getElementById("isEmailAttachmentEncrypted").value = "false";
+        }
     }
 
     function toggleEncryptAttachmentStatus(checkbox) {

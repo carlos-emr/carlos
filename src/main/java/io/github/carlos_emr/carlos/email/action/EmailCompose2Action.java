@@ -5,6 +5,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -22,6 +26,7 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
+import io.github.carlos_emr.carlos.utility.DeamonThreadFactory;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
@@ -90,9 +95,12 @@ public class EmailCompose2Action extends ActionSupport {
     static final int MAX_PENDING_EMAIL_COMPOSE_STATES = 8;
     private static final int MAX_PENDING_EMAIL_COMPOSE_SUBMISSION_CACHE_STATES = 1024;
     static final long PENDING_EMAIL_COMPOSE_STATE_MAX_AGE_MILLIS = 15L * 60 * 1000;
+    private static final long PENDING_EMAIL_COMPOSE_STATE_CLEANUP_INTERVAL_MILLIS = 60L * 1000;
     private static final Object EMAIL_COMPOSE_SUBMISSION_STATES_LOCK = new Object();
     private static final Map<EmailComposeSubmissionStateKey, EmailComposeSubmissionState>
             PENDING_EMAIL_COMPOSE_SUBMISSION_STATES = new LinkedHashMap<>();
+    private static final AtomicReference<ScheduledExecutorService> EMAIL_COMPOSE_SUBMISSION_STATE_PRUNER =
+            new AtomicReference<>();
 
     private static final String[] EMAIL_SESSION_KEYS = {
         "attachEFormItSelf", "fdid", "demographicId", "emailAttachmentList",
@@ -185,9 +193,9 @@ public class EmailCompose2Action extends ActionSupport {
      *   <li>fid (String) - validated form ID or null if invalid</li>
      * </ul>
      *
-     * Session Attributes Set:
+     * Server-Side State Stored:
      * <ul>
-     *   <li>emailComposeSubmissionStates (Map) - tokenized prepared compose states</li>
+     *   <li>tokenized prepared compose state keyed by session id and emailPDFPasswordToken</li>
      * </ul>
      *
      * Security Features:
@@ -336,6 +344,7 @@ public class EmailCompose2Action extends ActionSupport {
             List<EmailAttachment> emailAttachmentList,
             long createdAtMillis
     ) {
+        ensureEmailComposeSubmissionStatePrunerStarted();
         HttpSession session = request.getSession();
         String token = UUID.randomUUID().toString();
         EmailComposeSubmissionState state = new EmailComposeSubmissionState(
@@ -380,6 +389,70 @@ public class EmailCompose2Action extends ActionSupport {
             pruneExpiredEmailComposeSubmissionStates(System.currentTimeMillis());
             return PENDING_EMAIL_COMPOSE_SUBMISSION_STATES.remove(
                     new EmailComposeSubmissionStateKey(session.getId(), token));
+        }
+    }
+
+    /**
+     * Clears all pending compose submission states for a destroyed HTTP session.
+     *
+     * @param sessionId HTTP session id whose pending compose states should be removed
+     * @return number of pending compose states removed
+     * @since 2026-07-14
+     */
+    public static int clearEmailComposeSubmissionStates(String sessionId) {
+        if (sessionId == null || sessionId.isBlank()) {
+            return 0;
+        }
+
+        synchronized (EMAIL_COMPOSE_SUBMISSION_STATES_LOCK) {
+            int originalSize = PENDING_EMAIL_COMPOSE_SUBMISSION_STATES.size();
+            PENDING_EMAIL_COMPOSE_SUBMISSION_STATES.keySet().removeIf(key -> key.sessionId().equals(sessionId));
+            return originalSize - PENDING_EMAIL_COMPOSE_SUBMISSION_STATES.size();
+        }
+    }
+
+    /**
+     * Stops the background compose state pruner and clears the remaining cache.
+     *
+     * @return number of pending compose states removed from the cache
+     * @since 2026-07-14
+     */
+    public static int shutdownEmailComposeSubmissionStateCache() {
+        ScheduledExecutorService pruner = EMAIL_COMPOSE_SUBMISSION_STATE_PRUNER.getAndSet(null);
+        if (pruner != null) {
+            pruner.shutdownNow();
+        }
+        synchronized (EMAIL_COMPOSE_SUBMISSION_STATES_LOCK) {
+            int originalSize = PENDING_EMAIL_COMPOSE_SUBMISSION_STATES.size();
+            PENDING_EMAIL_COMPOSE_SUBMISSION_STATES.clear();
+            return originalSize;
+        }
+    }
+
+    private static void ensureEmailComposeSubmissionStatePrunerStarted() {
+        if (EMAIL_COMPOSE_SUBMISSION_STATE_PRUNER.get() != null) {
+            return;
+        }
+
+        ScheduledExecutorService pruner = Executors.newSingleThreadScheduledExecutor(new DeamonThreadFactory(
+                "EmailComposeSubmissionStatePruner", Thread.NORM_PRIORITY));
+        pruner.scheduleAtFixedRate(
+                EmailCompose2Action::pruneExpiredEmailComposeSubmissionStates,
+                PENDING_EMAIL_COMPOSE_STATE_CLEANUP_INTERVAL_MILLIS,
+                PENDING_EMAIL_COMPOSE_STATE_CLEANUP_INTERVAL_MILLIS,
+                TimeUnit.MILLISECONDS);
+        if (!EMAIL_COMPOSE_SUBMISSION_STATE_PRUNER.compareAndSet(null, pruner)) {
+            pruner.shutdownNow();
+        }
+    }
+
+    private static void pruneExpiredEmailComposeSubmissionStates() {
+        try {
+            synchronized (EMAIL_COMPOSE_SUBMISSION_STATES_LOCK) {
+                pruneExpiredEmailComposeSubmissionStates(System.currentTimeMillis());
+            }
+        } catch (RuntimeException e) {
+            logger.warn("Failed to prune expired email compose submission states", e);
         }
     }
 
