@@ -27,6 +27,8 @@ import org.apache.struts2.dispatcher.multipart.UploadedFile;
 /**
  * Resolves backing {@link File} handles from Struts
  * {@link UploadedFile} objects.
+ *
+ * @since 2026-06-21
  */
 public final class UploadedFileResolver {
 
@@ -45,6 +47,7 @@ public final class UploadedFileResolver {
      * @return the canonicalized validated backing file
      * @throws IllegalArgumentException if {@code upload} is null
      * @throws SecurityException if the upload content is not a file or validation fails
+     * @since 2026-06-21
      */
     public static File getUploadedFile(UploadedFile upload) {
         if (upload == null) {
@@ -58,6 +61,7 @@ public final class UploadedFileResolver {
      *
      * @param upload the uploaded file; may be {@code null}
      * @return the canonicalized validated backing file, or {@code null} when unavailable/invalid
+     * @since 2026-06-21
      */
     public static File getUploadedFileOrNull(UploadedFile upload) {
         if (upload == null) {
