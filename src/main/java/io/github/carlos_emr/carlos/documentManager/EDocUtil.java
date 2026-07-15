@@ -1391,13 +1391,13 @@ public final class EDocUtil {
                 try (PDDocument pdf = Loader.loadPDF(path.toFile())) {
                     pagecount = pdf.getNumberOfPages();
                 } catch (IOException e) {
-                    logger.error("Could not read PDF file", e);
+                    logger.error("Could not read PDF file (exceptionType={})", e.getClass().getSimpleName());
                 }
             } else {
                 logger.warn("File not found for page count.");
             }
         } catch (SecurityException e) {
-            logger.error("Security violation: Attempted to access file outside allowed directory", e);
+            logger.error("Security violation: Attempted to access file outside allowed directory (exceptionType={})", e.getClass().getSimpleName());
             // Return 0 to indicate error without exposing security details
         } catch (IllegalArgumentException e) {
             logger.error("Invalid file name provided (exceptionType={})", e.getClass().getSimpleName());
