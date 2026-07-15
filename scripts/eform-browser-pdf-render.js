@@ -252,7 +252,7 @@ async function main() {
 
   if (consoleIssues.length || pageErrors.length) {
     const details = { consoleIssues, pageErrors };
-    console.error(JSON.stringify(details));
+    throw new Error(`Playwright render surfaced browser errors: ${JSON.stringify(details)}`);
   }
 }
 
