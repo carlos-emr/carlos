@@ -48,28 +48,12 @@ function validateBaseUrl(rawBaseUrl) {
   const host = parsed.hostname.toLowerCase();
   const normalizedHost = host.startsWith('[') && host.endsWith(']') ? host.slice(1, -1) : host;
   const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = isPrivateIpv4Literal(normalizedHost);
-  if (!localHosts.has(normalizedHost) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
+  if (!localHosts.has(normalizedHost) && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
 
   parsed.pathname = parsed.pathname.replace(/\/$/, '');
   return parsed;
-}
-
-// Only complete numeric IPv4 literals in RFC 1918 ranges qualify; DNS names such as
-// 10.attacker.example must not pass the private-network check.
-function isPrivateIpv4Literal(host) {
-  if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
-    return false;
-  }
-  const octets = host.split('.').map(Number);
-  if (octets.some((octet) => octet > 255)) {
-    return false;
-  }
-  return octets[0] === 10
-    || (octets[0] === 192 && octets[1] === 168)
-    || (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31);
 }
 
 function appUrl(baseUrl, appPath) {
@@ -360,6 +344,7 @@ module.exports = {
   getLatestRequest,
   gotoApp,
   invokeFetchAttached,
+  isSevereConsoleMessage,
   login,
   openAddEform,
   openAttachPopup,

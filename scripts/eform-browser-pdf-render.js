@@ -15,7 +15,13 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { chromium } = require('playwright');
-const { appUrl, assert, getLaunchOptions, validateBaseUrl } = require('./eform-local-playwright-utils');
+const {
+  appUrl,
+  assert,
+  getLaunchOptions,
+  isSevereConsoleMessage,
+  validateBaseUrl,
+} = require('./eform-local-playwright-utils');
 
 const IMAGE_WAIT_TIMEOUT_MS = 5000;
 
@@ -333,8 +339,12 @@ async function main() {
     }
     const page = await context.newPage();
     page.on('console', (message) => {
-      if (message.type() === 'error') {
-        consoleIssues.push(message.type());
+      if (isSevereConsoleMessage(message)) {
+        consoleIssues.push({
+          type: message.type(),
+          text: message.text(),
+          location: message.location(),
+        });
       }
     });
     page.on('pageerror', (error) => {
@@ -362,9 +372,13 @@ async function main() {
     const details = {
       consoleErrorCount: consoleIssues.length,
       pageErrorCount: pageErrors.length,
+      consoleErrors: consoleIssues.slice(0, 10),
       pageErrorTypes: [...new Set(pageErrors)],
     };
     console.error(JSON.stringify(details));
+  }
+  if (consoleIssues.length) {
+    throw new Error('Console error while rendering eForm PDF');
   }
   if (pageErrors.length) {
     throw new Error('Unhandled page error while rendering eForm PDF');

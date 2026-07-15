@@ -69,12 +69,13 @@ const config = {
 };
 
 const PDFBOX_VERSION = '3.0.7';
+const mavenRepository = process.env.MAVEN_REPO_LOCAL || path.join(os.homedir(), '.m2', 'repository');
 const PDFBOX_CLASSPATH = [
-  `/root/.m2/repository/org/apache/pdfbox/pdfbox/${PDFBOX_VERSION}/pdfbox-${PDFBOX_VERSION}.jar`,
-  `/root/.m2/repository/org/apache/pdfbox/fontbox/${PDFBOX_VERSION}/fontbox-${PDFBOX_VERSION}.jar`,
-  `/root/.m2/repository/org/apache/pdfbox/pdfbox-io/${PDFBOX_VERSION}/pdfbox-io-${PDFBOX_VERSION}.jar`,
-  '/root/.m2/repository/commons-logging/commons-logging/1.3.6/commons-logging-1.3.6.jar',
-].join(':');
+  path.join(mavenRepository, 'org', 'apache', 'pdfbox', 'pdfbox', PDFBOX_VERSION, `pdfbox-${PDFBOX_VERSION}.jar`),
+  path.join(mavenRepository, 'org', 'apache', 'pdfbox', 'fontbox', PDFBOX_VERSION, `fontbox-${PDFBOX_VERSION}.jar`),
+  path.join(mavenRepository, 'org', 'apache', 'pdfbox', 'pdfbox-io', PDFBOX_VERSION, `pdfbox-io-${PDFBOX_VERSION}.jar`),
+  path.join(mavenRepository, 'commons-logging', 'commons-logging', '1.3.6', 'commons-logging-1.3.6.jar'),
+].join(path.delimiter);
 const PDFBOX_RENDER_DUMP_SOURCE = `
 import java.nio.file.*;
 import java.awt.image.BufferedImage;

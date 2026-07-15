@@ -31,6 +31,7 @@ import java.nio.charset.StandardCharsets;
 import java.io.File;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.FileAttribute;
@@ -89,6 +90,7 @@ public class EFormBrowserPdfRenderer {
     private static final Logger logger = MiscUtils.getLogger();
     private static final Duration RENDER_TIMEOUT = Duration.ofSeconds(90);
     private static final Duration RENDERED_PDF_MAX_AGE = Duration.ofHours(24);
+    private static final String RENDER_ROOT_PREFIX = "carlos-eform-browser-pdf-";
     private static final String RENDER_OUTPUT_PREFIX = "eform-browser-render-";
     private static final String PDF_SUFFIX = ".pdf";
     private static final String SCRIPT_RELATIVE_PATH = "scripts/eform-browser-pdf-render.js";
@@ -139,20 +141,23 @@ public class EFormBrowserPdfRenderer {
         String appPath = buildAppPath(fdid, providerId);
         String cookieHeader = buildRendererSessionCookieHeader(currentRequest);
         Path tempRoot = resolveRendererTempRoot();
-        cleanupExpiredRendererPdfs(tempRoot, RENDERED_PDF_MAX_AGE);
-        RendererRuntime rendererRuntime = prepareRendererRuntime(tempRoot);
-        Path runtimeRoot = rendererRuntime.runtimeRoot();
-        Path scriptPath = runtimeRoot.resolve(MAIN_SCRIPT_NAME);
+        cleanupExpiredRendererRoots(tempRoot, RENDERED_PDF_MAX_AGE);
+        RendererRuntime rendererRuntime = null;
+        Path renderRoot = null;
         Path outputDirectory = null;
         Path outputPdfPath = null;
         Process process = null;
         boolean success = false;
 
         try {
+            renderRoot = createSecureTempDirectory(tempRoot, RENDER_ROOT_PREFIX);
+            rendererRuntime = prepareRendererRuntime(renderRoot);
+            Path runtimeRoot = rendererRuntime.runtimeRoot();
+            Path scriptPath = runtimeRoot.resolve(MAIN_SCRIPT_NAME);
             // Resolved inside the try block so a discovery failure still cleans up any staged runtime directory.
             Path nodeModulesDirectory = resolveNodeModulesDirectory(runtimeRoot);
-            outputDirectory = createSecureTempDirectory(tempRoot, RENDER_OUTPUT_PREFIX);
-            outputPdfPath = createSecureTempFile(tempRoot, RENDER_OUTPUT_PREFIX, PDF_SUFFIX);
+            outputDirectory = createSecureTempDirectory(renderRoot, RENDER_OUTPUT_PREFIX);
+            outputPdfPath = createSecureTempFile(renderRoot, RENDER_OUTPUT_PREFIX, PDF_SUFFIX);
 
             List<String> command = buildCommand(
                     resolveNodeBinary(),
@@ -195,8 +200,11 @@ public class EFormBrowserPdfRenderer {
                 deleteQuietly(outputPdfPath);
             }
             deleteRecursivelyQuietly(outputDirectory);
-            if (rendererRuntime.temporary()) {
-                deleteRecursivelyQuietly(runtimeRoot);
+            if (rendererRuntime != null && rendererRuntime.temporary()) {
+                deleteRecursivelyQuietly(rendererRuntime.runtimeRoot());
+            }
+            if (!success) {
+                deleteRecursivelyQuietly(renderRoot);
             }
         }
     }
@@ -401,22 +409,23 @@ public class EFormBrowserPdfRenderer {
     }
 
     /**
-     * Resolves the managed temp root for renderer artifacts.
+     * Resolves the allowed temp parent for private per-render artifact roots.
      *
      * <p>The rendered PDF is later reused by the fax flow as {@code faxFilePath}, and
      * {@code FaxManagerImpl.validateFilePath}/{@code resolveAndValidateFilePath} only accept files
      * under {@code DOCUMENT_DIR} or {@link PathValidationUtils#isInAllowedTempDirectory(File)}
-     * (java.io.tmpdir and the Tomcat work directories). The renderer therefore must keep its
-     * output inside those already-whitelisted temp locations; do not add roots (such as
-     * {@code BASE_DOCUMENT_DIR}, removed for exactly this reason) that fax path validation rejects.</p>
+     * (java.io.tmpdir and the Tomcat work directories). The renderer therefore creates a fresh
+     * private directory directly under one of those already-whitelisted temp locations; do not add
+     * roots (such as {@code BASE_DOCUMENT_DIR}, removed for exactly this reason) that fax path
+     * validation rejects.</p>
      */
     static Path resolveRendererTempRoot(String catalinaBase, String javaTmpDir) {
         if (catalinaBase != null && !catalinaBase.isBlank()) {
             File catalinaDir = PathValidationUtils.resolveConfiguredDirectory(catalinaBase.trim(), CATALINA_BASE_PROPERTY);
-            return Path.of(catalinaDir.getPath(), "work", "carlos", "eform-browser-pdf-temp");
+            return Path.of(catalinaDir.getPath(), "work");
         }
         File tempDir = PathValidationUtils.validateConfiguredDirectory(javaTmpDir, "java.io.tmpdir");
-        return Path.of(tempDir.getPath(), "carlos-eform-browser-pdf-temp");
+        return tempDir.toPath();
     }
 
     private RendererRuntime prepareRendererRuntime(Path tempRoot) throws PDFGenerationException {
@@ -612,7 +621,7 @@ public class EFormBrowserPdfRenderer {
         return createSecureTempPath(tempRoot, false, prefix, suffix);
     }
 
-    static void cleanupExpiredRendererPdfs(Path tempRoot, Duration maxAge) {
+    static void cleanupExpiredRendererRoots(Path tempRoot, Duration maxAge) {
         if (tempRoot == null || maxAge == null || maxAge.isZero() || maxAge.isNegative()) {
             return;
         }
@@ -621,15 +630,16 @@ public class EFormBrowserPdfRenderer {
             Path managedRoot = Files.createDirectories(tempRoot);
             FileTime cutoff = FileTime.from(Instant.now().minus(maxAge));
             try (DirectoryStream<Path> stream = Files.newDirectoryStream(
-                    managedRoot, RENDER_OUTPUT_PREFIX + "*" + PDF_SUFFIX)) {
+                    managedRoot, RENDER_ROOT_PREFIX + "*")) {
                 for (Path candidate : stream) {
-                    if (Files.isRegularFile(candidate) && Files.getLastModifiedTime(candidate).compareTo(cutoff) < 0) {
-                        deleteQuietly(candidate);
+                    if (Files.isDirectory(candidate, LinkOption.NOFOLLOW_LINKS)
+                            && Files.getLastModifiedTime(candidate, LinkOption.NOFOLLOW_LINKS).compareTo(cutoff) < 0) {
+                        deleteRecursivelyQuietly(candidate);
                     }
                 }
             }
         } catch (IOException e) {
-            logger.debug("Unable to clean up expired browser-rendered eForm PDFs under {}", tempRoot, e);
+            logger.debug("Unable to clean up expired browser-rendered eForm artifacts under {}", tempRoot, e);
         }
     }
 

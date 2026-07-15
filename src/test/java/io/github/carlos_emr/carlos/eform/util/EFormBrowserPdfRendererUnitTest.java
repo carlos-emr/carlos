@@ -31,6 +31,7 @@ import java.nio.file.attribute.FileTime;
 import java.nio.file.attribute.PosixFilePermission;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -76,6 +77,8 @@ class EFormBrowserPdfRendererUnitTest {
                     .contains("backgroundCandidates")
                     .contains("document.fonts.ready instanceof Promise")
                     .contains("installSameOriginRequestGuard")
+                    .contains("isSevereConsoleMessage")
+                    .contains("Console error while rendering eForm PDF")
                     .contains("ignoreHTTPSErrors")
                     .contains("Array.from(document.images).map")
                     .contains("[document.body, ...document.body.querySelectorAll('*')]")
@@ -84,25 +87,25 @@ class EFormBrowserPdfRendererUnitTest {
     }
 
     @Test
-    @DisplayName("should resolve the renderer temp root under catalina base so fax path validation accepts the output")
+    @DisplayName("should resolve the renderer temp parent under catalina work so fax path validation accepts the output")
     void shouldResolveRendererTempRoot_underCatalinaBaseWhenConfigured() {
         Path root = EFormBrowserPdfRenderer.resolveRendererTempRoot(
                 "/var/lib/tomcat10",
                 "/tmp");
 
         assertThat(root)
-                .isEqualTo(Paths.get("/var/lib/tomcat10", "work", "carlos", "eform-browser-pdf-temp"));
+                .isEqualTo(Paths.get("/var/lib/tomcat10", "work"));
     }
 
     @Test
-    @DisplayName("should resolve the renderer temp root under a namespaced system temp fallback")
+    @DisplayName("should resolve the renderer temp parent to the system temp fallback")
     void shouldResolveRendererTempRoot_underNamespacedSystemTempFallback() {
         Path root = EFormBrowserPdfRenderer.resolveRendererTempRoot(
                 null,
                 "/tmp");
 
         assertThat(root)
-                .isEqualTo(Paths.get("/tmp", "carlos-eform-browser-pdf-temp"));
+                .isEqualTo(Paths.get("/tmp"));
     }
 
     @Test
@@ -177,26 +180,29 @@ class EFormBrowserPdfRendererUnitTest {
     }
 
     @Test
-    @DisplayName("should clean up only expired browser-rendered PDFs in the managed temp root")
-    void shouldCleanupExpiredRendererPdfs_whenManagedRootContainsOldOutputs() throws IOException {
+    @DisplayName("should clean up only expired browser-rendered private roots in the managed temp parent")
+    void shouldCleanupExpiredRendererRoots_whenManagedParentContainsOldOutputs() throws IOException {
         Path root = Files.createTempDirectory("eform-browser-render-cleanup-");
-        Path stalePdf = Files.createFile(root.resolve("eform-browser-render-stale.pdf"));
-        Path recentPdf = Files.createFile(root.resolve("eform-browser-render-recent.pdf"));
-        Path unrelatedPdf = Files.createFile(root.resolve("unrelated.pdf"));
+        Path staleDirectory = Files.createDirectory(root.resolve("carlos-eform-browser-pdf-stale"));
+        Path recentDirectory = Files.createDirectory(root.resolve("carlos-eform-browser-pdf-recent"));
+        Path unrelatedDirectory = Files.createDirectory(root.resolve("unrelated"));
         try {
-            Files.setLastModifiedTime(stalePdf, FileTime.from(Instant.now().minus(Duration.ofHours(26))));
-            Files.setLastModifiedTime(recentPdf, FileTime.from(Instant.now()));
-            Files.setLastModifiedTime(unrelatedPdf, FileTime.from(Instant.now().minus(Duration.ofHours(26))));
+            Files.createFile(staleDirectory.resolve("eform-browser-render-stale.pdf"));
+            Files.createFile(recentDirectory.resolve("eform-browser-render-recent.pdf"));
+            Files.createFile(unrelatedDirectory.resolve("unrelated.pdf"));
+            Files.setLastModifiedTime(staleDirectory, FileTime.from(Instant.now().minus(Duration.ofHours(26))));
+            Files.setLastModifiedTime(recentDirectory, FileTime.from(Instant.now()));
+            Files.setLastModifiedTime(unrelatedDirectory, FileTime.from(Instant.now().minus(Duration.ofHours(26))));
 
-            EFormBrowserPdfRenderer.cleanupExpiredRendererPdfs(root, Duration.ofHours(24));
+            EFormBrowserPdfRenderer.cleanupExpiredRendererRoots(root, Duration.ofHours(24));
 
-            assertThat(stalePdf).doesNotExist();
-            assertThat(recentPdf).exists();
-            assertThat(unrelatedPdf).exists();
+            assertThat(staleDirectory).doesNotExist();
+            assertThat(recentDirectory).exists();
+            assertThat(unrelatedDirectory).exists();
         } finally {
-            Files.deleteIfExists(stalePdf);
-            Files.deleteIfExists(recentPdf);
-            Files.deleteIfExists(unrelatedPdf);
+            deleteRecursivelyIfExists(staleDirectory);
+            deleteRecursivelyIfExists(recentDirectory);
+            deleteRecursivelyIfExists(unrelatedDirectory);
             Files.deleteIfExists(root);
         }
     }
@@ -361,6 +367,16 @@ class EFormBrowserPdfRendererUnitTest {
                 "https://evil.example/steal",
                 null,
                 null);
+    }
+
+    private static void deleteRecursivelyIfExists(Path path) throws IOException {
+        if (path == null || !Files.exists(path)) {
+            return;
+        }
+        try (var stream = Files.walk(path)) {
+            stream.sorted(Comparator.reverseOrder())
+                    .forEach(candidate -> candidate.toFile().delete());
+        }
     }
 
 }
