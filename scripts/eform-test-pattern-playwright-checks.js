@@ -57,9 +57,7 @@ const {
 
 function validateDestructiveTestBaseUrl(rawBaseUrl) {
   const baseUrl = validateBaseUrl(rawBaseUrl);
-  const normalizedHost = baseUrl.hostname.toLowerCase().replace(/^\[(.*)]$/, '$1');
-  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const isLocalHost = localHosts.has(normalizedHost);
+  const isLocalHost = isLocalTestBaseUrl(baseUrl);
   if (!isLocalHost && baseUrl.protocol !== 'https:') {
     throw new Error(`Refusing non-local HTTP BASE_URL ${baseUrl.origin}; use HTTPS for non-local test targets`);
   }
@@ -67,6 +65,12 @@ function validateDestructiveTestBaseUrl(rawBaseUrl) {
     throw new Error(`Refusing destructive eForm test against non-local BASE_URL host ${baseUrl.hostname}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
   return baseUrl;
+}
+
+function isLocalTestBaseUrl(baseUrl) {
+  const normalizedHost = baseUrl.hostname.toLowerCase().replace(/^\[(.*)]$/, '$1');
+  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
+  return localHosts.has(normalizedHost);
 }
 
 const config = {
@@ -851,7 +855,7 @@ async function cleanupUploadedImage(context, imageName) {
     browser = await chromium.launch(getLaunchOptions(config.chromePath));
     context = await browser.newContext({
       acceptDownloads: true,
-      ignoreHTTPSErrors: true,
+      ignoreHTTPSErrors: config.baseUrl.protocol === 'https:' && isLocalTestBaseUrl(config.baseUrl),
       viewport: { width: 1280, height: 1600 },
     });
     const landingPage = await login(context, config, recorder);
