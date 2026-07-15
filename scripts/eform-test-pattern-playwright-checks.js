@@ -415,7 +415,11 @@ async function assertRuntimeSurface(page, fid, options = {}) {
     assert(state.fdidMarker === options.expectedFdid, `fdid marker was not replaced with ${options.expectedFdid}: ${formatDiagnostic(state)}`);
     assert(!state.fdidMarker.includes('${fdid}'), `Raw fdid marker leaked on saved eForm: ${formatDiagnostic(state)}`);
   }
-  if (options.expectToolbar !== false) {
+  if (options.expectToolbar === false) {
+    assert(!state.remoteSubjectVisible, 'Floating toolbar subject field should not be injected in this view');
+    assert(!state.remoteSubmitVisible, 'Floating toolbar submit button should not be injected in this view');
+    assert(!state.remoteDownloadVisible, 'Floating toolbar PDF download button should not be injected in this view');
+  } else {
     assert(state.remoteSubjectVisible, 'Floating toolbar subject field was not injected');
     assert(state.remoteSubmitVisible, 'Floating toolbar submit button was not injected');
     assert(state.remoteDownloadVisible, 'Floating toolbar PDF download button was not injected');
