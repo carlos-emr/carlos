@@ -215,8 +215,8 @@ public class EmailSend2Action extends ActionSupport {
      *   <li>Resolving server-generated PDF password protection values</li>
      *   <li>Retrieving patient chart display options and demographic information</li>
      *   <li>Extracting transaction type and additional URL parameters</li>
-     *   <li>Retrieving email attachments from session storage</li>
-     *   <li>Cleaning up session by removing attachment list after extraction</li>
+     *   <li>Retrieving email attachments from tokenized server-side compose state</li>
+     *   <li>Consuming the compose submission token so draft secrets are not reused</li>
      * </ul>
      *
      * <p>The method supports PHI protection through encryption options and associates
