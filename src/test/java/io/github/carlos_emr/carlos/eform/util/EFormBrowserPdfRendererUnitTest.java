@@ -27,7 +27,10 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.attribute.FileTime;
 import java.nio.file.attribute.PosixFilePermission;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -72,6 +75,10 @@ class EFormBrowserPdfRendererUnitTest {
                     .contains("computeCaptureRegions")
                     .contains("backgroundCandidates")
                     .contains("document.fonts.ready instanceof Promise")
+                    .contains("installSameOriginRequestGuard")
+                    .contains("ignoreHTTPSErrors")
+                    .contains("Array.from(document.images).map")
+                    .contains("[document.body, ...document.body.querySelectorAll('*')]")
                     .contains("url: baseUrl.href");
         }
     }
@@ -170,6 +177,31 @@ class EFormBrowserPdfRendererUnitTest {
     }
 
     @Test
+    @DisplayName("should clean up only expired browser-rendered PDFs in the managed temp root")
+    void shouldCleanupExpiredRendererPdfs_whenManagedRootContainsOldOutputs() throws IOException {
+        Path root = Files.createTempDirectory("eform-browser-render-cleanup-");
+        Path stalePdf = Files.createFile(root.resolve("eform-browser-render-stale.pdf"));
+        Path recentPdf = Files.createFile(root.resolve("eform-browser-render-recent.pdf"));
+        Path unrelatedPdf = Files.createFile(root.resolve("unrelated.pdf"));
+        try {
+            Files.setLastModifiedTime(stalePdf, FileTime.from(Instant.now().minus(Duration.ofHours(26))));
+            Files.setLastModifiedTime(recentPdf, FileTime.from(Instant.now()));
+            Files.setLastModifiedTime(unrelatedPdf, FileTime.from(Instant.now().minus(Duration.ofHours(26))));
+
+            EFormBrowserPdfRenderer.cleanupExpiredRendererPdfs(root, Duration.ofHours(24));
+
+            assertThat(stalePdf).doesNotExist();
+            assertThat(recentPdf).exists();
+            assertThat(unrelatedPdf).exists();
+        } finally {
+            Files.deleteIfExists(stalePdf);
+            Files.deleteIfExists(recentPdf);
+            Files.deleteIfExists(unrelatedPdf);
+            Files.deleteIfExists(root);
+        }
+    }
+
+    @Test
     @DisplayName("should build a local base URL from project home")
     void shouldBuildLocalBaseUrl_whenNoOverrideIsProvided() {
         assertThat(EFormBrowserPdfRenderer.buildDefaultBaseUrl("carlos"))
@@ -181,6 +213,13 @@ class EFormBrowserPdfRendererUnitTest {
     void shouldBuildLocalBaseUrl_whenUsingTheActiveRequestContext() {
         assertThat(EFormBrowserPdfRenderer.buildLocalBaseUrl("http", 8080, "/carlos"))
                 .isEqualTo("http://127.0.0.1:8080/carlos");
+    }
+
+    @Test
+    @DisplayName("should build a local HTTPS base URL from the active servlet connector")
+    void shouldBuildLocalBaseUrl_whenUsingHttpsConnector() {
+        assertThat(EFormBrowserPdfRenderer.buildLocalBaseUrl("https", 8443, "/carlos"))
+                .isEqualTo("https://127.0.0.1:8443/carlos");
     }
 
     @Test

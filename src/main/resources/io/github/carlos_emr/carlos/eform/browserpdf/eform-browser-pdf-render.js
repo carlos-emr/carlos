@@ -92,8 +92,7 @@ async function waitForStableRender(page) {
       });
     }
 
-    const pendingImages = Array.from(document.images).filter((image) => !image.complete);
-    await Promise.all(pendingImages.map((image) => waitForImageComplete(image, imageWaitTimeoutMs)));
+    await Promise.all(Array.from(document.images).map((image) => waitForImageComplete(image, imageWaitTimeoutMs)));
 
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
   }, IMAGE_WAIT_TIMEOUT_MS);
@@ -239,9 +238,32 @@ async function computeCaptureRegions(page) {
       return captures;
     }
 
-    const fallback = unionRects(Array.from(document.body.querySelectorAll('*')));
+    const fallback = unionRects([document.body, ...document.body.querySelectorAll('*')].filter(Boolean));
     return fallback ? [fallback] : [];
   });
+}
+
+function isSameOriginUrl(rawUrl, baseUrl) {
+  try {
+    return new URL(rawUrl).origin === baseUrl.origin;
+  } catch {
+    return false;
+  }
+}
+
+async function installSameOriginRequestGuard(context, baseUrl) {
+  await context.route('**/*', (route) => {
+    const requestUrl = route.request().url();
+    if (isSameOriginUrl(requestUrl, baseUrl)) {
+      return route.continue();
+    }
+    return route.abort('blockedbyclient');
+  });
+}
+
+function assertRendererPageOrigin(page, baseUrl) {
+  const currentUrl = page.url();
+  assert(isSameOriginUrl(currentUrl, baseUrl), `Renderer navigated outside ${baseUrl.origin}: ${currentUrl}`);
 }
 
 async function capturePages(page, outputDir) {
@@ -286,7 +308,11 @@ async function main() {
   let captureFiles = [];
   const browser = await chromium.launch(getLaunchOptions(rawChromePath));
   try {
-    const context = await browser.newContext({ viewport: { width: 1800, height: 3200 } });
+    const context = await browser.newContext({
+      viewport: { width: 1800, height: 3200 },
+      ignoreHTTPSErrors: baseUrl.protocol === 'https:',
+    });
+    await installSameOriginRequestGuard(context, baseUrl);
     if (rawCookieHeader) {
       // Scope the session cookie to the validated renderer application URL instead of a page-wide
       // extra header, so it stays confined to the intended host and app context.
@@ -316,10 +342,13 @@ async function main() {
     });
 
     await page.emulateMedia({ media: 'screen' });
-    const response = await page.goto(appUrl(baseUrl, rawAppPath), { waitUntil: 'domcontentloaded', timeout: 30000 }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- validateBaseUrl restricts hosts to local/private by default and appUrl rejects non-root-relative or protocol-relative paths
+    const response = await page.goto(appUrl(baseUrl, rawAppPath), { waitUntil: 'domcontentloaded', timeout: 30000 }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- validateBaseUrl restricts hosts to local/private by default, appUrl rejects non-root-relative or protocol-relative paths, and installSameOriginRequestGuard aborts cross-origin requests before navigation
+    assertRendererPageOrigin(page, baseUrl);
     assert(response?.ok(), `Renderer route returned HTTP ${response?.status() ?? 'no response'}`);
     await waitForStableRender(page);
+    assertRendererPageOrigin(page, baseUrl);
     await preparePageForCapture(page);
+    assertRendererPageOrigin(page, baseUrl);
     captureFiles = await capturePages(page, outputDir);
   } finally {
     await browser.close();

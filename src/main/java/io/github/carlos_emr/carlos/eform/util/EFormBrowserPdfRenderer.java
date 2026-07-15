@@ -34,9 +34,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.FileAttribute;
+import java.nio.file.attribute.FileTime;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Collections;
@@ -86,6 +88,9 @@ public class EFormBrowserPdfRenderer {
 
     private static final Logger logger = MiscUtils.getLogger();
     private static final Duration RENDER_TIMEOUT = Duration.ofSeconds(90);
+    private static final Duration RENDERED_PDF_MAX_AGE = Duration.ofHours(24);
+    private static final String RENDER_OUTPUT_PREFIX = "eform-browser-render-";
+    private static final String PDF_SUFFIX = ".pdf";
     private static final String SCRIPT_RELATIVE_PATH = "scripts/eform-browser-pdf-render.js";
     private static final String PLAYWRIGHT_MODULE_RELATIVE_PATH = "node_modules/playwright";
     private static final String PLAYWRIGHT_PACKAGE_NAME = "playwright";
@@ -134,6 +139,7 @@ public class EFormBrowserPdfRenderer {
         String appPath = buildAppPath(fdid, providerId);
         String cookieHeader = buildRendererSessionCookieHeader(currentRequest);
         Path tempRoot = resolveRendererTempRoot();
+        cleanupExpiredRendererPdfs(tempRoot, RENDERED_PDF_MAX_AGE);
         RendererRuntime rendererRuntime = prepareRendererRuntime(tempRoot);
         Path runtimeRoot = rendererRuntime.runtimeRoot();
         Path scriptPath = runtimeRoot.resolve(MAIN_SCRIPT_NAME);
@@ -145,8 +151,8 @@ public class EFormBrowserPdfRenderer {
         try {
             // Resolved inside the try block so a discovery failure still cleans up any staged runtime directory.
             Path nodeModulesDirectory = resolveNodeModulesDirectory(runtimeRoot);
-            outputDirectory = createSecureTempDirectory(tempRoot, "eform-browser-render-");
-            outputPdfPath = createSecureTempFile(tempRoot, "eform-browser-render-", ".pdf");
+            outputDirectory = createSecureTempDirectory(tempRoot, RENDER_OUTPUT_PREFIX);
+            outputPdfPath = createSecureTempFile(tempRoot, RENDER_OUTPUT_PREFIX, PDF_SUFFIX);
 
             List<String> command = buildCommand(
                     resolveNodeBinary(),
@@ -363,7 +369,7 @@ public class EFormBrowserPdfRenderer {
             return configuredBaseUrl.trim().replaceAll("/$", "");
         }
         if (request != null) {
-            return buildLocalBaseUrl(HTTP_SCHEME, request.getLocalPort(), request.getContextPath());
+            return buildLocalBaseUrl(request.getScheme(), request.getLocalPort(), request.getContextPath());
         }
         return buildDefaultBaseUrl(projectHome);
     }
@@ -604,6 +610,27 @@ public class EFormBrowserPdfRenderer {
 
     static Path createSecureTempFile(Path tempRoot, String prefix, String suffix) throws IOException {
         return createSecureTempPath(tempRoot, false, prefix, suffix);
+    }
+
+    static void cleanupExpiredRendererPdfs(Path tempRoot, Duration maxAge) {
+        if (tempRoot == null || maxAge == null || maxAge.isZero() || maxAge.isNegative()) {
+            return;
+        }
+
+        try {
+            Path managedRoot = Files.createDirectories(tempRoot);
+            FileTime cutoff = FileTime.from(Instant.now().minus(maxAge));
+            try (DirectoryStream<Path> stream = Files.newDirectoryStream(
+                    managedRoot, RENDER_OUTPUT_PREFIX + "*" + PDF_SUFFIX)) {
+                for (Path candidate : stream) {
+                    if (Files.isRegularFile(candidate) && Files.getLastModifiedTime(candidate).compareTo(cutoff) < 0) {
+                        deleteQuietly(candidate);
+                    }
+                }
+            }
+        } catch (IOException e) {
+            logger.debug("Unable to clean up expired browser-rendered eForm PDFs under {}", tempRoot, e);
+        }
     }
 
     // FindSecBugs PATH_TRAVERSAL_IN: temp artifacts are created only under a validated managed temp root, with caller-controlled filenames disallowed.

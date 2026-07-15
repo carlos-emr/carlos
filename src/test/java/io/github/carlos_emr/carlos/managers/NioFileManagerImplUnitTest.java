@@ -65,6 +65,7 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
     private NioFileManagerImpl nioFileManager;
     private SecurityInfoManager securityInfoManager;
     private LoggedInInfo loggedInInfo;
+    private ServletContext servletContext;
     private Path allowedTempDir;
     private Path outsideDir;
     private Path outsideFile;
@@ -79,7 +80,7 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
         nioFileManager = new NioFileManagerImpl();
         securityInfoManager = mock(SecurityInfoManager.class);
         loggedInInfo = mock(LoggedInInfo.class);
-        ServletContext servletContext = mock(ServletContext.class);
+        servletContext = mock(ServletContext.class);
 
         when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), anyString(), eq(""))).thenReturn(true);
         when(servletContext.getContextPath()).thenReturn("/carlos");
@@ -103,6 +104,20 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
         if (outsideDir != null) {
             Files.deleteIfExists(outsideDir);
         }
+    }
+
+    @Test
+    @DisplayName("Creates document cache directories for nested servlet context paths")
+    void shouldCreateDocumentCacheDirectory_whenContextPathIsNested() {
+        when(servletContext.getContextPath()).thenReturn("/clinic/carlos");
+
+        Path cacheDirectory = nioFileManager.getDocumentCacheDirectory(loggedInInfo);
+
+        assertThat(cacheDirectory)
+                .isEqualTo(tempDir.resolve(Path.of("clinic", "carlos", "document_cache"))
+                        .normalize()
+                        .toAbsolutePath());
+        assertThat(cacheDirectory).isDirectory();
     }
 
     @Test
@@ -343,6 +358,25 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("Returns true when an approved fax preview source has no cache pages")
+    void shouldReturnTrue_whenApprovedFaxPreviewSourceHasNoCachePages() throws IOException {
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
+        Path sourceDir = tempDir.resolve(Path.of("carlos", "fax-preview-doc-source-" + UUID.randomUUID()));
+        Files.createDirectories(sourceDir);
+        Path sourcePdf = sourceDir.resolve("fax-preview-document.pdf");
+        createSinglePagePdf(sourcePdf);
+
+        try {
+            boolean removed = nioFileManager.removeFaxPreviewCacheVersions(loggedInInfo, sourcePdf.toString());
+
+            assertThat(removed).isTrue();
+        } finally {
+            Files.deleteIfExists(sourcePdf);
+            Files.deleteIfExists(sourceDir);
+        }
+    }
+
+    @Test
     @DisplayName("Ignores discriminator cache matches for sources outside approved roots")
     void shouldNotRemoveFaxPreviewCacheVersions_whenSourcePathIsOutsideApprovedRoots() throws Exception {
         when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
@@ -446,9 +480,13 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
         }
     }
 
-    private static void deleteFileQuietly(Path file) throws IOException {
+    private static void deleteFileQuietly(Path file) {
         if (file != null) {
-            Files.deleteIfExists(file);
+            try {
+                Files.deleteIfExists(file);
+            } catch (IOException ignored) {
+                // Best-effort cleanup in tests must not mask the assertion failure being reported.
+            }
         }
     }
 }

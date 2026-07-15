@@ -158,7 +158,7 @@ public class NioFileManagerImpl implements NioFileManager {
     private Path getDocumentCacheDirectoryWithoutAuthorization() {
         Path baseDocumentPath = getBaseDocumentPath();
         Path cacheDir = baseDocumentPath
-                .resolve(getContextPathDirectoryName())
+                .resolve(getContextPathDirectory())
                 .resolve(DOCUMENT_CACHE_DIRECTORY)
                 .normalize()
                 .toAbsolutePath();
@@ -166,7 +166,7 @@ public class NioFileManagerImpl implements NioFileManager {
 
         if (!Files.exists(cacheDir)) {
             try {
-                Files.createDirectory(cacheDir);
+                Files.createDirectories(cacheDir);
             } catch (IOException e) {
                 log.error("Error creating DocumentCache directory", e);
             }
@@ -324,7 +324,7 @@ public class NioFileManagerImpl implements NioFileManager {
         return baseDocumentDirectory;
     }
 
-    private String getContextPathDirectoryName() {
+    private Path getContextPathDirectory() {
         String contextPath = context == null ? "" : context.getContextPath();
         String directoryName = contextPath == null ? "" : contextPath.trim();
         while (directoryName.startsWith("/")) {
@@ -333,10 +333,16 @@ public class NioFileManagerImpl implements NioFileManager {
         while (directoryName.endsWith("/")) {
             directoryName = directoryName.substring(0, directoryName.length() - 1);
         }
-        if (directoryName.contains("/") || directoryName.contains("\\") || directoryName.contains("..")) {
-            throw new SecurityException("Invalid servlet context path");
+
+        Path contextPathDirectory = Path.of("");
+        if (directoryName.isEmpty()) {
+            return contextPathDirectory;
         }
-        return directoryName;
+        for (String segment : directoryName.split("/")) {
+            contextPathDirectory = contextPathDirectory.resolve(
+                    PathValidationUtils.validatePathComponent(segment, "servlet context path"));
+        }
+        return contextPathDirectory;
     }
 
     private Path resolveCacheOutputFile(CacheRequest cacheRequest, Path sourceFile) {
@@ -430,7 +436,11 @@ public class NioFileManagerImpl implements NioFileManager {
         }
 
         String sanitizedFileName = sanitizeFileName(sourceFileName);
+        boolean approvedSource = isApprovedFaxPreviewSource(sourceFileName);
         String sourceDiscriminator = sourcePathDiscriminatorOrNull(sourceFileName);
+        if (!approvedSource && sourceDiscriminator == null) {
+            return false;
+        }
         Path normalizedCacheDir = getDocumentCacheDirectoryWithoutAuthorization().normalize().toAbsolutePath();
         boolean deletedAny = false;
 
@@ -447,9 +457,10 @@ public class NioFileManagerImpl implements NioFileManager {
             }
         } catch (IOException e) {
             log.error("Error while deleting fax preview cache images", e);
+            return false;
         }
 
-        return deletedAny;
+        return deletedAny || approvedSource;
     }
 
     private Path validateCacheDeletionCandidate(Path candidate, Path normalizedCacheDir) {
@@ -473,6 +484,21 @@ public class NioFileManagerImpl implements NioFileManager {
             return sourcePathDiscriminator(sourcePath);
         } catch (SecurityException e) {
             return null;
+        }
+    }
+
+    private boolean isApprovedFaxPreviewSource(String sourceFileName) {
+        try {
+            Path sourcePath = Path.of(sourceFileName);
+            if (!sourcePath.isAbsolute() && sourcePath.getNameCount() == 1) {
+                return true;
+            }
+
+            Path normalizedSourcePath = sourcePath.normalize().toAbsolutePath();
+            Path sourceDirectory = normalizedSourcePath.getParent();
+            return sourceDirectory != null && resolveAllowedSourceDirectory(sourceDirectory, sourceFileName) != null;
+        } catch (InvalidPathException | SecurityException e) {
+            return false;
         }
     }
 
