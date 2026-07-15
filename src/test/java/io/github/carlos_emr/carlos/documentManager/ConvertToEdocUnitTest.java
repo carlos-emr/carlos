@@ -158,4 +158,26 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    @DisplayName("should preserve cache-busted oscar image path resources when backing files exist")
+    void shouldPreserveCacheBustedOscarImagePathResources_whenBackingFilesExist(@TempDir Path tempDir) throws Exception {
+        Path imageDirectory = tempDir.resolve("eform-images");
+        CarlosProperties properties = mock(CarlosProperties.class);
+        when(properties.getEformImageDirectory()).thenReturn(imageDirectory.toString());
+        Files.createDirectories(imageDirectory);
+        Files.writeString(imageDirectory.resolve("convert-to-edoc-cache-busted.js"), "console.log('ok');");
+
+        try (MockedStatic<CarlosProperties> propertiesMock = mockStatic(CarlosProperties.class)) {
+            propertiesMock.when(CarlosProperties::getInstance).thenReturn(properties);
+            String html = "<html><head><script src=\"${oscar_image_path}convert-to-edoc-cache-busted.js?v=20260715\"></script></head>"
+                    + "<body>ok</body></html>";
+
+            Document document = ConvertToEdoc.getDocument(html, tempDir.toString());
+
+            assertThat(document.select("script[src]")).hasSize(1);
+            assertThat(document.outerHtml())
+                    .contains("${oscar_image_path}convert-to-edoc-cache-busted.js?v=20260715");
+        }
+    }
+
 }

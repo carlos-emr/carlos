@@ -151,4 +151,37 @@ class Fax2ActionAuthorizationUnitTest extends CarlosUnitTestBase {
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
         }
     }
+
+    @Test
+    @DisplayName("should reject getPreview image when fax manager rejects the source path")
+    void shouldRejectGetPreviewImage_whenFaxManagerRejectsSourcePath() {
+        FaxManager faxManager = mock(FaxManager.class);
+        DocumentAttachmentManager documentAttachmentManager = mock(DocumentAttachmentManager.class);
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_fax"), eq("r"), isNull()))
+                .thenReturn(true);
+        when(faxManager.getFaxPreviewImage(any(LoggedInInfo.class), eq("/var/lib/OscarDocument/document/other.pdf"), eq(1)))
+                .thenThrow(new SecurityException("Fax preview image source must be an approved temporary file"));
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("showAs", "image");
+        request.setParameter("faxFilePath", "/var/lib/OscarDocument/document/other.pdf");
+        request.setParameter("pageNumber", "1");
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        registerMock(FaxManager.class, faxManager);
+        registerMock(DocumentAttachmentManager.class, documentAttachmentManager);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
+
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+            servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+            Fax2Action action = new Fax2Action();
+            action.getPreview();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+        }
+    }
 }

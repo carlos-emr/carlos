@@ -166,18 +166,22 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
     }
 
     private static void applyLetterHtml(EForm eForm, List<EFormValue> eFormValues, boolean prepareForFax) {
+        String letterHtml = null;
         for (EFormValue value : eFormValues) {
             if (!"Letter".equals(value.getVarName())) {
                 continue;
             }
-            String html = value.getVarValue();
-            html = html.replace(IMAGE_RENDERING_SERVLET_PATH, PDF_SIGNATURE_SERVLET_PATH);
-            if (prepareForFax) {
-                html = "<div style=\"position:relative\"><div style=\"position:absolute; margin-top:35px;\">" + html + "</div></div>";
-            }
-            eForm.setFormHtml("<html><body style='width:640px;'>" + html + "</body></html>");
+            letterHtml = value.getVarValue();
+        }
+        if (letterHtml == null) {
             return;
         }
+
+        String html = letterHtml.replace(IMAGE_RENDERING_SERVLET_PATH, PDF_SIGNATURE_SERVLET_PATH);
+        if (prepareForFax) {
+            html = "<div style=\"position:relative\"><div style=\"position:absolute; margin-top:35px;\">" + html + "</div></div>";
+        }
+        eForm.setFormHtml("<html><body style='width:640px;'>" + html + "</body></html>");
     }
 
     private static void applySignatureHtml(EForm eForm, List<EFormValue> eFormValues, String contextPath) {

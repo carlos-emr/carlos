@@ -317,10 +317,10 @@ function getLatestRequest(recorder, predicate) {
 
 function getLaunchOptions(chromePath) {
   // --no-sandbox is required when Chromium runs as root (the devcontainer/CI default).
-  // Set EFORM_RENDER_ENABLE_CHROMIUM_SANDBOX=true to keep the Chromium sandbox enabled
-  // on deployments that run the renderer as an unprivileged user.
+  // Non-root deployments keep Chromium's sandbox unless explicitly disabled.
   const args = ['--disable-dev-shm-usage'];
-  if (process.env.EFORM_RENDER_ENABLE_CHROMIUM_SANDBOX !== 'true') {
+  const runningAsRoot = typeof process.getuid === 'function' && process.getuid() === 0;
+  if (runningAsRoot || process.env.EFORM_RENDER_DISABLE_CHROMIUM_SANDBOX === 'true') {
     args.unshift('--no-sandbox');
   }
   const launchOptions = {

@@ -133,9 +133,9 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
             assertThat(new File(tempDir.toFile(), "signature_pad.min.js")).exists();
             assertThat(new File(tempDir.toFile(), "BNK.png")).exists();
             assertThat(new File(tempDir.toFile(), "jquery-3.1.0.min.js")).exists();
-            assertThat(new File(tempDir.toFile(), "LocationsLab_Nov2020.js")).exists();
-            assertThat(new File(tempDir.toFile(), "LabDecisionSupport3_2024.js")).exists();
-            assertThat(new File(tempDir.toFile(), "LabEngine_2023.js")).exists();
+            assertThat(new File(tempDir.toFile(), "LocationsLab_Nov2020.js")).doesNotExist();
+            assertThat(new File(tempDir.toFile(), "LabDecisionSupport3_2024.js")).doesNotExist();
+            assertThat(new File(tempDir.toFile(), "LabEngine_2023.js")).doesNotExist();
             assertThat(new File(tempDir.toFile(), "SOPLR_BC_2018_Sans2.png")).doesNotExist();
             assertThat(new File(tempDir.toFile(), "CreativeCommonsIcon.png")).doesNotExist();
         }
@@ -160,19 +160,19 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("Should deploy compatibility assets for seeded Lab Requisition sample forms")
-        void shouldDeployCompatibilityAssets_forSeededLabRequisitionSamples() throws Exception {
+        @DisplayName("Should deploy only real compatibility assets for seeded Lab Requisition sample forms")
+        void shouldDeployOnlyRealCompatibilityAssets_forSeededLabRequisitionSamples() throws Exception {
             when(mockProperties.getEformImageDirectory()).thenReturn(tempDir.toString());
             stubAllAssets();
 
             deployer.afterPropertiesSet();
 
             File deployedJquery = new File(tempDir.toFile(), "jquery-3.1.0.min.js");
-            File deployedHelperScript = new File(tempDir.toFile(), "LabEngine_2023.js");
             assertThat(deployedJquery).exists();
             assertThat(Files.readString(deployedJquery.toPath())).isEqualTo("jquery compat");
-            assertThat(deployedHelperScript).exists();
-            assertThat(Files.readString(deployedHelperScript.toPath())).contains("autoLabReqPop");
+            assertThat(new File(tempDir.toFile(), "LocationsLab_Nov2020.js")).doesNotExist();
+            assertThat(new File(tempDir.toFile(), "LabDecisionSupport3_2024.js")).doesNotExist();
+            assertThat(new File(tempDir.toFile(), "LabEngine_2023.js")).doesNotExist();
             assertThat(new File(tempDir.toFile(), "SOPLR_BC_2018_Sans2.png")).doesNotExist();
             assertThat(new File(tempDir.toFile(), "CreativeCommonsIcon.png")).doesNotExist();
         }
@@ -386,10 +386,10 @@ class EFormAssetDeployerTest extends CarlosUnitTestBase {
 
             assertThat(tempDir.toFile().listFiles())
                 .extracting(File::getName)
-                .contains("BNK.png", "LocationsLab_Nov2020.js", "LabDecisionSupport3_2024.js",
-                    "LabEngine_2023.js")
+                .contains("BNK.png")
                 .doesNotContain("SOPLR_BC_2018_Sans2.png", "CreativeCommonsIcon.png")
-                .doesNotContain("editControl2.js", "blank.rtl", "editor_help.html", "jquery-3.1.0.min.js");
+                .doesNotContain("editControl2.js", "blank.rtl", "editor_help.html", "jquery-3.1.0.min.js",
+                    "LocationsLab_Nov2020.js", "LabDecisionSupport3_2024.js", "LabEngine_2023.js");
         }
 
         @Test

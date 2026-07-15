@@ -35,9 +35,7 @@ import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
@@ -128,7 +126,6 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
     private static final String[] LEGACY_SIGNATURE_ASSETS = {
         "signature_pad.min.js"
     };
-    private static final Map<String, String> SAMPLE_LAB_COMPATIBILITY_SCRIPTS = buildSampleLabCompatibilityScripts();
 
     /** Injected by Spring via {@link ServletContextAware} before {@link #afterPropertiesSet()}. */
     private jakarta.servlet.ServletContext servletContext;
@@ -281,9 +278,6 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
 
     private void deploySampleLabCompatibilityAssets(File targetDir) {
         deployAssetFromPath("jquery-3.1.0.min.js", JQUERY_RESOURCE_PATH, targetDir);
-        for (Map.Entry<String, String> entry : SAMPLE_LAB_COMPATIBILITY_SCRIPTS.entrySet()) {
-            deployGeneratedAsset(entry.getKey(), targetDir, entry.getValue().getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        }
     }
 
     private void deployAssetFromPath(String filename, String resourcePath, File targetDir) {
@@ -356,27 +350,4 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
         }
     }
 
-    private static Map<String, String> buildSampleLabCompatibilityScripts() {
-        Map<String, String> scripts = new LinkedHashMap<>();
-        String compatibilityScript = """
-                (function(global) {
-                  function noop() { return null; }
-                  function falsy() { return false; }
-                  global.CheckCopyTo = global.CheckCopyTo || noop;
-                  global.Reminders = global.Reminders || noop;
-                  global.ToggleCopyTo = global.ToggleCopyTo || noop;
-                  global.autoLabReqPop = global.autoLabReqPop || noop;
-                  global.calculateTicklerDays = global.calculateTicklerDays || noop;
-                  global.decisionSupport = global.decisionSupport || noop;
-                  global.population = global.population || noop;
-                  global.sendTickler = global.sendTickler || falsy;
-                  global.setLabLocation = global.setLabLocation || noop;
-                  global.ticklerReminder = global.ticklerReminder || noop;
-                })(window);
-                """;
-        scripts.put("LocationsLab_Nov2020.js", compatibilityScript);
-        scripts.put("LabDecisionSupport3_2024.js", compatibilityScript);
-        scripts.put("LabEngine_2023.js", compatibilityScript);
-        return scripts;
-    }
 }

@@ -333,7 +333,7 @@ public class FaxManagerImpl implements FaxManager {
         Path faxDocument;
         try {
             faxDocument = resolveAndValidateFilePath(faxFilePath);
-        } catch (SecurityException | IOException e) {
+        } catch (IllegalArgumentException | SecurityException | IOException e) {
             logger.error("Invalid or inaccessible fax file path: {}", LogSafe.sanitize(faxFilePath), e);
             faxJob.setStatus(STATUS.ERROR);
             faxJob.setStatusString("File missing on local storage or invalid file path.");
@@ -355,10 +355,19 @@ public class FaxManagerImpl implements FaxManager {
         try {
             Path validatedPath = resolveAndValidateFilePath(faxFilePath);
             if (PathValidationUtils.isInAllowedTempDirectory(validatedPath.toFile())) {
-                return nioFileManager.copyFileToOscarDocuments(validatedPath.toString());
+                String copiedPath = nioFileManager.copyFileToOscarDocuments(validatedPath.toString());
+                if (copiedPath == null || copiedPath.isBlank()) {
+                    logger.debug("Temp fax file promotion did not return a document-store path for: {}",
+                            LogSafe.sanitize(faxFilePath));
+                    return null;
+                }
+                return copiedPath;
             }
-        } catch (SecurityException | IOException e) {
+        } catch (IllegalArgumentException | SecurityException | IOException e) {
             logger.debug("Skipping temp fax file promotion for invalid or inaccessible file path: {}",
+                    LogSafe.sanitize(faxFilePath), e);
+        } catch (RuntimeException e) {
+            logger.debug("Skipping temp fax file promotion after copy failure for file path: {}",
                     LogSafe.sanitize(faxFilePath), e);
         }
         return faxFilePath;
@@ -571,8 +580,18 @@ public class FaxManagerImpl implements FaxManager {
 
         Path outfile = null;
 
-        if (filePath != null && Files.exists(filePath)) {
-            outfile = nioFileManager.createFaxPreviewCacheVersion(loggedInInfo, filePath.getParent().toString(), filePath.getFileName().toString(), pageNumber);
+        if (filePath != null) {
+            try {
+                Path validatedPath = resolveAndValidateFilePath(filePath.toString());
+                if (!PathValidationUtils.isInAllowedTempDirectory(validatedPath.toFile())) {
+                    throw new SecurityException("Fax preview image source must be an approved temporary file");
+                }
+                outfile = nioFileManager.createFaxPreviewCacheVersion(loggedInInfo, validatedPath.getParent().toString(),
+                        validatedPath.getFileName().toString(), pageNumber);
+            } catch (IllegalArgumentException | IOException e) {
+                logger.error("File not found or error processing fax preview image path: {}",
+                        LogSafe.sanitize(filePath.toString()), e);
+            }
         }
         return outfile;
     }

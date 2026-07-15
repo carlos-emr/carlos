@@ -638,6 +638,9 @@ public class EFormBrowserPdfRenderer {
     }
 
     private static void deleteQuietly(Path outputPath) {
+        if (outputPath == null) {
+            return;
+        }
         try {
             Files.deleteIfExists(outputPath);
         } catch (IOException e) {

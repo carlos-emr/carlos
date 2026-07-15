@@ -167,6 +167,37 @@ class EFormViewForPdfGenerationServletUnitTest {
     }
 
     @Test
+    @DisplayName("should use the last stored letter value when duplicate rows exist")
+    void shouldUseLastStoredLetterValue_whenDuplicateRowsExist() {
+        EForm eForm = mock(EForm.class);
+        AtomicReference<String> htmlRef = new AtomicReference<>("");
+        when(eForm.getDemographicNo()).thenReturn("1");
+        when(eForm.getFormHtml()).thenAnswer(invocation -> htmlRef.get());
+        doAnswer(invocation -> {
+            htmlRef.set(invocation.getArgument(0));
+            return null;
+        }).when(eForm).setFormHtml(anyString());
+
+        EFormValue firstLetter = new EFormValue();
+        firstLetter.setVarName("Letter");
+        firstLetter.setVarValue("<div>first</div>");
+        EFormValue secondLetter = new EFormValue();
+        secondLetter.setVarName("Letter");
+        secondLetter.setVarValue("<div>second</div>");
+
+        String html = EFormViewForPdfGenerationServlet.buildPdfHtml(
+                eForm,
+                List.of(firstLetter, secondLetter),
+                "/carlos",
+                "carlos",
+                false);
+
+        assertThat(html)
+                .contains("<div>second</div>")
+                .doesNotContain("<div>first</div>");
+    }
+
+    @Test
     @DisplayName("should apply stored signature when signature value appears before letter content")
     void shouldApplySignature_whenSignatureValuePrecedesLetter() {
         EForm eForm = mock(EForm.class);

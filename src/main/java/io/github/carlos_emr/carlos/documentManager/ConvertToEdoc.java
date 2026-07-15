@@ -800,13 +800,12 @@ public final class ConvertToEdoc {
             return potentialFilePaths;
         }
 
+        String basePath = path.split("\\?", 2)[0];
+        collectRealPathCandidates(basePath, potentialFilePaths);
+        collectOscarImagePathCandidate(basePath, potentialFilePaths);
+
         if (path.contains("?")) {
-            String basePath = path.split("\\?", 2)[0];
-            collectRealPathCandidates(basePath, potentialFilePaths);
             collectImageDirectoryCandidates(path, potentialFilePaths);
-        } else {
-            collectRealPathCandidates(path, potentialFilePaths);
-            collectOscarImagePathCandidate(path, potentialFilePaths);
         }
 
         return potentialFilePaths;

@@ -315,7 +315,14 @@ public class Fax2Action extends ActionSupport {
         if (requestedFaxFilePath != null && !requestedFaxFilePath.isEmpty()) {
             if (showAs != null && showAs.equals("image")) {
                 // The faxManager.getFaxPreviewImage method already handles path validation
-                outfile = faxManager.getFaxPreviewImage(loggedInInfo, requestedFaxFilePath, page);
+                try {
+                    outfile = faxManager.getFaxPreviewImage(loggedInInfo, requestedFaxFilePath, page);
+                } catch (SecurityException e) {
+                    logger.error("Security validation failed for fax preview image path: {}",
+                            LogSafe.sanitize(requestedFaxFilePath, 1024), e);
+                    sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
+                    return;
+                }
                 if (outfile != null && outfile.getFileName() != null) {
                     response.setContentType("image/png");
                     String sanitizedFilename = FilenameUtils.getName(outfile.getFileName().toString());

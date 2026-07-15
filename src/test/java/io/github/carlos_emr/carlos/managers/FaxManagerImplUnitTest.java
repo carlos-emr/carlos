@@ -2,7 +2,6 @@ package io.github.carlos_emr.carlos.managers;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.lang.reflect.Field;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -81,11 +80,8 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should copy allowed temp renderer PDFs into Oscar documents before queuing")
     void shouldCopyAllowedTempRendererPdfIntoOscarDocuments_beforeQueuingFaxJob() throws Exception {
-        Path tempRoot = Files.createTempDirectory("fax-renderer-temp-root-");
-        String originalTmpDir = System.getProperty("java.io.tmpdir");
+        Path tempRoot = Files.createTempDirectory(Path.of(System.getProperty("java.io.tmpdir")), "fax-renderer-temp-root-");
         try {
-            System.setProperty("java.io.tmpdir", tempRoot.toString());
-            resetAllowedTempDirectoriesCache();
             Path tempPdf = Files.createTempFile(tempRoot, "eform-browser-render-", ".pdf");
             Path copiedPdf = Path.of("/var/lib/OscarDocument/oscar/document", tempPdf.getFileName().toString());
             doReturn(tempPdf).when(manager).resolveAndValidateFilePath(tempPdf.toString());
@@ -104,8 +100,34 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
             assertThat(faxJob.getStatus()).isEqualTo(FaxJob.STATUS.WAITING);
             assertThat(faxJob.getFile_name()).isEqualTo(tempPdf.getFileName().toString());
         } finally {
-            System.setProperty("java.io.tmpdir", originalTmpDir);
-            resetAllowedTempDirectoriesCache();
+            try (Stream<Path> paths = Files.walk(tempRoot)) {
+                paths.sorted(Comparator.reverseOrder())
+                        .forEach(path -> path.toFile().delete());
+            }
+            Files.deleteIfExists(tempRoot);
+        }
+    }
+
+    @Test
+    @DisplayName("should mark fax job error when temp promotion returns no destination")
+    void shouldMarkFaxJobError_whenTempPromotionReturnsNoDestination() throws Exception {
+        Path tempRoot = Files.createTempDirectory(Path.of(System.getProperty("java.io.tmpdir")), "fax-renderer-temp-root-");
+        try {
+            Path tempPdf = Files.createTempFile(tempRoot, "eform-browser-render-", ".pdf");
+            doReturn(tempPdf).when(manager).resolveAndValidateFilePath(tempPdf.toString());
+            when(nioFileManager.copyFileToOscarDocuments(tempPdf.toString())).thenReturn(null);
+
+            FaxJob faxJob = manager.createFaxJob(loggedInInfo, Map.of(
+                    "faxFilePath", tempPdf.toString(),
+                    "recipient", "Test Recipient",
+                    "recipientFaxNumber", "123-456-7890",
+                    "senderFaxNumber", "1234567890",
+                    "demographicNo", 17));
+
+            verify(nioFileManager).copyFileToOscarDocuments(tempPdf.toString());
+            assertThat(faxJob.getStatus()).isEqualTo(FaxJob.STATUS.ERROR);
+            assertThat(faxJob.getStatusString()).isEqualTo("File missing on local storage or invalid file path.");
+        } finally {
             try (Stream<Path> paths = Files.walk(tempRoot)) {
                 paths.sorted(Comparator.reverseOrder())
                         .forEach(path -> path.toFile().delete());
@@ -134,10 +156,14 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
         }
     }
 
-    private static void resetAllowedTempDirectoriesCache() throws Exception {
-        Field allowedTempDirectories = io.github.carlos_emr.carlos.utility.PathValidationUtils.class
-                .getDeclaredField("allowedTempDirectories");
-        allowedTempDirectories.setAccessible(true);
-        allowedTempDirectories.set(null, null);
+    @Test
+    @DisplayName("should return null when preview image path is blank")
+    void shouldReturnNull_whenPreviewImagePathIsBlank() {
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_fax"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
+
+        Path result = manager.getFaxPreviewImage(loggedInInfo, Path.of(" "), 1);
+
+        assertThat(result).isNull();
     }
+
 }

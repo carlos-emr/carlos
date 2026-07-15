@@ -36,10 +36,13 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
 import jakarta.servlet.ServletContext;
 
@@ -81,11 +84,13 @@ public class NioFileManagerImpl implements NioFileManager {
     private static final String DEFAULT_FILE_SUFFIX = "pdf";
     private static final String DEFAULT_GENERIC_TEMP = "tempDirectory";
     private static final String BASE_DOCUMENT_DIR = CarlosProperties.getInstance().getProperty("BASE_DOCUMENT_DIR");
+    private static final char[] HEX = "0123456789abcdef".toCharArray();
+    private static final int CACHE_SOURCE_DISCRIMINATOR_LENGTH = 16;
 
     public Path hasCacheVersion2(LoggedInInfo loggedInInfo, String filename, Integer pageNum) {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, "")) {
-            throw new RuntimeException("Read Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
+            throw new SecurityException("missing required sec object (_edoc)");
         }
 
         return hasCacheVersion(filename, pageNum);
@@ -153,7 +158,7 @@ public class NioFileManagerImpl implements NioFileManager {
     public Path getDocumentCacheDirectory(LoggedInInfo loggedInInfo) {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, "")) {
-            throw new RuntimeException("Read Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
+            throw new SecurityException("missing required sec object (_edoc)");
         }
 
         return getDocumentCacheDirectoryWithoutAuthorization();
@@ -185,13 +190,13 @@ public class NioFileManagerImpl implements NioFileManager {
     public Path createCacheVersion2(LoggedInInfo loggedInInfo, String sourceDirectory, String filename, Integer pageNum) {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.WRITE, "")) {
-            throw new RuntimeException("Read Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
+            throw new SecurityException("missing required sec object (_edoc)");
         }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, "")) {
-            throw new RuntimeException("Read Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
+            throw new SecurityException("missing required sec object (_edoc)");
         }
 
-        return createCacheVersion(sourceDirectory, filename, pageNum);
+        return createCacheVersion(sourceDirectory, filename, pageNum, false, false);
     }
 
     /**
@@ -200,17 +205,18 @@ public class NioFileManagerImpl implements NioFileManager {
     @Override
     public Path createFaxPreviewCacheVersion(LoggedInInfo loggedInInfo, String sourceDirectory, String filename, Integer pageNum) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_fax)");
+            throw new SecurityException("missing required sec object (_fax)");
         }
 
-        return createCacheVersion(sourceDirectory, filename, pageNum);
+        return createCacheVersion(sourceDirectory, filename, pageNum, true, true);
     }
 
-    private Path createCacheVersion(String sourceDirectory, String filename, Integer pageNum) {
+    private Path createCacheVersion(String sourceDirectory, String filename, Integer pageNum,
+            boolean requireAllowedTempSource, boolean includeSourceDiscriminator) {
         // Sanitize the filename to prevent path traversal
         String sanitizedFilename = sanitizeFileName(filename);
 
-        Path cacheFilePath = hasCacheVersion(sanitizedFilename, pageNum);
+        Path cacheFilePath = includeSourceDiscriminator ? null : hasCacheVersion(sanitizedFilename, pageNum);
 
         /*
          * create a new cache file if an existing cache file is not returned.
@@ -248,7 +254,15 @@ public class NioFileManagerImpl implements NioFileManager {
                     }
                     return null;
                 }
+
+                if (requireAllowedTempSource && !sourceDirectoryInAllowedTemp) {
+                    log.warn("Rejected fax preview source directory outside approved temp directories");
+                    throw new SecurityException("Fax preview source must be in an approved temporary directory");
+                }
             } catch (Exception e) {
+                if (e instanceof SecurityException securityException) {
+                    throw securityException;
+                }
                 if (log.isErrorEnabled()) {
                     log.error("Invalid source directory path: {}", LogSafe.sanitize(sourceDirectory, 1024), e);
                 }
@@ -264,6 +278,10 @@ public class NioFileManagerImpl implements NioFileManager {
                     log.error("Source file is outside allowed temp path");
                     return null;
                 }
+                if (requireAllowedTempSource && !PathValidationUtils.isInAllowedTempDirectory(sourceFile.toFile())) {
+                    log.warn("Rejected fax preview source file outside approved temp directories");
+                    throw new SecurityException("Fax preview source must be in an approved temporary directory");
+                }
             } catch (SecurityException e) {
                 log.error("Path traversal attempt in source file");
                 return null;
@@ -271,15 +289,21 @@ public class NioFileManagerImpl implements NioFileManager {
             
             Path documentCacheDir = getDocumentCacheDirectoryWithoutAuthorization();
             Path normalizedCacheDir = documentCacheDir.normalize().toAbsolutePath();
-            cacheFilePath = normalizedCacheDir.resolve(sanitizedFilename + "_" + pageNum + ".png");
+            String cacheFileName = buildCacheFileName(sanitizedFilename, pageNum,
+                    includeSourceDiscriminator ? sourceFile : null);
+            cacheFilePath = normalizedCacheDir.resolve(cacheFileName);
             cacheFilePath = cacheFilePath.normalize().toAbsolutePath();
             
             // Verify the cache file path is within the cache directory
             try {
-                cacheFilePath = PathValidationUtils.validateExistingPath(cacheFilePath.toFile(), normalizedCacheDir.toFile()).toPath();
+                cacheFilePath = PathValidationUtils.validateChildPath(cacheFilePath.toFile(), normalizedCacheDir.toFile()).toPath();
             } catch (SecurityException e) {
                 log.error("Path traversal attempt in cache file creation: " + filename);
                 return null;
+            }
+
+            if (Files.exists(cacheFilePath)) {
+                return cacheFilePath;
             }
 
             try (PDDocument document = Loader.loadPDF(sourceFile.toFile())) {
@@ -312,6 +336,41 @@ public class NioFileManagerImpl implements NioFileManager {
 
         return cacheFilePath;
 
+    }
+
+    private String buildCacheFileName(String sanitizedFilename, Integer pageNum, Path sourceFile) {
+        if (sourceFile == null) {
+            return sanitizedFilename + "_" + pageNum + ".png";
+        }
+        return sanitizedFilename + "_" + sourcePathDiscriminator(sourceFile) + "_" + pageNum + ".png";
+    }
+
+    private String sourcePathDiscriminator(Path sourceFile) {
+        try {
+            Path realPath = sourceFile.toRealPath();
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(realPath.toString().getBytes(StandardCharsets.UTF_8));
+            return toHex(digest, CACHE_SOURCE_DISCRIMINATOR_LENGTH);
+        } catch (IOException e) {
+            throw new SecurityException("Unable to resolve fax preview source path", e);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is not available", e);
+        }
+    }
+
+    private static String toHex(byte[] bytes, int maxLength) {
+        StringBuilder builder = new StringBuilder(Math.min(bytes.length * 2, maxLength));
+        for (byte value : bytes) {
+            if (builder.length() >= maxLength) {
+                break;
+            }
+            int unsignedValue = value & 0xFF;
+            builder.append(HEX[unsignedValue >>> 4]);
+            if (builder.length() < maxLength) {
+                builder.append(HEX[unsignedValue & 0x0F]);
+            }
+        }
+        return builder.toString();
     }
 
     /**

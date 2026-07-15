@@ -238,7 +238,8 @@ async function main() {
   let captureFiles = [];
   try {
     await page.emulateMedia({ media: 'screen' });
-    await page.goto(appUrl(baseUrl, rawAppPath), { waitUntil: 'domcontentloaded', timeout: 30000 }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- validateBaseUrl restricts hosts to local/private by default and appUrl rejects non-root-relative or protocol-relative paths
+    const response = await page.goto(appUrl(baseUrl, rawAppPath), { waitUntil: 'domcontentloaded', timeout: 30000 }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- validateBaseUrl restricts hosts to local/private by default and appUrl rejects non-root-relative or protocol-relative paths
+    assert(response && response.ok(), `Renderer route returned HTTP ${response ? response.status() : 'no response'}`);
     await waitForStableRender(page);
     await preparePageForCapture(page);
     captureFiles = await capturePages(page, outputDir);
@@ -253,6 +254,9 @@ async function main() {
   if (consoleIssues.length || pageErrors.length) {
     const details = { consoleIssues, pageErrors };
     console.error(JSON.stringify(details));
+  }
+  if (pageErrors.length) {
+    throw new Error('Unhandled page error while rendering eForm PDF');
   }
 }
 

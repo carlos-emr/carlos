@@ -226,6 +226,11 @@ async function compareImageSeries(comparePage, baselinePaths, candidatePaths, la
 function assertComparisonWithinThreshold(comparisons, label, maxMismatchRatio, maxMeanChannelDelta) {
   for (const comparison of comparisons) {
     assert(
+      comparison.baselineSize.width === comparison.candidateSize.width
+        && comparison.baselineSize.height === comparison.candidateSize.height,
+      `${label} page ${comparison.page} size ${comparison.candidateSize.width}x${comparison.candidateSize.height} did not match baseline ${comparison.baselineSize.width}x${comparison.baselineSize.height}`,
+    );
+    assert(
       comparison.mismatchRatio <= maxMismatchRatio,
       `${label} page ${comparison.page} mismatch ratio ${comparison.mismatchRatio.toFixed(4)} exceeded ${maxMismatchRatio}`,
     );
@@ -740,11 +745,14 @@ function getLaunchOptions() {
     const labels = new Set(['manager-preview', 'add-surface', 'saved-direct', 'patient-list-popup', 'consultation', 'fax-preview']);
     const fatalBadResponses = recorder.badResponses.filter((entry) => labels.has(entry.label) && !isIgnorableLegacyFaxIssue(entry.url));
     const fatalConsoleIssues = recorder.consoleIssues.filter((entry) => labels.has(entry.label) && !isIgnorableLegacyFaxIssue(entry.text) && !isIgnorableLegacyFaxIssue((entry.location && entry.location.url) || ''));
+    const fatalPageErrors = recorder.pageErrors.filter((entry) => labels.has(entry.label) && !isIgnorableLegacyFaxIssue(entry.text));
     result.ignoredHttp404s = recorder.badResponses.filter((entry) => labels.has(entry.label) && isIgnorableLegacyFaxIssue(entry.url));
     result.ignoredConsoleIssues = recorder.consoleIssues.filter((entry) => labels.has(entry.label) && (isIgnorableLegacyFaxIssue(entry.text) || isIgnorableLegacyFaxIssue((entry.location && entry.location.url) || '')));
+    result.ignoredPageErrors = recorder.pageErrors.filter((entry) => labels.has(entry.label) && isIgnorableLegacyFaxIssue(entry.text));
 
     assert(fatalBadResponses.length === 0, `Unexpected HTTP errors: ${JSON.stringify(fatalBadResponses, null, 2)}`);
     assert(fatalConsoleIssues.length === 0, `Unexpected console errors: ${JSON.stringify(fatalConsoleIssues, null, 2)}`);
+    assert(fatalPageErrors.length === 0, `Unexpected page errors: ${JSON.stringify(fatalPageErrors, null, 2)}`);
 
     console.log(JSON.stringify(result, null, 2));
   } finally {
