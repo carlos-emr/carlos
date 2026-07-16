@@ -153,6 +153,19 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should default cancel navigation to direct when transaction type is missing")
+    void shouldDefaultCancelNavigationToDirect_whenTransactionTypeIsMissing() {
+        grantEmailWritePrivilege();
+        request.setMethod("GET");
+        request.setParameter("method", "cancel");
+
+        String result = newAction().execute();
+
+        assertThat(result).isEqualTo("DIRECT");
+        verifyNoInteractions(emailManager, eformDataManager);
+    }
+
+    @Test
     @DisplayName("should encode fdid when cancel redirects to eForm")
     void shouldEncodeFdid_whenCancelRedirectsToEForm() {
         request.setParameter("transactionType", "EFORM");
@@ -258,6 +271,24 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         void shouldSendEFormEmail_whenPostHasNoMethodParameter() {
             grantEmailWritePrivilege();
             request.setMethod("POST");
+            EmailLog emailLog = new EmailLog();
+            emailLog.setStatus(EmailStatus.SUCCESS);
+            when(emailManager.sendEmail(any(LoggedInInfo.class), any(EmailData.class)))
+                .thenReturn(emailLog);
+
+            String result = newAction().execute();
+
+            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+            verify(emailManager).sendEmail(any(LoggedInInfo.class), any(EmailData.class));
+            assertThat(request.getAttribute("isEmailSuccessful")).isEqualTo(true);
+        }
+
+        @Test
+        @DisplayName("should send direct email when POST has method sendDirectEmail")
+        void shouldSendDirectEmail_whenPostHasSendDirectEmailMethod() {
+            grantEmailWritePrivilege();
+            request.setMethod("POST");
+            request.setParameter("method", "sendDirectEmail");
             EmailLog emailLog = new EmailLog();
             emailLog.setStatus(EmailStatus.SUCCESS);
             when(emailManager.sendEmail(any(LoggedInInfo.class), any(EmailData.class)))
