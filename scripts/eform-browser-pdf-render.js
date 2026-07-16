@@ -42,17 +42,21 @@ function sanitizeDiagnosticUrl(rawUrl) {
   return `${parsed.origin}${parsed.pathname}`;
 }
 
+function redactDiagnosticUrls(text) {
+  return String(text).replace(/https?:\/\/[^\s'"<>]+/gi, '[redacted-url]');
+}
+
 function sanitizeDiagnosticError(error) {
   if (!error) {
     return 'unknown';
   }
   if (typeof error === 'string') {
-    return error;
+    return redactDiagnosticUrls(error);
   }
   if (typeof error.message === 'string' && error.message.trim() !== '') {
-    return error.message;
+    return redactDiagnosticUrls(error.message);
   }
-  return String(error);
+  return redactDiagnosticUrls(String(error));
 }
 
 function summarizeCountMap(entries) {
