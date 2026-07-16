@@ -53,10 +53,32 @@ class EFormBrowserPdfRendererUnitTest {
                     .contains(".filter(isVisibleCaptureCandidate)")
                     .contains("pageBackgroundCaptures")
                     .contains("page.route('**/*'")
-                    .contains("blockedRequests.length")
+                    .contains("CARLOS_EFORM_RENDER_DIAGNOSTIC")
+                    .contains("blockedRequestCounts")
+                    .contains("mainDocumentStatus")
                     .contains("document.fonts.ready instanceof Promise")
                     .contains("url: baseUrl.href");
         }
+    }
+
+    @Test
+    @DisplayName("should extract only sanitized renderer diagnostics from child output")
+    void shouldExtractOnlySanitizedRendererDiagnostics_fromChildOutput() {
+        String processOutput = String.join("\n",
+                "random stderr",
+                "CARLOS_EFORM_RENDER_DIAGNOSTIC {\"event\":\"start\",\"baseUrlOrigin\":\"http://127.0.0.1:8080\"}",
+                "Error: raw playwright stack",
+                "CARLOS_EFORM_RENDER_DIAGNOSTIC {\"event\":\"failure\",\"reason\":\"browser_errors\",\"mainDocumentStatus\":500}");
+
+        assertThat(EFormBrowserPdfRenderer.extractRendererDiagnostics(processOutput))
+                .isEqualTo("{\"event\":\"start\",\"baseUrlOrigin\":\"http://127.0.0.1:8080\"} | {\"event\":\"failure\",\"reason\":\"browser_errors\",\"mainDocumentStatus\":500}");
+    }
+
+    @Test
+    @DisplayName("should report no renderer diagnostics when child output has none")
+    void shouldReportNoRendererDiagnostics_whenChildOutputHasNone() {
+        assertThat(EFormBrowserPdfRenderer.extractRendererDiagnostics("plain stderr only"))
+                .isEqualTo("<none>");
     }
 
     @Test
@@ -220,7 +242,6 @@ class EFormBrowserPdfRendererUnitTest {
         try {
             assertThat(EFormBrowserPdfRenderer.findNodeModulesDirectory(List.of(nodeModules)))
                     .isEqualTo(nodeModules);
-            assertThat(playwright).isDirectory();
         } finally {
             Files.deleteIfExists(playwright);
             Files.deleteIfExists(nodeModules);
@@ -237,7 +258,6 @@ class EFormBrowserPdfRendererUnitTest {
         try {
             assertThat(EFormBrowserPdfRenderer.findNodeModulesDirectory(List.of(root)))
                     .isEqualTo(nodeModules);
-            assertThat(playwright).isDirectory();
         } finally {
             Files.deleteIfExists(playwright);
             Files.deleteIfExists(nodeModules);

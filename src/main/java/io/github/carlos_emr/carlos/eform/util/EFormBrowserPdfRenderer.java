@@ -6,8 +6,10 @@
 package io.github.carlos_emr.carlos.eform.util;
 
 import java.awt.image.BufferedImage;
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -67,6 +69,7 @@ public class EFormBrowserPdfRenderer {
 
     private static final Logger logger = MiscUtils.getLogger();
     private static final Duration RENDER_TIMEOUT = Duration.ofSeconds(90);
+    private static final String RENDERER_DIAGNOSTIC_PREFIX = "CARLOS_EFORM_RENDER_DIAGNOSTIC ";
     private static final String SCRIPT_RELATIVE_PATH = "scripts/eform-browser-pdf-render.js";
     private static final String PLAYWRIGHT_MODULE_RELATIVE_PATH = "node_modules/playwright";
     private static final String PLAYWRIGHT_PACKAGE_NAME = "playwright";
@@ -151,23 +154,27 @@ public class EFormBrowserPdfRenderer {
             boolean finished = process.waitFor(RENDER_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
             if (!finished) {
                 terminateProcessTree(process);
-                awaitProcessOutput(outputFuture);
-                logger.error("Browser eForm renderer timed out: fdid={} providerId={} baseUrl={} appPath={}",
-                        fdid, providerId, baseUrl, appPath);
+                String processOutput = awaitProcessOutput(outputFuture);
+                logger.error("Browser eForm renderer timed out: fdid={} providerId={} baseUrl={} appPath={} diagnostics={}",
+                        fdid, providerId, baseUrl, appPath, extractRendererDiagnostics(processOutput));
                 throw new PDFGenerationException("Browser rendering timed out while generating the eForm PDF.");
             }
-            awaitProcessOutput(outputFuture);
+            String processOutput = awaitProcessOutput(outputFuture);
             if (process.exitValue() != 0) {
-                logger.error("Browser eForm renderer failed: fdid={} providerId={} baseUrl={} appPath={} exitStatus={}",
-                        fdid, providerId, baseUrl, appPath, process.exitValue());
+                logger.error("Browser eForm renderer failed: fdid={} providerId={} baseUrl={} appPath={} exitStatus={} diagnostics={}",
+                        fdid, providerId, baseUrl, appPath, process.exitValue(), extractRendererDiagnostics(processOutput));
                 throw new PDFGenerationException("Browser rendering failed while generating the eForm PDF. exitStatus=" + process.exitValue());
             }
             List<Path> captureFiles = listCaptureFiles(outputDirectory);
             if (captureFiles.isEmpty()) {
+                logger.error("Browser eForm renderer completed without captures: fdid={} providerId={} baseUrl={} appPath={} diagnostics={}",
+                        fdid, providerId, baseUrl, appPath, extractRendererDiagnostics(processOutput));
                 throw new PDFGenerationException("Browser rendering completed without producing any page captures.");
             }
             convertCapturesToPdf(captureFiles, outputPdfPath);
             if (!Files.isReadable(outputPdfPath) || Files.size(outputPdfPath) == 0) {
+                logger.error("Browser eForm renderer produced an unreadable PDF: fdid={} providerId={} baseUrl={} appPath={} diagnostics={}",
+                        fdid, providerId, baseUrl, appPath, extractRendererDiagnostics(processOutput));
                 throw new PDFGenerationException("Browser rendering completed without producing a readable eForm PDF.");
             }
             success = true;
@@ -222,11 +229,22 @@ public class EFormBrowserPdfRenderer {
     }
 
     private static String readProcessOutput(Process process) {
-        try {
-            return new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        StringBuilder diagnostics = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (!line.startsWith(RENDERER_DIAGNOSTIC_PREFIX)) {
+                    continue;
+                }
+                if (diagnostics.length() > 0) {
+                    diagnostics.append(System.lineSeparator());
+                }
+                diagnostics.append(line);
+            }
         } catch (IOException e) {
             return "";
         }
+        return diagnostics.toString();
     }
 
     private static String awaitProcessOutput(CompletableFuture<String> outputFuture) throws InterruptedException {
@@ -235,6 +253,25 @@ public class EFormBrowserPdfRenderer {
         } catch (ExecutionException | java.util.concurrent.TimeoutException e) {
             return "";
         }
+    }
+
+
+    static String extractRendererDiagnostics(String processOutput) {
+        if (processOutput == null || processOutput.isBlank()) {
+            return "<none>";
+        }
+
+        List<String> diagnostics = processOutput.lines()
+                .map(String::trim)
+                .filter(line -> line.startsWith(RENDERER_DIAGNOSTIC_PREFIX))
+                .map(line -> line.substring(RENDERER_DIAGNOSTIC_PREFIX.length()).trim())
+                .filter(line -> !line.isEmpty())
+                .toList();
+
+        if (diagnostics.isEmpty()) {
+            return "<none>";
+        }
+        return String.join(" | ", diagnostics);
     }
 
     static String buildDefaultBaseUrl(String projectHome) {
@@ -512,14 +549,19 @@ public class EFormBrowserPdfRenderer {
     }
 
     private Path extractBundledRendererRuntime(Path tempRoot) throws PDFGenerationException {
+        Path runtimeDir = null;
         try {
-            Path runtimeDir = createSecureTempDirectory(tempRoot, "eform-browser-pdf-runtime-");
+            runtimeDir = createSecureTempDirectory(tempRoot, "eform-browser-pdf-runtime-");
             for (String scriptName : BUNDLED_SCRIPT_NAMES) {
                 copyBundledScript(runtimeDir, scriptName);
             }
             return runtimeDir;
         } catch (IOException e) {
+            deleteRecursivelyQuietly(runtimeDir);
             throw new PDFGenerationException("Unable to stage the bundled Playwright renderer assets for eForm PDF generation.", e);
+        } catch (PDFGenerationException e) {
+            deleteRecursivelyQuietly(runtimeDir);
+            throw e;
         }
     }
 

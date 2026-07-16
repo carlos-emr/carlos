@@ -124,7 +124,7 @@ function isIgnorableLegacyFaxIssue(urlOrText) {
 }
 
 async function compareImageFiles(comparePage, baselinePath, candidatePath) {
-  return comparePage.evaluate(async ({ baselineSrc, candidateSrc }) => {
+  return comparePage.evaluate(async ({ baselineSrc, candidateSrc }) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- baselineSrc and candidateSrc are local test artifacts converted to data URLs by toDataUrl, not untrusted or network-derived input
     function loadImage(src) {
       return new Promise((resolve, reject) => {
         const image = new Image();
@@ -138,6 +138,10 @@ async function compareImageFiles(comparePage, baselinePath, candidatePath) {
       loadImage(baselineSrc),
       loadImage(candidateSrc),
     ]);
+
+    if (baselineImage.naturalWidth !== candidateImage.naturalWidth || baselineImage.naturalHeight !== candidateImage.naturalHeight) {
+      throw new Error(`Image dimensions differed: baseline ${baselineImage.naturalWidth}x${baselineImage.naturalHeight}, candidate ${candidateImage.naturalWidth}x${candidateImage.naturalHeight}`);
+    }
 
     const width = baselineImage.naturalWidth;
     const height = baselineImage.naturalHeight;
@@ -592,9 +596,13 @@ async function openFaxPreviewPage(context, fdid, recorder) {
 }
 
 function getLaunchOptions() {
+  const args = ['--disable-dev-shm-usage'];
+  if (process.env.EFORM_RENDER_ENABLE_CHROMIUM_SANDBOX !== 'true') {
+    args.unshift('--no-sandbox');
+  }
   const launchOptions = {
     headless: true,
-    args: ['--no-sandbox', '--disable-dev-shm-usage'],
+    args,
   };
   if (chromePath) {
     launchOptions.executablePath = chromePath;
@@ -705,11 +713,13 @@ function getLaunchOptions() {
     const labels = new Set(['manager-preview', 'add-surface', 'saved-direct', 'patient-list-popup', 'consultation', 'fax-preview']);
     const fatalBadResponses = recorder.badResponses.filter((entry) => labels.has(entry.label) && !isIgnorableLegacyFaxIssue(entry.url));
     const fatalConsoleIssues = recorder.consoleIssues.filter((entry) => labels.has(entry.label) && !isIgnorableLegacyFaxIssue(entry.text) && !isIgnorableLegacyFaxIssue((entry.location && entry.location.url) || ''));
+    const fatalPageErrors = recorder.pageErrors.filter((entry) => labels.has(entry.label) && !isIgnorableLegacyFaxIssue(entry.text));
     result.ignoredHttp404s = recorder.badResponses.filter((entry) => labels.has(entry.label) && isIgnorableLegacyFaxIssue(entry.url));
     result.ignoredConsoleIssues = recorder.consoleIssues.filter((entry) => labels.has(entry.label) && (isIgnorableLegacyFaxIssue(entry.text) || isIgnorableLegacyFaxIssue((entry.location && entry.location.url) || '')));
 
     assert(fatalBadResponses.length === 0, `Unexpected HTTP errors: ${JSON.stringify(fatalBadResponses, null, 2)}`);
     assert(fatalConsoleIssues.length === 0, `Unexpected console errors: ${JSON.stringify(fatalConsoleIssues, null, 2)}`);
+    assert(fatalPageErrors.length === 0, `Unexpected page errors: ${JSON.stringify(fatalPageErrors, null, 2)}`);
 
     console.log(JSON.stringify(result, null, 2));
   } finally {

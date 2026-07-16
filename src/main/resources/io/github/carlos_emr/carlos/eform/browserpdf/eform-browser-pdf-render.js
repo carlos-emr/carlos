@@ -16,6 +16,27 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { chromium } = require('playwright');
 const { appUrl, assert, getLaunchOptions, validateBaseUrl } = require('./eform-local-playwright-utils');
+const DIAGNOSTIC_PREFIX = 'CARLOS_EFORM_RENDER_DIAGNOSTIC ';
+
+function diagnosticLog(payload) {
+  console.error(`${DIAGNOSTIC_PREFIX}${JSON.stringify(payload)}`);
+}
+
+function sanitizeDiagnosticUrl(rawUrl) {
+  if (!rawUrl) {
+    return null;
+  }
+  try {
+    const parsed = new URL(rawUrl);
+    return `${parsed.origin}${parsed.pathname}`;
+  } catch (_error) {
+    return null;
+  }
+}
+
+function summarizeCountMap(entries) {
+  return Object.fromEntries(Object.entries(entries).sort(([left], [right]) => left.localeCompare(right)));
+}
 
 function parseArgs(argv) {
   const parsed = {};
@@ -242,6 +263,20 @@ async function main() {
 
   const browser = await chromium.launch(getLaunchOptions(rawChromePath));
   const context = await browser.newContext({ viewport: { width: 1800, height: 3200 } });
+  const diagnostics = {
+    stage: 'launch',
+    baseUrlOrigin: baseUrl.origin,
+    baseUrlPath: baseUrl.pathname,
+    appPath: sanitizeDiagnosticUrl(appUrl(baseUrl, rawAppPath)),
+    mainDocumentStatus: null,
+    finalPageUrl: null,
+    consoleErrorCount: 0,
+    pageErrorCount: 0,
+    blockedRequestCounts: {},
+    requestFailureCounts: {},
+    captureCount: 0,
+  };
+  diagnosticLog({ event: 'start', ...diagnostics });
   if (rawCookieHeader) {
     // Scope the session cookie to the validated renderer application URL instead of a page-wide
     // extra header, so it stays confined to the intended host and app context.
@@ -261,9 +296,14 @@ async function main() {
     }
   }
   const page = await context.newPage();
-  const consoleIssues = [];
-  const pageErrors = [];
-  const blockedRequests = [];
+  page.on('response', (response) => {
+    const request = response.request();
+    if (request.isNavigationRequest() && request.frame() === page.mainFrame()) {
+      diagnostics.mainDocumentStatus = response.status();
+      diagnostics.finalPageUrl = sanitizeDiagnosticUrl(response.url());
+      diagnostics.stage = 'navigated';
+    }
+  });
   await page.route('**/*', async (route) => {
     const request = route.request();
     const requestUrl = request.url();
@@ -272,20 +312,21 @@ async function main() {
       return;
     }
 
-    blockedRequests.push({
-      url: requestUrl,
-      method: request.method(),
-      resourceType: request.resourceType(),
-    });
+    const resourceType = request.resourceType();
+    diagnostics.blockedRequestCounts[resourceType] = (diagnostics.blockedRequestCounts[resourceType] || 0) + 1;
     await route.abort('blockedbyclient').catch(() => {});
+  });
+  page.on('requestfailed', (request) => {
+    const failureText = request.failure()?.errorText || 'unknown';
+    diagnostics.requestFailureCounts[failureText] = (diagnostics.requestFailureCounts[failureText] || 0) + 1;
   });
   page.on('console', (message) => {
     if (message.type() === 'error') {
-      consoleIssues.push(message.text());
+      diagnostics.consoleErrorCount += 1;
     }
   });
-  page.on('pageerror', (error) => {
-    pageErrors.push(error.stack ?? error.message);
+  page.on('pageerror', () => {
+    diagnostics.pageErrorCount += 1;
   });
 
   let captureFiles = [];
@@ -294,18 +335,29 @@ async function main() {
     await page.goto(appUrl(baseUrl, rawAppPath), { waitUntil: 'domcontentloaded', timeout: 30000 }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- validateBaseUrl restricts hosts to local/private by default and appUrl rejects non-root-relative or protocol-relative paths
     await waitForStableRender(page);
     await preparePageForCapture(page);
+    diagnostics.stage = 'capturing';
     captureFiles = await capturePages(page, outputDir);
+    diagnostics.captureCount = captureFiles.length;
+    diagnostics.stage = 'captured';
+    diagnosticLog({ event: 'captured', ...diagnostics });
   } finally {
     await browser.close();
   }
 
   if (captureFiles.length === 0) {
+    diagnosticLog({ event: 'failure', ...diagnostics, reason: 'no_captures' });
     throw new Error('Playwright completed without creating any page captures');
   }
 
-  if (consoleIssues.length || pageErrors.length || blockedRequests.length) {
-    const details = { consoleIssues, pageErrors, blockedRequests };
-    throw new Error(`Playwright render surfaced browser errors: ${JSON.stringify(details)}`);
+  if (diagnostics.consoleErrorCount || diagnostics.pageErrorCount || Object.keys(diagnostics.blockedRequestCounts).length) {
+    diagnosticLog({
+      event: 'failure',
+      ...diagnostics,
+      reason: 'browser_errors',
+      blockedRequestCounts: summarizeCountMap(diagnostics.blockedRequestCounts),
+      requestFailureCounts: summarizeCountMap(diagnostics.requestFailureCounts),
+    });
+    throw new Error('Playwright render surfaced browser errors');
   }
 }
 

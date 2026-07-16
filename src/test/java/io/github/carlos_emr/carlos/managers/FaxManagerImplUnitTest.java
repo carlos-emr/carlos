@@ -3,7 +3,9 @@ package io.github.carlos_emr.carlos.managers;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.lang.reflect.Field;
+import java.util.Comparator;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
@@ -84,8 +86,8 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
         Path tempRoot = Files.createTempDirectory("fax-renderer-temp-root-");
         String originalTmpDir = System.getProperty("java.io.tmpdir");
         System.setProperty("java.io.tmpdir", tempRoot.toString());
-        resetAllowedTempDirectoriesCache();
         try {
+            resetAllowedTempDirectoriesCache();
             Path tempPdf = Files.createTempFile(tempRoot, "eform-browser-render-", ".pdf");
             Path copiedPdf = Path.of("/var/lib/OscarDocument/oscar/document", tempPdf.getFileName().toString());
             when(nioFileManager.copyFileToOscarDocuments(tempPdf.toString())).thenReturn(copiedPdf.toString());
@@ -105,9 +107,10 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
         } finally {
             System.setProperty("java.io.tmpdir", originalTmpDir);
             resetAllowedTempDirectoriesCache();
-            Files.walk(tempRoot)
-                    .sorted(java.util.Comparator.reverseOrder())
-                    .forEach(path -> path.toFile().delete());
+            try (Stream<Path> paths = Files.walk(tempRoot)) {
+                paths.sorted(Comparator.reverseOrder())
+                        .forEach(path -> path.toFile().delete());
+            }
             Files.deleteIfExists(tempRoot);
         }
     }
@@ -119,8 +122,8 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
         Path tempRoot = Files.createTempDirectory("fax-renderer-temp-root-");
         String originalTmpDir = System.getProperty("java.io.tmpdir");
         System.setProperty("java.io.tmpdir", tempRoot.toString());
-        resetAllowedTempDirectoriesCache();
         try {
+            resetAllowedTempDirectoriesCache();
             Path tempPdf = Files.createTempFile(tempRoot, "eform-browser-render-", ".pdf");
 
             Path resolved = manager.resolveAndValidateFilePath(tempPdf.toString());
@@ -129,9 +132,10 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
         } finally {
             System.setProperty("java.io.tmpdir", originalTmpDir);
             resetAllowedTempDirectoriesCache();
-            Files.walk(tempRoot)
-                    .sorted(java.util.Comparator.reverseOrder())
-                    .forEach(path -> path.toFile().delete());
+            try (Stream<Path> paths = Files.walk(tempRoot)) {
+                paths.sorted(Comparator.reverseOrder())
+                        .forEach(path -> path.toFile().delete());
+            }
             Files.deleteIfExists(tempRoot);
         }
     }
@@ -142,8 +146,8 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
         Path outsideFile = Files.createTempFile("fax-invalid-root-", ".pdf");
         String originalTmpDir = System.getProperty("java.io.tmpdir");
         System.setProperty("java.io.tmpdir", "/tmp/another-temp-root-for-validation");
-        resetAllowedTempDirectoriesCache();
         try {
+            resetAllowedTempDirectoriesCache();
             String outsidePath = outsideFile.toString();
             assertThatThrownBy(() -> manager.resolveAndValidateFilePath(outsidePath))
                     .isInstanceOf(SecurityException.class);

@@ -283,6 +283,8 @@ public class FaxManagerImpl implements FaxManager {
      * copyToRecipients (as String[])
      * The FaxJob returned is NEW UN-PERSISTED FaxJob Object with a single recipient
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     @Override
     public FaxJob createFaxJob(LoggedInInfo loggedInInfo, Map<String, Object> faxJobMap) {
 
