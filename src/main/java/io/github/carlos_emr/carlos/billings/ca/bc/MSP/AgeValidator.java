@@ -29,6 +29,11 @@
 
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
+/**
+ * Validation utility that enforces age-based restrictions on specific BC MSP fee items,
+ * ensuring claims are only submitted for eligible demographic groups.
+ */
+
 
 public class AgeValidator
         extends ServiceCodeValidator {

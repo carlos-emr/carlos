@@ -37,6 +37,11 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.tickler.TicklerCreator;
 import io.github.carlos_emr.carlos.util.SqlUtils;
 
+/**
+ * Helper class that evaluates patient data against Chronic Disease Management (CDM) criteria,
+ * identifying potential billing opportunities for proactive care in BC.
+ */
+
 public class CDMReminderHlp {
     public CDMReminderHlp() {
     }

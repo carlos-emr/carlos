@@ -35,6 +35,11 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import java.util.List;
 
+/**
+ * Legacy form mapping object for creating BC billing claims, retained for backward compatibility
+ * with older interface components pending full migration to the 2Action pattern.
+ */
+
 public final class BillingCreateBillingForm {
     private static final Logger _log = MiscUtils.getLogger();
 

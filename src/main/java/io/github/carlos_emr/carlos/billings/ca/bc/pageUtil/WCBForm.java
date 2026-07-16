@@ -38,6 +38,11 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 import java.util.List;
 
+/**
+ * Specialized form mapping for WorkSafeBC claims, handling occupational injury details,
+ * employer information, and specific WCB form types (e.g., Form 8, Form 11).
+ */
+
 public final class WCBForm {
 
 

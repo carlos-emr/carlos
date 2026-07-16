@@ -50,6 +50,11 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBillingManager.BillingItem;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * View model that aggregates comprehensive billing data for display in the BC billing UI,
+ * combining patient demographics, claim history, and diagnostic information.
+ */
+
 public class BillingViewBean {
 
     private String apptProviderNo = null;

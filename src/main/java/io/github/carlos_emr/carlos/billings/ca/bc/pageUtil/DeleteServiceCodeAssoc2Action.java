@@ -37,11 +37,18 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Struts 2Action that processes requests to remove a service code from a practitioner's
+ * list of commonly used or associated codes in their personalized billing profile.
+ */
+
 public class DeleteServiceCodeAssoc2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();
     public String execute() {
+        /* Updates the practitioner's preferences by removing the specified service code from their personalized rapid-entry list */
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");

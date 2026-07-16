@@ -46,6 +46,11 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 
+/**
+ * Centralized catalog of BC MSP and Teleplan rejection/error codes, providing human-readable
+ * descriptions to assist clinic staff in correcting rejected claims.
+ */
+
 public class MspErrorCodes extends Properties {
 
     /**

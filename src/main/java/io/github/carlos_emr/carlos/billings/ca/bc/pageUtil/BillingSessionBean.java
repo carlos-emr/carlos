@@ -34,6 +34,11 @@ import java.util.ArrayList;
 
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBillingManager.BillingItem;
 
+/**
+ * Maintains the state of an active billing workflow across multiple HTTP requests,
+ * storing partially completed claim data until final submission or cancellation.
+ */
+
 public class BillingSessionBean implements java.io.Serializable {
     private String apptProviderNo = null;
     private String patientName = null;

@@ -18,6 +18,11 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import java.util.Properties;
 import java.util.Vector;
 
+/**
+ * Generates financial reports detailing Goods and Services Tax (GST) collected on taxable medical services,
+ * primarily used for clinic accounting and tax remittance in BC.
+ */
+
 public class GstReport {
 
     public Vector<Properties> getGST(LoggedInInfo loggedInInfo, String[] providerNos, String startDate, String endDate) {

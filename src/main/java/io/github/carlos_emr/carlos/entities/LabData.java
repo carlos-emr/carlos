@@ -29,6 +29,11 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * Encapsulates individual laboratory result data points, such as specific test values,
+ * units, and reference ranges for a given patient's lab order.
+ */
+
 public class LabData {
     private String a1c;
     private String ldl;

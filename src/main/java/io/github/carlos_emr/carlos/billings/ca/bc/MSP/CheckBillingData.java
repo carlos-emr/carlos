@@ -41,6 +41,11 @@ import java.sql.SQLException;
 import java.util.Iterator;
 import java.util.List;
 
+/**
+ * Pre-submission validation service that performs comprehensive checks on a batch of BC claims,
+ * flagging missing mandatory fields or logical inconsistencies before Teleplan transmission.
+ */
+
 public class CheckBillingData {
 
     // check batchHeader VS1

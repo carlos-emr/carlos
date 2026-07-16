@@ -45,12 +45,19 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Struts 2Action handling the addition of specific service or diagnostic codes to an active
+ * BC billing session, supporting dynamic UI updates.
+ */
+
 public final class BillingAddCode2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     private HttpServletRequest request = ServletActionContext.getRequest();
 
-    public String execute() {        if (request.getSession().getAttribute("user") == null) {
+    public String execute() {
+        /* Appends the selected fee item to the session, performing basic compatibility checks before updating the draft claim in the UI */
+        if (request.getSession().getAttribute("user") == null) {
             return "Logout";
         }
 

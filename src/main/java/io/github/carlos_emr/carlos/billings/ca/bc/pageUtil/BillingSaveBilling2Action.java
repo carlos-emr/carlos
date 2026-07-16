@@ -73,6 +73,11 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Struts 2Action that handles the final persistence of a validated BC billing claim,
+ * committing the record to the database and queueing it for Teleplan extraction.
+ */
+
 public class BillingSaveBilling2Action extends ActionSupport {
     private static final String BILLING_SESSION_EXPIRED_KEY = "billing.billingSave.sessionExpired";
     private static final String BILLING_SESSION_EXPIRED_FALLBACK = "Billing session expired.";
@@ -98,6 +103,8 @@ public class BillingSaveBilling2Action extends ActionSupport {
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public String execute() throws IOException, ServletException {
+        /* Commits the validated claim to the database inside a transaction to guarantee referential integrity before queuing for Teleplan extraction */
+
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
 

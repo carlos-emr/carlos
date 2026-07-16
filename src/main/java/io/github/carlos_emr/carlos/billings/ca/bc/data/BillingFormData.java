@@ -44,6 +44,11 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import java.util.*;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * BC-specific extension of billing form data, capturing specialized fields required by MSP
+ * such as referring practitioner numbers and specific service location codes.
+ */
+
 public class BillingFormData {
 
     private DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);

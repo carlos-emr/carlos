@@ -32,6 +32,11 @@ package io.github.carlos_emr.carlos.entities;
 import java.math.BigDecimal;
 import java.util.Date;
 
+/**
+ * Represents a financial transaction for services not covered by provincial health insurance,
+ * tracking payments, invoices, and adjustments for private billing.
+ */
+
 public class PrivateBillTransaction {
     private int id;
     private int billingmaster_no;

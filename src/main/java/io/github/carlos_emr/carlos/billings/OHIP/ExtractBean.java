@@ -54,6 +54,11 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Data transfer object responsible for shaping Ontario Health Insurance Plan (OHIP) billing data
+ * into the exact fixed-width formats required for provincial claim submissions.
+ */
+
 public class ExtractBean extends Object implements Serializable {
 
     private static final long serialVersionUID = 1L;
@@ -305,6 +310,8 @@ public class ExtractBean extends Object implements Serializable {
     }
 
     private String buildTrailer() {
+        /* Pads numeric values with leading zeros to strictly adhere to the OHIP fixed-width file specifications for claims submission */
+
         return ("\n" + HE + "E" + zero(flagOrder) + pCount + zero(thirdFlag)
                 + hcCount + zero(secondFlag) + rCount + space(63) + "\r");
     }

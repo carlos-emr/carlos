@@ -42,6 +42,11 @@ import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Holds transient data submitted from generic billing forms across various jurisdictions,
+ * serving as an intermediate representation before validation and persistence.
+ */
+
 public class BillingFormData {
 
     private DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);

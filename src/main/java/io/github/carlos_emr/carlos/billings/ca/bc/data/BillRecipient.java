@@ -36,6 +36,11 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
+/**
+ * Represents the designated payee or responsible party for a BC billing invoice, accommodating
+ * direct patient billing, third-party insurers, or provincial health authorities.
+ */
+
 public class BillRecipient {
 
     private Integer id;

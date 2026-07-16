@@ -29,6 +29,11 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * Defines the accepted methods of payment for private billing transactions (e.g., Cash, Credit, Cheque),
+ * supporting financial reconciliation and reporting.
+ */
+
 public class PaymentType {
     private String id;
     private String paymentType;

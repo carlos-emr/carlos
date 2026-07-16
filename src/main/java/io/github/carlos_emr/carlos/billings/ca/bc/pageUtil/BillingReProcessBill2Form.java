@@ -54,6 +54,11 @@ package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
  * Ontario, Canada
  */
 
+/**
+ * Form binding object used when a user initiates the reprocessing of a previously rejected
+ * or adjusted claim, capturing the necessary override codes or corrections.
+ */
+
 public final class BillingReProcessBill2Form {
     String billingmasterNo = null;
     String insurerCode = null;

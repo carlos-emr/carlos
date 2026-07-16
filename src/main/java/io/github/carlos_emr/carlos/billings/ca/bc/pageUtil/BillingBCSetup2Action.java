@@ -56,6 +56,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  *
  * @since 2026-04-27
  */
+
+/**
+ * Struts 2Action responsible for initializing the BC-specific billing environment,
+ * loading necessary practitioner settings, fee schedules, and default configurations.
+ */
 public final class BillingBCSetup2Action extends ActionSupport {
 
     private static final Logger _log = MiscUtils.getLogger();
@@ -67,6 +72,8 @@ public final class BillingBCSetup2Action extends ActionSupport {
 
     @Override
     public String execute() throws IOException, ServletException {
+        /* Initializes the BC billing interface by loading the provider's specific preferences, default diagnostic codes, and preferred fee schedules */
+
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
 

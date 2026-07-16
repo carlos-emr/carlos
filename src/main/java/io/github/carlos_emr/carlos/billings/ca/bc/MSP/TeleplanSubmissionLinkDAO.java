@@ -36,6 +36,11 @@ import io.github.carlos_emr.carlos.billing.CA.BC.dao.TeleplanSubmissionLinkDao;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanSubmissionLink;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+/**
+ * Data Access Object for tracking the association between individual billing claims and the
+ * specific batch files (submissions) sent to Teleplan, essential for tracking and auditing.
+ */
+
 public class TeleplanSubmissionLinkDAO {
 
     private TeleplanSubmissionLinkDao dao = SpringUtils.getBean(TeleplanSubmissionLinkDao.class);

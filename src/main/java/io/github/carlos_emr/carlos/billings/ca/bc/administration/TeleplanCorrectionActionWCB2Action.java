@@ -74,6 +74,11 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Struts 2Action responsible for handling corrections to WorkSafeBC (WCB) claims submitted via Teleplan,
+ * enabling staff to rectify errors flagged by the provincial adjudicator.
+ */
+
 public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -90,6 +95,8 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
     @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute()
             throws IOException, ServletException {
+        /* Orchestrates the correction workflow for WCB claims, ensuring that modified justification text complies with Teleplan's resubmission rules */
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.billing", "w", null)) {
             throw new SecurityException("missing required sec object (_admin.billing)");

@@ -29,6 +29,11 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * Represents various clinical risk factors, lifestyle choices, or environmental exposures
+ * that may impact a patient's overall health and treatment plans.
+ */
+
 public class ClinicalFactor {
     // Fields
     //

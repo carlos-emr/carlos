@@ -24,6 +24,11 @@
 
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
+/**
+ * Validates BC Medical Services Plan (MSP) service codes against current provincial fee schedules,
+ * preventing the submission of obsolete or incorrectly formatted fee items.
+ */
+
 public class ServiceCodeValidator {
     protected boolean valid = true;
     protected String serviceCode = "";

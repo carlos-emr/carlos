@@ -29,6 +29,11 @@
 
 package io.github.carlos_emr.carlos.entities;
 
+/**
+ * A generic representation of a clinical or administrative test procedure ordered for a patient.
+ * Acts as a base or generic structure for test tracking within the clinical module.
+ */
+
 public class Test {
     private String id;
     private String description;

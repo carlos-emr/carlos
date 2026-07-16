@@ -58,6 +58,11 @@ import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 
+/**
+ * Constructs the strict, fixed-width ASCII file formats required by Teleplan for bulk claim
+ * submissions, translating internal models into the provincial standard.
+ */
+
 
 public class ExtractBean extends Object implements Serializable {
     private static Logger logger = MiscUtils.getLogger();

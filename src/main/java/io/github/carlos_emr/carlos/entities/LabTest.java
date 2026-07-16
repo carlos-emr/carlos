@@ -30,6 +30,11 @@
 package io.github.carlos_emr.carlos.entities;
 
 //
+
+/**
+ * Represents a specific type of laboratory test available in the system, including its standard
+ * nomenclature, expected result types, and integration mapping codes (e.g., LOINC).
+ */
 public class LabTest
         extends Test {
     private String observationDateTime = "";

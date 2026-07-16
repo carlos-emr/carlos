@@ -37,6 +37,11 @@ import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Form bean supporting the streamlined 'Quick Billing' interface for British Columbia practitioners,
+ * optimizing data entry for high-volume, common fee codes.
+ */
+
 
 public class QuickBillingBCFormBean {
 

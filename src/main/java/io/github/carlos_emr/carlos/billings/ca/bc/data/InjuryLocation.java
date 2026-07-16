@@ -29,6 +29,11 @@
 
 package io.github.carlos_emr.carlos.billings.ca.bc.data;
 
+/**
+ * Defines standardized anatomical or geographical locations of injuries, necessary for
+ * accurate WCB and ICBC claims processing in British Columbia.
+ */
+
 public class InjuryLocation {
     private String sidetype;
     private String sidedesc;

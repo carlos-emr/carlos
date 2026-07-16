@@ -65,6 +65,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Struts 2Action that orchestrates the primary claim creation workflow in BC, coordinating
+ * form validation, business rule application, and delegation to persistence services.
+ */
+
 public class BillingCreateBilling2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -83,6 +88,8 @@ public class BillingCreateBilling2Action extends ActionSupport {
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
     @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute() throws IOException, ServletException {
+        /* Coordinates the complex claim creation flow by transforming the submitted form data into the entity model and applying BC-specific business rules */
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");

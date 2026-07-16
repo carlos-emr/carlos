@@ -35,6 +35,11 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import java.util.List;
 
+/**
+ * Main backing form for the BC claim creation interface, mapping HTTP parameters for
+ * services, diagnoses, referring providers, and service dates into a structured object.
+ */
+
 public final class BillingCreateBilling2Form {
     private static final Logger _log = MiscUtils.getLogger();
 

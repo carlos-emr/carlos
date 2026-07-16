@@ -60,6 +60,11 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/**
+ * Core service for matching returned MSP payment remittances against locally generated claims,
+ * automatically updating claim statuses based on full, partial, or denied payments.
+ */
+
 public class MSPReconcile {
     private static Logger log = MiscUtils.getLogger();
     private BillRecipientsDao billRecipientDao = SpringUtils.getBean(BillRecipientsDao.class);

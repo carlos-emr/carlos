@@ -44,6 +44,11 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Struts 2Action facilitating the interface for manually recording received payments against
+ * private invoices or resolving discrepancies in provincial remittances.
+ */
+
 public class ViewReceivePayment2Action
         extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -52,6 +57,8 @@ public class ViewReceivePayment2Action
     HttpServletResponse response = ServletActionContext.getResponse();
 
     public String execute() {
+        /* Orchestrates the manual allocation of received funds, ensuring the corresponding invoice balance is accurately decremented in the ledger */
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");
