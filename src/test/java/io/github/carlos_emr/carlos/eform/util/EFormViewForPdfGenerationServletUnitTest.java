@@ -271,6 +271,27 @@ class EFormViewForPdfGenerationServletUnitTest {
     }
 
     @Test
+    @DisplayName("should apply context path rewrites after stored letter HTML is loaded")
+    void shouldApplyContextPathRewrites_afterStoredLetterHtmlLoaded() {
+        EForm eForm = new EForm();
+        EFormValue letter = new EFormValue();
+        letter.setVarName("Letter");
+        letter.setVarValue("<script src=\"${oscar_javascript_path}signature.js\"></script><script src=\"jquery-1.12.0.min.js\"></script>");
+
+        String html = EFormViewForPdfGenerationServlet.buildPdfHtml(
+                eForm,
+                List.of(letter),
+                "/carlos",
+                false);
+
+        assertThat(html)
+                .contains("src=\"/carlos/library/signature.js\"")
+                .contains("src=\"/carlos/EFormImageViewForPdfGenerationServlet?imagefile=jquery-1.12.0.min.js\"")
+                .doesNotContain("${oscar_javascript_path}")
+                .doesNotContain("src=\"jquery-1.12.0.min.js\"");
+    }
+
+    @Test
     @DisplayName("should apply stored signature when signature value appears before letter content")
     void shouldApplySignature_whenSignatureValuePrecedesLetter() {
         EForm eForm = mock(EForm.class);

@@ -166,6 +166,7 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
 
     static String buildPdfHtml(EForm eForm, List<EFormValue> eFormValues, String contextPath, boolean prepareForFax) {
         applyLetterHtml(eForm, eFormValues, prepareForFax);
+        eForm.setContextPath(contextPath);
         applySignatureHtml(eForm, eFormValues, contextPath);
 
         String imageViewServletPath = contextPath + "/EFormImageViewForPdfGenerationServlet";
