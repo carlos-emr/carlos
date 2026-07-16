@@ -170,6 +170,9 @@ class MutatorActionGetRejectionContractTest {
                     "_admin.eform", "w"),
             Arguments.of("io.github.carlos_emr.carlos.eform.actions.AddEForm2Action",
                     "_eform", "w"),
+            // --- encounter / consultation ---
+            Arguments.of("io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequest2Action",
+                    "_con", "w"),
             // --- clinical measurements / flowsheets ---
             Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action",
                     "_measurement", "w"),
@@ -254,7 +257,9 @@ class MutatorActionGetRejectionContractTest {
         "io.github.carlos_emr.carlos.schedule.web.ScheduleTemplateCodeSetting2Action",
         // Waitinglist: reject GET on Save/Delete submit values.
         "io.github.carlos_emr.carlos.waitinglist.pageUtil.WLEditWaitingListName2Action",
-        "io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayWaitingList2Action"
+        "io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayWaitingList2Action",
+        // Prescription: read methods permit GET; saveDigitalSignature is a method-mapped POST-only mutator.
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxRePrescribe2Action"
     );
 
     /**
@@ -331,6 +336,7 @@ class MutatorActionGetRejectionContractTest {
         // email slice: only EmailSend2Action is registered (issue #3111); the broader email
         // production-readiness audit that surfaced it is tracked via PR #3096.
         "io.github.carlos_emr.carlos.email.action.EmailSend2Action",
+        "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequest2Action",
         "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action",
         "io.github.carlos_emr.carlos.form.pageUtil.FrmXmlUpload2Action",
         "io.github.carlos_emr.carlos.login.gate.SelectFacility2Action",
