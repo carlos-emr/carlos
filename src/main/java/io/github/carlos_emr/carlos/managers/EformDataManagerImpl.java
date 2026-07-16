@@ -195,7 +195,7 @@ public class EformDataManagerImpl implements EformDataManager {
             throw new SecurityException("missing required sec object (_eform)");
         }
 
-        Path path = null;
+        Path path;
         try {
             path = eFormBrowserPdfRenderer.renderSavedEformPdf(fdid, loggedInInfo.getLoggedInProviderNo());
         } catch (PDFGenerationException e) {
