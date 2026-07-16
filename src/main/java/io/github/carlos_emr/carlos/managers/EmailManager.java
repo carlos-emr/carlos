@@ -82,6 +82,7 @@ import io.github.carlos_emr.carlos.util.StringUtils;
 @Service
 public class EmailManager {
     private final Logger logger = MiscUtils.getLogger();
+    private static final String SENDER_CONFIG_MISCONFIGURATION_ERROR = "Email sender account is not configured or is inactive.";
 
     @Autowired
     private EmailConfigDaoImpl emailConfigDao;
@@ -128,7 +129,18 @@ public class EmailManager {
         }
 
         sanitizeEmailFields(emailData);
-        EmailLog emailLog = prepareEmailForOutbox(loggedInInfo, emailData);
+        EmailLog emailLog;
+        try {
+            emailLog = prepareEmailForOutbox(loggedInInfo, emailData);
+        } catch (InvalidSenderEmailConfigException e) {
+            logger.warn("Email send failed before transport: sender email configuration is missing or inactive for senderConfigId={}", emailData.getSenderConfigId());
+            try {
+                return prepareFailedEmailForOutbox(loggedInInfo, emailData, SENDER_CONFIG_MISCONFIGURATION_ERROR);
+            } catch (RuntimeException persistException) {
+                logger.error("Failed to persist email sender configuration failure; returning transient failed email result.");
+                return createFailedEmailLog(emailData, SENDER_CONFIG_MISCONFIGURATION_ERROR);
+            }
+        }
         try {
             if (emailData.getIsEncrypted()) {
                 encryptEmail(emailData);
@@ -170,13 +182,7 @@ public class EmailManager {
             throw new RuntimeException("missing required sec object (_email)");
         }
 
-        if (emailData.getSenderConfigId() == null) {
-            throw new IllegalArgumentException("Sender email configuration ID is required");
-        }
-        EmailConfig emailConfig = emailConfigDao.findActiveEmailConfigById(emailData.getSenderConfigId());
-        if (emailConfig == null) {
-            throw new IllegalArgumentException("No active email configuration found for ID " + emailData.getSenderConfigId());
-        }
+        EmailConfig emailConfig = getActiveSenderEmailConfig(emailData);
         Demographic demographic = demographicManager.getDemographic(loggedInInfo, emailData.getDemographicNo());
         Provider provider = providerManager.getProvider(loggedInInfo, emailData.getProviderNo());
 
@@ -199,6 +205,62 @@ public class EmailManager {
         LogAction.addLog(loggedInInfo, "EmailManager.prepareEmailForOutbox", "Email", "emailLogId=" + emailLog.getId(), String.valueOf(emailLog.getDemographic().getDemographicNo()), "");
 
         return emailLog;
+    }
+
+    private EmailConfig getActiveSenderEmailConfig(EmailData emailData) {
+        if (emailData.getSenderConfigId() == null) {
+            throw new InvalidSenderEmailConfigException();
+        }
+        EmailConfig emailConfig = emailConfigDao.findActiveEmailConfigById(emailData.getSenderConfigId());
+        if (emailConfig == null) {
+            throw new InvalidSenderEmailConfigException();
+        }
+        return emailConfig;
+    }
+
+    private EmailLog prepareFailedEmailForOutbox(LoggedInInfo loggedInInfo, EmailData emailData, String errorMessage) {
+        EmailLog emailLog = createFailedEmailLog(emailData, errorMessage);
+        Demographic demographic = demographicManager.getDemographic(loggedInInfo, emailData.getDemographicNo());
+        Provider provider = providerManager.getProvider(loggedInInfo, emailData.getProviderNo());
+        emailLog.setDemographic(demographic);
+        emailLog.setProvider(provider);
+        emailLogDao.persist(emailLog);
+
+        LogAction.addLog(loggedInInfo, "EmailManager.prepareFailedEmailForOutbox", "Email", "emailLogId=" + emailLog.getId(), getDemographicNoForLog(emailLog), "");
+
+        return emailLog;
+    }
+
+    private EmailLog createFailedEmailLog(EmailData emailData, String errorMessage) {
+        EmailLog emailLog = new EmailLog();
+        emailLog.setFromEmail("");
+        emailLog.setToEmail(emailData.getRecipients());
+        emailLog.setSubject(nullToEmpty(emailData.getSubject()));
+        emailLog.setBody(nullToEmpty(emailData.getBody()));
+        emailLog.setStatus(EmailStatus.FAILED);
+        emailLog.setErrorMessage(errorMessage);
+        emailLog.setEncryptedMessage(nullToEmpty(emailData.getEncryptedMessage()));
+        emailLog.setPassword(nullToEmpty(emailData.getPassword()));
+        emailLog.setPasswordClue(nullToEmpty(emailData.getPasswordClue()));
+        emailLog.setIsEncrypted(emailData.getIsEncrypted());
+        emailLog.setIsAttachmentEncrypted(emailData.getIsAttachmentEncrypted());
+        emailLog.setChartDisplayOption(emailData.getChartDisplayOption());
+        emailLog.setInternalComment(nullToEmpty(emailData.getInternalComment()));
+        emailLog.setTransactionType(emailData.getTransactionType());
+        emailLog.setAdditionalParams(nullToEmpty(emailData.getAdditionalParams()));
+        setEmailAttachments(emailLog, emailData.getAttachments());
+        return emailLog;
+    }
+
+    private String getDemographicNoForLog(EmailLog emailLog) {
+        return emailLog.getDemographic() != null ? String.valueOf(emailLog.getDemographic().getDemographicNo()) : "";
+    }
+
+    private String nullToEmpty(String value) {
+        return value != null ? value : "";
+    }
+
+    private static class InvalidSenderEmailConfigException extends IllegalArgumentException {
     }
 
     /**
@@ -560,13 +622,41 @@ public class EmailManager {
             EmailConfig emailConfig = result.getEmailConfig();
             Demographic demographic = result.getDemographic();
             Provider provider = result.getProvider();
-            EmailStatusResult emailStatusResult = new EmailStatusResult(result.getId(), result.getSubject(), emailConfig.getSenderFirstName(),
-                    emailConfig.getSenderLastName(), result.getFromEmail(), demographic.getFirstName(),
-                    demographic.getLastName(), String.join(", ", result.getToEmail()), provider.getFirstName(), provider.getLastName(),
+            EmailStatusResult emailStatusResult = new EmailStatusResult(result.getId(), result.getSubject(), getSenderFirstName(emailConfig),
+                    getSenderLastName(emailConfig), nullToEmpty(result.getFromEmail()), getDemographicFirstName(demographic),
+                    getDemographicLastName(demographic), String.join(", ", result.getToEmail()), getProviderFirstName(provider), getProviderLastName(provider),
                     result.getIsEncrypted(), result.getPassword(), result.getStatus(), result.getErrorMessage(), result.getTimestamp());
             emailStatusResults.add(emailStatusResult);
         }
         Collections.sort(emailStatusResults);
         return emailStatusResults;
+    }
+
+    private String getSenderFirstName(EmailConfig emailConfig) {
+        return getDisplayNamePart(emailConfig != null ? emailConfig.getSenderFirstName() : null, "Unknown");
+    }
+
+    private String getSenderLastName(EmailConfig emailConfig) {
+        return getDisplayNamePart(emailConfig != null ? emailConfig.getSenderLastName() : null, "Sender");
+    }
+
+    private String getDemographicFirstName(Demographic demographic) {
+        return getDisplayNamePart(demographic != null ? demographic.getFirstName() : null, "Unknown");
+    }
+
+    private String getDemographicLastName(Demographic demographic) {
+        return getDisplayNamePart(demographic != null ? demographic.getLastName() : null, "Patient");
+    }
+
+    private String getProviderFirstName(Provider provider) {
+        return getDisplayNamePart(provider != null ? provider.getFirstName() : null, "Unknown");
+    }
+
+    private String getProviderLastName(Provider provider) {
+        return getDisplayNamePart(provider != null ? provider.getLastName() : null, "Provider");
+    }
+
+    private String getDisplayNamePart(String value, String fallback) {
+        return StringUtils.isNullOrEmpty(value) ? fallback : value;
     }
 }

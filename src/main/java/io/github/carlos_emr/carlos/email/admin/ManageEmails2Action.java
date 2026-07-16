@@ -61,6 +61,7 @@ public class ManageEmails2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
     private static final Logger logger = MiscUtils.getLogger();
+    private static final String EMAIL_RESEND_MISSING_PATIENT_ERROR = "This email cannot be copied because it is not associated with a patient. Please generate a new email instead.";
 
     private final DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
     private final EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManager.class);
@@ -237,6 +238,11 @@ public class ManageEmails2Action extends ActionSupport {
          * The purpose of the EmailComposeManager is to help prepare all necessary data to display on the emailCompose.jsp page.
          */
         EmailLog emailLog = emailComposeManager.prepareEmailForResend(loggedInInfo, Integer.parseInt(emailLogId));
+        if (emailLog == null || emailLog.getDemographic() == null || emailLog.getDemographic().getDemographicNo() == null) {
+            return showEmailComposeError(EMAIL_RESEND_MISSING_PATIENT_ERROR);
+        }
+
+        int demographicNo = emailLog.getDemographic().getDemographicNo();
         List<EmailAttachment> emailAttachmentList = new ArrayList<>();
         try {
             emailAttachmentList = refreshEmailAttachments(request, response, emailLog);
@@ -245,7 +251,6 @@ public class ManageEmails2Action extends ActionSupport {
             request.setAttribute("isEmailError", true);
         }
 
-        int demographicNo = emailLog.getDemographic().getDemographicNo();
         String[] emailConsent = emailComposeManager.getEmailConsentStatus(loggedInInfo, demographicNo);
         String receiverName = demographicManager.getDemographicFormattedName(loggedInInfo, demographicNo);
         List<?>[] receiverEmailList = emailComposeManager.getRecipients(loggedInInfo, demographicNo);
@@ -272,6 +277,12 @@ public class ManageEmails2Action extends ActionSupport {
         request.setAttribute("emailAdditionalParams", emailLog.getAdditionalParams());
         request.getSession().setAttribute("emailAttachmentList", emailAttachmentList); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
 
+        return "compose";
+    }
+
+    private String showEmailComposeError(String errorMessage) {
+        request.setAttribute("emailErrorMessage", errorMessage);
+        request.setAttribute("isEmailError", true);
         return "compose";
     }
 
