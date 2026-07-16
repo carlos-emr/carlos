@@ -1,5 +1,6 @@
 package io.github.carlos_emr.carlos.documentManager;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
@@ -9,12 +10,16 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.when;
 
 @DisplayName("ConvertToEdoc unit tests")
 @Tag("unit")
@@ -127,4 +132,52 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
 
         assertThat(document.select("link[href], img[src], script[src]")).isEmpty();
     }
+    @Test
+    @DisplayName("should preserve oscar image path resources when backing files exist")
+    void shouldPreserveOscarImagePathResources_whenBackingFilesExist(@TempDir Path tempDir) throws Exception {
+        Path imageDirectory = tempDir.resolve("eform-images");
+        CarlosProperties properties = mock(CarlosProperties.class);
+        when(properties.getEformImageDirectory()).thenReturn(imageDirectory.toString());
+        Files.createDirectories(imageDirectory);
+        Path image = imageDirectory.resolve("convert-to-edoc-oscar-image-path-test.png");
+        Path script = imageDirectory.resolve("convert-to-edoc-oscar-image-path-test.js");
+        Files.writeString(image, "png-placeholder");
+        Files.writeString(script, "console.log('ok');");
+
+        try (MockedStatic<CarlosProperties> propertiesMock = mockStatic(CarlosProperties.class)) {
+            propertiesMock.when(CarlosProperties::getInstance).thenReturn(properties);
+            String html = "<html><head><script src=\"${oscar_image_path}convert-to-edoc-oscar-image-path-test.js\"></script></head>"
+                    + "<body><img src=\"${oscar_image_path}convert-to-edoc-oscar-image-path-test.png\"></body></html>";
+
+            Document document = ConvertToEdoc.getDocument(html, tempDir.toString());
+
+            assertThat(document.select("img[src], script[src]")).hasSize(2);
+            assertThat(document.outerHtml())
+                    .contains("${oscar_image_path}convert-to-edoc-oscar-image-path-test.png")
+                    .contains("${oscar_image_path}convert-to-edoc-oscar-image-path-test.js");
+        }
+    }
+
+    @Test
+    @DisplayName("should preserve cache-busted oscar image path resources when backing files exist")
+    void shouldPreserveCacheBustedOscarImagePathResources_whenBackingFilesExist(@TempDir Path tempDir) throws Exception {
+        Path imageDirectory = tempDir.resolve("eform-images");
+        CarlosProperties properties = mock(CarlosProperties.class);
+        when(properties.getEformImageDirectory()).thenReturn(imageDirectory.toString());
+        Files.createDirectories(imageDirectory);
+        Files.writeString(imageDirectory.resolve("convert-to-edoc-cache-busted.js"), "console.log('ok');");
+
+        try (MockedStatic<CarlosProperties> propertiesMock = mockStatic(CarlosProperties.class)) {
+            propertiesMock.when(CarlosProperties::getInstance).thenReturn(properties);
+            String html = "<html><head><script src=\"${oscar_image_path}convert-to-edoc-cache-busted.js?v=20260715\"></script></head>"
+                    + "<body>ok</body></html>";
+
+            Document document = ConvertToEdoc.getDocument(html, tempDir.toString());
+
+            assertThat(document.select("script[src]")).hasSize(1);
+            assertThat(document.outerHtml())
+                    .contains("${oscar_image_path}convert-to-edoc-cache-busted.js?v=20260715");
+        }
+    }
+
 }

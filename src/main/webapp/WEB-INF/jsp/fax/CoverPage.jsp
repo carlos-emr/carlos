@@ -427,10 +427,14 @@
                     </div>
                     <div class="card-body">
                         <div class="container">
-                            <object id="previewPDF"
-                                    data="${ctx}/fax/faxAction?method=getPreview&faxFilePath=<carlos:encode value='${faxFilePath}' context="uriComponent"/>"
-                                    type="application/pdf" width="100%" height="800">
-                            </object>
+                            <p class="text-muted">
+                                Preview shows the generated fax PDF as server-rendered images.
+                                <a id="previewPdfLink"
+                                   href="${ctx}/fax/faxAction?method=getPreview&faxFilePath=<carlos:encode value='${faxFilePath}' context="uriComponent"/>"
+                                   target="_blank" rel="noopener noreferrer">Open PDF</a>
+                            </p>
+                            <div id="previewStatus" class="text-muted">Loading preview…</div>
+                            <div id="previewImages" class="d-flex flex-column gap-3"></div>
                         </div>
                     </div>
                 </div>
@@ -474,7 +478,59 @@
         return text.toString().replace(/[&<>"']/g, function(m) { return map[m]; });
     }
 
+    function getPreviewPageCount(callback) {
+        var faxFilePath = $("input[name='faxFilePath']").val();
+        if (!faxFilePath) {
+            callback(0);
+            return;
+        }
+
+        $.post(ctx + "/fax/faxAction", {
+            method: "getPageCount",
+            faxFilePath: faxFilePath
+        }).done(function (resultdata) {
+            callback(resultdata.pageCount || 0);
+        }).fail(function () {
+            callback(0);
+        });
+    }
+
+    function renderPreviewImages(pageCount) {
+        var faxFilePath = $("input[name='faxFilePath']").val();
+        var previewStatus = $("#previewStatus");
+        var previewImages = $("#previewImages");
+
+        previewImages.empty();
+
+        if (!faxFilePath || pageCount < 1) {
+            previewStatus.text("Preview unavailable. Use Open PDF to review the generated fax document.");
+            return;
+        }
+
+        previewStatus.text("Showing " + pageCount + " page" + (pageCount === 1 ? "" : "s") + ".");
+
+        for (var i = 1; i <= pageCount; i++) {
+            var image = $("<img />")
+                .attr("src", ctx + "/fax/faxAction?method=getPreview&showAs=image&faxFilePath=" + encodeURIComponent(faxFilePath) + "&pageNumber=" + i)
+                .attr("alt", "Fax preview page " + i)
+                .attr("loading", "lazy")
+                .addClass("img-fluid border rounded bg-white")
+                .css("background-image", "url('" + ctx + "/images/loader.gif')")
+                .css("background-position", "50% 50%")
+                .css("background-repeat", "no-repeat");
+
+            $("<div />")
+                .addClass("mb-3")
+                .append($("<div />").addClass("small text-muted mb-1").text("Page " + i))
+                .append(image)
+                .appendTo(previewImages);
+        }
+    }
+
     $(document).ready(function () {
+        if ($("#previewImages").length) {
+            getPreviewPageCount(renderPreviewImages);
+        }
 
         /*
         * Auto complete methods.

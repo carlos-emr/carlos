@@ -164,6 +164,11 @@
         <action name="library/eforms/signatureControl" class="io.github.carlos_emr.carlos.library.eforms.gate.ViewSignatureControl2Action">
             <result name="success">/WEB-INF/jsp/library/eforms/signatureControl.jsp</result>
         </action>
+        <!-- Compatibility alias: legacy eForms embed the literal signatureControl.jsp URL, so the
+             historical .jsp path must keep routing to the same gate action as the extensionless route. -->
+        <action name="library/eforms/signatureControl.jsp" class="io.github.carlos_emr.carlos.library.eforms.gate.ViewSignatureControl2Action">
+            <result name="success">/WEB-INF/jsp/library/eforms/signatureControl.jsp</result>
+        </action>
         <action name="signature_pad/SaveSignatureUpload" class="io.github.carlos_emr.carlos.signature.action.SaveSignatureUpload2Action">
             <result name="methodNotAllowed" type="httpheader">
                 <param name="status">405</param>

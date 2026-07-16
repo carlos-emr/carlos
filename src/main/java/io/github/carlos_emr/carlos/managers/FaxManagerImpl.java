@@ -296,10 +296,7 @@ public class FaxManagerImpl implements FaxManager {
         String senderFaxNumber = (String) faxJobMap.get("senderFaxNumber");
         Integer demographicNo = (Integer) faxJobMap.get("demographicNo");
 
-        // If file is in a temporary directory, copy to the permanent document storage (DOCUMENT_DIR).
-        if (faxFilePath.contains("/temp/")) {
-            faxFilePath = nioFileManager.copyFileToOscarDocuments(faxFilePath);
-        }
+        faxFilePath = promoteAllowedTempFaxFile(faxFilePath);
         recipientFaxNumber = recipientFaxNumber.replaceAll("\\D", "");
 
         FaxJob faxJob = new FaxJob();
@@ -336,7 +333,7 @@ public class FaxManagerImpl implements FaxManager {
         Path faxDocument;
         try {
             faxDocument = resolveAndValidateFilePath(faxFilePath);
-        } catch (SecurityException | IOException e) {
+        } catch (IllegalArgumentException | SecurityException | IOException e) {
             logger.error("Invalid or inaccessible fax file path: {}", LogSafe.sanitize(faxFilePath), e);
             faxJob.setStatus(STATUS.ERROR);
             faxJob.setStatusString("File missing on local storage or invalid file path.");
@@ -348,6 +345,39 @@ public class FaxManagerImpl implements FaxManager {
 
         return faxJob;
 
+    }
+
+    private String promoteAllowedTempFaxFile(String faxFilePath) {
+        if (faxFilePath == null || faxFilePath.isBlank()) {
+            return faxFilePath;
+        }
+
+        try {
+            Path validatedPath = resolveAndValidateFilePath(faxFilePath);
+            if (PathValidationUtils.isInAllowedTempDirectory(validatedPath.toFile())) {
+                String copiedPath = nioFileManager.copyFileToOscarDocuments(validatedPath.toString());
+                if (copiedPath == null || copiedPath.isBlank()) {
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("Temp fax file promotion did not return a document-store path for: {}",
+                                LogSafe.sanitize(faxFilePath));
+                    }
+                    return null;
+                }
+                return copiedPath;
+            }
+        } catch (IllegalArgumentException | SecurityException | IOException e) {
+            if (logger.isDebugEnabled()) {
+                logger.debug("Skipping temp fax file promotion for invalid or inaccessible file path: {}",
+                        LogSafe.sanitize(faxFilePath), e);
+            }
+        } catch (RuntimeException e) {
+            if (logger.isDebugEnabled()) {
+                logger.debug("Skipping temp fax file promotion after copy failure for file path: {}",
+                        LogSafe.sanitize(faxFilePath), e);
+            }
+            return null;
+        }
+        return faxFilePath;
     }
 
     /**
@@ -557,8 +587,14 @@ public class FaxManagerImpl implements FaxManager {
 
         Path outfile = null;
 
-        if (filePath != null && Files.exists(filePath)) {
-            outfile = nioFileManager.createCacheVersion2(loggedInInfo, filePath.getParent().toString(), filePath.getFileName().toString(), pageNumber);
+        if (filePath != null) {
+            try {
+                Path validatedPath = resolveAndValidateFilePath(filePath.toString());
+                outfile = nioFileManager.createFaxPreviewCacheVersion(loggedInInfo, validatedPath.getParent().toString(),
+                        validatedPath.getFileName().toString(), pageNumber);
+            } catch (IllegalArgumentException | IOException e) {
+                logger.error("File not found or error processing fax preview image path", e);
+            }
         }
         return outfile;
     }
@@ -661,10 +697,21 @@ public class FaxManagerImpl implements FaxManager {
             throw new RuntimeException("missing required sec object (_fax)");
         }
 
-        boolean cache = nioFileManager.removeCacheVersion(loggedInInfo, filePath);
-        boolean temp = nioFileManager.deleteTempFile(filePath);
+        boolean cache = nioFileManager.removeFaxPreviewCacheVersions(loggedInInfo, filePath);
+        boolean tempSource = isAllowedTempPreviewFile(filePath);
+        boolean temp = tempSource && nioFileManager.deleteTempFile(filePath);
 
-        return (cache && temp);
+        return tempSource ? temp : cache;
+    }
+
+    private boolean isAllowedTempPreviewFile(String filePath) {
+        return filePath != null && PathValidationUtils.isInAllowedTempDirectory(toFlushTempFile(filePath));
+    }
+
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
+            justification = "flush checks whether a caller-supplied path is inside an approved temp root before deleting it")
+    private File toFlushTempFile(String filePath) {
+        return new File(filePath);
     }
 
 

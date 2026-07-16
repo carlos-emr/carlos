@@ -170,22 +170,14 @@ public class EFormPDFServlet extends HttpServlet {
                     baosPDF.writeTo(fos);
                 }
             }
-            StringBuilder sbFilename = new StringBuilder();
-            sbFilename.append("filename_");
-            sbFilename.append(".pdf");
+            String filename = "filename_.pdf";
 
             // set the Cache-Control header
             res.setHeader("Cache-Control", "max-age=0");
             res.setDateHeader("Expires", 0);
             res.setContentType("application/pdf");
 
-            // The Content-disposition value will be inline
-
-            StringBuilder sbContentDispValue = new StringBuilder();
-            sbContentDispValue.append("inline; filename="); //inline - display
-            sbContentDispValue.append(sbFilename);
-
-            res.setHeader("Content-disposition", sbContentDispValue.toString());
+            res.setHeader("Content-disposition", "inline; filename=\"" + filename + "\"");
             res.setContentLength((int) tmpFile.length());
 
             ServletOutputStream sout = res.getOutputStream();

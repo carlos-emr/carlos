@@ -53,6 +53,7 @@ import org.springframework.context.annotation.Lazy;
 
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.eform.data.EForm;
+import io.github.carlos_emr.carlos.eform.util.EFormBrowserPdfRenderer;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
@@ -61,8 +62,7 @@ import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 @Service
 public class EformDataManagerImpl implements EformDataManager {
 
-    @Autowired
-    SecurityInfoManager securityInfoManager;
+    private final SecurityInfoManager securityInfoManager;
 
     @Autowired
     EFormDataDao eFormDataDao;
@@ -77,8 +77,19 @@ public class EformDataManagerImpl implements EformDataManager {
     @Autowired
     private FormsManager formsManager;
 
-    public EformDataManagerImpl() {
-        // Default
+
+    private final EFormBrowserPdfRenderer eFormBrowserPdfRenderer;
+
+    /**
+     * Creates the manager with its authorization and browser-rendering collaborators.
+     *
+     * @param securityInfoManager privilege checks for eForm operations
+     * @param eFormBrowserPdfRenderer renderer that loads the saved eForm servlet in Playwright
+     */
+    @Autowired
+    public EformDataManagerImpl(SecurityInfoManager securityInfoManager, EFormBrowserPdfRenderer eFormBrowserPdfRenderer) {
+        this.securityInfoManager = securityInfoManager;
+        this.eFormBrowserPdfRenderer = eFormBrowserPdfRenderer;
     }
 
     // @Autowired
@@ -175,9 +186,17 @@ public class EformDataManagerImpl implements EformDataManager {
     }
 
     /**
-     * Saves an form as PDF in a temp directory.
-     * <p>
-     * Path to a temp file is returned. Remember to change the .tmp filetype and to delete the tmp file when finished.
+     * Creates a browser-rendered PDF for an existing saved eForm in a managed temporary location.
+     *
+     * <p>The caller must hold demographic-scoped {@code _eform} read privileges.
+     * The returned path remains in the renderer-managed temporary directory so
+     * downstream fax and eDoc workflows can validate it with the standard
+     * file-path checks.</p>
+     *
+     * @param loggedInInfo current authenticated user context
+     * @param fdid saved eForm data id
+     * @return readable path to an {@code eform-browser-render-*.pdf} file; callers are responsible for cleanup
+     * @throws PDFGenerationException when browser rendering fails or produces an unreadable file
      */
     public Path createEformPDF(LoggedInInfo loggedInInfo, int fdid) throws PDFGenerationException {
         EFormData eformData = eFormDataDao.find(fdid);
@@ -190,15 +209,18 @@ public class EformDataManagerImpl implements EformDataManager {
             throw new SecurityException("missing required sec object (_eform)");
         }
 
-        Path path = null;
+        Path path;
         try {
-            path = ConvertToEdoc.saveAsTempPDF(eformData);
+            path = eFormBrowserPdfRenderer.renderSavedEformPdf(fdid, loggedInInfo.getLoggedInProviderNo());
+        } catch (PDFGenerationException e) {
+            // Preserve the renderer's specific failure message for callers/UI instead of re-wrapping it.
+            throw e;
         } catch (Exception e) {
-            throw new PDFGenerationException("EForm PDF generation failed during HTML-to-PDF conversion.", e);
+            throw new PDFGenerationException("EForm PDF generation failed during browser rendering.", e);
         }
 
         if (path == null) {
-            throw new PDFGenerationException("EForm PDF generation failed during HTML-to-PDF conversion.");
+            throw new PDFGenerationException("EForm PDF generation failed during browser rendering.");
         }
 
         if (Files.isReadable(path)) {

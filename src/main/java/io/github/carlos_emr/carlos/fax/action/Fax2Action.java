@@ -64,9 +64,15 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.commons.io.FilenameUtils;
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class Fax2Action extends ActionSupport {
+
+    private static final String ACCESS_DENIED = "Access denied";
+    private static final String FAX_FILE_PATH_PARAM = "faxFilePath";
+    private static final String ERROR_SENDING_ERROR_RESPONSE = "Error sending error response";
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -267,14 +273,10 @@ public class Fax2Action extends ActionSupport {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", "r", null)) {
-            try {
-                response.sendError(HttpServletResponse.SC_FORBIDDEN, "Access denied");
-            } catch (IOException e) {
-                logger.error("Error sending forbidden response in getPreview", e);
-            }
+            sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
             return;
         }
-        String faxFilePath = request.getParameter("faxFilePath");
+        String requestedFaxFilePath = request.getParameter(FAX_FILE_PATH_PARAM);
         String pageNumber = request.getParameter("pageNumber");
         String showAs = request.getParameter("showAs");
         Path outfile = null;
@@ -283,25 +285,49 @@ public class Fax2Action extends ActionSupport {
         FaxJob faxJob = null;
 
         if (jobId != null && !jobId.isEmpty()) {
-            faxJob = faxManager.getFaxJob(loggedInInfo, Integer.parseInt(jobId));
+            try {
+                faxJob = faxManager.getFaxJob(loggedInInfo, Integer.parseInt(jobId));
+            } catch (NumberFormatException e) {
+                logger.warn("Invalid jobId supplied for fax preview");
+                sendErrorQuietly(HttpServletResponse.SC_BAD_REQUEST, "Invalid jobId");
+                return;
+            }
         }
 
         if (faxJob != null) {
-            faxFilePath = faxJob.getFile_name();
+            requestedFaxFilePath = faxJob.getFile_name();
         }
 
         if (pageNumber != null && !pageNumber.isEmpty()) {
-            page = Integer.parseInt(pageNumber);
+            try {
+                page = Integer.parseInt(pageNumber);
+            } catch (NumberFormatException e) {
+                logger.warn("Invalid pageNumber supplied for fax preview");
+                sendErrorQuietly(HttpServletResponse.SC_BAD_REQUEST, "Invalid pageNumber");
+                return;
+            }
+            if (page < 1) {
+                logger.warn("Invalid non-positive pageNumber supplied for fax preview");
+                sendErrorQuietly(HttpServletResponse.SC_BAD_REQUEST, "Invalid pageNumber");
+                return;
+            }
         }
 
         /*
          * Displaying the entire PDF using the default browser's view before faxing an EForm (in CoverPage.jsp),
          * and when viewing it in the fax records (Manage Faxes), it is shown as images.
          */
-        if (faxFilePath != null && !faxFilePath.isEmpty()) {
+        if (requestedFaxFilePath != null && !requestedFaxFilePath.isEmpty()) {
             if (showAs != null && showAs.equals("image")) {
                 // The faxManager.getFaxPreviewImage method already handles path validation
-                outfile = faxManager.getFaxPreviewImage(loggedInInfo, faxFilePath, page);
+                try {
+                    outfile = faxManager.getFaxPreviewImage(loggedInInfo, requestedFaxFilePath, page);
+                } catch (SecurityException e) {
+                    logger.error("Security validation failed for fax preview image path: {}",
+                            LogSafe.sanitize(requestedFaxFilePath, 1024), e);
+                    sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
+                    return;
+                }
                 if (outfile != null && outfile.getFileName() != null) {
                     response.setContentType("image/png");
                     String sanitizedFilename = FilenameUtils.getName(outfile.getFileName().toString());
@@ -313,23 +339,15 @@ public class Fax2Action extends ActionSupport {
             } else {
                 // Validate and resolve the PDF path using FaxManager
                 try {
-                    outfile = faxManager.resolveAndValidateFilePath(faxFilePath);
+                    outfile = faxManager.resolveAndValidateFilePath(requestedFaxFilePath);
                     response.setContentType("application/pdf");
                 } catch (SecurityException e) {
-                    logger.error("Security validation failed for file path: " + faxFilePath, e);
-                    try {
-                        response.sendError(HttpServletResponse.SC_FORBIDDEN, "Access denied");
-                    } catch (IOException ex) {
-                        logger.error("Error sending error response", ex);
-                    }
+                    logger.error("Security validation failed for file path: {}", LogSafe.sanitize(requestedFaxFilePath, 1024), e);
+                    sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
                     return;
                 } catch (IOException e) {
-                    logger.error("File not found or error processing file path: " + faxFilePath, e);
-                    try {
-                        response.sendError(HttpServletResponse.SC_NOT_FOUND, "File not found");
-                    } catch (IOException ex) {
-                        logger.error("Error sending error response", ex);
-                    }
+                    logger.error("File not found or error processing file path: {}", LogSafe.sanitize(requestedFaxFilePath, 1024), e);
+                    sendErrorQuietly(HttpServletResponse.SC_NOT_FOUND, "File not found");
                     return;
                 }
             }
@@ -361,6 +379,10 @@ public class Fax2Action extends ActionSupport {
     public String prepareFax() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)) {
+            sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
+            return NONE;
+        }
 
         /*
          * Fax recipient info carried forward.
@@ -369,6 +391,8 @@ public class Fax2Action extends ActionSupport {
         String actionForward = ERROR;
         Path pdfPath = null;
         List<FaxConfig> accounts = faxManager.getFaxGatewayAccounts(loggedInInfo);
+        logger.debug("prepareFax start: transactionType={} transactionId={} accounts={}",
+                transactionType, transactionId, accounts.size());
 
         /*
          * No fax accounts - No Fax.
@@ -381,6 +405,11 @@ public class Fax2Action extends ActionSupport {
 
                 try {
                     pdfPath = documentAttachmentManager.renderEFormWithAttachments(request, response);
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("prepareFax renderEFormWithAttachments returned readable={} exists={}",
+                                pdfPath != null && Files.isReadable(pdfPath),
+                                pdfPath != null && Files.exists(pdfPath));
+                    }
                 } catch (PDFGenerationException e) {
                     logger.error(e.getMessage(), e);
                     String errorMessage = "This eForm (and attachments, if applicable) cannot be faxed. \\n\\n" + e.getMessage();
@@ -400,13 +429,15 @@ public class Fax2Action extends ActionSupport {
             request.setAttribute("documents", documents);
             request.setAttribute("transactionType", transactionType.name());
             request.setAttribute("transactionId", transactionId);
-            request.setAttribute("faxFilePath", pdfPath);
+            request.setAttribute(FAX_FILE_PATH_PARAM, pdfPath);
             request.setAttribute("letterheadFax", letterheadFax);
             request.setAttribute("professionalSpecialistName", recipient);
             request.setAttribute("fax", recipientFaxNumber);
             actionForward = "preview";
         }
 
+        logger.debug("prepareFax end: transactionId={} actionForward={} responseCommitted={}",
+                transactionId, actionForward, response.isCommitted());
         return actionForward;
     }
 
@@ -417,11 +448,14 @@ public class Fax2Action extends ActionSupport {
     public void getPageCount() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null)) {
+            sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
+            return;
+        }
         String jobId = request.getParameter("jobId");
-        int pageCount = 0;
-
-        if (jobId != null && !jobId.isEmpty()) {
-            pageCount = faxManager.getPageCount(loggedInInfo, Integer.parseInt(jobId));
+        int pageCount = resolvePageCount(loggedInInfo, jobId, request.getParameter(FAX_FILE_PATH_PARAM));
+        if (response.isCommitted()) {
+            return;
         }
 
         ObjectNode jsonObject = objectMapper.createObjectNode();
@@ -429,6 +463,45 @@ public class Fax2Action extends ActionSupport {
         jsonObject.put("pageCount", pageCount);
 
         JSONUtil.jsonResponse(response, jsonObject);
+    }
+
+    private int resolvePageCount(LoggedInInfo loggedInInfo, String jobId, String requestedFaxFilePath) {
+        if (jobId != null && !jobId.isEmpty()) {
+            try {
+                return faxManager.getPageCount(loggedInInfo, Integer.parseInt(jobId));
+            } catch (NumberFormatException e) {
+                logger.warn("Invalid jobId supplied for fax page count: {}", LogSafe.sanitize(jobId, 1024), e);
+                sendErrorQuietly(HttpServletResponse.SC_BAD_REQUEST, "Invalid jobId");
+                return 0;
+            }
+        }
+        if (requestedFaxFilePath == null || requestedFaxFilePath.isEmpty()) {
+            return 0;
+        }
+        try {
+            Path resolvedPath = faxManager.resolveAndValidateFilePath(requestedFaxFilePath);
+            try (PDDocument pdf = Loader.loadPDF(resolvedPath.toFile())) {
+                return pdf.getNumberOfPages();
+            }
+        } catch (SecurityException e) {
+            logger.error("Security validation failed for page count path: {}", LogSafe.sanitize(requestedFaxFilePath, 1024), e);
+            sendErrorQuietly(HttpServletResponse.SC_FORBIDDEN, ACCESS_DENIED);
+        } catch (IOException e) {
+            logger.error("File not found or error processing page count path: {}", LogSafe.sanitize(requestedFaxFilePath, 1024), e);
+            sendErrorQuietly(HttpServletResponse.SC_NOT_FOUND, "File not found");
+        }
+        return 0;
+    }
+
+    /**
+     * Sends an HTTP error response, quietly logging (rather than propagating) any IO failure.
+     */
+    private void sendErrorQuietly(int statusCode, String message) {
+        try {
+            response.sendError(statusCode, message);
+        } catch (IOException ex) {
+            logger.error(ERROR_SENDING_ERROR_RESPONSE, ex);
+        }
     }
 
     private String faxFilePath;

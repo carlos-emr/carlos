@@ -28,8 +28,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * marker in the form HTML into a real, browser-facing {@code <context>/library/} URL prefix.
  *
  * <p>The marker is a servlet URL prefix, not a filesystem path, so the method must build the URL by
- * plain string substitution and must tolerate a trailing slash on the context path. A blank/unset
- * context path must leave the HTML untouched.</p>
+ * plain string substitution and must tolerate a trailing slash on the context path. A whitespace-only
+ * context path must leave the HTML untouched, while an empty context path represents a root deployment.</p>
  *
  * @since 2026-06-01
  */
@@ -54,7 +54,9 @@ class EFormSetContextPathUnitTest {
 
         eform.setContextPath("/carlos");
 
-        assertThat(eform.getFormHtml()).isEqualTo("<script src=\"/carlos/library/eform.js\"></script>");
+        assertThat(eform.getFormHtml())
+                .contains("<script src=\"/carlos/library/eform.js\"></script>")
+                .doesNotContain(JS_MARKER);
     }
 
     @Test
@@ -64,7 +66,36 @@ class EFormSetContextPathUnitTest {
 
         eform.setContextPath("/carlos/");
 
-        assertThat(eform.getFormHtml()).isEqualTo("<script src=\"/carlos/library/eform.js\"></script>");
+        assertThat(eform.getFormHtml())
+                .contains("<script src=\"/carlos/library/eform.js\"></script>")
+                .doesNotContain(JS_MARKER);
+    }
+
+    @Test
+    @DisplayName("should rewrite legacy relative jquery references to the displayImage asset route")
+    void shouldRewriteLegacyRelativeJqueryReference_whenContextPathSet() {
+        EForm eform = new EForm();
+        eform.setFormHtml("<script src=\"jquery-1.12.0.min.js\"></script><script src=\"/eform/jquery-1.12.0.min.js\"></script>");
+
+        eform.setContextPath("/carlos");
+
+        assertThat(eform.getFormHtml())
+                .doesNotContain("src=\"jquery-1.12.0.min.js\"")
+                .doesNotContain("src=\"/eform/jquery-1.12.0.min.js\"")
+                .contains("src=\"/carlos/eform/displayImage?imagefile=jquery-1.12.0.min.js\"");
+    }
+
+    @Test
+    @DisplayName("should inject a loadSig fallback when the form calls it but does not define it")
+    void shouldInjectLoadSigFallback_whenBodyOnloadCallsLoadSigWithoutDefinition() {
+        EForm eform = new EForm();
+        eform.setFormHtml("<html><body onload=\"startUp(); loadSig();\"><script>function startUp(){}</script></body></html>");
+
+        eform.setContextPath("/carlos");
+
+        assertThat(eform.getFormHtml())
+                .contains("window.loadSig = window.loadSig || function loadSig() {};")
+                .contains("body onload=\"startUp(); loadSig();\"");
     }
 
     @Test
@@ -78,4 +109,125 @@ class EFormSetContextPathUnitTest {
         assertThat(eform.getFormHtml()).isEqualTo(original);
         assertThat(eform.getFormHtml()).contains(JS_MARKER);
     }
+
+    @Test
+    @DisplayName("should rewrite runtime assets when deployed at the root context")
+    void shouldRewriteRuntimeAssets_whenContextPathEmpty() {
+        EForm eform = new EForm();
+        eform.setFormHtml("<script src=\"" + JS_MARKER + "eform.js\"></script>"
+                + "<script src=\"jquery-1.12.0.min.js\"></script>");
+
+        eform.setContextPath("");
+
+        assertThat(eform.getFormHtml())
+                .contains("<script src=\"/library/eform.js\"></script>")
+                .contains("src=\"/eform/displayImage?imagefile=jquery-1.12.0.min.js\"")
+                .doesNotContain(JS_MARKER);
+    }
+
+    @Test
+    @DisplayName("should rewrite legacy string timers only inside inline script content")
+    void shouldRewriteLegacyStringTimers_onlyInsideInlineScripts() {
+        EForm eform = new EForm();
+        eform.setFormHtml("<html><body>"
+                + "<textarea>setTimeout('literal textarea', 100)</textarea>"
+                + "<div data-timer=\"setInterval('literal attribute', 200)\"></div>"
+                + "<script>setTimeout('loadSig()', 300); setInterval('tick()', 400);</script>"
+                + "</body></html>");
+
+        eform.setContextPath("/carlos");
+
+        assertThat(eform.getFormHtml())
+                .contains("<textarea>setTimeout('literal textarea', 100)</textarea>")
+                .contains("data-timer=\"setInterval('literal attribute', 200)\"")
+                .contains("setTimeout(function(){ loadSig() }, 300)")
+                .contains("setInterval(function(){ tick() }, 400)");
+    }
+
+    @Test
+    @DisplayName("should leave non-javascript script bodies unchanged")
+    void shouldLeaveNonJavascriptScriptBodiesUnchanged_whenRewritingLegacyTimers() {
+        EForm eform = new EForm();
+        String jsonScript = "<script type=\"application/json\">{\"timer\":\"setTimeout('loadSig()', 300)\"}</script>";
+        String typedTemplateScript = "<script type=\"text/plain; charset=utf-8\">setTimeout('plain text', 300)</script>";
+        eform.setFormHtml("<html><body>" + jsonScript
+                + typedTemplateScript
+                + "<script type=\"text/javascript\">setTimeout('loadSig()', 300);</script>"
+                + "</body></html>");
+
+        eform.setContextPath("/carlos");
+
+        assertThat(eform.getFormHtml())
+                .contains(jsonScript)
+                .contains(typedTemplateScript)
+                .contains("setTimeout(function(){ loadSig() }, 300)");
+    }
+
+    @Test
+    @DisplayName("should leave timer-shaped strings and comments unchanged")
+    void shouldLeaveTimerShapedStringsAndCommentsUnchanged_whenRewritingLegacyTimers() {
+        EForm eform = new EForm();
+        String literal = "var literal = \"setTimeout('loadSig()', 300)\";";
+        String comment = "// setInterval('tick()', 400)";
+        eform.setFormHtml("<html><body><script>"
+                + literal
+                + comment + "\n"
+                + "setTimeout('loadSig()', 500);"
+                + "</script></body></html>");
+
+        eform.setContextPath("/carlos");
+
+        assertThat(eform.getFormHtml())
+                .contains(literal)
+                .contains(comment)
+                .contains("setTimeout(function(){ loadSig() }, 500)")
+                .doesNotContain("setTimeout(function(){ loadSig() }, 300)")
+                .doesNotContain("setInterval(function(){ tick() }, 400)");
+    }
+
+    @Test
+    @DisplayName("should rewrite legacy string timers with double-quoted code bodies")
+    void shouldRewriteLegacyStringTimers_withDoubleQuotedCodeBodies() {
+        EForm eform = new EForm();
+        eform.setFormHtml("<html><body>"
+                + "<script>setTimeout(\"loadSig()\", 300); setInterval(\"say('hi')\", 400);</script>"
+                + "</body></html>");
+
+        eform.setContextPath("/carlos");
+
+        assertThat(eform.getFormHtml())
+                .contains("setTimeout(function(){ loadSig() }, 300)")
+                .contains("setInterval(function(){ say('hi') }, 400)");
+    }
+
+    @Test
+    @DisplayName("should rewrite legacy string timers when the code body contains escaped matching quotes")
+    void shouldRewriteLegacyStringTimers_withEscapedMatchingQuotesInCodeBody() {
+        EForm eform = new EForm();
+        eform.setFormHtml("<html><body>"
+                + "<script>setTimeout(\"$('#field').val(\\\"done\\\")\", 100); setInterval('say(\\'hi\\')', 200);</script>"
+                + "</body></html>");
+
+        eform.setContextPath("/carlos");
+
+        assertThat(eform.getFormHtml())
+                .contains("setTimeout(function(){ $('#field').val(\"done\") }, 100)")
+                .contains("setInterval(function(){ say('hi') }, 200)");
+    }
+
+    @Test
+    @DisplayName("should leave legacy string timers unchanged when code body contains non-delimiter escapes")
+    void shouldLeaveLegacyStringTimersUnchanged_withNonDelimiterEscapesInCodeBody() {
+        EForm eform = new EForm();
+        String script = "setTimeout(\"note='line\\\\n2'\", 100); setInterval(\"say(\\'hi\\')\", 200);";
+        eform.setFormHtml("<html><body><script>" + script + "</script></body></html>");
+
+        eform.setContextPath("/carlos");
+
+        assertThat(eform.getFormHtml())
+                .contains(script)
+                .doesNotContain("setTimeout(function(){ note=")
+                .doesNotContain("setInterval(function(){ say");
+    }
+
 }
