@@ -291,6 +291,10 @@ public class EFormBrowserPdfRenderer {
     }
 
     static String buildLocalBaseUrl(String scheme, int port, String contextPath) {
+        return buildLocalBaseUrl(scheme, port, contextPath, "127.0.0.1");
+    }
+
+    static String buildLocalBaseUrl(String scheme, int port, String contextPath, String localAddress) {
         String normalizedScheme = (scheme == null || scheme.isBlank()) ? "http" : scheme.trim();
         String normalizedContextPath = contextPath == null ? "" : contextPath.trim();
         if (!normalizedContextPath.isEmpty() && normalizedContextPath.charAt(0) != URL_PATH_SEPARATOR) {
@@ -300,12 +304,28 @@ public class EFormBrowserPdfRenderer {
                 && normalizedContextPath.charAt(normalizedContextPath.length() - 1) == URL_PATH_SEPARATOR) {
             normalizedContextPath = normalizedContextPath.substring(0, normalizedContextPath.length() - 1);
         }
-        StringBuilder baseUrl = new StringBuilder(normalizedScheme).append("://127.0.0.1");
+        StringBuilder baseUrl = new StringBuilder(normalizedScheme)
+                .append("://")
+                .append(normalizeLoopbackUrlHost(localAddress));
         if (port > 0 && !isDefaultPort(normalizedScheme, port)) {
             baseUrl.append(":").append(port);
         }
         baseUrl.append(normalizedContextPath);
         return baseUrl.toString();
+    }
+
+    private static String normalizeLoopbackUrlHost(String localAddress) {
+        String host = localAddress == null ? "" : localAddress.trim();
+        if (host.startsWith("[") && host.endsWith("]")) {
+            host = host.substring(1, host.length() - 1);
+        }
+        if (!isLoopbackRendererHost(host)) {
+            return "127.0.0.1";
+        }
+        if (host.contains(":")) {
+            return "[" + host + "]";
+        }
+        return host;
     }
 
     static List<String> buildCommand(String nodeBinary, Path scriptPath, Path outputDirectory) {
@@ -379,7 +399,7 @@ public class EFormBrowserPdfRenderer {
             return configuredBaseUrl.trim().replaceAll("/$", "");
         }
         if (request != null) {
-            return buildLocalBaseUrl(request.getScheme(), request.getLocalPort(), request.getContextPath());
+            return buildLocalBaseUrl(request.getScheme(), request.getLocalPort(), request.getContextPath(), request.getLocalAddr());
         }
         return buildDefaultBaseUrl(projectHome);
     }

@@ -258,6 +258,20 @@ class EFormBrowserPdfRendererUnitTest {
     }
 
     @Test
+    @DisplayName("should build a bracketed local base URL from an IPv6 loopback connector")
+    void shouldBuildLocalBaseUrl_whenUsingIpv6LoopbackConnector() {
+        assertThat(EFormBrowserPdfRenderer.buildLocalBaseUrl("http", 8080, "/carlos", "::1"))
+                .isEqualTo("http://[::1]:8080/carlos");
+    }
+
+    @Test
+    @DisplayName("should keep localhost renderer URLs on loopback when the request address is non-loopback")
+    void shouldBuildLocalBaseUrl_withIpv4LoopbackFallbackForNonLoopbackConnector() {
+        assertThat(EFormBrowserPdfRenderer.buildLocalBaseUrl("http", 8080, "/carlos", "10.0.0.5"))
+                .isEqualTo("http://127.0.0.1:8080/carlos");
+    }
+
+    @Test
     @DisplayName("should build URL context paths with forward slashes")
     void shouldBuildLocalBaseUrl_whenContextPathDoesNotStartWithSlash() {
         assertThat(EFormBrowserPdfRenderer.buildLocalBaseUrl("http", 8080, "carlos"))

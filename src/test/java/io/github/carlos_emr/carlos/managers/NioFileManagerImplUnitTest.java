@@ -320,6 +320,39 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("Removes all fax preview cache versions when same-path source contents change")
+    void shouldRemoveAllFaxPreviewCacheVersions_whenSourceAtSamePathChanges() throws IOException {
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
+        allowedTempDir = Files.createTempDirectory(Path.of(System.getProperty("java.io.tmpdir")), "nio-fax-preview-remove-replace-");
+        assumeTrue(PathValidationUtils.isInAllowedTempDirectory(allowedTempDir.toFile()),
+                "test temp directory must resolve inside an allowed temp directory");
+        Files.createDirectories(getDocumentCacheDirectory());
+        Path sourcePdf = allowedTempDir.resolve("fax-preview-replaced-removal.pdf");
+        Path firstCache = null;
+        Path secondCache = null;
+
+        try {
+            createSinglePagePdf(sourcePdf);
+            firstCache = nioFileManager.createFaxPreviewCacheVersion(loggedInInfo, allowedTempDir.toString(),
+                    sourcePdf.getFileName().toString(), 1);
+
+            createPdf(sourcePdf, 2);
+            Files.setLastModifiedTime(sourcePdf, FileTime.fromMillis(System.currentTimeMillis() + 10000L));
+            secondCache = nioFileManager.createFaxPreviewCacheVersion(loggedInInfo, allowedTempDir.toString(),
+                    sourcePdf.getFileName().toString(), 1);
+
+            boolean removed = nioFileManager.removeFaxPreviewCacheVersions(loggedInInfo, sourcePdf.toString());
+
+            assertThat(removed).isTrue();
+            assertThat(firstCache).doesNotExist();
+            assertThat(secondCache).doesNotExist();
+        } finally {
+            deleteFileQuietly(firstCache);
+            deleteFileQuietly(secondCache);
+        }
+    }
+
+    @Test
     @DisplayName("Creates fax preview cache generation for document-store sources")
     void shouldCreateFaxPreviewCacheVersion_whenSourcePdfIsInDocumentStore() throws IOException {
         when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);

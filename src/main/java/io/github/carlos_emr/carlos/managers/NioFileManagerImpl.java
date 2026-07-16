@@ -36,6 +36,7 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.DirectoryStream;
@@ -350,6 +351,9 @@ public class NioFileManagerImpl implements NioFileManager {
         Path documentCacheDir = getDocumentCacheDirectoryWithoutAuthorization();
         Path normalizedCacheDir = documentCacheDir.normalize().toAbsolutePath();
         String cacheFileName = buildCacheFileName(cacheRequest.sanitizedFilename(), cacheRequest.pageNum(), sourceFile);
+        if (cacheFileName == null) {
+            return null;
+        }
         Path cacheFilePath = normalizedCacheDir.resolve(cacheFileName).normalize().toAbsolutePath();
 
         try {
@@ -360,6 +364,8 @@ public class NioFileManagerImpl implements NioFileManager {
         }
     }
 
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
+            justification = "cacheFilePath is produced by resolveCacheOutputFile(), which validates it under document_cache; temp publication uses a fixed prefix in that validated directory")
     private Path renderPdfPageToCache(Path sourceFile, Path cacheFilePath, int pageNum) {
         Path tempCacheFilePath = null;
         try (PDDocument document = Loader.loadPDF(sourceFile.toFile())) {
@@ -374,7 +380,9 @@ public class NioFileManagerImpl implements NioFileManager {
             PDFRenderer renderer = new PDFRenderer(document);
             BufferedImage imageToSave = renderer.renderImageWithDPI(pageIndex, 96, ImageType.RGB);
             try {
-                tempCacheFilePath = Files.createTempFile(cacheFilePath.getParent(), cacheFilePath.getFileName().toString(), ".tmp");
+                Path cacheDirectory = getDocumentCacheDirectoryWithoutAuthorization().normalize().toAbsolutePath();
+                cacheFilePath = PathValidationUtils.validateChildPath(cacheFilePath.toFile(), cacheDirectory.toFile()).toPath();
+                tempCacheFilePath = Files.createTempFile(cacheDirectory, "fax-preview-cache-", ".tmp");
                 if (!ImageIO.write(imageToSave, "png", tempCacheFilePath.toFile())) {
                     log.error("Failed to write PNG image to cache file");
                     return null;
@@ -417,18 +425,46 @@ public class NioFileManagerImpl implements NioFileManager {
         if (sourceFile == null) {
             return sanitizedFilename + "_" + pageNum + ".png";
         }
-        return sanitizedFilename + "_" + sourcePathDiscriminator(sourceFile) + "_" + pageNum + ".png";
+        String sourceCacheDiscriminator = sourceCacheDiscriminator(sourceFile);
+        if (sourceCacheDiscriminator == null) {
+            return null;
+        }
+        return sanitizedFilename + "_" + sourceCacheDiscriminator + "_" + pageNum + ".png";
+    }
+
+    private String sourceCacheDiscriminator(Path sourceFile) {
+        try {
+            return sourcePathDiscriminator(sourceFile) + "_" + sourceContentDiscriminator(sourceFile);
+        } catch (SecurityException e) {
+            log.debug("Unable to resolve fax preview source cache discriminator", e);
+            return null;
+        }
     }
 
     private String sourcePathDiscriminator(Path sourceFile) {
         try {
             Path realPath = sourceFile.toRealPath();
-            String version = Files.size(realPath) + ":" + Files.getLastModifiedTime(realPath).toMillis();
             byte[] digest = MessageDigest.getInstance("SHA-256")
-                    .digest((realPath + ":" + version).getBytes(StandardCharsets.UTF_8));
+                    .digest(realPath.toString().getBytes(StandardCharsets.UTF_8));
             return toHex(digest, CACHE_SOURCE_DISCRIMINATOR_LENGTH);
         } catch (IOException e) {
             throw new SecurityException("Unable to resolve fax preview source path", e);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is not available", e);
+        }
+    }
+
+    private String sourceContentDiscriminator(Path sourceFile) {
+        try (InputStream inputStream = Files.newInputStream(sourceFile)) {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = inputStream.read(buffer)) != -1) {
+                digest.update(buffer, 0, read);
+            }
+            return toHex(digest.digest(), CACHE_SOURCE_DISCRIMINATOR_LENGTH);
+        } catch (IOException e) {
+            throw new SecurityException("Unable to read fax preview source content", e);
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 is not available", e);
         }
@@ -559,11 +595,24 @@ public class NioFileManagerImpl implements NioFileManager {
 
     private static boolean isFaxPreviewCacheFile(String cacheFileName, String sanitizedSourceFileName,
             String sourceDiscriminator) {
-        if (sourceDiscriminator != null
-                && isPagedCacheFile(cacheFileName, sanitizedSourceFileName + "_" + sourceDiscriminator + "_")) {
-            return true;
+        if (sourceDiscriminator != null) {
+            String prefix = sanitizedSourceFileName + "_" + sourceDiscriminator + "_";
+            return isPagedCacheFile(cacheFileName, prefix) || isVersionedPagedCacheFile(cacheFileName, prefix);
         }
         return sourceDiscriminator == null && isPagedCacheFile(cacheFileName, sanitizedSourceFileName + "_");
+    }
+
+    private static boolean isVersionedPagedCacheFile(String cacheFileName, String prefix) {
+        if (!cacheFileName.startsWith(prefix) || !cacheFileName.endsWith(".png")) {
+            return false;
+        }
+        String versionAndPage = cacheFileName.substring(prefix.length(), cacheFileName.length() - ".png".length());
+        int separator = versionAndPage.lastIndexOf('_');
+        if (separator <= 0 || separator == versionAndPage.length() - 1) {
+            return false;
+        }
+        String pageNumber = versionAndPage.substring(separator + 1);
+        return pageNumber.chars().allMatch(Character::isDigit);
     }
 
     private static boolean isPagedCacheFile(String cacheFileName, String prefix) {

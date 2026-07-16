@@ -89,8 +89,8 @@ public class EForm extends EFormBase {
     private static final Pattern LEGACY_SET_TIMEOUT_PATTERN = Pattern.compile("setTimeout\\(\\s*+(['\"])((?:\\\\.|(?!\\1)[^\\r\\n])*+)\\1\\s*+,\\s*+([^)]++)\\)");
     private static final Pattern LEGACY_SET_INTERVAL_PATTERN = Pattern.compile("setInterval\\(\\s*+(['\"])((?:\\\\.|(?!\\1)[^\\r\\n])*+)\\1\\s*+,\\s*+([^)]++)\\)");
     private static final Pattern INLINE_SCRIPT_PATTERN = Pattern.compile("(?is)<script\\b(?![^>]*\\bsrc\\s*=)([^>]*)>(.*?)</script>");
-
-    private String runtimeContextPath;
+    private static final Pattern SCRIPT_TYPE_PATTERN = Pattern.compile(
+            "(?is)\\btype\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s>]*))");
 
     private static final String EFORM_DEMOGRAPHIC = "eform_demographic";
     private static final String VAR_NAME = "var_name";
@@ -405,7 +405,6 @@ public class EForm extends EFormBase {
         String normalizedContextPath = contextPath.endsWith("/")
                 ? contextPath.substring(0, contextPath.length() - 1)
                 : contextPath;
-        this.runtimeContextPath = normalizedContextPath;
         this.formHtml = this.formHtml.replace(jsMarker, normalizedContextPath + "/library/");
         this.formHtml = rewriteLegacyRelativeJqueryReferences(this.formHtml, normalizedContextPath);
         this.formHtml = injectLoadSigFallback(this.formHtml);
@@ -441,6 +440,10 @@ public class EForm extends EFormBase {
         Matcher matcher = INLINE_SCRIPT_PATTERN.matcher(html);
         StringBuffer rewritten = new StringBuffer();
         while (matcher.find()) {
+            if (!isJavaScriptScript(matcher.group(1))) {
+                matcher.appendReplacement(rewritten, Matcher.quoteReplacement(matcher.group(0)));
+                continue;
+            }
             String scriptBody = rewriteLegacyStringTimers(matcher.group(2));
             String replacement = "<script" + matcher.group(1) + ">" + scriptBody + "</script>";
             matcher.appendReplacement(rewritten, Matcher.quoteReplacement(replacement));
@@ -455,45 +458,14 @@ public class EForm extends EFormBase {
         return rewriteLegacyTimerCalls(rewriteLegacyTimerCalls(scriptBody, LEGACY_SET_TIMEOUT_PATTERN, "setTimeout"), LEGACY_SET_INTERVAL_PATTERN, "setInterval");
     }
 
-    @Override
-    public String getFormHtml() {
-        if (runtimeContextPath != null) {
-            try {
-                normalizeLegacyRuntimeAssetsInDocument(runtimeContextPath);
-            } catch (RuntimeException | LinkageError e) {
-                log.debug("Skipping DOM-based eForm runtime normalization; falling back to string-level HTML", e);
-            }
-        }
-        return super.getFormHtml();
-    }
-
-    private void normalizeLegacyRuntimeAssetsInDocument(String contextPath) {
-        String assetUrl = contextPath + "/eform/displayImage?imagefile=jquery-1.12.0.min.js";
-        for (Element script : getDocument().select("script[src]")) {
-            String src = script.attr("src").trim();
-            if (LEGACY_JQUERY_SOURCE.equals(src) || LEGACY_JQUERY_DISPLAY_PATH.equals(src)) {
-                script.attr("src", assetUrl);
-            }
-        }
-        for (Element script : getDocument().select(SCRIPT_TAG + ":not([src])")) {
-            script.text(rewriteLegacyStringTimers(script.data()));
-        }
-
-        Element body = getDocument().body();
-        if (!body.attr("onload").contains(LOAD_SIG_CALL)) return;
-
-        boolean hasLoadSigDefinition = getDocument().select(SCRIPT_TAG + ":not([src])").stream()
-                .map(Element::data)
-                .anyMatch(scriptContent -> scriptContent.contains(LOAD_SIG_FUNCTION) || scriptContent.contains(LOAD_SIG_WINDOW));
-        if (!hasLoadSigDefinition) {
-            body.appendElement(SCRIPT_TAG).append(LOAD_SIG_FALLBACK);
-        }
-    }
-
     private static String rewriteLegacyTimerCalls(String html, Pattern pattern, String timerFunction) {
         Matcher matcher = pattern.matcher(html);
         StringBuffer rewritten = new StringBuffer();
         while (matcher.find()) {
+            if (!isJavaScriptCodePosition(html, matcher.start())) {
+                matcher.appendReplacement(rewritten, Matcher.quoteReplacement(matcher.group(0)));
+                continue;
+            }
             char delimiter = matcher.group(1).charAt(0);
             String timerBody = unescapeLegacyTimerBody(matcher.group(2), delimiter);
             if (timerBody == null) {
@@ -506,6 +478,97 @@ public class EForm extends EFormBase {
         }
         matcher.appendTail(rewritten);
         return rewritten.toString();
+    }
+
+    private static boolean isJavaScriptScript(String scriptAttributes) {
+        Matcher matcher = SCRIPT_TYPE_PATTERN.matcher(scriptAttributes == null ? "" : scriptAttributes);
+        if (!matcher.find()) {
+            return true;
+        }
+        String type = firstNonNull(matcher.group(1), matcher.group(2), matcher.group(3))
+                .trim()
+                .toLowerCase(Locale.ROOT);
+        int parameterStart = type.indexOf(';');
+        if (parameterStart >= 0) {
+            type = type.substring(0, parameterStart);
+        }
+        return type.isEmpty()
+                || "module".equals(type)
+                || "text/javascript".equals(type)
+                || "application/javascript".equals(type)
+                || "text/ecmascript".equals(type)
+                || "application/ecmascript".equals(type);
+    }
+
+    private static String firstNonNull(String first, String second, String third) {
+        if (first != null) {
+            return first;
+        }
+        if (second != null) {
+            return second;
+        }
+        return third == null ? "" : third;
+    }
+
+    private static boolean isJavaScriptCodePosition(String scriptBody, int targetIndex) {
+        boolean inSingleQuote = false;
+        boolean inDoubleQuote = false;
+        boolean inTemplate = false;
+        boolean inLineComment = false;
+        boolean inBlockComment = false;
+        boolean escaped = false;
+
+        for (int index = 0; index < targetIndex; index++) {
+            char current = scriptBody.charAt(index);
+            char next = index + 1 < targetIndex ? scriptBody.charAt(index + 1) : '\0';
+
+            if (inLineComment) {
+                if (current == '\r' || current == '\n') {
+                    inLineComment = false;
+                }
+                continue;
+            }
+            if (inBlockComment) {
+                if (current == '*' && next == '/') {
+                    inBlockComment = false;
+                    index += 1;
+                }
+                continue;
+            }
+            if (inSingleQuote || inDoubleQuote || inTemplate) {
+                if (escaped) {
+                    escaped = false;
+                    continue;
+                }
+                if (current == '\\') {
+                    escaped = true;
+                    continue;
+                }
+                if (inSingleQuote && current == '\'') {
+                    inSingleQuote = false;
+                } else if (inDoubleQuote && current == '"') {
+                    inDoubleQuote = false;
+                } else if (inTemplate && current == '`') {
+                    inTemplate = false;
+                }
+                continue;
+            }
+
+            if (current == '/' && next == '/') {
+                inLineComment = true;
+                index += 1;
+            } else if (current == '/' && next == '*') {
+                inBlockComment = true;
+                index += 1;
+            } else if (current == '\'') {
+                inSingleQuote = true;
+            } else if (current == '"') {
+                inDoubleQuote = true;
+            } else if (current == '`') {
+                inTemplate = true;
+            }
+        }
+        return !(inSingleQuote || inDoubleQuote || inTemplate || inLineComment || inBlockComment);
     }
 
     private static String unescapeLegacyTimerBody(String body, char delimiter) {

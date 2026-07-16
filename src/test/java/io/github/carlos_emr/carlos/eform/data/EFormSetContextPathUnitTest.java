@@ -145,6 +145,47 @@ class EFormSetContextPathUnitTest {
     }
 
     @Test
+    @DisplayName("should leave non-javascript script bodies unchanged")
+    void shouldLeaveNonJavascriptScriptBodiesUnchanged_whenRewritingLegacyTimers() {
+        EForm eform = new EForm();
+        String jsonScript = "<script type=\"application/json\">{\"timer\":\"setTimeout('loadSig()', 300)\"}</script>";
+        String typedTemplateScript = "<script type=\"text/plain; charset=utf-8\">setTimeout('plain text', 300)</script>";
+        eform.setFormHtml("<html><body>" + jsonScript
+                + typedTemplateScript
+                + "<script type=\"text/javascript\">setTimeout('loadSig()', 300);</script>"
+                + "</body></html>");
+
+        eform.setContextPath("/carlos");
+
+        assertThat(eform.getFormHtml())
+                .contains(jsonScript)
+                .contains(typedTemplateScript)
+                .contains("setTimeout(function(){ loadSig() }, 300)");
+    }
+
+    @Test
+    @DisplayName("should leave timer-shaped strings and comments unchanged")
+    void shouldLeaveTimerShapedStringsAndCommentsUnchanged_whenRewritingLegacyTimers() {
+        EForm eform = new EForm();
+        String literal = "var literal = \"setTimeout('loadSig()', 300)\";";
+        String comment = "// setInterval('tick()', 400)";
+        eform.setFormHtml("<html><body><script>"
+                + literal
+                + comment + "\n"
+                + "setTimeout('loadSig()', 500);"
+                + "</script></body></html>");
+
+        eform.setContextPath("/carlos");
+
+        assertThat(eform.getFormHtml())
+                .contains(literal)
+                .contains(comment)
+                .contains("setTimeout(function(){ loadSig() }, 500)")
+                .doesNotContain("setTimeout(function(){ loadSig() }, 300)")
+                .doesNotContain("setInterval(function(){ tick() }, 400)");
+    }
+
+    @Test
     @DisplayName("should rewrite legacy string timers with double-quoted code bodies")
     void shouldRewriteLegacyStringTimers_withDoubleQuotedCodeBodies() {
         EForm eform = new EForm();
