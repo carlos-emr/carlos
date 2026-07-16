@@ -49,6 +49,8 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
     private static final String PDF_SIGNATURE_SERVLET_PATH = "/EFormSignatureViewForPdfGenerationServlet";
     private static final String DIGITAL_SIGNATURE_ID_PARAM = "digitalSignatureId";
     private static final String PROVIDER_ID_PARAM = "providerId";
+    private static final String SKIP_HTML_INJECTION_ATTRIBUTE =
+            io.github.carlos_emr.carlos.web.eform.EformViewForPdfGenerationServlet.SKIP_HTML_INJECTION_ATTRIBUTE;
 
     @Override
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
@@ -78,6 +80,10 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
                 response.sendError(HttpServletResponse.SC_FORBIDDEN, "Renderer request requires an authenticated matching provider session");
                 return;
             }
+
+            // The browser PDF renderer must capture only the stored eForm surface, not app-level
+            // logout/CSRF helper markup appended by response filters after this servlet returns.
+            request.setAttribute(SKIP_HTML_INJECTION_ATTRIBUTE, Boolean.TRUE);
 
             if (id == null || id.trim().isEmpty()) {
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing required parameter: fdid");

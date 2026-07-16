@@ -188,9 +188,10 @@ public class EformDataManagerImpl implements EformDataManager {
     /**
      * Creates a browser-rendered PDF for an existing saved eForm in a managed temporary location.
      *
-     * <p>The caller must hold {@code _eform} update privileges. The returned path
-     * remains in the renderer-managed temporary directory so downstream fax and
-     * eDoc workflows can validate it with the standard file-path checks.</p>
+     * <p>The caller must hold demographic-scoped {@code _eform} read privileges.
+     * The returned path remains in the renderer-managed temporary directory so
+     * downstream fax and eDoc workflows can validate it with the standard
+     * file-path checks.</p>
      *
      * @param loggedInInfo current authenticated user context
      * @param fdid saved eForm data id
@@ -198,9 +199,14 @@ public class EformDataManagerImpl implements EformDataManager {
      * @throws PDFGenerationException when browser rendering fails or produces an unreadable file
      */
     public Path createEformPDF(LoggedInInfo loggedInInfo, int fdid) throws PDFGenerationException {
+        EFormData eformData = eFormDataDao.find(fdid);
+        if (eformData == null) {
+            throw new PDFGenerationException("EForm PDF generation failed because the eForm was not found.");
+        }
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.UPDATE, null)) {
-            throw new RuntimeException("missing required sec object (_eform)");
+        String demographicId = eformData.getDemographicId() == null ? null : String.valueOf(eformData.getDemographicId());
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, demographicId)) {
+            throw new SecurityException("missing required sec object (_eform)");
         }
 
         Path path;

@@ -45,6 +45,7 @@ import io.github.carlos_emr.carlos.eform.data.EForm;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.web.eform.EformViewForPdfGenerationServlet;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -117,6 +118,32 @@ class EFormViewForPdfGenerationServletUnitTest {
 
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
             assertThat(response.getErrorMessage()).isEqualTo("Missing required parameter: fdid");
+        }
+    }
+
+    @Test
+    @DisplayName("should mark browser-rendered saved eForm PDF requests to skip app HTML injection")
+    void shouldMarkBrowserRenderedSavedEformPdfRequest_toSkipAppHtmlInjection() throws Exception {
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        try (MockedStatic<SpringUtils> springUtils = mockStatic(SpringUtils.class)) {
+            springUtils.when(() -> SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(securityInfoManager);
+
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormViewForPdfGenerationServlet");
+            request.setContextPath("/carlos");
+            request.setRemoteAddr("127.0.0.1");
+            request.setParameter("providerId", "999998");
+            request.setParameter("browserRender", "true");
+            LoggedInInfo loggedInInfo = installLoggedInInfo(request, "999998");
+            when(securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, null)).thenReturn(true);
+
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            new EFormViewForPdfGenerationServlet().doGet(request, response);
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            assertThat(response.getErrorMessage()).isEqualTo("Missing required parameter: fdid");
+            assertThat(request.getAttribute(EformViewForPdfGenerationServlet.SKIP_HTML_INJECTION_ATTRIBUTE))
+                    .isEqualTo(Boolean.TRUE);
         }
     }
 
