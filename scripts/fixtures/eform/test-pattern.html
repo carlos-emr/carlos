@@ -502,13 +502,8 @@ window.onbeforeunload = function confirmExit() {
 <input type="hidden" name="test_pattern_hidden_persisted" id="test_pattern_hidden_persisted" value="template-hidden">
 <input type="hidden" name="StoreSignature1" id="StoreSignature1" value="image/jsignature;base30,0_0">
 <input type="hidden" name="SignatureChoice" id="SignatureChoice" value="Wet">
-<input type="hidden" name="test_pattern_patient_id" id="test_pattern_patient_id" oscarDB="patient_id">
-<input type="hidden" name="test_pattern_current_user" id="test_pattern_current_user" oscarDB="current_user">
-<input type="hidden" name="test_pattern_medication_history" id="test_pattern_medication_history" oscarDB="druglist_line">
-<input type="hidden" name="test_pattern_allergy_history" id="test_pattern_allergy_history" oscarDB="allergies_des_no_archived">
-<input type="hidden" name="test_pattern_medical_history" id="test_pattern_medical_history" oscarDB="medical_history">
-<input type="hidden" name="tickler_patient_id" id="tickler_patient_id" oscarDB="patient_id">
-<input type="hidden" name="tickler_send_to" id="tickler_send_to" oscarDB="current_user_id">
+<input type="hidden" name="test_pattern_non_patient_marker" id="test_pattern_non_patient_marker" value="synthetic">
+<input type="hidden" name="tickler_send_to" id="tickler_send_to" value="">
 <input type="hidden" name="tickler_weeks" id="tickler_weeks" value="2">
 <input type="hidden" name="tickler_priority" id="tickler_priority" value="Low">
 <input type="hidden" name="fax_no" id="fax_no" value="555-0100">
@@ -532,29 +527,26 @@ window.onbeforeunload = function confirmExit() {
     </header>
 
     <section class="section">
-      <h2>Database Tag Coverage</h2>
+      <h2>Safe Database Tag Coverage</h2>
       <div class="grid-3">
-        <label>Last name
-          <input type="text" name="patient_nameL" id="patient_nameL" value="TemplateLast" class="noborder" oscarDB="patient_nameL">
+        <label>Today DB tag
+          <input type="text" name="test_pattern_today" id="test_pattern_today" value="TemplateToday" class="noborder" oscarDB="today">
         </label>
-        <label>First name
-          <input type="text" name="patient_nameF" id="patient_nameF" value="TemplateFirst" class="noborder" oscarDB="patient_nameF">
+        <label>Template value A
+          <input type="text" name="test_pattern_template_value_a" id="test_pattern_template_value_a" value="Template A" class="noborder">
         </label>
-        <label>Sex
-          <input type="text" name="sex" id="sex" value="TemplateSex" class="noborder" oscarDB="sex">
+        <label>Template value B
+          <input type="text" name="test_pattern_template_value_b" id="test_pattern_template_value_b" value="Template B" class="noborder">
         </label>
-        <label>Date of birth
-          <input type="text" name="dob" id="dob" value="TemplateDob" class="noborder" oscarDB="dob">
+        <label>Template date
+          <input type="text" name="test_pattern_template_date" id="test_pattern_template_date" value="2026-07-14" class="noborder">
         </label>
-        <label>Health card
-          <input type="text" name="hin" id="hin" value="TemplateHin" class="noborder" oscarDB="hin">
-        </label>
-        <label>Today
-          <input type="text" name="today" id="today" value="TemplateToday" class="noborder" oscarDB="today">
+        <label>Template code
+          <input type="text" name="test_pattern_template_code" id="test_pattern_template_code" value="ABC-123" class="noborder">
         </label>
       </div>
-      <label style="margin-top: 10px;">Address textarea DB tag
-        <textarea name="addressline" id="addressline" class="noborder" oscarDB="addressline">Template address line</textarea>
+      <label style="margin-top: 10px;">Template textarea
+        <textarea name="test_pattern_template_textarea" id="test_pattern_template_textarea" class="noborder">Synthetic template text</textarea>
       </label>
     </section>
 
@@ -727,9 +719,9 @@ Third line</textarea>
             <td><input type="text" name="test_pattern_empty_text" id="test_pattern_empty_text" value=""></td>
           </tr>
           <tr>
-            <td>Measurement DB tag</td>
-            <td>Render if seeded measurement data exists; otherwise remain blank.</td>
-            <td><input type="text" name="test_pattern_measurement_weight" id="test_pattern_measurement_weight" oscarDB="m$WT#value" value=""></td>
+            <td>Measurement-style field</td>
+            <td>Render a synthetic blank field without pulling patient measurement data.</td>
+            <td><input type="text" name="test_pattern_measurement_weight" id="test_pattern_measurement_weight" value=""></td>
           </tr>
           <tr>
             <td>Links and lists</td>

@@ -74,7 +74,8 @@ function isLocalTestBaseUrl(baseUrl) {
 }
 
 const config = {
-  baseUrl: validateDestructiveTestBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos'),
+  rawBaseUrl: process.env.BASE_URL || 'http://127.0.0.1:8080/carlos',
+  baseUrl: null,
   chromePath: process.env.CHROME_PATH || '',
   testUser: process.env.TEST_USER || 'carlosdoc',
   testPassword: process.env.TEST_PASSWORD || 'carlos2026',
@@ -92,6 +93,7 @@ const sensitiveDiagnosticFieldPattern = /(?:fdid|demographic|patient)/i;
 let bgImageName = defaultBgImageName;
 
 function validateConfig() {
+  config.baseUrl = validateDestructiveTestBaseUrl(config.rawBaseUrl);
   assert(/^\d+$/.test(config.demographicNo), `EFORM_TEST_PATTERN_DEMOGRAPHIC_NO must be numeric, got ${config.demographicNo}`);
   const resolvedFixture = path.resolve(config.fixtureHtmlPath); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- local developer-only fixture path; existence is checked before upload
   assert(fs.existsSync(resolvedFixture), `Test pattern fixture does not exist: ${resolvedFixture}`);
@@ -574,7 +576,7 @@ async function assertSavedPattern(page, expected, fdid, screenshotName) {
   await assertRuntimeSurface(page, expected.fid, { expectedFdid: fdid });
   const state = await captureState(page);
   assertPersistedState(state, expected, fdid, screenshotName);
-  await screenshot(page, config.screenshotDir, screenshotName);
+  return screenshot(page, config.screenshotDir, screenshotName);
 }
 
 async function downloadPdf(page, artifactBaseName) {
@@ -586,13 +588,19 @@ async function downloadPdf(page, artifactBaseName) {
   const pdfBytes = fs.readFileSync(pdfPath);
   assert(pdfBytes.subarray(0, 5).toString('utf8') === '%PDF-', 'Downloaded test pattern payload was not a PDF');
   assert(pdfBytes.length > 500, `Downloaded test pattern PDF was unexpectedly small (${pdfBytes.length} bytes)`);
-  return { pdfBytes: pdfBytes.length };
+  return { path: pdfPath, pdfBytes: pdfBytes.length };
 }
 
 function assertDisplayImageFetched(recorder) {
   const matches = recorder.requestLog.filter((response) => response.url.includes(`imagefile=${encodeURIComponent(bgImageName)}`) || response.url.includes(`imagefile=${bgImageName}`));
   assert(matches.length > 0, `No displayImage request captured for ${bgImageName}`);
   assert(matches.some((response) => response.status === 200), `displayImage never returned 200 for ${bgImageName}: ${JSON.stringify(matches, null, 2)}`);
+}
+
+function isExpectedTestPatternObjectCspIssue(issue) {
+  const source = `${issue.location?.url || ''} ${issue.text || ''}`;
+  return /^test-pattern-/.test(issue.label || '')
+    && /Loading plugin data from 'data:text\/plain,Embedded%20object%20content' violates .*object-src 'none'/.test(source);
 }
 
 function filteredConsoleIssues(recorder) {
@@ -602,6 +610,8 @@ function filteredConsoleIssues(recorder) {
   ) && !(
     /\/favicon\.ico$/.test(issue.location?.url || '')
     && /404/.test(issue.text)
+  ) && !(
+    isExpectedTestPatternObjectCspIssue(issue)
   ));
 }
 
@@ -609,9 +619,6 @@ function filteredPageErrors(recorder) {
   // Legacy patient-list unload code can run after its opener has gone away.
   // Keep this exception specific so unrelated patient-list script failures still fail.
   return recorder.pageErrors.filter((issue) => !(
-    issue.label === 'test-pattern-patient-list'
-    && /Invalid or unexpected token/.test(issue.text)
-  ) && !(
     issue.label === 'test-pattern-patient-list'
     && /Cannot read properties of null \(reading 'document'\)/.test(issue.text)
     && /at updateAjax .*efmpatientformlist\?demographic_no=/.test(issue.text)
@@ -646,6 +653,13 @@ function redactSensitiveFailureDetails(value) {
 
 function formatDiagnostic(value) {
   return JSON.stringify(redactSensitiveFailureDetails(value));
+}
+
+function cleanupArtifactFiles(artifactPaths) {
+  for (const artifactPath of artifactPaths) {
+    fs.rmSync(artifactPath, { force: true });
+  }
+  artifactPaths.clear();
 }
 
 async function readCsrfToken(page, label) {
@@ -820,7 +834,6 @@ async function cleanupUploadedImage(context, imageName) {
 }
 
 (async () => {
-  validateConfig();
   const recorder = createRecorder();
   const timestamp = Date.now();
   const runId = `${timestamp}_${process.pid}`;
@@ -848,8 +861,10 @@ async function cleanupUploadedImage(context, imageName) {
   let runtimeFixture = null;
   let browser = null;
   const savedFdidsToCleanup = new Set();
+  const artifactPaths = new Set();
 
   try {
+    validateConfig();
     runtimeFixture = createRuntimeFixture(bgImageName);
     config.fixtureHtmlPath = runtimeFixture.htmlPath;
     browser = await chromium.launch(getLaunchOptions(config.chromePath));
@@ -869,7 +884,7 @@ async function cleanupUploadedImage(context, imageName) {
 
     const managerPreview = await openManagerPreview(context, recorder, uploadResult.row);
     await assertRuntimeSurface(managerPreview, importedFid);
-    await screenshot(managerPreview, config.screenshotDir, 'eform-test-pattern-manager-preview');
+    artifactPaths.add(await screenshot(managerPreview, config.screenshotDir, 'eform-test-pattern-manager-preview'));
     await managerPreview.close();
 
     const addPage = await openAddEform(context, recorder, importedFid);
@@ -878,7 +893,7 @@ async function cleanupUploadedImage(context, imageName) {
     if (fdid) {
       savedFdidsToCleanup.add(fdid);
     }
-    await screenshot(addPage, config.screenshotDir, 'eform-test-pattern-after-save');
+    artifactPaths.add(await screenshot(addPage, config.screenshotDir, 'eform-test-pattern-after-save'));
     if (!fdid) {
       fdid = await resolveSavedFdidFromPatientList(context, recorder, expected.subject);
       savedFdidsToCleanup.add(fdid);
@@ -886,8 +901,9 @@ async function cleanupUploadedImage(context, imageName) {
     await addPage.close();
 
     const directPage = await openSavedEformDirect(context, recorder, fdid);
-    await assertSavedPattern(directPage, expected, fdid, 'eform-test-pattern-direct-reopen');
+    artifactPaths.add(await assertSavedPattern(directPage, expected, fdid, 'eform-test-pattern-direct-reopen'));
     const pdfResult = await downloadPdf(directPage, `eform-test-pattern-${runId}`);
+    artifactPaths.add(pdfResult.path);
     for (const currentFdid of await listSavedFdidsFromPatientList(context, recorder, expected.subject)) {
       savedFdidsToCleanup.add(currentFdid);
     }
@@ -895,7 +911,7 @@ async function cleanupUploadedImage(context, imageName) {
 
     const patientListPopup = await openSavedEformFromPatientList(context, recorder, fdid);
     assert(patientListPopup.url().includes(`fdid=${fdid}`), `Patient list popup did not open fdid ${fdid}: ${patientListPopup.url()}`);
-    await assertSavedPattern(patientListPopup, expected, fdid, 'eform-test-pattern-patient-list-reopen');
+    artifactPaths.add(await assertSavedPattern(patientListPopup, expected, fdid, 'eform-test-pattern-patient-list-reopen'));
     await patientListPopup.close();
 
     assertDisplayImageFetched(recorder);
@@ -913,6 +929,7 @@ async function cleanupUploadedImage(context, imageName) {
       pdfDownloaded: true,
       pdfBytes: pdfResult.pdfBytes,
     }, null, 2));
+    cleanupArtifactFiles(artifactPaths);
     console.log('PASS all-in-one eForm test pattern render/save/PDF check');
   } catch (error) {
     console.error('FAIL all-in-one eForm test pattern Playwright check');
