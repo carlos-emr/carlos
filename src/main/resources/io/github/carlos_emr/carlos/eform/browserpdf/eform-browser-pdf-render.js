@@ -342,13 +342,11 @@ async function main() {
       if (isSevereConsoleMessage(message)) {
         consoleIssues.push({
           type: message.type(),
-          text: message.text(),
-          location: message.location(),
         });
       }
     });
-    page.on('pageerror', (error) => {
-      pageErrors.push(error?.name || 'Error');
+    page.on('pageerror', () => {
+      pageErrors.push('pageerror');
     });
 
     await page.emulateMedia({ media: 'screen' });
@@ -372,7 +370,7 @@ async function main() {
     const details = {
       consoleErrorCount: consoleIssues.length,
       pageErrorCount: pageErrors.length,
-      consoleErrors: consoleIssues.slice(0, 10),
+      consoleErrorTypes: consoleIssues.map((issue) => issue.type).slice(0, 10),
       pageErrorTypes: [...new Set(pageErrors)],
     };
     console.error(JSON.stringify(details));

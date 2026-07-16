@@ -28,8 +28,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * marker in the form HTML into a real, browser-facing {@code <context>/library/} URL prefix.
  *
  * <p>The marker is a servlet URL prefix, not a filesystem path, so the method must build the URL by
- * plain string substitution and must tolerate a trailing slash on the context path. A blank/unset
- * context path must leave the HTML untouched.</p>
+ * plain string substitution and must tolerate a trailing slash on the context path. A whitespace-only
+ * context path must leave the HTML untouched, while an empty context path represents a root deployment.</p>
  *
  * @since 2026-06-01
  */
@@ -108,6 +108,21 @@ class EFormSetContextPathUnitTest {
 
         assertThat(eform.getFormHtml()).isEqualTo(original);
         assertThat(eform.getFormHtml()).contains(JS_MARKER);
+    }
+
+    @Test
+    @DisplayName("should rewrite runtime assets when deployed at the root context")
+    void shouldRewriteRuntimeAssets_whenContextPathEmpty() {
+        EForm eform = new EForm();
+        eform.setFormHtml("<script src=\"" + JS_MARKER + "eform.js\"></script>"
+                + "<script src=\"jquery-1.12.0.min.js\"></script>");
+
+        eform.setContextPath("");
+
+        assertThat(eform.getFormHtml())
+                .contains("<script src=\"/library/eform.js\"></script>")
+                .contains("src=\"/eform/displayImage?imagefile=jquery-1.12.0.min.js\"")
+                .doesNotContain(JS_MARKER);
     }
 
     @Test

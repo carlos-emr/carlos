@@ -336,6 +336,30 @@ class EFormBrowserPdfRendererUnitTest {
     }
 
     @Test
+    @DisplayName("should reject node_modules symlinks that escape the candidate root")
+    void shouldRejectEscapedNodeModulesSymlink_whenResolvingPlaywrightModules() throws IOException {
+        Path root = Files.createTempDirectory("playwright-checkout-root-");
+        Path outsideRoot = Files.createTempDirectory("playwright-outside-root-");
+        Path outsideNodeModules = Files.createDirectories(outsideRoot.resolve("node_modules"));
+        Path playwright = Files.createDirectories(outsideNodeModules.resolve("playwright"));
+        Path nodeModulesSymlink = root.resolve("node_modules");
+        try {
+            Files.createSymbolicLink(nodeModulesSymlink, outsideNodeModules);
+
+            assertThat(EFormBrowserPdfRenderer.findNodeModulesDirectory(List.of(root))).isNull();
+        } catch (UnsupportedOperationException | IOException e) {
+            org.junit.jupiter.api.Assumptions.assumeTrue(false,
+                    "symbolic links are not available in this test environment: " + e.getMessage());
+        } finally {
+            Files.deleteIfExists(nodeModulesSymlink);
+            Files.deleteIfExists(playwright);
+            Files.deleteIfExists(outsideNodeModules);
+            Files.deleteIfExists(outsideRoot);
+            Files.deleteIfExists(root);
+        }
+    }
+
+    @Test
     @DisplayName("should ignore root candidates when resolving Playwright modules")
     void shouldIgnoreRootCandidate_whenResolvingPlaywrightModules() {
         assertThat(EFormBrowserPdfRenderer.findNodeModulesDirectory(List.of(Path.of("/")))).isNull();

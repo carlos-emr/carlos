@@ -34,7 +34,6 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
@@ -43,22 +42,21 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.eform.data.EForm;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.web.eform.EformViewForPdfGenerationServlet;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
 @DisplayName("EFormViewForPdfGenerationServlet unit tests")
 @Tag("unit")
 @Tag("fast")
 @Tag("eform")
-class EFormViewForPdfGenerationServletUnitTest {
+class EFormViewForPdfGenerationServletUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should allow browser renderer requests when the authenticated session matches providerId")
@@ -88,63 +86,57 @@ class EFormViewForPdfGenerationServletUnitTest {
     @DisplayName("should reject saved eForm PDF requests without _eform read privilege")
     void shouldRejectSavedEformPdfRequest_whenEformReadPrivilegeMissing() throws Exception {
         SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
-        try (MockedStatic<SpringUtils> springUtils = mockStatic(SpringUtils.class)) {
-            springUtils.when(() -> SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(securityInfoManager);
-            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormViewForPdfGenerationServlet");
-            request.setRemoteAddr("127.0.0.1");
-            LoggedInInfo loggedInInfo = installLoggedInInfo(request, "999998");
-            when(securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, null)).thenReturn(false);
-            MockHttpServletResponse response = new MockHttpServletResponse();
+        registerMock(SecurityInfoManager.class, securityInfoManager);
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormViewForPdfGenerationServlet");
+        request.setRemoteAddr("127.0.0.1");
+        LoggedInInfo loggedInInfo = installLoggedInInfo(request, "999998");
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, null)).thenReturn(false);
+        MockHttpServletResponse response = new MockHttpServletResponse();
 
-            new EFormViewForPdfGenerationServlet().doGet(request, response);
+        new EFormViewForPdfGenerationServlet().doGet(request, response);
 
-            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
-        }
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
     }
 
     @Test
     @DisplayName("should continue saved eForm PDF requests with _eform read privilege")
     void shouldContinueSavedEformPdfRequest_whenEformReadPrivilegeExists() throws Exception {
         SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
-        try (MockedStatic<SpringUtils> springUtils = mockStatic(SpringUtils.class)) {
-            springUtils.when(() -> SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(securityInfoManager);
-            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormViewForPdfGenerationServlet");
-            request.setRemoteAddr("127.0.0.1");
-            LoggedInInfo loggedInInfo = installLoggedInInfo(request, "999998");
-            when(securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, null)).thenReturn(true);
-            MockHttpServletResponse response = new MockHttpServletResponse();
+        registerMock(SecurityInfoManager.class, securityInfoManager);
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormViewForPdfGenerationServlet");
+        request.setRemoteAddr("127.0.0.1");
+        LoggedInInfo loggedInInfo = installLoggedInInfo(request, "999998");
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, null)).thenReturn(true);
+        MockHttpServletResponse response = new MockHttpServletResponse();
 
-            new EFormViewForPdfGenerationServlet().doGet(request, response);
+        new EFormViewForPdfGenerationServlet().doGet(request, response);
 
-            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
-            assertThat(response.getErrorMessage()).isEqualTo("Missing required parameter: fdid");
-        }
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        assertThat(response.getErrorMessage()).isEqualTo("Missing required parameter: fdid");
     }
 
     @Test
     @DisplayName("should mark browser-rendered saved eForm PDF requests to skip app HTML injection")
     void shouldMarkBrowserRenderedSavedEformPdfRequest_toSkipAppHtmlInjection() throws Exception {
         SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
-        try (MockedStatic<SpringUtils> springUtils = mockStatic(SpringUtils.class)) {
-            springUtils.when(() -> SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(securityInfoManager);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
 
-            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormViewForPdfGenerationServlet");
-            request.setContextPath("/carlos");
-            request.setRemoteAddr("127.0.0.1");
-            request.setParameter("providerId", "999998");
-            request.setParameter("browserRender", "true");
-            LoggedInInfo loggedInInfo = installLoggedInInfo(request, "999998");
-            when(securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, null)).thenReturn(true);
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormViewForPdfGenerationServlet");
+        request.setContextPath("/carlos");
+        request.setRemoteAddr("127.0.0.1");
+        request.setParameter("providerId", "999998");
+        request.setParameter("browserRender", "true");
+        LoggedInInfo loggedInInfo = installLoggedInInfo(request, "999998");
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, null)).thenReturn(true);
 
-            MockHttpServletResponse response = new MockHttpServletResponse();
+        MockHttpServletResponse response = new MockHttpServletResponse();
 
-            new EFormViewForPdfGenerationServlet().doGet(request, response);
+        new EFormViewForPdfGenerationServlet().doGet(request, response);
 
-            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
-            assertThat(response.getErrorMessage()).isEqualTo("Missing required parameter: fdid");
-            assertThat(request.getAttribute(EformViewForPdfGenerationServlet.SKIP_HTML_INJECTION_ATTRIBUTE))
-                    .isEqualTo(Boolean.TRUE);
-        }
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        assertThat(response.getErrorMessage()).isEqualTo("Missing required parameter: fdid");
+        assertThat(request.getAttribute(EformViewForPdfGenerationServlet.SKIP_HTML_INJECTION_ATTRIBUTE))
+                .isEqualTo(Boolean.TRUE);
     }
 
     @Test

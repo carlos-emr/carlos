@@ -515,6 +515,7 @@ public class EFormBrowserPdfRenderer {
             return null;
         }
         try {
+            PathValidationUtils.validateExistingPath(nodeModulesDirectory.toFile(), candidate.toAbsolutePath().normalize().toFile());
             PathValidationUtils.validateExistingPath(playwrightPath.toFile(), nodeModulesDirectory.toFile());
             return nodeModulesDirectory;
         } catch (SecurityException e) {

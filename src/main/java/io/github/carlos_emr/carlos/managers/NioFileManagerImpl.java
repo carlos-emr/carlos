@@ -37,6 +37,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
@@ -360,6 +361,7 @@ public class NioFileManagerImpl implements NioFileManager {
     }
 
     private Path renderPdfPageToCache(Path sourceFile, Path cacheFilePath, int pageNum) {
+        Path tempCacheFilePath = null;
         try (PDDocument document = Loader.loadPDF(sourceFile.toFile())) {
             int pageIndex = pageNum - 1;
             int pageCount = document.getNumberOfPages();
@@ -372,10 +374,13 @@ public class NioFileManagerImpl implements NioFileManager {
             PDFRenderer renderer = new PDFRenderer(document);
             BufferedImage imageToSave = renderer.renderImageWithDPI(pageIndex, 96, ImageType.RGB);
             try {
-                if (!ImageIO.write(imageToSave, "png", cacheFilePath.toFile())) {
+                tempCacheFilePath = Files.createTempFile(cacheFilePath.getParent(), cacheFilePath.getFileName().toString(), ".tmp");
+                if (!ImageIO.write(imageToSave, "png", tempCacheFilePath.toFile())) {
                     log.error("Failed to write PNG image to cache file");
                     return null;
                 }
+                moveRenderedCacheFile(tempCacheFilePath, cacheFilePath);
+                tempCacheFilePath = null;
             } finally {
                 imageToSave.flush();
             }
@@ -384,6 +389,27 @@ public class NioFileManagerImpl implements NioFileManager {
         } catch (IOException e) {
             log.error("Error rendering PDF page to cache", e);
             return null;
+        } finally {
+            deleteCacheTempFileQuietly(tempCacheFilePath);
+        }
+    }
+
+    private void moveRenderedCacheFile(Path tempCacheFilePath, Path cacheFilePath) throws IOException {
+        try {
+            Files.move(tempCacheFilePath, cacheFilePath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+        } catch (AtomicMoveNotSupportedException e) {
+            Files.move(tempCacheFilePath, cacheFilePath, StandardCopyOption.REPLACE_EXISTING);
+        }
+    }
+
+    private void deleteCacheTempFileQuietly(Path tempCacheFilePath) {
+        if (tempCacheFilePath == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(tempCacheFilePath);
+        } catch (IOException e) {
+            log.debug("Unable to delete temporary fax preview cache image {}", tempCacheFilePath, e);
         }
     }
 
@@ -397,8 +423,9 @@ public class NioFileManagerImpl implements NioFileManager {
     private String sourcePathDiscriminator(Path sourceFile) {
         try {
             Path realPath = sourceFile.toRealPath();
+            String version = Files.size(realPath) + ":" + Files.getLastModifiedTime(realPath).toMillis();
             byte[] digest = MessageDigest.getInstance("SHA-256")
-                    .digest(realPath.toString().getBytes(StandardCharsets.UTF_8));
+                    .digest((realPath + ":" + version).getBytes(StandardCharsets.UTF_8));
             return toHex(digest, CACHE_SOURCE_DISCRIMINATOR_LENGTH);
         } catch (IOException e) {
             throw new SecurityException("Unable to resolve fax preview source path", e);

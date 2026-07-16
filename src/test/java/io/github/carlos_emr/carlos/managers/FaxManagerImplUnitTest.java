@@ -160,6 +160,35 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should mark fax job error when temp promotion throws")
+    void shouldMarkFaxJobError_whenTempPromotionThrows() throws Exception {
+        Path tempRoot = Files.createTempDirectory(Path.of(System.getProperty("java.io.tmpdir")), "fax-renderer-temp-root-");
+        try {
+            Path tempPdf = Files.createTempFile(tempRoot, "eform-browser-render-", ".pdf");
+            doReturn(tempPdf).when(manager).resolveAndValidateFilePath(tempPdf.toString());
+            when(nioFileManager.copyFileToOscarDocuments(tempPdf.toString()))
+                    .thenThrow(new IllegalStateException("copy failed"));
+
+            FaxJob faxJob = manager.createFaxJob(loggedInInfo, Map.of(
+                    "faxFilePath", tempPdf.toString(),
+                    "recipient", "Test Recipient",
+                    "recipientFaxNumber", "123-456-7890",
+                    "senderFaxNumber", "1234567890",
+                    "demographicNo", 17));
+
+            verify(nioFileManager).copyFileToOscarDocuments(tempPdf.toString());
+            assertThat(faxJob.getStatus()).isEqualTo(FaxJob.STATUS.ERROR);
+            assertThat(faxJob.getStatusString()).isEqualTo("File missing on local storage or invalid file path.");
+        } finally {
+            try (Stream<Path> paths = Files.walk(tempRoot)) {
+                paths.sorted(Comparator.reverseOrder())
+                        .forEach(path -> path.toFile().delete());
+            }
+            Files.deleteIfExists(tempRoot);
+        }
+    }
+
+    @Test
     @DisplayName("should use fax preview cache generation for preview images")
     void shouldUseFaxPreviewCacheVersion_whenRenderingPreviewImage() throws Exception {
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_fax"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
@@ -208,6 +237,27 @@ class FaxManagerImplUnitTest extends CarlosUnitTestBase {
         assertThat(flushed).isTrue();
         verify(nioFileManager).removeFaxPreviewCacheVersions(loggedInInfo, sourcePath);
         verify(nioFileManager, never()).deleteTempFile(sourcePath);
+    }
+
+    @Test
+    @DisplayName("should require temp PDF deletion when flushing an approved temp preview source")
+    void shouldRequireTempDeletion_whenFlushingApprovedTempPreviewSource() throws Exception {
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_fax"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
+        Path tempRoot = Files.createTempDirectory(Path.of(System.getProperty("java.io.tmpdir")), "fax-preview-flush-");
+        Path tempPdf = Files.createTempFile(tempRoot, "fax-preview-source-", ".pdf");
+        try {
+            when(nioFileManager.removeFaxPreviewCacheVersions(loggedInInfo, tempPdf.toString())).thenReturn(true);
+            when(nioFileManager.deleteTempFile(tempPdf.toString())).thenReturn(false);
+
+            boolean flushed = manager.flush(loggedInInfo, tempPdf.toString());
+
+            assertThat(flushed).isFalse();
+            verify(nioFileManager).removeFaxPreviewCacheVersions(loggedInInfo, tempPdf.toString());
+            verify(nioFileManager).deleteTempFile(tempPdf.toString());
+        } finally {
+            Files.deleteIfExists(tempPdf);
+            Files.deleteIfExists(tempRoot);
+        }
     }
 
     @Test

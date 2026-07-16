@@ -36,6 +36,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
 import java.security.MessageDigest;
 import java.util.Comparator;
 import java.util.UUID;
@@ -284,6 +285,37 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
             deleteFileQuietly(secondCache);
             deleteDirectoryQuietly(firstTempDir);
             deleteDirectoryQuietly(secondTempDir);
+        }
+    }
+
+    @Test
+    @DisplayName("Creates new fax preview cache files when same-path source contents change")
+    void shouldCreateNewFaxPreviewCacheFile_whenSourceAtSamePathChanges() throws IOException {
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq(SecurityInfoManager.READ), isNull())).thenReturn(true);
+        allowedTempDir = Files.createTempDirectory(Path.of(System.getProperty("java.io.tmpdir")), "nio-fax-preview-replace-");
+        assumeTrue(PathValidationUtils.isInAllowedTempDirectory(allowedTempDir.toFile()),
+                "test temp directory must resolve inside an allowed temp directory");
+        Files.createDirectories(getDocumentCacheDirectory());
+        Path sourcePdf = allowedTempDir.resolve("fax-preview-replaced.pdf");
+        Path firstCache = null;
+        Path secondCache = null;
+
+        try {
+            createSinglePagePdf(sourcePdf);
+            firstCache = nioFileManager.createFaxPreviewCacheVersion(loggedInInfo, allowedTempDir.toString(),
+                    sourcePdf.getFileName().toString(), 1);
+
+            createPdf(sourcePdf, 2);
+            Files.setLastModifiedTime(sourcePdf, FileTime.fromMillis(System.currentTimeMillis() + 10000L));
+            secondCache = nioFileManager.createFaxPreviewCacheVersion(loggedInInfo, allowedTempDir.toString(),
+                    sourcePdf.getFileName().toString(), 1);
+
+            assertThat(firstCache).isNotNull().exists();
+            assertThat(secondCache).isNotNull().exists();
+            assertThat(secondCache).isNotEqualTo(firstCache);
+        } finally {
+            deleteFileQuietly(firstCache);
+            deleteFileQuietly(secondCache);
         }
     }
 

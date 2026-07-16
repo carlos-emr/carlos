@@ -398,7 +398,7 @@ public class EForm extends EFormBase {
      * @param contextPath servlet context path used to build browser-facing runtime asset URLs
      */
     public void setContextPath(String contextPath) {
-        if (StringUtils.isBlank(contextPath)) return;
+        if (contextPath == null || (!contextPath.isEmpty() && contextPath.isBlank())) return;
         // contextPath is a servlet URL prefix (e.g. "/carlos") that is injected into browser-facing
         // HTML, NOT a filesystem path - build the library URL directly rather than running filesystem
         // path validation on it (which would inject OS separators and reject some valid context paths).
@@ -457,7 +457,7 @@ public class EForm extends EFormBase {
 
     @Override
     public String getFormHtml() {
-        if (!StringUtils.isBlank(runtimeContextPath)) {
+        if (runtimeContextPath != null) {
             try {
                 normalizeLegacyRuntimeAssetsInDocument(runtimeContextPath);
             } catch (RuntimeException | LinkageError e) {

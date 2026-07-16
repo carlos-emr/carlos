@@ -375,6 +375,7 @@ public class FaxManagerImpl implements FaxManager {
                 logger.debug("Skipping temp fax file promotion after copy failure for file path: {}",
                         LogSafe.sanitize(faxFilePath), e);
             }
+            return null;
         }
         return faxFilePath;
     }
@@ -697,15 +698,14 @@ public class FaxManagerImpl implements FaxManager {
         }
 
         boolean cache = nioFileManager.removeFaxPreviewCacheVersions(loggedInInfo, filePath);
-        boolean temp = deleteAllowedTempPreviewFile(filePath);
+        boolean tempSource = isAllowedTempPreviewFile(filePath);
+        boolean temp = tempSource && nioFileManager.deleteTempFile(filePath);
 
-        return cache || temp;
+        return tempSource ? temp : cache;
     }
 
-    private boolean deleteAllowedTempPreviewFile(String filePath) {
-        return filePath != null
-                && PathValidationUtils.isInAllowedTempDirectory(toFlushTempFile(filePath))
-                && nioFileManager.deleteTempFile(filePath);
+    private boolean isAllowedTempPreviewFile(String filePath) {
+        return filePath != null && PathValidationUtils.isInAllowedTempDirectory(toFlushTempFile(filePath));
     }
 
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
