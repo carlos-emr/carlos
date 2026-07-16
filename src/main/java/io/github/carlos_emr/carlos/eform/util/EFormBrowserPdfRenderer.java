@@ -155,26 +155,26 @@ public class EFormBrowserPdfRenderer {
             if (!finished) {
                 terminateProcessTree(process);
                 String processOutput = awaitProcessOutput(outputFuture);
-                logger.error("Browser eForm renderer timed out: fdid={} providerId={} baseUrl={} appPath={} diagnostics={}",
-                        fdid, providerId, baseUrl, appPath, extractRendererDiagnostics(processOutput));
+                logRendererFailure("Browser eForm renderer timed out: fdid={} providerId={} baseUrl={} appPath={} diagnostics={}",
+                        fdid, providerId, baseUrl, appPath, processOutput);
                 throw new PDFGenerationException("Browser rendering timed out while generating the eForm PDF.");
             }
             String processOutput = awaitProcessOutput(outputFuture);
             if (process.exitValue() != 0) {
-                logger.error("Browser eForm renderer failed: fdid={} providerId={} baseUrl={} appPath={} exitStatus={} diagnostics={}",
-                        fdid, providerId, baseUrl, appPath, process.exitValue(), extractRendererDiagnostics(processOutput));
+                logRendererFailure("Browser eForm renderer failed: fdid={} providerId={} baseUrl={} appPath={} exitStatus={} diagnostics={}",
+                        fdid, providerId, baseUrl, appPath, process.exitValue(), processOutput);
                 throw new PDFGenerationException("Browser rendering failed while generating the eForm PDF. exitStatus=" + process.exitValue());
             }
             List<Path> captureFiles = listCaptureFiles(outputDirectory);
             if (captureFiles.isEmpty()) {
-                logger.error("Browser eForm renderer completed without captures: fdid={} providerId={} baseUrl={} appPath={} diagnostics={}",
-                        fdid, providerId, baseUrl, appPath, extractRendererDiagnostics(processOutput));
+                logRendererFailure("Browser eForm renderer completed without captures: fdid={} providerId={} baseUrl={} appPath={} diagnostics={}",
+                        fdid, providerId, baseUrl, appPath, processOutput);
                 throw new PDFGenerationException("Browser rendering completed without producing any page captures.");
             }
             convertCapturesToPdf(captureFiles, outputPdfPath);
             if (!Files.isReadable(outputPdfPath) || Files.size(outputPdfPath) == 0) {
-                logger.error("Browser eForm renderer produced an unreadable PDF: fdid={} providerId={} baseUrl={} appPath={} diagnostics={}",
-                        fdid, providerId, baseUrl, appPath, extractRendererDiagnostics(processOutput));
+                logRendererFailure("Browser eForm renderer produced an unreadable PDF: fdid={} providerId={} baseUrl={} appPath={} diagnostics={}",
+                        fdid, providerId, baseUrl, appPath, processOutput);
                 throw new PDFGenerationException("Browser rendering completed without producing a readable eForm PDF.");
             }
             success = true;
@@ -236,7 +236,7 @@ public class EFormBrowserPdfRenderer {
                 if (!line.startsWith(RENDERER_DIAGNOSTIC_PREFIX)) {
                     continue;
                 }
-                if (diagnostics.length() > 0) {
+                if (!diagnostics.isEmpty()) {
                     diagnostics.append(System.lineSeparator());
                 }
                 diagnostics.append(line);
@@ -272,6 +272,16 @@ public class EFormBrowserPdfRenderer {
             return "<none>";
         }
         return String.join(" | ", diagnostics);
+    }
+
+
+    private static void logRendererFailure(String message, Object... arguments) {
+        if (logger.isErrorEnabled()) {
+            Object[] logArguments = arguments.clone();
+            int diagnosticsIndex = logArguments.length - 1;
+            logArguments[diagnosticsIndex] = extractRendererDiagnostics(String.valueOf(logArguments[diagnosticsIndex]));
+            logger.error(message, logArguments);
+        }
     }
 
     static String buildDefaultBaseUrl(String projectHome) {

@@ -23,15 +23,11 @@ function diagnosticLog(payload) {
 }
 
 function sanitizeDiagnosticUrl(rawUrl) {
-  if (!rawUrl) {
+  if (!rawUrl || !URL.canParse(rawUrl)) {
     return null;
   }
-  try {
-    const parsed = new URL(rawUrl);
-    return `${parsed.origin}${parsed.pathname}`;
-  } catch (_error) {
-    return null;
-  }
+  const parsed = new URL(rawUrl);
+  return `${parsed.origin}${parsed.pathname}`;
 }
 
 function summarizeCountMap(entries) {
@@ -114,12 +110,11 @@ function isAllowedRendererRequestUrl(requestUrl, allowedOrigin) {
   if (requestUrl.startsWith('data:') || requestUrl.startsWith('blob:') || requestUrl.startsWith('about:')) {
     return true;
   }
-  try {
-    const parsed = new URL(requestUrl);
-    return ['http:', 'https:'].includes(parsed.protocol) && parsed.origin === allowedOrigin;
-  } catch (_error) {
+  if (!URL.canParse(requestUrl)) {
     return false;
   }
+  const parsed = new URL(requestUrl);
+  return ['http:', 'https:'].includes(parsed.protocol) && parsed.origin === allowedOrigin;
 }
 
 async function computeCaptureRegions(page) {
