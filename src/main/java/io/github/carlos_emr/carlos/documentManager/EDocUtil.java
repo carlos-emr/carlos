@@ -1410,11 +1410,18 @@ public final class EDocUtil {
 	/**
 	 * Checks if a document with the given filename has already been refiled in the specified queue.
 	 *
+	 * <p>Unlike most {@code PathValidationUtils.validateConfiguredDirectory} callers in this class,
+	 * a missing Refile directory here is not treated as a configuration failure: that subdirectory
+	 * is created lazily by {@link #refileDocument(String, String)} on its first use for a given
+	 * queue, so a queue that has never had a document refiled into it legitimately has no Refile
+	 * directory yet. This method treats that case (and any other resolution failure) the same as
+	 * "not yet refiled" and returns {@code false} rather than throwing.</p>
+	 *
 	 * @see #refileDocument(String, String)
 	 * @param filename The original filename of the document.
 	 * @param queueId  The ID of the queue where the document might have been refiled.
 	 * @return {@code true} if a document with the refiled name exists in the queue's refile directory,
-	 * {@code false} otherwise.
+	 * {@code false} otherwise, including when the queue's refile directory does not exist yet.
 	 */
 	public static boolean isDocumentAlreadyRefiledInQueue(String filename, int queueId) {
 		String destFileName = filename;

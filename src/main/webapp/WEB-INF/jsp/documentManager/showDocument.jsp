@@ -128,6 +128,7 @@
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.IncomingDocUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.ProviderBeanResolver" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.*" %>
 <%@ page import="io.github.carlos_emr.carlos.log.*" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
@@ -768,17 +769,7 @@
                                 <td colspan="2">
                                     <fmt:message key="inboxmanager.document.LinkedProvidersMsg"/>
                                     <%
-                                        Properties p = (Properties) session.getAttribute("providerBean");
-                                        if (p == null) {
-                                            // Not populated yet for this session (only lazily seeded by
-                                            // other pages via <jsp:useBean scope="session">). Fall back to
-                                            // an empty map — getProperty(id, id) below still displays the
-                                            // raw provider number — but log it so a missing display-name
-                                            // lookup is visible instead of silently looking like no names
-                                            // were ever configured.
-                                            MiscUtils.getLogger().warn("providerBean missing from session while rendering linked providers for document " + docId + "; falling back to provider IDs");
-                                            p = new Properties();
-                                        }
+                                        Properties p = ProviderBeanResolver.resolve(session, docId);
                                         List<ProviderInboxItem> routeList = Collections.emptyList();
                                         if (docId != null) {
                                             routeList = providerInboxRoutingDao.getProvidersWithRoutingForDocument("DOC", Integer.parseInt(docId));
