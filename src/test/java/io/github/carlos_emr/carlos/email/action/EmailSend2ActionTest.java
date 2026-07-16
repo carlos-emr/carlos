@@ -36,6 +36,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailSessionKeys;
 import io.github.carlos_emr.carlos.managers.EformDataManager;
 import io.github.carlos_emr.carlos.managers.EmailManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -126,12 +127,12 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         request.setMethod("GET");
         request.setParameter("method", "cancel");
         request.setParameter("transactionType", "DIRECT");
-        request.getSession().setAttribute("emailAttachmentList", List.of());
+        request.getSession().setAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST, List.of());
 
         String result = newAction().execute();
 
         assertThat(result).isEqualTo("DIRECT");
-        assertThat(request.getSession().getAttribute("emailAttachmentList")).isNotNull();
+        assertThat(request.getSession().getAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST)).isNotNull();
         verifyNoInteractions(emailManager, eformDataManager);
     }
 
@@ -142,12 +143,12 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         request.setMethod("POST");
         request.setParameter("method", "cancel");
         request.setParameter("transactionType", "DIRECT");
-        request.getSession().setAttribute("emailAttachmentList", List.of());
+        request.getSession().setAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST, List.of());
 
         String result = newAction().execute();
 
         assertThat(result).isEqualTo("DIRECT");
-        assertThat(request.getSession().getAttribute("emailAttachmentList")).isNull();
+        assertThat(request.getSession().getAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST)).isNull();
         verifyNoInteractions(emailManager, eformDataManager);
     }
 
