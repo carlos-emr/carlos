@@ -804,7 +804,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         PdfPCell imageCell = new PdfPCell(image);
         imageCell.setBorder(0);
         imageCell.setPadding(0);
-        imageCell.setHorizontalAlignment(PdfPCell.ALIGN_RIGHT);
+        //imageCell.setHorizontalAlignment(PdfPCell.ALIGN_RIGHT);
         signatureBlock.addCell(imageCell);
 
         PdfPTable table = new PdfPTable(SIGNATURE_ROW_WIDTHS);
