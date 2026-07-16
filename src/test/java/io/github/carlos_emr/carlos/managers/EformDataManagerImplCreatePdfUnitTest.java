@@ -20,12 +20,10 @@ import org.mockito.MockitoAnnotations;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @DisplayName("EformDataManagerImpl createEformPDF")
@@ -58,7 +56,7 @@ class EformDataManagerImplCreatePdfUnitTest extends CarlosUnitTestBase {
         injectDependency(manager, "documentAttachmentManager", documentAttachmentManager);
         injectDependency(manager, "formsManager", formsManager);
 
-        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_eform"), eq(SecurityInfoManager.UPDATE), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_eform"), eq(SecurityInfoManager.READ), eq("123"))).thenReturn(true);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
 
         EFormData eformData = new EFormData();
@@ -66,7 +64,6 @@ class EformDataManagerImplCreatePdfUnitTest extends CarlosUnitTestBase {
         eformData.setDemographicId(123);
         eformData.setFormName("Consult Form");
         eformData.setFormData("<html></html>");
-        eformData.setDemographicId(1);
         when(eFormDataDao.find(77)).thenReturn(eformData);
     }
 
@@ -119,16 +116,18 @@ class EformDataManagerImplCreatePdfUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should require demographic-scoped eForm read privilege for temporary PDF rendering")
-    void shouldRequireDemographicScopedEformReadPrivilege_forTemporaryPdfRendering() {
-        convertToEdocMock.when(() -> ConvertToEdoc.saveAsTempPDF(any(EFormData.class))).thenReturn(null);
+    @DisplayName("should require demographic-scoped eForm read privilege before browser rendering")
+    void shouldRequireDemographicScopedEformReadPrivilege_beforeBrowserRendering() throws Exception {
+        when(eFormBrowserPdfRenderer.renderSavedEformPdf(77, "999998")).thenReturn(null);
 
         assertThatThrownBy(() -> manager.createEformPDF(loggedInInfo, 77))
-                .isInstanceOf(PDFGenerationException.class);
+                .isInstanceOf(PDFGenerationException.class)
+                .hasMessageContaining("browser rendering");
 
         verify(securityInfoManager).hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, "123");
         verify(securityInfoManager, never()).hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, null);
         verify(securityInfoManager, never()).hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.UPDATE, "123");
+        verify(eFormBrowserPdfRenderer).renderSavedEformPdf(77, "999998");
     }
 
     @Test
@@ -141,6 +140,6 @@ class EformDataManagerImplCreatePdfUnitTest extends CarlosUnitTestBase {
                 .hasMessageContaining("missing required sec object (_eform)");
 
         verify(securityInfoManager).hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, "123");
-        convertToEdocMock.verifyNoInteractions();
+        verifyNoInteractions(eFormBrowserPdfRenderer);
     }
 }
