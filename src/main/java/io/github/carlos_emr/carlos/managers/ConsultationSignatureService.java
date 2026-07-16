@@ -66,10 +66,6 @@ public class ConsultationSignatureService {
         this.consultationRequestDao = consultationRequestDao;
     }
 
-    public ConsultationSignatureService(DigitalSignatureManager digitalSignatureManager, SecurityInfoManager securityInfoManager) {
-        this(digitalSignatureManager, securityInfoManager, null);
-    }
-
     /**
      * Reports whether {@code value} is a persisted {@code DigitalSignature} id (a 1-9 digit number)
      * rather than a manual signature-pad request id or stamp marker.
@@ -173,16 +169,13 @@ public class ConsultationSignatureService {
                                                                             String submittedSignatureImg,
                                                                             String manualSignatureRequestId,
                                                                             String signatureProviderNo) {
-        if (consultationRequestDao == null) {
-            throw new IllegalStateException("ConsultationRequestDao is required to save preview signatures");
-        }
-
         ConsultationRequest consult = consultationRequestDao.find(consultationRequestId);
         if (consult == null) {
             MiscUtils.getLogger().error("Consultation request not found while applying print preview signature: {}", consultationRequestId);
             return ConsultationPreviewSignatureOutcome.of(ConsultationPreviewSignatureOutcome.Status.REQUEST_NOT_FOUND);
         }
-        if (!Integer.valueOf(demographicId).equals(consult.getDemographicId())) {
+        Integer consultDemographicId = consult.getDemographicId();
+        if (consultDemographicId == null || consultDemographicId != demographicId) {
             MiscUtils.getLogger().error("Rejected print preview signature update for requestId={} due to demographic mismatch",
                     consultationRequestId);
             return ConsultationPreviewSignatureOutcome.of(ConsultationPreviewSignatureOutcome.Status.DEMOGRAPHIC_MISMATCH);

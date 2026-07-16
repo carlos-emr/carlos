@@ -185,12 +185,17 @@ public class EformDataManagerImpl implements EformDataManager {
      * @return readable path to an {@code eform-browser-render-*.pdf} file; callers are responsible for cleanup
      */
     public Path createEformPDF(LoggedInInfo loggedInInfo, int fdid) throws PDFGenerationException {
-
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.UPDATE, null)) {
-            throw new RuntimeException("missing required sec object (_eform)");
+        EFormData eformData = eFormDataDao.find(fdid);
+        if (eformData == null) {
+            throw new PDFGenerationException("EForm PDF generation failed because the eForm was not found.");
         }
 
-        Path path;
+        String demographicId = eformData.getDemographicId() == null ? null : String.valueOf(eformData.getDemographicId());
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, demographicId)) {
+            throw new SecurityException("missing required sec object (_eform)");
+        }
+
+        Path path = null;
         try {
             path = eFormBrowserPdfRenderer.renderSavedEformPdf(fdid, loggedInInfo.getLoggedInProviderNo());
         } catch (PDFGenerationException e) {
