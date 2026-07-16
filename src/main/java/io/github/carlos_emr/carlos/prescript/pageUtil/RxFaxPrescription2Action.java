@@ -17,11 +17,10 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.logging.log4j.Logger;
 
-import org.openpdf.text.DocumentException;
-
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.form.pdfservlet.PrescriptionFaxService;
 import io.github.carlos_emr.carlos.form.pdfservlet.PrescriptionFaxViewModel;
+import io.github.carlos_emr.carlos.form.pdfservlet.PrescriptionFaxViewModel.FailureReason;
 import io.github.carlos_emr.carlos.form.pdfservlet.PrescriptionPdfComposer;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -81,7 +80,14 @@ public class RxFaxPrescription2Action extends ActionSupport {
             return NONE;
         }
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.WRITE, null)) {
+        // Resolve the target patient before authorizing so the Rx write check is scoped to that
+        // demographic, matching RxWebService/RxManagerImpl. A malformed demographic_no falls back
+        // to the general _rx write check and is reported to the user as a business error below.
+        String demographicNo = request.getParameter("demographic_no");
+        boolean demographicNoValid = demographicNo != null && demographicNo.matches("\\d+");
+        String demographicScope = demographicNoValid ? demographicNo : null;
+
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.WRITE, demographicScope)) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return NONE;
         }
@@ -100,8 +106,7 @@ public class RxFaxPrescription2Action extends ActionSupport {
             return NONE;
         }
 
-        String demographicNo = request.getParameter("demographic_no");
-        if (demographicNo == null || !demographicNo.matches("\\d+")) {
+        if (!demographicNoValid) {
             writer.println("<div id='fax-failure'><h3>Error: Valid demographic number not found!</h3></div>");
             writer.flush();
             return NONE;
@@ -115,7 +120,7 @@ public class RxFaxPrescription2Action extends ActionSupport {
         ByteArrayOutputStream generatedPdf;
         try {
             generatedPdf = prescriptionPdfComposer.compose(request, servletContext);
-        } catch (DocumentException | IOException | SecurityException | IllegalStateException e) {
+        } catch (IOException | RuntimeException e) {
             logger.warn("Prescription PDF generation failed before Rx fax job creation", e);
             writer.println("<div id='fax-failure'><h3>Error: Unable to generate prescription PDF for fax.</h3></div>");
             writer.flush();
@@ -132,7 +137,11 @@ public class RxFaxPrescription2Action extends ActionSupport {
                         + SafeEncode.forHtmlContent(faxViewModel.faxNumber())
                         + ")</p><br><p>This window will close in <b>3</b> seconds...</p></div><script>setTimeout(() => window.top.close(), 3000);</script>");
             } else {
-                writer.println("<div id='fax-failure'><h3>Error: No matching clinic fax configuration found!</h3></div>");
+                if (faxViewModel.failureReason() == FailureReason.INVALID_CLINIC_FAX) {
+                    writer.println("<div id='fax-failure'><h3>Error: Valid clinic fax number not found!</h3></div>");
+                } else {
+                    writer.println("<div id='fax-failure'><h3>Error: No matching clinic fax configuration found!</h3></div>");
+                }
             }
         } catch (IOException | RuntimeException e) {
             logger.warn("Rx fax job creation failed after PDF generation", e);

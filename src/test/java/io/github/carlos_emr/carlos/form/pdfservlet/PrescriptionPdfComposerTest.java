@@ -5,12 +5,15 @@
  */
 package io.github.carlos_emr.carlos.form.pdfservlet;
 
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -55,6 +58,20 @@ class PrescriptionPdfComposerTest {
 
         assertThatThrownBy(() -> composer.compose(request, new MockServletContext()))
                 .isInstanceOf(SecurityException.class);
+    }
+
+    @Test
+    @DisplayName("should compose PDF when session is missing")
+    void shouldComposePdf_whenSessionIsMissing() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("rx", "Take one tablet daily");
+
+        PrescriptionPdfComposer composer = new PrescriptionPdfComposer();
+
+        assertThatCode(() -> {
+            ByteArrayOutputStream pdf = composer.compose(request, new MockServletContext());
+            assertThat(pdf.toString(StandardCharsets.ISO_8859_1)).startsWith("%PDF");
+        }).doesNotThrowAnyException();
     }
 
     @Test

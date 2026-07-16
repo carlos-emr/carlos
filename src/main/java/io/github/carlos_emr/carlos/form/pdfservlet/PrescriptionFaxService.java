@@ -46,6 +46,13 @@ public class PrescriptionFaxService {
 
     private static final Logger logger = MiscUtils.getLogger();
 
+    /**
+     * Upper bound on the client-supplied {@code pdfId}. It is only a filename discriminator, so a
+     * generous cap keeps generated artifact names within filesystem limits and bounds regex work
+     * without constraining any legitimate caller.
+     */
+    private static final int MAX_PDF_ID_LENGTH = 64;
+
     private final FaxJobDao faxJobDao;
     private final FaxConfigDao faxConfigDao;
     private final FaxManager faxManager;
@@ -75,7 +82,7 @@ public class PrescriptionFaxService {
         String pharmaName = req.getParameter("pharmaName");
         String clinicFaxNo = normalizeFaxNumber(req.getParameter("clinicFax"));
         if (!isValidClinicFaxNumber(clinicFaxNo)) {
-            return new PrescriptionFaxViewModel(false, pharmaName, destinationFaxNo);
+            return PrescriptionFaxViewModel.invalidClinicFax(pharmaName, destinationFaxNo);
         }
         String demo = req.getParameter("demographic_no");
         int demographicNo = validateDemographicNo(demo);
@@ -87,7 +94,7 @@ public class PrescriptionFaxService {
         List<FaxConfig> faxConfigs = faxConfigDao.findAll(null, null);
         FaxConfig matchedFaxConfig = findMatchingFaxConfig(faxConfigs, clinicFaxNo);
         if (matchedFaxConfig == null) {
-            return new PrescriptionFaxViewModel(false, pharmaName, destinationFaxNo);
+            return PrescriptionFaxViewModel.noMatchingClinicFaxConfig(pharmaName, destinationFaxNo);
         }
 
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -191,7 +198,8 @@ public class PrescriptionFaxService {
     }
 
     private String validatePdfId(String rawPdfId) {
-        if (rawPdfId == null || rawPdfId.isBlank() || !rawPdfId.matches("[a-zA-Z0-9_-]+")) {
+        if (rawPdfId == null || rawPdfId.isBlank() || rawPdfId.length() > MAX_PDF_ID_LENGTH
+                || !rawPdfId.matches("[a-zA-Z0-9_-]+")) {
             throw new IllegalArgumentException("Invalid prescription PDF id");
         }
         return PathValidationUtils.validatePathComponent(rawPdfId, "prescription PDF id");

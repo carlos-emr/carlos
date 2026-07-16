@@ -592,73 +592,82 @@ public class PrescriptionPdfComposer {
         ByteArrayOutputStream baosPDF = new ByteArrayOutputStream();
 
         Document document = new Document();
-        PdfWriter writer = PdfWriter.getInstance(document, baosPDF);
+        Throwable renderFailure = null;
+        try {
+            PdfWriter writer = PdfWriter.getInstance(document, baosPDF);
 
-        document.setPageSize(pageSize);
+            document.setPageSize(pageSize);
 
-        // 285=left margin+width of box, 5f is space for looking nice
-        // document.setMargins(15, pageSize.getWidth() - 285f + 5f, 170, 60); // left, right, top, bottom
-        document.setMargins(15, pageSize.getWidth() - 285f + 5f, 185, 60); // left, right, top, bottom
+            // 285=left margin+width of box, 5f is space for looking nice
+            // document.setMargins(15, pageSize.getWidth() - 285f + 5f, 170, 60); // left, right, top, bottom
+            document.setMargins(15, pageSize.getWidth() - 285f + 5f, 185, 60); // left, right, top, bottom
 
-        writer.setPageEvent(new EndPage(clinicName, clinicTel, clinicFax, patientPhone, patientCityPostal, patientAddress, patientName, patientDOB, sigDoctorName, rxDate, origPrintDate, numPrint, signatureImage, patientHIN, patientChartNo, pracNo, locale, billingNumber, pharmacyInfo));
-        document.addTitle(title);
-        document.addSubject("");
-        document.addKeywords("pdf");
-        document.addCreator("CARLOS EMR");
-        document.addAuthor("");
-        document.addHeader("Expires", "0");
+            writer.setPageEvent(new EndPage(clinicName, clinicTel, clinicFax, patientPhone, patientCityPostal, patientAddress, patientName, patientDOB, sigDoctorName, rxDate, origPrintDate, numPrint, signatureImage, patientHIN, patientChartNo, pracNo, locale, billingNumber, pharmacyInfo));
+            document.addTitle(title);
+            document.addSubject("");
+            document.addKeywords("pdf");
+            document.addCreator("CARLOS EMR");
+            document.addAuthor("");
+            document.addHeader("Expires", "0");
 
-        document.open();
-        document.newPage();
+            document.open();
+            document.newPage();
 
-        PdfContentByte cb = writer.getDirectContent();
-        BaseFont bf = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
+            PdfContentByte cb = writer.getDirectContent();
+            BaseFont bf = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
 
-        cb.setRGBColorStroke(0, 0, 255);
-        boolean hasAdditionalNote = (additNotes != null && !additNotes.equals(""));
+            cb.setRGBColorStroke(0, 0, 255);
+            boolean hasAdditionalNote = (additNotes != null && !additNotes.equals(""));
 
-        // render prescriptions
-        Iterator<String> rxStr = listRx.iterator();
+            // render prescriptions
+            Iterator<String> rxStr = listRx.iterator();
 
-        while (rxStr.hasNext()) {
-            Paragraph rxEntry = new Paragraph(new Phrase(rxStr.next(), new Font(bf, 10)));
-            rxEntry.setKeepTogether(true);
-            rxEntry.setSpacingBefore(1f);
+            while (rxStr.hasNext()) {
+                Paragraph rxEntry = new Paragraph(new Phrase(rxStr.next(), new Font(bf, 10)));
+                rxEntry.setKeepTogether(true);
+                rxEntry.setSpacingBefore(1f);
 
-            // this adds a small margin to the bottom to the list to
-            // accommodate the prescriber's signature.
-            if (!rxStr.hasNext() && !hasAdditionalNote) {
-                rxEntry.setSpacingAfter(40f);
+                // this adds a small margin to the bottom to the list to
+                // accommodate the prescriber's signature.
+                if (!rxStr.hasNext() && !hasAdditionalNote) {
+                    rxEntry.setSpacingAfter(40f);
+                }
+
+                document.add(rxEntry);
             }
 
-            document.add(rxEntry);
-        }
+            // render additional notes
+            if (hasAdditionalNote) {
+                Paragraph p = new Paragraph(new Phrase(additNotes, new Font(bf, 10)));
+                p.setKeepTogether(true);
+                p.setSpacingBefore(10f);
+                p.setSpacingAfter(40f);
+                document.add(p);
+            }
 
-        // render additional notes
-        if (hasAdditionalNote) {
-            Paragraph p = new Paragraph(new Phrase(additNotes, new Font(bf, 10)));
-            p.setKeepTogether(true);
-            p.setSpacingBefore(10f);
-            p.setSpacingAfter(40f);
-            document.add(p);
-        }
-
-        // render QrCode
-        if (PrescriptionQrCodeUIBean.isPrescriptionQrCodeEnabledForProvider(loggedInInfo.getLoggedInProviderNo())) {
-            Integer scriptId = parseScriptId(req.getParameter("scriptId"));
-            if (scriptId != null) {
-                byte[] qrCodeImage = PrescriptionQrCodeUIBean.getPrescriptionHl7QrCodeImage(scriptId);
-                Image qrCode = null;
-                if (qrCodeImage != null) {
-                    qrCode = Image.getInstance(qrCodeImage);
-                }
-                if (qrCode != null) {
-                    document.add(qrCode);
+            // render QrCode
+            if (loggedInInfo != null
+                    && PrescriptionQrCodeUIBean.isPrescriptionQrCodeEnabledForProvider(loggedInInfo.getLoggedInProviderNo())) {
+                Integer scriptId = parseScriptId(req.getParameter("scriptId"));
+                if (scriptId != null) {
+                    byte[] qrCodeImage = PrescriptionQrCodeUIBean.getPrescriptionHl7QrCodeImage(scriptId);
+                    Image qrCode = null;
+                    if (qrCodeImage != null) {
+                        qrCode = Image.getInstance(qrCodeImage);
+                    }
+                    if (qrCode != null) {
+                        document.add(qrCode);
+                    }
                 }
             }
-        }
 
-        document.close();
+            document.close();
+        } catch (IOException | RuntimeException e) {
+            renderFailure = e;
+            throw e;
+        } finally {
+            closeDocumentAfterFailure(document, renderFailure);
+        }
 
         logger.debug("***END in PrescriptionPdfComposer.compose***");
         return baosPDF;
@@ -673,6 +682,21 @@ public class PrescriptionPdfComposer {
             return Integer.parseInt(rawScriptId);
         } catch (NumberFormatException e) {
             return null;
+        }
+    }
+
+    private void closeDocumentAfterFailure(Document document, Throwable renderFailure) {
+        if (!document.isOpen()) {
+            return;
+        }
+        try {
+            document.close();
+        } catch (RuntimeException closeFailure) {
+            if (renderFailure != null) {
+                renderFailure.addSuppressed(closeFailure);
+                return;
+            }
+            throw closeFailure;
         }
     }
 }

@@ -8,7 +8,7 @@ package io.github.carlos_emr.carlos.prescript.pageUtil;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -79,7 +79,9 @@ class RxFaxPrescription2ActionTest {
         mockRequest.setParameter("pharmaFax", "416-555-0199");
         mockRequest.setParameter("demographic_no", "123");
 
-        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("w"), isNull()))
+        // Default request carries demographic_no=123, so the Rx write check is scoped to "123";
+        // nullable() also covers the malformed-demographic fallback that scopes to null.
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("w"), nullable(String.class)))
                 .thenReturn(true);
 
         loggedInInfoMock = mockStatic(LoggedInInfo.class);
@@ -147,15 +149,17 @@ class RxFaxPrescription2ActionTest {
     }
 
     @Test
-    @DisplayName("should reject POST when Rx write privilege is missing")
+    @DisplayName("should reject POST when Rx write privilege is missing for the target patient")
     void shouldRejectPost_whenRxWritePrivilegeMissing() throws Exception {
-        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("w"), isNull()))
+        // The check is scoped to the target demographic (123); denial covers both a missing
+        // general _rx write role and a patient-specific restriction.
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("w"), eq("123")))
                 .thenReturn(false);
 
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
 
         assertThat(mockResponse.getStatus()).isEqualTo(MockHttpServletResponse.SC_FORBIDDEN);
-        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", SecurityInfoManager.WRITE, null);
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", SecurityInfoManager.WRITE, "123");
         verifyNoInteractions(mockPrescriptionPdfComposer, mockPrescriptionFaxService);
     }
 
@@ -167,7 +171,7 @@ class RxFaxPrescription2ActionTest {
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
 
         assertThat(mockResponse.getContentAsString()).contains("fax-failure", "Valid fax number");
-        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", SecurityInfoManager.WRITE, null);
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", SecurityInfoManager.WRITE, "123");
         verifyNoInteractions(mockPrescriptionPdfComposer, mockPrescriptionFaxService);
     }
 
@@ -179,7 +183,7 @@ class RxFaxPrescription2ActionTest {
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
 
         assertThat(mockResponse.getContentAsString()).contains("fax-failure", "Valid fax number");
-        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", SecurityInfoManager.WRITE, null);
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", SecurityInfoManager.WRITE, "123");
         verifyNoInteractions(mockPrescriptionPdfComposer, mockPrescriptionFaxService);
     }
 
@@ -191,6 +195,7 @@ class RxFaxPrescription2ActionTest {
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
 
         assertThat(mockResponse.getContentAsString()).contains("fax-failure", "Valid demographic number");
+        // Malformed demographic_no falls back to the general (null-scoped) _rx write check.
         verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", SecurityInfoManager.WRITE, null);
         verifyNoInteractions(mockPrescriptionPdfComposer, mockPrescriptionFaxService);
     }
@@ -205,7 +210,7 @@ class RxFaxPrescription2ActionTest {
 
         assertThat(mockResponse.getStatus()).isEqualTo(MockHttpServletResponse.SC_OK);
         assertThat(mockResponse.getContentAsString()).contains("fax-failure", "Unable to generate prescription PDF");
-        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", SecurityInfoManager.WRITE, null);
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", SecurityInfoManager.WRITE, "123");
         verify(mockPrescriptionPdfComposer).compose(mockRequest, mockServletContext);
         verifyNoInteractions(mockPrescriptionFaxService);
     }
@@ -220,7 +225,7 @@ class RxFaxPrescription2ActionTest {
 
         assertThat(mockResponse.getStatus()).isEqualTo(MockHttpServletResponse.SC_OK);
         assertThat(mockResponse.getContentAsString()).contains("fax-failure", "Unable to generate prescription PDF");
-        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", SecurityInfoManager.WRITE, null);
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", SecurityInfoManager.WRITE, "123");
         verify(mockPrescriptionPdfComposer).compose(mockRequest, mockServletContext);
         verifyNoInteractions(mockPrescriptionFaxService);
     }
@@ -235,7 +240,22 @@ class RxFaxPrescription2ActionTest {
 
         assertThat(mockResponse.getStatus()).isEqualTo(MockHttpServletResponse.SC_OK);
         assertThat(mockResponse.getContentAsString()).contains("fax-failure", "Unable to generate prescription PDF");
-        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", SecurityInfoManager.WRITE, null);
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", SecurityInfoManager.WRITE, "123");
+        verify(mockPrescriptionPdfComposer).compose(mockRequest, mockServletContext);
+        verifyNoInteractions(mockPrescriptionFaxService);
+    }
+
+    @Test
+    @DisplayName("should show failure when PDF generation throws unexpected runtime exception")
+    void shouldShowFailure_whenPdfGenerationThrowsUnexpectedRuntimeException() throws Exception {
+        when(mockPrescriptionPdfComposer.compose(mockRequest, mockServletContext))
+                .thenThrow(new NullPointerException("unexpected composer failure"));
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(mockResponse.getStatus()).isEqualTo(MockHttpServletResponse.SC_OK);
+        assertThat(mockResponse.getContentAsString()).contains("fax-failure", "Unable to generate prescription PDF");
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", SecurityInfoManager.WRITE, "123");
         verify(mockPrescriptionPdfComposer).compose(mockRequest, mockServletContext);
         verifyNoInteractions(mockPrescriptionFaxService);
     }
@@ -253,7 +273,7 @@ class RxFaxPrescription2ActionTest {
 
         assertThat(mockResponse.getStatus()).isEqualTo(MockHttpServletResponse.SC_OK);
         assertThat(mockResponse.getContentAsString()).contains("fax-failure", "Unable to create prescription fax job");
-        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", SecurityInfoManager.WRITE, null);
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", SecurityInfoManager.WRITE, "123");
         verify(mockPrescriptionPdfComposer).compose(mockRequest, mockServletContext);
         verify(mockPrescriptionFaxService).createFaxJob(mockLoggedInInfo, mockRequest, pdfBytes);
     }
@@ -271,7 +291,7 @@ class RxFaxPrescription2ActionTest {
 
         assertThat(mockResponse.getStatus()).isEqualTo(MockHttpServletResponse.SC_OK);
         assertThat(mockResponse.getContentAsString()).contains("fax-failure", "Unable to create prescription fax job");
-        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", SecurityInfoManager.WRITE, null);
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", SecurityInfoManager.WRITE, "123");
         verify(mockPrescriptionPdfComposer).compose(mockRequest, mockServletContext);
         verify(mockPrescriptionFaxService).createFaxJob(mockLoggedInInfo, mockRequest, pdfBytes);
     }
@@ -289,7 +309,7 @@ class RxFaxPrescription2ActionTest {
 
         assertThat(mockResponse.getStatus()).isEqualTo(MockHttpServletResponse.SC_OK);
         assertThat(mockResponse.getContentAsString()).contains("fax-failure", "Unable to create prescription fax job");
-        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", SecurityInfoManager.WRITE, null);
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", SecurityInfoManager.WRITE, "123");
         verify(mockPrescriptionPdfComposer).compose(mockRequest, mockServletContext);
         verify(mockPrescriptionFaxService).createFaxJob(mockLoggedInInfo, mockRequest, pdfBytes);
     }
@@ -307,7 +327,7 @@ class RxFaxPrescription2ActionTest {
 
         assertThat(mockResponse.getStatus()).isEqualTo(MockHttpServletResponse.SC_OK);
         assertThat(mockResponse.getContentAsString()).contains("fax-success", "Main Pharmacy", "4165550199");
-        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", SecurityInfoManager.WRITE, null);
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", SecurityInfoManager.WRITE, "123");
         verify(mockPrescriptionPdfComposer).compose(mockRequest, mockServletContext);
         verify(mockPrescriptionFaxService).createFaxJob(mockLoggedInInfo, mockRequest, pdfBytes);
     }
@@ -325,7 +345,25 @@ class RxFaxPrescription2ActionTest {
 
         assertThat(mockResponse.getStatus()).isEqualTo(MockHttpServletResponse.SC_OK);
         assertThat(mockResponse.getContentAsString()).contains("fax-failure", "No matching clinic fax configuration");
-        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", SecurityInfoManager.WRITE, null);
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", SecurityInfoManager.WRITE, "123");
+        verify(mockPrescriptionPdfComposer).compose(mockRequest, mockServletContext);
+        verify(mockPrescriptionFaxService).createFaxJob(mockLoggedInInfo, mockRequest, pdfBytes);
+    }
+
+    @Test
+    @DisplayName("should show failure when clinic fax number is invalid")
+    void shouldShowFailure_whenClinicFaxNumberIsInvalid() throws Exception {
+        ByteArrayOutputStream pdfBytes = new ByteArrayOutputStream();
+        pdfBytes.write("%PDF".getBytes());
+        when(mockPrescriptionPdfComposer.compose(mockRequest, mockServletContext)).thenReturn(pdfBytes);
+        when(mockPrescriptionFaxService.createFaxJob(mockLoggedInInfo, mockRequest, pdfBytes))
+                .thenReturn(PrescriptionFaxViewModel.invalidClinicFax("Main Pharmacy", "4165550199"));
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(mockResponse.getStatus()).isEqualTo(MockHttpServletResponse.SC_OK);
+        assertThat(mockResponse.getContentAsString()).contains("fax-failure", "Valid clinic fax number");
+        verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_rx", SecurityInfoManager.WRITE, "123");
         verify(mockPrescriptionPdfComposer).compose(mockRequest, mockServletContext);
         verify(mockPrescriptionFaxService).createFaxJob(mockLoggedInInfo, mockRequest, pdfBytes);
     }

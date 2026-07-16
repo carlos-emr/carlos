@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
 import io.github.carlos_emr.carlos.commn.dao.FaxJobDao;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
+import io.github.carlos_emr.carlos.form.pdfservlet.PrescriptionFaxViewModel.FailureReason;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.FaxManager.TransactionType;
@@ -182,6 +183,20 @@ class PrescriptionFaxServiceTest {
     }
 
     @Test
+    @DisplayName("should reject overlong PDF id before creating fax artifacts")
+    void shouldRejectOverlongPdfId_beforeCreatingFaxArtifacts() {
+        MockHttpServletRequest request = createFaxRequest("a".repeat(65));
+
+        assertThatThrownBy(() -> service.createFaxJob(mockLoggedInInfo, request, createPdf("fresh rx")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid prescription PDF id");
+
+        assertThat(documentDir).isEmptyDirectory();
+        assertThat(faxDir).isEmptyDirectory();
+        verifyNoInteractions(mockFaxConfigDao, mockFaxJobDao, mockFaxManager);
+    }
+
+    @Test
     @DisplayName("should reject missing destination fax before creating fax artifacts")
     void shouldRejectMissingDestinationFax_beforeCreatingFaxArtifacts() {
         MockHttpServletRequest request = createFaxRequest("rx_123");
@@ -222,6 +237,7 @@ class PrescriptionFaxServiceTest {
         PrescriptionFaxViewModel result = service.createFaxJob(mockLoggedInInfo, request, createPdf("fresh rx"));
 
         assertThat(result.validFaxNumber()).isFalse();
+        assertThat(result.failureReason()).isEqualTo(FailureReason.NO_MATCHING_CLINIC_FAX_CONFIG);
         assertThat(documentDir).isEmptyDirectory();
         assertThat(faxDir).isEmptyDirectory();
         verifyNoInteractions(mockFaxJobDao, mockFaxManager);
@@ -236,6 +252,7 @@ class PrescriptionFaxServiceTest {
         PrescriptionFaxViewModel result = service.createFaxJob(mockLoggedInInfo, request, createPdf("fresh rx"));
 
         assertThat(result.validFaxNumber()).isFalse();
+        assertThat(result.failureReason()).isEqualTo(FailureReason.NO_MATCHING_CLINIC_FAX_CONFIG);
         assertThat(documentDir).isEmptyDirectory();
         assertThat(faxDir).isEmptyDirectory();
         verifyNoInteractions(mockFaxJobDao, mockFaxManager);
@@ -250,6 +267,7 @@ class PrescriptionFaxServiceTest {
         PrescriptionFaxViewModel result = service.createFaxJob(mockLoggedInInfo, request, createPdf("fresh rx"));
 
         assertThat(result.validFaxNumber()).isFalse();
+        assertThat(result.failureReason()).isEqualTo(FailureReason.INVALID_CLINIC_FAX);
         assertThat(documentDir).isEmptyDirectory();
         assertThat(faxDir).isEmptyDirectory();
         verifyNoInteractions(mockFaxConfigDao, mockFaxJobDao, mockFaxManager);
