@@ -36,6 +36,8 @@ import java.util.Properties;
  * viewers instead read it directly so it can be null the first time a session opens a document
  * without having visited one of those other pages first — this is expected, not a misconfiguration,
  * so callers fall back to an empty map rather than failing.</p>
+ *
+ * @since 2026-07-16
  */
 public final class ProviderBeanResolver {
 
@@ -47,12 +49,16 @@ public final class ProviderBeanResolver {
     }
 
     /**
+     * Returns the session's {@code providerBean} map, or a new empty {@code Properties} instance
+     * (not stored back into the session) when the session doesn't have one yet.
+     *
      * @param session current HTTP session
      * @param docId   document id being rendered, for diagnostic logging only
      * @return the session's {@code providerBean} map, or a new empty {@code Properties} if the
      *         session hasn't been seeded yet (callers' typical
      *         {@code getProperty(providerNo, providerNo)} pattern then falls back to displaying
      *         the raw provider number instead of a formatted name)
+     * @since 2026-07-16
      */
     public static Properties resolve(HttpSession session, String docId) {
         Properties p = (Properties) session.getAttribute(SESSION_ATTR);

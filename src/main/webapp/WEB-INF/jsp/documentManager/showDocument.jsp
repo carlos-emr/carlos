@@ -771,7 +771,7 @@
                                     <%
                                         Properties p = ProviderBeanResolver.resolve(session, docId);
                                         List<ProviderInboxItem> routeList = Collections.emptyList();
-                                        if (docId != null) {
+                                        if (docId != null && !docId.trim().isEmpty()) {
                                             routeList = providerInboxRoutingDao.getProvidersWithRoutingForDocument("DOC", Integer.parseInt(docId));
                                         }
                                     %>

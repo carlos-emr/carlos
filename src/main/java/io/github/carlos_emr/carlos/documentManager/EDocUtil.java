@@ -1414,8 +1414,10 @@ public final class EDocUtil {
 	 * a missing Refile directory here is not treated as a configuration failure: that subdirectory
 	 * is created lazily by {@link #refileDocument(String, String)} on its first use for a given
 	 * queue, so a queue that has never had a document refiled into it legitimately has no Refile
-	 * directory yet. This method treats that case (and any other resolution failure) the same as
-	 * "not yet refiled" and returns {@code false} rather than throwing.</p>
+	 * directory yet. Only that specific case — the directory not existing — is treated as
+	 * "not yet refiled" and returns {@code false}. Genuine configuration errors (a blank path, an
+	 * existing path that is not a directory, or a canonicalization failure) still propagate as a
+	 * {@code SecurityException} from {@code PathValidationUtils.resolveConfiguredDirectory}.</p>
 	 *
 	 * @see #refileDocument(String, String)
 	 * @param filename The original filename of the document.
