@@ -277,6 +277,10 @@ public class EFormBrowserPdfRenderer {
 
     private static void logRendererFailure(String message, Object... arguments) {
         if (logger.isErrorEnabled()) {
+            if (arguments.length == 0) {
+                logger.error(message);
+                return;
+            }
             Object[] logArguments = arguments.clone();
             int diagnosticsIndex = logArguments.length - 1;
             logArguments[diagnosticsIndex] = extractRendererDiagnostics(String.valueOf(logArguments[diagnosticsIndex]));

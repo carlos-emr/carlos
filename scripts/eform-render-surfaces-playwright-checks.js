@@ -49,6 +49,7 @@ const {
   assert,
   buildArtifactPath,
   createRecorder,
+  getLaunchOptions,
   gotoApp,
   login,
   openManager,
@@ -595,24 +596,9 @@ async function openFaxPreviewPage(context, fdid, recorder) {
   };
 }
 
-function getLaunchOptions() {
-  const args = ['--disable-dev-shm-usage'];
-  if (process.env.EFORM_RENDER_ENABLE_CHROMIUM_SANDBOX !== 'true') {
-    args.unshift('--no-sandbox');
-  }
-  const launchOptions = {
-    headless: true,
-    args,
-  };
-  if (chromePath) {
-    launchOptions.executablePath = chromePath;
-  }
-  return launchOptions;
-}
-
 (async () => {
   const recorder = createRecorder();
-  const browser = await chromium.launch(getLaunchOptions());
+  const browser = await chromium.launch(getLaunchOptions(chromePath));
   const context = await browser.newContext({
     acceptDownloads: true,
     ignoreHTTPSErrors: true,

@@ -22,12 +22,37 @@ function diagnosticLog(payload) {
   console.error(`${DIAGNOSTIC_PREFIX}${JSON.stringify(payload)}`);
 }
 
+function canParseUrl(rawUrl) {
+  if (!rawUrl) {
+    return false;
+  }
+  try {
+    new URL(rawUrl);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function sanitizeDiagnosticUrl(rawUrl) {
-  if (!rawUrl || !URL.canParse(rawUrl)) {
+  if (!canParseUrl(rawUrl)) {
     return null;
   }
   const parsed = new URL(rawUrl);
   return `${parsed.origin}${parsed.pathname}`;
+}
+
+function sanitizeDiagnosticError(error) {
+  if (!error) {
+    return 'unknown';
+  }
+  if (typeof error === 'string') {
+    return error;
+  }
+  if (typeof error.message === 'string' && error.message.trim() !== '') {
+    return error.message;
+  }
+  return String(error);
 }
 
 function summarizeCountMap(entries) {
@@ -110,7 +135,7 @@ function isAllowedRendererRequestUrl(requestUrl, allowedOrigin) {
   if (requestUrl.startsWith('data:') || requestUrl.startsWith('blob:') || requestUrl.startsWith('about:')) {
     return true;
   }
-  if (!URL.canParse(requestUrl)) {
+  if (!canParseUrl(requestUrl)) {
     return false;
   }
   const parsed = new URL(requestUrl);
@@ -326,15 +351,27 @@ async function main() {
 
   let captureFiles = [];
   try {
-    await page.emulateMedia({ media: 'screen' });
-    await page.goto(appUrl(baseUrl, rawAppPath), { waitUntil: 'domcontentloaded', timeout: 30000 }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- validateBaseUrl restricts hosts to local/private by default and appUrl rejects non-root-relative or protocol-relative paths
-    await waitForStableRender(page);
-    await preparePageForCapture(page);
-    diagnostics.stage = 'capturing';
-    captureFiles = await capturePages(page, outputDir);
-    diagnostics.captureCount = captureFiles.length;
-    diagnostics.stage = 'captured';
-    diagnosticLog({ event: 'captured', ...diagnostics });
+    try {
+      await page.emulateMedia({ media: 'screen' });
+      await page.goto(appUrl(baseUrl, rawAppPath), { waitUntil: 'domcontentloaded', timeout: 30000 }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- validateBaseUrl restricts hosts to local/private by default and appUrl rejects non-root-relative or protocol-relative paths
+      await waitForStableRender(page);
+      await preparePageForCapture(page);
+      diagnostics.stage = 'capturing';
+      captureFiles = await capturePages(page, outputDir);
+      diagnostics.captureCount = captureFiles.length;
+      diagnostics.stage = 'captured';
+      diagnosticLog({ event: 'captured', ...diagnostics });
+    } catch (error) {
+      diagnosticLog({
+        event: 'failure',
+        ...diagnostics,
+        reason: 'render_exception',
+        error: sanitizeDiagnosticError(error),
+        blockedRequestCounts: summarizeCountMap(diagnostics.blockedRequestCounts),
+        requestFailureCounts: summarizeCountMap(diagnostics.requestFailureCounts),
+      });
+      throw error;
+    }
   } finally {
     await browser.close();
   }
