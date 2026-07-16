@@ -42,13 +42,17 @@ on:
 permissions:
   contents: read
 
+
+env:
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+
 jobs:
   bdd-test-naming:
     name: BDD Test Naming
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v4
 
       - name: Validate billing test method names
         run: scripts/lint/check-bdd-test-naming.sh

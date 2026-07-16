@@ -25,6 +25,10 @@ on:
       - 'scripts/check-i18n-properties.sh'
       - 'scripts/audit-i18n-coverage.sh'
 
+
+env:
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+
 jobs:
   i18n-key-parity:
     name: Properties Key Parity
@@ -32,7 +36,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4.2.2 # v4.3.1
+        uses: actions/checkout@v4 # v4.3.1
 
       - name: Make scripts executable
         run: chmod +x scripts/check-i18n-properties.sh scripts/audit-i18n-coverage.sh
@@ -61,7 +65,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4.2.2 # v4.3.1
+        uses: actions/checkout@v4 # v4.3.1
         with:
           fetch-depth: 0
 
@@ -121,7 +125,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4.2.2 # v4.3.1
+        uses: actions/checkout@v4 # v4.3.1
 
       - name: Check properties files are valid UTF-8
         run: |
@@ -146,7 +150,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4.2.2 # v4.3.1
+        uses: actions/checkout@v4 # v4.3.1
         with:
           fetch-depth: 0
 

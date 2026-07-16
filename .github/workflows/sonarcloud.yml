@@ -36,6 +36,7 @@ on:
       - develop
 
 env:
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ${{ github.repository_owner }}
 
@@ -70,15 +71,15 @@ jobs:
           fi
 
       - name: Checkout code
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3.9.0
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to Container Registry
-        uses: docker/login-action@v3.3.0
+        uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -117,7 +118,7 @@ jobs:
 
       - name: Cache Docker layers
         if: steps.pull-image.outputs.pulled != 'true' && steps.pull-image.outputs.reason == 'not-found'
-        uses: actions/cache@v4.2.2
+        uses: actions/cache@v4
         with:
           path: /tmp/.buildx-cache
           key: ${{ runner.os }}-buildx-${{ hashFiles('.devcontainer/development/**') }}
@@ -125,14 +126,14 @@ jobs:
             ${{ runner.os }}-buildx-
 
       - name: Cache Maven packages
-        uses: actions/cache@v4.2.2
+        uses: actions/cache@v4
         with:
           path: .m2-cache
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml', 'dependencies-lock.json') }}
           restore-keys: ${{ runner.os }}-m2
 
       - name: Cache SonarCloud packages
-        uses: actions/cache@v4.2.2
+        uses: actions/cache@v4
         with:
           path: .sonar-cache
           key: ${{ runner.os }}-sonar

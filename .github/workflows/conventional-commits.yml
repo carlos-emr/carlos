@@ -31,6 +31,10 @@ on:
       - community/*/develop
       - community/*/staging/*
 
+
+env:
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+
 jobs:
   conventional-commits:
     name: Commit Message Format
@@ -39,7 +43,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
