@@ -136,7 +136,7 @@ public class EmailManager {
         EmailConfig emailConfig = findActiveSenderEmailConfig(emailData);
         if (emailConfig == null) {
             logger.warn("Email send failed before transport: sender email configuration is missing or inactive for senderConfigId={}", emailData.getSenderConfigId());
-            return prepareSenderConfigFailureResult(loggedInInfo, emailData);
+            return createFailedEmailLog(emailData, SENDER_CONFIG_MISCONFIGURATION_ERROR);
         }
 
         EmailLog emailLog = prepareEmailForOutbox(loggedInInfo, emailData, emailConfig);
@@ -220,28 +220,6 @@ public class EmailManager {
         return emailConfigDao.findActiveEmailConfigById(emailData.getSenderConfigId());
     }
 
-    private EmailLog prepareSenderConfigFailureResult(LoggedInInfo loggedInInfo, EmailData emailData) {
-        try {
-            return prepareFailedEmailForOutbox(loggedInInfo, emailData, SENDER_CONFIG_MISCONFIGURATION_ERROR);
-        } catch (RuntimeException persistException) {
-            logger.error("Failed to persist email sender configuration failure; returning transient failed email result.", persistException);
-            return createFailedEmailLog(emailData, SENDER_CONFIG_MISCONFIGURATION_ERROR);
-        }
-    }
-
-    private EmailLog prepareFailedEmailForOutbox(LoggedInInfo loggedInInfo, EmailData emailData, String errorMessage) {
-        EmailLog emailLog = createFailedEmailLog(emailData, errorMessage);
-        Demographic demographic = demographicManager.getDemographic(loggedInInfo, emailData.getDemographicNo());
-        Provider provider = providerManager.getProvider(loggedInInfo, emailData.getProviderNo());
-        emailLog.setDemographic(demographic);
-        emailLog.setProvider(provider);
-        emailLogDao.persist(emailLog);
-
-        LogAction.addLog(loggedInInfo, "EmailManager.prepareFailedEmailForOutbox", "Email", "emailLogId=" + emailLog.getId(), getDemographicNoForLog(emailLog), "");
-
-        return emailLog;
-    }
-
     private EmailLog createFailedEmailLog(EmailData emailData, String errorMessage) {
         EmailLog emailLog = new EmailLog();
         emailLog.setFromEmail("");
@@ -261,10 +239,6 @@ public class EmailManager {
         emailLog.setAdditionalParams(nullToEmpty(emailData.getAdditionalParams()));
         setEmailAttachments(emailLog, emailData.getAttachments());
         return emailLog;
-    }
-
-    private String getDemographicNoForLog(EmailLog emailLog) {
-        return emailLog.getDemographic() != null ? String.valueOf(emailLog.getDemographic().getDemographicNo()) : "";
     }
 
     private String nullToEmpty(String value) {

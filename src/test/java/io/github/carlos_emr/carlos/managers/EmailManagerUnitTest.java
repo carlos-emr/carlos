@@ -39,13 +39,10 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
-import static org.mockito.ArgumentMatchers.same;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 @Tag("unit")
@@ -110,9 +107,11 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
             assertThat(emailSenders.constructed()).isEmpty();
         }
         verify(emailConfigDao, never()).findActiveEmailConfigById(anyInt());
-        verify(emailLogDao).persist(same(result));
-        assertThat(result.getDemographic()).isSameAs(demographic);
-        assertThat(result.getProvider()).isSameAs(provider);
+        verify(emailLogDao, never()).persist(any(EmailLog.class));
+        verify(demographicManager, never()).getDemographic(any(LoggedInInfo.class), anyInt());
+        verify(providerManager, never()).getProvider(any(LoggedInInfo.class), anyString());
+        assertThat(result.getDemographic()).isNull();
+        assertThat(result.getProvider()).isNull();
         assertThat(result.getEmailAttachments()).singleElement().satisfies(attachment -> {
             assertThat(attachment.getEmailLog()).isSameAs(result);
             assertThat(attachment.getFileName()).isEqualTo("lab.pdf");
@@ -136,9 +135,11 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
             assertThat(emailSenders.constructed()).isEmpty();
         }
         verify(emailConfigDao).findActiveEmailConfigById(123);
-        verify(emailLogDao).persist(same(result));
-        assertThat(result.getDemographic()).isSameAs(demographic);
-        assertThat(result.getProvider()).isSameAs(provider);
+        verify(emailLogDao, never()).persist(any(EmailLog.class));
+        verify(demographicManager, never()).getDemographic(any(LoggedInInfo.class), anyInt());
+        verify(providerManager, never()).getProvider(any(LoggedInInfo.class), anyString());
+        assertThat(result.getDemographic()).isNull();
+        assertThat(result.getProvider()).isNull();
     }
 
     @Test
@@ -200,37 +201,6 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         assertThat(result.getRecipientFirstName()).isEmpty();
         assertThat(result.getRecipientLastName()).isEqualTo("(CJ Patient)");
         assertThat(result.getRecipientFullName()).isEqualTo("(CJ Patient)");
-    }
-
-    @Test
-    @DisplayName("should return transient failed result when demographic lookup fails during sender config failure")
-    void shouldReturnTransientFailedResult_whenDemographicLookupFailsDuringSenderConfigFailure() {
-        EmailData emailData = emailData(null);
-        when(demographicManager.getDemographic(loggedInInfo, 123)).thenThrow(new RuntimeException("demographic lookup failed"));
-
-        EmailLog result = emailManager.sendEmail(loggedInInfo, emailData);
-
-        assertMisconfiguredSenderFailure(result);
-        verify(emailLogDao, never()).persist(any(EmailLog.class));
-        verifyNoMoreInteractions(providerManager);
-    }
-
-    @Test
-    @DisplayName("should return transient failed result if failed log cannot be persisted")
-    void shouldReturnTransientFailedResult_whenFailedLogCannotBePersisted() {
-        EmailData emailData = emailData(null);
-        doThrow(new RuntimeException("database unavailable")).when(emailLogDao).persist(any(EmailLog.class));
-
-        EmailLog result;
-        try (MockedConstruction<EmailSender> emailSenders = mockConstruction(EmailSender.class)) {
-            result = emailManager.sendEmail(loggedInInfo, emailData);
-
-            assertMisconfiguredSenderFailure(result);
-            assertThat(emailSenders.constructed()).isEmpty();
-        }
-        assertThat(result.getDemographic()).isNull();
-        assertThat(result.getProvider()).isNull();
-        verify(emailLogDao).persist(any(EmailLog.class));
     }
 
     private void assertMisconfiguredSenderFailure(EmailLog result) {
