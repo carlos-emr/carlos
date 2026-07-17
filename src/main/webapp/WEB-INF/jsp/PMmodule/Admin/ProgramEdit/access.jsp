@@ -1,4 +1,8 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
+<fmt:message key="admin.program.key.programs" var="titleVar0"/>
+
 <!-- 
 /*
 * 
@@ -37,7 +41,7 @@
 <div class="tabs">
 <table cellpadding="3" cellspacing="0" border="0">
 	<tr>
-		<th title="Programs">Access</th>
+		<th title="${titleVar0}">Access</th>
 	</tr>
 </table>
 </div>
@@ -49,13 +53,12 @@
 		value="No access currently defined for this program." />
 	<display:column sortable="false" title="">
 		<a href="javascript:void(0);"
-			onclick="deleteAccess('${carlos:forJavaScript(access.id)}');return false;">
-		Delete </a>
+			onclick="deleteAccess('${carlos:forJavaScript(access.id)}');return false;"><fmt:message key='admin.program.key.delete'/></a>
 	</display:column>
-	<display:column property="accessType.name" sortable="true" title="Name" />
-	<display:column property="accessType.type" sortable="true" title="Type" />
-	<display:column property="allRoles" sortable="true" title="All Roles" />
-	<display:column sortable="true" title="Role(s)">
+	<display:column property="accessType.name" sortable="true" titleKey="admin.program.key.name.header" />
+	<display:column property="accessType.type" sortable="true" titleKey="admin.program.key.type" />
+	<display:column property="allRoles" sortable="true" titleKey="admin.program.key.all.roles" />
+	<display:column sortable="true" titleKey="admin.program.key.roles">
 		<ul>
 			<c:forEach var="role" items="${access.roles}">
 				<li>${carlos:forHtml(role.name)}</li>
@@ -67,7 +70,7 @@
 <br />
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
 	<tr class="b">
-		<td width="20%">Name :</td>
+		<td width="20%"><fmt:message key='admin.program.key.name'/></td>
 		<td><html:select property="access.accessTypeId">
 			<html:options collection="accessTypes" property="id"
 				labelProperty="name" />
@@ -75,11 +78,11 @@
 			property="access.programId" /></td>
 	</tr>
 	<tr class="b">
-		<td width="20%">All Roles:</td>
+		<td width="20%"><fmt:message key='admin.program.key.all.roles'/></td>
 		<td><html:checkbox property="access.allRoles" /></td>
 	</tr>
 	<tr class="b">
-		<td width="20%">Roles:</td>
+		<td width="20%"><fmt:message key='admin.program.key.roles'/></td>
 		<td><c:forEach var="role" items="${roles}">
 			<input name="checked_role" value="${carlos:forHtmlAttribute(role.id)}"
 				type="checkbox" />&nbsp;${carlos:forHtml(role.name)}

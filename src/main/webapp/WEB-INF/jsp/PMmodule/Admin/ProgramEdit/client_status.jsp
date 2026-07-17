@@ -1,4 +1,8 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
+<fmt:message key="admin.program.key.programs" var="titleVar0"/>
+
 <!-- 
 /*
 * 
@@ -54,7 +58,7 @@ function add_status(form) {
 <div class="tabs">
 <table cellpadding="3" cellspacing="0" border="0">
 	<tr>
-		<th title="Programs">Client Status</th>
+		<th title="${titleVar0}">Client Status</th>
 	</tr>
 </table>
 </div>
@@ -63,20 +67,20 @@ function add_status(form) {
 	<display:setProperty name="paging.banner.placement" value="bottom" />
 	<display:setProperty name="basic.msg.empty_list" value="No statuses are currently defined for this program." />
 	<display:column sortable="false" title="">
-		<a onclick="deleteStatus('${carlos:forJavaScript(status.id)}');return false;" href="javascript:void(0);"> Delete </a>
+		<a onclick="deleteStatus('${carlos:forJavaScript(status.id)}');return false;" href="javascript:void(0);"><fmt:message key='admin.program.key.delete'/></a>
 	</display:column>
-	<display:column property="name" sortable="true" title="Name" />	
+	<display:column property="name" sortable="true" titleKey="admin.program.key.name.header" />
 </display:table>
 <br />
 <html:hidden property="client_status.id" />
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
 	<tr class="b">
-		<td width="20%">Name:</td>
+		<td width="20%"><fmt:message key='admin.program.key.name'/></td>
 		<td><html:text property="client_status.name" size="50" maxlength="255"/></td>
 	</tr>
 	<tr>
 		<td colspan="2">
-			<input type="button" value="Save" onclick="add_status(this.form)" /> <html:cancel />
+			<input type="button" value="<fmt:message key='admin.program.button.save'/>" onclick="add_status(this.form)" /> <html:cancel />
 		</td>
 	</tr>
 </table>

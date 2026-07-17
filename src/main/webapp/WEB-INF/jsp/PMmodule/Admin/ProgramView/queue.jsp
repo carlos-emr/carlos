@@ -24,6 +24,12 @@
 -->
 
 <%@ page import="java.util.*"%>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
+<fmt:message key="admin.program.key.case.management" var="titleVar1"/>
+
+<fmt:message key="admin.program.key.programs" var="titleVar0"/>
+
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramQueue"%>
 <%@ page import="java.net.URLEncoder"%>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils"%>
@@ -173,12 +179,12 @@ String reason ="";
 
 	<!-- disabled by rwd because visibility of link and permissions in CME are a problem -->
 	<%--<display:column sortable="false">--%>
-	<!--<a href="javascript:void(0)" title="Case management" onclick="cme_client('${carlos:forHtml(queue_entry.programId)}', '${carlos:forHtml(queue_entry.clientId)}')">-->
+	<!--<a href="javascript:void(0)" title="${titleVar1}" onclick="cme_client('${carlos:forHtml(queue_entry.programId)}', '${carlos:forHtml(queue_entry.clientId)}')">-->
 	<!--Case Management Encounter-->
 	<!--</a>-->
 	<%--</display:column>--%>
 	<display:column sortable="true" property="clientFormattedName"
-		title="Client name" />
+		titleKey="admin.program.key.client.name" />
 		
 	<display:column sortable="true" title="">	
 		<% 
@@ -205,14 +211,14 @@ String reason ="";
 	</display:column>
 	
 	<display:column property="referralDate" sortable="true"
-		title="Referral Date" />
+		titleKey="admin.program.key.referral.date" />
 	<display:column property="providerFormattedName" sortable="true"
-		title="Referring Provider" />
+		titleKey="admin.program.key.referring.provider" />
 	<display:column property="notes" sortable="true"
-		title="Reason for referral" />
+		titleKey="admin.program.key.reason.for.referral" />
 	<display:column property="presentProblems" sortable="true"
-		title="Presenting problems" />
-	<display:column property="headRecord" sortable="true" title="Family Id" />
+		titleKey="admin.program.key.presenting.problems" />
+	<display:column property="headRecord" sortable="true" titleKey="admin.program.key.family.id" />
 </display:table>
 <br />
 <br />
@@ -236,13 +242,13 @@ String reason ="";
 				</c:choose> </b></td>
 			</tr>
 			<tr class="b">
-				<td width="20%">Discharge Notes:</td>
+				<td width="20%"><fmt:message key='admin.program.key.discharge.notes'/></td>
 				<td><textarea cols="50" rows="7"
 					name="admission.dischargeNotes"></textarea></td>
 			</tr>
 		</c:if>
 		<tr class="b">
-			<td width="20%">Admission Notes:</td>
+			<td width="20%"><fmt:message key='admin.program.key.admission.notes'/></td>
 			<td><textarea cols="50" rows="7" name="admission.admissionNotes"></textarea></td>
 		</tr>
 		<tr class="b">
@@ -257,30 +263,30 @@ String reason ="";
 		<tr>
 			<td width="5%"><html:radio property="radioRejectionReason"
 				value="1" /></td>
-			<td>Client requires acute care</td>
+			<td><fmt:message key='admin.program.key.client.requires.acute.care'/></td>
 		</tr>
 		<tr>
 			<td width="5%"><html:radio property="radioRejectionReason"
 				value="2" /></td>
-			<td>Client not interested</td>
+			<td><fmt:message key='admin.program.key.client.not.interested'/></td>
 		</tr>
 		<tr>
 			<td width="5%"><html:radio property="radioRejectionReason"
 				value="3" /></td>
-			<td>Client does not fit program criteria</td>
+			<td><fmt:message key='admin.program.key.client.does.not.fit.program.criteria'/></td>
 		</tr>
 		<tr>
 			<td width="5%"><html:radio property="radioRejectionReason"
 				value="4" /></td>
-			<td>Program does not have space available</td>
+			<td><fmt:message key='admin.program.key.program.does.not.have.space.available'/></td>
 		</tr>
 		<tr>
 			<td width="5%"><html:radio property="radioRejectionReason"
 				value="5" /></td>
-			<td>Other</td>
+			<td><fmt:message key='admin.program.key.other'/></td>
 		</tr>
 		<tr class="b">
-			<td width="20%">Rejection Note:</td>
+			<td width="20%"><fmt:message key='admin.program.key.rejection.note'/></td>
 			<td><textarea cols="50" rows="7" name="admission.admissionNotes"></textarea></td>
 		</tr>
 		<tr class="b">
@@ -300,7 +306,7 @@ String reason ="";
 	<div class="tabs" id="tabs">
 	<table cellpadding="3" cellspacing="0" border="0">
 		<tr>
-			<th title="Programs">Remote Queue</th>
+			<th title="${titleVar0}">Remote Queue</th>
 		</tr>
 	</table>
 	</div>
@@ -318,14 +324,14 @@ String reason ="";
 			<input type="button" value="Reject" onclick="removeFromRemoteQueue('${carlos:forJavaScript(queue_entry.referral.referralId)}')" />
 		</display:column>
 		<display:column property="clientName" sortable="true"
-			title="Client Name" />
+			titleKey="admin.program.key.client.name" />
 		<display:column property="referral.referralDate" sortable="true"
-			title="Referral Date" />
+			titleKey="admin.program.key.referral.date" />
 		<display:column property="providerName" sortable="true"
-			title="Referring Provider" />
+			titleKey="admin.program.key.referring.provider" />
 		<display:column property="referral.reasonForReferral" sortable="true"
-			title="Reason for referral" />
+			titleKey="admin.program.key.reason.for.referral" />
 		<display:column property="referral.presentingProblem" sortable="true"
-			title="Presenting problems" />
+			titleKey="admin.program.key.presenting.problems" />
 	</display:table>
 </c:if>

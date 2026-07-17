@@ -30,6 +30,10 @@
 
 
 <%@ include file="/taglibs.jsp" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
+<fmt:message key="admin.program.key.programs" var="titleVar0"/>
+
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <c:url var="programManagerViewClientsUri" value="/PMmodule/ProgramManagerView">
@@ -124,7 +128,7 @@
 <div class="tabs" id="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="Programs">Clients</th>
+            <th title="${titleVar0}">Clients</th>
         </tr>
     </table>
 </div>
@@ -139,18 +143,18 @@
         <input type="checkbox" name="checked_${carlos:forHtmlAttribute(admission.id)}">
     </display:column>
     <display:column property="client.formattedName" sortable="true"
-                    title="Name"/>
+                    titleKey="admin.program.key.name.header"/>
     <display:column property="admissionDate" sortable="true"
-                    title="Admission Date"/>
+                    titleKey="admin.program.key.admission.date"/>
 
     <caisi:isModuleLoad moduleName="pmm.refer.temporaryAdmission.enabled">
         <display:column property="temporaryAdmission" sortable="true"
-                        title="Temporary Admission"/>
+                        titleKey="admin.program.key.temporary.admission"/>
     </caisi:isModuleLoad>
     <display:column property="admissionNotes" sortable="true"
-                    title="Admission Notes"/>
+                    titleKey="admin.program.key.admission.notes"/>
 
-    <display:column property="teamName" sortable="true" title="Team"/>
+    <display:column property="teamName" sortable="true" titleKey="admin.program.key.team"/>
 
     <display:column sortable="false" title="">
         <select name="x"
@@ -169,7 +173,7 @@
         </select>
     </display:column>
 
-    <display:column sortable="false" title="Status">
+    <display:column sortable="false" titleKey="admin.program.key.status">
         <select name="y"
                 onchange="assignStatus('${carlos:forJavaScript(admission.id)}',this);">
             <option value="0">&nbsp;</option>

@@ -1,4 +1,8 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
+<fmt:message key="admin.program.key.programs" var="titleVar0"/>
+
 <!-- 
 /*
 * 
@@ -27,7 +31,7 @@
 <div class="tabs" id="tabs">
 <table cellpadding="3" cellspacing="0" border="0">
 	<tr>
-		<th title="Programs">Access</th>
+		<th title="${titleVar0}">Access</th>
 	</tr>
 </table>
 </div>
@@ -37,10 +41,10 @@
 	<display:setProperty name="paging.banner.placement" value="bottom" />
 	<display:setProperty name="basic.msg.empty_list"
 		value="No access currently defined for this program." />
-	<display:column property="accessType.name" sortable="true" title="Name" />
-	<display:column property="accessType.type" sortable="true" title="Type" />
-	<display:column property="allRoles" sortable="true" title="All Roles" />
-	<display:column sortable="true" title="Role(s)">
+	<display:column property="accessType.name" sortable="true" titleKey="admin.program.key.name.header" />
+	<display:column property="accessType.type" sortable="true" titleKey="admin.program.key.type" />
+	<display:column property="allRoles" sortable="true" titleKey="admin.program.key.all.roles" />
+	<display:column sortable="true" titleKey="admin.program.key.roles">
 		<ul>
 			<c:forEach var="role" items="${access.roles}">
 				<li>${carlos:forHtml(role.name)}</li>

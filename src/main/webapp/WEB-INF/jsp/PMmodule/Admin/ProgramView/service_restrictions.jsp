@@ -23,10 +23,14 @@
 -->
 
 <%@ include file="/taglibs.jsp"%>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
+<fmt:message key="admin.program.key.service.restrictions" var="titleVar0"/>
+
 <div class="tabs" id="tabs">
 <table cellpadding="3" cellspacing="0" border="0">
 	<tr>
-		<th title="Service Restrictions">Service Restrictions</th>
+		<th title="${titleVar0}">Service Restrictions</th>
 	</tr>
 </table>
 </div>
@@ -36,14 +40,14 @@
 	<display:setProperty name="paging.banner.placement" value="bottom" />
 	<display:setProperty name="basic.msg.empty_list"
 		value="No service restrictions currently in place for this program." />
-	<display:column property="id" sortable="true" title="Id" />
+	<display:column property="id" sortable="true" titleKey="admin.program.key.id" />
 	<display:column property="client.formattedName" sortable="true"
-		title="Client" />
+		titleKey="admin.program.key.client" />
 	<display:column property="provider.formattedName" sortable="true"
-		title="Restricted By" />
-	<display:column property="comments" sortable="true" title="Comments" />
-	<display:column property="startDate" sortable="true" title="Start date" />
-	<display:column property="endDate" sortable="true" title="End date" />
+		titleKey="admin.program.key.restricted.by" />
+	<display:column property="comments" sortable="true" titleKey="admin.program.key.comments" />
+	<display:column property="startDate" sortable="true" titleKey="admin.program.key.start.date" />
+	<display:column property="endDate" sortable="true" titleKey="admin.program.key.end.date" />
 </display:table>
 
 

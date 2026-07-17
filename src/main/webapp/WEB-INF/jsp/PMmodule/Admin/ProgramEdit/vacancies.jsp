@@ -33,6 +33,10 @@
 <%@page import="java.util.List" %>
 <%@page import="java.text.SimpleDateFormat" %>
 <%@ include file="/taglibs.jsp" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
+<fmt:message key="admin.program.key.vacancies" var="titleVar0"/>
+
 
 <%
     String currentProgramId = (String) request.getAttribute("id");
@@ -83,7 +87,7 @@
     <input type="hidden" name="programId" id="programId" value="<%=request.getAttribute("id")%>"/>
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="Vacancies">Vacancies</th>
+            <th title="${titleVar0}">Vacancies</th>
         </tr>
     </table>
 </div>
@@ -91,10 +95,10 @@
 <table id="vacancyTable" width="100%" border="1" cellspacing="2" cellpadding="3">
     <thead>
     <tr class="b">
-        <td width="25%" style="text-align:center;font-weight:bold"><a href="javascript:void(0)" id="sortVacancies">Vacancy Name</a></td>
-        <td width="25%" class="beright" style="text-align:center;font-weight:bold">Vacancy Template Name</td>
-        <td width="25%" style="text-align:center;font-weight:bold">Vacancy Status</td>
-        <td width="25%" style="text-align:center;font-weight:bold">Vacancy Create Date</td>
+        <td width="25%" style="text-align:center;font-weight:bold"><a href="javascript:void(0)" id="sortVacancies"><fmt:message key='admin.program.key.vacancy.name'/></a></td>
+        <td width="25%" class="beright" style="text-align:center;font-weight:bold"><fmt:message key='admin.program.key.vacancy.template.name'/></td>
+        <td width="25%" style="text-align:center;font-weight:bold"><fmt:message key='admin.program.key.vacancy.status'/></td>
+        <td width="25%" style="text-align:center;font-weight:bold"><fmt:message key='admin.program.key.vacancy.create.date'/></td>
     </tr>
     </thead>
     <tbody>
@@ -113,4 +117,4 @@
     </tbody>
 </table>
 
-<a onclick="openVacancy('');return false;" href="javascript:void(0)">Create New Vacancy</a>
+<a onclick="openVacancy('');return false;" href="javascript:void(0)"><fmt:message key='admin.program.key.create.new.vacancy'/></a>

@@ -40,6 +40,10 @@
 <%@page import="org.apache.commons.lang3.time.DateFormatUtils" %>
 <%@page import="java.text.SimpleDateFormat" %>
 <%@ include file="/taglibs.jsp" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
+<fmt:message key="admin.program.key.templates" var="titleVar0"/>
+
 
 <%
     List<Criteria> criterias = new ArrayList<Criteria>();
@@ -115,7 +119,7 @@
 <div class="tabs" id="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="Templates">Vacancies</th>
+            <th title="${titleVar0}">Vacancies</th>
         </tr>
     </table>
 </div>
@@ -123,7 +127,7 @@
 <input type="hidden" name="vacancyId" id="vacancyId" value="<%=vacancyId%>"/>
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
     <tr class="b">
-        <td width="30%" class="beright">Requirement Template:</td>
+        <td width="30%" class="beright"><fmt:message key='admin.program.key.requirement.template'/></td>
         <td><select name="requiredVacancyTemplateId" onchange="chooseTemplate(this);" <%=dontSave ? "disabled" : "" %>>
             <option value="0">&nbsp;</option>
             <%
@@ -144,7 +148,7 @@
         </select></td>
     </tr>
     <tr class="b">
-        <td class="beright">Vacancy Name:</td>
+        <td class="beright"><fmt:message key='admin.program.key.vacancy.name'/></td>
         <td><input type="text" name="vacancyName" value="<%= vacancyName %>" size="40" <%=dontSave ? "disabled" : "" %>/></td>
     </tr>
 </table>
@@ -161,7 +165,7 @@
 
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
     <tr class="b">
-        <td width="30%" class="beright">Status:</td>
+        <td width="30%" class="beright"><fmt:message key='admin.program.key.status'/></td>
         <td><select name="vacancyStatus">
             <option value="Active" <%=(vacancyStatus.equalsIgnoreCase("Active")) ? "selected" : "" %>>Active</option>
             <option value="Withdrawn" <%=(vacancyStatus.equalsIgnoreCase("Withdrawn")) ? "selected" : "" %>>Withdrawn</option>
@@ -169,7 +173,7 @@
         </select></td>
     </tr>
     <tr class="b">
-        <td class="beright">Date Closed:</td>
+        <td class="beright"><fmt:message key='admin.program.key.date.closed'/></td>
         <td><input type="text" name="dateClosed" id="dateClosed" value="<%= dateClosed %>" size="10"><img
                 src="<%=request.getContextPath()%>/images/cal.gif" id="dateClosed_cal"></td>
         <script type="text/javascript">
@@ -184,7 +188,7 @@
         </script>
     </tr>
     <tr class="b">
-        <td class="beright">Reason Closed:</td>
+        <td class="beright"><fmt:message key='admin.program.key.reason.closed'/></td>
         <td><input type="text" name="reasonClosed" size="100" value="<%= reasonClosed %>"/></td>
     </tr>
 </table>
@@ -192,8 +196,8 @@
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
     <tr>
         <td colspan="2">
-            <input type="button" value="Save" onclick="return save()"/>
-            <input type="button" value="Cancel" onclick="return cancel2()"/>
+            <input type="button" value="<fmt:message key='admin.program.button.save'/>" onclick="return save()"/>
+            <input type="button" value="<fmt:message key='admin.program.button.cancel'/>" onclick="return cancel2()"/>
         </td>
     </tr>
 </table>

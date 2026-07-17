@@ -29,6 +29,10 @@
 
 --%>
 <%@ include file="/taglibs.jsp" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
+<fmt:message key="admin.program.key.programs" var="titleVar0"/>
+
 <c:url var="programManagerFunctionUsersUri" value="/PMmodule/ProgramManager">
     <c:param name="method" value="edit"/>
     <c:param name="id" value="${requestScope.id}"/>
@@ -68,7 +72,7 @@
 <div class="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="Programs">Functional Users</th>
+            <th title="${titleVar0}">Functional Users</th>
         </tr>
     </table>
 </div>
@@ -79,17 +83,16 @@
     <display:setProperty name="paging.banner.placement" value="bottom"/>
     <display:setProperty name="basic.msg.empty_list" value="No functional users defined for this program"/>
     <display:column sortable="false" title="">
-        <a onclick="deleteFunctionalUser('${carlos:forJavaScript(functional.id)}');return false;" href="javascript:void(0);">
-            Delete </a>
+        <a onclick="deleteFunctionalUser('${carlos:forJavaScript(functional.id)}');return false;" href="javascript:void(0);"><fmt:message key='admin.program.key.delete'/></a>
     </display:column>
-    <display:column property="userType.name" sortable="true" title="Functional User Type"/>
-    <display:column property="provider.formattedName" sortable="true" title="Provider Name"/>
+    <display:column property="userType.name" sortable="true" titleKey="admin.program.key.functional.user.type"/>
+    <display:column property="provider.formattedName" sortable="true" titleKey="admin.program.key.provider.name"/>
 </display:table>
 <br/>
 <br/>
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
     <tr class="b">
-        <td width="20%">Provider :</td>
+        <td width="20%"><fmt:message key='admin.program.key.provider'/></td>
         <td>
             <%
                 String providerName = (String) request.getAttribute("providerName");
@@ -98,11 +101,11 @@
                 }
             %>
             <input type="text" name="providerName" size="30" value="<%=providerName%>"/>
-            <input type="button" value="Search" onclick="search_provider(this.form.providerName.value);"/>
+            <input type="button" value="<fmt:message key='admin.program.button.search'/>" onclick="search_provider(this.form.providerName.value);"/>
         </td>
     </tr>
     <tr class="b">
-        <td width="20%">Functional User Type:</td>
+        <td width="20%"><fmt:message key='admin.program.key.functional.user.type'/></td>
         <td>
             <select name="function.userTypeId" id="function.userTypeId">
                 <c:forEach var="functionalUserType" items="${functionalUserTypes}">
@@ -115,8 +118,8 @@
     </tr>
     <tr>
         <td colspan="2">
-            <input type="button" value="Save" onclick="add_functional_user(this.form)"/>
-            <button type="button" onclick="window.history.back();">Cancel</button>
+            <input type="button" value="<fmt:message key='admin.program.button.save'/>" onclick="add_functional_user(this.form)"/>
+            <button type="button" onclick="window.history.back();"><fmt:message key='admin.program.key.cancel'/></button>
         </td>
     </tr>
 </table>

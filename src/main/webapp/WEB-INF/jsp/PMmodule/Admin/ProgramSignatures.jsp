@@ -28,6 +28,8 @@
 
 --%>
 <%@ include file="/taglibs.jsp" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ page import="java.util.List" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <c:url var="programSignaturesUri" value="/PMmodule/ProgramManager">
@@ -49,11 +51,11 @@
                    requestURI="${programSignaturesUri}">
 
         <display:column property="providerName" style="white-space: nowrap;"
-                        sortable="true" title="Provider Name"></display:column>
+                        sortable="true" titleKey="admin.program.key.provider.name"></display:column>
         <display:column property="caisiRoleName" style="white-space: nowrap;"
-                        sortable="true" title="Role"></display:column>
+                        sortable="true" titleKey="admin.program.key.role"></display:column>
         <display:column property="updateDate" style="white-space: nowrap;"
-                        sortable="true" title="Date"></display:column>
+                        sortable="true" titleKey="admin.program.key.date"></display:column>
     </display:table>
 
     </body>
@@ -67,9 +69,9 @@
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
 <tr class="b">
 <td>&nbsp;</td>
-<td>Provider Name</td>
-<td>Role</td>
-<td>Date</td>
+<td><fmt:message key='admin.program.key.provider.name'/></td>
+<td><fmt:message key='admin.program.key.role'/></td>
+<td><fmt:message key='admin.program.key.date'/></td>
 </tr>
 
 

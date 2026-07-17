@@ -28,6 +28,10 @@
 
 --%>
 <%@ include file="/taglibs.jsp" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
+<fmt:message key="admin.program.key.programs" var="titleVar0"/>
+
 <c:url var="programManagerViewFunctionUsersUri" value="/PMmodule/ProgramManagerView">
     <c:param name="id" value="${requestScope.id}"/>
     <c:param name="tab" value="Function User"/>
@@ -35,7 +39,7 @@
 <div class="tabs" id="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="Programs">Function User</th>
+            <th title="${titleVar0}">Function User</th>
         </tr>
     </table>
 </div>
@@ -46,7 +50,7 @@
     <display:setProperty name="basic.msg.empty_list"
                          value="No functional users defined for this program"/>
     <display:column property="userType.name" sortable="true"
-                    title="User Type"/>
+                    titleKey="admin.program.key.user.type"/>
     <display:column property="provider.formattedName" sortable="true"
-                    title="Provider Name"/>
+                    titleKey="admin.program.key.provider.name"/>
 </display:table>

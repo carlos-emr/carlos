@@ -30,6 +30,10 @@
 
 
 <%@ include file="/taglibs.jsp" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
+<fmt:message key="admin.program.key.programs" var="titleVar0"/>
+
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <c:url var="programManagerClientsUri" value="/PMmodule/ProgramManager">
@@ -61,7 +65,7 @@
 <div class="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="Programs">Clients</th>
+            <th title="${titleVar0}">Clients</th>
         </tr>
     </table>
 </div>
@@ -72,16 +76,15 @@
     <display:setProperty name="basic.msg.empty_list" value="No clients currently admitted to this program."/>
 
     <display:column sortable="false" title="">
-        <a href="javascript:void(0);" onclick="alert('Please discharge clients from the client manager');">
-            Discharge </a>
+        <a href="javascript:void(0);" onclick="alert('Please discharge clients from the client manager');"><fmt:message key='admin.program.key.discharge'/></a>
     </display:column>
-    <display:column property="client.formattedName" sortable="true" title="Name"/>
-    <display:column property="admissionDate" sortable="true" title="Admission Date"/>
+    <display:column property="client.formattedName" sortable="true" titleKey="admin.program.key.name.header"/>
+    <display:column property="admissionDate" sortable="true" titleKey="admin.program.key.admission.date"/>
     <caisi:isModuleLoad moduleName="pmm.refer.temporaryAdmission.enabled">
-        <display:column property="temporaryAdmission" sortable="true" title="Temporary Admission"/>
+        <display:column property="temporaryAdmission" sortable="true" titleKey="admin.program.key.temporary.admission"/>
     </caisi:isModuleLoad>
-    <display:column property="admissionNotes" sortable="true" title="Admission Notes"/>
-    <display:column property="teamName" sortable="true" title="Team"/>
+    <display:column property="admissionNotes" sortable="true" titleKey="admin.program.key.admission.notes"/>
+    <display:column property="teamName" sortable="true" titleKey="admin.program.key.team"/>
     <display:column sortable="false" title="">
         <select name="x" onchange="assignTeam('${carlos:forJavaScript(admission.id)}',this);">
             <option value="0">&nbsp;</option>
@@ -97,7 +100,7 @@
             </c:forEach>
         </select>
     </display:column>
-    <display:column sortable="false" title="Status">
+    <display:column sortable="false" titleKey="admin.program.key.status">
         <select name="y" onchange="assignStatus('${carlos:forJavaScript(admission.id)}',this);">
             <option value="0">&nbsp;</option>
             <c:forEach var="status" items="${client_statuses}">

@@ -1,4 +1,8 @@
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramClientRestriction" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
+<fmt:message key="admin.program.key.service.restrictions" var="titleVar0"/>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <!--
@@ -49,23 +53,23 @@
 <div class="tabs" id="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="Service Restrictions">Service Restriction Settings</th>
+            <th title="${titleVar0}">Service Restriction Settings</th>
         </tr>
     </table>
 </div>
 Please define the following parameters control the behaviour of new service restrictions for this program.
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
 	<tr class="b">
-		<td width="20%">Maximum length of service restriction (in days):</td>
+		<td width="20%"><fmt:message key='admin.program.key.maximum.length.of.service.restriction.in.days'/></td>
 		<td><html:text property="program.maximumServiceRestrictionDays" size="4" maxlength="4"/>&nbsp;(empty or zero means no maximum)</td>
 	</tr>
 	<tr class="b">
-		<td width="20%">Default service restriction length (in days):</td>
+		<td width="20%"><fmt:message key='admin.program.key.default.service.restriction.length.in.days'/></td>
 		<td><html:text property="program.defaultServiceRestrictionDays" size="4" maxlength="4"/></td>
 	</tr>
 	<tr>
 		<td colspan="2">
-			<input type="button" value="Save" onclick="return save()" />
+			<input type="button" value="<fmt:message key='admin.program.button.save'/>" onclick="return save()" />
 		</td>
 	</tr>
 </table>
@@ -73,7 +77,7 @@ Please define the following parameters control the behaviour of new service rest
 <div class="tabs" id="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="Service Restrictions">Current Service Restrictions</th>
+            <th title="${titleVar0}">Current Service Restrictions</th>
         </tr>
     </table>
 </div>
@@ -101,22 +105,22 @@ Please define the following parameters control the behaviour of new service rest
             String demographicNo = "" + ((ProgramClientRestriction)pageContext.getAttribute("restriction")).getDemographicNo();
         %>
         <caisirole:SecurityAccess accessName="Disable service restriction" accessType="access" providerNo='<%=((Provider)request.getSession().getAttribute("provider")).getProviderNo()%>' demoNo="<%=demographicNo%>" programId='<%=request.getParameter("id")%>'>
-            <a onclick="disableRestriction('${carlos:forJavaScript(restriction.id)}');return false;" href="javascript:void(0);"> Disable </a>
+            <a onclick="disableRestriction('${carlos:forJavaScript(restriction.id)}');return false;" href="javascript:void(0);"><fmt:message key='admin.program.key.disable'/></a>
         </caisirole:SecurityAccess>
     </display:column>
-    <display:column property="id" sortable="true" title="Id" />
-    <display:column property="client.formattedName" sortable="true" title="Client" />
-    <display:column property="provider.formattedName" sortable="true" title="Restricted By"/>
-    <display:column property="comments" sortable="true" title="Comments" />
-    <display:column property="startDate" sortable="true" title="Start date" />
-    <display:column property="endDate" sortable="true" title="End date" />
+    <display:column property="id" sortable="true" titleKey="admin.program.key.id" />
+    <display:column property="client.formattedName" sortable="true" titleKey="admin.program.key.client" />
+    <display:column property="provider.formattedName" sortable="true" titleKey="admin.program.key.restricted.by"/>
+    <display:column property="comments" sortable="true" titleKey="admin.program.key.comments" />
+    <display:column property="startDate" sortable="true" titleKey="admin.program.key.start.date" />
+    <display:column property="endDate" sortable="true" titleKey="admin.program.key.end.date" />
 </display:table>
 
 <br/>
 <div class="tabs" id="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="Service Restrictions">Disabled Service Restrictions</th>
+            <th title="${titleVar0}">Disabled Service Restrictions</th>
         </tr>
     </table>
 </div>
@@ -130,13 +134,13 @@ Please define the following parameters control the behaviour of new service rest
             String demographicNo = "" + ((ProgramClientRestriction)pageContext.getAttribute("restriction")).getDemographicNo();
         %>
         <caisirole:SecurityAccess accessName="Create service restriction" accessType="access" providerNo='<%=((Provider)request.getSession().getAttribute("provider")).getProviderNo()%>' demoNo="<%=demographicNo%>" programId='<%=request.getParameter("id")%>'>
-            <a onclick="enableRestriction('${carlos:forJavaScript(restriction.id)}');return false;" href="javascript:void(0);"> Enable </a>
+            <a onclick="enableRestriction('${carlos:forJavaScript(restriction.id)}');return false;" href="javascript:void(0);"><fmt:message key='admin.program.key.enable'/></a>
         </caisirole:SecurityAccess>
     </display:column>
-    <display:column property="id" sortable="true" title="Id" />
-    <display:column property="client.formattedName" sortable="true" title="Client" />
-    <display:column property="provider.formattedName" sortable="true" title="Restricted By"/>
-    <display:column property="comments" sortable="true" title="Comments" />
-    <display:column property="startDate" sortable="true" title="Start date" />
-    <display:column property="endDate" sortable="true" title="End date" />
+    <display:column property="id" sortable="true" titleKey="admin.program.key.id" />
+    <display:column property="client.formattedName" sortable="true" titleKey="admin.program.key.client" />
+    <display:column property="provider.formattedName" sortable="true" titleKey="admin.program.key.restricted.by"/>
+    <display:column property="comments" sortable="true" titleKey="admin.program.key.comments" />
+    <display:column property="startDate" sortable="true" titleKey="admin.program.key.start.date" />
+    <display:column property="endDate" sortable="true" titleKey="admin.program.key.end.date" />
 </display:table>

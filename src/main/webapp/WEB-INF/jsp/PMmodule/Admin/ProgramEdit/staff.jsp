@@ -1,4 +1,8 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
+<fmt:message key="admin.program.key.programs" var="titleVar0"/>
+
 <!-- 
 /*
 * 
@@ -94,7 +98,7 @@
 <div class="tabs">
 <table cellpadding="3" cellspacing="0" border="0">
 	<tr>
-		<th title="Programs">Staff</th>
+		<th title="${titleVar0}">Staff</th>
 	</tr>
 </table>
 </div>
@@ -103,16 +107,16 @@
 	<display:setProperty name="paging.banner.placement" value="bottom" />
 	<display:setProperty name="basic.msg.empty_list" value="No staff currently assigned to this program." />
 	<display:column sortable="false" title="">
-		<a href="javascript:void(0);" onclick="deleteProvider('${carlos:forJavaScript(provider.id)}');return false;"> Delete </a>
+		<a href="javascript:void(0);" onclick="deleteProvider('${carlos:forJavaScript(provider.id)}');return false;"><fmt:message key='admin.program.key.delete'/></a>
 	</display:column>
-	<display:column property="provider.formattedName" sortable="true" title="Name" />
-	<display:column property="provider.phone" sortable="true" title="Phone" />
-	<display:column sortable="false" title="Team">
+	<display:column property="provider.formattedName" sortable="true" titleKey="admin.program.key.name.header" />
+	<display:column property="provider.phone" sortable="true" titleKey="admin.program.key.phone" />
+	<display:column sortable="false" titleKey="admin.program.key.team">
 		<table width="100%" cellspacing="2" cellpadding="2">
 			<c:forEach var="team" items="${provider.teams}">
 				<tr>
 					<td>${carlos:forHtml(team.name)}</td>
-					<td><a href="javascript:void(0);" onclick="removeTeam('${carlos:forJavaScript(provider.id)}','${carlos:forJavaScript(team.id)}');return false;">Remove</a>
+					<td><a href="javascript:void(0);" onclick="removeTeam('${carlos:forJavaScript(provider.id)}','${carlos:forJavaScript(team.id)}');return false;"><fmt:message key='admin.program.key.remove'/></a>
 				</tr>
 			</c:forEach>
 		</table>
@@ -123,7 +127,7 @@
 			</c:forEach>
 		</select>
 	</display:column>
-	<display:column sortable="false" title="Role">
+	<display:column sortable="false" titleKey="admin.program.key.role">
 		<select name="x" onchange="assignRole('${carlos:forJavaScript(provider.id)}',this);">
 			<option value="0">&nbsp;</option>
 			<c:forEach var="role" items="${roles}">
@@ -142,7 +146,7 @@
 <br />
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
 	<tr class="b">
-		<td width="20%">Provider:</td>
+		<td width="20%"><fmt:message key='admin.program.key.provider'/></td>
 		<td>
 			<html:hidden property="provider.id" />
 			<html:hidden property="provider.providerNo" />
@@ -153,11 +157,11 @@
 			}
 			%>
 			<input type="text" name="providerName" size="30" value="<%=providerName%>" />
-			<input type="button" value="Search" onclick="search_provider(this.form.providerName.value);" />
+			<input type="button" value="<fmt:message key='admin.program.button.search'/>" onclick="search_provider(this.form.providerName.value);" />
 		</td>
 	</tr>
 	<tr class="b">
-		<td width="20%">Role:</td>
+		<td width="20%"><fmt:message key='admin.program.key.role'/></td>
 		<td>
 			<html:select property="provider.roleId">
 				<html:options collection="roles" property="id" labelProperty="name" />
@@ -166,7 +170,7 @@
 	</tr>
 	<tr>
 		<td colspan="2">
-			<input type="button" value="Save" onclick="add_provider(this.form)" />
+			<input type="button" value="<fmt:message key='admin.program.button.save'/>" onclick="add_provider(this.form)" />
 			<html:cancel />
 		</td>
 	</tr>

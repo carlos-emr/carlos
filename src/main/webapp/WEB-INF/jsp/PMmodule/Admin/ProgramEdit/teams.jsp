@@ -1,4 +1,8 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
+<fmt:message key="admin.program.key.programs" var="titleVar0"/>
+
 <!-- 
 /*
 * 
@@ -53,7 +57,7 @@ function add_team(form) {
 <div class="tabs">
 <table cellpadding="3" cellspacing="0" border="0">
 	<tr>
-		<th title="Programs">Team Management</th>
+		<th title="${titleVar0}">Team Management</th>
 	</tr>
 </table>
 </div>
@@ -62,17 +66,17 @@ function add_team(form) {
 	<display:setProperty name="paging.banner.placement" value="bottom" />
 	<display:setProperty name="basic.msg.empty_list" value="No teams are currently defined for this program." />
 	<display:column sortable="false" title="">
-		<a onclick="deleteTeam('${carlos:forJavaScript(team.id)}');return false;" href="javascript:void(0);"> Delete </a>
+		<a onclick="deleteTeam('${carlos:forJavaScript(team.id)}');return false;" href="javascript:void(0);"><fmt:message key='admin.program.key.delete'/></a>
 	</display:column>
-	<display:column property="name" sortable="true" title="Name" />
-	<display:column sortable="true" title="Staff">
+	<display:column property="name" sortable="true" titleKey="admin.program.key.name.header" />
+	<display:column sortable="true" titleKey="admin.program.key.staff">
 		<ul>
 			<c:forEach var="provider" items="${team.providers}">
 				<li>${carlos:forHtml(provider.provider.formattedName)} (${carlos:forHtml(provider.role.name)})</li>
 			</c:forEach>
 		</ul>
 	</display:column>
-	<display:column sortable="true" title="Clients">
+	<display:column sortable="true" titleKey="admin.program.key.clients">
 		<ul>
 			<c:forEach var="admission" items="${team.admissions}">
 				<li>${carlos:forHtml(admission.client.formattedName)}</li>
@@ -84,10 +88,10 @@ function add_team(form) {
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
 	<html:hidden property="team.id" />
 	<tr class="b">
-		<td width="20%">Name:</td>
+		<td width="20%"><fmt:message key='admin.program.key.name'/></td>
 		<td><html:text property="team.name" size="50" maxlength="255"/></td>
 	</tr>
 	<tr>
-		<td colspan="2"><input type="button" value="Save" onclick="add_team(this.form)" /> <html:cancel /></td>
+		<td colspan="2"><input type="button" value="<fmt:message key='admin.program.button.save'/>" onclick="add_team(this.form)" /> <html:cancel /></td>
 	</tr>
 </table>

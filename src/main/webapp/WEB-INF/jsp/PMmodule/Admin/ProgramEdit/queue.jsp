@@ -1,4 +1,8 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
+<fmt:message key="admin.program.key.programs" var="titleVar0"/>
+
 <!-- 
 /*
 * 
@@ -41,7 +45,7 @@ function removeFromRemoteQueue(remoteReferralId) {
 <div class="tabs" id="tabs">
 	<table cellpadding="3" cellspacing="0" border="0">
 		<tr>
-			<th title="Programs">Local Queue</th>
+			<th title="${titleVar0}">Local Queue</th>
 		</tr>
 	</table>
 </div>
@@ -50,15 +54,15 @@ function removeFromRemoteQueue(remoteReferralId) {
 	<display:setProperty name="paging.banner.placement" value="bottom" />
 	<display:setProperty name="basic.msg.empty_list" value="Queue is empty." />
 	<display:column sortable="false" title="">
-		<a href="javascript:void(0);" onclick="removeFromQueue('${carlos:forJavaScript(queue_entry.id)}');return false;"> Remove </a>
+		<a href="javascript:void(0);" onclick="removeFromQueue('${carlos:forJavaScript(queue_entry.id)}');return false;"><fmt:message key='admin.program.key.remove'/></a>
 	</display:column>
-	<display:column property="clientFormattedName" sortable="true" title="Client Name" />
-	<display:column property="referralDate" sortable="true" title="Referral Date" />
-	<display:column property="providerFormattedName" sortable="true" title="Referring Provider" />
+	<display:column property="clientFormattedName" sortable="true" titleKey="admin.program.key.client.name" />
+	<display:column property="referralDate" sortable="true" titleKey="admin.program.key.referral.date" />
+	<display:column property="providerFormattedName" sortable="true" titleKey="admin.program.key.referring.provider" />
   	<caisi:isModuleLoad moduleName="pmm.refer.temporaryAdmission.enabled">
-		<display:column property="temporaryAdmission" sortable="true" title="Temporary Admission" />
+		<display:column property="temporaryAdmission" sortable="true" titleKey="admin.program.key.temporary.admission" />
 	</caisi:isModuleLoad>
-	<display:column property="notes" sortable="true" title="Notes" />
+	<display:column property="notes" sortable="true" titleKey="admin.program.key.notes" />
 </display:table>
 
 <c:if test="${remoteQueue!=null}">
@@ -69,7 +73,7 @@ function removeFromRemoteQueue(remoteReferralId) {
 	<div class="tabs" id="tabs">
 		<table cellpadding="3" cellspacing="0" border="0">
 			<tr>
-				<th title="Programs">Remote Queue</th>
+				<th title="${titleVar0}">Remote Queue</th>
 			</tr>
 		</table>
 	</div>
@@ -78,11 +82,11 @@ function removeFromRemoteQueue(remoteReferralId) {
 		<display:setProperty name="paging.banner.placement" value="bottom" />
 		<display:setProperty name="basic.msg.empty_list" value="Queue is empty." />
 		<display:column sortable="false" title="">
-			<a href="javascript:void(0);" onclick="removeFromRemoteQueue('${carlos:forJavaScript(queue_entry.remoteReferral.remoteReferralId)}');return false;"> Remove </a>
+			<a href="javascript:void(0);" onclick="removeFromRemoteQueue('${carlos:forJavaScript(queue_entry.remoteReferral.remoteReferralId)}');return false;"><fmt:message key='admin.program.key.remove'/></a>
 		</display:column>
-		<display:column property="clientName" sortable="true" title="Client Name" />
-		<display:column property="remoteReferral.referralDate" sortable="true" title="Referral Date" />
-		<display:column property="providerName" sortable="true" title="Referring Provider" />
-		<display:column property="remoteReferral.reasonForReferral" sortable="true" title="Notes" />
+		<display:column property="clientName" sortable="true" titleKey="admin.program.key.client.name" />
+		<display:column property="remoteReferral.referralDate" sortable="true" titleKey="admin.program.key.referral.date" />
+		<display:column property="providerName" sortable="true" titleKey="admin.program.key.referring.provider" />
+		<display:column property="remoteReferral.reasonForReferral" sortable="true" titleKey="admin.program.key.notes" />
 	</display:table>
 </c:if>

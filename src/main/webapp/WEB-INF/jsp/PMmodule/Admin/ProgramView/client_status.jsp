@@ -23,10 +23,14 @@
  -->
 
 <%@ include file="/taglibs.jsp"%>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
+<fmt:message key="admin.program.key.programs" var="titleVar0"/>
+
 <div class="tabs" id="tabs">
 <table cellpadding="3" cellspacing="0" border="0">
 	<tr>
-		<th title="Programs">Client Status Management</th>
+		<th title="${titleVar0}">Client Status Management</th>
 	</tr>
 </table>
 </div>
@@ -37,5 +41,5 @@
 	<display:setProperty name="paging.banner.placement" value="bottom" />
 	<display:setProperty name="basic.msg.empty_list"
 		value="No statuses are currently defined for this program." />
-	<display:column property="name" sortable="true" title="Name" />
+	<display:column property="name" sortable="true" titleKey="admin.program.key.name.header" />
 </display:table>
