@@ -65,7 +65,7 @@
 <div class="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="${titleVar0}">Clients</th>
+            <th title="${titleVar0}"><fmt:message key='admin.program.key.clients'/></th>
         </tr>
     </table>
 </div>
@@ -73,10 +73,12 @@
 <display:table class="simple" cellspacing="2" cellpadding="3" id="admission" name="admissions" export="false"
                pagesize="0" requestURI="${programManagerClientsUri}">
     <display:setProperty name="paging.banner.placement" value="bottom"/>
-    <display:setProperty name="basic.msg.empty_list" value="No clients currently admitted to this program."/>
+    <fmt:message key="admin.program.key.no.clients.currently.admitted.to.this.program" var="adminprogramkeynoclientscurrentlyadmittedtothisprogram"/>
+	<display:setProperty name="basic.msg.empty_list"
+		value="${adminprogramkeynoclientscurrentlyadmittedtothisprogram}" />
 
     <display:column sortable="false" title="">
-        <a href="javascript:void(0);" onclick="alert('Please discharge clients from the client manager');"><fmt:message key='admin.program.key.discharge'/></a>
+        <a href="javascript:void(0);" onclick="alert('<fmt:message key="admin.program.key.please.discharge.clients.from.the.client.manager"/>');"><fmt:message key='admin.program.key.discharge'/></a>
     </display:column>
     <display:column property="client.formattedName" sortable="true" titleKey="admin.program.key.name.header"/>
     <display:column property="admissionDate" sortable="true" titleKey="admin.program.key.admission.date"/>

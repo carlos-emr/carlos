@@ -119,7 +119,7 @@
 <div class="tabs" id="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="${titleVar0}">Vacancies</th>
+            <th title="${titleVar0}"><fmt:message key='admin.program.key.vacancies'/></th>
         </tr>
     </table>
 </div>

@@ -36,7 +36,7 @@
 <div class="tabs" id="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="${titleVar0}">General Information</th>
+            <th title="${titleVar0}"><fmt:message key='admin.program.key.general.information'/></th>
         </tr>
     </table>
 </div>
@@ -67,7 +67,7 @@
     </tr>
     <tr class="b">
         <td width="20%"><fmt:message key='admin.program.key.client.participation'/></td>
-        <td>${carlos:forHtml(program.numOfMembers)}/${carlos:forHtml(program.maxAllowed)} (${carlos:forHtml(program.queueSize)} waiting)</td>
+        <td>${carlos:forHtml(program.numOfMembers)}/${carlos:forHtml(program.maxAllowed)} (${carlos:forHtml(program.queueSize)} <fmt:message key='admin.program.key.waiting'/>)</td>
     </tr>
     <tr class="b">
         <td width="20%"><fmt:message key='admin.program.key.holding.tank'/></td>

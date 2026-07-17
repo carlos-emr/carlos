@@ -58,14 +58,16 @@ function add_status(form) {
 <div class="tabs">
 <table cellpadding="3" cellspacing="0" border="0">
 	<tr>
-		<th title="${titleVar0}">Client Status</th>
+		<th title="${titleVar0}"><fmt:message key='admin.program.key.client.status'/></th>
 	</tr>
 </table>
 </div>
 <!--  show current staff -->
 <display:table class="simple" cellspacing="2" cellpadding="3" id="status" name="client_statuses" export="false" pagesize="0" requestURI="/PMmodule/ProgramManager">
 	<display:setProperty name="paging.banner.placement" value="bottom" />
-	<display:setProperty name="basic.msg.empty_list" value="No statuses are currently defined for this program." />
+	<fmt:message key="admin.program.key.no.statuses.are.currently.defined.for.this.program" var="adminprogramkeynostatusesarecurrentlydefinedforthisprogram"/>
+	<display:setProperty name="basic.msg.empty_list"
+		value="${adminprogramkeynostatusesarecurrentlydefinedforthisprogram}" />
 	<display:column sortable="false" title="">
 		<a onclick="deleteStatus('${carlos:forJavaScript(status.id)}');return false;" href="javascript:void(0);"><fmt:message key='admin.program.key.delete'/></a>
 	</display:column>

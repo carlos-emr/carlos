@@ -30,7 +30,7 @@
 <div class="tabs" id="tabs">
 <table cellpadding="3" cellspacing="0" border="0">
 	<tr>
-		<th title="${titleVar0}">Service Restrictions</th>
+		<th title="${titleVar0}"><fmt:message key='admin.program.key.service.restrictions'/></th>
 	</tr>
 </table>
 </div>
@@ -38,8 +38,9 @@
 	id="restriction" name="service_restrictions" export="false"
 	pagesize="0" requestURI="/PMmodule/ProgramManager">
 	<display:setProperty name="paging.banner.placement" value="bottom" />
+	<fmt:message key="admin.program.key.no.service.restrictions.currently.in.place.for.this.program" var="adminprogramkeynoservicerestrictionscurrentlyinplaceforthisprogram"/>
 	<display:setProperty name="basic.msg.empty_list"
-		value="No service restrictions currently in place for this program." />
+		value="${adminprogramkeynoservicerestrictionscurrentlyinplaceforthisprogram}" />
 	<display:column property="id" sortable="true" titleKey="admin.program.key.id" />
 	<display:column property="client.formattedName" sortable="true"
 		titleKey="admin.program.key.client" />

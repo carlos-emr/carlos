@@ -128,7 +128,7 @@
 <div class="tabs" id="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="${titleVar0}">Clients</th>
+            <th title="${titleVar0}"><fmt:message key='admin.program.key.clients'/></th>
         </tr>
     </table>
 </div>
@@ -137,8 +137,9 @@
                id="admission" name="admissions" export="false" pagesize="0"
                requestURI="${programManagerViewClientsUri}">
     <display:setProperty name="paging.banner.placement" value="bottom"/>
-    <display:setProperty name="basic.msg.empty_list"
-                         value="No clients currently admitted to this program."/>
+    <fmt:message key="admin.program.key.no.clients.currently.admitted.to.this.program" var="adminprogramkeynoclientscurrentlyadmittedtothisprogram"/>
+	<display:setProperty name="basic.msg.empty_list"
+		value="${adminprogramkeynoclientscurrentlyadmittedtothisprogram}" />
     <display:column>
         <input type="checkbox" name="checked_${carlos:forHtmlAttribute(admission.id)}">
     </display:column>

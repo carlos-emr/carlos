@@ -30,7 +30,7 @@
 <div class="tabs" id="tabs">
 <table cellpadding="3" cellspacing="0" border="0">
 	<tr>
-		<th title="${titleVar0}">Client Status Management</th>
+		<th title="${titleVar0}"><fmt:message key='admin.program.key.client.status.management'/></th>
 	</tr>
 </table>
 </div>
@@ -39,7 +39,8 @@
 	id="status" name="client_statuses" export="false" pagesize="0"
 	requestURI="/PMmodule/ProgramManagerView">
 	<display:setProperty name="paging.banner.placement" value="bottom" />
+	<fmt:message key="admin.program.key.no.statuses.are.currently.defined.for.this.program" var="adminprogramkeynostatusesarecurrentlydefinedforthisprogram"/>
 	<display:setProperty name="basic.msg.empty_list"
-		value="No statuses are currently defined for this program." />
+		value="${adminprogramkeynostatusesarecurrentlydefinedforthisprogram}" />
 	<display:column property="name" sortable="true" titleKey="admin.program.key.name.header" />
 </display:table>

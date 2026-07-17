@@ -72,7 +72,7 @@
 <div class="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="${titleVar0}">Functional Users</th>
+            <th title="${titleVar0}"><fmt:message key='admin.program.key.functional.users'/></th>
         </tr>
     </table>
 </div>
@@ -81,7 +81,9 @@
 <display:table class="simple" cellspacing="2" cellpadding="3" id="functional" name="functional_users" export="false"
                pagesize="0" requestURI="${programManagerFunctionUsersUri}">
     <display:setProperty name="paging.banner.placement" value="bottom"/>
-    <display:setProperty name="basic.msg.empty_list" value="No functional users defined for this program"/>
+    <fmt:message key="admin.program.key.no.functional.users.defined.for.this.program" var="adminprogramkeynofunctionalusersdefinedforthisprogram"/>
+	<display:setProperty name="basic.msg.empty_list"
+		value="${adminprogramkeynofunctionalusersdefinedforthisprogram}" />
     <display:column sortable="false" title="">
         <a onclick="deleteFunctionalUser('${carlos:forJavaScript(functional.id)}');return false;" href="javascript:void(0);"><fmt:message key='admin.program.key.delete'/></a>
     </display:column>

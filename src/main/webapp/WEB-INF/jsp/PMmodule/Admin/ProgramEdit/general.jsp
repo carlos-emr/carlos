@@ -100,7 +100,7 @@
     <div class="tabs">
         <table cellpadding="3" cellspacing="0" border="0">
             <tr>
-                <th title="${titleVar0}">General Information</th>
+                <th title="${titleVar0}"><fmt:message key='admin.program.key.general.information'/></th>
             </tr>
         </table>
     </div>
@@ -293,7 +293,7 @@
     <div class="tabs">
         <table cellpadding="3" cellspacing="0" border="0">
             <tr>
-                <th title="${titleVar1}">Signature</th>
+                <th title="${titleVar1}"><fmt:message key='admin.program.key.signature'/></th>
             </tr>
         </table>
     </div>

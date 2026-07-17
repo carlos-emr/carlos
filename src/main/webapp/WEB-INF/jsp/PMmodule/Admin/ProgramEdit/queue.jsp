@@ -45,14 +45,16 @@ function removeFromRemoteQueue(remoteReferralId) {
 <div class="tabs" id="tabs">
 	<table cellpadding="3" cellspacing="0" border="0">
 		<tr>
-			<th title="${titleVar0}">Local Queue</th>
+			<th title="${titleVar0}"><fmt:message key='admin.program.key.local.queue'/></th>
 		</tr>
 	</table>
 </div>
 <!--  show current clients -->
 <display:table class="simple" cellspacing="2" cellpadding="3" id="queue_entry" name="queue" export="false" pagesize="0" requestURI="/PMmodule/ProgramManager">
 	<display:setProperty name="paging.banner.placement" value="bottom" />
-	<display:setProperty name="basic.msg.empty_list" value="Queue is empty." />
+	<fmt:message key="admin.program.key.queue.is.empty" var="adminprogramkeyqueueisempty"/>
+	<display:setProperty name="basic.msg.empty_list"
+		value="${adminprogramkeyqueueisempty}" />
 	<display:column sortable="false" title="">
 		<a href="javascript:void(0);" onclick="removeFromQueue('${carlos:forJavaScript(queue_entry.id)}');return false;"><fmt:message key='admin.program.key.remove'/></a>
 	</display:column>
@@ -73,14 +75,16 @@ function removeFromRemoteQueue(remoteReferralId) {
 	<div class="tabs" id="tabs">
 		<table cellpadding="3" cellspacing="0" border="0">
 			<tr>
-				<th title="${titleVar0}">Remote Queue</th>
+				<th title="${titleVar0}"><fmt:message key='admin.program.key.remote.queue'/></th>
 			</tr>
 		</table>
 	</div>
 	<!--  show current clients -->
 	<display:table class="simple" cellspacing="2" cellpadding="3" id="queue_entry" name="remoteQueue" export="false" pagesize="0" requestURI="/PMmodule/ProgramManager">
 		<display:setProperty name="paging.banner.placement" value="bottom" />
-		<display:setProperty name="basic.msg.empty_list" value="Queue is empty." />
+		<fmt:message key="admin.program.key.queue.is.empty" var="adminprogramkeyqueueisempty"/>
+	<display:setProperty name="basic.msg.empty_list"
+		value="${adminprogramkeyqueueisempty}" />
 		<display:column sortable="false" title="">
 			<a href="javascript:void(0);" onclick="removeFromRemoteQueue('${carlos:forJavaScript(queue_entry.remoteReferral.remoteReferralId)}');return false;"><fmt:message key='admin.program.key.remove'/></a>
 		</display:column>

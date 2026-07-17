@@ -39,7 +39,7 @@
 <div class="tabs" id="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="${titleVar0}">Function User</th>
+            <th title="${titleVar0}"><fmt:message key='admin.program.key.function.user'/></th>
         </tr>
     </table>
 </div>
@@ -47,8 +47,9 @@
                id="functional" name="functional_users" export="false" pagesize="0"
                requestURI="${programManagerViewFunctionUsersUri}">
     <display:setProperty name="paging.banner.placement" value="bottom"/>
-    <display:setProperty name="basic.msg.empty_list"
-                         value="No functional users defined for this program"/>
+    <fmt:message key="admin.program.key.no.functional.users.defined.for.this.program" var="adminprogramkeynofunctionalusersdefinedforthisprogram"/>
+	<display:setProperty name="basic.msg.empty_list"
+		value="${adminprogramkeynofunctionalusersdefinedforthisprogram}" />
     <display:column property="userType.name" sortable="true"
                     titleKey="admin.program.key.user.type"/>
     <display:column property="provider.formattedName" sortable="true"

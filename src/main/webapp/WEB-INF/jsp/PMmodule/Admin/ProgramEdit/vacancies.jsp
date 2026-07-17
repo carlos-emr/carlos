@@ -87,7 +87,7 @@
     <input type="hidden" name="programId" id="programId" value="<%=request.getAttribute("id")%>"/>
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="${titleVar0}">Vacancies</th>
+            <th title="${titleVar0}"><fmt:message key='admin.program.key.vacancies'/></th>
         </tr>
     </table>
 </div>

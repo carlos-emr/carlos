@@ -41,7 +41,7 @@
 <div class="tabs">
 <table cellpadding="3" cellspacing="0" border="0">
 	<tr>
-		<th title="${titleVar0}">Access</th>
+		<th title="${titleVar0}"><fmt:message key='admin.program.key.access'/></th>
 	</tr>
 </table>
 </div>
@@ -49,8 +49,9 @@
 	id="access" name="accesses" export="false" pagesize="0"
 	requestURI="/PMmodule/ProgramManager">
 	<display:setProperty name="paging.banner.placement" value="bottom" />
+	<fmt:message key="admin.program.key.no.access.currently.defined.for.this.program" var="adminprogramkeynoaccesscurrentlydefinedforthisprogram"/>
 	<display:setProperty name="basic.msg.empty_list"
-		value="No access currently defined for this program." />
+		value="${adminprogramkeynoaccesscurrentlydefinedforthisprogram}" />
 	<display:column sortable="false" title="">
 		<a href="javascript:void(0);"
 			onclick="deleteAccess('${carlos:forJavaScript(access.id)}');return false;"><fmt:message key='admin.program.key.delete'/></a>

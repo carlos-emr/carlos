@@ -53,7 +53,7 @@
 <div class="tabs" id="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="${titleVar0}">Service Restriction Settings</th>
+            <th title="${titleVar0}"><fmt:message key='admin.program.key.service.restriction.settings'/></th>
         </tr>
     </table>
 </div>
@@ -61,7 +61,7 @@ Please define the following parameters control the behaviour of new service rest
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
 	<tr class="b">
 		<td width="20%"><fmt:message key='admin.program.key.maximum.length.of.service.restriction.in.days'/></td>
-		<td><html:text property="program.maximumServiceRestrictionDays" size="4" maxlength="4"/>&nbsp;(empty or zero means no maximum)</td>
+		<td><html:text property="program.maximumServiceRestrictionDays" size="4" maxlength="4"/>&nbsp;<fmt:message key='admin.program.key.empty.or.zero.means.no.maximum'/></td>
 	</tr>
 	<tr class="b">
 		<td width="20%"><fmt:message key='admin.program.key.default.service.restriction.length.in.days'/></td>
@@ -77,7 +77,7 @@ Please define the following parameters control the behaviour of new service rest
 <div class="tabs" id="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="${titleVar0}">Current Service Restrictions</th>
+            <th title="${titleVar0}"><fmt:message key='admin.program.key.current.service.restrictions'/></th>
         </tr>
     </table>
 </div>
@@ -98,7 +98,9 @@ Please define the following parameters control the behaviour of new service rest
 
 <display:table class="simple" cellspacing="2" cellpadding="3" id="restriction" name="service_restrictions" export="false" pagesize="0" requestURI="/PMmodule/ProgramManager">
     <display:setProperty name="paging.banner.placement" value="bottom" />
-    <display:setProperty name="basic.msg.empty_list" value="No service restrictions currently in place for this program." />
+    <fmt:message key="admin.program.key.no.service.restrictions.currently.in.place.for.this.program" var="adminprogramkeynoservicerestrictionscurrentlyinplaceforthisprogram"/>
+	<display:setProperty name="basic.msg.empty_list"
+		value="${adminprogramkeynoservicerestrictionscurrentlyinplaceforthisprogram}" />
 
     <display:column sortable="false">
         <%
@@ -120,14 +122,16 @@ Please define the following parameters control the behaviour of new service rest
 <div class="tabs" id="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="${titleVar0}">Disabled Service Restrictions</th>
+            <th title="${titleVar0}"><fmt:message key='admin.program.key.disabled.service.restrictions'/></th>
         </tr>
     </table>
 </div>
 
 <display:table class="simple" cellspacing="2" cellpadding="3" id="restriction" name="disabled_service_restrictions" export="false" pagesize="0" requestURI="/PMmodule/ProgramManager">
     <display:setProperty name="paging.banner.placement" value="bottom" />
-    <display:setProperty name="basic.msg.empty_list" value="No service restrictions currently in place for this program." />
+    <fmt:message key="admin.program.key.no.service.restrictions.currently.in.place.for.this.program" var="adminprogramkeynoservicerestrictionscurrentlyinplaceforthisprogram"/>
+	<display:setProperty name="basic.msg.empty_list"
+		value="${adminprogramkeynoservicerestrictionscurrentlyinplaceforthisprogram}" />
 
     <display:column sortable="false">
         <%

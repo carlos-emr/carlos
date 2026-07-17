@@ -55,7 +55,7 @@
 <div class="tabs" id="tabs">
     <table cellpadding="3" cellspacing="0" border="0">
         <tr>
-            <th title="${titleVar0}">Programs</th>
+            <th title="${titleVar0}"><fmt:message key='admin.program.key.programs'/></th>
         </tr>
     </table>
 </div>
@@ -113,7 +113,9 @@
     <display:setProperty name="paging.banner.placement" value="bottom"/>
     <display:setProperty name="paging.banner.item_name" value="program"/>
     <display:setProperty name="paging.banner.items_name" value="programs"/>
-    <display:setProperty name="basic.msg.empty_list" value="No programs found."/>
+    <fmt:message key="admin.program.key.no.programs.found" var="adminprogramkeynoprogramsfound"/>
+	<display:setProperty name="basic.msg.empty_list"
+		value="${adminprogramkeynoprogramsfound}" />
 
     <display:column sortable="false" title="">
         <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=delete&amp;id=${carlos:forUriComponent(program.id)}&amp;name=${carlos:forUriComponent(program.name)}"
@@ -124,7 +126,7 @@
             <c:when test="${program.programStatus == 'active'}">
                 <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=${carlos:forUriComponent(program.id)}"><fmt:message key='admin.program.key.edit'/></a>
             </c:when>
-            <c:otherwise>Edit</c:otherwise>
+            <c:otherwise><fmt:message key='admin.program.key.edit'/></c:otherwise>
         </c:choose>
     </display:column>
     <display:column sortable="true" titleKey="admin.program.key.name.header">
@@ -138,7 +140,7 @@
     <display:column property="location" sortable="true" titleKey="admin.program.key.location"/>
     <display:column sortable="true" titleKey="admin.program.key.participation">
         ${carlos:forHtml(program.numOfMembers)}/${carlos:forHtml(program.maxAllowed)}
-        (${carlos:forHtml(program.queueSize)} waiting)
+        (${carlos:forHtml(program.queueSize)} <fmt:message key='admin.program.key.waiting'/>)
     </display:column>
 </display:table>
 

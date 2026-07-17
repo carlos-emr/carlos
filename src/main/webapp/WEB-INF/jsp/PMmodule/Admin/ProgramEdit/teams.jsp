@@ -57,14 +57,16 @@ function add_team(form) {
 <div class="tabs">
 <table cellpadding="3" cellspacing="0" border="0">
 	<tr>
-		<th title="${titleVar0}">Team Management</th>
+		<th title="${titleVar0}"><fmt:message key='admin.program.key.team.management'/></th>
 	</tr>
 </table>
 </div>
 <!--  show current staff -->
 <display:table class="simple" cellspacing="2" cellpadding="3" id="team" name="teams" export="false" pagesize="0" requestURI="/PMmodule/ProgramManager">
 	<display:setProperty name="paging.banner.placement" value="bottom" />
-	<display:setProperty name="basic.msg.empty_list" value="No teams are currently defined for this program." />
+	<fmt:message key="admin.program.key.no.teams.are.currently.defined.for.this.program" var="adminprogramkeynoteamsarecurrentlydefinedforthisprogram"/>
+	<display:setProperty name="basic.msg.empty_list"
+		value="${adminprogramkeynoteamsarecurrentlydefinedforthisprogram}" />
 	<display:column sortable="false" title="">
 		<a onclick="deleteTeam('${carlos:forJavaScript(team.id)}');return false;" href="javascript:void(0);"><fmt:message key='admin.program.key.delete'/></a>
 	</display:column>

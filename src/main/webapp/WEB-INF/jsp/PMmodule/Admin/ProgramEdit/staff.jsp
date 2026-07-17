@@ -98,14 +98,16 @@
 <div class="tabs">
 <table cellpadding="3" cellspacing="0" border="0">
 	<tr>
-		<th title="${titleVar0}">Staff</th>
+		<th title="${titleVar0}"><fmt:message key='admin.program.key.staff'/></th>
 	</tr>
 </table>
 </div>
 <!--  show current staff -->
 <display:table class="simple" cellspacing="2" cellpadding="3" id="provider" name="providers" export="false" pagesize="0" requestURI="/PMmodule/ProgramManager">
 	<display:setProperty name="paging.banner.placement" value="bottom" />
-	<display:setProperty name="basic.msg.empty_list" value="No staff currently assigned to this program." />
+	<fmt:message key="admin.program.key.no.staff.currently.assigned.to.this.program" var="adminprogramkeynostaffcurrentlyassignedtothisprogram"/>
+	<display:setProperty name="basic.msg.empty_list"
+		value="${adminprogramkeynostaffcurrentlyassignedtothisprogram}" />
 	<display:column sortable="false" title="">
 		<a href="javascript:void(0);" onclick="deleteProvider('${carlos:forJavaScript(provider.id)}');return false;"><fmt:message key='admin.program.key.delete'/></a>
 	</display:column>

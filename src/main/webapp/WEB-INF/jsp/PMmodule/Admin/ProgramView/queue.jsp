@@ -141,8 +141,9 @@ String reason ="";
 	id="queue_entry" name="queue" export="false" pagesize="0"
 	requestURI="/PMmodule/ProgramManagerView">
 	<display:setProperty name="paging.banner.placement" value="bottom" />
+	<fmt:message key="admin.program.key.queue.is.empty" var="adminprogramkeyqueueisempty"/>
 	<display:setProperty name="basic.msg.empty_list"
-		value="Queue is empty." />
+		value="${adminprogramkeyqueueisempty}" />
 	<display:column sortable="false">
 		<%
 			String action="admit";
@@ -151,13 +152,13 @@ String reason ="";
     		if (ageConflict.contains(clientId)) action="ageConflict";	
     	%>
 		<caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
-			<input type="button" value="Admit"
+			<input type="button" value="<fmt:message key='admin.program.button.admit'/>"
 				<c:if test="${queue_entry.headClientId != null || requestScope.userIsProgramProvider != 'true'}">disabled</c:if>
 				onclick="select_client('${carlos:forJavaScript(queue_entry.clientId)}','<%=action %>','${carlos:forJavaScript(queue_entry.id)}')" />
 		</caisi:isModuleLoad>
 
 		<caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="false">
-			<input type="button" value="Admit"
+			<input type="button" value="<fmt:message key='admin.program.button.admit'/>"
 				<c:if test="${queue_entry.headClientId != null || sessionScope.performAdmissions !='true' || requestScope.userIsProgramProvider != 'true'}">disabled</c:if>
 				onclick="select_client('${carlos:forJavaScript(queue_entry.clientId)}','<%=action %>','${carlos:forJavaScript(queue_entry.id)}')" />
 		</caisi:isModuleLoad>
@@ -165,13 +166,13 @@ String reason ="";
 	</display:column>
 	<display:column sortable="false">
 		<caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
-			<input type="button" value="Reject"
+			<input type="button" value="<fmt:message key='admin.program.button.reject'/>"
 				<c:if test="${queue_entry.headClientId != null || requestScope.userIsProgramProvider != 'true'}">disabled</c:if>
 				onclick="select_client('${carlos:forJavaScript(queue_entry.clientId)}','reject','${carlos:forJavaScript(queue_entry.id)}')" />
 		</caisi:isModuleLoad>
 
 		<caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="false">
-			<input type="button" value="Reject"
+			<input type="button" value="<fmt:message key='admin.program.button.reject'/>"
 				<c:if test="${queue_entry.headClientId != null || sessionScope.performAdmissions !='true' || requestScope.userIsProgramProvider != 'true'}">disabled</c:if>
 				onclick="select_client('${carlos:forJavaScript(queue_entry.clientId)}','reject','${carlos:forJavaScript(queue_entry.id)}')" />
 		</caisi:isModuleLoad>
@@ -306,7 +307,7 @@ String reason ="";
 	<div class="tabs" id="tabs">
 	<table cellpadding="3" cellspacing="0" border="0">
 		<tr>
-			<th title="${titleVar0}">Remote Queue</th>
+			<th title="${titleVar0}"><fmt:message key='admin.program.key.remote.queue'/></th>
 		</tr>
 	</table>
 	</div>
@@ -315,13 +316,14 @@ String reason ="";
 		id="queue_entry" name="remoteQueue" export="false" pagesize="0"
 		requestURI="/PMmodule/ProgramManager">
 		<display:setProperty name="paging.banner.placement" value="bottom" />
-		<display:setProperty name="basic.msg.empty_list"
-			value="Queue is empty." />
+		<fmt:message key="admin.program.key.queue.is.empty" var="adminprogramkeyqueueisempty"/>
+	<display:setProperty name="basic.msg.empty_list"
+		value="${adminprogramkeyqueueisempty}" />
 		<display:column sortable="false" title="">
-			<input type="button" value="Admit" onclick="admitFromRemote('${carlos:forJavaScript(queue_entry.referral.referralId)}')" />
+			<input type="button" value="<fmt:message key='admin.program.button.admit'/>" onclick="admitFromRemote('${carlos:forJavaScript(queue_entry.referral.referralId)}')" />
 		</display:column>
 		<display:column sortable="false" title="">
-			<input type="button" value="Reject" onclick="removeFromRemoteQueue('${carlos:forJavaScript(queue_entry.referral.referralId)}')" />
+			<input type="button" value="<fmt:message key='admin.program.button.reject'/>" onclick="removeFromRemoteQueue('${carlos:forJavaScript(queue_entry.referral.referralId)}')" />
 		</display:column>
 		<display:column property="clientName" sortable="true"
 			titleKey="admin.program.key.client.name" />
