@@ -46,7 +46,6 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
  * Provides CRUD operations for BillingPrivateTransactions and legacy
  * {@link PrivateBillTransaction} classes.
  *
- * @author Joel Legris
  */
 @Repository
 public class PrivateBillTransactionsDAO extends AbstractDaoImpl<BillingPrivateTransactions> {
@@ -76,6 +75,8 @@ public class PrivateBillTransactionsDAO extends AbstractDaoImpl<BillingPrivateTr
     }
 
     public BillingPrivateTransactions savePrivateBillTransaction(int billingmaster_no, double amount, int paymentType) {
+        // Handle the savePrivateBillTransaction lifecycle and orchestrate related domain logic.
+
         BillingPrivateTransactions tx = new BillingPrivateTransactions();
         tx.setBillingmasterNo(billingmaster_no);
         tx.setAmountReceived(amount);

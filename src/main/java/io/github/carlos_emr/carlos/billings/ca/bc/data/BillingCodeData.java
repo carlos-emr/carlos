@@ -40,7 +40,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.SqlUtils;
 
 /**
- * @author root
+ * Represents the BillingCodeData component within the billings module (ca) of the CARLOS EMR system.
+ * Provides functionality for managing BillingCodeData data and operations.
  */
 public final class BillingCodeData implements Comparable {
     /**
@@ -99,6 +100,8 @@ public final class BillingCodeData implements Comparable {
     //}
 
     public List<BillingService> search(String str, Date date) {
+        // Handle the search lifecycle and orchestrate related domain logic.
+
         return billingServiceDao.search(str, "BC", date);
     }
 

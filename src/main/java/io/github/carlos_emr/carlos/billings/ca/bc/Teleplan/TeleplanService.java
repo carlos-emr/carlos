@@ -38,7 +38,8 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
- * @author jay
+ * Represents the TeleplanService component within the billings module (ca) of the CARLOS EMR system.
+ * Provides functionality for managing TeleplanService data and operations.
  */
 public class TeleplanService {
     static Logger log = MiscUtils.getLogger();

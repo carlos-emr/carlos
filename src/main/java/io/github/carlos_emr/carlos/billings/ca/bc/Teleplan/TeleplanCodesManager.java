@@ -45,7 +45,8 @@ import io.github.carlos_emr.CarlosProperties;
 
 
 /**
- * @author jay
+ * Represents the TeleplanCodesManager component within the billings module (ca) of the CARLOS EMR system.
+ * Provides functionality for managing TeleplanCodesManager data and operations.
  */
 public class TeleplanCodesManager {
 

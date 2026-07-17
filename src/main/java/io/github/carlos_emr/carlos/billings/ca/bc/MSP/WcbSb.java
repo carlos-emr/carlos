@@ -44,7 +44,6 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
- * @author Jef King
  * For The Oscar McMaster Project
  * Developed By Andromedia
  * www.andromedia.ca
@@ -123,6 +122,8 @@ public class WcbSb {
     }
 
     private void fillWithRs(Wcb w) {
+        // Handle the fillWithRs lifecycle and orchestrate related domain logic.
+
         this.bill_amount = w.getBillAmount();
         this.visit_type = w.getServiceLocation();
         this.billing_no = getBillingMasterNo("" + w.getBillingNo());

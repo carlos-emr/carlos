@@ -39,7 +39,6 @@ import org.springframework.stereotype.Repository;
 /**
  * Responsible for CRUD operation a user Billing Module Preferences
  *
- * @author not attributable
  * @version 1.0
  */
 @Repository
@@ -68,6 +67,8 @@ public class BillingPreferencesDAO extends AbstractDaoImpl<BillingPreference> {
      */
     @Deprecated
     public void saveUserPreferences(BillingPreference pref) {
+        // Handle the saveUserPreferences lifecycle and orchestrate related domain logic.
+
         saveEntity(pref);
     }
 

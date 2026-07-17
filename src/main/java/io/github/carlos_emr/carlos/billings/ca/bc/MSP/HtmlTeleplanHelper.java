@@ -41,7 +41,6 @@ import java.util.Date;
 /**
  * Used to consolidate the teleplan submission html into one place.
  *
- * @author jay
  */
 public class HtmlTeleplanHelper {
 
@@ -54,6 +53,8 @@ public class HtmlTeleplanHelper {
     // FindSecBugs POTENTIAL_XML_INJECTION: Teleplan validation producers encode billing/message data and return fixed table-row HTML fragments for report assembly.
     @SuppressFBWarnings(value = "POTENTIAL_XML_INJECTION", justification = "Teleplan validation producers encode billing/message data and return fixed table-row HTML fragments for report assembly")
     private static void appendTrustedTeleplanValidationRows(StringBuilder html, String validationRowsHtml) {
+        // Handle the appendTrustedTeleplanValidationRows lifecycle and orchestrate related domain logic.
+
         html.append(validationRowsHtml);
     }
 

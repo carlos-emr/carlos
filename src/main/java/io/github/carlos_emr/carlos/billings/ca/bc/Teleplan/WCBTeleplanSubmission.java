@@ -46,7 +46,8 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 /**
- * @author jaygallagher
+ * Represents the WCBTeleplanSubmission component within the billings module (ca) of the CARLOS EMR system.
+ * Provides functionality for managing WCBTeleplanSubmission data and operations.
  */
 public class WCBTeleplanSubmission {
     private static Logger log = MiscUtils.getLogger();
@@ -87,6 +88,8 @@ public class WCBTeleplanSubmission {
 
 
     public boolean isFormNeeded(Billingmaster bm) {
+        // Handle the isFormNeeded lifecycle and orchestrate related domain logic.
+
         return WCBCodes.getInstance().isFormNeeded(bm.getBillingCode());
     }
 

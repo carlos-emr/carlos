@@ -58,7 +58,6 @@ import io.github.carlos_emr.CarlosProperties;
  * Class used to Manage BillingGuidelines.
  * Temporary and will be refactored to include the other billing systems. And probably more of a centralized rule repository.
  *
- * @author jay
  */
 public class BillingGuidelines {
 
@@ -197,6 +196,8 @@ public class BillingGuidelines {
 
 
     public List<DSConsequence> evaluateAndGetConsequences(LoggedInInfo loggedInInfo, String demographicNo, String providerNo) {
+        // Handle the evaluateAndGetConsequences lifecycle and orchestrate related domain logic.
+
         if (demographicNo == null) {
             return new ArrayList<DSConsequence>();
         }

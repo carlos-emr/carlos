@@ -38,10 +38,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 
+/**
+ * Represents the QuickBillingBCFormBean component within the billings module (ca) of the CARLOS EMR system.
+ * Provides functionality for managing QuickBillingBCFormBean data and operations.
+ */
 public class QuickBillingBCFormBean {
 
     /**
-     * @author Dennis Warren
      * Company Colcamex Resources
      * Date Jun 4, 2012
      */

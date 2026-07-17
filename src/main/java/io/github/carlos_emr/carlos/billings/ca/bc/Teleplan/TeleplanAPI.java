@@ -61,7 +61,8 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.CarlosProperties;
 
 /**
- * @author jay
+ * Represents the TeleplanAPI component within the billings module (ca) of the CARLOS EMR system.
+ * Provides functionality for managing TeleplanAPI data and operations.
  */
 public class TeleplanAPI {
     static Logger log = MiscUtils.getLogger();
@@ -131,6 +132,8 @@ public class TeleplanAPI {
     }
 
     private TeleplanResponse processRequest(String url, List<NameValuePair> data) {
+        // Handle the processRequest lifecycle and orchestrate related domain logic.
+
         TeleplanResponse tr = null;
         try {
             HttpPost post = new HttpPost(url);

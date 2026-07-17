@@ -37,10 +37,11 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.LogTeleplanTx;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-/**
- * @author jay
- */
 
+/**
+ * Represents the TeleplanLogDAO component within the billings module (ca) of the CARLOS EMR system.
+ * Provides functionality for managing TeleplanLogDAO data and operations.
+ */
 public class TeleplanLogDAO {
 
     private LogTeleplanTxDao dao = SpringUtils.getBean(LogTeleplanTxDao.class);
@@ -49,6 +50,8 @@ public class TeleplanLogDAO {
     }
 
     public void save(TeleplanLog tl) {
+        // Perform data persistence operations for save with appropriate transaction and audit context.
+
         LogTeleplanTx l = new LogTeleplanTx();
         l.setSequenceNo(tl.getSequenceNo());
         l.setClaim(tl.getClaim().getBytes());

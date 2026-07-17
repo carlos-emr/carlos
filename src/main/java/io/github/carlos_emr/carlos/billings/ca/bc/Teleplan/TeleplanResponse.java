@@ -47,7 +47,8 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.CarlosProperties;
 
 /**
- * @author jay
+ * Represents the TeleplanResponse component within the billings module (ca) of the CARLOS EMR system.
+ * Provides functionality for managing TeleplanResponse data and operations.
  */
 public class TeleplanResponse {
     static Logger log = MiscUtils.getLogger();

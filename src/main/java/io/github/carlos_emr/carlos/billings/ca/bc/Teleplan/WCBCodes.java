@@ -39,7 +39,8 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.CarlosProperties;
 
 /**
- * @author jaygallagher
+ * Represents the WCBCodes component within the billings module (ca) of the CARLOS EMR system.
+ * Provides functionality for managing WCBCodes data and operations.
  */
 public class WCBCodes {
 
@@ -69,6 +70,8 @@ public class WCBCodes {
     }
 
     public boolean isFormNeeded(String wcbCode) {
+        // Handle the isFormNeeded lifecycle and orchestrate related domain logic.
+
         String[] codes = getFormCodes();
         log.debug("codes " + codes + "  == " + wcbCode + "  - " + Arrays.binarySearch(codes, wcbCode));
         if (Arrays.binarySearch(codes, wcbCode) < 0) {

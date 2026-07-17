@@ -49,7 +49,6 @@ import io.github.carlos_emr.carlos.util.SqlUtils;
  * BillingHistoryDAO is responsible for providing database CRUD operations
  * on the BillHistory Object
  *
- * @author not attributable
  * @version 1.0
  */
 public class BillingHistoryDAO {
@@ -74,6 +73,8 @@ public class BillingHistoryDAO {
     }
 
     private BillHistory toBillHistory(BillingHistory bh, BillingPaymentType bpt) {
+        // Handle the toBillHistory lifecycle and orchestrate related domain logic.
+
         BillHistory result = new BillHistory();
         result.setId(bh.getId());
         result.setBillingMasterNo(bh.getBillingMasterNo());

@@ -53,7 +53,6 @@ import io.github.carlos_emr.carlos.util.StringUtils;
 /**
  * Holds Data about a teleplan submission
  *
- * @author jay
  */
 public class TeleplanSubmission {
 

@@ -35,7 +35,8 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanResponseLog;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
- * @author jay
+ * Represents the TeleplanResponseDAO component within the billings module (ca) of the CARLOS EMR system.
+ * Provides functionality for managing TeleplanResponseDAO data and operations.
  */
 public class TeleplanResponseDAO {
 
@@ -45,6 +46,8 @@ public class TeleplanResponseDAO {
     }
 
     public void save(TeleplanResponse tr) {
+        // Perform data persistence operations for save with appropriate transaction and audit context.
+
         TeleplanResponseLog t = new TeleplanResponseLog();
         t.setTransactionNo(tr.getTransactionNo());
         t.setResult(tr.getResult());

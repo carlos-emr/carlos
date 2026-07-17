@@ -45,7 +45,6 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
- * @author root
  * <p>
  * This class is used to deal with MSP N01 correspondence notes.
  */
@@ -60,6 +59,8 @@ public class MSPBillingNote {
     }
 
     public void addNote(String billingmaster_no, String provider_no, String note) {
+        // Handle the addNote lifecycle and orchestrate related domain logic.
+
         note = Misc.removeNewLine(note);
 
         BillingNotes b = new BillingNotes();

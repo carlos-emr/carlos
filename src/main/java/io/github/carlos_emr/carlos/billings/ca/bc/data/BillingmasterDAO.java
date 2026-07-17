@@ -51,7 +51,8 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
- * @author jay
+ * Represents the BillingmasterDAO component within the billings module (ca) of the CARLOS EMR system.
+ * Provides functionality for managing BillingmasterDAO data and operations.
  */
 @Repository
 @SuppressWarnings("unchecked")

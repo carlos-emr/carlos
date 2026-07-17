@@ -52,7 +52,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 /**
- * @author jay
+ * Represents the DxReference component within the billings module (ca) of the CARLOS EMR system.
+ * Provides functionality for managing DxReference data and operations.
  */
 public class DxReference {
     private static final Logger _log = MiscUtils.getLogger();
@@ -122,6 +123,8 @@ public class DxReference {
     }
 
     private void fillDxCodeDescrition(DxCode code) {
+        // Handle the fillDxCodeDescrition lifecycle and orchestrate related domain logic.
+
         DiagnosticCode dxCode = diagnosticCodeDao.findByCode(code.getDx());
         if (dxCode != null) {
             code.setDesc(dxCode.getDescription());

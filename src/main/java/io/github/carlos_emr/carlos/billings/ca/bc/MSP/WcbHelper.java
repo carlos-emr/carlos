@@ -38,7 +38,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
- * @author Jay Gallagher
+ * Represents the WcbHelper component within the billings module (ca) of the CARLOS EMR system.
+ * Provides functionality for managing WcbHelper data and operations.
  */
 public class WcbHelper {
 

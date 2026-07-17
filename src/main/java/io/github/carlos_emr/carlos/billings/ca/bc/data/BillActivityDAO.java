@@ -44,7 +44,8 @@ import io.github.carlos_emr.carlos.entities.Billactivity;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
- * @author jay
+ * Represents the BillActivityDAO component within the billings module (ca) of the CARLOS EMR system.
+ * Provides functionality for managing BillActivityDAO data and operations.
  */
 public class BillActivityDAO {
 

@@ -42,7 +42,6 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 /**
  * Deals with storing the teleplan sequence #
  *
- * @author jay
  */
 public class TeleplanUserPassDAO {
     static Logger log = MiscUtils.getLogger();
@@ -68,6 +67,8 @@ public class TeleplanUserPassDAO {
 
 
     private void updateUsername(String username) {
+        // Handle the updateUsername lifecycle and orchestrate related domain logic.
+
         List<Property> ps = propertyDao.findByName("teleplan_username");
         for (Property p : ps) {
             p.setValue(username);

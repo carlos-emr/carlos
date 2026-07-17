@@ -46,7 +46,8 @@ import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
 /**
- * @author jaygallagher
+ * Represents the WCB component within the entities module (WCB.java) of the CARLOS EMR system.
+ * Provides functionality for managing WCB data and operations.
  */
 @Entity
 @Table(name = "wcb")
