@@ -169,7 +169,7 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
      * @return String the formatted sender's full name
      */
     public String getSenderFullName() {
-        return toCamelCase(senderFirstName) + " " + toCamelCase(senderLastName);
+        return formatFullName(senderFirstName, senderLastName);
     }
 
     /**
@@ -243,7 +243,7 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
      * @return String the formatted recipient's full name
      */
     public String getRecipientFullName() {
-        return toCamelCase(recipientFirstName) + " " + toCamelCase(recipientLastName);
+        return formatFullName(recipientFirstName, recipientLastName);
     }
 
     /**
@@ -482,10 +482,26 @@ public class EmailStatusResult implements Comparable<EmailStatusResult> {
      *
      * @param inputString String the input string to convert
      * @return String the Title Case formatted string
-     * @throws NullPointerException if inputString is null
-     * @throws StringIndexOutOfBoundsException if inputString is empty
      */
+    private String formatFullName(String firstName, String lastName) {
+        String formattedFirstName = toCamelCase(firstName);
+        String formattedLastName = toCamelCase(lastName);
+        if (formattedFirstName.isEmpty()) {
+            return formattedLastName;
+        }
+        if (formattedLastName.isEmpty()) {
+            return formattedFirstName;
+        }
+        return formattedFirstName + " " + formattedLastName;
+    }
+
     private String toCamelCase(String inputString) {
+        if (inputString == null || inputString.isEmpty()) {
+            return "";
+        }
+        if (inputString.startsWith("(") && inputString.endsWith(")")) {
+            return inputString;
+        }
         return Character.toUpperCase(inputString.charAt(0)) + inputString.substring(1).toLowerCase();
     }
 

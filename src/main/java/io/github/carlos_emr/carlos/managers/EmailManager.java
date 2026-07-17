@@ -82,7 +82,11 @@ import io.github.carlos_emr.carlos.util.StringUtils;
 @Service
 public class EmailManager {
     private final Logger logger = MiscUtils.getLogger();
-    private static final String SENDER_CONFIG_MISCONFIGURATION_ERROR = "Email sender account is not configured or is inactive.";
+    static final String SENDER_CONFIG_MISCONFIGURATION_ERROR = "Email sender account is not configured or is inactive.";
+    private static final String UNKNOWN_NAME_PART = "Unknown";
+    private static final String SENDER_NAME_PART = "Sender";
+    private static final String PATIENT_NAME_PART = "Patient";
+    private static final String PROVIDER_NAME_PART = "Provider";
 
     @Autowired
     private EmailConfigDaoImpl emailConfigDao;
@@ -129,18 +133,13 @@ public class EmailManager {
         }
 
         sanitizeEmailFields(emailData);
-        EmailLog emailLog;
-        try {
-            emailLog = prepareEmailForOutbox(loggedInInfo, emailData);
-        } catch (InvalidSenderEmailConfigException e) {
+        EmailConfig emailConfig = findActiveSenderEmailConfig(emailData);
+        if (emailConfig == null) {
             logger.warn("Email send failed before transport: sender email configuration is missing or inactive for senderConfigId={}", emailData.getSenderConfigId());
-            try {
-                return prepareFailedEmailForOutbox(loggedInInfo, emailData, SENDER_CONFIG_MISCONFIGURATION_ERROR);
-            } catch (RuntimeException persistException) {
-                logger.error("Failed to persist email sender configuration failure; returning transient failed email result.");
-                return createFailedEmailLog(emailData, SENDER_CONFIG_MISCONFIGURATION_ERROR);
-            }
+            return prepareSenderConfigFailureResult(loggedInInfo, emailData);
         }
+
+        EmailLog emailLog = prepareEmailForOutbox(loggedInInfo, emailData, emailConfig);
         try {
             if (emailData.getIsEncrypted()) {
                 encryptEmail(emailData);
@@ -182,7 +181,14 @@ public class EmailManager {
             throw new RuntimeException("missing required sec object (_email)");
         }
 
-        EmailConfig emailConfig = getActiveSenderEmailConfig(emailData);
+        EmailConfig emailConfig = findActiveSenderEmailConfig(emailData);
+        if (emailConfig == null) {
+            throw new IllegalArgumentException("sender email configuration is missing or inactive");
+        }
+        return prepareEmailForOutbox(loggedInInfo, emailData, emailConfig);
+    }
+
+    private EmailLog prepareEmailForOutbox(LoggedInInfo loggedInInfo, EmailData emailData, EmailConfig emailConfig) {
         Demographic demographic = demographicManager.getDemographic(loggedInInfo, emailData.getDemographicNo());
         Provider provider = providerManager.getProvider(loggedInInfo, emailData.getProviderNo());
 
@@ -207,15 +213,20 @@ public class EmailManager {
         return emailLog;
     }
 
-    private EmailConfig getActiveSenderEmailConfig(EmailData emailData) {
+    private EmailConfig findActiveSenderEmailConfig(EmailData emailData) {
         if (emailData.getSenderConfigId() == null) {
-            throw new InvalidSenderEmailConfigException();
+            return null;
         }
-        EmailConfig emailConfig = emailConfigDao.findActiveEmailConfigById(emailData.getSenderConfigId());
-        if (emailConfig == null) {
-            throw new InvalidSenderEmailConfigException();
+        return emailConfigDao.findActiveEmailConfigById(emailData.getSenderConfigId());
+    }
+
+    private EmailLog prepareSenderConfigFailureResult(LoggedInInfo loggedInInfo, EmailData emailData) {
+        try {
+            return prepareFailedEmailForOutbox(loggedInInfo, emailData, SENDER_CONFIG_MISCONFIGURATION_ERROR);
+        } catch (RuntimeException persistException) {
+            logger.error("Failed to persist email sender configuration failure; returning transient failed email result.", persistException);
+            return createFailedEmailLog(emailData, SENDER_CONFIG_MISCONFIGURATION_ERROR);
         }
-        return emailConfig;
     }
 
     private EmailLog prepareFailedEmailForOutbox(LoggedInInfo loggedInInfo, EmailData emailData, String errorMessage) {
@@ -258,9 +269,6 @@ public class EmailManager {
 
     private String nullToEmpty(String value) {
         return value != null ? value : "";
-    }
-
-    private static class InvalidSenderEmailConfigException extends IllegalArgumentException {
     }
 
     /**
@@ -447,8 +455,10 @@ public class EmailManager {
      */
     private void setEmailAttachments(EmailLog emailLog, List<EmailAttachment> emailAttachments) {
         List<EmailAttachment> emailAttachmentList = new ArrayList<>();
-        for (EmailAttachment emailAttachment : emailAttachments) {
-            emailAttachmentList.add(new EmailAttachment(emailLog, emailAttachment.getFileName(), emailAttachment.getFilePath(), emailAttachment.getDocumentType(), emailAttachment.getDocumentId()));
+        if (emailAttachments != null) {
+            for (EmailAttachment emailAttachment : emailAttachments) {
+                emailAttachmentList.add(new EmailAttachment(emailLog, emailAttachment.getFileName(), emailAttachment.getFilePath(), emailAttachment.getDocumentType(), emailAttachment.getDocumentId()));
+            }
         }
         emailLog.setEmailAttachments(emailAttachmentList);
     }
@@ -633,30 +643,59 @@ public class EmailManager {
     }
 
     private String getSenderFirstName(EmailConfig emailConfig) {
-        return getDisplayNamePart(emailConfig != null ? emailConfig.getSenderFirstName() : null, "Unknown");
+        return getDisplayNamePart(emailConfig != null ? emailConfig.getSenderFirstName() : null, UNKNOWN_NAME_PART);
     }
 
     private String getSenderLastName(EmailConfig emailConfig) {
-        return getDisplayNamePart(emailConfig != null ? emailConfig.getSenderLastName() : null, "Sender");
+        return getDisplayNamePart(emailConfig != null ? emailConfig.getSenderLastName() : null, SENDER_NAME_PART);
     }
 
     private String getDemographicFirstName(Demographic demographic) {
-        return getDisplayNamePart(demographic != null ? demographic.getFirstName() : null, "Unknown");
+        if (getAliasOnlyDemographicName(demographic) != null) {
+            return "";
+        }
+        return getDisplayNamePart(demographic != null ? demographic.getFirstName() : null, UNKNOWN_NAME_PART);
     }
 
     private String getDemographicLastName(Demographic demographic) {
-        return getDisplayNamePart(demographic != null ? demographic.getLastName() : null, "Patient");
+        String aliasOnlyName = getAliasOnlyDemographicName(demographic);
+        if (aliasOnlyName != null) {
+            return aliasOnlyName;
+        }
+        return getDisplayNamePart(demographic != null ? demographic.getLastName() : null, PATIENT_NAME_PART);
     }
 
     private String getProviderFirstName(Provider provider) {
-        return getDisplayNamePart(provider != null ? provider.getFirstName() : null, "Unknown");
+        return getDisplayNamePart(provider != null ? provider.getFirstName() : null, UNKNOWN_NAME_PART);
     }
 
     private String getProviderLastName(Provider provider) {
-        return getDisplayNamePart(provider != null ? provider.getLastName() : null, "Provider");
+        return getDisplayNamePart(provider != null ? provider.getLastName() : null, PROVIDER_NAME_PART);
+    }
+
+    private String getAliasOnlyDemographicName(Demographic demographic) {
+        if (demographic == null || !isBlank(demographic.getFirstName()) || !isBlank(demographic.getLastName())) {
+            return null;
+        }
+
+        String alias = trimToNull(demographic.getAlias());
+        return alias != null ? "(" + alias + ")" : null;
     }
 
     private String getDisplayNamePart(String value, String fallback) {
-        return StringUtils.isNullOrEmpty(value) ? fallback : value;
+        String trimmedValue = trimToNull(value);
+        return trimmedValue != null ? trimmedValue : fallback;
+    }
+
+    private boolean isBlank(String value) {
+        return trimToNull(value) == null;
+    }
+
+    private String trimToNull(String value) {
+        if (StringUtils.isNullOrEmpty(value)) {
+            return null;
+        }
+        String trimmedValue = value.trim();
+        return trimmedValue.isEmpty() ? null : trimmedValue;
     }
 }

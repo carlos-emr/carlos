@@ -40,6 +40,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.ArgumentMatchers.same;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.never;
@@ -52,8 +53,6 @@ import static org.mockito.Mockito.when;
 @Tag("email")
 @DisplayName("EmailManager")
 class EmailManagerUnitTest extends CarlosUnitTestBase {
-
-    private static final String SAFE_SENDER_CONFIG_ERROR = "Email sender account is not configured or is inactive.";
 
     private EmailManager emailManager;
     private EmailConfigDaoImpl emailConfigDao;
@@ -152,7 +151,7 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
 
         EmailLog result = emailManager.sendEmail(loggedInInfo, emailData);
 
-        assertThat(result.getErrorMessage()).isEqualTo(SAFE_SENDER_CONFIG_ERROR);
+        assertThat(result.getErrorMessage()).isEqualTo(EmailManager.SENDER_CONFIG_MISCONFIGURATION_ERROR);
         assertThat(result.getErrorMessage())
                 .doesNotContain("456")
                 .doesNotContain("patient@example.invalid")
@@ -168,7 +167,7 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         EmailLog emailLog = new EmailLog(null, "", new String[] {"recipient@example.invalid"}, "Subject", "Body", EmailStatus.FAILED);
         emailLog.setDemographic(demographic);
         emailLog.setProvider(provider);
-        emailLog.setErrorMessage(SAFE_SENDER_CONFIG_ERROR);
+        emailLog.setErrorMessage(EmailManager.SENDER_CONFIG_MISCONFIGURATION_ERROR);
         when(emailLogDao.getEmailStatusByDateDemographicSenderStatus(any(), any(), nullable(String.class), nullable(String.class), nullable(String.class)))
                 .thenReturn(Collections.singletonList(emailLog));
 
@@ -179,12 +178,33 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         assertThat(result.getSenderFullName()).isEqualTo("Unknown Sender");
         assertThat(result.getSenderEmail()).isEmpty();
         assertThat(result.getStatus()).isEqualTo(EmailStatus.FAILED);
-        assertThat(result.getErrorMessage()).isEqualTo(SAFE_SENDER_CONFIG_ERROR);
+        assertThat(result.getErrorMessage()).isEqualTo(EmailManager.SENDER_CONFIG_MISCONFIGURATION_ERROR);
     }
 
     @Test
-    @DisplayName("should return transient failed result if failed log cannot be persisted")
-    void shouldReturnTransientFailedResult_whenFailedLogCannotBePersisted() {
+    @DisplayName("should use alias for email status result when demographic has no legal name")
+    void shouldUseAlias_whenEmailStatusDemographicHasNoLegalName() {
+        Demographic aliasOnlyDemographic = new Demographic();
+        aliasOnlyDemographic.setAlias("  CJ Patient  ");
+        EmailLog emailLog = new EmailLog(null, "", new String[] {"recipient@example.invalid"}, "Subject", "Body", EmailStatus.FAILED);
+        emailLog.setDemographic(aliasOnlyDemographic);
+        emailLog.setProvider(provider);
+        emailLog.setErrorMessage(EmailManager.SENDER_CONFIG_MISCONFIGURATION_ERROR);
+        when(emailLogDao.getEmailStatusByDateDemographicSenderStatus(any(), any(), nullable(String.class), nullable(String.class), nullable(String.class)))
+                .thenReturn(Collections.singletonList(emailLog));
+
+        List<EmailStatusResult> results = emailManager.getEmailStatusByDateDemographicSenderStatus(loggedInInfo, "2026-07-16", "2026-07-16", null, null, "FAILED");
+
+        assertThat(results).hasSize(1);
+        EmailStatusResult result = results.get(0);
+        assertThat(result.getRecipientFirstName()).isEmpty();
+        assertThat(result.getRecipientLastName()).isEqualTo("(CJ Patient)");
+        assertThat(result.getRecipientFullName()).isEqualTo("(CJ Patient)");
+    }
+
+    @Test
+    @DisplayName("should return transient failed result when demographic lookup fails during sender config failure")
+    void shouldReturnTransientFailedResult_whenDemographicLookupFailsDuringSenderConfigFailure() {
         EmailData emailData = emailData(null);
         when(demographicManager.getDemographic(loggedInInfo, 123)).thenThrow(new RuntimeException("demographic lookup failed"));
 
@@ -195,9 +215,27 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         verifyNoMoreInteractions(providerManager);
     }
 
+    @Test
+    @DisplayName("should return transient failed result if failed log cannot be persisted")
+    void shouldReturnTransientFailedResult_whenFailedLogCannotBePersisted() {
+        EmailData emailData = emailData(null);
+        doThrow(new RuntimeException("database unavailable")).when(emailLogDao).persist(any(EmailLog.class));
+
+        EmailLog result;
+        try (MockedConstruction<EmailSender> emailSenders = mockConstruction(EmailSender.class)) {
+            result = emailManager.sendEmail(loggedInInfo, emailData);
+
+            assertMisconfiguredSenderFailure(result);
+            assertThat(emailSenders.constructed()).isEmpty();
+        }
+        assertThat(result.getDemographic()).isNull();
+        assertThat(result.getProvider()).isNull();
+        verify(emailLogDao).persist(any(EmailLog.class));
+    }
+
     private void assertMisconfiguredSenderFailure(EmailLog result) {
         assertThat(result.getStatus()).isEqualTo(EmailStatus.FAILED);
-        assertThat(result.getErrorMessage()).isEqualTo(SAFE_SENDER_CONFIG_ERROR);
+        assertThat(result.getErrorMessage()).isEqualTo(EmailManager.SENDER_CONFIG_MISCONFIGURATION_ERROR);
         assertThat(result.getEmailConfig()).isNull();
     }
 
