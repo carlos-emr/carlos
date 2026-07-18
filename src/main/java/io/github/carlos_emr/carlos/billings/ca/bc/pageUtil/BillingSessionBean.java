@@ -33,6 +33,10 @@ package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 import java.util.ArrayList;
 
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBillingManager.BillingItem;
+/**
+ * Data transfer object carrying BillingSession information between application layers.
+ * This class encapsulates the data structure and operations specific to its domain.
+ */
 
 public class BillingSessionBean implements java.io.Serializable {
     private String apptProviderNo = null;

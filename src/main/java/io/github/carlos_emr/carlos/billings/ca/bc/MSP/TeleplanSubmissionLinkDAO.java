@@ -35,6 +35,10 @@ import java.util.List;
 import io.github.carlos_emr.carlos.billing.CA.BC.dao.TeleplanSubmissionLinkDao;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanSubmissionLink;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+/**
+ * Data Access Object providing persistence operations for TeleplanSubmissionLink records.
+ * This class encapsulates the data structure and operations specific to its domain.
+ */
 
 public class TeleplanSubmissionLinkDAO {
 
@@ -45,6 +49,8 @@ public class TeleplanSubmissionLinkDAO {
     }
 
     public void save(int billActId, List billingMasterList) {
+        // Executes the primary logic flow for save, ensuring correct state transitions.
+
         for (int i = 0; i < billingMasterList.size(); i++) {
             String bi = (String) billingMasterList.get(i);
             int b = Integer.parseInt(bi);

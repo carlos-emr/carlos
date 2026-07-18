@@ -56,6 +56,10 @@ import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+/**
+ * Struts Action class that processes QuickBillingBCSave2 UI workflows and interactions.
+ * This class encapsulates the data structure and operations specific to its domain.
+ */
 
 public class QuickBillingBCSave2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -69,7 +73,9 @@ public class QuickBillingBCSave2Action extends ActionSupport {
 
 
     public String execute()
-            throws ServletException, IOException {        if (request.getSession().getAttribute("user") == null) {
+            throws ServletException, IOException {
+        // Executes the primary logic flow for execute, ensuring correct state transitions.
+        if (request.getSession().getAttribute("user") == null) {
             return "Logout";
         }
 

@@ -57,6 +57,10 @@ import java.io.Serializable;
 import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
+/**
+ * Data transfer object carrying Extract information between application layers.
+ * This class encapsulates the data structure and operations specific to its domain.
+ */
 
 
 public class ExtractBean extends Object implements Serializable {

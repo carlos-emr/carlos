@@ -52,6 +52,10 @@ import java.util.List;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+/**
+ * Struts Action class that processes ReceivePayment2 UI workflows and interactions.
+ * This class encapsulates the data structure and operations specific to its domain.
+ */
 
 public class ReceivePayment2Action
         extends ActionSupport {
@@ -61,6 +65,8 @@ public class ReceivePayment2Action
     HttpServletResponse response = ServletActionContext.getResponse();
 
     public String execute() {
+        // Executes the primary logic flow for execute, ensuring correct state transitions.
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");

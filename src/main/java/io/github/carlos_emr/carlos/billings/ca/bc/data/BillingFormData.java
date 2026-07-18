@@ -43,6 +43,10 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 import java.util.*;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+/**
+ * Component supporting billing and financial operations for BillingFormData.
+ * This class encapsulates the data structure and operations specific to its domain.
+ */
 
 public class BillingFormData {
 

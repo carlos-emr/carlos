@@ -60,6 +60,10 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+/**
+ * Struts Action class that processes BillingUpdateBilling2 UI workflows and interactions.
+ * This class encapsulates the data structure and operations specific to its domain.
+ */
 
 public final class BillingUpdateBilling2Action
         extends ActionSupport {
@@ -74,6 +78,8 @@ public final class BillingUpdateBilling2Action
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() throws IOException,
             ServletException {
+        // Executes the primary logic flow for execute, ensuring correct state transitions.
+
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
             response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);

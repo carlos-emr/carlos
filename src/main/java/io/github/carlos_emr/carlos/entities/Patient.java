@@ -28,6 +28,10 @@
  */
 
 package io.github.carlos_emr.carlos.entities;
+/**
+ * Domain entity representing Patient persistent state and attributes.
+ * This class encapsulates the data structure and operations specific to its domain.
+ */
 
 public class Patient {
     private String firstName;

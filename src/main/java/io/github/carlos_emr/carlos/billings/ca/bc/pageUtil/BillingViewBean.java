@@ -49,6 +49,10 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingNote;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBillingManager.BillingItem;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+/**
+ * Data transfer object carrying BillingView information between application layers.
+ * This class encapsulates the data structure and operations specific to its domain.
+ */
 
 public class BillingViewBean {
 
@@ -102,6 +106,8 @@ public class BillingViewBean {
     private String defaultPayeeInfo;
 
     public void loadBilling(String billing_no) {
+        // Executes the primary logic flow for loadBilling, ensuring correct state transitions.
+
         BillingDao dao = SpringUtils.getBean(BillingDao.class);
         for (Object[] i : dao.findBillings(ConversionUtils.fromIntString(billing_no))) {
             Billingmaster bm = (Billingmaster) i[0];

@@ -26,6 +26,10 @@
  */
 
 package io.github.carlos_emr.carlos.caisi;
+/**
+ * Core component providing CaisiUtil functionality within the application.
+ * This class encapsulates the data structure and operations specific to its domain.
+ */
 
 public class CaisiUtil {
     public static String removeAttr(String str, String attr) {

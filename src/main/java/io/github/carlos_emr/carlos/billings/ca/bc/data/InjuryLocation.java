@@ -28,6 +28,10 @@
  */
 
 package io.github.carlos_emr.carlos.billings.ca.bc.data;
+/**
+ * Component supporting billing and financial operations for InjuryLocation.
+ * This class encapsulates the data structure and operations specific to its domain.
+ */
 
 public class InjuryLocation {
     private String sidetype;

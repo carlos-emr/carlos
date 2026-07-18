@@ -36,6 +36,10 @@ import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
 
 import java.util.ArrayList;
 import java.util.List;
+/**
+ * Data transfer object carrying QuickBillingBCForm information between application layers.
+ * This class encapsulates the data structure and operations specific to its domain.
+ */
 
 
 public class QuickBillingBCFormBean {

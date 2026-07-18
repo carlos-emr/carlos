@@ -53,6 +53,10 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+/**
+ * Data transfer object carrying Extract information between application layers.
+ * This class encapsulates the data structure and operations specific to its domain.
+ */
 
 public class ExtractBean extends Object implements Serializable {
 
@@ -381,6 +385,8 @@ public class ExtractBean extends Object implements Serializable {
     }
 
     public void dbQuery() {
+        // Executes the primary logic flow for dbQuery, ensuring correct state transitions.
+
         try {
             batchOrder = 4 - batchCount.length();
             // check length

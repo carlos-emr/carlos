@@ -40,6 +40,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Iterator;
 import java.util.List;
+/**
+ * Component supporting billing and financial operations for CheckBillingData.
+ * This class encapsulates the data structure and operations specific to its domain.
+ */
 
 public class CheckBillingData {
 
@@ -48,6 +52,8 @@ public class CheckBillingData {
                            String dataCentreSeq, String vendorMSPDCNum, String softName,
                            String softVer, String softInsDate, String vendorName,
                            String vendorContact, String vendorConName, String filler) {
+        // Executes the primary logic flow for checkVS1, ensuring correct state transitions.
+
         String ret = checkVS1DataCenterNum(dataCentreNum);
         ret = printWarningMsg(ret);
         return ret;

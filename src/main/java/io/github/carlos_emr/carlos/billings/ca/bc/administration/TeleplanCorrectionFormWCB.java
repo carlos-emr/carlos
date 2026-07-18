@@ -42,6 +42,10 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+/**
+ * Component supporting billing and financial operations for TeleplanCorrectionFormWCB.
+ * This class encapsulates the data structure and operations specific to its domain.
+ */
 
 public class TeleplanCorrectionFormWCB {
 

@@ -32,6 +32,10 @@ import jakarta.servlet.jsp.tagext.TagSupport;
 
 import io.github.carlos_emr.CarlosProperties;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+/**
+ * Core component providing IsModuleLoadTag functionality within the application.
+ * This class encapsulates the data structure and operations specific to its domain.
+ */
 
 public class IsModuleLoadTag extends TagSupport {
 

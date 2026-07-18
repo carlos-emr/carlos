@@ -63,6 +63,10 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+/**
+ * Struts Action class that processes QuickBillingBC2 UI workflows and interactions.
+ * This class encapsulates the data structure and operations specific to its domain.
+ */
 
 public class QuickBillingBC2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -81,6 +85,8 @@ public class QuickBillingBC2Action extends ActionSupport {
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public String execute() throws ServletException, IOException {
+        // Executes the primary logic flow for execute, ensuring correct state transitions.
+
         String creator = (String) request.getSession().getAttribute("user");
         if (creator == null) {
             return "Logout";

@@ -17,6 +17,10 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import java.util.Properties;
 import java.util.Vector;
+/**
+ * Component supporting billing and financial operations for GstReport.
+ * This class encapsulates the data structure and operations specific to its domain.
+ */
 
 public class GstReport {
 

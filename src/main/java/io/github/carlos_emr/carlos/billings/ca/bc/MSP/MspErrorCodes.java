@@ -45,6 +45,10 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.CarlosProperties;
+/**
+ * Component supporting billing and financial operations for MspErrorCodes.
+ * This class encapsulates the data structure and operations specific to its domain.
+ */
 
 public class MspErrorCodes extends Properties {
 
@@ -89,6 +93,8 @@ public class MspErrorCodes extends Properties {
 
 
     public void save() {
+        // Executes the primary logic flow for save, ensuring correct state transitions.
+
         try {
             File file;
             if (CarlosProperties.getInstance().getProperty("msp_error_codes") != null) {

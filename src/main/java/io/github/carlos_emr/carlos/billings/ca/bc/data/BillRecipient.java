@@ -35,6 +35,10 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.BillRecipients;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+/**
+ * Component supporting billing and financial operations for BillRecipient.
+ * This class encapsulates the data structure and operations specific to its domain.
+ */
 
 public class BillRecipient {
 

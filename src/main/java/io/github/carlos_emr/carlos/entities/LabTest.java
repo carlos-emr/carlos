@@ -30,6 +30,10 @@
 package io.github.carlos_emr.carlos.entities;
 
 //
+/**
+ * Domain entity representing LabTest persistent state and attributes.
+ * This class encapsulates the data structure and operations specific to its domain.
+ */
 public class LabTest
         extends Test {
     private String observationDateTime = "";

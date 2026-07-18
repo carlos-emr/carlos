@@ -23,6 +23,10 @@
  */
 
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
+/**
+ * Validation utility that enforces business rules for ServiceCode inputs.
+ * This class encapsulates the data structure and operations specific to its domain.
+ */
 
 public class ServiceCodeValidator {
     protected boolean valid = true;

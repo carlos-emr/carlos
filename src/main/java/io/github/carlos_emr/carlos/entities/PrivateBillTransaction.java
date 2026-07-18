@@ -31,6 +31,10 @@ package io.github.carlos_emr.carlos.entities;
 
 import java.math.BigDecimal;
 import java.util.Date;
+/**
+ * Domain entity representing PrivateBillTransaction persistent state and attributes.
+ * This class encapsulates the data structure and operations specific to its domain.
+ */
 
 public class PrivateBillTransaction {
     private int id;

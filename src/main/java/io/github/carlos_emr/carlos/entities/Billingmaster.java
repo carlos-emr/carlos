@@ -70,6 +70,10 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 */
         }
 )
+/**
+ * Domain entity representing Billingmaster persistent state and attributes.
+ * This class encapsulates the data structure and operations specific to its domain.
+ */
 
 public class Billingmaster {
 
