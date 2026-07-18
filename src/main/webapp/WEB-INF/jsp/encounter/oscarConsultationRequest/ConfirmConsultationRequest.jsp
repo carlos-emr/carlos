@@ -57,14 +57,14 @@
     }
     if (fallbackDemographicNo != null) {
         fallbackDemographicNo = fallbackDemographicNo.trim();
-        if (!fallbackDemographicNo.matches("[1-9]\\d*")) {
+        if (!fallbackDemographicNo.matches("^[1-9]\\d*$")) {
             fallbackDemographicNo = "";
         }
     } else {
         fallbackDemographicNo = "";
     }
     String fallbackUrl = request.getContextPath() + "/encounter/oscarConsultationRequest/ViewDisplayDemographicConsultationRequests";
-    if (!fallbackDemographicNo.trim().isEmpty()) {
+    if (!fallbackDemographicNo.isEmpty()) {
         fallbackUrl += "?de=" + java.net.URLEncoder.encode(fallbackDemographicNo, java.nio.charset.StandardCharsets.UTF_8);
     }
 %>
@@ -124,7 +124,8 @@
         </div>
 
     <script>
-        var BLOB_URL_REVOKE_DELAY_MS = 15000;
+        // Keep generated PDF blob URLs alive long enough for slower browsers to hand them to the download manager.
+        var blobUrlRevokeDelayMillis = 15000;
 
         function BackToOscar() {
             closeOrReturn();
@@ -133,6 +134,7 @@
         function closeOrReturn() {
             if (window.opener && !window.opener.closed) {
                 window.close();
+                // Browser popup rules can refuse scripted close; navigate back if the window remains open.
                 window.setTimeout(returnToConsultations, 100);
                 return;
             }
@@ -180,7 +182,7 @@
             document.body.removeChild(downloadLink);
             window.setTimeout(function () {
                 URL.revokeObjectURL(objectUrl);
-            }, BLOB_URL_REVOKE_DELAY_MS);
+            }, blobUrlRevokeDelayMillis);
             if (typeof callback === 'function') {
                 callback();
             }
