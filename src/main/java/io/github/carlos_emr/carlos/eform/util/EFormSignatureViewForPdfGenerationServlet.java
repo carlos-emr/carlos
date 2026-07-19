@@ -54,7 +54,12 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
         String token = request.getParameter(EFormViewForPdfGenerationServlet.RENDER_TOKEN_PARAM);
         if (EFormRenderTokenService.getInstance().peek(token) == null) {
             logger.warn("Rejected EFormSignatureViewForPdfGenerationServlet request lacking a valid render grant");
-            response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+            // Handle the sendError IOException locally so it never escapes the servlet method.
+            try {
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+            } catch (IOException ioException) {
+                logger.debug("Unable to send unauthorized response for EFormSignatureViewForPdfGenerationServlet", ioException);
+            }
             return;
         }
 
