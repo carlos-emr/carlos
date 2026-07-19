@@ -80,6 +80,10 @@ public class EformDataManagerImpl implements EformDataManager {
 
     private final EFormBrowserPdfRenderer eFormBrowserPdfRenderer;
 
+    /**
+     * @param securityInfoManager authorization gate for {@code _eform} privilege checks
+     * @param eFormBrowserPdfRenderer headless-browser renderer used to produce saved-eForm PDFs
+     */
     @Autowired
     public EformDataManagerImpl(SecurityInfoManager securityInfoManager, EFormBrowserPdfRenderer eFormBrowserPdfRenderer) {
         this.securityInfoManager = securityInfoManager;
@@ -180,9 +184,18 @@ public class EformDataManagerImpl implements EformDataManager {
     }
 
     /**
-     * Saves an eForm as a browser-rendered PDF in a managed temporary location.
+     * Renders a saved eForm as a browser-generated PDF in a managed temporary location.
      *
-     * @return readable path to an {@code eform-browser-render-*.pdf} file; callers are responsible for cleanup
+     * @param loggedInInfo current user; must hold demographic-scoped {@code _eform} READ for the
+     *        eForm's patient. Also used for audit logging.
+     * @param fdid saved eForm data identifier, looked up via {@code eFormDataDao.find(fdid)}
+     * @return readable path to an {@code eform-browser-render-*.pdf} file; never {@code null}
+     *         (an unreadable result throws instead). Callers are responsible for cleanup.
+     * @throws SecurityException {@code missing required sec object (_eform)} when the demographic-scoped
+     *         {@code _eform} READ privilege is absent
+     * @throws PDFGenerationException when the eForm is not found, the browser render fails (the
+     *         renderer's own message is preserved; other runtime failures are wrapped), or the
+     *         renderer produces a null / unreadable output file
      */
     public Path createEformPDF(LoggedInInfo loggedInInfo, int fdid) throws PDFGenerationException {
         EFormData eformData = eFormDataDao.find(fdid);

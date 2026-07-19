@@ -30,6 +30,35 @@
 
 --%>
 
+<%--
+    CoverPage.jsp — Fax cover-page composition and pre-send preview.
+
+    Purpose:
+      Renders the "compose fax" screen shown before an eForm (and any attachments) is queued for
+      faxing. The user reviews the assembled document, sets the recipient/cover-page details, and
+      submits the job.
+
+    Access control:
+      Requires the _fax READ security object. The gate scriptlet redirects to
+      /securityError?type=_fax when the session lacks it, so the page never renders for
+      unauthorized users.
+
+    Preview behavior (see docs/eform-browser-pdf-renderer.md):
+      The document is previewed two ways. Inline page IMAGES are produced via
+      NioFileManager.createCacheVersion2 and require _edoc WRITE; a user without _edoc still gets a
+      working "Open PDF" link (soft degradation), so the preview never hard-fails on missing _edoc.
+
+    Key request parameters / attributes:
+      faxFilePath   - server-generated path of the assembled PDF being previewed/faxed
+      showAs        - "image" selects the inline page-image preview; otherwise the PDF is served
+      pageNumber    - 1-based page selector for the image preview
+      demographicNo - patient the fax relates to
+      letterheadFax - whether the clinic letterhead cover page is applied
+      fax           - recipient fax number prefilled into the form
+
+    @since 2026-05-29
+--%>
+
 <!DOCTYPE html>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>

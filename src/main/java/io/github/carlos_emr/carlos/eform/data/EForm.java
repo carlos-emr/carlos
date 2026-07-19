@@ -468,6 +468,25 @@ public class EForm extends EFormBase {
         return rewriteLegacyTimerCalls(rewriteLegacyTimerCalls(scriptBody, LEGACY_SET_TIMEOUT_PATTERN, "setTimeout"), LEGACY_SET_INTERVAL_PATTERN, "setInterval");
     }
 
+    /**
+     * Returns the stored eForm HTML, running a guarded runtime-asset normalization pass first.
+     *
+     * <p><strong>Not a trivial getter.</strong> When a runtime context path has been supplied (i.e.
+     * {@link #setContextPath(String)} has run), this override mutates the lazily-parsed DOM in place
+     * before serializing: it rewrites legacy jQuery {@code <script src>} references to the
+     * {@code /eform/displayImage} asset URL, rewrites legacy string-argument
+     * {@code setTimeout}/{@code setInterval} timer calls into callback form, and appends a
+     * {@code loadSig} fallback script when {@code <body onload>} calls it but no script defines it.
+     * Because it forces a {@code getDocument()} parse, delegating to the superclass then flushes the
+     * mutated DOM back into the cached {@code formHtml} string.</p>
+     *
+     * <p>Normalization is best-effort: any {@link RuntimeException} or {@link LinkageError} is caught
+     * and logged at debug, and the method falls back to the string-level HTML already produced by
+     * {@link #setContextPath(String)}. When no context path is set the DOM pass is skipped entirely.</p>
+     *
+     * @return the normalized eForm HTML; never {@code null} (an unknown form yields the literal
+     *         {@code "No Such Form in Database"} placeholder)
+     */
     @Override
     public String getFormHtml() {
         if (!StringUtils.isBlank(runtimeContextPath)) {
