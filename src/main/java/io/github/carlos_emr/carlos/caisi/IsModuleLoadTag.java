@@ -32,6 +32,10 @@ import jakarta.servlet.jsp.tagext.TagSupport;
 
 import io.github.carlos_emr.CarlosProperties;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+/**
+ * Defines the structure and behavior for IsModuleLoadTag within the application context.
+ * This component is part of the CARLOS EMR ecosystem.
+ */
 
 public class IsModuleLoadTag extends TagSupport {
 
@@ -44,7 +48,13 @@ public class IsModuleLoadTag extends TagSupport {
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+        /**
+     * Executes the doStartTag process.
+     * This method handles the necessary state changes and business logic for the doStartTag operation in the context of IsModuleLoadTag.
+     */
     public int doStartTag() throws JspException {
+        // Initialize context and prepare doStartTag logic for IsModuleLoadTag execution.
+
         try {
 
             CarlosProperties proper = CarlosProperties.getInstance();

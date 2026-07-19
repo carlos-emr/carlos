@@ -63,6 +63,10 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+/**
+ * Handles web requests for QuickBillingBC operations in the Struts2 framework.
+ * This component is part of the CARLOS EMR ecosystem.
+ */
 
 public class QuickBillingBC2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -80,7 +84,13 @@ public class QuickBillingBC2Action extends ActionSupport {
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+        /**
+     * Executes the execute process.
+     * This method handles the necessary state changes and business logic for the execute operation in the context of QuickBillingBC2Action.
+     */
     public String execute() throws ServletException, IOException {
+        // Initialize context and prepare execute logic for QuickBillingBC2Action execution.
+
         String creator = (String) request.getSession().getAttribute("user");
         if (creator == null) {
             return "Logout";

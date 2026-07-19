@@ -28,6 +28,10 @@
  */
 
 package io.github.carlos_emr.carlos.entities;
+/**
+ * Represents a Test domain entity in the CARLOS EMR system, encapsulating related business data.
+ * This component is part of the CARLOS EMR ecosystem.
+ */
 
 public class Test {
     private String id;

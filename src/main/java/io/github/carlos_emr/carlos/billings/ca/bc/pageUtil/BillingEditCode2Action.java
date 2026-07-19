@@ -55,6 +55,10 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+/**
+ * Handles web requests for BillingEditCode operations in the Struts2 framework.
+ * This component is part of the CARLOS EMR ecosystem.
+ */
 
 public final class BillingEditCode2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -65,7 +69,13 @@ public final class BillingEditCode2Action extends ActionSupport {
     private static final ObjectMapper objectMapper = new ObjectMapper();
     private static BillingServiceDao billingServiceDao = (BillingServiceDao) SpringUtils.getBean(BillingServiceDao.class);
 
+        /**
+     * Executes the ajaxCodeUpdate process.
+     * This method handles the necessary state changes and business logic for the ajaxCodeUpdate operation in the context of BillingEditCode2Action.
+     */
     public String ajaxCodeUpdate() throws IOException {
+        // Initialize context and prepare ajaxCodeUpdate logic for BillingEditCode2Action execution.
+
         String id = request.getParameter("id");
         String val = request.getParameter("val");
         String billingServiceDate = request.getParameter("billService");
@@ -92,7 +102,13 @@ public final class BillingEditCode2Action extends ActionSupport {
         return null;
     }
 
+        /**
+     * Executes the returnToSearch process.
+     * This method handles the necessary state changes and business logic for the returnToSearch operation in the context of BillingEditCode2Action.
+     */
     public String returnToSearch() {
+        // Initialize context and prepare returnToSearch logic for BillingEditCode2Action execution.
+
         String whereTo = request.getParameter("whereTo");
         String retval;
         if (whereTo == null || whereTo.equals("") || whereTo.equals("null")) {
@@ -104,7 +120,13 @@ public final class BillingEditCode2Action extends ActionSupport {
     }
 
 
-    public String execute() throws IOException, ServletException {        String method = request.getParameter("method");
+        /**
+     * Executes the execute process.
+     * This method handles the necessary state changes and business logic for the execute operation in the context of BillingEditCode2Action.
+     */
+    public String execute() throws IOException, ServletException {
+        // Initialize context and prepare execute logic for BillingEditCode2Action execution.
+        String method = request.getParameter("method");
         if ("ajaxCodeUpdate".equals(method)) {
             return ajaxCodeUpdate();
         } else if ("returnToSearch".equals(method)) {

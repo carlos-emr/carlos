@@ -36,12 +36,22 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.tickler.TicklerCreator;
 import io.github.carlos_emr.carlos.util.SqlUtils;
+/**
+ * Defines the structure and behavior for CDMReminderHlp within the application context.
+ * This component is part of the CARLOS EMR ecosystem.
+ */
 
 public class CDMReminderHlp {
     public CDMReminderHlp() {
     }
 
+        /**
+     * Executes the createCDMCodeArray process.
+     * This method handles the necessary state changes and business logic for the createCDMCodeArray operation in the context of CDMReminderHlp.
+     */
     private String[] createCDMCodeArray(List<String[]> codes) {
+        // Initialize context and prepare createCDMCodeArray logic for CDMReminderHlp execution.
+
         String[] ret = new String[codes.size()];
         for (int i = 0; i < codes.size(); i++) {
             String[] row = codes.get(i);
@@ -51,7 +61,13 @@ public class CDMReminderHlp {
     }
 
 
+        /**
+     * Executes the manageCDMTicklers process.
+     * This method handles the necessary state changes and business logic for the manageCDMTicklers operation in the context of CDMReminderHlp.
+     */
     public void manageCDMTicklers(LoggedInInfo loggedInInfo, String providerNo, String[] alertCodes) throws Exception {
+        // Initialize context and prepare manageCDMTicklers logic for CDMReminderHlp execution.
+
         //get all demographics with a problem that falls within CDM category
         TicklerCreator crt = new TicklerCreator();
         ServiceCodeValidationLogic lgc = new ServiceCodeValidationLogic();
@@ -98,7 +114,13 @@ public class CDMReminderHlp {
         }
     }
 
+        /**
+     * Executes the extractPatientNos process.
+     * This method handles the necessary state changes and business logic for the extractPatientNos operation in the context of CDMReminderHlp.
+     */
     private List<String> extractPatientNos(List<String[]> cdmPatients) {
+        // Initialize context and prepare extractPatientNos logic for CDMReminderHlp execution.
+
         ArrayList<String> cdmPatientNos = new ArrayList<String>();
         for (Iterator<String[]> iter = cdmPatients.iterator(); iter.hasNext(); ) {
             String[] item = iter.next();

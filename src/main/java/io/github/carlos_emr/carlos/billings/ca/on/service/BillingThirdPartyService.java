@@ -124,7 +124,13 @@ public class BillingThirdPartyService {
     }
 
     // 3rd bill ins. address
+        /**
+     * Executes the addOne3rdAddrRecord process.
+     * This method handles the necessary state changes and business logic for the addOne3rdAddrRecord operation in the context of BillingThirdPartyService.
+     */
     public int addOne3rdAddrRecord(Properties val) {
+        // Initialize context and prepare addOne3rdAddrRecord logic for BillingThirdPartyService execution.
+
         Billing3rdPartyAddress b = new Billing3rdPartyAddress();
         b.setAttention(val.getProperty("attention", ""));
         b.setCompanyName(val.getProperty("company_name", ""));
@@ -140,7 +146,13 @@ public class BillingThirdPartyService {
         return b.getId();
     }
 
+        /**
+     * Executes the update3rdAddr process.
+     * This method handles the necessary state changes and business logic for the update3rdAddr operation in the context of BillingThirdPartyService.
+     */
     public boolean update3rdAddr(String id, Properties val) {
+        // Initialize context and prepare update3rdAddr logic for BillingThirdPartyService execution.
+
         Billing3rdPartyAddress b = dao.find(Integer.parseInt(id));
         if (b != null) {
             b.setAttention(val.getProperty("attention", ""));
@@ -159,7 +171,13 @@ public class BillingThirdPartyService {
         return false;
     }
 
+        /**
+     * Executes the add3rdBillExt process.
+     * This method handles the necessary state changes and business logic for the add3rdBillExt operation in the context of BillingThirdPartyService.
+     */
     public boolean add3rdBillExt(String billingNo, String demoNo, String key, String value) {
+        // Initialize context and prepare add3rdBillExt logic for BillingThirdPartyService execution.
+
         BillingONExt b = new BillingONExt();
         b.setBillingNo(Integer.parseInt(billingNo));
         b.setDemographicNo(Integer.parseInt(demoNo));
@@ -177,14 +195,26 @@ public class BillingThirdPartyService {
         return true;
     }
 
+        /**
+     * Executes the keyExists process.
+     * This method handles the necessary state changes and business logic for the keyExists operation in the context of BillingThirdPartyService.
+     */
     public boolean keyExists(String billingNo, String key) {
+        // Initialize context and prepare keyExists logic for BillingThirdPartyService execution.
+
         List<BillingONExt> results = extDao.findByBillingNoAndKey(Integer.parseInt(billingNo), key);
         if (results.isEmpty())
             return false;
         return true;
     }
 
+        /**
+     * Executes the updateKeyStatus process.
+     * This method handles the necessary state changes and business logic for the updateKeyStatus operation in the context of BillingThirdPartyService.
+     */
     public boolean updateKeyStatus(String billingNo, String key, String status) {
+        // Initialize context and prepare updateKeyStatus logic for BillingThirdPartyService execution.
+
         List<BillingONExt> results = extDao.findByBillingNoAndKey(Integer.parseInt(billingNo), key);
         for (BillingONExt result : results) {
             result.setStatus(status.toCharArray()[0]);

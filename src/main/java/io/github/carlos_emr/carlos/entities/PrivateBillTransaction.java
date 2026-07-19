@@ -31,6 +31,10 @@ package io.github.carlos_emr.carlos.entities;
 
 import java.math.BigDecimal;
 import java.util.Date;
+/**
+ * Represents a PrivateBillTransaction domain entity in the CARLOS EMR system, encapsulating related business data.
+ * This component is part of the CARLOS EMR ecosystem.
+ */
 
 public class PrivateBillTransaction {
     private int id;

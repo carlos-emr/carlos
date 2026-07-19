@@ -28,6 +28,10 @@
  */
 
 package io.github.carlos_emr.carlos.entities;
+/**
+ * Represents a LabData domain entity in the CARLOS EMR system, encapsulating related business data.
+ * This component is part of the CARLOS EMR ecosystem.
+ */
 
 public class LabData {
     private String a1c;

@@ -60,6 +60,10 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+/**
+ * Handles web requests for BillingUpdateBilling operations in the Struts2 framework.
+ * This component is part of the CARLOS EMR ecosystem.
+ */
 
 public final class BillingUpdateBilling2Action
         extends ActionSupport {
@@ -72,8 +76,14 @@ public final class BillingUpdateBilling2Action
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+        /**
+     * Executes the execute process.
+     * This method handles the necessary state changes and business logic for the execute operation in the context of BillingUpdateBilling2Action.
+     */
     public String execute() throws IOException,
             ServletException {
+        // Initialize context and prepare execute logic for BillingUpdateBilling2Action execution.
+
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
             response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);

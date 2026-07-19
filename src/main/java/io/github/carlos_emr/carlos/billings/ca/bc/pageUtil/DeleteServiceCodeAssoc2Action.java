@@ -36,12 +36,22 @@ import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+/**
+ * Handles web requests for DeleteServiceCodeAssoc operations in the Struts2 framework.
+ * This component is part of the CARLOS EMR ecosystem.
+ */
 
 public class DeleteServiceCodeAssoc2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();
+        /**
+     * Executes the execute process.
+     * This method handles the necessary state changes and business logic for the execute operation in the context of DeleteServiceCodeAssoc2Action.
+     */
     public String execute() {
+        // Initialize context and prepare execute logic for DeleteServiceCodeAssoc2Action execution.
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");

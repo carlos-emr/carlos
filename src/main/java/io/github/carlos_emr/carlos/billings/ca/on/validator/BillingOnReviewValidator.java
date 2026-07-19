@@ -143,7 +143,13 @@ public class BillingOnReviewValidator {
         return new Result(List.copyOf(messages), codeValid);
     }
 
+        /**
+     * Executes the resolveFilterDate process.
+     * This method handles the necessary state changes and business logic for the resolveFilterDate operation in the context of BillingOnReviewValidator.
+     */
     private Date resolveFilterDate(String billReferenceDate) {
+        // Initialize context and prepare resolveFilterDate logic for BillingOnReviewValidator execution.
+
         Date filterDate = ConversionUtils.fromDateString(billReferenceDate);
         return filterDate == null ? new Date() : filterDate;
     }
@@ -209,7 +215,13 @@ public class BillingOnReviewValidator {
         return true;
     }
 
+        /**
+     * Executes the hasA003AAnnualGuardCandidate process.
+     * This method handles the necessary state changes and business logic for the hasA003AAnnualGuardCandidate operation in the context of BillingOnReviewValidator.
+     */
     private boolean hasA003AAnnualGuardCandidate(HttpServletRequest request) {
+        // Initialize context and prepare hasA003AAnnualGuardCandidate logic for BillingOnReviewValidator execution.
+
         String billType = request.getParameter("xml_billtype");
         if (billType == null || !billType.matches("ODP.*")) {
             return false;
@@ -222,7 +234,13 @@ public class BillingOnReviewValidator {
         return false;
     }
 
+        /**
+     * Executes the parseDemoNo process.
+     * This method handles the necessary state changes and business logic for the parseDemoNo operation in the context of BillingOnReviewValidator.
+     */
     private static Integer parseDemoNo(String demoNo) {
+        // Initialize context and prepare parseDemoNo logic for BillingOnReviewValidator execution.
+
         if (demoNo == null || demoNo.isEmpty()) {
             return null;
         }
@@ -233,7 +251,13 @@ public class BillingOnReviewValidator {
         }
     }
 
+        /**
+     * Executes the nullToEmpty process.
+     * This method handles the necessary state changes and business logic for the nullToEmpty operation in the context of BillingOnReviewValidator.
+     */
     private static String nullToEmpty(String s) {
+        // Initialize context and prepare nullToEmpty logic for BillingOnReviewValidator execution.
+
         return s == null ? "" : s;
     }
 }

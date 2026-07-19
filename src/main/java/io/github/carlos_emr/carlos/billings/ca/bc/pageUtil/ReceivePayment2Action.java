@@ -52,6 +52,10 @@ import java.util.List;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+/**
+ * Handles web requests for ReceivePayment operations in the Struts2 framework.
+ * This component is part of the CARLOS EMR ecosystem.
+ */
 
 public class ReceivePayment2Action
         extends ActionSupport {
@@ -60,7 +64,13 @@ public class ReceivePayment2Action
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+        /**
+     * Executes the execute process.
+     * This method handles the necessary state changes and business logic for the execute operation in the context of ReceivePayment2Action.
+     */
     public String execute() {
+        // Initialize context and prepare execute logic for ReceivePayment2Action execution.
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");
@@ -76,7 +86,13 @@ public class ReceivePayment2Action
         return SUCCESS;
     }
 
+        /**
+     * Executes the receivePayment process.
+     * This method handles the necessary state changes and business logic for the receivePayment operation in the context of ReceivePayment2Action.
+     */
     public void receivePayment(String billingMasterNo, double amount, String paymentType) {
+        // Initialize context and prepare receivePayment logic for ReceivePayment2Action execution.
+
         BillingHistoryDAO dao = new BillingHistoryDAO();
         MSPReconcile msp = new MSPReconcile();
         dao.createBillingHistoryArchive(billingMasterNo, amount, paymentType);
@@ -148,7 +164,13 @@ public class ReceivePayment2Action
         this.billNo = billNo;
     }
 
+        /**
+     * Executes the isPaymentReceived process.
+     * This method handles the necessary state changes and business logic for the isPaymentReceived operation in the context of ReceivePayment2Action.
+     */
     public boolean isPaymentReceived() {
+        // Initialize context and prepare isPaymentReceived logic for ReceivePayment2Action execution.
+
         return paymentReceived;
     }
 

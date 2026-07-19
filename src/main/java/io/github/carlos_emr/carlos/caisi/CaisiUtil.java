@@ -26,9 +26,19 @@
  */
 
 package io.github.carlos_emr.carlos.caisi;
+/**
+ * Provides utility methods and helper functions for Caisi related tasks.
+ * This component is part of the CARLOS EMR ecosystem.
+ */
 
 public class CaisiUtil {
+        /**
+     * Executes the removeAttr process.
+     * This method handles the necessary state changes and business logic for the removeAttr operation in the context of CaisiUtil.
+     */
     public static String removeAttr(String str, String attr) {
+        // Initialize context and prepare removeAttr logic for CaisiUtil execution.
+
         if (str == null) return (null);
 
         /*delete a parameter from query string*/

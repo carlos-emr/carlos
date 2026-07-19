@@ -44,13 +44,23 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+/**
+ * Handles web requests for BillingAddCode operations in the Struts2 framework.
+ * This component is part of the CARLOS EMR ecosystem.
+ */
 
 public final class BillingAddCode2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     private HttpServletRequest request = ServletActionContext.getRequest();
 
-    public String execute() {        if (request.getSession().getAttribute("user") == null) {
+        /**
+     * Executes the execute process.
+     * This method handles the necessary state changes and business logic for the execute operation in the context of BillingAddCode2Action.
+     */
+    public String execute() {
+        // Initialize context and prepare execute logic for BillingAddCode2Action execution.
+        if (request.getSession().getAttribute("user") == null) {
             return "Logout";
         }
 

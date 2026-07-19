@@ -35,6 +35,10 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.BillRecipients;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+/**
+ * Defines the structure and behavior for BillRecipient within the application context.
+ * This component is part of the CARLOS EMR ecosystem.
+ */
 
 public class BillRecipient {
 

@@ -39,6 +39,10 @@ import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+/**
+ * Handles web requests for ShowServiceCodeAssocs operations in the Struts2 framework.
+ * This component is part of the CARLOS EMR ecosystem.
+ */
 
 public class ShowServiceCodeAssocs2Action
         extends ActionSupport {
@@ -46,7 +50,13 @@ public class ShowServiceCodeAssocs2Action
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
+        /**
+     * Executes the execute process.
+     * This method handles the necessary state changes and business logic for the execute operation in the context of ShowServiceCodeAssocs2Action.
+     */
     public String execute() {
+        // Initialize context and prepare execute logic for ShowServiceCodeAssocs2Action execution.
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");

@@ -36,6 +36,10 @@ import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
 
 import java.util.ArrayList;
 import java.util.List;
+/**
+ * Serves as a data transfer object (DTO) or form-backing bean for QuickBillingBCFormBean interactions.
+ * This component is part of the CARLOS EMR ecosystem.
+ */
 
 
 public class QuickBillingBCFormBean {

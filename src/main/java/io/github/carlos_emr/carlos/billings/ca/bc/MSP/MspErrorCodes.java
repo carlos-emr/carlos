@@ -45,6 +45,10 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.CarlosProperties;
+/**
+ * Defines the structure and behavior for MspErrorCodes within the application context.
+ * This component is part of the CARLOS EMR ecosystem.
+ */
 
 public class MspErrorCodes extends Properties {
 
@@ -63,7 +67,13 @@ public class MspErrorCodes extends Properties {
         }
     }
 
+        /**
+     * Executes the openErrorCodesStream process.
+     * This method handles the necessary state changes and business logic for the openErrorCodesStream operation in the context of MspErrorCodes.
+     */
     private InputStream openErrorCodesStream() throws Exception {
+        // Initialize context and prepare openErrorCodesStream logic for MspErrorCodes execution.
+
         String configuredPath = CarlosProperties.getInstance().getProperty("msp_error_codes");
         if (configuredPath != null) {
             try {
@@ -88,7 +98,13 @@ public class MspErrorCodes extends Properties {
     }
 
 
+        /**
+     * Executes the save process.
+     * This method handles the necessary state changes and business logic for the save operation in the context of MspErrorCodes.
+     */
     public void save() {
+        // Initialize context and prepare save logic for MspErrorCodes execution.
+
         try {
             File file;
             if (CarlosProperties.getInstance().getProperty("msp_error_codes") != null) {

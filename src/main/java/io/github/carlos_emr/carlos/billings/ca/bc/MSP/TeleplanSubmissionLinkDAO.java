@@ -35,6 +35,10 @@ import java.util.List;
 import io.github.carlos_emr.carlos.billing.CA.BC.dao.TeleplanSubmissionLinkDao;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanSubmissionLink;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+/**
+ * Handles database access and persistence operations for TeleplanSubmissionLink entities.
+ * This component is part of the CARLOS EMR ecosystem.
+ */
 
 public class TeleplanSubmissionLinkDAO {
 
@@ -44,7 +48,13 @@ public class TeleplanSubmissionLinkDAO {
     public TeleplanSubmissionLinkDAO() {
     }
 
+        /**
+     * Executes the save process.
+     * This method handles the necessary state changes and business logic for the save operation in the context of TeleplanSubmissionLinkDAO.
+     */
     public void save(int billActId, List billingMasterList) {
+        // Initialize context and prepare save logic for TeleplanSubmissionLinkDAO execution.
+
         for (int i = 0; i < billingMasterList.size(); i++) {
             String bi = (String) billingMasterList.get(i);
             int b = Integer.parseInt(bi);

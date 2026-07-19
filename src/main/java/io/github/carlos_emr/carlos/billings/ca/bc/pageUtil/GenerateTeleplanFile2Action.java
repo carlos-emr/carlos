@@ -59,6 +59,10 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+/**
+ * Handles web requests for GenerateTeleplanFile operations in the Struts2 framework.
+ * This component is part of the CARLOS EMR ecosystem.
+ */
 
 public class GenerateTeleplanFile2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -73,7 +77,13 @@ public class GenerateTeleplanFile2Action extends ActionSupport {
     public GenerateTeleplanFile2Action() {
     }
 
+        /**
+     * Executes the execute process.
+     * This method handles the necessary state changes and business logic for the execute operation in the context of GenerateTeleplanFile2Action.
+     */
     public String execute() throws Exception {
+        // Initialize context and prepare execute logic for GenerateTeleplanFile2Action execution.
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");

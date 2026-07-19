@@ -43,6 +43,10 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+/**
+ * Handles web requests for ViewReceivePayment operations in the Struts2 framework.
+ * This component is part of the CARLOS EMR ecosystem.
+ */
 
 public class ViewReceivePayment2Action
         extends ActionSupport {
@@ -51,7 +55,13 @@ public class ViewReceivePayment2Action
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+        /**
+     * Executes the execute process.
+     * This method handles the necessary state changes and business logic for the execute operation in the context of ViewReceivePayment2Action.
+     */
     public String execute() {
+        // Initialize context and prepare execute logic for ViewReceivePayment2Action execution.
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");
@@ -152,7 +162,13 @@ public class ViewReceivePayment2Action
         return billNo;
     }
 
+        /**
+     * Executes the isPaymentReceived process.
+     * This method handles the necessary state changes and business logic for the isPaymentReceived operation in the context of ViewReceivePayment2Action.
+     */
     public boolean isPaymentReceived() {
+        // Initialize context and prepare isPaymentReceived logic for ViewReceivePayment2Action execution.
+
         return paymentReceived;
     }
 

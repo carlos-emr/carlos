@@ -53,6 +53,10 @@ import java.util.*;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+/**
+ * Handles web requests for ViewBillingPreferences operations in the Struts2 framework.
+ * This component is part of the CARLOS EMR ecosystem.
+ */
 
 public class ViewBillingPreferences2Action
         extends ActionSupport {
@@ -65,7 +69,13 @@ public class ViewBillingPreferences2Action
     private final PropertyDao propertyDao = SpringUtils.getBean(PropertyDao.class);
     private final ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
 
+        /**
+     * Executes the execute process.
+     * This method handles the necessary state changes and business logic for the execute operation in the context of ViewBillingPreferences2Action.
+     */
     public String execute() {
+        // Initialize context and prepare execute logic for ViewBillingPreferences2Action execution.
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(servletRequest);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");
@@ -211,7 +221,13 @@ public class ViewBillingPreferences2Action
         this.gstNo = gstNo;
     }
 
+        /**
+     * Executes the isUseClinicGstNo process.
+     * This method handles the necessary state changes and business logic for the isUseClinicGstNo operation in the context of ViewBillingPreferences2Action.
+     */
     public boolean isUseClinicGstNo() {
+        // Initialize context and prepare isUseClinicGstNo logic for ViewBillingPreferences2Action execution.
+
         return useClinicGstNo;
     }
 
@@ -220,7 +236,13 @@ public class ViewBillingPreferences2Action
         this.useClinicGstNo = useClinicGstNo;
     }
 
+        /**
+     * Executes the isAutoPopulateRefer process.
+     * This method handles the necessary state changes and business logic for the isAutoPopulateRefer operation in the context of ViewBillingPreferences2Action.
+     */
     public boolean isAutoPopulateRefer() {
+        // Initialize context and prepare isAutoPopulateRefer logic for ViewBillingPreferences2Action execution.
+
         return autoPopulateRefer;
     }
 
@@ -238,7 +260,13 @@ public class ViewBillingPreferences2Action
         this.invoicePayeeInfo = invoicePayeeInfo;
     }
 
+        /**
+     * Executes the isInvoicePayeeDisplayClinicInfo process.
+     * This method handles the necessary state changes and business logic for the isInvoicePayeeDisplayClinicInfo operation in the context of ViewBillingPreferences2Action.
+     */
     public boolean isInvoicePayeeDisplayClinicInfo() {
+        // Initialize context and prepare isInvoicePayeeDisplayClinicInfo logic for ViewBillingPreferences2Action execution.
+
         return invoicePayeeDisplayClinicInfo;
     }
 

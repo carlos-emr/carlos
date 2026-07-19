@@ -17,6 +17,10 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import java.util.Properties;
 import java.util.Vector;
+/**
+ * Defines the structure and behavior for GstReport within the application context.
+ * This component is part of the CARLOS EMR ecosystem.
+ */
 
 public class GstReport {
 

@@ -105,7 +105,13 @@ public class BillingStatusLoader {
     }
 
 
+        /**
+     * Executes the listBillingForms process.
+     * This method handles the necessary state changes and business logic for the listBillingForms operation in the context of BillingStatusLoader.
+     */
     public List<LabelValueBean> listBillingForms() {
+        // Initialize context and prepare listBillingForms logic for BillingStatusLoader execution.
+
         List<LabelValueBean> billingFormsList = claimLoader.listBillingForms();
         if (billingFormsList == null) billingFormsList = new ArrayList<LabelValueBean>();
         return billingFormsList;
